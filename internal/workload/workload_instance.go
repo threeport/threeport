@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -14,7 +15,9 @@ import (
 	"github.com/threeport/threeport/internal/agent"
 	agentapi "github.com/threeport/threeport/pkg/agent/api/v1alpha1"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
@@ -23,7 +26,7 @@ import (
 // has been created.
 func workloadInstanceCreated(
 	r *controller.Reconciler,
-	workloadInstance *v0.WorkloadInstance,
+	workloadInstance *v1.WorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	// ensure workload definition is reconciled before working on an instance
@@ -113,7 +116,8 @@ func workloadInstanceCreated(
 	// manipulate namespace on kube resources as needed
 	processedWRIs, err := kube.SetNamespaces(
 		&workloadResourceInstances,
-		workloadInstance,
+		workloadInstance.Name,
+		workloadInstance.ID,
 		discoveryClient,
 	)
 	if err != nil {
@@ -236,7 +240,7 @@ func workloadInstanceCreated(
 // has been updated
 func workloadInstanceUpdated(
 	r *controller.Reconciler,
-	workloadInstance *v0.WorkloadInstance,
+	workloadInstance *v1.WorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	// get kubernetes runtime instance info
@@ -281,7 +285,8 @@ func workloadInstanceUpdated(
 	// manipulate namespace on kube resources as needed
 	processedWRIs, err := kube.SetNamespaces(
 		workloadResourceInstances,
-		workloadInstance,
+		workloadInstance.Name,
+		workloadInstance.ID,
 		discoveryClient,
 	)
 	if err != nil {
@@ -377,7 +382,7 @@ func workloadInstanceUpdated(
 // has been deleted
 func workloadInstanceDeleted(
 	r *controller.Reconciler,
-	workloadInstance *v0.WorkloadInstance,
+	workloadInstance *v1.WorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	// check that deletion is scheduled - if not there's a problem
@@ -436,20 +441,26 @@ func workloadInstanceDeleted(
 	// This is because the AttachedObjectReferences relation is deleted when the
 	// WorkloadInstance is deleted, so we can't use those references anymore in
 	// the deletion handler.
-	attachedObjectReferences, err := client.GetAttachedObjectReferencesByWorkloadInstanceID(r.APIClient, r.APIServer, *workloadInstance.ID)
+	attachedObjectReferences, err := client_v1.GetAttachedObjectReferencesByObjectID(r.APIClient, r.APIServer, *workloadInstance.ID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get attached object references by workload instance ID: %w", err)
 	}
 	for _, object := range *attachedObjectReferences {
-		err := client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.Type, *object.ObjectID)
+		var err error
+		switch strings.Split(*object.AttachedObjectType, ".")[0] {
+		case "v0":
+			err = client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.AttachedObjectType, *object.AttachedObjectID)
+		case "v1":
+			err = client_v1.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.AttachedObjectType, *object.AttachedObjectID)
+		}
 		if err != nil {
 			switch {
 			case errors.Is(err, client.ErrObjectNotFound):
-				log.Info("attached object has already been deleted", "objectID", *object.ObjectID)
+				log.Info("attached object has already been deleted", "objectID", *object.AttachedObjectID)
 			case errors.Is(err, client.ErrConflict):
-				log.Info("attached object is already being deleted", "objectID", *object.ObjectID)
+				log.Info("attached object is already being deleted", "objectID", *object.AttachedObjectID)
 			default:
-				return 0, fmt.Errorf("failed to delete object by type %s and ID %d: %w", *object.Type, *object.ID, err)
+				return 0, fmt.Errorf("failed to delete object by type %s and ID %d: %w", *object.AttachedObjectType, *object.ID, err)
 			}
 		}
 		_, err = client.DeleteAttachedObjectReference(r.APIClient, r.APIServer, *object.ID)
@@ -527,7 +538,7 @@ func workloadInstanceDeleted(
 // workload instance is reconciled.
 func confirmWorkloadDefReconciled(
 	r *controller.Reconciler,
-	workloadInstance *v0.WorkloadInstance,
+	workloadInstance *v1.WorkloadInstance,
 ) (bool, error) {
 	workloadDefinition, err := client.GetWorkloadDefinitionByID(
 		r.APIClient,

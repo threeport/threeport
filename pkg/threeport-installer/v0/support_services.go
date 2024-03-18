@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	SupportServicesNamespace = "support-services-system"
-	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.5.0"
+	SupportServicesNamespace     = "support-services-system"
+	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.6.0"
 	RBACProxyImage               = "gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0"
 
 	// links the service account delcared in the IngressComponent resource to the
@@ -25,6 +25,9 @@ const (
 
 	DNS01ChallengeServiceAccountName     = "cert-manager"
 	DNS01ChallengeServiceAccountNamepace = "nukleros-certs-system"
+
+	SecretsManagerServiceAccountName      = "external-secrets"
+	SecretsManagerServiceAccountNamespace = "nukleros-secrets-system"
 
 	// links the service account used by the EBS CSI driver to the resource
 	// config for github.com/nukleros/aws-builder to create the attached IAM role.
@@ -927,6 +930,240 @@ func InstallThreeportCRDs(
 		return fmt.Errorf("failed to create support services crd: %w", err)
 	}
 
+	var externalSecretsCRD = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "apiextensions.k8s.io/v1",
+			"kind":       "CustomResourceDefinition",
+			"metadata": map[string]interface{}{
+				"annotations": map[string]interface{}{
+					"controller-gen.kubebuilder.io/version": "v0.9.0",
+				},
+				"creationTimestamp": nil,
+				"name":              "externalsecrets.secrets.support-services.nukleros.io",
+			},
+			"spec": map[string]interface{}{
+				"group": "secrets.support-services.nukleros.io",
+				"names": map[string]interface{}{
+					"kind":     "ExternalSecrets",
+					"listKind": "ExternalSecretsList",
+					"plural":   "externalsecrets",
+					"singular": "externalsecrets",
+				},
+				"scope": "Cluster",
+				"versions": []interface{}{
+					map[string]interface{}{
+						"name": "v1alpha1",
+						"schema": map[string]interface{}{
+							"openAPIV3Schema": map[string]interface{}{
+								"description": "ExternalSecrets is the Schema for the externalsecrets API.",
+								"properties": map[string]interface{}{
+									"apiVersion": map[string]interface{}{
+										"description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+										"type":        "string",
+									},
+									"kind": map[string]interface{}{
+										"description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+										"type":        "string",
+									},
+									"metadata": map[string]interface{}{
+										"type": "object",
+									},
+									"spec": map[string]interface{}{
+										"description": "ExternalSecretsSpec defines the desired state of ExternalSecrets.",
+										"properties": map[string]interface{}{
+											"certController": map[string]interface{}{
+												"properties": map[string]interface{}{
+													"replicas": map[string]interface{}{
+														"default":     1,
+														"description": "(Default: 1) Number of replicas to use for the external-secrets cert-controller deployment.",
+														"type":        "integer",
+													},
+												},
+												"type": "object",
+											},
+											"collection": map[string]interface{}{
+												"description": "Specifies a reference to the collection to use for this workload. Requires the name and namespace input to find the collection. If no collection field is set, default to selecting the only workload collection in the cluster, which will result in an error if not exactly one collection is found.",
+												"properties": map[string]interface{}{
+													"name": map[string]interface{}{
+														"description": "Required if specifying collection.  The name of the collection within a specific collection.namespace to reference.",
+														"type":        "string",
+													},
+													"namespace": map[string]interface{}{
+														"description": "(Default: \"\") The namespace where the collection exists.  Required only if the collection is namespace scoped and not cluster scoped.",
+														"type":        "string",
+													},
+												},
+												"required": []interface{}{
+													"name",
+												},
+												"type": "object",
+											},
+											"controller": map[string]interface{}{
+												"properties": map[string]interface{}{
+													"replicas": map[string]interface{}{
+														"default":     2,
+														"description": "(Default: 2) Number of replicas to use for the external-secrets controller deployment.",
+														"type":        "integer",
+													},
+												},
+												"type": "object",
+											},
+											"iamRoleArn": map[string]interface{}{
+												"description": "On AWS, the IAM Role ARN that gives external-secrets access to SecretsManager",
+												"type":        "string",
+											},
+											"image": map[string]interface{}{
+												"default":     "ghcr.io/external-secrets/external-secrets",
+												"description": "(Default: \"ghcr.io/external-secrets/external-secrets\") Image repo and name to use for external-secrets.",
+												"type":        "string",
+											},
+											"namespace": map[string]interface{}{
+												"default":     "nukleros-secrets-system",
+												"description": "(Default: \"nukleros-secrets-system\") Namespace to use for secrets support services.",
+												"type":        "string",
+											},
+											"version": map[string]interface{}{
+												"default":     "v0.9.11",
+												"description": "(Default: \"v0.9.11\") Version of external-secrets to use.",
+												"type":        "string",
+											},
+											"webhook": map[string]interface{}{
+												"properties": map[string]interface{}{
+													"replicas": map[string]interface{}{
+														"default":     2,
+														"description": "(Default: 2) Number of replicas to use for the external-secrets webhook deployment.",
+														"type":        "integer",
+													},
+												},
+												"type": "object",
+											},
+										},
+										"type": "object",
+									},
+									"status": map[string]interface{}{
+										"description": "ExternalSecretsStatus defines the observed state of ExternalSecrets.",
+										"properties": map[string]interface{}{
+											"conditions": map[string]interface{}{
+												"items": map[string]interface{}{
+													"description": "PhaseCondition describes an event that has occurred during a phase of the controller reconciliation loop.",
+													"properties": map[string]interface{}{
+														"lastModified": map[string]interface{}{
+															"description": "LastModified defines the time in which this component was updated.",
+															"type":        "string",
+														},
+														"message": map[string]interface{}{
+															"description": "Message defines a helpful message from the phase.",
+															"type":        "string",
+														},
+														"phase": map[string]interface{}{
+															"description": "Phase defines the phase in which the condition was set.",
+															"type":        "string",
+														},
+														"state": map[string]interface{}{
+															"description": "PhaseState defines the current state of the phase.",
+															"enum": []interface{}{
+																"Complete",
+																"Reconciling",
+																"Failed",
+																"Pending",
+															},
+															"type": "string",
+														},
+													},
+													"required": []interface{}{
+														"lastModified",
+														"message",
+														"phase",
+														"state",
+													},
+													"type": "object",
+												},
+												"type": "array",
+											},
+											"created": map[string]interface{}{
+												"type": "boolean",
+											},
+											"dependenciesSatisfied": map[string]interface{}{
+												"type": "boolean",
+											},
+											"resources": map[string]interface{}{
+												"items": map[string]interface{}{
+													"description": "ChildResource is the resource and its condition as stored on the workload custom resource's status field.",
+													"properties": map[string]interface{}{
+														"condition": map[string]interface{}{
+															"description": "ResourceCondition defines the current condition of this resource.",
+															"properties": map[string]interface{}{
+																"created": map[string]interface{}{
+																	"description": "Created defines whether this object has been successfully created or not.",
+																	"type":        "boolean",
+																},
+																"lastModified": map[string]interface{}{
+																	"description": "LastModified defines the time in which this resource was updated.",
+																	"type":        "string",
+																},
+																"message": map[string]interface{}{
+																	"description": "Message defines a helpful message from the resource phase.",
+																	"type":        "string",
+																},
+															},
+															"required": []interface{}{
+																"created",
+															},
+															"type": "object",
+														},
+														"group": map[string]interface{}{
+															"description": "Group defines the API Group of the resource.",
+															"type":        "string",
+														},
+														"kind": map[string]interface{}{
+															"description": "Kind defines the kind of the resource.",
+															"type":        "string",
+														},
+														"name": map[string]interface{}{
+															"description": "Name defines the name of the resource from the metadata.name field.",
+															"type":        "string",
+														},
+														"namespace": map[string]interface{}{
+															"description": "Namespace defines the namespace in which this resource exists in.",
+															"type":        "string",
+														},
+														"version": map[string]interface{}{
+															"description": "Version defines the API Version of the resource.",
+															"type":        "string",
+														},
+													},
+													"required": []interface{}{
+														"group",
+														"kind",
+														"name",
+														"namespace",
+														"version",
+													},
+													"type": "object",
+												},
+												"type": "array",
+											},
+										},
+										"type": "object",
+									},
+								},
+								"type": "object",
+							},
+						},
+						"served":  true,
+						"storage": true,
+						"subresources": map[string]interface{}{
+							"status": map[string]interface{}{},
+						},
+					},
+				},
+			},
+		},
+	}
+	if _, err := kube.CreateResource(externalSecretsCRD, kubeClient, *mapper); err != nil {
+		return fmt.Errorf("failed to create external secrets crd: %w", err)
+	}
+
 	return nil
 }
 
@@ -1048,7 +1285,6 @@ func InstallThreeportSupportServicesOperator(
 	if _, err := kube.CreateResource(roleLeaderElection, kubeClient, *mapper); err != nil {
 		return fmt.Errorf("failed to create leader election role: %w", err)
 	}
-
 	var clusterRoleManager = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -1595,6 +1831,17 @@ func InstallThreeportSupportServicesOperator(
 						"",
 					},
 					"resources": []interface{}{
+						"serviceaccounts/token",
+					},
+					"verbs": []interface{}{
+						"create",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"",
+					},
+					"resources": []interface{}{
 						"services",
 					},
 					"verbs": []interface{}{
@@ -1632,6 +1879,210 @@ func InstallThreeportSupportServicesOperator(
 						"get",
 						"list",
 						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"clusterexternalsecrets",
+					},
+					"verbs": []interface{}{
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"clusterexternalsecrets/finalizers",
+					},
+					"verbs": []interface{}{
+						"patch",
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"clusterexternalsecrets/status",
+					},
+					"verbs": []interface{}{
+						"patch",
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"clustersecretstores",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"deletecollection",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"clustersecretstores/finalizers",
+					},
+					"verbs": []interface{}{
+						"patch",
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"clustersecretstores/status",
+					},
+					"verbs": []interface{}{
+						"patch",
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"externalsecrets",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"deletecollection",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"externalsecrets/finalizers",
+					},
+					"verbs": []interface{}{
+						"patch",
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"externalsecrets/status",
+					},
+					"verbs": []interface{}{
+						"patch",
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"pushsecrets",
+					},
+					"verbs": []interface{}{
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"pushsecrets/finalizers",
+					},
+					"verbs": []interface{}{
+						"patch",
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"pushsecrets/status",
+					},
+					"verbs": []interface{}{
+						"patch",
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"secretstores",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"deletecollection",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"secretstores/finalizers",
+					},
+					"verbs": []interface{}{
+						"patch",
+						"update",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"external-secrets.io",
+					},
+					"resources": []interface{}{
+						"secretstores/status",
+					},
+					"verbs": []interface{}{
+						"patch",
+						"update",
 					},
 				},
 				map[string]interface{}{
@@ -1682,22 +2133,6 @@ func InstallThreeportSupportServicesOperator(
 						"httproutes/finalizers",
 					},
 					"verbs": []interface{}{
-						"update",
-					},
-				},
-				map[string]interface{}{
-					"apiGroups": []interface{}{
-						"gateway.solo.io",
-					},
-					"resources": []interface{}{
-						"*",
-					},
-					"verbs": []interface{}{
-						"create",
-						"delete",
-						"get",
-						"list",
-						"patch",
 						"update",
 					},
 				},
@@ -1864,18 +2299,110 @@ func InstallThreeportSupportServicesOperator(
 				},
 				map[string]interface{}{
 					"apiGroups": []interface{}{
-						"gloo.solo.io",
+						"generators.external-secrets.io",
 					},
 					"resources": []interface{}{
-						"*",
+						"acraccesstokens",
 					},
 					"verbs": []interface{}{
 						"create",
 						"delete",
+						"deletecollection",
 						"get",
 						"list",
 						"patch",
 						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"generators.external-secrets.io",
+					},
+					"resources": []interface{}{
+						"ecrauthorizationtokens",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"deletecollection",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"generators.external-secrets.io",
+					},
+					"resources": []interface{}{
+						"fakes",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"deletecollection",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"generators.external-secrets.io",
+					},
+					"resources": []interface{}{
+						"gcraccesstokens",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"deletecollection",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"generators.external-secrets.io",
+					},
+					"resources": []interface{}{
+						"passwords",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"deletecollection",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"generators.external-secrets.io",
+					},
+					"resources": []interface{}{
+						"vaultdynamicsecrets",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"deletecollection",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
 					},
 				},
 				map[string]interface{}{
@@ -2139,6 +2666,36 @@ func InstallThreeportSupportServicesOperator(
 					},
 					"verbs": []interface{}{
 						"create",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"secrets.support-services.nukleros.io",
+					},
+					"resources": []interface{}{
+						"externalsecrets",
+					},
+					"verbs": []interface{}{
+						"create",
+						"delete",
+						"get",
+						"list",
+						"patch",
+						"update",
+						"watch",
+					},
+				},
+				map[string]interface{}{
+					"apiGroups": []interface{}{
+						"secrets.support-services.nukleros.io",
+					},
+					"resources": []interface{}{
+						"externalsecrets/status",
+					},
+					"verbs": []interface{}{
+						"get",
+						"patch",
+						"update",
 					},
 				},
 			},

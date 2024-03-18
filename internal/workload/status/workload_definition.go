@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"net/http"
 
-	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 )
 
 // WorkloadDefinitionStatusDetail contains all the data for workload instance
 // status info.
 type WorkloadDefinitionStatusDetail struct {
-	WorkloadInstances *[]v0.WorkloadInstance
+	WorkloadInstances *[]v1.WorkloadInstance
 }
 
 // GetWorkloadDefinitionStatus inspects a workload definition and returns the status
@@ -24,7 +24,7 @@ func GetWorkloadDefinitionStatus(
 	var workloadDefStatus WorkloadDefinitionStatusDetail
 
 	// retrieve workload instances related to workload definition
-	workloadInsts, err := client.GetWorkloadInstancesByQueryString(
+	workloadInsts, err := client_v1.GetWorkloadInstancesByQueryString(
 		apiClient,
 		apiEndpoint,
 		fmt.Sprintf("workloaddefinitionid=%d", workloadDefinitionId),

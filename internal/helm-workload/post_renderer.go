@@ -2,8 +2,10 @@ package helmworkload
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 
+	"gorm.io/datatypes"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	yamlserailizer "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
@@ -12,6 +14,7 @@ import (
 	"github.com/threeport/threeport/internal/agent"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // ThreeportPostRenderer implements the postrender.PostRenderer interface for
@@ -58,5 +61,56 @@ func (p *ThreeportPostRenderer) Run(renderedManifests *bytes.Buffer) (*bytes.Buf
 		postRenderedManifests += string(yamlBytes)
 	}
 
+	// append additional resources to post-rendered manifests
+	// from helm workload definition
+	postRenderedManifests, err := p.AppendAdditionalResources(
+		postRenderedManifests,
+		p.HelmWorkloadDefinition.AdditionalResources,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to append additional resources from helm workload definition: %w", err)
+	}
+
+	// append additional resources to post-rendered manifests
+	// from helm workload instance
+	postRenderedManifests, err = p.AppendAdditionalResources(
+		postRenderedManifests,
+		p.HelmWorkloadInstance.AdditionalResources,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to append additional resources from helm workload instance: %w", err)
+	}
+
 	return bytes.NewBuffer([]byte(postRenderedManifests)), nil
+}
+
+// AppendAdditionalResources appends additional resources to the given manifests.
+func (p *ThreeportPostRenderer) AppendAdditionalResources(
+	manifests string,
+	additionalResources *datatypes.JSONSlice[datatypes.JSON],
+) (string, error) {
+	if additionalResources == nil {
+		return manifests, nil
+	}
+
+	var output []string
+	for _, additionalResource := range *additionalResources {
+		var additionalResourceUnmarshaled map[string]interface{}
+		err := json.Unmarshal([]byte(additionalResource), &additionalResourceUnmarshaled)
+		if err != nil {
+			return manifests, fmt.Errorf("failed to unmarshal vol json: %w", err)
+		}
+
+		// convert unstructured kube object back to yaml
+		kubeObject := &unstructured.Unstructured{Object: additionalResourceUnmarshaled}
+		kubeObject.SetNamespace(*p.HelmWorkloadInstance.ReleaseNamespace)
+		yamlBytes, err := yaml.Marshal(additionalResource)
+		if err != nil {
+			return "", fmt.Errorf("failed to convert unstructured object back to YAML: %w", err)
+		}
+
+		output = append(output, string(yamlBytes))
+	}
+
+	return util.HyphenDelimitedString(output), nil
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	zap "go.uber.org/zap"
 	postgres "gorm.io/driver/postgres"
@@ -148,6 +149,8 @@ func GetDbInterfaces() []interface{} {
 		&v0.MetricsInstance{},
 		&v0.LoggingDefinition{},
 		&v0.LoggingInstance{},
+		&v0.SecretDefinition{},
+		&v0.SecretInstance{},
 		&v0.TerraformDefinition{},
 		&v0.TerraformInstance{},
 		&v0.WorkloadDefinition{},
@@ -156,6 +159,8 @@ func GetDbInterfaces() []interface{} {
 		&v0.AttachedObjectReference{},
 		&v0.WorkloadResourceInstance{},
 		&v0.WorkloadEvent{},
+		&v1.AttachedObjectReference{},
+		&v1.WorkloadInstance{},
 	}
 }
 

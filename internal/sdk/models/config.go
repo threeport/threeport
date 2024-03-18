@@ -14,6 +14,7 @@ type ControllerConfig struct {
 	ReconcilerModels       []string
 	TptctlModels           []string
 	TptctlConfigPathModels []string
+	ApiVersion             string
 }
 
 // ModelConfig contains the values for a particular model.

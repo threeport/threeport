@@ -50,7 +50,7 @@ type Response struct {
 	Meta Meta `json:"Meta"`
 
 	// Type contains ObjectType of returned Data elements
-	Type ObjectType `json:"Type" example:"Transfer"`
+	Type string `json:"Type" example:"Transfer"`
 
 	// Data contains array of returned Object elements
 	Data []Object `json:"Data"`
@@ -82,7 +82,7 @@ func CreateMeta(params PageRequestParams, totalCount int64) *Meta {
 
 // CreateResponse creates an v0.Response from an Object or slice of Object of
 // ObjectType (i.e []Account, []Block etc.)
-func CreateResponse(meta *Meta, obj interface{}, objType ObjectType) (*Response, error) {
+func CreateResponse(meta *Meta, obj interface{}, objType string) (*Response, error) {
 
 	if obj == nil {
 		return nil, errors.New("obj must not be nil")
@@ -137,35 +137,35 @@ func CreateStatus(code int, message string, error string) *Status {
 	return &Status{Code: code, Message: message, Error: error}
 }
 
-func CreateResponseErrorWithCode(params *PageRequestParams, code int, error string, objectType ObjectType) *Response {
+func CreateResponseErrorWithCode(params *PageRequestParams, code int, error string, objectType string) *Response {
 	return CreateResponseErrorWithStatus(params, CreateStatus(code, http.StatusText(code), error), objectType)
 }
 
-func CreateResponseErrorWithStatus(params *PageRequestParams, status *Status, objectType ObjectType) *Response {
+func CreateResponseErrorWithStatus(params *PageRequestParams, status *Status, objectType string) *Response {
 	return &Response{Meta: Meta{PageRequestParams: PageRequestParams{Page: 0, Size: 0}, TotalCount: 0}, Type: objectType, Data: nil, Status: Status{Code: status.Code, Message: status.Message, Error: status.Error}}
 }
 
-func CreateResponseWithError400(params *PageRequestParams, error error, objectType ObjectType) *Response {
+func CreateResponseWithError400(params *PageRequestParams, error error, objectType string) *Response {
 	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusBadRequest, http.StatusText(http.StatusBadRequest), error.Error()), objectType)
 }
 
-func CreateResponseWithError401(params *PageRequestParams, error error, objectType ObjectType) *Response {
+func CreateResponseWithError401(params *PageRequestParams, error error, objectType string) *Response {
 	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), error.Error()), objectType)
 }
 
-func CreateResponseWithError403(params *PageRequestParams, error error, objectType ObjectType) *Response {
+func CreateResponseWithError403(params *PageRequestParams, error error, objectType string) *Response {
 	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusForbidden, http.StatusText(http.StatusForbidden), error.Error()), objectType)
 }
 
-func CreateResponseWithError404(params *PageRequestParams, error error, objectType ObjectType) *Response {
+func CreateResponseWithError404(params *PageRequestParams, error error, objectType string) *Response {
 	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusNotFound, http.StatusText(http.StatusNotFound), error.Error()), objectType)
 }
 
-func CreateResponseWithError409(params *PageRequestParams, error error, objectType ObjectType) *Response {
+func CreateResponseWithError409(params *PageRequestParams, error error, objectType string) *Response {
 	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusConflict, http.StatusText(http.StatusConflict), error.Error()), objectType)
 }
 
-func CreateResponseWithError500(params *PageRequestParams, error error, objectType ObjectType) *Response {
+func CreateResponseWithError500(params *PageRequestParams, error error, objectType string) *Response {
 	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), error.Error()), objectType)
 }
 

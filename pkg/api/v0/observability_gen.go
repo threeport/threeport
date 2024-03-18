@@ -9,14 +9,14 @@ import (
 )
 
 const (
-	ObjectTypeObservabilityStackDefinition     ObjectType = "ObservabilityStackDefinition"
-	ObjectTypeObservabilityStackInstance       ObjectType = "ObservabilityStackInstance"
-	ObjectTypeObservabilityDashboardDefinition ObjectType = "ObservabilityDashboardDefinition"
-	ObjectTypeObservabilityDashboardInstance   ObjectType = "ObservabilityDashboardInstance"
-	ObjectTypeMetricsDefinition                ObjectType = "MetricsDefinition"
-	ObjectTypeMetricsInstance                  ObjectType = "MetricsInstance"
-	ObjectTypeLoggingDefinition                ObjectType = "LoggingDefinition"
-	ObjectTypeLoggingInstance                  ObjectType = "LoggingInstance"
+	ObjectTypeObservabilityStackDefinition     string = "ObservabilityStackDefinition"
+	ObjectTypeObservabilityStackInstance       string = "ObservabilityStackInstance"
+	ObjectTypeObservabilityDashboardDefinition string = "ObservabilityDashboardDefinition"
+	ObjectTypeObservabilityDashboardInstance   string = "ObservabilityDashboardInstance"
+	ObjectTypeMetricsDefinition                string = "MetricsDefinition"
+	ObjectTypeMetricsInstance                  string = "MetricsInstance"
+	ObjectTypeLoggingDefinition                string = "LoggingDefinition"
+	ObjectTypeLoggingInstance                  string = "LoggingInstance"
 
 	ObservabilityStreamName = "observabilityStream"
 

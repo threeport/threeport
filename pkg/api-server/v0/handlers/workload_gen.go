@@ -31,7 +31,7 @@ func (h Handler) GetWorkloadDefinitionVersions(c echo.Context) error {
 
 // @Summary adds a new workload definition.
 // @Description Add a new workload definition to the Threeport database.
-// @ID add-workloadDefinition
+// @ID add-v0-workloadDefinition
 // @Accept json
 // @Produce json
 // @Param workloadDefinition body v0.WorkloadDefinition true "WorkloadDefinition object"
@@ -100,7 +100,7 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 
 // @Summary gets all workload definitions.
 // @Description Get all workload definitions from the Threeport database.
-// @ID get-workloadDefinitions
+// @ID get-v0-workloadDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "workload definition search by name"
@@ -140,7 +140,7 @@ func (h Handler) GetWorkloadDefinitions(c echo.Context) error {
 
 // @Summary gets a workload definition.
 // @Description Get a particular workload definition from the database.
-// @ID get-workloadDefinition
+// @ID get-v0-workloadDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -173,7 +173,7 @@ func (h Handler) GetWorkloadDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-workloadDefinition
+// @ID update-v0-workloadDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -238,7 +238,7 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-workloadDefinition
+// @ID replace-v0-workloadDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -299,7 +299,7 @@ func (h Handler) ReplaceWorkloadDefinition(c echo.Context) error {
 
 // @Summary deletes a workload definition.
 // @Description Delete a workload definition by ID from the database.
-// @ID delete-workloadDefinition
+// @ID delete-v0-workloadDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -391,7 +391,7 @@ func (h Handler) GetWorkloadResourceDefinitionVersions(c echo.Context) error {
 
 // @Summary adds a new workload resource definition.
 // @Description Add a new workload resource definition to the Threeport database.
-// @ID add-workloadResourceDefinition
+// @ID add-v0-workloadResourceDefinition
 // @Accept json
 // @Produce json
 // @Param workloadResourceDefinition body v0.WorkloadResourceDefinition true "WorkloadResourceDefinition object"
@@ -432,7 +432,7 @@ func (h Handler) AddWorkloadResourceDefinition(c echo.Context) error {
 
 // @Summary gets all workload resource definitions.
 // @Description Get all workload resource definitions from the Threeport database.
-// @ID get-workloadResourceDefinitions
+// @ID get-v0-workloadResourceDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "workload resource definition search by name"
@@ -472,7 +472,7 @@ func (h Handler) GetWorkloadResourceDefinitions(c echo.Context) error {
 
 // @Summary gets a workload resource definition.
 // @Description Get a particular workload resource definition from the database.
-// @ID get-workloadResourceDefinition
+// @ID get-v0-workloadResourceDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -505,7 +505,7 @@ func (h Handler) GetWorkloadResourceDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-workloadResourceDefinition
+// @ID update-v0-workloadResourceDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -557,7 +557,7 @@ func (h Handler) UpdateWorkloadResourceDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-workloadResourceDefinition
+// @ID replace-v0-workloadResourceDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -618,7 +618,7 @@ func (h Handler) ReplaceWorkloadResourceDefinition(c echo.Context) error {
 
 // @Summary deletes a workload resource definition.
 // @Description Delete a workload resource definition by ID from the database.
-// @ID delete-workloadResourceDefinition
+// @ID delete-v0-workloadResourceDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -667,7 +667,7 @@ func (h Handler) GetWorkloadInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new workload instance.
 // @Description Add a new workload instance to the Threeport database.
-// @ID add-workloadInstance
+// @ID add-v0-workloadInstance
 // @Accept json
 // @Produce json
 // @Param workloadInstance body v0.WorkloadInstance true "WorkloadInstance object"
@@ -736,7 +736,7 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 
 // @Summary gets all workload instances.
 // @Description Get all workload instances from the Threeport database.
-// @ID get-workloadInstances
+// @ID get-v0-workloadInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "workload instance search by name"
@@ -776,7 +776,7 @@ func (h Handler) GetWorkloadInstances(c echo.Context) error {
 
 // @Summary gets a workload instance.
 // @Description Get a particular workload instance from the database.
-// @ID get-workloadInstance
+// @ID get-v0-workloadInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -809,7 +809,7 @@ func (h Handler) GetWorkloadInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-workloadInstance
+// @ID update-v0-workloadInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -874,7 +874,7 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-workloadInstance
+// @ID replace-v0-workloadInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -935,7 +935,7 @@ func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 
 // @Summary deletes a workload instance.
 // @Description Delete a workload instance by ID from the database.
-// @ID delete-workloadInstance
+// @ID delete-v0-workloadInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1021,7 +1021,7 @@ func (h Handler) GetAttachedObjectReferenceVersions(c echo.Context) error {
 
 // @Summary adds a new attached object reference.
 // @Description Add a new attached object reference to the Threeport database.
-// @ID add-attachedObjectReference
+// @ID add-v0-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param attachedObjectReference body v0.AttachedObjectReference true "AttachedObjectReference object"
@@ -1062,7 +1062,7 @@ func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 
 // @Summary gets all attached object references.
 // @Description Get all attached object references from the Threeport database.
-// @ID get-attachedObjectReferences
+// @ID get-v0-attachedObjectReferences
 // @Accept json
 // @Produce json
 // @Param name query string false "attached object reference search by name"
@@ -1102,7 +1102,7 @@ func (h Handler) GetAttachedObjectReferences(c echo.Context) error {
 
 // @Summary gets a attached object reference.
 // @Description Get a particular attached object reference from the database.
-// @ID get-attachedObjectReference
+// @ID get-v0-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1135,7 +1135,7 @@ func (h Handler) GetAttachedObjectReference(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-attachedObjectReference
+// @ID update-v0-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1187,7 +1187,7 @@ func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-attachedObjectReference
+// @ID replace-v0-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1248,7 +1248,7 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 
 // @Summary deletes a attached object reference.
 // @Description Delete a attached object reference by ID from the database.
-// @ID delete-attachedObjectReference
+// @ID delete-v0-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1297,7 +1297,7 @@ func (h Handler) GetWorkloadResourceInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new workload resource instance.
 // @Description Add a new workload resource instance to the Threeport database.
-// @ID add-workloadResourceInstance
+// @ID add-v0-workloadResourceInstance
 // @Accept json
 // @Produce json
 // @Param workloadResourceInstance body v0.WorkloadResourceInstance true "WorkloadResourceInstance object"
@@ -1338,7 +1338,7 @@ func (h Handler) AddWorkloadResourceInstance(c echo.Context) error {
 
 // @Summary gets all workload resource instances.
 // @Description Get all workload resource instances from the Threeport database.
-// @ID get-workloadResourceInstances
+// @ID get-v0-workloadResourceInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "workload resource instance search by name"
@@ -1378,7 +1378,7 @@ func (h Handler) GetWorkloadResourceInstances(c echo.Context) error {
 
 // @Summary gets a workload resource instance.
 // @Description Get a particular workload resource instance from the database.
-// @ID get-workloadResourceInstance
+// @ID get-v0-workloadResourceInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1411,7 +1411,7 @@ func (h Handler) GetWorkloadResourceInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-workloadResourceInstance
+// @ID update-v0-workloadResourceInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1463,7 +1463,7 @@ func (h Handler) UpdateWorkloadResourceInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-workloadResourceInstance
+// @ID replace-v0-workloadResourceInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1524,7 +1524,7 @@ func (h Handler) ReplaceWorkloadResourceInstance(c echo.Context) error {
 
 // @Summary deletes a workload resource instance.
 // @Description Delete a workload resource instance by ID from the database.
-// @ID delete-workloadResourceInstance
+// @ID delete-v0-workloadResourceInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1573,7 +1573,7 @@ func (h Handler) GetWorkloadEventVersions(c echo.Context) error {
 
 // @Summary adds a new workload event.
 // @Description Add a new workload event to the Threeport database.
-// @ID add-workloadEvent
+// @ID add-v0-workloadEvent
 // @Accept json
 // @Produce json
 // @Param workloadEvent body v0.WorkloadEvent true "WorkloadEvent object"
@@ -1614,7 +1614,7 @@ func (h Handler) AddWorkloadEvent(c echo.Context) error {
 
 // @Summary gets all workload events.
 // @Description Get all workload events from the Threeport database.
-// @ID get-workloadEvents
+// @ID get-v0-workloadEvents
 // @Accept json
 // @Produce json
 // @Param name query string false "workload event search by name"
@@ -1654,7 +1654,7 @@ func (h Handler) GetWorkloadEvents(c echo.Context) error {
 
 // @Summary gets a workload event.
 // @Description Get a particular workload event from the database.
-// @ID get-workloadEvent
+// @ID get-v0-workloadEvent
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1687,7 +1687,7 @@ func (h Handler) GetWorkloadEvent(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-workloadEvent
+// @ID update-v0-workloadEvent
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1739,7 +1739,7 @@ func (h Handler) UpdateWorkloadEvent(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-workloadEvent
+// @ID replace-v0-workloadEvent
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1800,7 +1800,7 @@ func (h Handler) ReplaceWorkloadEvent(c echo.Context) error {
 
 // @Summary deletes a workload event.
 // @Description Delete a workload event by ID from the database.
-// @ID delete-workloadEvent
+// @ID delete-v0-workloadEvent
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"

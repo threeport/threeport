@@ -48,7 +48,7 @@ for all the models in the supplied version/s.  The generated code includes:
 
 			modelFiles, err := os.ReadDir(filepath.Join("..", "..", "pkg", "api", version))
 			if err != nil {
-				fmt.Errorf("failed to read source code files: %w", err)
+				return fmt.Errorf("failed to read source code files: %w", err)
 			}
 			for _, mf := range modelFiles {
 				if strings.Contains(mf.Name(), "_gen") {
@@ -117,29 +117,31 @@ for all the models in the supplied version/s.  The generated code includes:
 
 			// this is a hack to ensure that there are order constraints satisfied for
 			// the db automigrate function to properly execute
-			swaps := map[string]string{
-				"ControlPlaneDefinition": "KubernetesRuntimeDefinition",
-				"ControlPlaneInstance":   "KubernetesRuntimeInstance",
-			}
+			if version == "v0" {
+				swaps := map[string]string{
+					"ControlPlaneDefinition": "KubernetesRuntimeDefinition",
+					"ControlPlaneInstance":   "KubernetesRuntimeInstance",
+				}
 
-			for key, value := range swaps {
-				var keyIndex int = -1
-				var valueIndex int = -1
-				for i, name := range dbInitNames {
-					if name == key {
-						keyIndex = i
-					} else if name == value {
-						valueIndex = i
+				for key, value := range swaps {
+					var keyIndex int = -1
+					var valueIndex int = -1
+					for i, name := range dbInitNames {
+						if name == key {
+							keyIndex = i
+						} else if name == value {
+							valueIndex = i
+						}
 					}
-				}
 
-				if keyIndex == -1 && valueIndex == -1 && !extension {
-					return fmt.Errorf("could not find items to swap in db automigrate: %s and %s", key, value)
-				}
+					if keyIndex == -1 && valueIndex == -1 && !extension {
+						return fmt.Errorf("could not find items to swap in db automigrate: %s and %s", key, value)
+					}
 
-				if keyIndex != -1 && valueIndex != -1 {
-					dbInitNames[keyIndex] = value
-					dbInitNames[valueIndex] = key
+					if keyIndex != -1 && valueIndex != -1 {
+						dbInitNames[keyIndex] = value
+						dbInitNames[valueIndex] = key
+					}
 				}
 			}
 

@@ -28,7 +28,7 @@ func (h Handler) GetProfileVersions(c echo.Context) error {
 
 // @Summary adds a new profile.
 // @Description Add a new profile to the Threeport database.
-// @ID add-profile
+// @ID add-v0-profile
 // @Accept json
 // @Produce json
 // @Param profile body v0.Profile true "Profile object"
@@ -84,7 +84,7 @@ func (h Handler) AddProfile(c echo.Context) error {
 
 // @Summary gets all profiles.
 // @Description Get all profiles from the Threeport database.
-// @ID get-profiles
+// @ID get-v0-profiles
 // @Accept json
 // @Produce json
 // @Param name query string false "profile search by name"
@@ -124,7 +124,7 @@ func (h Handler) GetProfiles(c echo.Context) error {
 
 // @Summary gets a profile.
 // @Description Get a particular profile from the database.
-// @ID get-profile
+// @ID get-v0-profile
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -157,7 +157,7 @@ func (h Handler) GetProfile(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-profile
+// @ID update-v0-profile
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -209,7 +209,7 @@ func (h Handler) UpdateProfile(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-profile
+// @ID replace-v0-profile
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -270,7 +270,7 @@ func (h Handler) ReplaceProfile(c echo.Context) error {
 
 // @Summary deletes a profile.
 // @Description Delete a profile by ID from the database.
-// @ID delete-profile
+// @ID delete-v0-profile
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -319,7 +319,7 @@ func (h Handler) GetTierVersions(c echo.Context) error {
 
 // @Summary adds a new tier.
 // @Description Add a new tier to the Threeport database.
-// @ID add-tier
+// @ID add-v0-tier
 // @Accept json
 // @Produce json
 // @Param tier body v0.Tier true "Tier object"
@@ -375,7 +375,7 @@ func (h Handler) AddTier(c echo.Context) error {
 
 // @Summary gets all tiers.
 // @Description Get all tiers from the Threeport database.
-// @ID get-tiers
+// @ID get-v0-tiers
 // @Accept json
 // @Produce json
 // @Param name query string false "tier search by name"
@@ -415,7 +415,7 @@ func (h Handler) GetTiers(c echo.Context) error {
 
 // @Summary gets a tier.
 // @Description Get a particular tier from the database.
-// @ID get-tier
+// @ID get-v0-tier
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -448,7 +448,7 @@ func (h Handler) GetTier(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-tier
+// @ID update-v0-tier
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -500,7 +500,7 @@ func (h Handler) UpdateTier(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-tier
+// @ID replace-v0-tier
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -561,7 +561,7 @@ func (h Handler) ReplaceTier(c echo.Context) error {
 
 // @Summary deletes a tier.
 // @Description Delete a tier by ID from the database.
-// @ID delete-tier
+// @ID delete-v0-tier
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"

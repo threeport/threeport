@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/iancoleman/strcase"
-	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -14,26 +13,8 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// createSupportServicesCollection creates a support services collection.
-func createSupportServicesCollection() (string, error) {
-	var supportServicesCollection = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "orchestration.support-services.nukleros.io/v1alpha1",
-			"kind":       "SupportServices",
-			"metadata": map[string]interface{}{
-				"name": "supportservices-sample",
-			},
-			"spec": map[string]interface{}{
-				"tier": "development",
-			},
-		},
-	}
-
-	return unstructuredToYamlString(supportServicesCollection)
-}
-
-// createGlooEdge creates a gloo edge custom resource.
-func createGlooEdge() (string, error) {
+// getGlooEdgeYaml creates a gloo edge custom resource.
+func getGlooEdgeYaml() (string, error) {
 
 	var glooEdge = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -49,11 +30,11 @@ func createGlooEdge() (string, error) {
 		},
 	}
 
-	return unstructuredToYamlString(glooEdge)
+	return util.UnstructuredToYaml(glooEdge)
 }
 
-// createExternalDns creates an external DNS custom resource.
-func createExternalDns(
+// getExternalDnsYaml creates an external DNS custom resource.
+func getExternalDnsYaml(
 	domain,
 	provider,
 	iamRoleArn,
@@ -74,7 +55,7 @@ func createExternalDns(
 			"apiVersion": "gateway.support-services.nukleros.io/v1alpha1",
 			"kind":       "ExternalDNS",
 			"metadata": map[string]interface{}{
-				"name": "externaldns-sample",
+				"name": "externaldns",
 			},
 			"spec": map[string]interface{}{
 				"namespace":          util.GatewaySystemNamespace,
@@ -90,31 +71,33 @@ func createExternalDns(
 		},
 	}
 
-	return unstructuredToYamlString(externalDns)
+	return util.UnstructuredToYaml(externalDns)
 }
 
-// createGlooEdgePort creates a gloo edge port.
-func createGlooEdgePort(protocol, name string, port int64, ssl bool) map[string]interface{} {
+// getGlooEdgePort creates a gloo edge port.
+func getGlooEdgePort(protocol, name string, port int64, ssl bool) *unstructured.Unstructured {
 
-	var portObject = map[string]interface{}{
-		"name":     name,
-		"protocol": protocol,
-		"port":     port,
-		"ssl":      ssl,
+	var portObject = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"name":     name,
+			"protocol": protocol,
+			"port":     port,
+			"ssl":      ssl,
+		},
 	}
 
 	return portObject
 }
 
-// createCertManager creates a cert manager for the given IAM role ARN.
-func createCertManager(iamRoleArn string) (string, error) {
+// getCertManagerYaml creates a cert manager for the given IAM role ARN.
+func getCertManagerYaml(iamRoleArn string) (string, error) {
 
 	var certManager = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "certificates.support-services.nukleros.io/v1alpha1",
 			"kind":       "CertManager",
 			"metadata": map[string]interface{}{
-				"name": "certmanager-sample",
+				"name": "certmanager",
 			},
 			"spec": map[string]interface{}{
 				"namespace": "nukleros-certs-system",
@@ -137,7 +120,7 @@ func createCertManager(iamRoleArn string) (string, error) {
 		},
 	}
 
-	return unstructuredToYamlString(certManager)
+	return util.UnstructuredToYaml(certManager)
 }
 
 // getCleanedDomain returns a cleaned domain.
@@ -147,8 +130,8 @@ func getCleanedDomain(domain string) string {
 	return cleanedDomain
 }
 
-// createVirtualServicesYaml creates a virtual service for the given domain.
-func createVirtualServicesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition, domain string) ([]string, error) {
+// getVirtualServicesYaml creates a virtual service for the given domain.
+func getVirtualServicesYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition, domain string) ([]string, error) {
 
 	var manifests []string
 
@@ -250,7 +233,7 @@ func createVirtualServicesYaml(r *controller.Reconciler, gatewayDefinition *v0.G
 			unstructured.SetNestedMap(virtualService.Object, sslConfig, "spec", "sslConfig")
 		}
 
-		virtualServiceManifest, err := unstructuredToYamlString(virtualService)
+		virtualServiceManifest, err := util.UnstructuredToYaml(virtualService)
 		if err != nil {
 			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
 		}
@@ -261,8 +244,8 @@ func createVirtualServicesYaml(r *controller.Reconciler, gatewayDefinition *v0.G
 	return manifests, nil
 }
 
-// createTcpGatewaysYaml creates a tcp gateway for the given domain.
-func createTcpGatewaysYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) ([]string, error) {
+// getTcpGatewaysYaml creates a tcp gateway for the given domain.
+func getTcpGatewaysYaml(r *controller.Reconciler, gatewayDefinition *v0.GatewayDefinition) ([]string, error) {
 
 	var manifests []string
 
@@ -307,7 +290,7 @@ func createTcpGatewaysYaml(r *controller.Reconciler, gatewayDefinition *v0.Gatew
 		// if tcpPort.TLSEnabled != nil && *tcpPort.TLSEnabled {
 		// }
 
-		virtualServiceManifest, err := unstructuredToYamlString(tcpGateway)
+		virtualServiceManifest, err := util.UnstructuredToYaml(tcpGateway)
 		if err != nil {
 			return []string{}, fmt.Errorf("error marshaling YAML: %w", err)
 		}
@@ -329,8 +312,8 @@ func getVirtualServiceName(gatewayDefinition *v0.GatewayDefinition, domain strin
 	}
 }
 
-// createIssuerYaml creates an issuer for the given domain.
-func createIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail string) (string, error) {
+// getIssuerYaml creates an issuer for the given domain.
+func getIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmail string) (string, error) {
 
 	var issuer = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -365,11 +348,11 @@ func createIssuerYaml(gatewayDefinition *v0.GatewayDefinition, domain, adminEmai
 		},
 	}
 
-	return unstructuredToYamlString(issuer)
+	return util.UnstructuredToYaml(issuer)
 }
 
-// createCertificateYaml creates a certificate for the given domain.
-func createCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
+// getCertificateYaml creates a certificate for the given domain.
+func getCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain string) (string, error) {
 
 	var certificate = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -391,15 +374,5 @@ func createCertificateYaml(gatewayDefinition *v0.GatewayDefinition, domain strin
 		},
 	}
 
-	return unstructuredToYamlString(certificate)
-}
-
-// unstructuredToYamlString converts an unstructured object into a YAML string.
-func unstructuredToYamlString(unstructuredManifest *unstructured.Unstructured) (string, error) {
-	bytes, err := yaml.Marshal(unstructuredManifest.Object)
-	if err != nil {
-		return "", fmt.Errorf("error marshaling YAML: %w", err)
-	}
-	stringManifest := string(bytes)
-	return stringManifest, nil
+	return util.UnstructuredToYaml(certificate)
 }

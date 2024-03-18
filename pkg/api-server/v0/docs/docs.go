@@ -596,6 +596,42 @@ const docTemplate = `{
                 }
             }
         },
+        "/secret-definitions/versions": {
+            "get": {
+                "description": "Get the supported API versions for secret definitions.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetSecretDefinitionVersions gets the supported versions for the secret definition API.",
+                "operationId": "secretDefinition-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/secret-instances/versions": {
+            "get": {
+                "description": "Get the supported API versions for secret instances.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetSecretInstanceVersions gets the supported versions for the secret instance API.",
+                "operationId": "secretInstance-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.RESTAPIVersions"
+                        }
+                    }
+                }
+            }
+        },
         "/terraform-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for terraform definitions.",
@@ -660,7 +696,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all attached object references.",
-                "operationId": "get-attachedObjectReferences",
+                "operationId": "get-v0-attachedObjectReferences",
                 "parameters": [
                     {
                         "type": "string",
@@ -699,7 +735,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new attached object reference.",
-                "operationId": "add-attachedObjectReference",
+                "operationId": "add-v0-attachedObjectReference",
                 "parameters": [
                     {
                         "description": "AttachedObjectReference object",
@@ -743,7 +779,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a attached object reference.",
-                "operationId": "get-attachedObjectReference",
+                "operationId": "get-v0-attachedObjectReference",
                 "parameters": [
                     {
                         "type": "integer",
@@ -783,7 +819,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing attached object reference by replacing the entire object.",
-                "operationId": "replace-attachedObjectReference",
+                "operationId": "replace-v0-attachedObjectReference",
                 "parameters": [
                     {
                         "type": "integer",
@@ -838,7 +874,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a attached object reference.",
-                "operationId": "delete-attachedObjectReference",
+                "operationId": "delete-v0-attachedObjectReference",
                 "parameters": [
                     {
                         "type": "integer",
@@ -884,7 +920,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing attached object reference.",
-                "operationId": "update-attachedObjectReference",
+                "operationId": "update-v0-attachedObjectReference",
                 "parameters": [
                     {
                         "type": "integer",
@@ -941,7 +977,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all aws accounts.",
-                "operationId": "get-awsAccounts",
+                "operationId": "get-v0-awsAccounts",
                 "parameters": [
                     {
                         "type": "string",
@@ -980,7 +1016,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new aws account.",
-                "operationId": "add-awsAccount",
+                "operationId": "add-v0-awsAccount",
                 "parameters": [
                     {
                         "description": "AwsAccount object",
@@ -1024,7 +1060,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a aws account.",
-                "operationId": "get-awsAccount",
+                "operationId": "get-v0-awsAccount",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1064,7 +1100,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing aws account by replacing the entire object.",
-                "operationId": "replace-awsAccount",
+                "operationId": "replace-v0-awsAccount",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1119,7 +1155,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a aws account.",
-                "operationId": "delete-awsAccount",
+                "operationId": "delete-v0-awsAccount",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1165,7 +1201,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing aws account.",
-                "operationId": "update-awsAccount",
+                "operationId": "update-v0-awsAccount",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1222,7 +1258,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all aws eks kubernetes runtime definitions.",
-                "operationId": "get-awsEksKubernetesRuntimeDefinitions",
+                "operationId": "get-v0-awsEksKubernetesRuntimeDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -1261,7 +1297,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new aws eks kubernetes runtime definition.",
-                "operationId": "add-awsEksKubernetesRuntimeDefinition",
+                "operationId": "add-v0-awsEksKubernetesRuntimeDefinition",
                 "parameters": [
                     {
                         "description": "AwsEksKubernetesRuntimeDefinition object",
@@ -1305,7 +1341,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a aws eks kubernetes runtime definition.",
-                "operationId": "get-awsEksKubernetesRuntimeDefinition",
+                "operationId": "get-v0-awsEksKubernetesRuntimeDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1345,7 +1381,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing aws eks kubernetes runtime definition by replacing the entire object.",
-                "operationId": "replace-awsEksKubernetesRuntimeDefinition",
+                "operationId": "replace-v0-awsEksKubernetesRuntimeDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1400,7 +1436,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a aws eks kubernetes runtime definition.",
-                "operationId": "delete-awsEksKubernetesRuntimeDefinition",
+                "operationId": "delete-v0-awsEksKubernetesRuntimeDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1446,7 +1482,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing aws eks kubernetes runtime definition.",
-                "operationId": "update-awsEksKubernetesRuntimeDefinition",
+                "operationId": "update-v0-awsEksKubernetesRuntimeDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1503,7 +1539,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all aws eks kubernetes runtime instances.",
-                "operationId": "get-awsEksKubernetesRuntimeInstances",
+                "operationId": "get-v0-awsEksKubernetesRuntimeInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -1542,7 +1578,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new aws eks kubernetes runtime instance.",
-                "operationId": "add-awsEksKubernetesRuntimeInstance",
+                "operationId": "add-v0-awsEksKubernetesRuntimeInstance",
                 "parameters": [
                     {
                         "description": "AwsEksKubernetesRuntimeInstance object",
@@ -1586,7 +1622,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a aws eks kubernetes runtime instance.",
-                "operationId": "get-awsEksKubernetesRuntimeInstance",
+                "operationId": "get-v0-awsEksKubernetesRuntimeInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1626,7 +1662,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing aws eks kubernetes runtime instance by replacing the entire object.",
-                "operationId": "replace-awsEksKubernetesRuntimeInstance",
+                "operationId": "replace-v0-awsEksKubernetesRuntimeInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1681,7 +1717,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a aws eks kubernetes runtime instance.",
-                "operationId": "delete-awsEksKubernetesRuntimeInstance",
+                "operationId": "delete-v0-awsEksKubernetesRuntimeInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1727,7 +1763,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing aws eks kubernetes runtime instance.",
-                "operationId": "update-awsEksKubernetesRuntimeInstance",
+                "operationId": "update-v0-awsEksKubernetesRuntimeInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1784,7 +1820,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all aws object storage bucket definitions.",
-                "operationId": "get-awsObjectStorageBucketDefinitions",
+                "operationId": "get-v0-awsObjectStorageBucketDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -1823,7 +1859,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new aws object storage bucket definition.",
-                "operationId": "add-awsObjectStorageBucketDefinition",
+                "operationId": "add-v0-awsObjectStorageBucketDefinition",
                 "parameters": [
                     {
                         "description": "AwsObjectStorageBucketDefinition object",
@@ -1867,7 +1903,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a aws object storage bucket definition.",
-                "operationId": "get-awsObjectStorageBucketDefinition",
+                "operationId": "get-v0-awsObjectStorageBucketDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1907,7 +1943,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing aws object storage bucket definition by replacing the entire object.",
-                "operationId": "replace-awsObjectStorageBucketDefinition",
+                "operationId": "replace-v0-awsObjectStorageBucketDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1962,7 +1998,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a aws object storage bucket definition.",
-                "operationId": "delete-awsObjectStorageBucketDefinition",
+                "operationId": "delete-v0-awsObjectStorageBucketDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2008,7 +2044,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing aws object storage bucket definition.",
-                "operationId": "update-awsObjectStorageBucketDefinition",
+                "operationId": "update-v0-awsObjectStorageBucketDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2065,7 +2101,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all aws object storage bucket instances.",
-                "operationId": "get-awsObjectStorageBucketInstances",
+                "operationId": "get-v0-awsObjectStorageBucketInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -2104,7 +2140,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new aws object storage bucket instance.",
-                "operationId": "add-awsObjectStorageBucketInstance",
+                "operationId": "add-v0-awsObjectStorageBucketInstance",
                 "parameters": [
                     {
                         "description": "AwsObjectStorageBucketInstance object",
@@ -2148,7 +2184,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a aws object storage bucket instance.",
-                "operationId": "get-awsObjectStorageBucketInstance",
+                "operationId": "get-v0-awsObjectStorageBucketInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2188,7 +2224,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing aws object storage bucket instance by replacing the entire object.",
-                "operationId": "replace-awsObjectStorageBucketInstance",
+                "operationId": "replace-v0-awsObjectStorageBucketInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2243,7 +2279,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a aws object storage bucket instance.",
-                "operationId": "delete-awsObjectStorageBucketInstance",
+                "operationId": "delete-v0-awsObjectStorageBucketInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2289,7 +2325,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing aws object storage bucket instance.",
-                "operationId": "update-awsObjectStorageBucketInstance",
+                "operationId": "update-v0-awsObjectStorageBucketInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2346,7 +2382,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all aws relational database definitions.",
-                "operationId": "get-awsRelationalDatabaseDefinitions",
+                "operationId": "get-v0-awsRelationalDatabaseDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -2385,7 +2421,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new aws relational database definition.",
-                "operationId": "add-awsRelationalDatabaseDefinition",
+                "operationId": "add-v0-awsRelationalDatabaseDefinition",
                 "parameters": [
                     {
                         "description": "AwsRelationalDatabaseDefinition object",
@@ -2429,7 +2465,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a aws relational database definition.",
-                "operationId": "get-awsRelationalDatabaseDefinition",
+                "operationId": "get-v0-awsRelationalDatabaseDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2469,7 +2505,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing aws relational database definition by replacing the entire object.",
-                "operationId": "replace-awsRelationalDatabaseDefinition",
+                "operationId": "replace-v0-awsRelationalDatabaseDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2524,7 +2560,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a aws relational database definition.",
-                "operationId": "delete-awsRelationalDatabaseDefinition",
+                "operationId": "delete-v0-awsRelationalDatabaseDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2570,7 +2606,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing aws relational database definition.",
-                "operationId": "update-awsRelationalDatabaseDefinition",
+                "operationId": "update-v0-awsRelationalDatabaseDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2627,7 +2663,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all aws relational database instances.",
-                "operationId": "get-awsRelationalDatabaseInstances",
+                "operationId": "get-v0-awsRelationalDatabaseInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -2666,7 +2702,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new aws relational database instance.",
-                "operationId": "add-awsRelationalDatabaseInstance",
+                "operationId": "add-v0-awsRelationalDatabaseInstance",
                 "parameters": [
                     {
                         "description": "AwsRelationalDatabaseInstance object",
@@ -2710,7 +2746,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a aws relational database instance.",
-                "operationId": "get-awsRelationalDatabaseInstance",
+                "operationId": "get-v0-awsRelationalDatabaseInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2750,7 +2786,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing aws relational database instance by replacing the entire object.",
-                "operationId": "replace-awsRelationalDatabaseInstance",
+                "operationId": "replace-v0-awsRelationalDatabaseInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2805,7 +2841,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a aws relational database instance.",
-                "operationId": "delete-awsRelationalDatabaseInstance",
+                "operationId": "delete-v0-awsRelationalDatabaseInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2851,7 +2887,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing aws relational database instance.",
-                "operationId": "update-awsRelationalDatabaseInstance",
+                "operationId": "update-v0-awsRelationalDatabaseInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2908,7 +2944,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all control plane definitions.",
-                "operationId": "get-controlPlaneDefinitions",
+                "operationId": "get-v0-controlPlaneDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -2947,7 +2983,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new control plane definition.",
-                "operationId": "add-controlPlaneDefinition",
+                "operationId": "add-v0-controlPlaneDefinition",
                 "parameters": [
                     {
                         "description": "ControlPlaneDefinition object",
@@ -2991,7 +3027,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a control plane definition.",
-                "operationId": "get-controlPlaneDefinition",
+                "operationId": "get-v0-controlPlaneDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3031,7 +3067,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing control plane definition by replacing the entire object.",
-                "operationId": "replace-controlPlaneDefinition",
+                "operationId": "replace-v0-controlPlaneDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3086,7 +3122,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a control plane definition.",
-                "operationId": "delete-controlPlaneDefinition",
+                "operationId": "delete-v0-controlPlaneDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3132,7 +3168,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing control plane definition.",
-                "operationId": "update-controlPlaneDefinition",
+                "operationId": "update-v0-controlPlaneDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3189,7 +3225,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all control plane instances.",
-                "operationId": "get-controlPlaneInstances",
+                "operationId": "get-v0-controlPlaneInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -3228,7 +3264,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new control plane instance.",
-                "operationId": "add-controlPlaneInstance",
+                "operationId": "add-v0-controlPlaneInstance",
                 "parameters": [
                     {
                         "description": "ControlPlaneInstance object",
@@ -3272,7 +3308,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a control plane instance.",
-                "operationId": "get-controlPlaneInstance",
+                "operationId": "get-v0-controlPlaneInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3312,7 +3348,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing control plane instance by replacing the entire object.",
-                "operationId": "replace-controlPlaneInstance",
+                "operationId": "replace-v0-controlPlaneInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3367,7 +3403,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a control plane instance.",
-                "operationId": "delete-controlPlaneInstance",
+                "operationId": "delete-v0-controlPlaneInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3413,7 +3449,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing control plane instance.",
-                "operationId": "update-controlPlaneInstance",
+                "operationId": "update-v0-controlPlaneInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3470,7 +3506,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all domain name definitions.",
-                "operationId": "get-domainNameDefinitions",
+                "operationId": "get-v0-domainNameDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -3509,7 +3545,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new domain name definition.",
-                "operationId": "add-domainNameDefinition",
+                "operationId": "add-v0-domainNameDefinition",
                 "parameters": [
                     {
                         "description": "DomainNameDefinition object",
@@ -3553,7 +3589,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a domain name definition.",
-                "operationId": "get-domainNameDefinition",
+                "operationId": "get-v0-domainNameDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3593,7 +3629,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing domain name definition by replacing the entire object.",
-                "operationId": "replace-domainNameDefinition",
+                "operationId": "replace-v0-domainNameDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3648,7 +3684,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a domain name definition.",
-                "operationId": "delete-domainNameDefinition",
+                "operationId": "delete-v0-domainNameDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3694,7 +3730,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing domain name definition.",
-                "operationId": "update-domainNameDefinition",
+                "operationId": "update-v0-domainNameDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3751,7 +3787,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all domain name instances.",
-                "operationId": "get-domainNameInstances",
+                "operationId": "get-v0-domainNameInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -3790,7 +3826,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new domain name instance.",
-                "operationId": "add-domainNameInstance",
+                "operationId": "add-v0-domainNameInstance",
                 "parameters": [
                     {
                         "description": "DomainNameInstance object",
@@ -3834,7 +3870,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a domain name instance.",
-                "operationId": "get-domainNameInstance",
+                "operationId": "get-v0-domainNameInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3874,7 +3910,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing domain name instance by replacing the entire object.",
-                "operationId": "replace-domainNameInstance",
+                "operationId": "replace-v0-domainNameInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3929,7 +3965,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a domain name instance.",
-                "operationId": "delete-domainNameInstance",
+                "operationId": "delete-v0-domainNameInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -3975,7 +4011,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing domain name instance.",
-                "operationId": "update-domainNameInstance",
+                "operationId": "update-v0-domainNameInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4032,7 +4068,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all gateway definitions.",
-                "operationId": "get-gatewayDefinitions",
+                "operationId": "get-v0-gatewayDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -4071,7 +4107,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new gateway definition.",
-                "operationId": "add-gatewayDefinition",
+                "operationId": "add-v0-gatewayDefinition",
                 "parameters": [
                     {
                         "description": "GatewayDefinition object",
@@ -4115,7 +4151,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a gateway definition.",
-                "operationId": "get-gatewayDefinition",
+                "operationId": "get-v0-gatewayDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4155,7 +4191,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing gateway definition by replacing the entire object.",
-                "operationId": "replace-gatewayDefinition",
+                "operationId": "replace-v0-gatewayDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4210,7 +4246,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a gateway definition.",
-                "operationId": "delete-gatewayDefinition",
+                "operationId": "delete-v0-gatewayDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4256,7 +4292,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing gateway definition.",
-                "operationId": "update-gatewayDefinition",
+                "operationId": "update-v0-gatewayDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4313,7 +4349,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all gateway http ports.",
-                "operationId": "get-gatewayHttpPorts",
+                "operationId": "get-v0-gatewayHttpPorts",
                 "parameters": [
                     {
                         "type": "string",
@@ -4352,7 +4388,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new gateway http port.",
-                "operationId": "add-gatewayHttpPort",
+                "operationId": "add-v0-gatewayHttpPort",
                 "parameters": [
                     {
                         "description": "GatewayHttpPort object",
@@ -4396,7 +4432,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a gateway http port.",
-                "operationId": "get-gatewayHttpPort",
+                "operationId": "get-v0-gatewayHttpPort",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4436,7 +4472,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing gateway http port by replacing the entire object.",
-                "operationId": "replace-gatewayHttpPort",
+                "operationId": "replace-v0-gatewayHttpPort",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4491,7 +4527,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a gateway http port.",
-                "operationId": "delete-gatewayHttpPort",
+                "operationId": "delete-v0-gatewayHttpPort",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4537,7 +4573,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing gateway http port.",
-                "operationId": "update-gatewayHttpPort",
+                "operationId": "update-v0-gatewayHttpPort",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4594,7 +4630,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all gateway instances.",
-                "operationId": "get-gatewayInstances",
+                "operationId": "get-v0-gatewayInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -4633,7 +4669,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new gateway instance.",
-                "operationId": "add-gatewayInstance",
+                "operationId": "add-v0-gatewayInstance",
                 "parameters": [
                     {
                         "description": "GatewayInstance object",
@@ -4677,7 +4713,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a gateway instance.",
-                "operationId": "get-gatewayInstance",
+                "operationId": "get-v0-gatewayInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4717,7 +4753,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing gateway instance by replacing the entire object.",
-                "operationId": "replace-gatewayInstance",
+                "operationId": "replace-v0-gatewayInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4772,7 +4808,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a gateway instance.",
-                "operationId": "delete-gatewayInstance",
+                "operationId": "delete-v0-gatewayInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4818,7 +4854,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing gateway instance.",
-                "operationId": "update-gatewayInstance",
+                "operationId": "update-v0-gatewayInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4875,7 +4911,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all gateway tcp ports.",
-                "operationId": "get-gatewayTcpPorts",
+                "operationId": "get-v0-gatewayTcpPorts",
                 "parameters": [
                     {
                         "type": "string",
@@ -4914,7 +4950,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new gateway tcp port.",
-                "operationId": "add-gatewayTcpPort",
+                "operationId": "add-v0-gatewayTcpPort",
                 "parameters": [
                     {
                         "description": "GatewayTcpPort object",
@@ -4958,7 +4994,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a gateway tcp port.",
-                "operationId": "get-gatewayTcpPort",
+                "operationId": "get-v0-gatewayTcpPort",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4998,7 +5034,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing gateway tcp port by replacing the entire object.",
-                "operationId": "replace-gatewayTcpPort",
+                "operationId": "replace-v0-gatewayTcpPort",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5053,7 +5089,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a gateway tcp port.",
-                "operationId": "delete-gatewayTcpPort",
+                "operationId": "delete-v0-gatewayTcpPort",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5099,7 +5135,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing gateway tcp port.",
-                "operationId": "update-gatewayTcpPort",
+                "operationId": "update-v0-gatewayTcpPort",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5156,7 +5192,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all helm workload definitions.",
-                "operationId": "get-helmWorkloadDefinitions",
+                "operationId": "get-v0-helmWorkloadDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -5195,7 +5231,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new helm workload definition.",
-                "operationId": "add-helmWorkloadDefinition",
+                "operationId": "add-v0-helmWorkloadDefinition",
                 "parameters": [
                     {
                         "description": "HelmWorkloadDefinition object",
@@ -5239,7 +5275,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a helm workload definition.",
-                "operationId": "get-helmWorkloadDefinition",
+                "operationId": "get-v0-helmWorkloadDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5279,7 +5315,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing helm workload definition by replacing the entire object.",
-                "operationId": "replace-helmWorkloadDefinition",
+                "operationId": "replace-v0-helmWorkloadDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5334,7 +5370,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a helm workload definition.",
-                "operationId": "delete-helmWorkloadDefinition",
+                "operationId": "delete-v0-helmWorkloadDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5380,7 +5416,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing helm workload definition.",
-                "operationId": "update-helmWorkloadDefinition",
+                "operationId": "update-v0-helmWorkloadDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5437,7 +5473,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all helm workload instances.",
-                "operationId": "get-helmWorkloadInstances",
+                "operationId": "get-v0-helmWorkloadInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -5476,7 +5512,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new helm workload instance.",
-                "operationId": "add-helmWorkloadInstance",
+                "operationId": "add-v0-helmWorkloadInstance",
                 "parameters": [
                     {
                         "description": "HelmWorkloadInstance object",
@@ -5520,7 +5556,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a helm workload instance.",
-                "operationId": "get-helmWorkloadInstance",
+                "operationId": "get-v0-helmWorkloadInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5560,7 +5596,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing helm workload instance by replacing the entire object.",
-                "operationId": "replace-helmWorkloadInstance",
+                "operationId": "replace-v0-helmWorkloadInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5615,7 +5651,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a helm workload instance.",
-                "operationId": "delete-helmWorkloadInstance",
+                "operationId": "delete-v0-helmWorkloadInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5661,7 +5697,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing helm workload instance.",
-                "operationId": "update-helmWorkloadInstance",
+                "operationId": "update-v0-helmWorkloadInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5718,7 +5754,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all kubernetes runtime definitions.",
-                "operationId": "get-kubernetesRuntimeDefinitions",
+                "operationId": "get-v0-kubernetesRuntimeDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -5757,7 +5793,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new kubernetes runtime definition.",
-                "operationId": "add-kubernetesRuntimeDefinition",
+                "operationId": "add-v0-kubernetesRuntimeDefinition",
                 "parameters": [
                     {
                         "description": "KubernetesRuntimeDefinition object",
@@ -5801,7 +5837,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a kubernetes runtime definition.",
-                "operationId": "get-kubernetesRuntimeDefinition",
+                "operationId": "get-v0-kubernetesRuntimeDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5841,7 +5877,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing kubernetes runtime definition by replacing the entire object.",
-                "operationId": "replace-kubernetesRuntimeDefinition",
+                "operationId": "replace-v0-kubernetesRuntimeDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5896,7 +5932,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a kubernetes runtime definition.",
-                "operationId": "delete-kubernetesRuntimeDefinition",
+                "operationId": "delete-v0-kubernetesRuntimeDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5942,7 +5978,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing kubernetes runtime definition.",
-                "operationId": "update-kubernetesRuntimeDefinition",
+                "operationId": "update-v0-kubernetesRuntimeDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -5999,7 +6035,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all kubernetes runtime instances.",
-                "operationId": "get-kubernetesRuntimeInstances",
+                "operationId": "get-v0-kubernetesRuntimeInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -6038,7 +6074,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new kubernetes runtime instance.",
-                "operationId": "add-kubernetesRuntimeInstance",
+                "operationId": "add-v0-kubernetesRuntimeInstance",
                 "parameters": [
                     {
                         "description": "KubernetesRuntimeInstance object",
@@ -6082,7 +6118,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a kubernetes runtime instance.",
-                "operationId": "get-kubernetesRuntimeInstance",
+                "operationId": "get-v0-kubernetesRuntimeInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -6122,7 +6158,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing kubernetes runtime instance by replacing the entire object.",
-                "operationId": "replace-kubernetesRuntimeInstance",
+                "operationId": "replace-v0-kubernetesRuntimeInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -6177,7 +6213,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a kubernetes runtime instance.",
-                "operationId": "delete-kubernetesRuntimeInstance",
+                "operationId": "delete-v0-kubernetesRuntimeInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -6223,7 +6259,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing kubernetes runtime instance.",
-                "operationId": "update-kubernetesRuntimeInstance",
+                "operationId": "update-v0-kubernetesRuntimeInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -6280,7 +6316,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all log backends.",
-                "operationId": "get-logBackends",
+                "operationId": "get-v0-logBackends",
                 "parameters": [
                     {
                         "type": "string",
@@ -6319,7 +6355,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new log backend.",
-                "operationId": "add-logBackend",
+                "operationId": "add-v0-logBackend",
                 "parameters": [
                     {
                         "description": "LogBackend object",
@@ -6363,7 +6399,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a log backend.",
-                "operationId": "get-logBackend",
+                "operationId": "get-v0-logBackend",
                 "parameters": [
                     {
                         "type": "integer",
@@ -6403,7 +6439,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing log backend by replacing the entire object.",
-                "operationId": "replace-logBackend",
+                "operationId": "replace-v0-logBackend",
                 "parameters": [
                     {
                         "type": "integer",
@@ -6458,7 +6494,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a log backend.",
-                "operationId": "delete-logBackend",
+                "operationId": "delete-v0-logBackend",
                 "parameters": [
                     {
                         "type": "integer",
@@ -6504,7 +6540,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing log backend.",
-                "operationId": "update-logBackend",
+                "operationId": "update-v0-logBackend",
                 "parameters": [
                     {
                         "type": "integer",
@@ -6561,7 +6597,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all log storage definitions.",
-                "operationId": "get-logStorageDefinitions",
+                "operationId": "get-v0-logStorageDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -6600,7 +6636,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new log storage definition.",
-                "operationId": "add-logStorageDefinition",
+                "operationId": "add-v0-logStorageDefinition",
                 "parameters": [
                     {
                         "description": "LogStorageDefinition object",
@@ -6644,7 +6680,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a log storage definition.",
-                "operationId": "get-logStorageDefinition",
+                "operationId": "get-v0-logStorageDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -6684,7 +6720,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing log storage definition by replacing the entire object.",
-                "operationId": "replace-logStorageDefinition",
+                "operationId": "replace-v0-logStorageDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -6739,7 +6775,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a log storage definition.",
-                "operationId": "delete-logStorageDefinition",
+                "operationId": "delete-v0-logStorageDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -6785,7 +6821,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing log storage definition.",
-                "operationId": "update-logStorageDefinition",
+                "operationId": "update-v0-logStorageDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -6842,7 +6878,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all log storage instances.",
-                "operationId": "get-logStorageInstances",
+                "operationId": "get-v0-logStorageInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -6881,7 +6917,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new log storage instance.",
-                "operationId": "add-logStorageInstance",
+                "operationId": "add-v0-logStorageInstance",
                 "parameters": [
                     {
                         "description": "LogStorageInstance object",
@@ -6925,7 +6961,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a log storage instance.",
-                "operationId": "get-logStorageInstance",
+                "operationId": "get-v0-logStorageInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -6965,7 +7001,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing log storage instance by replacing the entire object.",
-                "operationId": "replace-logStorageInstance",
+                "operationId": "replace-v0-logStorageInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7020,7 +7056,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a log storage instance.",
-                "operationId": "delete-logStorageInstance",
+                "operationId": "delete-v0-logStorageInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7066,7 +7102,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing log storage instance.",
-                "operationId": "update-logStorageInstance",
+                "operationId": "update-v0-logStorageInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7123,7 +7159,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all logging definitions.",
-                "operationId": "get-loggingDefinitions",
+                "operationId": "get-v0-loggingDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -7162,7 +7198,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new logging definition.",
-                "operationId": "add-loggingDefinition",
+                "operationId": "add-v0-loggingDefinition",
                 "parameters": [
                     {
                         "description": "LoggingDefinition object",
@@ -7206,7 +7242,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a logging definition.",
-                "operationId": "get-loggingDefinition",
+                "operationId": "get-v0-loggingDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7246,7 +7282,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing logging definition by replacing the entire object.",
-                "operationId": "replace-loggingDefinition",
+                "operationId": "replace-v0-loggingDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7301,7 +7337,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a logging definition.",
-                "operationId": "delete-loggingDefinition",
+                "operationId": "delete-v0-loggingDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7347,7 +7383,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing logging definition.",
-                "operationId": "update-loggingDefinition",
+                "operationId": "update-v0-loggingDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7404,7 +7440,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all logging instances.",
-                "operationId": "get-loggingInstances",
+                "operationId": "get-v0-loggingInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -7443,7 +7479,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new logging instance.",
-                "operationId": "add-loggingInstance",
+                "operationId": "add-v0-loggingInstance",
                 "parameters": [
                     {
                         "description": "LoggingInstance object",
@@ -7487,7 +7523,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a logging instance.",
-                "operationId": "get-loggingInstance",
+                "operationId": "get-v0-loggingInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7527,7 +7563,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing logging instance by replacing the entire object.",
-                "operationId": "replace-loggingInstance",
+                "operationId": "replace-v0-loggingInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7582,7 +7618,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a logging instance.",
-                "operationId": "delete-loggingInstance",
+                "operationId": "delete-v0-loggingInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7628,7 +7664,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing logging instance.",
-                "operationId": "update-loggingInstance",
+                "operationId": "update-v0-loggingInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7685,7 +7721,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all metrics definitions.",
-                "operationId": "get-metricsDefinitions",
+                "operationId": "get-v0-metricsDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -7724,7 +7760,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new metrics definition.",
-                "operationId": "add-metricsDefinition",
+                "operationId": "add-v0-metricsDefinition",
                 "parameters": [
                     {
                         "description": "MetricsDefinition object",
@@ -7768,7 +7804,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a metrics definition.",
-                "operationId": "get-metricsDefinition",
+                "operationId": "get-v0-metricsDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7808,7 +7844,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing metrics definition by replacing the entire object.",
-                "operationId": "replace-metricsDefinition",
+                "operationId": "replace-v0-metricsDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7863,7 +7899,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a metrics definition.",
-                "operationId": "delete-metricsDefinition",
+                "operationId": "delete-v0-metricsDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7909,7 +7945,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing metrics definition.",
-                "operationId": "update-metricsDefinition",
+                "operationId": "update-v0-metricsDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -7966,7 +8002,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all metrics instances.",
-                "operationId": "get-metricsInstances",
+                "operationId": "get-v0-metricsInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -8005,7 +8041,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new metrics instance.",
-                "operationId": "add-metricsInstance",
+                "operationId": "add-v0-metricsInstance",
                 "parameters": [
                     {
                         "description": "MetricsInstance object",
@@ -8049,7 +8085,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a metrics instance.",
-                "operationId": "get-metricsInstance",
+                "operationId": "get-v0-metricsInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8089,7 +8125,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing metrics instance by replacing the entire object.",
-                "operationId": "replace-metricsInstance",
+                "operationId": "replace-v0-metricsInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8144,7 +8180,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a metrics instance.",
-                "operationId": "delete-metricsInstance",
+                "operationId": "delete-v0-metricsInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8190,7 +8226,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing metrics instance.",
-                "operationId": "update-metricsInstance",
+                "operationId": "update-v0-metricsInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8247,7 +8283,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all observability dashboard definitions.",
-                "operationId": "get-observabilityDashboardDefinitions",
+                "operationId": "get-v0-observabilityDashboardDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -8286,7 +8322,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new observability dashboard definition.",
-                "operationId": "add-observabilityDashboardDefinition",
+                "operationId": "add-v0-observabilityDashboardDefinition",
                 "parameters": [
                     {
                         "description": "ObservabilityDashboardDefinition object",
@@ -8330,7 +8366,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a observability dashboard definition.",
-                "operationId": "get-observabilityDashboardDefinition",
+                "operationId": "get-v0-observabilityDashboardDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8370,7 +8406,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing observability dashboard definition by replacing the entire object.",
-                "operationId": "replace-observabilityDashboardDefinition",
+                "operationId": "replace-v0-observabilityDashboardDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8425,7 +8461,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a observability dashboard definition.",
-                "operationId": "delete-observabilityDashboardDefinition",
+                "operationId": "delete-v0-observabilityDashboardDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8471,7 +8507,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing observability dashboard definition.",
-                "operationId": "update-observabilityDashboardDefinition",
+                "operationId": "update-v0-observabilityDashboardDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8528,7 +8564,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all observability dashboard instances.",
-                "operationId": "get-observabilityDashboardInstances",
+                "operationId": "get-v0-observabilityDashboardInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -8567,7 +8603,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new observability dashboard instance.",
-                "operationId": "add-observabilityDashboardInstance",
+                "operationId": "add-v0-observabilityDashboardInstance",
                 "parameters": [
                     {
                         "description": "ObservabilityDashboardInstance object",
@@ -8611,7 +8647,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a observability dashboard instance.",
-                "operationId": "get-observabilityDashboardInstance",
+                "operationId": "get-v0-observabilityDashboardInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8651,7 +8687,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing observability dashboard instance by replacing the entire object.",
-                "operationId": "replace-observabilityDashboardInstance",
+                "operationId": "replace-v0-observabilityDashboardInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8706,7 +8742,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a observability dashboard instance.",
-                "operationId": "delete-observabilityDashboardInstance",
+                "operationId": "delete-v0-observabilityDashboardInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8752,7 +8788,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing observability dashboard instance.",
-                "operationId": "update-observabilityDashboardInstance",
+                "operationId": "update-v0-observabilityDashboardInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8809,7 +8845,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all observability stack definitions.",
-                "operationId": "get-observabilityStackDefinitions",
+                "operationId": "get-v0-observabilityStackDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -8848,7 +8884,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new observability stack definition.",
-                "operationId": "add-observabilityStackDefinition",
+                "operationId": "add-v0-observabilityStackDefinition",
                 "parameters": [
                     {
                         "description": "ObservabilityStackDefinition object",
@@ -8892,7 +8928,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a observability stack definition.",
-                "operationId": "get-observabilityStackDefinition",
+                "operationId": "get-v0-observabilityStackDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8932,7 +8968,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing observability stack definition by replacing the entire object.",
-                "operationId": "replace-observabilityStackDefinition",
+                "operationId": "replace-v0-observabilityStackDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8987,7 +9023,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a observability stack definition.",
-                "operationId": "delete-observabilityStackDefinition",
+                "operationId": "delete-v0-observabilityStackDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9033,7 +9069,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing observability stack definition.",
-                "operationId": "update-observabilityStackDefinition",
+                "operationId": "update-v0-observabilityStackDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9090,7 +9126,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all observability stack instances.",
-                "operationId": "get-observabilityStackInstances",
+                "operationId": "get-v0-observabilityStackInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -9129,7 +9165,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new observability stack instance.",
-                "operationId": "add-observabilityStackInstance",
+                "operationId": "add-v0-observabilityStackInstance",
                 "parameters": [
                     {
                         "description": "ObservabilityStackInstance object",
@@ -9173,7 +9209,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a observability stack instance.",
-                "operationId": "get-observabilityStackInstance",
+                "operationId": "get-v0-observabilityStackInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9213,7 +9249,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing observability stack instance by replacing the entire object.",
-                "operationId": "replace-observabilityStackInstance",
+                "operationId": "replace-v0-observabilityStackInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9268,7 +9304,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a observability stack instance.",
-                "operationId": "delete-observabilityStackInstance",
+                "operationId": "delete-v0-observabilityStackInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9314,7 +9350,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing observability stack instance.",
-                "operationId": "update-observabilityStackInstance",
+                "operationId": "update-v0-observabilityStackInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9371,7 +9407,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all profiles.",
-                "operationId": "get-profiles",
+                "operationId": "get-v0-profiles",
                 "parameters": [
                     {
                         "type": "string",
@@ -9410,7 +9446,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new profile.",
-                "operationId": "add-profile",
+                "operationId": "add-v0-profile",
                 "parameters": [
                     {
                         "description": "Profile object",
@@ -9454,7 +9490,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a profile.",
-                "operationId": "get-profile",
+                "operationId": "get-v0-profile",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9494,7 +9530,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing profile by replacing the entire object.",
-                "operationId": "replace-profile",
+                "operationId": "replace-v0-profile",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9549,7 +9585,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a profile.",
-                "operationId": "delete-profile",
+                "operationId": "delete-v0-profile",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9595,7 +9631,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing profile.",
-                "operationId": "update-profile",
+                "operationId": "update-v0-profile",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9642,6 +9678,568 @@ const docTemplate = `{
                 }
             }
         },
+        "/v0/secret-definitions": {
+            "get": {
+                "description": "Get all secret definitions from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all secret definitions.",
+                "operationId": "get-v0-secretDefinitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "secret definition search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new secret definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new secret definition.",
+                "operationId": "add-v0-secretDefinition",
+                "parameters": [
+                    {
+                        "description": "SecretDefinition object",
+                        "name": "secretDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.SecretDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/secret-definitions/{id}": {
+            "get": {
+                "description": "Get a particular secret definition from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a secret definition.",
+                "operationId": "get-v0-secretDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a secret definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating secret definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing secret definition by replacing the entire object.",
+                "operationId": "replace-v0-secretDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "SecretDefinition object",
+                        "name": "secretDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.SecretDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a secret definition by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a secret definition.",
+                "operationId": "delete-v0-secretDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a secret definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating secret definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing secret definition.",
+                "operationId": "update-v0-secretDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "SecretDefinition object",
+                        "name": "secretDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.SecretDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/secret-instances": {
+            "get": {
+                "description": "Get all secret instances from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all secret instances.",
+                "operationId": "get-v0-secretInstances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "secret instance search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new secret instance to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new secret instance.",
+                "operationId": "add-v0-secretInstance",
+                "parameters": [
+                    {
+                        "description": "SecretInstance object",
+                        "name": "secretInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.SecretInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/secret-instances/{id}": {
+            "get": {
+                "description": "Get a particular secret instance from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a secret instance.",
+                "operationId": "get-v0-secretInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a secret instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating secret instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing secret instance by replacing the entire object.",
+                "operationId": "replace-v0-secretInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "SecretInstance object",
+                        "name": "secretInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.SecretInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a secret instance by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a secret instance.",
+                "operationId": "delete-v0-secretInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a secret instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating secret instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing secret instance.",
+                "operationId": "update-v0-secretInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "SecretInstance object",
+                        "name": "secretInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.SecretInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/terraform-definitions": {
             "get": {
                 "description": "Get all terraform definitions from the Threeport database.",
@@ -9652,7 +10250,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all terraform definitions.",
-                "operationId": "get-terraformDefinitions",
+                "operationId": "get-v0-terraformDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -9691,7 +10289,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new terraform definition.",
-                "operationId": "add-terraformDefinition",
+                "operationId": "add-v0-terraformDefinition",
                 "parameters": [
                     {
                         "description": "TerraformDefinition object",
@@ -9735,7 +10333,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a terraform definition.",
-                "operationId": "get-terraformDefinition",
+                "operationId": "get-v0-terraformDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9775,7 +10373,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing terraform definition by replacing the entire object.",
-                "operationId": "replace-terraformDefinition",
+                "operationId": "replace-v0-terraformDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9830,7 +10428,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a terraform definition.",
-                "operationId": "delete-terraformDefinition",
+                "operationId": "delete-v0-terraformDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9876,7 +10474,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing terraform definition.",
-                "operationId": "update-terraformDefinition",
+                "operationId": "update-v0-terraformDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -9933,7 +10531,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all terraform instances.",
-                "operationId": "get-terraformInstances",
+                "operationId": "get-v0-terraformInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -9972,7 +10570,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new terraform instance.",
-                "operationId": "add-terraformInstance",
+                "operationId": "add-v0-terraformInstance",
                 "parameters": [
                     {
                         "description": "TerraformInstance object",
@@ -10016,7 +10614,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a terraform instance.",
-                "operationId": "get-terraformInstance",
+                "operationId": "get-v0-terraformInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10056,7 +10654,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing terraform instance by replacing the entire object.",
-                "operationId": "replace-terraformInstance",
+                "operationId": "replace-v0-terraformInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10111,7 +10709,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a terraform instance.",
-                "operationId": "delete-terraformInstance",
+                "operationId": "delete-v0-terraformInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10157,7 +10755,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing terraform instance.",
-                "operationId": "update-terraformInstance",
+                "operationId": "update-v0-terraformInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10214,7 +10812,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all tiers.",
-                "operationId": "get-tiers",
+                "operationId": "get-v0-tiers",
                 "parameters": [
                     {
                         "type": "string",
@@ -10253,7 +10851,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new tier.",
-                "operationId": "add-tier",
+                "operationId": "add-v0-tier",
                 "parameters": [
                     {
                         "description": "Tier object",
@@ -10297,7 +10895,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a tier.",
-                "operationId": "get-tier",
+                "operationId": "get-v0-tier",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10337,7 +10935,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing tier by replacing the entire object.",
-                "operationId": "replace-tier",
+                "operationId": "replace-v0-tier",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10392,7 +10990,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a tier.",
-                "operationId": "delete-tier",
+                "operationId": "delete-v0-tier",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10438,7 +11036,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing tier.",
-                "operationId": "update-tier",
+                "operationId": "update-v0-tier",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10495,7 +11093,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all workload definitions.",
-                "operationId": "get-workloadDefinitions",
+                "operationId": "get-v0-workloadDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -10534,7 +11132,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new workload definition.",
-                "operationId": "add-workloadDefinition",
+                "operationId": "add-v0-workloadDefinition",
                 "parameters": [
                     {
                         "description": "WorkloadDefinition object",
@@ -10578,7 +11176,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a workload definition.",
-                "operationId": "get-workloadDefinition",
+                "operationId": "get-v0-workloadDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10618,7 +11216,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing workload definition by replacing the entire object.",
-                "operationId": "replace-workloadDefinition",
+                "operationId": "replace-v0-workloadDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10673,7 +11271,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a workload definition.",
-                "operationId": "delete-workloadDefinition",
+                "operationId": "delete-v0-workloadDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10719,7 +11317,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing workload definition.",
-                "operationId": "update-workloadDefinition",
+                "operationId": "update-v0-workloadDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10776,7 +11374,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all workload events.",
-                "operationId": "get-workloadEvents",
+                "operationId": "get-v0-workloadEvents",
                 "parameters": [
                     {
                         "type": "string",
@@ -10815,7 +11413,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new workload event.",
-                "operationId": "add-workloadEvent",
+                "operationId": "add-v0-workloadEvent",
                 "parameters": [
                     {
                         "description": "WorkloadEvent object",
@@ -10898,7 +11496,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a workload event.",
-                "operationId": "get-workloadEvent",
+                "operationId": "get-v0-workloadEvent",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10938,7 +11536,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing workload event by replacing the entire object.",
-                "operationId": "replace-workloadEvent",
+                "operationId": "replace-v0-workloadEvent",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10993,7 +11591,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a workload event.",
-                "operationId": "delete-workloadEvent",
+                "operationId": "delete-v0-workloadEvent",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11039,7 +11637,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing workload event.",
-                "operationId": "update-workloadEvent",
+                "operationId": "update-v0-workloadEvent",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11096,7 +11694,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all workload instances.",
-                "operationId": "get-workloadInstances",
+                "operationId": "get-v0-workloadInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -11135,7 +11733,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new workload instance.",
-                "operationId": "add-workloadInstance",
+                "operationId": "add-v0-workloadInstance",
                 "parameters": [
                     {
                         "description": "WorkloadInstance object",
@@ -11179,7 +11777,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a workload instance.",
-                "operationId": "get-workloadInstance",
+                "operationId": "get-v0-workloadInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11219,7 +11817,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing workload instance by replacing the entire object.",
-                "operationId": "replace-workloadInstance",
+                "operationId": "replace-v0-workloadInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11274,7 +11872,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a workload instance.",
-                "operationId": "delete-workloadInstance",
+                "operationId": "delete-v0-workloadInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11320,7 +11918,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing workload instance.",
-                "operationId": "update-workloadInstance",
+                "operationId": "update-v0-workloadInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11424,7 +12022,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all workload resource definitions.",
-                "operationId": "get-workloadResourceDefinitions",
+                "operationId": "get-v0-workloadResourceDefinitions",
                 "parameters": [
                     {
                         "type": "string",
@@ -11463,7 +12061,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new workload resource definition.",
-                "operationId": "add-workloadResourceDefinition",
+                "operationId": "add-v0-workloadResourceDefinition",
                 "parameters": [
                     {
                         "description": "WorkloadResourceDefinition object",
@@ -11507,7 +12105,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a workload resource definition.",
-                "operationId": "get-workloadResourceDefinition",
+                "operationId": "get-v0-workloadResourceDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11547,7 +12145,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing workload resource definition by replacing the entire object.",
-                "operationId": "replace-workloadResourceDefinition",
+                "operationId": "replace-v0-workloadResourceDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11602,7 +12200,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a workload resource definition.",
-                "operationId": "delete-workloadResourceDefinition",
+                "operationId": "delete-v0-workloadResourceDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11648,7 +12246,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing workload resource definition.",
-                "operationId": "update-workloadResourceDefinition",
+                "operationId": "update-v0-workloadResourceDefinition",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11705,7 +12303,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all workload resource instances.",
-                "operationId": "get-workloadResourceInstances",
+                "operationId": "get-v0-workloadResourceInstances",
                 "parameters": [
                     {
                         "type": "string",
@@ -11744,7 +12342,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "adds a new workload resource instance.",
-                "operationId": "add-workloadResourceInstance",
+                "operationId": "add-v0-workloadResourceInstance",
                 "parameters": [
                     {
                         "description": "WorkloadResourceInstance object",
@@ -11788,7 +12386,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets a workload resource instance.",
-                "operationId": "get-workloadResourceInstance",
+                "operationId": "get-v0-workloadResourceInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11828,7 +12426,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates an existing workload resource instance by replacing the entire object.",
-                "operationId": "replace-workloadResourceInstance",
+                "operationId": "replace-v0-workloadResourceInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11883,7 +12481,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "deletes a workload resource instance.",
-                "operationId": "delete-workloadResourceInstance",
+                "operationId": "delete-v0-workloadResourceInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11929,7 +12527,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "updates specific fields for an existing workload resource instance.",
-                "operationId": "update-workloadResourceInstance",
+                "operationId": "update-v0-workloadResourceInstance",
                 "parameters": [
                     {
                         "type": "integer",
@@ -11945,6 +12543,568 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.WorkloadResourceInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/attached-object-references": {
+            "get": {
+                "description": "Get all attached object references from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all attached object references.",
+                "operationId": "get-v1-attachedObjectReferences",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "attached object reference search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new attached object reference to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new attached object reference.",
+                "operationId": "add-v1-attachedObjectReference",
+                "parameters": [
+                    {
+                        "description": "AttachedObjectReference object",
+                        "name": "attachedObjectReference",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.AttachedObjectReference"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/attached-object-references/{id}": {
+            "get": {
+                "description": "Get a particular attached object reference from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a attached object reference.",
+                "operationId": "get-v1-attachedObjectReference",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a attached object reference in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating attached object reference objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing attached object reference by replacing the entire object.",
+                "operationId": "replace-v1-attachedObjectReference",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "AttachedObjectReference object",
+                        "name": "attachedObjectReference",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.AttachedObjectReference"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a attached object reference by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a attached object reference.",
+                "operationId": "delete-v1-attachedObjectReference",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a attached object reference in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating attached object reference objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing attached object reference.",
+                "operationId": "update-v1-attachedObjectReference",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "AttachedObjectReference object",
+                        "name": "attachedObjectReference",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.AttachedObjectReference"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/workload-instances": {
+            "get": {
+                "description": "Get all workload instances from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all workload instances.",
+                "operationId": "get-v1-workloadInstances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "workload instance search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new workload instance to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new workload instance.",
+                "operationId": "add-v1-workloadInstance",
+                "parameters": [
+                    {
+                        "description": "WorkloadInstance object",
+                        "name": "workloadInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.WorkloadInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/workload-instances/{id}": {
+            "get": {
+                "description": "Get a particular workload instance from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a workload instance.",
+                "operationId": "get-v1-workloadInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a workload instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating workload instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing workload instance by replacing the entire object.",
+                "operationId": "replace-v1-workloadInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "WorkloadInstance object",
+                        "name": "workloadInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.WorkloadInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a workload instance by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a workload instance.",
+                "operationId": "delete-v1-workloadInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a workload instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating workload instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing workload instance.",
+                "operationId": "update-v1-workloadInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "WorkloadInstance object",
+                        "name": "workloadInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.WorkloadInstance"
                         }
                     }
                 ],
@@ -13134,6 +14294,16 @@ const docTemplate = `{
                 "Repo"
             ],
             "properties": {
+                "AdditionalResources": {
+                    "description": "Complete kubernetes resources that will be appended to the provided\nhelm chart.",
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
                 "Chart": {
                     "description": "The name of the helm chart to use from the helm repo, e.g. wordpress",
                     "type": "string"
@@ -13211,6 +14381,16 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "AdditionalResources": {
+                    "description": "Complete kubernetes resources that will be appended to the provided\nhelm chart.",
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"
@@ -13451,6 +14631,10 @@ const docTemplate = `{
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
+                },
+                "SecretsControllerInstanceId": {
+                    "description": "The WorkloadInstanceID of the secrets support service",
+                    "type": "integer"
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -13862,93 +15046,6 @@ const docTemplate = `{
                 }
             }
         },
-        "v0.ObjectType": {
-            "type": "string",
-            "enum": [
-                "HelmWorkloadDefinition",
-                "HelmWorkloadInstance",
-                "GatewayDefinition",
-                "GatewayInstance",
-                "GatewayHttpPort",
-                "GatewayTcpPort",
-                "DomainNameDefinition",
-                "DomainNameInstance",
-                "WorkloadDefinition",
-                "WorkloadResourceDefinition",
-                "WorkloadInstance",
-                "AttachedObjectReference",
-                "WorkloadResourceInstance",
-                "WorkloadEvent",
-                "Profile",
-                "Tier",
-                "AwsAccount",
-                "AwsEksKubernetesRuntimeDefinition",
-                "AwsEksKubernetesRuntimeInstance",
-                "AwsRelationalDatabaseDefinition",
-                "AwsRelationalDatabaseInstance",
-                "AwsObjectStorageBucketDefinition",
-                "AwsObjectStorageBucketInstance",
-                "KubernetesRuntimeDefinition",
-                "KubernetesRuntimeInstance",
-                "ControlPlaneDefinition",
-                "ControlPlaneInstance",
-                "TerraformDefinition",
-                "TerraformInstance",
-                "LogBackend",
-                "LogStorageDefinition",
-                "LogStorageInstance",
-                "ObservabilityStackDefinition",
-                "ObservabilityStackInstance",
-                "ObservabilityDashboardDefinition",
-                "ObservabilityDashboardInstance",
-                "MetricsDefinition",
-                "MetricsInstance",
-                "LoggingDefinition",
-                "LoggingInstance"
-            ],
-            "x-enum-varnames": [
-                "ObjectTypeHelmWorkloadDefinition",
-                "ObjectTypeHelmWorkloadInstance",
-                "ObjectTypeGatewayDefinition",
-                "ObjectTypeGatewayInstance",
-                "ObjectTypeGatewayHttpPort",
-                "ObjectTypeGatewayTcpPort",
-                "ObjectTypeDomainNameDefinition",
-                "ObjectTypeDomainNameInstance",
-                "ObjectTypeWorkloadDefinition",
-                "ObjectTypeWorkloadResourceDefinition",
-                "ObjectTypeWorkloadInstance",
-                "ObjectTypeAttachedObjectReference",
-                "ObjectTypeWorkloadResourceInstance",
-                "ObjectTypeWorkloadEvent",
-                "ObjectTypeProfile",
-                "ObjectTypeTier",
-                "ObjectTypeAwsAccount",
-                "ObjectTypeAwsEksKubernetesRuntimeDefinition",
-                "ObjectTypeAwsEksKubernetesRuntimeInstance",
-                "ObjectTypeAwsRelationalDatabaseDefinition",
-                "ObjectTypeAwsRelationalDatabaseInstance",
-                "ObjectTypeAwsObjectStorageBucketDefinition",
-                "ObjectTypeAwsObjectStorageBucketInstance",
-                "ObjectTypeKubernetesRuntimeDefinition",
-                "ObjectTypeKubernetesRuntimeInstance",
-                "ObjectTypeControlPlaneDefinition",
-                "ObjectTypeControlPlaneInstance",
-                "ObjectTypeTerraformDefinition",
-                "ObjectTypeTerraformInstance",
-                "ObjectTypeLogBackend",
-                "ObjectTypeLogStorageDefinition",
-                "ObjectTypeLogStorageInstance",
-                "ObjectTypeObservabilityStackDefinition",
-                "ObjectTypeObservabilityStackInstance",
-                "ObjectTypeObservabilityDashboardDefinition",
-                "ObjectTypeObservabilityDashboardInstance",
-                "ObjectTypeMetricsDefinition",
-                "ObjectTypeMetricsInstance",
-                "ObjectTypeLoggingDefinition",
-                "ObjectTypeLoggingInstance"
-            ]
-        },
         "v0.ObservabilityDashboardDefinition": {
             "type": "object",
             "required": [
@@ -14322,12 +15419,138 @@ const docTemplate = `{
                 },
                 "Type": {
                     "description": "Type contains ObjectType of returned Data elements",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/v0.ObjectType"
-                        }
-                    ],
+                    "type": "string",
                     "example": "Transfer"
+                }
+            }
+        },
+        "v0.SecretDefinition": {
+            "type": "object",
+            "required": [
+                "Data",
+                "Name"
+            ],
+            "properties": {
+                "AwsAccountID": {
+                    "description": "The AWS account ID, if the provider is AWS.",
+                    "type": "integer"
+                },
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "CreationConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "CreationFailed": {
+                    "description": "Gets set to true if creation process fails.",
+                    "type": "boolean"
+                },
+                "Data": {
+                    "description": "The secret value to be stored in the provider.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
+                "Name": {
+                    "description": "An arbitrary name for the definition.",
+                    "type": "string"
+                },
+                "ProfileID": {
+                    "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
+                    "type": "integer"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "TierID": {
+                    "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
+                    "type": "integer"
+                }
+            }
+        },
+        "v0.SecretInstance": {
+            "type": "object",
+            "required": [
+                "KubernetesRuntimeInstanceID",
+                "Name",
+                "SecretDefinitionID"
+            ],
+            "properties": {
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "CreationConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "CreationFailed": {
+                    "description": "Gets set to true if creation process fails.",
+                    "type": "boolean"
+                },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
+                "HelmWorkloadInstanceID": {
+                    "description": "The helm workload instance that the secret is associated with.",
+                    "type": "integer"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
+                "KubernetesRuntimeInstanceID": {
+                    "description": "The kubernetes runtime to which the helm workload is deployed.",
+                    "type": "integer"
+                },
+                "Name": {
+                    "description": "An arbitrary name the instance",
+                    "type": "string"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "SecretDefinitionID": {
+                    "description": "The SecretDefinition that the secret instance is derived from.",
+                    "type": "integer"
+                },
+                "Status": {
+                    "description": "The status of the instance.\nTODO: use a custom type",
+                    "type": "string"
+                },
+                "WorkloadInstanceID": {
+                    "description": "The workload instance that the secret is associated with.",
+                    "type": "integer"
                 }
             }
         },
@@ -14759,6 +15982,105 @@ const docTemplate = `{
                 "WorkloadInstanceID": {
                     "description": "The workload definition this resource belongs to.",
                     "type": "integer"
+                }
+            }
+        },
+        "v1.AttachedObjectReference": {
+            "type": "object",
+            "required": [
+                "AttachedObjectID",
+                "AttachedObjectType",
+                "ObjectID",
+                "ObjectType"
+            ],
+            "properties": {
+                "AttachedObjectID": {
+                    "description": "The object ID of the attached object.",
+                    "type": "integer"
+                },
+                "AttachedObjectType": {
+                    "description": "The object type of the attached object.",
+                    "type": "string"
+                },
+                "ObjectID": {
+                    "description": "The object ID of the base object.",
+                    "type": "integer"
+                },
+                "ObjectType": {
+                    "description": "The object type of the base object.",
+                    "type": "string"
+                }
+            }
+        },
+        "v1.WorkloadInstance": {
+            "type": "object",
+            "required": [
+                "KubernetesRuntimeInstanceID",
+                "Name",
+                "WorkloadDefinitionID"
+            ],
+            "properties": {
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "CreationConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "CreationFailed": {
+                    "description": "Gets set to true if creation process fails.",
+                    "type": "boolean"
+                },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
+                "Events": {
+                    "description": "All events generated for the workload instance that aren't related to a\nparticular workload resource instance.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadEvent"
+                    }
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
+                "KubernetesRuntimeInstanceID": {
+                    "description": "The kubernetes runtime to which the workload is deployed.",
+                    "type": "integer"
+                },
+                "Name": {
+                    "description": "An arbitrary name the instance",
+                    "type": "string"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "Status": {
+                    "description": "The latest status of a workload instance.",
+                    "type": "string"
+                },
+                "WorkloadDefinitionID": {
+                    "description": "The definition used to configure the workload instance.",
+                    "type": "integer"
+                },
+                "WorkloadResourceInstances": {
+                    "description": "The associated workload resource definitions that are derived.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.WorkloadResourceInstance"
+                    }
                 }
             }
         },

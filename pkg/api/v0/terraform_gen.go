@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	ObjectTypeTerraformDefinition ObjectType = "TerraformDefinition"
-	ObjectTypeTerraformInstance   ObjectType = "TerraformInstance"
+	ObjectTypeTerraformDefinition string = "TerraformDefinition"
+	ObjectTypeTerraformInstance   string = "TerraformInstance"
 
 	TerraformStreamName = "terraformStream"
 

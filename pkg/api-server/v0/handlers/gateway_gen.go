@@ -31,7 +31,7 @@ func (h Handler) GetGatewayDefinitionVersions(c echo.Context) error {
 
 // @Summary adds a new gateway definition.
 // @Description Add a new gateway definition to the Threeport database.
-// @ID add-gatewayDefinition
+// @ID add-v0-gatewayDefinition
 // @Accept json
 // @Produce json
 // @Param gatewayDefinition body v0.GatewayDefinition true "GatewayDefinition object"
@@ -100,7 +100,7 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 
 // @Summary gets all gateway definitions.
 // @Description Get all gateway definitions from the Threeport database.
-// @ID get-gatewayDefinitions
+// @ID get-v0-gatewayDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "gateway definition search by name"
@@ -140,7 +140,7 @@ func (h Handler) GetGatewayDefinitions(c echo.Context) error {
 
 // @Summary gets a gateway definition.
 // @Description Get a particular gateway definition from the database.
-// @ID get-gatewayDefinition
+// @ID get-v0-gatewayDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -173,7 +173,7 @@ func (h Handler) GetGatewayDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-gatewayDefinition
+// @ID update-v0-gatewayDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -238,7 +238,7 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-gatewayDefinition
+// @ID replace-v0-gatewayDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -299,7 +299,7 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 
 // @Summary deletes a gateway definition.
 // @Description Delete a gateway definition by ID from the database.
-// @ID delete-gatewayDefinition
+// @ID delete-v0-gatewayDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -391,7 +391,7 @@ func (h Handler) GetGatewayInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new gateway instance.
 // @Description Add a new gateway instance to the Threeport database.
-// @ID add-gatewayInstance
+// @ID add-v0-gatewayInstance
 // @Accept json
 // @Produce json
 // @Param gatewayInstance body v0.GatewayInstance true "GatewayInstance object"
@@ -460,7 +460,7 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 
 // @Summary gets all gateway instances.
 // @Description Get all gateway instances from the Threeport database.
-// @ID get-gatewayInstances
+// @ID get-v0-gatewayInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "gateway instance search by name"
@@ -500,7 +500,7 @@ func (h Handler) GetGatewayInstances(c echo.Context) error {
 
 // @Summary gets a gateway instance.
 // @Description Get a particular gateway instance from the database.
-// @ID get-gatewayInstance
+// @ID get-v0-gatewayInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -533,7 +533,7 @@ func (h Handler) GetGatewayInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-gatewayInstance
+// @ID update-v0-gatewayInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -598,7 +598,7 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-gatewayInstance
+// @ID replace-v0-gatewayInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -659,7 +659,7 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 
 // @Summary deletes a gateway instance.
 // @Description Delete a gateway instance by ID from the database.
-// @ID delete-gatewayInstance
+// @ID delete-v0-gatewayInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -745,7 +745,7 @@ func (h Handler) GetGatewayHttpPortVersions(c echo.Context) error {
 
 // @Summary adds a new gateway http port.
 // @Description Add a new gateway http port to the Threeport database.
-// @ID add-gatewayHttpPort
+// @ID add-v0-gatewayHttpPort
 // @Accept json
 // @Produce json
 // @Param gatewayHttpPort body v0.GatewayHttpPort true "GatewayHttpPort object"
@@ -786,7 +786,7 @@ func (h Handler) AddGatewayHttpPort(c echo.Context) error {
 
 // @Summary gets all gateway http ports.
 // @Description Get all gateway http ports from the Threeport database.
-// @ID get-gatewayHttpPorts
+// @ID get-v0-gatewayHttpPorts
 // @Accept json
 // @Produce json
 // @Param name query string false "gateway http port search by name"
@@ -826,7 +826,7 @@ func (h Handler) GetGatewayHttpPorts(c echo.Context) error {
 
 // @Summary gets a gateway http port.
 // @Description Get a particular gateway http port from the database.
-// @ID get-gatewayHttpPort
+// @ID get-v0-gatewayHttpPort
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -859,7 +859,7 @@ func (h Handler) GetGatewayHttpPort(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-gatewayHttpPort
+// @ID update-v0-gatewayHttpPort
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -911,7 +911,7 @@ func (h Handler) UpdateGatewayHttpPort(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-gatewayHttpPort
+// @ID replace-v0-gatewayHttpPort
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -972,7 +972,7 @@ func (h Handler) ReplaceGatewayHttpPort(c echo.Context) error {
 
 // @Summary deletes a gateway http port.
 // @Description Delete a gateway http port by ID from the database.
-// @ID delete-gatewayHttpPort
+// @ID delete-v0-gatewayHttpPort
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1021,7 +1021,7 @@ func (h Handler) GetGatewayTcpPortVersions(c echo.Context) error {
 
 // @Summary adds a new gateway tcp port.
 // @Description Add a new gateway tcp port to the Threeport database.
-// @ID add-gatewayTcpPort
+// @ID add-v0-gatewayTcpPort
 // @Accept json
 // @Produce json
 // @Param gatewayTcpPort body v0.GatewayTcpPort true "GatewayTcpPort object"
@@ -1062,7 +1062,7 @@ func (h Handler) AddGatewayTcpPort(c echo.Context) error {
 
 // @Summary gets all gateway tcp ports.
 // @Description Get all gateway tcp ports from the Threeport database.
-// @ID get-gatewayTcpPorts
+// @ID get-v0-gatewayTcpPorts
 // @Accept json
 // @Produce json
 // @Param name query string false "gateway tcp port search by name"
@@ -1102,7 +1102,7 @@ func (h Handler) GetGatewayTcpPorts(c echo.Context) error {
 
 // @Summary gets a gateway tcp port.
 // @Description Get a particular gateway tcp port from the database.
-// @ID get-gatewayTcpPort
+// @ID get-v0-gatewayTcpPort
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1135,7 +1135,7 @@ func (h Handler) GetGatewayTcpPort(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-gatewayTcpPort
+// @ID update-v0-gatewayTcpPort
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1187,7 +1187,7 @@ func (h Handler) UpdateGatewayTcpPort(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-gatewayTcpPort
+// @ID replace-v0-gatewayTcpPort
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1248,7 +1248,7 @@ func (h Handler) ReplaceGatewayTcpPort(c echo.Context) error {
 
 // @Summary deletes a gateway tcp port.
 // @Description Delete a gateway tcp port by ID from the database.
-// @ID delete-gatewayTcpPort
+// @ID delete-v0-gatewayTcpPort
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1297,7 +1297,7 @@ func (h Handler) GetDomainNameDefinitionVersions(c echo.Context) error {
 
 // @Summary adds a new domain name definition.
 // @Description Add a new domain name definition to the Threeport database.
-// @ID add-domainNameDefinition
+// @ID add-v0-domainNameDefinition
 // @Accept json
 // @Produce json
 // @Param domainNameDefinition body v0.DomainNameDefinition true "DomainNameDefinition object"
@@ -1353,7 +1353,7 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 
 // @Summary gets all domain name definitions.
 // @Description Get all domain name definitions from the Threeport database.
-// @ID get-domainNameDefinitions
+// @ID get-v0-domainNameDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "domain name definition search by name"
@@ -1393,7 +1393,7 @@ func (h Handler) GetDomainNameDefinitions(c echo.Context) error {
 
 // @Summary gets a domain name definition.
 // @Description Get a particular domain name definition from the database.
-// @ID get-domainNameDefinition
+// @ID get-v0-domainNameDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1426,7 +1426,7 @@ func (h Handler) GetDomainNameDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-domainNameDefinition
+// @ID update-v0-domainNameDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1478,7 +1478,7 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-domainNameDefinition
+// @ID replace-v0-domainNameDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1539,7 +1539,7 @@ func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 
 // @Summary deletes a domain name definition.
 // @Description Delete a domain name definition by ID from the database.
-// @ID delete-domainNameDefinition
+// @ID delete-v0-domainNameDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1588,7 +1588,7 @@ func (h Handler) GetDomainNameInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new domain name instance.
 // @Description Add a new domain name instance to the Threeport database.
-// @ID add-domainNameInstance
+// @ID add-v0-domainNameInstance
 // @Accept json
 // @Produce json
 // @Param domainNameInstance body v0.DomainNameInstance true "DomainNameInstance object"
@@ -1657,7 +1657,7 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 
 // @Summary gets all domain name instances.
 // @Description Get all domain name instances from the Threeport database.
-// @ID get-domainNameInstances
+// @ID get-v0-domainNameInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "domain name instance search by name"
@@ -1697,7 +1697,7 @@ func (h Handler) GetDomainNameInstances(c echo.Context) error {
 
 // @Summary gets a domain name instance.
 // @Description Get a particular domain name instance from the database.
-// @ID get-domainNameInstance
+// @ID get-v0-domainNameInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1730,7 +1730,7 @@ func (h Handler) GetDomainNameInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-domainNameInstance
+// @ID update-v0-domainNameInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1795,7 +1795,7 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-domainNameInstance
+// @ID replace-v0-domainNameInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -1856,7 +1856,7 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 
 // @Summary deletes a domain name instance.
 // @Description Delete a domain name instance by ID from the database.
-// @ID delete-domainNameInstance
+// @ID delete-v0-domainNameInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"

@@ -10,6 +10,7 @@ import (
 
 	"github.com/threeport/threeport/internal/workload/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -57,7 +58,7 @@ func outputDescribeWorkloadDefinitionCmd(
 // outputDescribeWorkloadInstanceCmd produces the plain description
 // output for the 'tptctl describe workload-instance' command
 func outputDescribeWorkloadInstanceCmd(
-	workloadInstance *v0.WorkloadInstance,
+	workloadInstance *v1.WorkloadInstance,
 	workloadInstanceConfig *config.WorkloadInstanceConfig,
 	apiClient *http.Client,
 	apiEndpoint string,

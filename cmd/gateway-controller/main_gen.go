@@ -25,18 +25,18 @@ import (
 
 func main() {
 	// flags
-	var gatewayDefinitionConcurrentReconciles = flag.Int(
-		"GatewayDefinition-concurrent-reconciles",
+	var v0_gatewayDefinitionConcurrentReconciles = flag.Int(
+		"v0-gateway-definition-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for gateway definitions",
 	)
-	var gatewayInstanceConcurrentReconciles = flag.Int(
-		"GatewayInstance-concurrent-reconciles",
+	var v0_gatewayInstanceConcurrentReconciles = flag.Int(
+		"v0-gateway-instance-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for gateway instances",
 	)
-	var domainNameInstanceConcurrentReconciles = flag.Int(
-		"DomainNameInstance-concurrent-reconciles",
+	var v0_domainNameInstanceConcurrentReconciles = flag.Int(
+		"v0-domain-name-instance-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for domain name instances",
 	)
@@ -140,21 +140,21 @@ func main() {
 	// configure and start reconcilers
 	var reconcilerConfigs []controller.ReconcilerConfig
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *gatewayDefinitionConcurrentReconciles,
+		ConcurrentReconciles: *v0_gatewayDefinitionConcurrentReconciles,
 		Name:                 "GatewayDefinitionReconciler",
 		NotifSubject:         v0.GatewayDefinitionSubject,
 		ObjectType:           v0.ObjectTypeGatewayDefinition,
 		ReconcileFunc:        gateway.GatewayDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *gatewayInstanceConcurrentReconciles,
+		ConcurrentReconciles: *v0_gatewayInstanceConcurrentReconciles,
 		Name:                 "GatewayInstanceReconciler",
 		NotifSubject:         v0.GatewayInstanceSubject,
 		ObjectType:           v0.ObjectTypeGatewayInstance,
 		ReconcileFunc:        gateway.GatewayInstanceReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *domainNameInstanceConcurrentReconciles,
+		ConcurrentReconciles: *v0_domainNameInstanceConcurrentReconciles,
 		Name:                 "DomainNameInstanceReconciler",
 		NotifSubject:         v0.DomainNameInstanceSubject,
 		ObjectType:           v0.ObjectTypeDomainNameInstance,

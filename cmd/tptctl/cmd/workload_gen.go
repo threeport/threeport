@@ -10,6 +10,7 @@ import (
 	cobra "github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -30,7 +31,7 @@ var GetWorkloadsCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
 
 		// get workloads
-		workloadInstances, err := client.GetWorkloadInstances(apiClient, apiEndpoint)
+		workloadInstances, err := client_v1.GetWorkloadInstances(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to retrieve workload instances", err)
 			os.Exit(1)
@@ -552,7 +553,7 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
 
 		// get workload instances
-		workloadInstances, err := client.GetWorkloadInstances(apiClient, apiEndpoint)
+		workloadInstances, err := client_v1.GetWorkloadInstances(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to retrieve workload instances", err)
 			os.Exit(1)
@@ -769,7 +770,7 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 		}
 
 		// get workload instance
-		workloadInstance, err := client.GetWorkloadInstanceByName(
+		workloadInstance, err := client_v1.GetWorkloadInstanceByName(
 			apiClient,
 			apiEndpoint,
 			workloadInstanceConfig.WorkloadInstance.Name,

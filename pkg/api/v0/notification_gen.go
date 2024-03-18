@@ -49,6 +49,10 @@ func GetSubjectByReconcilerName(name string) (string, error) {
 		return LoggingDefinitionSubject, nil
 	case "LoggingInstanceReconciler":
 		return LoggingInstanceSubject, nil
+	case "SecretDefinitionReconciler":
+		return SecretDefinitionSubject, nil
+	case "SecretInstanceReconciler":
+		return SecretInstanceSubject, nil
 	case "TerraformDefinitionReconciler":
 		return TerraformDefinitionSubject, nil
 	case "TerraformInstanceReconciler":

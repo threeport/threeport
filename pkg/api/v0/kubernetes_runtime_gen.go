@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	ObjectTypeKubernetesRuntimeDefinition ObjectType = "KubernetesRuntimeDefinition"
-	ObjectTypeKubernetesRuntimeInstance   ObjectType = "KubernetesRuntimeInstance"
+	ObjectTypeKubernetesRuntimeDefinition string = "KubernetesRuntimeDefinition"
+	ObjectTypeKubernetesRuntimeInstance   string = "KubernetesRuntimeInstance"
 
 	KubernetesRuntimeStreamName = "kubernetesRuntimeStream"
 

@@ -25,13 +25,13 @@ import (
 
 func main() {
 	// flags
-	var helmWorkloadDefinitionConcurrentReconciles = flag.Int(
-		"HelmWorkloadDefinition-concurrent-reconciles",
+	var v0_helmWorkloadDefinitionConcurrentReconciles = flag.Int(
+		"v0-helm-workload-definition-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for helm workload definitions",
 	)
-	var helmWorkloadInstanceConcurrentReconciles = flag.Int(
-		"HelmWorkloadInstance-concurrent-reconciles",
+	var v0_helmWorkloadInstanceConcurrentReconciles = flag.Int(
+		"v0-helm-workload-instance-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for helm workload instances",
 	)
@@ -135,14 +135,14 @@ func main() {
 	// configure and start reconcilers
 	var reconcilerConfigs []controller.ReconcilerConfig
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *helmWorkloadDefinitionConcurrentReconciles,
+		ConcurrentReconciles: *v0_helmWorkloadDefinitionConcurrentReconciles,
 		Name:                 "HelmWorkloadDefinitionReconciler",
 		NotifSubject:         v0.HelmWorkloadDefinitionSubject,
 		ObjectType:           v0.ObjectTypeHelmWorkloadDefinition,
 		ReconcileFunc:        helmworkload.HelmWorkloadDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *helmWorkloadInstanceConcurrentReconciles,
+		ConcurrentReconciles: *v0_helmWorkloadInstanceConcurrentReconciles,
 		Name:                 "HelmWorkloadInstanceReconciler",
 		NotifSubject:         v0.HelmWorkloadInstanceSubject,
 		ObjectType:           v0.ObjectTypeHelmWorkloadInstance,
