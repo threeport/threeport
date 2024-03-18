@@ -59,11 +59,8 @@ func observabilityStackInstanceCreated(
 		return 0, fmt.Errorf("failed to set observability stack instance values: %w", err)
 	}
 
-	// get observability stack instance operations
-	operations := c.getObservabilityStackInstanceOperations()
-
 	// execute observability stack instance create operations
-	if err := operations.Create(); err != nil {
+	if err := c.getObservabilityStackInstanceOperations().Create(); err != nil {
 		return 0, fmt.Errorf("failed to execute observability stack create operations: %w", err)
 	}
 
@@ -105,11 +102,8 @@ func observabilityStackInstanceDeleted(
 		log:                          log,
 	}
 
-	// get observability stack operations
-	operations := c.getObservabilityStackInstanceOperations()
-
 	// execute observability stack delete operations
-	if err := operations.Delete(); err != nil {
+	if err := c.getObservabilityStackInstanceOperations().Delete(); err != nil {
 		return 0, fmt.Errorf("failed to execute observability stack delete operations: %w", err)
 	}
 

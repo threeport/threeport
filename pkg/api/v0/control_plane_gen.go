@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	ObjectTypeControlPlaneDefinition ObjectType = "ControlPlaneDefinition"
-	ObjectTypeControlPlaneInstance   ObjectType = "ControlPlaneInstance"
+	ObjectTypeControlPlaneDefinition string = "ControlPlaneDefinition"
+	ObjectTypeControlPlaneInstance   string = "ControlPlaneInstance"
 
 	ControlPlaneStreamName = "controlPlaneStream"
 

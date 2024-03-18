@@ -28,8 +28,8 @@ func deletionInstanceCheckTypeNames() []string {
 
 // apiHandlersPath returns the path from the models to the API's internal handlers
 // package.
-func apiHandlersPath() string {
-	return filepath.Join("..", "..", "..", "pkg", "api-server", "v0", "handlers")
+func apiHandlersPath(apiVersion string) string {
+	return filepath.Join("..", "..", "..", "pkg", "api-server", apiVersion, "handlers")
 }
 
 // ModelHandlers generates the handlers for each model.
@@ -172,7 +172,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				).Values(
 					Dict{
 						Line().Id("Reconciliation"): Qual(
-							fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.ParsedModelFile.Name.Name),
+							fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", "v0"),
 							"Reconciliation",
 						).Values(
 							Dict{
@@ -393,7 +393,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Comment(fmt.Sprintf(
-			"@ID add-%s", strcase.ToLowerCamel(mc.TypeName),
+			"@ID add-%s-%s", cc.ApiVersion, strcase.ToLowerCamel(mc.TypeName),
 		))
 		f.Comment("@Accept json")
 		f.Comment("@Produce json")
@@ -405,15 +405,15 @@ func (cc *ControllerConfig) ModelHandlers() error {
 		))
 		f.Comment(fmt.Sprintf(
 			"@Success 201 {object} %s.Response \"Created\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 400 {object} %s.Response \"Bad Request\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 500 {object} %s.Response \"Internal Server Error\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Router /%s/%s [POST]",
@@ -505,7 +505,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
@@ -531,7 +531,8 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			pluralize.Pluralize(strcase.ToDelimited(mc.TypeName, ' '), 2, false),
 		))
 		f.Comment(fmt.Sprintf(
-			"@ID get-%s",
+			"@ID get-%s-%s",
+			cc.ApiVersion,
 			pluralize.Pluralize(strcase.ToLowerCamel(mc.TypeName), 2, false),
 		))
 		f.Comment("@Accept json")
@@ -543,15 +544,15 @@ func (cc *ControllerConfig) ModelHandlers() error {
 		))
 		f.Comment(fmt.Sprintf(
 			"@Success 200 {object} %s.Response \"OK\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 400 {object} %s.Response \"Bad Request\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 500 {object} %s.Response \"Internal Server Error\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Router /%s/%s [GET]",
@@ -645,13 +646,13 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateMeta",
 			).Call(Id("params").Op(",").Id("totalCount")).Op(",").Op("*").Id("records").Op(",").Id("objectType")),
@@ -677,22 +678,22 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Comment(fmt.Sprintf(
-			"@ID get-%s", strcase.ToLowerCamel(mc.TypeName),
+			"@ID get-%s-%s", cc.ApiVersion, strcase.ToLowerCamel(mc.TypeName),
 		))
 		f.Comment("@Accept json")
 		f.Comment("@Produce json")
 		f.Comment("@Param id path int true \"ID\"")
 		f.Comment(fmt.Sprintf(
 			"@Success 200 {object} %s.Response \"OK\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 404 {object} %s.Response \"Not Found\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 500 {object} %s.Response \"Internal Server Error\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Router /%s/%s/{id} [GET]",
@@ -754,7 +755,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 				Line(),
 				Id("response").Op(",").Id("err").Op(":=").Qual(fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				), "CreateResponse").Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
 				If(Id("err").Op("!=").Nil().Block(
 					Return(Qual(
@@ -786,7 +787,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 		f.Comment("@Description the related objects will not be changed.  Call the patch or put method for")
 		f.Comment("@Description each particular existing object to change them.")
 		f.Comment(fmt.Sprintf(
-			"@ID update-%s", strcase.ToLowerCamel(mc.TypeName),
+			"@ID update-%s-%s", cc.ApiVersion, strcase.ToLowerCamel(mc.TypeName),
 		))
 		f.Comment("@Accept json")
 		f.Comment("@Produce json")
@@ -799,19 +800,19 @@ func (cc *ControllerConfig) ModelHandlers() error {
 		))
 		f.Comment(fmt.Sprintf(
 			"@Success 200 {object} %s.Response \"OK\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 400 {object} %s.Response \"Bad Request\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 404 {object} %s.Response \"Not Found\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 500 {object} %s.Response \"Internal Server Error\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Router /%s/%s/{id} [PATCH]",
@@ -927,7 +928,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName)).Op(",").Id("objectType")),
@@ -962,7 +963,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 		f.Comment("@Description the related objects will not be changed.  Call the patch or put method for")
 		f.Comment("@Description each particular existing object to change them.")
 		f.Comment(fmt.Sprintf(
-			"@ID replace-%s", strcase.ToLowerCamel(mc.TypeName),
+			"@ID replace-%s-%s", cc.ApiVersion, strcase.ToLowerCamel(mc.TypeName),
 		))
 		f.Comment("@Accept json")
 		f.Comment("@Produce json")
@@ -975,19 +976,19 @@ func (cc *ControllerConfig) ModelHandlers() error {
 		))
 		f.Comment(fmt.Sprintf(
 			"@Success 200 {object} %s.Response \"OK\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 400 {object} %s.Response \"Bad Request\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 404 {object} %s.Response \"Not Found\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 500 {object} %s.Response \"Internal Server Error\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Router /%s/%s/{id} [PUT]",
@@ -1149,7 +1150,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName)).Op(",").Id("objectType")),
@@ -1176,26 +1177,26 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Comment(fmt.Sprintf(
-			"@ID delete-%s", strcase.ToLowerCamel(mc.TypeName),
+			"@ID delete-%s-%s", cc.ApiVersion, strcase.ToLowerCamel(mc.TypeName),
 		))
 		f.Comment("@Accept json")
 		f.Comment("@Produce json")
 		f.Comment("@Param id path int true \"ID\"")
 		f.Comment(fmt.Sprintf(
 			"@Success 200 {object} %s.Response \"OK\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 404 {object} %s.Response \"Not Found\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 409 {object} %s.Response \"Conflict\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Failure 500 {object} %s.Response \"Internal Server Error\"",
-			cc.ParsedModelFile.Name.Name,
+			"v0",
 		))
 		f.Comment(fmt.Sprintf(
 			"@Router /%s/%s/{id} [DELETE]",
@@ -1239,7 +1240,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
@@ -1261,7 +1262,7 @@ func (cc *ControllerConfig) ModelHandlers() error {
 
 	// write code to file
 	genFilename := fmt.Sprintf("%s_gen.go", sdk.FilenameSansExt(cc.ModelFilename))
-	genFilepath := filepath.Join(apiHandlersPath(), genFilename)
+	genFilepath := filepath.Join(apiHandlersPath(cc.ApiVersion), genFilename)
 	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for model handlers: %w", err)
@@ -1641,7 +1642,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Comment(fmt.Sprintf(
-			"@ID add-%s", strcase.ToLowerCamel(mc.TypeName),
+			"@ID add-%s-%s", cc.ApiVersion, strcase.ToLowerCamel(mc.TypeName),
 		))
 		f.Comment("@Accept json")
 		f.Comment("@Produce json")
@@ -1755,7 +1756,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
@@ -1781,7 +1782,8 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			pluralize.Pluralize(strcase.ToDelimited(mc.TypeName, ' '), 2, false),
 		))
 		f.Comment(fmt.Sprintf(
-			"@ID get-%s",
+			"@ID get-%s-%s",
+			cc.ApiVersion,
 			pluralize.Pluralize(strcase.ToLowerCamel(mc.TypeName), 2, false),
 		))
 		f.Comment("@Accept json")
@@ -1899,13 +1901,13 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateMeta",
 			).Call(Id("params").Op(",").Id("totalCount")).Op(",").Op("*").Id("records").Op(",").Id("objectType")),
@@ -1931,7 +1933,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Comment(fmt.Sprintf(
-			"@ID get-%s", strcase.ToLowerCamel(mc.TypeName),
+			"@ID get-%s-%s", cc.ApiVersion, strcase.ToLowerCamel(mc.TypeName),
 		))
 		f.Comment("@Accept json")
 		f.Comment("@Produce json")
@@ -2010,7 +2012,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 				Line(),
 				Id("response").Op(",").Id("err").Op(":=").Qual(fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				), "CreateResponse").Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
 				If(Id("err").Op("!=").Nil().Block(
 					Return(Qual(
@@ -2042,7 +2044,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 		f.Comment("@Description the related objects will not be changed.  Call the patch or put method for")
 		f.Comment("@Description each particular existing object to change them.")
 		f.Comment(fmt.Sprintf(
-			"@ID update-%s", strcase.ToLowerCamel(mc.TypeName),
+			"@ID update-%s-%s", cc.ApiVersion, strcase.ToLowerCamel(mc.TypeName),
 		))
 		f.Comment("@Accept json")
 		f.Comment("@Produce json")
@@ -2186,7 +2188,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName)).Op(",").Id("objectType")),
@@ -2221,7 +2223,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 		f.Comment("@Description the related objects will not be changed.  Call the patch or put method for")
 		f.Comment("@Description each particular existing object to change them.")
 		f.Comment(fmt.Sprintf(
-			"@ID replace-%s", strcase.ToLowerCamel(mc.TypeName),
+			"@ID replace-%s-%s", cc.ApiVersion, strcase.ToLowerCamel(mc.TypeName),
 		))
 		f.Comment("@Accept json")
 		f.Comment("@Produce json")
@@ -2411,7 +2413,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", mc.TypeName)).Op(",").Id("objectType")),
@@ -2438,7 +2440,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			strcase.ToDelimited(mc.TypeName, ' '),
 		))
 		f.Comment(fmt.Sprintf(
-			"@ID delete-%s", strcase.ToLowerCamel(mc.TypeName),
+			"@ID delete-%s-%s", cc.ApiVersion, strcase.ToLowerCamel(mc.TypeName),
 		))
 		f.Comment("@Accept json")
 		f.Comment("@Produce json")
@@ -2503,7 +2505,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 			Id("response").Op(",").Id("err").Op(":=").Qual(
 				fmt.Sprintf(
 					"github.com/threeport/threeport/pkg/api/%s",
-					cc.ParsedModelFile.Name.Name,
+					"v0",
 				),
 				"CreateResponse",
 			).Call(Nil().Op(",").Id(strcase.ToLowerCamel(mc.TypeName)).Op(",").Id("objectType")),
@@ -2525,7 +2527,7 @@ func (cc *ControllerConfig) ExtensionModelHandlers(modulePath string) error {
 
 	// write code to file
 	genFilename := fmt.Sprintf("%s_gen.go", sdk.FilenameSansExt(cc.ModelFilename))
-	genFilepath := filepath.Join(apiHandlersPath(), genFilename)
+	genFilepath := filepath.Join(apiHandlersPath(cc.ApiVersion), genFilename)
 	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for model handlers: %w", err)

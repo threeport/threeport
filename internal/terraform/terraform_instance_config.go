@@ -28,7 +28,7 @@ type TerraformInstanceConfig struct {
 }
 
 // getTerraformInstanceOperations returns a list of operations for a terraform instance.
-func getTerraformInstanceOperations(c *TerraformInstanceConfig) *util.Operations {
+func (c *TerraformInstanceConfig) getTerraformInstanceOperations() *util.Operations {
 	operations := util.Operations{}
 
 	operations.AppendOperation(util.Operation{

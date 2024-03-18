@@ -31,7 +31,7 @@ func AddHelmWorkloadDefinitionVersions() {
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
 		Object:  string(v0.ObjectTypeHelmWorkloadDefinition),
-		Version: iapi.V0,
+		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map
@@ -63,7 +63,7 @@ func AddHelmWorkloadInstanceVersions() {
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
 		Object:  string(v0.ObjectTypeHelmWorkloadInstance),
-		Version: iapi.V0,
+		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map

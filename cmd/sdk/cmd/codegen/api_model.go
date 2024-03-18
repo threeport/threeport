@@ -112,15 +112,23 @@ When 'make generate' is run, the following code is generated for API:
 							// if so, iterate over the fields
 							for _, field := range structType.Fields.List {
 								//check if this is an ident type
-								if identType, ok := field.Type.(*ast.Ident); ok {
+								checkNameField := func(name string) {
 									// if so, it may be an anonymous field - check
 									// the name
-									if util.StringSliceContains(nameFields(), identType.Name, true) {
+									if util.StringSliceContains(nameFields(), name, true) {
 										mc.NameField = true
 									}
-									if identType.Name == "Reconciliation" {
+									if name == "Reconciliation" {
 										mc.ReconciledField = true
 									}
+								}
+								// fields will be of type *ast.Ident
+								if identType, ok := field.Type.(*ast.Ident); ok {
+									checkNameField(identType.Name)
+								}
+								// structs will be of type *ast.SelectorExpr
+								if identType, ok := field.Type.(*ast.SelectorExpr); ok {
+									checkNameField(identType.Sel.Name)
 								}
 								// each field is an *ast.Field, which has a Names field that
 								// is a []*ast.Ident - iterate over those names to find the
@@ -172,18 +180,19 @@ When 'make generate' is run, the following code is generated for API:
 			ReconcilerModels:       reconcilerModels,
 			TptctlModels:           tptctlModels,
 			TptctlConfigPathModels: tptctlModelsConfigPath,
+			ApiVersion:             pf.Name.Name,
 		}
 
 		// validate model configs
 		for _, mc := range controllerConfig.ModelConfigs {
 			// ensure no naming conflicts between controller domain and models
 			if mc.TypeName == controllerConfig.ControllerDomain {
-				err := errors.New(fmt.Sprintf(
+				err := fmt.Sprintf(
 					"controller domain %s has naming conflict with model %s",
 					controllerConfig.ControllerDomain,
 					mc.TypeName,
-				))
-				return fmt.Errorf("naming conflict encountered: %w", err)
+				)
+				return fmt.Errorf("naming conflict encountered: %s", err)
 			}
 		}
 

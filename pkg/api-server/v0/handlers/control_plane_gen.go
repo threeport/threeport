@@ -32,7 +32,7 @@ func (h Handler) GetControlPlaneDefinitionVersions(c echo.Context) error {
 
 // @Summary adds a new control plane definition.
 // @Description Add a new control plane definition to the Threeport database.
-// @ID add-controlPlaneDefinition
+// @ID add-v0-controlPlaneDefinition
 // @Accept json
 // @Produce json
 // @Param controlPlaneDefinition body v0.ControlPlaneDefinition true "ControlPlaneDefinition object"
@@ -101,7 +101,7 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 
 // @Summary gets all control plane definitions.
 // @Description Get all control plane definitions from the Threeport database.
-// @ID get-controlPlaneDefinitions
+// @ID get-v0-controlPlaneDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "control plane definition search by name"
@@ -141,7 +141,7 @@ func (h Handler) GetControlPlaneDefinitions(c echo.Context) error {
 
 // @Summary gets a control plane definition.
 // @Description Get a particular control plane definition from the database.
-// @ID get-controlPlaneDefinition
+// @ID get-v0-controlPlaneDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -174,7 +174,7 @@ func (h Handler) GetControlPlaneDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-controlPlaneDefinition
+// @ID update-v0-controlPlaneDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -239,7 +239,7 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-controlPlaneDefinition
+// @ID replace-v0-controlPlaneDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -300,7 +300,7 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 
 // @Summary deletes a control plane definition.
 // @Description Delete a control plane definition by ID from the database.
-// @ID delete-controlPlaneDefinition
+// @ID delete-v0-controlPlaneDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -392,7 +392,7 @@ func (h Handler) GetControlPlaneInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new control plane instance.
 // @Description Add a new control plane instance to the Threeport database.
-// @ID add-controlPlaneInstance
+// @ID add-v0-controlPlaneInstance
 // @Accept json
 // @Produce json
 // @Param controlPlaneInstance body v0.ControlPlaneInstance true "ControlPlaneInstance object"
@@ -461,7 +461,7 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 
 // @Summary gets all control plane instances.
 // @Description Get all control plane instances from the Threeport database.
-// @ID get-controlPlaneInstances
+// @ID get-v0-controlPlaneInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "control plane instance search by name"
@@ -501,7 +501,7 @@ func (h Handler) GetControlPlaneInstances(c echo.Context) error {
 
 // @Summary gets a control plane instance.
 // @Description Get a particular control plane instance from the database.
-// @ID get-controlPlaneInstance
+// @ID get-v0-controlPlaneInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -534,7 +534,7 @@ func (h Handler) GetControlPlaneInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-controlPlaneInstance
+// @ID update-v0-controlPlaneInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -599,7 +599,7 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-controlPlaneInstance
+// @ID replace-v0-controlPlaneInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -660,7 +660,7 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 
 // @Summary deletes a control plane instance.
 // @Description Delete a control plane instance by ID from the database.
-// @ID delete-controlPlaneInstance
+// @ID delete-v0-controlPlaneInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"

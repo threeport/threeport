@@ -40,11 +40,8 @@ func terraformInstanceCreated(
 		tfDirName:         tfDirName,
 	}
 
-	// get terraform instance operations
-	operations := getTerraformInstanceOperations(c)
-
 	// execute terraform instance create
-	if err := operations.Create(); err != nil {
+	if err := c.getTerraformInstanceOperations().Create(); err != nil {
 		return 0, fmt.Errorf("failed to execute terraform instance create operations: %w", err)
 	}
 
@@ -105,11 +102,8 @@ func terraformInstanceDeleted(
 		tfDirName:         tfDirName,
 	}
 
-	// get terraform instance operations
-	operations := getTerraformInstanceOperations(c)
-
 	// execute terraform instance create
-	if err := operations.Delete(); err != nil {
+	if err := c.getTerraformInstanceOperations().Delete(); err != nil {
 		return 0, fmt.Errorf("failed to execute terraform instance delete operations: %w", err)
 	}
 

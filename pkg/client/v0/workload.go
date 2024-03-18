@@ -202,14 +202,21 @@ func DeleteWorkloadEventsByQueryString(apiClient *http.Client, apiAddr string, q
 	return &workloadEvents, nil
 }
 
-// GetAttachedObjectReferencesByWorkloadInstanceID fetches an attached object reference
-// by object ID.
-func GetAttachedObjectReferencesByWorkloadInstanceID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.AttachedObjectReference, error) {
+// GetAttachedObjectReferencesByAttachedObjectID fetches attached object references
+// by attached object ID.
+func GetAttachedObjectReferencesByAttachedObjectID(
+	apiClient *http.Client,
+	apiAddr string,
+	id uint,
+) (
+	*[]v0.AttachedObjectReference,
+	error,
+) {
 	var attachedObjectReferences []v0.AttachedObjectReference
 
 	response, err := GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?workloadinstanceid=%d", apiAddr, v0.PathAttachedObjectReferences, id),
+		fmt.Sprintf("%s%s?attachedobjectid=%d", apiAddr, v0.PathAttachedObjectReferences, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -233,36 +240,42 @@ func GetAttachedObjectReferencesByWorkloadInstanceID(apiClient *http.Client, api
 	return &attachedObjectReferences, nil
 }
 
-// EnsureAttachedObjectReferenceExists ensures that an attached object reference
-// exists for the given object type and ID.
-func EnsureAttachedObjectReferenceExists(apiClient *http.Client, apiAddr, objectType string, id, workloadInstanceID *uint) error {
+// GetAttachedObjectReferencesByObjectID fetches an attached object reference
+// by object ID.
+func GetAttachedObjectReferencesByObjectID(
+	apiClient *http.Client,
+	apiAddr string,
+	id uint,
+) (
+	*[]v0.AttachedObjectReference,
+	error,
+) {
+	var attachedObjectReferences []v0.AttachedObjectReference
 
-	attachedObjectReferences, err := GetAttachedObjectReferencesByWorkloadInstanceID(apiClient, apiAddr, *workloadInstanceID)
+	response, err := GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s?objectid=%d", apiAddr, v0.PathAttachedObjectReferences, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to get attached object references by workload instance ID: %w", err)
+		return &attachedObjectReferences, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
-	// check if attached object reference already exists
-	for _, attachedObjectReference := range *attachedObjectReferences {
-		if *attachedObjectReference.Type == objectType &&
-			*attachedObjectReference.ObjectID == *id {
-			return nil
-		}
-	}
-
-	// create attached object reference
-	workloadInstanceAttachedObjectReference := &v0.AttachedObjectReference{
-		Type:               &objectType,
-		ObjectID:           id,
-		WorkloadInstanceID: workloadInstanceID,
-	}
-	_, err = CreateAttachedObjectReference(apiClient, apiAddr, workloadInstanceAttachedObjectReference)
+	jsonData, err := json.Marshal(response.Data)
 	if err != nil {
-		return fmt.Errorf("failed to create attached object reference: %w", err)
+		return &attachedObjectReferences, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
-	return nil
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&attachedObjectReferences); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
 
+	return &attachedObjectReferences, nil
 }
 
 // ConfirmWorkloadInstanceReconciled confirms whether a workload instance

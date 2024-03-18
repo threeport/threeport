@@ -3,7 +3,6 @@ package aws
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"time"
 
@@ -12,7 +11,7 @@ import (
 	"github.com/nukleros/aws-builder/pkg/eks"
 	"github.com/nukleros/aws-builder/pkg/rds"
 	"gorm.io/datatypes"
-	v1 "k8s.io/api/core/v1"
+	core_v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,7 +21,9 @@ import (
 	"github.com/threeport/threeport/internal/aws/mapping"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -42,12 +43,13 @@ func awsRelationalDatabaseInstanceCreated(
 	)
 
 	// ensure attached object reference exists
-	err := client.EnsureAttachedObjectReferenceExists(
+	err := client_v1.EnsureAttachedObjectReferenceExists(
 		r.APIClient,
 		r.APIServer,
-		reflect.TypeOf(*awsRelationalDatabaseInstance).String(),
-		awsRelationalDatabaseInstance.ID,
+		util.TypeName(v1.WorkloadInstance{}),
 		awsRelationalDatabaseInstance.WorkloadInstanceID,
+		util.TypeName(*awsRelationalDatabaseInstance),
+		awsRelationalDatabaseInstance.ID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)
@@ -207,7 +209,7 @@ func awsRelationalDatabaseInstanceCreated(
 		"db-user":     []byte(dbUser),
 		"db-password": []byte(dbPassword),
 	}
-	dbConnSecret := &v1.Secret{
+	dbConnSecret := &core_v1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
@@ -217,7 +219,7 @@ func awsRelationalDatabaseInstanceCreated(
 			Namespace: workloadNamespace,
 		},
 		Data: data,
-		Type: v1.SecretTypeOpaque,
+		Type: core_v1.SecretTypeOpaque,
 	}
 	serializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, nil, nil, json.SerializerOptions{
 		Yaml:   false,
@@ -247,7 +249,7 @@ func awsRelationalDatabaseInstanceCreated(
 	// trigger reconciliation of the workload instance
 	workloadInstanceReconciled := false
 	workloadInstance.Reconciled = &workloadInstanceReconciled
-	_, err = client.UpdateWorkloadInstance(
+	_, err = client_v1.UpdateWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		workloadInstance,
@@ -456,7 +458,7 @@ func getRequiredRdsObjects(
 ) (
 	*v0.AwsRelationalDatabaseDefinition,
 	*v0.AwsAccount,
-	*v0.WorkloadInstance,
+	*v1.WorkloadInstance,
 	*v0.AwsEksKubernetesRuntimeInstance,
 	error,
 ) {
@@ -476,7 +478,7 @@ func getRequiredRdsObjects(
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
 	}
-	workloadInstance, err := client.GetWorkloadInstanceByID(
+	workloadInstance, err := client_v1.GetWorkloadInstanceByID(
 		r.APIClient,
 		r.APIServer,
 		*awsRelationalDatabaseInstance.WorkloadInstanceID,

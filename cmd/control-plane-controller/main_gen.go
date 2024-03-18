@@ -25,13 +25,13 @@ import (
 
 func main() {
 	// flags
-	var controlPlaneDefinitionConcurrentReconciles = flag.Int(
-		"ControlPlaneDefinition-concurrent-reconciles",
+	var v0_controlPlaneDefinitionConcurrentReconciles = flag.Int(
+		"v0-control-plane-definition-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for control plane definitions",
 	)
-	var controlPlaneInstanceConcurrentReconciles = flag.Int(
-		"ControlPlaneInstance-concurrent-reconciles",
+	var v0_controlPlaneInstanceConcurrentReconciles = flag.Int(
+		"v0-control-plane-instance-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for control plane instances",
 	)
@@ -135,14 +135,14 @@ func main() {
 	// configure and start reconcilers
 	var reconcilerConfigs []controller.ReconcilerConfig
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *controlPlaneDefinitionConcurrentReconciles,
+		ConcurrentReconciles: *v0_controlPlaneDefinitionConcurrentReconciles,
 		Name:                 "ControlPlaneDefinitionReconciler",
 		NotifSubject:         v0.ControlPlaneDefinitionSubject,
 		ObjectType:           v0.ObjectTypeControlPlaneDefinition,
 		ReconcileFunc:        controlplane.ControlPlaneDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *controlPlaneInstanceConcurrentReconciles,
+		ConcurrentReconciles: *v0_controlPlaneInstanceConcurrentReconciles,
 		Name:                 "ControlPlaneInstanceReconciler",
 		NotifSubject:         v0.ControlPlaneInstanceSubject,
 		ObjectType:           v0.ObjectTypeControlPlaneInstance,

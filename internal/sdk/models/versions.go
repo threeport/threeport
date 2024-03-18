@@ -12,8 +12,8 @@ import (
 
 // apiVersionsPath returns the path from the models to the API's internal
 // versions package.
-func apiVersionsPath() string {
-	return filepath.Join("..", "..", "..", "pkg", "api-server", "v0", "versions")
+func apiVersionsPath(apiVersion string) string {
+	return filepath.Join("..", "..", "..", "pkg", "api-server", apiVersion, "versions")
 }
 
 // ModelVersions adds each API version and validation for the fields of the
@@ -64,7 +64,7 @@ func (cc *ControllerConfig) ModelVersions() error {
 				"reflect",
 				"ValueOf",
 			).Call(Id("new").Call(Qual(
-				"github.com/threeport/threeport/pkg/api/v0",
+				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.ParsedModelFile.Name.Name),
 				mc.TypeName,
 			))).Op(",").Line().Lit("").Op(",").Line().Qual(
 				"github.com/threeport/threeport/pkg/api-server/v0",
@@ -80,12 +80,9 @@ func (cc *ControllerConfig) ModelVersions() error {
 				"github.com/threeport/threeport/pkg/api-server/v0",
 				"VersionObject",
 			).Values(Dict{
-				Id("Version"): Qual(
-					"github.com/threeport/threeport/pkg/api-server/v0",
-					"V0",
-				),
+				Id("Version"): Lit(cc.ApiVersion),
 				Id("Object"): Id("string").Call(Qual(
-					"github.com/threeport/threeport/pkg/api/v0",
+					fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.ApiVersion),
 					fmt.Sprintf("ObjectType%s", mc.TypeName),
 				)),
 			}),
@@ -113,7 +110,7 @@ func (cc *ControllerConfig) ModelVersions() error {
 
 	// write code to file
 	genFilename := fmt.Sprintf("%s_gen.go", sdk.FilenameSansExt(cc.ModelFilename))
-	genFilepath := filepath.Join(apiVersionsPath(), genFilename)
+	genFilepath := filepath.Join(apiVersionsPath(cc.ApiVersion), genFilename)
 	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for API versions: %w", err)
@@ -193,12 +190,9 @@ func (cc *ControllerConfig) ExtensionModelVersions(modulePath string) error {
 				"github.com/threeport/threeport/pkg/api-server/v0",
 				"VersionObject",
 			).Values(Dict{
-				Id("Version"): Qual(
-					"github.com/threeport/threeport/pkg/api-server/v0",
-					"V0",
-				),
+				Id("Version"): Lit(cc.ApiVersion),
 				Id("Object"): Id("string").Call(Qual(
-					fmt.Sprintf("%s/pkg/api/v0", modulePath),
+					fmt.Sprintf("%s/pkg/api/%s", modulePath, cc.ApiVersion),
 					fmt.Sprintf("ObjectType%s", mc.TypeName),
 				)),
 			}),
@@ -226,7 +220,7 @@ func (cc *ControllerConfig) ExtensionModelVersions(modulePath string) error {
 
 	// write code to file
 	genFilename := fmt.Sprintf("%s_gen.go", sdk.FilenameSansExt(cc.ModelFilename))
-	genFilepath := filepath.Join(apiVersionsPath(), genFilename)
+	genFilepath := filepath.Join(apiVersionsPath(cc.ApiVersion), genFilename)
 	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for API versions: %w", err)

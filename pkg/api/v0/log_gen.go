@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	ObjectTypeLogBackend           ObjectType = "LogBackend"
-	ObjectTypeLogStorageDefinition ObjectType = "LogStorageDefinition"
-	ObjectTypeLogStorageInstance   ObjectType = "LogStorageInstance"
+	ObjectTypeLogBackend           string = "LogBackend"
+	ObjectTypeLogStorageDefinition string = "LogStorageDefinition"
+	ObjectTypeLogStorageInstance   string = "LogStorageInstance"
 
 	LogStreamName = "logStream"
 

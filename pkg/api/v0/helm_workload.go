@@ -2,6 +2,8 @@
 //go:generate threeport-sdk codegen controller --filename $GOFILE
 package v0
 
+import "gorm.io/datatypes"
+
 // +threeport-sdk:reconciler
 // +threeport-sdk:tptctl:config-path
 // HelmWorkloadDefinition includes the helm repo and chart that is used to
@@ -30,6 +32,10 @@ type HelmWorkloadDefinition struct {
 
 	// The associated helm workload instances that are deployed from this definition.
 	HelmWorkloadInstances []*HelmWorkloadInstance `json:"HelmWorkloadInstances,omitempty" validate:"optional,association"`
+
+	// Complete kubernetes resources that will be appended to the provided
+	// helm chart.
+	AdditionalResources *datatypes.JSONSlice[datatypes.JSON] `json:"AdditionalResources,omitempty" validate:"optional"`
 }
 
 // +threeport-sdk:reconciler
@@ -53,4 +59,8 @@ type HelmWorkloadInstance struct {
 
 	// The definition used to configure the workload instance.
 	HelmWorkloadDefinitionID *uint `json:"HelmWorkloadDefinitionID,omitempty" query:"helmworkloaddefinitionid" gorm:"not null" validate:"required"`
+
+	// Complete kubernetes resources that will be appended to the provided
+	// helm chart.
+	AdditionalResources *datatypes.JSONSlice[datatypes.JSON] `json:"AdditionalResources,omitempty" validate:"optional"`
 }

@@ -14,8 +14,8 @@ import (
 
 // apiRoutesPath returns the path from the models to the API's internal routes
 // package.
-func apiRoutesPath() string {
-	return filepath.Join("..", "..", "..", "pkg", "api-server", "v0", "routes")
+func apiRoutesPath(apiVersion string) string {
+	return filepath.Join("..", "..", "..", "pkg", "api-server", apiVersion, "routes")
 }
 
 // ModelRoutes generates the REST routes and maps them to their handlers.  These
@@ -65,7 +65,10 @@ func (cc *ControllerConfig) ModelRoutes() error {
 				"Echo",
 			),
 			Id("h").Op("*").Qual(
-				"github.com/threeport/threeport/pkg/api-server/v0/handlers",
+				fmt.Sprintf(
+					"github.com/threeport/threeport/pkg/api-server/%s/handlers",
+					cc.ApiVersion,
+				),
 				"Handler",
 			),
 		).Block(
@@ -147,7 +150,7 @@ func (cc *ControllerConfig) ModelRoutes() error {
 
 	// write code to file
 	genFilename := fmt.Sprintf("%s_gen.go", sdk.FilenameSansExt(cc.ModelFilename))
-	genFilepath := filepath.Join(apiRoutesPath(), genFilename)
+	genFilepath := filepath.Join(apiRoutesPath(cc.ApiVersion), genFilename)
 	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for model routes: %w", err)
@@ -296,7 +299,7 @@ func (cc *ControllerConfig) ExtensionModelRoutes(modulePath string) error {
 
 	// write code to file
 	genFilename := fmt.Sprintf("%s_gen.go", sdk.FilenameSansExt(cc.ModelFilename))
-	genFilepath := filepath.Join(apiRoutesPath(), genFilename)
+	genFilepath := filepath.Join(apiRoutesPath(cc.ApiVersion), genFilename)
 	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for model routes: %w", err)

@@ -31,7 +31,7 @@ func (h Handler) GetKubernetesRuntimeDefinitionVersions(c echo.Context) error {
 
 // @Summary adds a new kubernetes runtime definition.
 // @Description Add a new kubernetes runtime definition to the Threeport database.
-// @ID add-kubernetesRuntimeDefinition
+// @ID add-v0-kubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param kubernetesRuntimeDefinition body v0.KubernetesRuntimeDefinition true "KubernetesRuntimeDefinition object"
@@ -100,7 +100,7 @@ func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 
 // @Summary gets all kubernetes runtime definitions.
 // @Description Get all kubernetes runtime definitions from the Threeport database.
-// @ID get-kubernetesRuntimeDefinitions
+// @ID get-v0-kubernetesRuntimeDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "kubernetes runtime definition search by name"
@@ -140,7 +140,7 @@ func (h Handler) GetKubernetesRuntimeDefinitions(c echo.Context) error {
 
 // @Summary gets a kubernetes runtime definition.
 // @Description Get a particular kubernetes runtime definition from the database.
-// @ID get-kubernetesRuntimeDefinition
+// @ID get-v0-kubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -173,7 +173,7 @@ func (h Handler) GetKubernetesRuntimeDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-kubernetesRuntimeDefinition
+// @ID update-v0-kubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -238,7 +238,7 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-kubernetesRuntimeDefinition
+// @ID replace-v0-kubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -299,7 +299,7 @@ func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 
 // @Summary deletes a kubernetes runtime definition.
 // @Description Delete a kubernetes runtime definition by ID from the database.
-// @ID delete-kubernetesRuntimeDefinition
+// @ID delete-v0-kubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -391,7 +391,7 @@ func (h Handler) GetKubernetesRuntimeInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new kubernetes runtime instance.
 // @Description Add a new kubernetes runtime instance to the Threeport database.
-// @ID add-kubernetesRuntimeInstance
+// @ID add-v0-kubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param kubernetesRuntimeInstance body v0.KubernetesRuntimeInstance true "KubernetesRuntimeInstance object"
@@ -460,7 +460,7 @@ func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 
 // @Summary gets all kubernetes runtime instances.
 // @Description Get all kubernetes runtime instances from the Threeport database.
-// @ID get-kubernetesRuntimeInstances
+// @ID get-v0-kubernetesRuntimeInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "kubernetes runtime instance search by name"
@@ -500,7 +500,7 @@ func (h Handler) GetKubernetesRuntimeInstances(c echo.Context) error {
 
 // @Summary gets a kubernetes runtime instance.
 // @Description Get a particular kubernetes runtime instance from the database.
-// @ID get-kubernetesRuntimeInstance
+// @ID get-v0-kubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -533,7 +533,7 @@ func (h Handler) GetKubernetesRuntimeInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-kubernetesRuntimeInstance
+// @ID update-v0-kubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -598,7 +598,7 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-kubernetesRuntimeInstance
+// @ID replace-v0-kubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -659,7 +659,7 @@ func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 
 // @Summary deletes a kubernetes runtime instance.
 // @Description Delete a kubernetes runtime instance by ID from the database.
-// @ID delete-kubernetesRuntimeInstance
+// @ID delete-v0-kubernetesRuntimeInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"

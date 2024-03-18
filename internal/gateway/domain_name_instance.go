@@ -3,15 +3,17 @@ package gateway
 import (
 	"errors"
 	"fmt"
-	"reflect"
 
 	"strconv"
 
 	"github.com/go-logr/logr"
 	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -23,12 +25,13 @@ func domainNameInstanceCreated(
 	log *logr.Logger,
 ) (int64, error) {
 	// ensure attached object reference exists
-	err := client.EnsureAttachedObjectReferenceExists(
+	err := client_v1.EnsureAttachedObjectReferenceExists(
 		r.APIClient,
 		r.APIServer,
-		reflect.TypeOf(*domainNameInstance).String(),
-		domainNameInstance.ID,
+		util.TypeName(v1.WorkloadInstance{}),
 		domainNameInstance.WorkloadInstanceID,
+		util.TypeName(*domainNameInstance),
+		domainNameInstance.ID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)
@@ -182,7 +185,7 @@ func confirmDnsControllerDeployed(
 	}
 
 	// generate external dns manifest based on infra provider
-	var externalDnsManifest string
+	var externalDnsYaml string
 	kubernetesRuntimeInstanceID := strconv.Itoa(int(*domainNameInstance.KubernetesRuntimeInstanceID))
 	switch *infraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
@@ -192,7 +195,7 @@ func confirmDnsControllerDeployed(
 			return fmt.Errorf("failed to get dns management iam role arn: %w", err)
 		}
 
-		externalDnsManifest, err = createExternalDns(
+		externalDnsYaml, err = getExternalDnsYaml(
 			*domainNameDefinition.Domain,
 			"route53",
 			resourceInventory.DnsManagementRole.RoleArn,
@@ -205,7 +208,7 @@ func confirmDnsControllerDeployed(
 
 	case v0.KubernetesRuntimeInfraProviderKind:
 
-		externalDnsManifest, err = createExternalDns(
+		externalDnsYaml, err = getExternalDnsYaml(
 			*domainNameDefinition.Domain,
 			"none",
 			"",
@@ -224,7 +227,7 @@ func confirmDnsControllerDeployed(
 	workloadDefName := fmt.Sprintf("%s-%s", "external-dns", *kubernetesRuntimeInstance.Name)
 	externalDnsWorkloadDefinition := v0.WorkloadDefinition{
 		Definition:   v0.Definition{Name: &workloadDefName},
-		YAMLDocument: &externalDnsManifest,
+		YAMLDocument: &externalDnsYaml,
 	}
 
 	// create external dns controller workload definition
@@ -234,12 +237,12 @@ func confirmDnsControllerDeployed(
 	}
 
 	// create external dns workload instance
-	externalDnsWorkloadInstance := v0.WorkloadInstance{
+	externalDnsWorkloadInstance := v1.WorkloadInstance{
 		Instance:                    v0.Instance{Name: &workloadDefName},
 		KubernetesRuntimeInstanceID: domainNameInstance.KubernetesRuntimeInstanceID,
 		WorkloadDefinitionID:        createdWorkloadDef.ID,
 	}
-	createdExternalDnsWorkloadInstance, err := client.CreateWorkloadInstance(r.APIClient, r.APIServer, &externalDnsWorkloadInstance)
+	createdExternalDnsWorkloadInstance, err := client_v1.CreateWorkloadInstance(r.APIClient, r.APIServer, &externalDnsWorkloadInstance)
 	if err != nil {
 		return fmt.Errorf("failed to create external dns controller workload instance: %w", err)
 	}

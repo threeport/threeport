@@ -31,7 +31,7 @@ func (h Handler) GetHelmWorkloadDefinitionVersions(c echo.Context) error {
 
 // @Summary adds a new helm workload definition.
 // @Description Add a new helm workload definition to the Threeport database.
-// @ID add-helmWorkloadDefinition
+// @ID add-v0-helmWorkloadDefinition
 // @Accept json
 // @Produce json
 // @Param helmWorkloadDefinition body v0.HelmWorkloadDefinition true "HelmWorkloadDefinition object"
@@ -100,7 +100,7 @@ func (h Handler) AddHelmWorkloadDefinition(c echo.Context) error {
 
 // @Summary gets all helm workload definitions.
 // @Description Get all helm workload definitions from the Threeport database.
-// @ID get-helmWorkloadDefinitions
+// @ID get-v0-helmWorkloadDefinitions
 // @Accept json
 // @Produce json
 // @Param name query string false "helm workload definition search by name"
@@ -140,7 +140,7 @@ func (h Handler) GetHelmWorkloadDefinitions(c echo.Context) error {
 
 // @Summary gets a helm workload definition.
 // @Description Get a particular helm workload definition from the database.
-// @ID get-helmWorkloadDefinition
+// @ID get-v0-helmWorkloadDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -173,7 +173,7 @@ func (h Handler) GetHelmWorkloadDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-helmWorkloadDefinition
+// @ID update-v0-helmWorkloadDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -238,7 +238,7 @@ func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-helmWorkloadDefinition
+// @ID replace-v0-helmWorkloadDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -299,7 +299,7 @@ func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 
 // @Summary deletes a helm workload definition.
 // @Description Delete a helm workload definition by ID from the database.
-// @ID delete-helmWorkloadDefinition
+// @ID delete-v0-helmWorkloadDefinition
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -391,7 +391,7 @@ func (h Handler) GetHelmWorkloadInstanceVersions(c echo.Context) error {
 
 // @Summary adds a new helm workload instance.
 // @Description Add a new helm workload instance to the Threeport database.
-// @ID add-helmWorkloadInstance
+// @ID add-v0-helmWorkloadInstance
 // @Accept json
 // @Produce json
 // @Param helmWorkloadInstance body v0.HelmWorkloadInstance true "HelmWorkloadInstance object"
@@ -460,7 +460,7 @@ func (h Handler) AddHelmWorkloadInstance(c echo.Context) error {
 
 // @Summary gets all helm workload instances.
 // @Description Get all helm workload instances from the Threeport database.
-// @ID get-helmWorkloadInstances
+// @ID get-v0-helmWorkloadInstances
 // @Accept json
 // @Produce json
 // @Param name query string false "helm workload instance search by name"
@@ -500,7 +500,7 @@ func (h Handler) GetHelmWorkloadInstances(c echo.Context) error {
 
 // @Summary gets a helm workload instance.
 // @Description Get a particular helm workload instance from the database.
-// @ID get-helmWorkloadInstance
+// @ID get-v0-helmWorkloadInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -533,7 +533,7 @@ func (h Handler) GetHelmWorkloadInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-helmWorkloadInstance
+// @ID update-v0-helmWorkloadInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -598,7 +598,7 @@ func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-helmWorkloadInstance
+// @ID replace-v0-helmWorkloadInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -659,7 +659,7 @@ func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 
 // @Summary deletes a helm workload instance.
 // @Description Delete a helm workload instance by ID from the database.
-// @ID delete-helmWorkloadInstance
+// @ID delete-v0-helmWorkloadInstance
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"

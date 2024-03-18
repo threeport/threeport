@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	ObjectTypeProfile ObjectType = "Profile"
-	ObjectTypeTier    ObjectType = "Tier"
+	ObjectTypeProfile string = "Profile"
+	ObjectTypeTier    string = "Tier"
 
 	ActuatorStreamName = "actuatorStream"
 

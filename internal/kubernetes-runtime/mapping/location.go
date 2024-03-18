@@ -2,6 +2,7 @@ package mapping
 
 import (
 	"fmt"
+
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -49,7 +50,7 @@ func (e *RegionError) Error() string {
 func getRegionMap() *[]RegionMap {
 	return &[]RegionMap{
 		{
-			Location: "Local",
+			Location:  "Local",
 			AwsRegion: "us-east-1",
 		},
 		{

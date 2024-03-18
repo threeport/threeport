@@ -14,6 +14,7 @@ import (
 	version "github.com/threeport/threeport/internal/version"
 	workload "github.com/threeport/threeport/internal/workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	zap "go.uber.org/zap"
@@ -25,13 +26,18 @@ import (
 
 func main() {
 	// flags
-	var workloadDefinitionConcurrentReconciles = flag.Int(
-		"WorkloadDefinition-concurrent-reconciles",
+	var v0_workloadDefinitionConcurrentReconciles = flag.Int(
+		"v0-workload-definition-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for workload definitions",
 	)
-	var workloadInstanceConcurrentReconciles = flag.Int(
-		"WorkloadInstance-concurrent-reconciles",
+	var v0_workloadInstanceConcurrentReconciles = flag.Int(
+		"v0-workload-instance-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for workload instances",
+	)
+	var v1_workloadInstanceConcurrentReconciles = flag.Int(
+		"v1-workload-instance-concurrent-reconciles",
 		1,
 		"Number of concurrent reconcilers to run for workload instances",
 	)
@@ -135,17 +141,24 @@ func main() {
 	// configure and start reconcilers
 	var reconcilerConfigs []controller.ReconcilerConfig
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *workloadDefinitionConcurrentReconciles,
+		ConcurrentReconciles: *v0_workloadDefinitionConcurrentReconciles,
 		Name:                 "WorkloadDefinitionReconciler",
 		NotifSubject:         v0.WorkloadDefinitionSubject,
 		ObjectType:           v0.ObjectTypeWorkloadDefinition,
 		ReconcileFunc:        workload.WorkloadDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *workloadInstanceConcurrentReconciles,
+		ConcurrentReconciles: *v0_workloadInstanceConcurrentReconciles,
 		Name:                 "WorkloadInstanceReconciler",
 		NotifSubject:         v0.WorkloadInstanceSubject,
 		ObjectType:           v0.ObjectTypeWorkloadInstance,
+		ReconcileFunc:        workload.WorkloadInstanceReconciler,
+	})
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *v1_workloadInstanceConcurrentReconciles,
+		Name:                 "WorkloadInstanceReconciler",
+		NotifSubject:         v1.WorkloadInstanceSubject,
+		ObjectType:           v1.ObjectTypeWorkloadInstance,
 		ReconcileFunc:        workload.WorkloadInstanceReconciler,
 	})
 

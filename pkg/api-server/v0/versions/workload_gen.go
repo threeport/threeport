@@ -31,7 +31,7 @@ func AddWorkloadDefinitionVersions() {
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
 		Object:  string(v0.ObjectTypeWorkloadDefinition),
-		Version: iapi.V0,
+		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map
@@ -63,7 +63,7 @@ func AddWorkloadResourceDefinitionVersions() {
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
 		Object:  string(v0.ObjectTypeWorkloadResourceDefinition),
-		Version: iapi.V0,
+		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map
@@ -95,7 +95,7 @@ func AddWorkloadInstanceVersions() {
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
 		Object:  string(v0.ObjectTypeWorkloadInstance),
-		Version: iapi.V0,
+		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map
@@ -127,7 +127,7 @@ func AddAttachedObjectReferenceVersions() {
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
 		Object:  string(v0.ObjectTypeAttachedObjectReference),
-		Version: iapi.V0,
+		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map
@@ -159,7 +159,7 @@ func AddWorkloadResourceInstanceVersions() {
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
 		Object:  string(v0.ObjectTypeWorkloadResourceInstance),
-		Version: iapi.V0,
+		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map
@@ -191,7 +191,7 @@ func AddWorkloadEventVersions() {
 	// create a version object which contains the object name and versions
 	versionObj := iapi.VersionObject{
 		Object:  string(v0.ObjectTypeWorkloadEvent),
-		Version: iapi.V0,
+		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map

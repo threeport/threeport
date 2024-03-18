@@ -1,5 +1,4 @@
 //go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-sdk codegen controller --filename $GOFILE
 package v0
 
 import (
@@ -42,8 +41,8 @@ type WorkloadResourceDefinition struct {
 	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"not null" validate:"required"`
 }
 
-// +threeport-sdk:reconciler
 // +threeport-sdk:tptctl
+// +threeport-sdk:reconciler
 // WorkloadInstance is a deployed instance of a workload.
 type WorkloadInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`

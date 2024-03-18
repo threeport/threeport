@@ -109,7 +109,7 @@ func getFieldNameByJsonTag(tag, key string, s interface{}) (fieldname string) {
 
 // CheckPayloadObject analyzes payload using Object model tags and returns providedGORMModelFields,
 // providedAssociationsFields, unsupportedFields for further decision making
-func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, objectType v0.ObjectType, objectStruct interface{}, providedGORMModelFields *[]string, providedAssociationsFields *[]string, unsupportedFields *[]string) (int, error) {
+func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, objectType string, objectStruct interface{}, providedGORMModelFields *[]string, providedAssociationsFields *[]string, unsupportedFields *[]string) (int, error) {
 	var associatedFields = &[]string{}
 	var optionalFields = &[]string{}
 	var optionalAssociationsFields = &[]string{}
@@ -122,8 +122,13 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 		}
 	}
 
-	// to be able to do this, needed to introduce "validate" tag parsing into ObjectTaggedFields
-	associatedFields = &ObjectTaggedFields[VersionObject{Version: apiVer, Object: string(objectType)}].OptionalAssociations
+	// to be able to do this, needed to introduce "validate" tag parsing into
+	// ObjectTaggedFields
+	if fieldsByTag, ok := ObjectTaggedFields[VersionObject{Version: apiVer, Object: objectType}]; ok {
+		associatedFields = &fieldsByTag.OptionalAssociations
+	} else {
+		return 500, errors.New("ObjectTaggedFields for " + apiVer + " and " + objectType + " not found")
+	}
 
 	// error out if an association was passed for an update
 	for k, _ := range payloadObject {
@@ -164,7 +169,7 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 // - check for optional associations fields in they payload if checkAssociation parameter is true
 // - check for unsupported fields in the payload
 // and returns an error code and error message if any of the conditions above are met
-func PayloadCheck(c echo.Context, checkAssociation bool, objectType v0.ObjectType, objectStruct interface{}) (int, error) {
+func PayloadCheck(c echo.Context, checkAssociation bool, objectType string, objectStruct interface{}) (int, error) {
 	var payload map[string]interface{}
 	var payloadArray []map[string]interface{}
 	var providedGORMModelFields []string

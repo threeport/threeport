@@ -30,3 +30,8 @@ func StringPtr(s string) *string {
 func JsonPtr(j datatypes.JSON) *datatypes.JSON {
 	return &j
 }
+
+// Ptr returns a pointer to the value passed in.
+func Ptr[T any](input T) *T {
+	return &input
+}

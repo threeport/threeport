@@ -128,7 +128,51 @@ func GetUniqueWorkloadResourceInstance(workloadResourceInstances *[]v0.WorkloadR
 	}
 
 	return &objects[0], nil
+}
 
+// GetUniqueWorkloadResourceInstanceByName gets a unique workload resource instance.
+func GetUniqueWorkloadResourceInstanceByName(workloadResourceInstances *[]v0.WorkloadResourceInstance, kind, name string) (*v0.WorkloadResourceInstance, error) {
+
+	var objects []v0.WorkloadResourceInstance
+	for _, wri := range *workloadResourceInstances {
+
+		mapDef, err := util.UnmarshalJSON(*wri.JSONDefinition)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal json: %w", err)
+		}
+
+		// get object kind
+		manifestKind, kindFound, err := unstructured.NestedString(mapDef, "kind")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get kind: %w", err)
+		}
+		if !kindFound {
+			return nil, fmt.Errorf("kind not found")
+		}
+
+		// get object name
+		manifestName, nameFound, err := unstructured.NestedString(mapDef, "metadata", "name")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get name: %w", err)
+		}
+		if !nameFound {
+			return nil, fmt.Errorf("name not found")
+		}
+
+		if manifestKind == kind &&
+			manifestName == name {
+			objects = append(objects, wri)
+		}
+	}
+
+	if len(objects) == 0 {
+		return nil, fmt.Errorf("workload resource instance not found")
+	}
+	if len(objects) > 1 {
+		return nil, fmt.Errorf("multiple workload resource instances found")
+	}
+
+	return &objects[0], nil
 }
 
 // GetUniqueWorkloadResourceDefinition gets a unique workload resource definition.
