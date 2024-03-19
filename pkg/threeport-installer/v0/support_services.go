@@ -2546,6 +2546,7 @@ func InstallThreeportSystemServices(
 	infraProvider string,
 	clusterName string,
 	accountId string,
+	awsPartition string,
 ) error {
 	if infraProvider == v0.KubernetesRuntimeInfraProviderEKS {
 		var clusterAutoscalerServiceAcct = &unstructured.Unstructured{
@@ -2561,7 +2562,8 @@ func InstallThreeportSystemServices(
 					"namespace": ClusterAutoscalerNamespace,
 					"annotations": map[string]interface{}{
 						"eks.amazonaws.com/role-arn": fmt.Sprintf(
-							"arn:aws:iam::%s:role/%s-%s",
+							"arn:%s:iam::%s:role/%s-%s",
+							awsPartition,
 							accountId,
 							eks.ClusterAutoscalingRoleName,
 							clusterName,

@@ -237,6 +237,11 @@ func awsObjectStorageBucketInstanceCreated(
 		)
 	}
 
+	callerIdentity, err := provider.GetCallerIdentity(awsConfig)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get AWS caller identity: %w", err)
+	}
+
 	// update workload resources to enable connection to S3 bucket
 	if err := updateS3ClientWorkloadConnection(
 		r,
@@ -248,6 +253,7 @@ func awsObjectStorageBucketInstanceCreated(
 		s3BucketName,
 		s3RoleName,
 		&reconLog,
+		provider.GetAwsPartition(callerIdentity),
 	); err != nil {
 		// delete resources
 		if deleteErr := getS3InventoryAndDelete(r, &s3Client, awsObjectStorageBucketInstance); deleteErr != nil {
@@ -553,6 +559,7 @@ func updateS3ClientWorkloadConnection(
 	s3BucketName string,
 	s3RoleName string,
 	log *logr.Logger,
+	awsPartition string,
 ) error {
 	// update workload service account resource instance to add annotation that
 	// will enable permission to manage S3 bucket
@@ -560,14 +567,16 @@ func updateS3ClientWorkloadConnection(
 	annotations = serviceAccountObject.GetAnnotations()
 	if annotations != nil {
 		annotations["eks.amazonaws.com/role-arn"] = fmt.Sprintf(
-			"arn:aws:iam::%s:role/%s",
+			"arn:%s:iam::%s:role/%s",
+			awsPartition,
 			*requiredObjects.AwsAccount.AccountID,
 			s3RoleName,
 		)
 	} else {
 		annotations = map[string]string{
 			"eks.amazonaws.com/role-arn": fmt.Sprintf(
-				"arn:aws:iam::%s:role/%s",
+				"arn:%s:iam::%s:role/%s",
+				awsPartition,
 				*requiredObjects.AwsAccount.AccountID,
 				s3RoleName,
 			),
