@@ -368,7 +368,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		awsConfigResourceManager, err = builder_config.AssumeRole(
 			provider.GetResourceManagerRoleArn(
 				cpi.Opts.ControlPlaneName,
-				*callerIdentity.Account,
+				callerIdentity,
 			),
 			"",
 			"",
@@ -797,6 +797,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			cpi.Opts.InfraProvider,
 			cpi.Opts.Name+"-"+cpi.Opts.ControlPlaneName,
 			*callerIdentity.Account,
+			provider.GetAwsPartition(callerIdentity),
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to install system services", err)
 		}
@@ -848,7 +849,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 		roleArn := provider.GetResourceManagerRoleArn(
 			cpi.Opts.ControlPlaneName,
-			*callerIdentity.Account,
+			callerIdentity,
 		)
 		awsAccount := v0.AwsAccount{
 			Name:           &awsAccountName,

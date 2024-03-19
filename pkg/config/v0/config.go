@@ -309,7 +309,7 @@ func (cfg *ThreeportConfig) GetAwsConfigs(requestedControlPlane string) (*aws.Co
 	awsConfigResourceManager, err := builder_config.AssumeRole(
 		provider.GetResourceManagerRoleArn(
 			controlPlane.Name,
-			controlPlane.EKSProviderConfig.AwsAccountID,
+			callerIdentity,
 		),
 		"",
 		"",
