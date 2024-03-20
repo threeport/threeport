@@ -11,6 +11,9 @@ respectful community.
 
 ## Getting Started
 
+Check out the [Threeport project scope](project-scope.md) to ensure what you
+want to work on belongs in Threeport.
+
 Fork and Clone: Fork the project on GitHub and clone your fork locally.
 
 Set Up Your Environment: Follow the instructions in our
