@@ -1,15 +1,13 @@
 # Threeport Scope
 
-This document lays out the intended scope for the Threeport project.  This scope
-is to help limit the functionality included to those that are broadly used -
-and likely to be into the future.
+This document lays out the intended scope for the Threeport project.
 
 ## In Scope
 
 Threeport is intended to be the engine for an application platform.  It's
 purpose is to provide developers with abstractions that allow them to reliably,
-repeatbably and effectively deliver the software they develop.  The core
-Threeport abstractions are intended to cover common development patterns and
+repeatably and effectively deliver the software they develop.  The core
+Threeport abstractions are intended to cover common use cases and
 software design implementations that can be used by a large portion of the
 ecosystem to use out-of-the-box.
 
@@ -18,27 +16,32 @@ abstractions for developers where needed.
 
 The core developer abstractions should cover the following areas:
 
-* Workload deployments
+* Workload deployments.
 * Workload dependency management, including:
-    * Infrastructure depednencies: cloud provider compute infrastructure
+    * Infrastructure dependencies: cloud provider compute infrastructure.
     * Runtime dependencies: Kubernetes clusters (and alternative runtimes in the
-      future)
-    * managed service dependencies (provided by 3rd parties)
-    * support service dependencies (installed on Kubernetes)
+      future).
+    * Managed service dependencies (provided by 3rd parties).
+    * Support service dependencies (installed on Kubernetes).
 
 ### Out of Scope
 
 There are many components of an application platform that are not intended to be
-included in the Threeport project.  These components are those that are specific
-to a particular organization's policies and procedures.
+included in the Threeport project.
 
-Extensions to support these use cases can be implemented internally by platform
-engineering teams and in the open source community to be used by those that need
-the integrations or features.
+This applies to any component that is specific to an organization's policies,
+procedures and implementations.  It is expected that internal platform
+engineering teams use the Threeport SDK to implement these extensions.
+
+This also applies to specific application abstractions.  It is our hope that
+extensions for specific apps or implementation patterns be developed in the
+open source community.
 
 Examples:
 
-* Integrations with internal project management systems
-* User access management controls
-* Automated compliance reporting
+* Integrations with internal project management systems.
+* Authentication with 3rd party identity providers.
+* Authorization controls for users.
+* Automated compliance reporting.
+* Specific application abstractions.
 
