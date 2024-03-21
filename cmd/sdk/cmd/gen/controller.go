@@ -13,7 +13,7 @@ import (
 	"github.com/threeport/threeport/internal/sdk/controller"
 )
 
-func ControllerGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
+func ControllerGen(controllerDomain string, apiObjects []*sdk.APIObject) error {
 	baseName := controllerDomain
 	controllerConfig := controller.ControllerConfig{
 		Name: strings.ReplaceAll(
@@ -29,13 +29,13 @@ func ControllerGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 	}
 
 	// Assemble all api objects in this controller domain according to there version
-	versionObjMap := make(map[string][]*sdk.ApiObject, 0)
+	versionObjMap := make(map[string][]*sdk.APIObject, 0)
 	for _, obj := range apiObjects {
 		for _, v := range obj.Versions {
 			if _, exists := versionObjMap[*v]; exists {
 				versionObjMap[*v] = append(versionObjMap[*v], obj)
 			} else {
-				versionObjMap[*v] = []*sdk.ApiObject{obj}
+				versionObjMap[*v] = []*sdk.APIObject{obj}
 			}
 		}
 	}

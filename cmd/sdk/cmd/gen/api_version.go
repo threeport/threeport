@@ -17,7 +17,7 @@ const (
 )
 
 // apiVersionCmd represents the apiVersion command
-func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
+func ApiVersionGen(versionObjMap map[string][]*sdk.APIObject) error {
 	var globalVersionConf versions.GlobalVersionConfig
 
 	// assemble all objects to process further
@@ -32,11 +32,11 @@ func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
 		var reconciledNames []string = make([]string, 0)
 
 		for _, obj := range apiObjects {
-			if (obj.ExcludeFromDb != nil && !*obj.ExcludeFromDb) || obj.ExcludeFromDb == nil {
+			if (obj.DatabaseExclude != nil && !*obj.DatabaseExclude) || obj.DatabaseExclude == nil {
 				dbInitNames = append(dbInitNames, *obj.Name)
 			}
 
-			if (obj.ExcludeRoute != nil && !*obj.ExcludeRoute) || obj.ExcludeRoute == nil {
+			if (obj.RouteExclude != nil && !*obj.RouteExclude) || obj.RouteExclude == nil {
 				routeNames = append(routeNames, *obj.Name)
 			}
 
@@ -153,7 +153,6 @@ func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
 		return fmt.Errorf("could not get sdk config: %w", err)
 	}
 
-	// Generate the jetstream context for the rest-api to interact with reconcilers
 	if err := globalVersionConf.InitJetStreamContext(sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate jetstream function for rest-api: %w", err)
 	}

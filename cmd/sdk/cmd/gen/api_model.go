@@ -30,12 +30,12 @@ func nameFields() []string {
 	}
 }
 
-func ApiModelGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
+func ApiModelGen(controllerDomain string, apiObjects []*sdk.APIObject) error {
 	filename := fmt.Sprintf("%s.go", controllerDomain)
 	// Assemble all api objects in this controller domain according to there version
-	versionObjMap := make(map[string][]*sdk.ApiObject, 0)
+	versionObjMap := make(map[string][]*sdk.APIObject, 0)
 	for _, obj := range apiObjects {
-		if obj.ExcludeRoute != nil && *obj.ExcludeRoute {
+		if obj.DisableApiModel != nil && *obj.DisableApiModel {
 			continue
 		}
 
@@ -43,7 +43,7 @@ func ApiModelGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 			if _, exists := versionObjMap[*v]; exists {
 				versionObjMap[*v] = append(versionObjMap[*v], obj)
 			} else {
-				versionObjMap[*v] = []*sdk.ApiObject{obj}
+				versionObjMap[*v] = []*sdk.APIObject{obj}
 			}
 		}
 	}
@@ -76,18 +76,16 @@ func ApiModelGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 				allowDuplicateNameModels = append(allowDuplicateNameModels, *obj.Name)
 			}
 
-			if obj.LoadAssociationsFromDb != nil && *obj.LoadAssociationsFromDb {
+			if obj.LoadAssociationsFromDatabase != nil && *obj.LoadAssociationsFromDatabase {
 				dbLoadAssociations = append(dbLoadAssociations, *obj.Name)
 			}
 
-			if obj.Tptctl != nil {
-				if obj.Tptctl.Enabled != nil && *obj.Tptctl.Enabled {
-					tptctlModels = append(tptctlModels, *obj.Name)
-				}
+			if obj.Tptctl != nil && *obj.Tptctl {
+				tptctlModels = append(tptctlModels, *obj.Name)
+			}
 
-				if obj.Tptctl.ConfigPath != nil && *obj.Tptctl.ConfigPath {
-					tptctlModelsConfigPath = append(tptctlModelsConfigPath, *obj.Name)
-				}
+			if obj.TptctlConfigPath != nil && *obj.TptctlConfigPath {
+				tptctlModelsConfigPath = append(tptctlModelsConfigPath, *obj.Name)
 			}
 
 			modelConfigs = append(modelConfigs, mc)
