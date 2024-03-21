@@ -17,6 +17,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 
+	util "github.com/threeport/threeport/cmd/rest-api/util"
 	"github.com/threeport/threeport/internal/version"
 	iapi "github.com/threeport/threeport/pkg/api-server/v0"
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
@@ -27,7 +28,6 @@ import (
 	handlers_v1 "github.com/threeport/threeport/pkg/api-server/v1/handlers"
 	routes_v1 "github.com/threeport/threeport/pkg/api-server/v1/routes"
 	versions_v1 "github.com/threeport/threeport/pkg/api-server/v1/versions"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
 	log "github.com/threeport/threeport/pkg/log/v0"
 )
 
@@ -40,8 +40,6 @@ import (
 // @contact.email support@threeport.io
 // @host rest-api.threeport.io
 // @BasePath /
-//
-//go:generate threeport-sdk codegen api-version v0 v1
 func main() {
 	// flags
 	var envFile string
@@ -129,52 +127,14 @@ func main() {
 	defer nc.Close()
 
 	// jetstream context
-	js, err := nc.JetStream(nats.PublishAsyncMaxPending(256))
+	js, err := util.InitJetStream(nc)
 	if err != nil {
-		e.Logger.Fatalf("failed to create jetstream context: %v", err)
+		e.Logger.Fatalf("failed to initialize nats jet stream: %v", err)
 	}
-
-	// add controller streams
-	js.AddStream(&nats.StreamConfig{
-		Name:     v0.WorkloadStreamName,
-		Subjects: v0.GetWorkloadSubjects(),
-	})
-	js.AddStream(&nats.StreamConfig{
-		Name:     v0.KubernetesRuntimeStreamName,
-		Subjects: v0.GetKubernetesRuntimeSubjects(),
-	})
-	js.AddStream(&nats.StreamConfig{
-		Name:     v0.AwsStreamName,
-		Subjects: v0.GetAwsSubjects(),
-	})
-	js.AddStream(&nats.StreamConfig{
-		Name:     v0.GatewayStreamName,
-		Subjects: v0.GetGatewaySubjects(),
-	})
-	js.AddStream(&nats.StreamConfig{
-		Name:     v0.ControlPlaneStreamName,
-		Subjects: v0.GetControlPlaneSubjects(),
-	})
-	js.AddStream(&nats.StreamConfig{
-		Name:     v0.HelmWorkloadStreamName,
-		Subjects: v0.GetHelmWorkloadSubjects(),
-	})
-	js.AddStream(&nats.StreamConfig{
-		Name:     v0.TerraformStreamName,
-		Subjects: v0.GetTerraformSubjects(),
-	})
-	js.AddStream(&nats.StreamConfig{
-		Name:     v0.ObservabilityStreamName,
-		Subjects: v0.GetObservabilitySubjects(),
-	})
-	js.AddStream(&nats.StreamConfig{
-		Name:     v0.SecretStreamName,
-		Subjects: v0.GetSecretSubjects(),
-	})
 
 	// v0
 	// handlers
-	h := handlers.New(db, nc, js)
+	h := handlers.New(db, nc, *js)
 
 	// routes
 	routes.AddRoutes(e, &h)
@@ -184,7 +144,7 @@ func main() {
 
 	// v1
 	// handlers
-	h_v1 := handlers_v1.New(db, nc, js)
+	h_v1 := handlers_v1.New(db, nc, *js)
 
 	// routes
 	routes_v1.AddRoutes(e, &h_v1)

@@ -105,70 +105,6 @@ func AddAwsEksKubernetesRuntimeInstanceVersions() {
 	api.AddRestApiVersion(versionObj)
 }
 
-// AddAwsRelationalDatabaseDefinitionVersions adds field validation info and adds it
-// to the REST API versions.
-func AddAwsRelationalDatabaseDefinitionVersions() {
-	iapi.AwsRelationalDatabaseDefinitionTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
-		Optional:             []string{},
-		OptionalAssociations: []string{},
-		Required:             []string{},
-		TagName:              iapi.TagNameValidate,
-	}
-
-	// parse struct and populate the FieldsByTag object
-	iapi.ParseStruct(
-		iapi.TagNameValidate,
-		reflect.ValueOf(new(v0.AwsRelationalDatabaseDefinition)),
-		"",
-		iapi.Translate,
-		iapi.AwsRelationalDatabaseDefinitionTaggedFields,
-	)
-
-	// create a version object which contains the object name and versions
-	versionObj := iapi.VersionObject{
-		Object:  string(v0.ObjectTypeAwsRelationalDatabaseDefinition),
-		Version: "v0",
-	}
-
-	// add the object tagged fields to the global tagged fields map
-	iapi.ObjectTaggedFields[versionObj] = iapi.AwsRelationalDatabaseDefinitionTaggedFields[iapi.TagNameValidate]
-
-	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
-}
-
-// AddAwsRelationalDatabaseInstanceVersions adds field validation info and adds it
-// to the REST API versions.
-func AddAwsRelationalDatabaseInstanceVersions() {
-	iapi.AwsRelationalDatabaseInstanceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
-		Optional:             []string{},
-		OptionalAssociations: []string{},
-		Required:             []string{},
-		TagName:              iapi.TagNameValidate,
-	}
-
-	// parse struct and populate the FieldsByTag object
-	iapi.ParseStruct(
-		iapi.TagNameValidate,
-		reflect.ValueOf(new(v0.AwsRelationalDatabaseInstance)),
-		"",
-		iapi.Translate,
-		iapi.AwsRelationalDatabaseInstanceTaggedFields,
-	)
-
-	// create a version object which contains the object name and versions
-	versionObj := iapi.VersionObject{
-		Object:  string(v0.ObjectTypeAwsRelationalDatabaseInstance),
-		Version: "v0",
-	}
-
-	// add the object tagged fields to the global tagged fields map
-	iapi.ObjectTaggedFields[versionObj] = iapi.AwsRelationalDatabaseInstanceTaggedFields[iapi.TagNameValidate]
-
-	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
-}
-
 // AddAwsObjectStorageBucketDefinitionVersions adds field validation info and adds it
 // to the REST API versions.
 func AddAwsObjectStorageBucketDefinitionVersions() {
@@ -228,6 +164,70 @@ func AddAwsObjectStorageBucketInstanceVersions() {
 
 	// add the object tagged fields to the global tagged fields map
 	iapi.ObjectTaggedFields[versionObj] = iapi.AwsObjectStorageBucketInstanceTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}
+
+// AddAwsRelationalDatabaseDefinitionVersions adds field validation info and adds it
+// to the REST API versions.
+func AddAwsRelationalDatabaseDefinitionVersions() {
+	iapi.AwsRelationalDatabaseDefinitionTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.AwsRelationalDatabaseDefinition)),
+		"",
+		iapi.Translate,
+		iapi.AwsRelationalDatabaseDefinitionTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeAwsRelationalDatabaseDefinition),
+		Version: "v0",
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.AwsRelationalDatabaseDefinitionTaggedFields[iapi.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	api.AddRestApiVersion(versionObj)
+}
+
+// AddAwsRelationalDatabaseInstanceVersions adds field validation info and adds it
+// to the REST API versions.
+func AddAwsRelationalDatabaseInstanceVersions() {
+	iapi.AwsRelationalDatabaseInstanceTaggedFields[iapi.TagNameValidate] = &iapi.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              iapi.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	iapi.ParseStruct(
+		iapi.TagNameValidate,
+		reflect.ValueOf(new(v0.AwsRelationalDatabaseInstance)),
+		"",
+		iapi.Translate,
+		iapi.AwsRelationalDatabaseInstanceTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := iapi.VersionObject{
+		Object:  string(v0.ObjectTypeAwsRelationalDatabaseInstance),
+		Version: "v0",
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	iapi.ObjectTaggedFields[versionObj] = iapi.AwsRelationalDatabaseInstanceTaggedFields[iapi.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
 	api.AddRestApiVersion(versionObj)

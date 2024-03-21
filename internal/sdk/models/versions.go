@@ -13,7 +13,7 @@ import (
 // apiVersionsPath returns the path from the models to the API's internal
 // versions package.
 func apiVersionsPath(apiVersion string) string {
-	return filepath.Join("..", "..", "..", "pkg", "api-server", apiVersion, "versions")
+	return filepath.Join("pkg", "api-server", apiVersion, "versions")
 }
 
 // ModelVersions adds each API version and validation for the fields of the
@@ -64,7 +64,7 @@ func (cc *ControllerConfig) ModelVersions() error {
 				"reflect",
 				"ValueOf",
 			).Call(Id("new").Call(Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.ParsedModelFile.Name.Name),
+				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", cc.Version),
 				mc.TypeName,
 			))).Op(",").Line().Lit("").Op(",").Line().Qual(
 				"github.com/threeport/threeport/pkg/api-server/v0",

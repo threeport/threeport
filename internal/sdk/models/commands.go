@@ -15,7 +15,7 @@ import (
 )
 
 func tptctlCmdPath() string {
-	return filepath.Join("..", "..", "..", "cmd", "tptctl", "cmd")
+	return filepath.Join("cmd", "tptctl", "cmd")
 }
 
 func (cc *ControllerConfig) TptctlCommands() error {
@@ -48,8 +48,8 @@ func (cc *ControllerConfig) TptctlCommands() error {
 	describeOutputCode.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
 	describeOutputCode.ImportAlias("github.com/threeport/threeport/pkg/config/v0", "config")
 
-	// no code will be generated if '+threeport-sdk:tptctl' marker on API
-	// model is not present
+	// no code will be generated if tptctl is not enabled on API
+	// model
 	commandsGenerated := false
 
 	for _, mc := range cc.ModelConfigs {

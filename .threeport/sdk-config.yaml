@@ -1,0 +1,211 @@
+APIObjects:
+  secret:
+    - Name: SecretDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+      AllowCustomMiddleware: true
+      DisableNotificationPersistence: true
+    - Name: SecretInstance
+      Versions:
+        - v0
+      Reconcilable: true
+  actuator:
+    - Name: Profile
+      Versions:
+        - v0
+    - Name: Tier
+      Versions:
+        - v0
+  aws:
+    - Name: AwsAccount
+      Versions:
+        - v0
+      Tptctl: true
+    - Name: AwsEksKubernetesRuntimeDefinition
+      Versions:
+        - v0
+      Tptctl: true
+    - Name: AwsEksKubernetesRuntimeInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl: true
+    - Name: AwsRelationalDatabaseDefinition
+      Versions:
+        - v0
+      Tptctl: true
+    - Name: AwsRelationalDatabaseInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl: true
+    - Name: AwsObjectStorageBucketDefinition
+      Versions:
+        - v0
+      Tptctl: true
+    - Name: AwsObjectStorageBucketInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl: true
+  control_plane:
+    - Name: ControlPlaneDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl: true
+    - Name: ControlPlaneInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      LoadAssociationsFromDatabase: true
+      Tptctl: true
+  control_plane_components:
+    - Name: ControlPlaneComponent
+      Versions:
+        - v0
+      RouteExclude: true
+      DisableApiModel: true
+  class:
+    - Name: Definition
+      Versions:
+        - v0
+      RouteExclude: true
+      DisableApiModel: true
+    - Name: Instance
+      Versions:
+        - v0
+      RouteExclude: true
+      DisableApiModel: true
+  gateway:
+    - Name: GatewayDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl: true
+    - Name: GatewayInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl: true
+    - Name: GatewayHttpPort
+      Versions:
+        - v0
+    - Name: GatewayTcpPort
+      Versions:
+        - v0
+    - Name: DomainNameDefinition
+      Versions:
+        - v0
+    - Name: DomainNameInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl: true
+  helm_workload:
+    - Name: HelmWorkloadDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+      TptctlConfigPath: true
+    - Name: HelmWorkloadInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      TptctlConfigPath: true
+  kubernetes_runtime:
+    - Name: KubernetesRuntimeDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl: true
+    - Name: KubernetesRuntimeInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl: true
+  log:
+    - Name: LogBackend
+      Versions:
+        - v0
+    - Name: LogStorageDefinition
+      Versions:
+        - v0
+    - Name: LogStorageInstance
+      Versions:
+        - v0
+  observability:
+    - Name: ObservabilityStackDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+      TptctlConfigPath: true
+    - Name: ObservabilityStackInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      TptctlConfigPath: true
+    - Name: ObservabilityDashboardDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: ObservabilityDashboardInstance
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: MetricsDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: MetricsInstance
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: LoggingDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+    - Name: LoggingInstance
+      Versions:
+        - v0
+      Reconcilable: true
+  terraform:
+    - Name: TerraformDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+      TptctlConfigPath: true
+    - Name: TerraformInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      TptctlConfigPath: true
+  workload:
+    - Name: WorkloadDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+      TptctlConfigPath: true
+    - Name: WorkloadResourceDefinition
+      Versions:
+        - v0
+    - Name: WorkloadResourceInstance
+      Versions:
+        - v0
+    - Name: AttachedObjectReference
+      Versions:
+        - v0
+    - Name: WorkloadInstance
+      Versions:
+        - v0
+        - v1
+      Reconcilable: true
+      Tptctl: true
+    - Name: WorkloadEvent
+      Versions:
+        - v0
+  attached_object:
+    - Name: AttachedObjectReference
+      Versions:
+        - v1

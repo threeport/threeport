@@ -1240,876 +1240,6 @@ func init() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// AwsRelationalDatabase
-///////////////////////////////////////////////////////////////////////////////
-
-// GetAwsRelationalDatabasesCmd represents the aws-relational-database command
-var GetAwsRelationalDatabasesCmd = &cobra.Command{
-	Example: "  tptctl get aws-relational-databases",
-	Long:    "Get aws relational databases from the system.\n\nA aws relational database is a simple abstraction of aws relational database definitions and aws relational database instances.\nThis command displays all instances and the definitions used to configure them.",
-	PreRun:  commandPreRunFunc,
-	Run: func(cmd *cobra.Command, args []string) {
-		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
-
-		// get aws relational databases
-		awsRelationalDatabaseInstances, err := client.GetAwsRelationalDatabaseInstances(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to retrieve aws relational database instances", err)
-			os.Exit(1)
-		}
-
-		// write the output
-		if len(*awsRelationalDatabaseInstances) == 0 {
-			cli.Info(fmt.Sprintf(
-				"No aws relational database instances currently managed by %s threeport control plane",
-				requestedControlPlane,
-			))
-			os.Exit(0)
-		}
-		if err := outputGetAwsRelationalDatabasesCmd(
-			awsRelationalDatabaseInstances,
-			apiClient,
-			apiEndpoint,
-		); err != nil {
-			cli.Error("failed to produce output: %s", err)
-			os.Exit(0)
-		}
-	},
-	Short:        "Get aws relational databases from the system",
-	SilenceUsage: true,
-	Use:          "aws-relational-databases",
-}
-
-func init() {
-	GetCmd.AddCommand(GetAwsRelationalDatabasesCmd)
-
-	GetAwsRelationalDatabasesCmd.Flags().StringVarP(
-		&cliArgs.ControlPlaneName,
-		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
-	)
-}
-
-var createAwsRelationalDatabaseConfigPath string
-
-// CreateAwsRelationalDatabaseCmd represents the aws-relational-database command
-var CreateAwsRelationalDatabaseCmd = &cobra.Command{
-	Example: "  tptctl create aws-relational-database --config path/to/config.yaml",
-	Long:    "Create a new aws relational database. This command creates a new aws relational database definition and aws relational database instance based on the aws relational database config.",
-	PreRun:  commandPreRunFunc,
-	Run: func(cmd *cobra.Command, args []string) {
-		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
-
-		// load aws relational database config
-		configContent, err := os.ReadFile(createAwsRelationalDatabaseConfigPath)
-		if err != nil {
-			cli.Error("failed to read config file", err)
-			os.Exit(1)
-		}
-		var awsRelationalDatabaseConfig config.AwsRelationalDatabaseConfig
-		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
-			os.Exit(1)
-		}
-
-		// create aws relational database
-		awsRelationalDatabase := awsRelationalDatabaseConfig.AwsRelationalDatabase
-		createdAwsRelationalDatabaseDefinition, createdAwsRelationalDatabaseInstance, err := awsRelationalDatabase.Create(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to create aws relational database", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("aws relational database definition %s created", *createdAwsRelationalDatabaseDefinition.Name))
-		cli.Info(fmt.Sprintf("aws relational database instance %s created", *createdAwsRelationalDatabaseInstance.Name))
-		cli.Complete(fmt.Sprintf("aws relational database %s created", awsRelationalDatabaseConfig.AwsRelationalDatabase.Name))
-	},
-	Short:        "Create a new aws relational database",
-	SilenceUsage: true,
-	Use:          "aws-relational-database",
-}
-
-func init() {
-	CreateCmd.AddCommand(CreateAwsRelationalDatabaseCmd)
-
-	CreateAwsRelationalDatabaseCmd.Flags().StringVarP(
-		&createAwsRelationalDatabaseConfigPath,
-		"config", "c", "", "Path to file with aws relational database config.",
-	)
-	CreateAwsRelationalDatabaseCmd.MarkFlagRequired("config")
-	CreateAwsRelationalDatabaseCmd.Flags().StringVarP(
-		&cliArgs.ControlPlaneName,
-		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
-	)
-}
-
-var (
-	deleteAwsRelationalDatabaseConfigPath string
-	deleteAwsRelationalDatabaseName       string
-)
-
-// DeleteAwsRelationalDatabaseCmd represents the aws-relational-database command
-var DeleteAwsRelationalDatabaseCmd = &cobra.Command{
-	Example: "  # delete based on config file\n  tptctl delete aws-relational-database --config path/to/config.yaml\n\n  # delete based on name\n  tptctl delete aws-relational-database --name some-aws-relational-database",
-	Long:    "Delete an existing aws relational database. This command deletes an existing aws relational database definition and aws relational database instance based on the aws relational database config.",
-	PreRun:  commandPreRunFunc,
-	Run: func(cmd *cobra.Command, args []string) {
-		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
-
-		// flag validation
-		if deleteAwsRelationalDatabaseConfigPath == "" {
-			cli.Error("flag validation failed", errors.New("config file path is required"))
-		}
-
-		var awsRelationalDatabaseConfig config.AwsRelationalDatabaseConfig
-		// load aws relational database config
-		configContent, err := os.ReadFile(deleteAwsRelationalDatabaseConfigPath)
-		if err != nil {
-			cli.Error("failed to read config file", err)
-			os.Exit(1)
-		}
-		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
-			os.Exit(1)
-		}
-
-		// delete aws relational database
-		awsRelationalDatabase := awsRelationalDatabaseConfig.AwsRelationalDatabase
-		_, _, err = awsRelationalDatabase.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete aws relational database", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("aws relational database definition %s deleted", awsRelationalDatabase.Name))
-		cli.Info(fmt.Sprintf("aws relational database instance %s deleted", awsRelationalDatabase.Name))
-		cli.Complete(fmt.Sprintf("aws relational database %s deleted", awsRelationalDatabaseConfig.AwsRelationalDatabase.Name))
-	},
-	Short:        "Delete an existing aws relational database",
-	SilenceUsage: true,
-	Use:          "aws-relational-database",
-}
-
-func init() {
-	DeleteCmd.AddCommand(DeleteAwsRelationalDatabaseCmd)
-
-	DeleteAwsRelationalDatabaseCmd.Flags().StringVarP(
-		&deleteAwsRelationalDatabaseConfigPath,
-		"config", "c", "", "Path to file with aws relational database config.",
-	)
-	DeleteAwsRelationalDatabaseCmd.Flags().StringVarP(
-		&cliArgs.ControlPlaneName,
-		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
-	)
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// AwsRelationalDatabaseDefinition
-///////////////////////////////////////////////////////////////////////////////
-
-// GetAwsRelationalDatabaseDefinitionsCmd represents the aws-relational-database-definition command
-var GetAwsRelationalDatabaseDefinitionsCmd = &cobra.Command{
-	Example: "  tptctl get aws-relational-database-definitions",
-	Long:    "Get aws relational database definitions from the system.",
-	PreRun:  commandPreRunFunc,
-	Run: func(cmd *cobra.Command, args []string) {
-		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
-
-		// get aws relational database definitions
-		awsRelationalDatabaseDefinitions, err := client.GetAwsRelationalDatabaseDefinitions(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to retrieve aws relational database definitions", err)
-			os.Exit(1)
-		}
-
-		// write the output
-		if len(*awsRelationalDatabaseDefinitions) == 0 {
-			cli.Info(fmt.Sprintf(
-				"No aws relational database definitions currently managed by %s threeport control plane",
-				requestedControlPlane,
-			))
-			os.Exit(0)
-		}
-		if err := outputGetAwsRelationalDatabaseDefinitionsCmd(
-			awsRelationalDatabaseDefinitions,
-			apiClient,
-			apiEndpoint,
-		); err != nil {
-			cli.Error("failed to produce output", err)
-			os.Exit(0)
-		}
-	},
-	Short:        "Get aws relational database definitions from the system",
-	SilenceUsage: true,
-	Use:          "aws-relational-database-definitions",
-}
-
-func init() {
-	GetCmd.AddCommand(GetAwsRelationalDatabaseDefinitionsCmd)
-
-	GetAwsRelationalDatabaseDefinitionsCmd.Flags().StringVarP(
-		&cliArgs.ControlPlaneName,
-		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
-	)
-}
-
-var createAwsRelationalDatabaseDefinitionConfigPath string
-
-// CreateAwsRelationalDatabaseDefinitionCmd represents the aws-relational-database-definition command
-var CreateAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
-	Example: "  tptctl create aws-relational-database-definition --config path/to/config.yaml",
-	Long:    "Create a new aws relational database definition.",
-	PreRun:  commandPreRunFunc,
-	Run: func(cmd *cobra.Command, args []string) {
-		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
-
-		// load aws relational database definition config
-		configContent, err := os.ReadFile(createAwsRelationalDatabaseDefinitionConfigPath)
-		if err != nil {
-			cli.Error("failed to read config file", err)
-			os.Exit(1)
-		}
-		var awsRelationalDatabaseDefinitionConfig config.AwsRelationalDatabaseDefinitionConfig
-		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
-			os.Exit(1)
-		}
-
-		// create aws relational database definition
-		awsRelationalDatabaseDefinition := awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition
-		createdAwsRelationalDatabaseDefinition, err := awsRelationalDatabaseDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create aws relational database definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("aws relational database definition %s created", *createdAwsRelationalDatabaseDefinition.Name))
-	},
-	Short:        "Create a new aws relational database definition",
-	SilenceUsage: true,
-	Use:          "aws-relational-database-definition",
-}
-
-func init() {
-	CreateCmd.AddCommand(CreateAwsRelationalDatabaseDefinitionCmd)
-
-	CreateAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
-		&createAwsRelationalDatabaseDefinitionConfigPath,
-		"config", "c", "", "Path to file with aws relational database definition config.",
-	)
-	CreateAwsRelationalDatabaseDefinitionCmd.MarkFlagRequired("config")
-	CreateAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
-		&cliArgs.ControlPlaneName,
-		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
-	)
-}
-
-var (
-	deleteAwsRelationalDatabaseDefinitionConfigPath string
-	deleteAwsRelationalDatabaseDefinitionName       string
-)
-
-// DeleteAwsRelationalDatabaseDefinitionCmd represents the aws-relational-database-definition command
-var DeleteAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
-	Example: "  # delete based on config file\n  tptctl delete aws-relational-database-definition --config path/to/config.yaml\n\n  # delete based on name\n  tptctl delete aws-relational-database-definition --name some-aws-relational-database-definition",
-	Long:    "Delete an existing aws relational database definition.",
-	PreRun:  commandPreRunFunc,
-	Run: func(cmd *cobra.Command, args []string) {
-		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
-
-		// flag validation
-		if err := cli.ValidateConfigNameFlags(
-			deleteAwsRelationalDatabaseDefinitionConfigPath,
-			deleteAwsRelationalDatabaseDefinitionName,
-			"aws relational database definition",
-		); err != nil {
-			cli.Error("flag validation failed", err)
-			os.Exit(1)
-		}
-
-		var awsRelationalDatabaseDefinitionConfig config.AwsRelationalDatabaseDefinitionConfig
-		if deleteAwsRelationalDatabaseDefinitionConfigPath != "" {
-			// load aws relational database definition config
-			configContent, err := os.ReadFile(deleteAwsRelationalDatabaseDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsRelationalDatabaseDefinitionConfig = config.AwsRelationalDatabaseDefinitionConfig{
-				AwsRelationalDatabaseDefinition: config.AwsRelationalDatabaseDefinitionValues{
-					Name: deleteAwsRelationalDatabaseDefinitionName,
-				},
-			}
-		}
-
-		// delete aws relational database definition
-		awsRelationalDatabaseDefinition := awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition
-		deletedAwsRelationalDatabaseDefinition, err := awsRelationalDatabaseDefinition.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete aws relational database definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("aws relational database definition %s deleted", *deletedAwsRelationalDatabaseDefinition.Name))
-	},
-	Short:        "Delete an existing aws relational database definition",
-	SilenceUsage: true,
-	Use:          "aws-relational-database-definition",
-}
-
-func init() {
-	DeleteCmd.AddCommand(DeleteAwsRelationalDatabaseDefinitionCmd)
-
-	DeleteAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
-		&deleteAwsRelationalDatabaseDefinitionConfigPath,
-		"config", "c", "", "Path to file with aws relational database definition config.",
-	)
-	DeleteAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
-		&deleteAwsRelationalDatabaseDefinitionName,
-		"name", "n", "", "Name of aws relational database definition.",
-	)
-	DeleteAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
-		&cliArgs.ControlPlaneName,
-		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
-	)
-}
-
-var (
-	describeAwsRelationalDatabaseDefinitionConfigPath string
-	describeAwsRelationalDatabaseDefinitionName       string
-	describeAwsRelationalDatabaseDefinitionField      string
-	describeAwsRelationalDatabaseDefinitionOutput     string
-)
-
-// DescribeAwsRelationalDatabaseDefinitionCmd representes the aws-relational-database-definition command
-var DescribeAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
-	Example: "  # Get the plain output description for a aws relational database definition\n  tptctl describe aws-relational-database-definition -n some-aws-relational-database-definition\n\n  # Get JSON output for a aws relational database definition\n  tptctl describe aws-relational-database-definition -n some-aws-relational-database-definition -o json\n\n  # Get the value of the Name field for a aws relational database definition\n  tptctl describe aws-relational-database-definition -n some-aws-relational-database-definition -f Name ",
-	Long:    "Describe a aws relational database definition.  This command can give you a plain output description, output all fields in JSON or YAML format, or provide the value of any specific field.\n\nNote: any values that are encrypted in the database will be redacted unless the field is specifically requested with the --field flag.",
-	PreRun:  commandPreRunFunc,
-	Run: func(cmd *cobra.Command, args []string) {
-		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
-
-		// flag validation
-		if err := cli.ValidateConfigNameFlags(
-			describeAwsRelationalDatabaseDefinitionConfigPath,
-			describeAwsRelationalDatabaseDefinitionName,
-			"aws relational database definition",
-		); err != nil {
-			cli.Error("flag validation failed", err)
-			os.Exit(1)
-		}
-
-		if err := cli.ValidateDescribeOutputFlag(
-			describeAwsRelationalDatabaseDefinitionOutput,
-			"aws relational database definition",
-		); err != nil {
-			cli.Error("flag validation failed", err)
-			os.Exit(1)
-		}
-
-		// load aws relational database definition config by name or config file
-		var awsRelationalDatabaseDefinitionConfig config.AwsRelationalDatabaseDefinitionConfig
-		if describeAwsRelationalDatabaseDefinitionConfigPath != "" {
-			configContent, err := os.ReadFile(describeAwsRelationalDatabaseDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsRelationalDatabaseDefinitionConfig = config.AwsRelationalDatabaseDefinitionConfig{
-				AwsRelationalDatabaseDefinition: config.AwsRelationalDatabaseDefinitionValues{
-					Name: describeAwsRelationalDatabaseDefinitionName,
-				},
-			}
-		}
-
-		// get aws relational database definition
-		awsRelationalDatabaseDefinition, err := client.GetAwsRelationalDatabaseDefinitionByName(
-			apiClient,
-			apiEndpoint,
-			awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition.Name,
-		)
-		if err != nil {
-			cli.Error("failed to retrieve aws relational database definition details", err)
-			os.Exit(1)
-		}
-
-		// return field value if specified
-		if describeAwsRelationalDatabaseDefinitionField != "" {
-			fieldVal, err := util.GetObjectFieldValue(
-				awsRelationalDatabaseDefinition,
-				describeAwsRelationalDatabaseDefinitionField,
-			)
-			if err != nil {
-				cli.Error("failed to get field value from aws relational database definition", err)
-				os.Exit(1)
-			}
-
-			// decrypt value as needed
-			encrypted, err := encryption.IsEncryptedField(awsRelationalDatabaseDefinition, describeAwsRelationalDatabaseDefinitionField)
-			if err != nil {
-				cli.Error("", err)
-			}
-			if encrypted {
-				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
-				if err != nil {
-					cli.Error("failed to get threeport config: %w", err)
-					os.Exit(1)
-				}
-				encryptionKey, err := threeportConfig.GetThreeportEncryptionKey(requestedControlPlane)
-				if err != nil {
-					cli.Error("failed to get encryption key from threeport config: %w", err)
-					os.Exit(1)
-				}
-
-				// decrypt value for output
-				decryptedVal, err := encryption.Decrypt(encryptionKey, fieldVal.String())
-				if err != nil {
-					cli.Error("failed to decrypt value: %w", err)
-				}
-				fmt.Println(decryptedVal)
-				os.Exit(0)
-			} else {
-				fmt.Println(fieldVal.Interface())
-				os.Exit(0)
-			}
-		}
-
-		switch describeAwsRelationalDatabaseDefinitionOutput {
-		case "plain":
-			// produce plain object description output
-			if err := outputDescribeAwsRelationalDatabaseDefinitionCmd(
-				awsRelationalDatabaseDefinition,
-				&awsRelationalDatabaseDefinitionConfig,
-				apiClient,
-				apiEndpoint,
-			); err != nil {
-				cli.Error("failed to describe aws relational database definition", err)
-				os.Exit(1)
-			}
-		case "json":
-			// redact encrypted values
-			redactedAwsRelationalDatabaseDefinition := encryption.RedactEncryptedValues(awsRelationalDatabaseDefinition)
-
-			// marshal to JSON then print
-			awsRelationalDatabaseDefinitionJson, err := json.MarshalIndent(redactedAwsRelationalDatabaseDefinition, "", "  ")
-			if err != nil {
-				cli.Error("failed to marshal aws relational database definition into JSON", err)
-				os.Exit(1)
-			}
-
-			fmt.Println(string(awsRelationalDatabaseDefinitionJson))
-		case "yaml":
-			// redact encrypted values
-			redactedAwsRelationalDatabaseDefinition := encryption.RedactEncryptedValues(awsRelationalDatabaseDefinition)
-
-			// marshal to JSON then convert to YAML - this results in field
-			// names with correct capitalization vs marshalling directly to YAML
-			awsRelationalDatabaseDefinitionJson, err := json.MarshalIndent(redactedAwsRelationalDatabaseDefinition, "", "  ")
-			if err != nil {
-				cli.Error("failed to marshal aws relational database definition into JSON", err)
-				os.Exit(1)
-			}
-			awsRelationalDatabaseDefinitionYaml, err := ghodss_yaml.JSONToYAML(awsRelationalDatabaseDefinitionJson)
-			if err != nil {
-				cli.Error("failed to convert aws relational database definition JSON to YAML", err)
-				os.Exit(1)
-			}
-
-			fmt.Println(string(awsRelationalDatabaseDefinitionYaml))
-		}
-	},
-	Short:        "Describe a aws relational database definition",
-	SilenceUsage: true,
-	Use:          "aws-relational-database-definition",
-}
-
-func init() {
-	DescribeCmd.AddCommand(DescribeAwsRelationalDatabaseDefinitionCmd)
-
-	DescribeAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
-		&describeAwsRelationalDatabaseDefinitionConfigPath,
-		"config", "c", "", "Path to file with aws relational database definition config.")
-	DescribeAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
-		&describeAwsRelationalDatabaseDefinitionName,
-		"name", "n", "", "Name of aws relational database definition.")
-	DescribeAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
-		&describeAwsRelationalDatabaseDefinitionOutput,
-		"output", "o", "plain", "Output format for object description. One of 'plain','json','yaml'.  Will be ignored if the --field flag is also used.  Plain output produces select details about the object.  JSON and YAML output formats include all direct attributes of the object")
-	DescribeAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
-		&describeAwsRelationalDatabaseDefinitionField,
-		"field", "f", "", "Object field to get value for. If used, --output flag will be ignored.  *Only* the value of the desired field will be returned.  Will not return information on related objects, only direct attributes of the object itself.")
-	DescribeAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
-		&cliArgs.ControlPlaneName,
-		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
-	)
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// AwsRelationalDatabaseInstance
-///////////////////////////////////////////////////////////////////////////////
-
-// GetAwsRelationalDatabaseInstancesCmd represents the aws-relational-database-instance command
-var GetAwsRelationalDatabaseInstancesCmd = &cobra.Command{
-	Example: "  tptctl get aws-relational-database-instances",
-	Long:    "Get aws relational database instances from the system.",
-	PreRun:  commandPreRunFunc,
-	Run: func(cmd *cobra.Command, args []string) {
-		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
-
-		// get aws relational database instances
-		awsRelationalDatabaseInstances, err := client.GetAwsRelationalDatabaseInstances(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to retrieve aws relational database instances", err)
-			os.Exit(1)
-		}
-
-		// write the output
-		if len(*awsRelationalDatabaseInstances) == 0 {
-			cli.Info(fmt.Sprintf(
-				"No aws relational database instances currently managed by %s threeport control plane",
-				requestedControlPlane,
-			))
-			os.Exit(0)
-		}
-		if err := outputGetAwsRelationalDatabaseInstancesCmd(
-			awsRelationalDatabaseInstances,
-			apiClient,
-			apiEndpoint,
-		); err != nil {
-			cli.Error("failed to produce output", err)
-			os.Exit(0)
-		}
-	},
-	Short:        "Get aws relational database instances from the system",
-	SilenceUsage: true,
-	Use:          "aws-relational-database-instances",
-}
-
-func init() {
-	GetCmd.AddCommand(GetAwsRelationalDatabaseInstancesCmd)
-
-	GetAwsRelationalDatabaseInstancesCmd.Flags().StringVarP(
-		&cliArgs.ControlPlaneName,
-		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
-	)
-}
-
-var createAwsRelationalDatabaseInstanceConfigPath string
-
-// CreateAwsRelationalDatabaseInstanceCmd represents the aws-relational-database-instance command
-var CreateAwsRelationalDatabaseInstanceCmd = &cobra.Command{
-	Example: "  tptctl create aws-relational-database-instance --config path/to/config.yaml",
-	Long:    "Create a new aws relational database instance.",
-	PreRun:  commandPreRunFunc,
-	Run: func(cmd *cobra.Command, args []string) {
-		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
-
-		// load aws relational database instance config
-		configContent, err := os.ReadFile(createAwsRelationalDatabaseInstanceConfigPath)
-		if err != nil {
-			cli.Error("failed to read config file", err)
-			os.Exit(1)
-		}
-		var awsRelationalDatabaseInstanceConfig config.AwsRelationalDatabaseInstanceConfig
-		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseInstanceConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
-			os.Exit(1)
-		}
-
-		// create aws relational database instance
-		awsRelationalDatabaseInstance := awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance
-		createdAwsRelationalDatabaseInstance, err := awsRelationalDatabaseInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create aws relational database instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("aws relational database instance %s created", *createdAwsRelationalDatabaseInstance.Name))
-	},
-	Short:        "Create a new aws relational database instance",
-	SilenceUsage: true,
-	Use:          "aws-relational-database-instance",
-}
-
-func init() {
-	CreateCmd.AddCommand(CreateAwsRelationalDatabaseInstanceCmd)
-
-	CreateAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
-		&createAwsRelationalDatabaseInstanceConfigPath,
-		"config", "c", "", "Path to file with aws relational database instance config.",
-	)
-	CreateAwsRelationalDatabaseInstanceCmd.MarkFlagRequired("config")
-	CreateAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
-		&cliArgs.ControlPlaneName,
-		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
-	)
-}
-
-var (
-	deleteAwsRelationalDatabaseInstanceConfigPath string
-	deleteAwsRelationalDatabaseInstanceName       string
-)
-
-// DeleteAwsRelationalDatabaseInstanceCmd represents the aws-relational-database-instance command
-var DeleteAwsRelationalDatabaseInstanceCmd = &cobra.Command{
-	Example: "  # delete based on config file\n  tptctl delete aws-relational-database-instance --config path/to/config.yaml\n\n  # delete based on name\n  tptctl delete aws-relational-database-instance --name some-aws-relational-database-instance",
-	Long:    "Delete an existing aws relational database instance.",
-	PreRun:  commandPreRunFunc,
-	Run: func(cmd *cobra.Command, args []string) {
-		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
-
-		// flag validation
-		if err := cli.ValidateConfigNameFlags(
-			deleteAwsRelationalDatabaseInstanceConfigPath,
-			deleteAwsRelationalDatabaseInstanceName,
-			"aws relational database instance",
-		); err != nil {
-			cli.Error("flag validation failed", err)
-			os.Exit(1)
-		}
-
-		var awsRelationalDatabaseInstanceConfig config.AwsRelationalDatabaseInstanceConfig
-		if deleteAwsRelationalDatabaseInstanceConfigPath != "" {
-			// load aws relational database instance config
-			configContent, err := os.ReadFile(deleteAwsRelationalDatabaseInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsRelationalDatabaseInstanceConfig = config.AwsRelationalDatabaseInstanceConfig{
-				AwsRelationalDatabaseInstance: config.AwsRelationalDatabaseInstanceValues{
-					Name: deleteAwsRelationalDatabaseInstanceName,
-				},
-			}
-		}
-
-		// delete aws relational database instance
-		awsRelationalDatabaseInstance := awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance
-		deletedAwsRelationalDatabaseInstance, err := awsRelationalDatabaseInstance.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete aws relational database instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("aws relational database instance %s deleted", *deletedAwsRelationalDatabaseInstance.Name))
-	},
-	Short:        "Delete an existing aws relational database instance",
-	SilenceUsage: true,
-	Use:          "aws-relational-database-instance",
-}
-
-func init() {
-	DeleteCmd.AddCommand(DeleteAwsRelationalDatabaseInstanceCmd)
-
-	DeleteAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
-		&deleteAwsRelationalDatabaseInstanceConfigPath,
-		"config", "c", "", "Path to file with aws relational database instance config.",
-	)
-	DeleteAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
-		&deleteAwsRelationalDatabaseInstanceName,
-		"name", "n", "", "Name of aws relational database instance.",
-	)
-	DeleteAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
-		&cliArgs.ControlPlaneName,
-		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
-	)
-}
-
-var (
-	describeAwsRelationalDatabaseInstanceConfigPath string
-	describeAwsRelationalDatabaseInstanceName       string
-	describeAwsRelationalDatabaseInstanceField      string
-	describeAwsRelationalDatabaseInstanceOutput     string
-)
-
-// DescribeAwsRelationalDatabaseInstanceCmd representes the aws-relational-database-instance command
-var DescribeAwsRelationalDatabaseInstanceCmd = &cobra.Command{
-	Example: "  # Get the plain output description for a aws relational database instance\n  tptctl describe aws-relational-database-instance -n some-aws-relational-database-instance\n\n  # Get JSON output for a aws relational database instance\n  tptctl describe aws-relational-database-instance -n some-aws-relational-database-instance -o json\n\n  # Get the value of the Name field for a aws relational database instance\n  tptctl describe aws-relational-database-instance -n some-aws-relational-database-instance -f Name ",
-	Long:    "Describe a aws relational database instance.  This command can give you a plain output description, output all fields in JSON or YAML format, or provide the value of any specific field.\n\nNote: any values that are encrypted in the database will be redacted unless the field is specifically requested with the --field flag.",
-	PreRun:  commandPreRunFunc,
-	Run: func(cmd *cobra.Command, args []string) {
-		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
-
-		// flag validation
-		if err := cli.ValidateConfigNameFlags(
-			describeAwsRelationalDatabaseInstanceConfigPath,
-			describeAwsRelationalDatabaseInstanceName,
-			"aws relational database instance",
-		); err != nil {
-			cli.Error("flag validation failed", err)
-			os.Exit(1)
-		}
-
-		if err := cli.ValidateDescribeOutputFlag(
-			describeAwsRelationalDatabaseInstanceOutput,
-			"aws relational database instance",
-		); err != nil {
-			cli.Error("flag validation failed", err)
-			os.Exit(1)
-		}
-
-		// load aws relational database instance config by name or config file
-		var awsRelationalDatabaseInstanceConfig config.AwsRelationalDatabaseInstanceConfig
-		if describeAwsRelationalDatabaseInstanceConfigPath != "" {
-			configContent, err := os.ReadFile(describeAwsRelationalDatabaseInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsRelationalDatabaseInstanceConfig = config.AwsRelationalDatabaseInstanceConfig{
-				AwsRelationalDatabaseInstance: config.AwsRelationalDatabaseInstanceValues{
-					Name: describeAwsRelationalDatabaseInstanceName,
-				},
-			}
-		}
-
-		// get aws relational database instance
-		awsRelationalDatabaseInstance, err := client.GetAwsRelationalDatabaseInstanceByName(
-			apiClient,
-			apiEndpoint,
-			awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance.Name,
-		)
-		if err != nil {
-			cli.Error("failed to retrieve aws relational database instance details", err)
-			os.Exit(1)
-		}
-
-		// return field value if specified
-		if describeAwsRelationalDatabaseInstanceField != "" {
-			fieldVal, err := util.GetObjectFieldValue(
-				awsRelationalDatabaseInstance,
-				describeAwsRelationalDatabaseInstanceField,
-			)
-			if err != nil {
-				cli.Error("failed to get field value from aws relational database instance", err)
-				os.Exit(1)
-			}
-
-			// decrypt value as needed
-			encrypted, err := encryption.IsEncryptedField(awsRelationalDatabaseInstance, describeAwsRelationalDatabaseInstanceField)
-			if err != nil {
-				cli.Error("", err)
-			}
-			if encrypted {
-				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
-				if err != nil {
-					cli.Error("failed to get threeport config: %w", err)
-					os.Exit(1)
-				}
-				encryptionKey, err := threeportConfig.GetThreeportEncryptionKey(requestedControlPlane)
-				if err != nil {
-					cli.Error("failed to get encryption key from threeport config: %w", err)
-					os.Exit(1)
-				}
-
-				// decrypt value for output
-				decryptedVal, err := encryption.Decrypt(encryptionKey, fieldVal.String())
-				if err != nil {
-					cli.Error("failed to decrypt value: %w", err)
-				}
-				fmt.Println(decryptedVal)
-				os.Exit(0)
-			} else {
-				fmt.Println(fieldVal.Interface())
-				os.Exit(0)
-			}
-		}
-
-		switch describeAwsRelationalDatabaseInstanceOutput {
-		case "plain":
-			// produce plain object description output
-			if err := outputDescribeAwsRelationalDatabaseInstanceCmd(
-				awsRelationalDatabaseInstance,
-				&awsRelationalDatabaseInstanceConfig,
-				apiClient,
-				apiEndpoint,
-			); err != nil {
-				cli.Error("failed to describe aws relational database instance", err)
-				os.Exit(1)
-			}
-		case "json":
-			// redact encrypted values
-			redactedAwsRelationalDatabaseInstance := encryption.RedactEncryptedValues(awsRelationalDatabaseInstance)
-
-			// marshal to JSON then print
-			awsRelationalDatabaseInstanceJson, err := json.MarshalIndent(redactedAwsRelationalDatabaseInstance, "", "  ")
-			if err != nil {
-				cli.Error("failed to marshal aws relational database instance into JSON", err)
-				os.Exit(1)
-			}
-
-			fmt.Println(string(awsRelationalDatabaseInstanceJson))
-		case "yaml":
-			// redact encrypted values
-			redactedAwsRelationalDatabaseInstance := encryption.RedactEncryptedValues(awsRelationalDatabaseInstance)
-
-			// marshal to JSON then convert to YAML - this results in field
-			// names with correct capitalization vs marshalling directly to YAML
-			awsRelationalDatabaseInstanceJson, err := json.MarshalIndent(redactedAwsRelationalDatabaseInstance, "", "  ")
-			if err != nil {
-				cli.Error("failed to marshal aws relational database instance into JSON", err)
-				os.Exit(1)
-			}
-			awsRelationalDatabaseInstanceYaml, err := ghodss_yaml.JSONToYAML(awsRelationalDatabaseInstanceJson)
-			if err != nil {
-				cli.Error("failed to convert aws relational database instance JSON to YAML", err)
-				os.Exit(1)
-			}
-
-			fmt.Println(string(awsRelationalDatabaseInstanceYaml))
-		}
-	},
-	Short:        "Describe a aws relational database instance",
-	SilenceUsage: true,
-	Use:          "aws-relational-database-instance",
-}
-
-func init() {
-	DescribeCmd.AddCommand(DescribeAwsRelationalDatabaseInstanceCmd)
-
-	DescribeAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
-		&describeAwsRelationalDatabaseInstanceConfigPath,
-		"config", "c", "", "Path to file with aws relational database instance config.")
-	DescribeAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
-		&describeAwsRelationalDatabaseInstanceName,
-		"name", "n", "", "Name of aws relational database instance.")
-	DescribeAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
-		&describeAwsRelationalDatabaseInstanceOutput,
-		"output", "o", "plain", "Output format for object description. One of 'plain','json','yaml'.  Will be ignored if the --field flag is also used.  Plain output produces select details about the object.  JSON and YAML output formats include all direct attributes of the object")
-	DescribeAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
-		&describeAwsRelationalDatabaseInstanceField,
-		"field", "f", "", "Object field to get value for. If used, --output flag will be ignored.  *Only* the value of the desired field will be returned.  Will not return information on related objects, only direct attributes of the object itself.")
-	DescribeAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
-		&cliArgs.ControlPlaneName,
-		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
-	)
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // AwsObjectStorageBucket
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -2974,6 +2104,876 @@ func init() {
 		&describeAwsObjectStorageBucketInstanceField,
 		"field", "f", "", "Object field to get value for. If used, --output flag will be ignored.  *Only* the value of the desired field will be returned.  Will not return information on related objects, only direct attributes of the object itself.")
 	DescribeAwsObjectStorageBucketInstanceCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// AwsRelationalDatabase
+///////////////////////////////////////////////////////////////////////////////
+
+// GetAwsRelationalDatabasesCmd represents the aws-relational-database command
+var GetAwsRelationalDatabasesCmd = &cobra.Command{
+	Example: "  tptctl get aws-relational-databases",
+	Long:    "Get aws relational databases from the system.\n\nA aws relational database is a simple abstraction of aws relational database definitions and aws relational database instances.\nThis command displays all instances and the definitions used to configure them.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
+
+		// get aws relational databases
+		awsRelationalDatabaseInstances, err := client.GetAwsRelationalDatabaseInstances(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to retrieve aws relational database instances", err)
+			os.Exit(1)
+		}
+
+		// write the output
+		if len(*awsRelationalDatabaseInstances) == 0 {
+			cli.Info(fmt.Sprintf(
+				"No aws relational database instances currently managed by %s threeport control plane",
+				requestedControlPlane,
+			))
+			os.Exit(0)
+		}
+		if err := outputGetAwsRelationalDatabasesCmd(
+			awsRelationalDatabaseInstances,
+			apiClient,
+			apiEndpoint,
+		); err != nil {
+			cli.Error("failed to produce output: %s", err)
+			os.Exit(0)
+		}
+	},
+	Short:        "Get aws relational databases from the system",
+	SilenceUsage: true,
+	Use:          "aws-relational-databases",
+}
+
+func init() {
+	GetCmd.AddCommand(GetAwsRelationalDatabasesCmd)
+
+	GetAwsRelationalDatabasesCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+var createAwsRelationalDatabaseConfigPath string
+
+// CreateAwsRelationalDatabaseCmd represents the aws-relational-database command
+var CreateAwsRelationalDatabaseCmd = &cobra.Command{
+	Example: "  tptctl create aws-relational-database --config path/to/config.yaml",
+	Long:    "Create a new aws relational database. This command creates a new aws relational database definition and aws relational database instance based on the aws relational database config.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
+
+		// load aws relational database config
+		configContent, err := os.ReadFile(createAwsRelationalDatabaseConfigPath)
+		if err != nil {
+			cli.Error("failed to read config file", err)
+			os.Exit(1)
+		}
+		var awsRelationalDatabaseConfig config.AwsRelationalDatabaseConfig
+		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseConfig); err != nil {
+			cli.Error("failed to unmarshal config file yaml content", err)
+			os.Exit(1)
+		}
+
+		// create aws relational database
+		awsRelationalDatabase := awsRelationalDatabaseConfig.AwsRelationalDatabase
+		createdAwsRelationalDatabaseDefinition, createdAwsRelationalDatabaseInstance, err := awsRelationalDatabase.Create(
+			apiClient,
+			apiEndpoint,
+		)
+		if err != nil {
+			cli.Error("failed to create aws relational database", err)
+			os.Exit(1)
+		}
+
+		cli.Info(fmt.Sprintf("aws relational database definition %s created", *createdAwsRelationalDatabaseDefinition.Name))
+		cli.Info(fmt.Sprintf("aws relational database instance %s created", *createdAwsRelationalDatabaseInstance.Name))
+		cli.Complete(fmt.Sprintf("aws relational database %s created", awsRelationalDatabaseConfig.AwsRelationalDatabase.Name))
+	},
+	Short:        "Create a new aws relational database",
+	SilenceUsage: true,
+	Use:          "aws-relational-database",
+}
+
+func init() {
+	CreateCmd.AddCommand(CreateAwsRelationalDatabaseCmd)
+
+	CreateAwsRelationalDatabaseCmd.Flags().StringVarP(
+		&createAwsRelationalDatabaseConfigPath,
+		"config", "c", "", "Path to file with aws relational database config.",
+	)
+	CreateAwsRelationalDatabaseCmd.MarkFlagRequired("config")
+	CreateAwsRelationalDatabaseCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+var (
+	deleteAwsRelationalDatabaseConfigPath string
+	deleteAwsRelationalDatabaseName       string
+)
+
+// DeleteAwsRelationalDatabaseCmd represents the aws-relational-database command
+var DeleteAwsRelationalDatabaseCmd = &cobra.Command{
+	Example: "  # delete based on config file\n  tptctl delete aws-relational-database --config path/to/config.yaml\n\n  # delete based on name\n  tptctl delete aws-relational-database --name some-aws-relational-database",
+	Long:    "Delete an existing aws relational database. This command deletes an existing aws relational database definition and aws relational database instance based on the aws relational database config.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
+
+		// flag validation
+		if deleteAwsRelationalDatabaseConfigPath == "" {
+			cli.Error("flag validation failed", errors.New("config file path is required"))
+		}
+
+		var awsRelationalDatabaseConfig config.AwsRelationalDatabaseConfig
+		// load aws relational database config
+		configContent, err := os.ReadFile(deleteAwsRelationalDatabaseConfigPath)
+		if err != nil {
+			cli.Error("failed to read config file", err)
+			os.Exit(1)
+		}
+		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseConfig); err != nil {
+			cli.Error("failed to unmarshal config file yaml content", err)
+			os.Exit(1)
+		}
+
+		// delete aws relational database
+		awsRelationalDatabase := awsRelationalDatabaseConfig.AwsRelationalDatabase
+		_, _, err = awsRelationalDatabase.Delete(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to delete aws relational database", err)
+			os.Exit(1)
+		}
+
+		cli.Info(fmt.Sprintf("aws relational database definition %s deleted", awsRelationalDatabase.Name))
+		cli.Info(fmt.Sprintf("aws relational database instance %s deleted", awsRelationalDatabase.Name))
+		cli.Complete(fmt.Sprintf("aws relational database %s deleted", awsRelationalDatabaseConfig.AwsRelationalDatabase.Name))
+	},
+	Short:        "Delete an existing aws relational database",
+	SilenceUsage: true,
+	Use:          "aws-relational-database",
+}
+
+func init() {
+	DeleteCmd.AddCommand(DeleteAwsRelationalDatabaseCmd)
+
+	DeleteAwsRelationalDatabaseCmd.Flags().StringVarP(
+		&deleteAwsRelationalDatabaseConfigPath,
+		"config", "c", "", "Path to file with aws relational database config.",
+	)
+	DeleteAwsRelationalDatabaseCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// AwsRelationalDatabaseDefinition
+///////////////////////////////////////////////////////////////////////////////
+
+// GetAwsRelationalDatabaseDefinitionsCmd represents the aws-relational-database-definition command
+var GetAwsRelationalDatabaseDefinitionsCmd = &cobra.Command{
+	Example: "  tptctl get aws-relational-database-definitions",
+	Long:    "Get aws relational database definitions from the system.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
+
+		// get aws relational database definitions
+		awsRelationalDatabaseDefinitions, err := client.GetAwsRelationalDatabaseDefinitions(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to retrieve aws relational database definitions", err)
+			os.Exit(1)
+		}
+
+		// write the output
+		if len(*awsRelationalDatabaseDefinitions) == 0 {
+			cli.Info(fmt.Sprintf(
+				"No aws relational database definitions currently managed by %s threeport control plane",
+				requestedControlPlane,
+			))
+			os.Exit(0)
+		}
+		if err := outputGetAwsRelationalDatabaseDefinitionsCmd(
+			awsRelationalDatabaseDefinitions,
+			apiClient,
+			apiEndpoint,
+		); err != nil {
+			cli.Error("failed to produce output", err)
+			os.Exit(0)
+		}
+	},
+	Short:        "Get aws relational database definitions from the system",
+	SilenceUsage: true,
+	Use:          "aws-relational-database-definitions",
+}
+
+func init() {
+	GetCmd.AddCommand(GetAwsRelationalDatabaseDefinitionsCmd)
+
+	GetAwsRelationalDatabaseDefinitionsCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+var createAwsRelationalDatabaseDefinitionConfigPath string
+
+// CreateAwsRelationalDatabaseDefinitionCmd represents the aws-relational-database-definition command
+var CreateAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
+	Example: "  tptctl create aws-relational-database-definition --config path/to/config.yaml",
+	Long:    "Create a new aws relational database definition.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
+
+		// load aws relational database definition config
+		configContent, err := os.ReadFile(createAwsRelationalDatabaseDefinitionConfigPath)
+		if err != nil {
+			cli.Error("failed to read config file", err)
+			os.Exit(1)
+		}
+		var awsRelationalDatabaseDefinitionConfig config.AwsRelationalDatabaseDefinitionConfig
+		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
+			cli.Error("failed to unmarshal config file yaml content", err)
+			os.Exit(1)
+		}
+
+		// create aws relational database definition
+		awsRelationalDatabaseDefinition := awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition
+		createdAwsRelationalDatabaseDefinition, err := awsRelationalDatabaseDefinition.Create(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to create aws relational database definition", err)
+			os.Exit(1)
+		}
+
+		cli.Complete(fmt.Sprintf("aws relational database definition %s created", *createdAwsRelationalDatabaseDefinition.Name))
+	},
+	Short:        "Create a new aws relational database definition",
+	SilenceUsage: true,
+	Use:          "aws-relational-database-definition",
+}
+
+func init() {
+	CreateCmd.AddCommand(CreateAwsRelationalDatabaseDefinitionCmd)
+
+	CreateAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
+		&createAwsRelationalDatabaseDefinitionConfigPath,
+		"config", "c", "", "Path to file with aws relational database definition config.",
+	)
+	CreateAwsRelationalDatabaseDefinitionCmd.MarkFlagRequired("config")
+	CreateAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+var (
+	deleteAwsRelationalDatabaseDefinitionConfigPath string
+	deleteAwsRelationalDatabaseDefinitionName       string
+)
+
+// DeleteAwsRelationalDatabaseDefinitionCmd represents the aws-relational-database-definition command
+var DeleteAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
+	Example: "  # delete based on config file\n  tptctl delete aws-relational-database-definition --config path/to/config.yaml\n\n  # delete based on name\n  tptctl delete aws-relational-database-definition --name some-aws-relational-database-definition",
+	Long:    "Delete an existing aws relational database definition.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
+
+		// flag validation
+		if err := cli.ValidateConfigNameFlags(
+			deleteAwsRelationalDatabaseDefinitionConfigPath,
+			deleteAwsRelationalDatabaseDefinitionName,
+			"aws relational database definition",
+		); err != nil {
+			cli.Error("flag validation failed", err)
+			os.Exit(1)
+		}
+
+		var awsRelationalDatabaseDefinitionConfig config.AwsRelationalDatabaseDefinitionConfig
+		if deleteAwsRelationalDatabaseDefinitionConfigPath != "" {
+			// load aws relational database definition config
+			configContent, err := os.ReadFile(deleteAwsRelationalDatabaseDefinitionConfigPath)
+			if err != nil {
+				cli.Error("failed to read config file", err)
+				os.Exit(1)
+			}
+			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+		} else {
+			awsRelationalDatabaseDefinitionConfig = config.AwsRelationalDatabaseDefinitionConfig{
+				AwsRelationalDatabaseDefinition: config.AwsRelationalDatabaseDefinitionValues{
+					Name: deleteAwsRelationalDatabaseDefinitionName,
+				},
+			}
+		}
+
+		// delete aws relational database definition
+		awsRelationalDatabaseDefinition := awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition
+		deletedAwsRelationalDatabaseDefinition, err := awsRelationalDatabaseDefinition.Delete(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to delete aws relational database definition", err)
+			os.Exit(1)
+		}
+
+		cli.Complete(fmt.Sprintf("aws relational database definition %s deleted", *deletedAwsRelationalDatabaseDefinition.Name))
+	},
+	Short:        "Delete an existing aws relational database definition",
+	SilenceUsage: true,
+	Use:          "aws-relational-database-definition",
+}
+
+func init() {
+	DeleteCmd.AddCommand(DeleteAwsRelationalDatabaseDefinitionCmd)
+
+	DeleteAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
+		&deleteAwsRelationalDatabaseDefinitionConfigPath,
+		"config", "c", "", "Path to file with aws relational database definition config.",
+	)
+	DeleteAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
+		&deleteAwsRelationalDatabaseDefinitionName,
+		"name", "n", "", "Name of aws relational database definition.",
+	)
+	DeleteAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+var (
+	describeAwsRelationalDatabaseDefinitionConfigPath string
+	describeAwsRelationalDatabaseDefinitionName       string
+	describeAwsRelationalDatabaseDefinitionField      string
+	describeAwsRelationalDatabaseDefinitionOutput     string
+)
+
+// DescribeAwsRelationalDatabaseDefinitionCmd representes the aws-relational-database-definition command
+var DescribeAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
+	Example: "  # Get the plain output description for a aws relational database definition\n  tptctl describe aws-relational-database-definition -n some-aws-relational-database-definition\n\n  # Get JSON output for a aws relational database definition\n  tptctl describe aws-relational-database-definition -n some-aws-relational-database-definition -o json\n\n  # Get the value of the Name field for a aws relational database definition\n  tptctl describe aws-relational-database-definition -n some-aws-relational-database-definition -f Name ",
+	Long:    "Describe a aws relational database definition.  This command can give you a plain output description, output all fields in JSON or YAML format, or provide the value of any specific field.\n\nNote: any values that are encrypted in the database will be redacted unless the field is specifically requested with the --field flag.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
+
+		// flag validation
+		if err := cli.ValidateConfigNameFlags(
+			describeAwsRelationalDatabaseDefinitionConfigPath,
+			describeAwsRelationalDatabaseDefinitionName,
+			"aws relational database definition",
+		); err != nil {
+			cli.Error("flag validation failed", err)
+			os.Exit(1)
+		}
+
+		if err := cli.ValidateDescribeOutputFlag(
+			describeAwsRelationalDatabaseDefinitionOutput,
+			"aws relational database definition",
+		); err != nil {
+			cli.Error("flag validation failed", err)
+			os.Exit(1)
+		}
+
+		// load aws relational database definition config by name or config file
+		var awsRelationalDatabaseDefinitionConfig config.AwsRelationalDatabaseDefinitionConfig
+		if describeAwsRelationalDatabaseDefinitionConfigPath != "" {
+			configContent, err := os.ReadFile(describeAwsRelationalDatabaseDefinitionConfigPath)
+			if err != nil {
+				cli.Error("failed to read config file", err)
+				os.Exit(1)
+			}
+			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+		} else {
+			awsRelationalDatabaseDefinitionConfig = config.AwsRelationalDatabaseDefinitionConfig{
+				AwsRelationalDatabaseDefinition: config.AwsRelationalDatabaseDefinitionValues{
+					Name: describeAwsRelationalDatabaseDefinitionName,
+				},
+			}
+		}
+
+		// get aws relational database definition
+		awsRelationalDatabaseDefinition, err := client.GetAwsRelationalDatabaseDefinitionByName(
+			apiClient,
+			apiEndpoint,
+			awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition.Name,
+		)
+		if err != nil {
+			cli.Error("failed to retrieve aws relational database definition details", err)
+			os.Exit(1)
+		}
+
+		// return field value if specified
+		if describeAwsRelationalDatabaseDefinitionField != "" {
+			fieldVal, err := util.GetObjectFieldValue(
+				awsRelationalDatabaseDefinition,
+				describeAwsRelationalDatabaseDefinitionField,
+			)
+			if err != nil {
+				cli.Error("failed to get field value from aws relational database definition", err)
+				os.Exit(1)
+			}
+
+			// decrypt value as needed
+			encrypted, err := encryption.IsEncryptedField(awsRelationalDatabaseDefinition, describeAwsRelationalDatabaseDefinitionField)
+			if err != nil {
+				cli.Error("", err)
+			}
+			if encrypted {
+				// get encryption key from threeport config
+				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				if err != nil {
+					cli.Error("failed to get threeport config: %w", err)
+					os.Exit(1)
+				}
+				encryptionKey, err := threeportConfig.GetThreeportEncryptionKey(requestedControlPlane)
+				if err != nil {
+					cli.Error("failed to get encryption key from threeport config: %w", err)
+					os.Exit(1)
+				}
+
+				// decrypt value for output
+				decryptedVal, err := encryption.Decrypt(encryptionKey, fieldVal.String())
+				if err != nil {
+					cli.Error("failed to decrypt value: %w", err)
+				}
+				fmt.Println(decryptedVal)
+				os.Exit(0)
+			} else {
+				fmt.Println(fieldVal.Interface())
+				os.Exit(0)
+			}
+		}
+
+		switch describeAwsRelationalDatabaseDefinitionOutput {
+		case "plain":
+			// produce plain object description output
+			if err := outputDescribeAwsRelationalDatabaseDefinitionCmd(
+				awsRelationalDatabaseDefinition,
+				&awsRelationalDatabaseDefinitionConfig,
+				apiClient,
+				apiEndpoint,
+			); err != nil {
+				cli.Error("failed to describe aws relational database definition", err)
+				os.Exit(1)
+			}
+		case "json":
+			// redact encrypted values
+			redactedAwsRelationalDatabaseDefinition := encryption.RedactEncryptedValues(awsRelationalDatabaseDefinition)
+
+			// marshal to JSON then print
+			awsRelationalDatabaseDefinitionJson, err := json.MarshalIndent(redactedAwsRelationalDatabaseDefinition, "", "  ")
+			if err != nil {
+				cli.Error("failed to marshal aws relational database definition into JSON", err)
+				os.Exit(1)
+			}
+
+			fmt.Println(string(awsRelationalDatabaseDefinitionJson))
+		case "yaml":
+			// redact encrypted values
+			redactedAwsRelationalDatabaseDefinition := encryption.RedactEncryptedValues(awsRelationalDatabaseDefinition)
+
+			// marshal to JSON then convert to YAML - this results in field
+			// names with correct capitalization vs marshalling directly to YAML
+			awsRelationalDatabaseDefinitionJson, err := json.MarshalIndent(redactedAwsRelationalDatabaseDefinition, "", "  ")
+			if err != nil {
+				cli.Error("failed to marshal aws relational database definition into JSON", err)
+				os.Exit(1)
+			}
+			awsRelationalDatabaseDefinitionYaml, err := ghodss_yaml.JSONToYAML(awsRelationalDatabaseDefinitionJson)
+			if err != nil {
+				cli.Error("failed to convert aws relational database definition JSON to YAML", err)
+				os.Exit(1)
+			}
+
+			fmt.Println(string(awsRelationalDatabaseDefinitionYaml))
+		}
+	},
+	Short:        "Describe a aws relational database definition",
+	SilenceUsage: true,
+	Use:          "aws-relational-database-definition",
+}
+
+func init() {
+	DescribeCmd.AddCommand(DescribeAwsRelationalDatabaseDefinitionCmd)
+
+	DescribeAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
+		&describeAwsRelationalDatabaseDefinitionConfigPath,
+		"config", "c", "", "Path to file with aws relational database definition config.")
+	DescribeAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
+		&describeAwsRelationalDatabaseDefinitionName,
+		"name", "n", "", "Name of aws relational database definition.")
+	DescribeAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
+		&describeAwsRelationalDatabaseDefinitionOutput,
+		"output", "o", "plain", "Output format for object description. One of 'plain','json','yaml'.  Will be ignored if the --field flag is also used.  Plain output produces select details about the object.  JSON and YAML output formats include all direct attributes of the object")
+	DescribeAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
+		&describeAwsRelationalDatabaseDefinitionField,
+		"field", "f", "", "Object field to get value for. If used, --output flag will be ignored.  *Only* the value of the desired field will be returned.  Will not return information on related objects, only direct attributes of the object itself.")
+	DescribeAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// AwsRelationalDatabaseInstance
+///////////////////////////////////////////////////////////////////////////////
+
+// GetAwsRelationalDatabaseInstancesCmd represents the aws-relational-database-instance command
+var GetAwsRelationalDatabaseInstancesCmd = &cobra.Command{
+	Example: "  tptctl get aws-relational-database-instances",
+	Long:    "Get aws relational database instances from the system.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
+
+		// get aws relational database instances
+		awsRelationalDatabaseInstances, err := client.GetAwsRelationalDatabaseInstances(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to retrieve aws relational database instances", err)
+			os.Exit(1)
+		}
+
+		// write the output
+		if len(*awsRelationalDatabaseInstances) == 0 {
+			cli.Info(fmt.Sprintf(
+				"No aws relational database instances currently managed by %s threeport control plane",
+				requestedControlPlane,
+			))
+			os.Exit(0)
+		}
+		if err := outputGetAwsRelationalDatabaseInstancesCmd(
+			awsRelationalDatabaseInstances,
+			apiClient,
+			apiEndpoint,
+		); err != nil {
+			cli.Error("failed to produce output", err)
+			os.Exit(0)
+		}
+	},
+	Short:        "Get aws relational database instances from the system",
+	SilenceUsage: true,
+	Use:          "aws-relational-database-instances",
+}
+
+func init() {
+	GetCmd.AddCommand(GetAwsRelationalDatabaseInstancesCmd)
+
+	GetAwsRelationalDatabaseInstancesCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+var createAwsRelationalDatabaseInstanceConfigPath string
+
+// CreateAwsRelationalDatabaseInstanceCmd represents the aws-relational-database-instance command
+var CreateAwsRelationalDatabaseInstanceCmd = &cobra.Command{
+	Example: "  tptctl create aws-relational-database-instance --config path/to/config.yaml",
+	Long:    "Create a new aws relational database instance.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
+
+		// load aws relational database instance config
+		configContent, err := os.ReadFile(createAwsRelationalDatabaseInstanceConfigPath)
+		if err != nil {
+			cli.Error("failed to read config file", err)
+			os.Exit(1)
+		}
+		var awsRelationalDatabaseInstanceConfig config.AwsRelationalDatabaseInstanceConfig
+		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseInstanceConfig); err != nil {
+			cli.Error("failed to unmarshal config file yaml content", err)
+			os.Exit(1)
+		}
+
+		// create aws relational database instance
+		awsRelationalDatabaseInstance := awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance
+		createdAwsRelationalDatabaseInstance, err := awsRelationalDatabaseInstance.Create(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to create aws relational database instance", err)
+			os.Exit(1)
+		}
+
+		cli.Complete(fmt.Sprintf("aws relational database instance %s created", *createdAwsRelationalDatabaseInstance.Name))
+	},
+	Short:        "Create a new aws relational database instance",
+	SilenceUsage: true,
+	Use:          "aws-relational-database-instance",
+}
+
+func init() {
+	CreateCmd.AddCommand(CreateAwsRelationalDatabaseInstanceCmd)
+
+	CreateAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
+		&createAwsRelationalDatabaseInstanceConfigPath,
+		"config", "c", "", "Path to file with aws relational database instance config.",
+	)
+	CreateAwsRelationalDatabaseInstanceCmd.MarkFlagRequired("config")
+	CreateAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+var (
+	deleteAwsRelationalDatabaseInstanceConfigPath string
+	deleteAwsRelationalDatabaseInstanceName       string
+)
+
+// DeleteAwsRelationalDatabaseInstanceCmd represents the aws-relational-database-instance command
+var DeleteAwsRelationalDatabaseInstanceCmd = &cobra.Command{
+	Example: "  # delete based on config file\n  tptctl delete aws-relational-database-instance --config path/to/config.yaml\n\n  # delete based on name\n  tptctl delete aws-relational-database-instance --name some-aws-relational-database-instance",
+	Long:    "Delete an existing aws relational database instance.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
+
+		// flag validation
+		if err := cli.ValidateConfigNameFlags(
+			deleteAwsRelationalDatabaseInstanceConfigPath,
+			deleteAwsRelationalDatabaseInstanceName,
+			"aws relational database instance",
+		); err != nil {
+			cli.Error("flag validation failed", err)
+			os.Exit(1)
+		}
+
+		var awsRelationalDatabaseInstanceConfig config.AwsRelationalDatabaseInstanceConfig
+		if deleteAwsRelationalDatabaseInstanceConfigPath != "" {
+			// load aws relational database instance config
+			configContent, err := os.ReadFile(deleteAwsRelationalDatabaseInstanceConfigPath)
+			if err != nil {
+				cli.Error("failed to read config file", err)
+				os.Exit(1)
+			}
+			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+		} else {
+			awsRelationalDatabaseInstanceConfig = config.AwsRelationalDatabaseInstanceConfig{
+				AwsRelationalDatabaseInstance: config.AwsRelationalDatabaseInstanceValues{
+					Name: deleteAwsRelationalDatabaseInstanceName,
+				},
+			}
+		}
+
+		// delete aws relational database instance
+		awsRelationalDatabaseInstance := awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance
+		deletedAwsRelationalDatabaseInstance, err := awsRelationalDatabaseInstance.Delete(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to delete aws relational database instance", err)
+			os.Exit(1)
+		}
+
+		cli.Complete(fmt.Sprintf("aws relational database instance %s deleted", *deletedAwsRelationalDatabaseInstance.Name))
+	},
+	Short:        "Delete an existing aws relational database instance",
+	SilenceUsage: true,
+	Use:          "aws-relational-database-instance",
+}
+
+func init() {
+	DeleteCmd.AddCommand(DeleteAwsRelationalDatabaseInstanceCmd)
+
+	DeleteAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
+		&deleteAwsRelationalDatabaseInstanceConfigPath,
+		"config", "c", "", "Path to file with aws relational database instance config.",
+	)
+	DeleteAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
+		&deleteAwsRelationalDatabaseInstanceName,
+		"name", "n", "", "Name of aws relational database instance.",
+	)
+	DeleteAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+var (
+	describeAwsRelationalDatabaseInstanceConfigPath string
+	describeAwsRelationalDatabaseInstanceName       string
+	describeAwsRelationalDatabaseInstanceField      string
+	describeAwsRelationalDatabaseInstanceOutput     string
+)
+
+// DescribeAwsRelationalDatabaseInstanceCmd representes the aws-relational-database-instance command
+var DescribeAwsRelationalDatabaseInstanceCmd = &cobra.Command{
+	Example: "  # Get the plain output description for a aws relational database instance\n  tptctl describe aws-relational-database-instance -n some-aws-relational-database-instance\n\n  # Get JSON output for a aws relational database instance\n  tptctl describe aws-relational-database-instance -n some-aws-relational-database-instance -o json\n\n  # Get the value of the Name field for a aws relational database instance\n  tptctl describe aws-relational-database-instance -n some-aws-relational-database-instance -f Name ",
+	Long:    "Describe a aws relational database instance.  This command can give you a plain output description, output all fields in JSON or YAML format, or provide the value of any specific field.\n\nNote: any values that are encrypted in the database will be redacted unless the field is specifically requested with the --field flag.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
+
+		// flag validation
+		if err := cli.ValidateConfigNameFlags(
+			describeAwsRelationalDatabaseInstanceConfigPath,
+			describeAwsRelationalDatabaseInstanceName,
+			"aws relational database instance",
+		); err != nil {
+			cli.Error("flag validation failed", err)
+			os.Exit(1)
+		}
+
+		if err := cli.ValidateDescribeOutputFlag(
+			describeAwsRelationalDatabaseInstanceOutput,
+			"aws relational database instance",
+		); err != nil {
+			cli.Error("flag validation failed", err)
+			os.Exit(1)
+		}
+
+		// load aws relational database instance config by name or config file
+		var awsRelationalDatabaseInstanceConfig config.AwsRelationalDatabaseInstanceConfig
+		if describeAwsRelationalDatabaseInstanceConfigPath != "" {
+			configContent, err := os.ReadFile(describeAwsRelationalDatabaseInstanceConfigPath)
+			if err != nil {
+				cli.Error("failed to read config file", err)
+				os.Exit(1)
+			}
+			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+		} else {
+			awsRelationalDatabaseInstanceConfig = config.AwsRelationalDatabaseInstanceConfig{
+				AwsRelationalDatabaseInstance: config.AwsRelationalDatabaseInstanceValues{
+					Name: describeAwsRelationalDatabaseInstanceName,
+				},
+			}
+		}
+
+		// get aws relational database instance
+		awsRelationalDatabaseInstance, err := client.GetAwsRelationalDatabaseInstanceByName(
+			apiClient,
+			apiEndpoint,
+			awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance.Name,
+		)
+		if err != nil {
+			cli.Error("failed to retrieve aws relational database instance details", err)
+			os.Exit(1)
+		}
+
+		// return field value if specified
+		if describeAwsRelationalDatabaseInstanceField != "" {
+			fieldVal, err := util.GetObjectFieldValue(
+				awsRelationalDatabaseInstance,
+				describeAwsRelationalDatabaseInstanceField,
+			)
+			if err != nil {
+				cli.Error("failed to get field value from aws relational database instance", err)
+				os.Exit(1)
+			}
+
+			// decrypt value as needed
+			encrypted, err := encryption.IsEncryptedField(awsRelationalDatabaseInstance, describeAwsRelationalDatabaseInstanceField)
+			if err != nil {
+				cli.Error("", err)
+			}
+			if encrypted {
+				// get encryption key from threeport config
+				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				if err != nil {
+					cli.Error("failed to get threeport config: %w", err)
+					os.Exit(1)
+				}
+				encryptionKey, err := threeportConfig.GetThreeportEncryptionKey(requestedControlPlane)
+				if err != nil {
+					cli.Error("failed to get encryption key from threeport config: %w", err)
+					os.Exit(1)
+				}
+
+				// decrypt value for output
+				decryptedVal, err := encryption.Decrypt(encryptionKey, fieldVal.String())
+				if err != nil {
+					cli.Error("failed to decrypt value: %w", err)
+				}
+				fmt.Println(decryptedVal)
+				os.Exit(0)
+			} else {
+				fmt.Println(fieldVal.Interface())
+				os.Exit(0)
+			}
+		}
+
+		switch describeAwsRelationalDatabaseInstanceOutput {
+		case "plain":
+			// produce plain object description output
+			if err := outputDescribeAwsRelationalDatabaseInstanceCmd(
+				awsRelationalDatabaseInstance,
+				&awsRelationalDatabaseInstanceConfig,
+				apiClient,
+				apiEndpoint,
+			); err != nil {
+				cli.Error("failed to describe aws relational database instance", err)
+				os.Exit(1)
+			}
+		case "json":
+			// redact encrypted values
+			redactedAwsRelationalDatabaseInstance := encryption.RedactEncryptedValues(awsRelationalDatabaseInstance)
+
+			// marshal to JSON then print
+			awsRelationalDatabaseInstanceJson, err := json.MarshalIndent(redactedAwsRelationalDatabaseInstance, "", "  ")
+			if err != nil {
+				cli.Error("failed to marshal aws relational database instance into JSON", err)
+				os.Exit(1)
+			}
+
+			fmt.Println(string(awsRelationalDatabaseInstanceJson))
+		case "yaml":
+			// redact encrypted values
+			redactedAwsRelationalDatabaseInstance := encryption.RedactEncryptedValues(awsRelationalDatabaseInstance)
+
+			// marshal to JSON then convert to YAML - this results in field
+			// names with correct capitalization vs marshalling directly to YAML
+			awsRelationalDatabaseInstanceJson, err := json.MarshalIndent(redactedAwsRelationalDatabaseInstance, "", "  ")
+			if err != nil {
+				cli.Error("failed to marshal aws relational database instance into JSON", err)
+				os.Exit(1)
+			}
+			awsRelationalDatabaseInstanceYaml, err := ghodss_yaml.JSONToYAML(awsRelationalDatabaseInstanceJson)
+			if err != nil {
+				cli.Error("failed to convert aws relational database instance JSON to YAML", err)
+				os.Exit(1)
+			}
+
+			fmt.Println(string(awsRelationalDatabaseInstanceYaml))
+		}
+	},
+	Short:        "Describe a aws relational database instance",
+	SilenceUsage: true,
+	Use:          "aws-relational-database-instance",
+}
+
+func init() {
+	DescribeCmd.AddCommand(DescribeAwsRelationalDatabaseInstanceCmd)
+
+	DescribeAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
+		&describeAwsRelationalDatabaseInstanceConfigPath,
+		"config", "c", "", "Path to file with aws relational database instance config.")
+	DescribeAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
+		&describeAwsRelationalDatabaseInstanceName,
+		"name", "n", "", "Name of aws relational database instance.")
+	DescribeAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
+		&describeAwsRelationalDatabaseInstanceOutput,
+		"output", "o", "plain", "Output format for object description. One of 'plain','json','yaml'.  Will be ignored if the --field flag is also used.  Plain output produces select details about the object.  JSON and YAML output formats include all direct attributes of the object")
+	DescribeAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
+		&describeAwsRelationalDatabaseInstanceField,
+		"field", "f", "", "Object field to get value for. If used, --output flag will be ignored.  *Only* the value of the desired field will be returned.  Will not return information on related objects, only direct attributes of the object itself.")
+	DescribeAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
