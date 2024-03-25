@@ -19,8 +19,8 @@ var createAPIObjectConfig string
 // createAPICmd represents the cmd to create an api-object with the sdk in threeport
 var createAPICmd = &cobra.Command{
 	Use:   "api-objects",
-	Short: "Create threeport api objects.",
-	Long:  `Create threeport api objects.`,
+	Short: "Create initial source code scaffolding for api objects.",
+	Long:  `Create initial source code scaffolding for api objects.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// get sdk config
 		sdkConfig, err := sdk.GetSDKConfig()

@@ -568,7 +568,7 @@ func (cc *ControllerConfig) ReconcilerFunctions() error {
 			f.ImportAlias("github.com/threeport/threeport/pkg/controller/v0", "controller")
 			f.ImportAlias("github.com/threeport/threeport/pkg/api/v0", "v0")
 
-			f.Comment(fmt.Sprintf("%[1]sReconciler reconciles system state when a %[1]s", obj))
+			f.Comment(fmt.Sprintf("%[1]sReconciler reconciles system state when a %[1]s", obj.Name))
 			f.Comment("is created.")
 			f.Func().Id(fmt.Sprintf("%sCreated", strcase.ToLowerCamel(obj.Name))).Params(
 				Id("r").Op("*").Qual(
@@ -590,7 +590,7 @@ func (cc *ControllerConfig) ReconcilerFunctions() error {
 				Return(Lit(0), Nil()),
 			)
 			f.Line()
-			f.Comment(fmt.Sprintf("%[1]sReconciler reconciles system state when a %[1]s", obj))
+			f.Comment(fmt.Sprintf("%[1]sReconciler reconciles system state when a %[1]s", obj.Name))
 			f.Comment("is updated.")
 			f.Func().Id(fmt.Sprintf("%sUpdated", strcase.ToLowerCamel(obj.Name))).Params(
 				Id("r").Op("*").Qual(
@@ -612,7 +612,7 @@ func (cc *ControllerConfig) ReconcilerFunctions() error {
 				Return(Lit(0), Nil()),
 			)
 			f.Line()
-			f.Comment(fmt.Sprintf("%[1]sReconciler reconciles system state when a %[1]s", obj))
+			f.Comment(fmt.Sprintf("%[1]sReconciler reconciles system state when a %[1]s", obj.Name))
 			f.Comment("is deleted.")
 			f.Func().Id(fmt.Sprintf("%sDeleted", strcase.ToLowerCamel(obj.Name))).Params(
 				Id("r").Op("*").Qual(
@@ -635,14 +635,14 @@ func (cc *ControllerConfig) ReconcilerFunctions() error {
 			)
 			recFuncFile, err := os.OpenFile(recFuncFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 			if err != nil {
-				return fmt.Errorf("failed to open file to write generated code for %s reconciler: %w", obj, err)
+				return fmt.Errorf("failed to open file to write generated code for %s reconciler: %w", obj.Name, err)
 			}
 			defer recFuncFile.Close()
 			if err := f.Render(recFuncFile); err != nil {
-				return fmt.Errorf("failed to render generated source code for %s reconciler: %w", obj, err)
+				return fmt.Errorf("failed to render generated source code for %s reconciler: %w", obj.Name, err)
 			}
 
-			fmt.Printf("code generation complete for %s reconciler functions\n", obj)
+			fmt.Printf("code generation complete for %s reconciler functions\n", obj.Name)
 
 		} else {
 			fmt.Printf("%s file exist, skipping generation...\n", recFuncFileName)

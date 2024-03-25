@@ -35,7 +35,7 @@ func ApiModelGen(controllerDomain string, apiObjects []*sdk.APIObject) error {
 	// Assemble all api objects in this controller domain according to there version
 	versionObjMap := make(map[string][]*sdk.APIObject, 0)
 	for _, obj := range apiObjects {
-		if obj.DisableApiModel != nil && *obj.DisableApiModel {
+		if obj.ExcludeRoute != nil && *obj.ExcludeRoute {
 			continue
 		}
 
@@ -76,16 +76,18 @@ func ApiModelGen(controllerDomain string, apiObjects []*sdk.APIObject) error {
 				allowDuplicateNameModels = append(allowDuplicateNameModels, *obj.Name)
 			}
 
-			if obj.LoadAssociationsFromDatabase != nil && *obj.LoadAssociationsFromDatabase {
+			if obj.LoadAssociationsFromDb != nil && *obj.LoadAssociationsFromDb {
 				dbLoadAssociations = append(dbLoadAssociations, *obj.Name)
 			}
 
-			if obj.Tptctl != nil && *obj.Tptctl {
-				tptctlModels = append(tptctlModels, *obj.Name)
-			}
+			if obj.Tptctl != nil {
+				if obj.Tptctl.Enabled != nil && *obj.Tptctl.Enabled {
+					tptctlModels = append(tptctlModels, *obj.Name)
+				}
 
-			if obj.TptctlConfigPath != nil && *obj.TptctlConfigPath {
-				tptctlModelsConfigPath = append(tptctlModelsConfigPath, *obj.Name)
+				if obj.Tptctl.ConfigPath != nil && *obj.Tptctl.ConfigPath {
+					tptctlModelsConfigPath = append(tptctlModelsConfigPath, *obj.Name)
+				}
 			}
 
 			modelConfigs = append(modelConfigs, mc)

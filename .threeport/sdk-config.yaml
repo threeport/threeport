@@ -1,5 +1,6 @@
-APIObjects:
-  secret:
+APIObjectGroups:
+- Name: secret
+  Objects:
     - Name: SecretDefinition
       Versions:
         - v0
@@ -10,85 +11,99 @@ APIObjects:
       Versions:
         - v0
       Reconcilable: true
-  actuator:
+- Name: actuator
+  Objects:
     - Name: Profile
       Versions:
         - v0
     - Name: Tier
       Versions:
         - v0
-  aws:
+- Name: aws
+  Objects:
     - Name: AwsAccount
       Versions:
         - v0
-      Tptctl: true
+      Tptctl: 
+        Enabled: true
     - Name: AwsEksKubernetesRuntimeDefinition
       Versions:
         - v0
-      Tptctl: true
+      Tptctl: 
+        Enabled: true
     - Name: AwsEksKubernetesRuntimeInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: true
+      Tptctl: 
+        Enabled: true
     - Name: AwsRelationalDatabaseDefinition
       Versions:
         - v0
-      Tptctl: true
+      Tptctl: 
+        Enabled: true
     - Name: AwsRelationalDatabaseInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: true
+      Tptctl: 
+        Enabled: true
     - Name: AwsObjectStorageBucketDefinition
       Versions:
         - v0
-      Tptctl: true
+      Tptctl: 
+        Enabled: true
     - Name: AwsObjectStorageBucketInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: true
-  control_plane:
+      Tptctl: 
+        Enabled: true
+- Name: control_plane
+  Objects:
     - Name: ControlPlaneDefinition
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: true
+      Tptctl: 
+        Enabled: true
     - Name: ControlPlaneInstance
       Versions:
         - v0
       Reconcilable: true
-      LoadAssociationsFromDatabase: true
-      Tptctl: true
-  control_plane_components:
+      LoadAssociationsFromDb: true
+      Tptctl: 
+        Enabled: true
+- Name: control_plane_components
+  Objects:
     - Name: ControlPlaneComponent
       Versions:
         - v0
       RouteExclude: true
-      DisableApiModel: true
-  class:
+- Name: class
+  Objects:
     - Name: Definition
       Versions:
         - v0
       RouteExclude: true
-      DisableApiModel: true
     - Name: Instance
       Versions:
         - v0
       RouteExclude: true
-      DisableApiModel: true
-  gateway:
+- Name: gateway
+  Objects:
     - Name: GatewayDefinition
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: true
+      Tptctl: 
+        Enabled: true
     - Name: GatewayInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: true
+      Tptctl: 
+        Enabled: true
     - Name: GatewayHttpPort
       Versions:
         - v0
@@ -102,30 +117,38 @@ APIObjects:
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: true
-  helm_workload:
+      Tptctl: 
+        Enabled: true
+- Name: helm_workload
+  Objects:
     - Name: HelmWorkloadDefinition
       Versions:
         - v0
       Reconcilable: true
-      TptctlConfigPath: true
+      Tptctl: 
+        ConfigPath: true
     - Name: HelmWorkloadInstance
       Versions:
         - v0
       Reconcilable: true
-      TptctlConfigPath: true
-  kubernetes_runtime:
+      Tptctl: 
+        ConfigPath: true
+- Name: kubernetes_runtime
+  Objects:
     - Name: KubernetesRuntimeDefinition
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: true
+      Tptctl: 
+        Enabled: true
     - Name: KubernetesRuntimeInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: true
-  log:
+      Tptctl: 
+        Enabled: true
+- Name: log
+  Objects:
     - Name: LogBackend
       Versions:
         - v0
@@ -135,17 +158,20 @@ APIObjects:
     - Name: LogStorageInstance
       Versions:
         - v0
-  observability:
+- Name: observability
+  Objects:
     - Name: ObservabilityStackDefinition
       Versions:
         - v0
       Reconcilable: true
-      TptctlConfigPath: true
+      Tptctl: 
+        ConfigPath: true
     - Name: ObservabilityStackInstance
       Versions:
         - v0
       Reconcilable: true
-      TptctlConfigPath: true
+      Tptctl: 
+        ConfigPath: true
     - Name: ObservabilityDashboardDefinition
       Versions:
         - v0
@@ -170,23 +196,28 @@ APIObjects:
       Versions:
         - v0
       Reconcilable: true
-  terraform:
+- Name: terraform
+  Objects:
     - Name: TerraformDefinition
       Versions:
         - v0
       Reconcilable: true
-      TptctlConfigPath: true
+      Tptctl: 
+        ConfigPath: true
     - Name: TerraformInstance
       Versions:
         - v0
       Reconcilable: true
-      TptctlConfigPath: true
-  workload:
+      Tptctl: 
+        ConfigPath: true
+- Name: workload
+  Objects:
     - Name: WorkloadDefinition
       Versions:
         - v0
       Reconcilable: true
-      TptctlConfigPath: true
+      Tptctl: 
+        ConfigPath: true
     - Name: WorkloadResourceDefinition
       Versions:
         - v0
@@ -201,11 +232,13 @@ APIObjects:
         - v0
         - v1
       Reconcilable: true
-      Tptctl: true
+      Tptctl: 
+        Enabled: true
     - Name: WorkloadEvent
       Versions:
         - v0
-  attached_object:
+- Name: attached_object
+  Objects:
     - Name: AttachedObjectReference
       Versions:
         - v1
