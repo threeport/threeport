@@ -16,8 +16,16 @@ type APIObjectManager struct {
 }
 
 func CreateManager(config *sdk.SDKConfig) (*APIObjectManager, error) {
+
+	objectMap := make(map[string][]*sdk.APIObject)
+
+	for _, og := range config.APIObjectGroups {
+		objectMap[*og.Name] = og.Objects
+
+	}
+
 	manager := &APIObjectManager{
-		APIObjects: config.APIObjects,
+		APIObjects: objectMap,
 	}
 
 	return manager, nil
@@ -25,8 +33,8 @@ func CreateManager(config *sdk.SDKConfig) (*APIObjectManager, error) {
 
 func (manager *APIObjectManager) CreateAPIObject(apiObjectConfig sdk.APIObjectConfig) error {
 	// check to see if controller domain already exists
-	for cd := range apiObjectConfig.APIObjects {
-		if _, exists := manager.APIObjects[cd]; exists {
+	for _, og := range apiObjectConfig.APIObjectGroups {
+		if _, exists := manager.APIObjects[*og.Name]; exists {
 			return fmt.Errorf("adding to an existing controller domain is not supported. please update the api file manually")
 		}
 	}
@@ -38,21 +46,21 @@ func (manager *APIObjectManager) CreateAPIObject(apiObjectConfig sdk.APIObjectCo
 	}
 
 	// For each of the provided api objects in a new controller domain, create the necessary scaffolding
-	for controllerDomain, apiObjects := range apiObjectConfig.APIObjects {
-		apiFilePath := filepath.Join(wd, "pkg", "api", "v0", fmt.Sprintf("%s.go", controllerDomain))
+	for _, og := range apiObjectConfig.APIObjectGroups {
+		apiFilePath := filepath.Join(wd, "pkg", "api", "v0", fmt.Sprintf("%s.go", *og.Name))
 
 		// Create api file for controller domain in pkg/api/v0
-		if err := CreateNewAPIFile(controllerDomain, apiObjects, apiFilePath); err != nil {
+		if err := CreateNewAPIFile(*og.Name, og.Objects, apiFilePath); err != nil {
 			return fmt.Errorf("could not create api file: %w", err)
 		}
 
 		// Ensure the appropiate dirs are create so that subsequent code gen works as expected
-		if err := CreateControllerDirs(controllerDomain, wd); err != nil {
+		if err := CreateControllerDirs(*og.Name, wd); err != nil {
 			return fmt.Errorf("could not create dirs for controller domain: %w", err)
 		}
 
 		// Ensure the docker file exists for controller builds
-		if err := CreateControllerDockerfile(controllerDomain); err != nil {
+		if err := CreateControllerDockerfile(*og.Name); err != nil {
 			return fmt.Errorf("could not create dockerfile for controller domain: %w", err)
 		}
 

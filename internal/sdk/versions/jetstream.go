@@ -16,15 +16,17 @@ import (
 func (gvc *GlobalVersionConfig) InitJetStreamContext(sdkConfig *sdk.SDKConfig) error {
 	addStreamCalls := &Statement{}
 	addStreamCalls.Line()
-	keys := make([]string, 0, len(sdkConfig.APIObjects))
-	for k := range sdkConfig.APIObjects {
-		keys = append(keys, k)
+	keys := make([]string, 0, len(sdkConfig.APIObjectGroups))
+	groupMap := make(map[string][]*sdk.APIObject)
+	for _, og := range sdkConfig.APIObjectGroups {
+		keys = append(keys, *og.Name)
+		groupMap[*og.Name] = og.Objects
 	}
 	sort.Strings(keys)
 
 	for _, controllerDomain := range keys {
 
-		apiObjects := sdkConfig.APIObjects[controllerDomain]
+		apiObjects := groupMap[controllerDomain]
 		// Determine if any objects within this controller domain need reconcilliation
 		needReconcilers := false
 		for _, obj := range apiObjects {

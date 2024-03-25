@@ -11,8 +11,8 @@ import (
 // createCmd represents the createCmd command
 var createCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create aspects of the Threeport API or its extensions.",
-	Long:  `Create aspects of the Threeport API or its extensions.`,
+	Short: "Create initial source code scaffolding.",
+	Long:  `Create initial source code scaffolding for Threeport API or its extensions.`,
 }
 
 // init initializes the create subcommand

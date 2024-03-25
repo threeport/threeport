@@ -32,11 +32,11 @@ func ApiVersionGen(versionObjMap map[string][]*sdk.APIObject) error {
 		var reconciledNames []string = make([]string, 0)
 
 		for _, obj := range apiObjects {
-			if (obj.DatabaseExclude != nil && !*obj.DatabaseExclude) || obj.DatabaseExclude == nil {
+			if (obj.ExcludeFromDb != nil && !*obj.ExcludeFromDb) || obj.ExcludeFromDb == nil {
 				dbInitNames = append(dbInitNames, *obj.Name)
 			}
 
-			if (obj.RouteExclude != nil && !*obj.RouteExclude) || obj.RouteExclude == nil {
+			if (obj.ExcludeRoute != nil && !*obj.ExcludeRoute) || obj.ExcludeRoute == nil {
 				routeNames = append(routeNames, *obj.Name)
 			}
 
@@ -153,6 +153,7 @@ func ApiVersionGen(versionObjMap map[string][]*sdk.APIObject) error {
 		return fmt.Errorf("could not get sdk config: %w", err)
 	}
 
+	// Generate the jetstream context for the rest-api to interact with reconcilers
 	if err := globalVersionConf.InitJetStreamContext(sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate jetstream function for rest-api: %w", err)
 	}
