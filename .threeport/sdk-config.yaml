@@ -5,12 +5,16 @@ APIObjectGroups:
       Versions:
         - v0
       Reconcilable: true
+      Tptctl:
+        Enabled: true
       AllowCustomMiddleware: true
       DisableNotificationPersistence: true
     - Name: SecretInstance
       Versions:
         - v0
       Reconcilable: true
+      Tptctl:
+        Enabled: true
 - Name: actuator
   Objects:
     - Name: Profile
