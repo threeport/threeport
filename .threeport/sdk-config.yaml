@@ -28,40 +28,40 @@ APIObjectGroups:
     - Name: AwsAccount
       Versions:
         - v0
-      Tptctl: 
+      Tptctl:
         Enabled: true
     - Name: AwsEksKubernetesRuntimeDefinition
       Versions:
         - v0
-      Tptctl: 
+      Tptctl:
         Enabled: true
     - Name: AwsEksKubernetesRuntimeInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         Enabled: true
     - Name: AwsRelationalDatabaseDefinition
       Versions:
         - v0
-      Tptctl: 
+      Tptctl:
         Enabled: true
     - Name: AwsRelationalDatabaseInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         Enabled: true
     - Name: AwsObjectStorageBucketDefinition
       Versions:
         - v0
-      Tptctl: 
+      Tptctl:
         Enabled: true
     - Name: AwsObjectStorageBucketInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         Enabled: true
 - Name: control_plane
   Objects:
@@ -69,14 +69,14 @@ APIObjectGroups:
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         Enabled: true
     - Name: ControlPlaneInstance
       Versions:
         - v0
       Reconcilable: true
       LoadAssociationsFromDb: true
-      Tptctl: 
+      Tptctl:
         Enabled: true
 - Name: control_plane_components
   Objects:
@@ -100,13 +100,13 @@ APIObjectGroups:
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         Enabled: true
     - Name: GatewayInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         Enabled: true
     - Name: GatewayHttpPort
       Versions:
@@ -121,7 +121,7 @@ APIObjectGroups:
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         Enabled: true
 - Name: helm_workload
   Objects:
@@ -129,13 +129,13 @@ APIObjectGroups:
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         ConfigPath: true
     - Name: HelmWorkloadInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         ConfigPath: true
 - Name: kubernetes_runtime
   Objects:
@@ -143,13 +143,13 @@ APIObjectGroups:
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         Enabled: true
     - Name: KubernetesRuntimeInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         Enabled: true
 - Name: log
   Objects:
@@ -168,13 +168,13 @@ APIObjectGroups:
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         ConfigPath: true
     - Name: ObservabilityStackInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         ConfigPath: true
     - Name: ObservabilityDashboardDefinition
       Versions:
@@ -206,13 +206,13 @@ APIObjectGroups:
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         ConfigPath: true
     - Name: TerraformInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         ConfigPath: true
 - Name: workload
   Objects:
@@ -220,7 +220,7 @@ APIObjectGroups:
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         ConfigPath: true
     - Name: WorkloadResourceDefinition
       Versions:
@@ -236,7 +236,7 @@ APIObjectGroups:
         - v0
         - v1
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
         Enabled: true
     - Name: WorkloadEvent
       Versions:
