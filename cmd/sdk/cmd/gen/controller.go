@@ -28,6 +28,11 @@ func ControllerGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 		),
 	}
 
+	extension, modulePath, err := isExtension()
+	if err != nil {
+		return fmt.Errorf("could not determine if running for an extension: %w", err)
+	}
+
 	// Assemble all api objects in this controller domain according to there version
 	versionObjMap := make(map[string][]*sdk.ApiObject, 0)
 	for _, obj := range apiObjects {
@@ -37,16 +42,6 @@ func ControllerGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 			} else {
 				versionObjMap[*v] = []*sdk.ApiObject{obj}
 			}
-		}
-	}
-
-	// Get module path if its an extension
-	var modulePath string
-	if extension {
-		var modError error
-		modulePath, modError = GetPathFromGoModule()
-		if modError != nil {
-			return fmt.Errorf("could not get go module path for extension: %w", modError)
 		}
 	}
 
@@ -121,19 +116,4 @@ func ControllerGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 	}
 
 	return nil
-}
-
-// getAllVersionPaths returns a list of paths to the source code files for
-// all versions of a given object
-func getAllVersionPaths(
-	additionalVersions []string,
-	modelFilenameForController string,
-) []string {
-	paths := []string{}
-	name := sdk.FilenameSansExt(modelFilenameForController)
-	for _, version := range additionalVersions {
-		paths = append(paths, fmt.Sprintf("../%s/%s.go", version, name))
-	}
-	paths = append(paths, modelFilenameForController)
-	return paths
 }
