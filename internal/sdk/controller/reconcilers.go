@@ -201,7 +201,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 						// the retrieval of the latest object. Otherwise, generate the
 						// source code to retrieve the latest object.
 						if !obj.DisableNotificationPersistence {
-							cc.GetLatestObject(g, obj.Name)
+							cc.GetLatestObject(g, obj.Name, nil)
 						}
 
 						g.Line()
@@ -836,7 +836,7 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 						// the retrieval of the latest object. Otherwise, generate the
 						// source code to retrieve the latest object.
 						if !cc.CheckStructTagMap(obj.Name, "Data", "persist", "false") {
-							cc.GetLatestObject(g, obj.Name)
+							cc.GetLatestObject(g, obj.Name, &modulePath)
 						}
 
 						g.Line()
@@ -1188,14 +1188,18 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 
 // GetLatestObject generates the source code for a controller's reconcile functions
 // to get the latest object if the "persist" field is not present or set to true.
-func (cc *ControllerConfig) GetLatestObject(g *jen.Group, obj string) {
+func (cc *ControllerConfig) GetLatestObject(g *jen.Group, obj string, moduleOverride *string) {
+	modulePath := "github.com/threeport/threeport"
+	if moduleOverride != nil {
+		modulePath = *moduleOverride
+	}
 	// otherwise, generate the source code to retrieve the latest object
 	g.Comment("retrieve latest version of object")
 	g.Id(fmt.Sprintf(
 		"latest%s",
 		obj,
 	)).Op(",").Id("err").Op(":=").Qual(
-		fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetLatestObjectVersion(obj)),
+		fmt.Sprintf("%s/pkg/client/%s", modulePath, sdk.GetLatestObjectVersion(obj)),
 		fmt.Sprintf("Get%sByID", obj),
 	).Call(
 		Line().Id("r").Dot("APIClient"),

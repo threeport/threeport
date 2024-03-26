@@ -73,10 +73,7 @@ func (gvc *GlobalVersionConfig) ExtensionResponseObjects() error {
 		f.Comment("GetObjectTypeByPath returns the object type based on an API path.")
 		f.Func().Id("GetObjectTypeByPath").Params(
 			Id("path").String(),
-		).Qual(
-			"github.com/threeport/threeport/pkg/api/v0",
-			"ObjectType",
-		).Block(
+		).String().Block(
 			Switch(Id("path")).Block(
 				objectTypesByPath,
 			),
