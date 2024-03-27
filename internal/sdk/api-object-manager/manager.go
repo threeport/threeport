@@ -15,6 +15,7 @@ type APIObjectManager struct {
 	APIObjects map[string][]*sdk.APIObject
 }
 
+// CreateManager returns a new APIObjectManager.
 func CreateManager(config *sdk.SDKConfig) (*APIObjectManager, error) {
 
 	objectMap := make(map[string][]*sdk.APIObject)
@@ -31,6 +32,7 @@ func CreateManager(config *sdk.SDKConfig) (*APIObjectManager, error) {
 	return manager, nil
 }
 
+// CreateAPIObject creates the boilerplate and scaffolding for a new API object.
 func (manager *APIObjectManager) CreateAPIObject(apiObjectConfig sdk.APIObjectConfig) error {
 	// check to see if controller domain already exists
 	for _, og := range apiObjectConfig.APIObjectGroups {

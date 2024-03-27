@@ -79,17 +79,17 @@ APIObjectGroups:
     - Name: ControlPlaneComponent
       Versions:
         - v0
-      RouteExclude: true
+      ExcludeRoute: true
 - Name: class
   Objects:
     - Name: Definition
       Versions:
         - v0
-      RouteExclude: true
+      ExcludeRoute: true
     - Name: Instance
       Versions:
         - v0
-      RouteExclude: true
+      ExcludeRoute: true
 - Name: gateway
   Objects:
     - Name: GatewayDefinition

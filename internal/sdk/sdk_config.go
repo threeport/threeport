@@ -14,12 +14,16 @@ const (
 	SDKConfigType = "yaml"
 )
 
-// SDKConfig contains the config for the threeport sdk to use
-// It is a map of controller domains and the api objects under them
+// SDKConfig contains the config for the threeport sdk to use for code generation.
+// It contains an array of API object groups and all API objects with their attributes.
 type SDKConfig struct {
 	APIObjectGroups []*APIObjectGroup `yaml:"APIObjectGroups"`
 }
 
+// APIObjectGroup is a collection of API objects and the attributes used
+// for code generation.  When a group includes objects that are reconciled
+// by a controller, it also represents a controller domain, i.e. a single controller
+// manages reconciliation for all objects in an APIObjectGroup.
 type APIObjectGroup struct {
 	// Name of the api object group
 	Name *string `yaml:"Name"`
