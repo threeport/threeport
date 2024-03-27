@@ -1,4 +1,4 @@
-package apiobjectmanager
+package codegenmanager
 
 import (
 	"fmt"
@@ -8,35 +8,35 @@ import (
 	"github.com/threeport/threeport/internal/sdk"
 )
 
-// The APIObjectManager is a struct that provides all operations to manage api objects
+// The CodegenManager is a struct that provides all operations to manage api objects
 // via the SDK
-type APIObjectManager struct {
+type CodegenManager struct {
 	// List of objects being managed
-	APIObjects map[string][]*sdk.APIObject
+	ApiObjects map[string][]*sdk.ApiObject
 }
 
 // CreateManager returns a new APIObjectManager.
-func CreateManager(config *sdk.SDKConfig) (*APIObjectManager, error) {
+func CreateManager(config *sdk.ApiObjectConfig) (*CodegenManager, error) {
 
-	objectMap := make(map[string][]*sdk.APIObject)
+	objectMap := make(map[string][]*sdk.ApiObject)
 
-	for _, og := range config.APIObjectGroups {
+	for _, og := range config.ApiObjectGroups {
 		objectMap[*og.Name] = og.Objects
 
 	}
 
-	manager := &APIObjectManager{
-		APIObjects: objectMap,
+	manager := &CodegenManager{
+		ApiObjects: objectMap,
 	}
 
 	return manager, nil
 }
 
 // CreateAPIObject creates the boilerplate and scaffolding for a new API object.
-func (manager *APIObjectManager) CreateAPIObject(apiObjectConfig sdk.APIObjectConfig) error {
+func (manager *CodegenManager) CreateAPIObject(apiObjectConfig sdk.SdkConfig) error {
 	// check to see if controller domain already exists
-	for _, og := range apiObjectConfig.APIObjectGroups {
-		if _, exists := manager.APIObjects[*og.Name]; exists {
+	for _, og := range apiObjectConfig.ApiObjectGroups {
+		if _, exists := manager.ApiObjects[*og.Name]; exists {
 			return fmt.Errorf("adding to an existing controller domain is not supported. please update the api file manually")
 		}
 	}
@@ -48,7 +48,7 @@ func (manager *APIObjectManager) CreateAPIObject(apiObjectConfig sdk.APIObjectCo
 	}
 
 	// For each of the provided api objects in a new controller domain, create the necessary scaffolding
-	for _, og := range apiObjectConfig.APIObjectGroups {
+	for _, og := range apiObjectConfig.ApiObjectGroups {
 		apiFilePath := filepath.Join(wd, "pkg", "api", "v0", fmt.Sprintf("%s.go", *og.Name))
 
 		// Create api file for controller domain in pkg/api/v0

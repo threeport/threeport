@@ -30,10 +30,10 @@ func nameFields() []string {
 	}
 }
 
-func ApiModelGen(controllerDomain string, apiObjects []*sdk.APIObject) error {
+func ApiModelGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 	filename := fmt.Sprintf("%s.go", controllerDomain)
 	// Assemble all api objects in this controller domain according to there version
-	versionObjMap := make(map[string][]*sdk.APIObject, 0)
+	versionObjMap := make(map[string][]*sdk.ApiObject, 0)
 	for _, obj := range apiObjects {
 		if obj.ExcludeRoute != nil && *obj.ExcludeRoute {
 			continue
@@ -43,7 +43,7 @@ func ApiModelGen(controllerDomain string, apiObjects []*sdk.APIObject) error {
 			if _, exists := versionObjMap[*v]; exists {
 				versionObjMap[*v] = append(versionObjMap[*v], obj)
 			} else {
-				versionObjMap[*v] = []*sdk.APIObject{obj}
+				versionObjMap[*v] = []*sdk.ApiObject{obj}
 			}
 		}
 	}

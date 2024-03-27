@@ -14,12 +14,12 @@ import (
 // InitJetStreamContext generates the source code to initialize
 // the NATS JetStream context and controller streams used for
 // controller notifications.
-func (gvc *GlobalVersionConfig) InitJetStreamContext(sdkConfig *sdk.SDKConfig) error {
+func (gvc *GlobalVersionConfig) InitJetStreamContext(sdkConfig *sdk.ApiObjectConfig) error {
 	addStreamCalls := &Statement{}
 	addStreamCalls.Line()
-	keys := make([]string, 0, len(sdkConfig.APIObjectGroups))
-	groupMap := make(map[string][]*sdk.APIObject)
-	for _, og := range sdkConfig.APIObjectGroups {
+	keys := make([]string, 0, len(sdkConfig.ApiObjectGroups))
+	groupMap := make(map[string][]*sdk.ApiObject)
+	for _, og := range sdkConfig.ApiObjectGroups {
 		keys = append(keys, *og.Name)
 		groupMap[*og.Name] = og.Objects
 	}

@@ -16,31 +16,32 @@ var genCmd = &cobra.Command{
 	Use:   "gen",
 	Short: "Generate code for Threeport or its extensions.",
 	Long: `The SDK will generate code for the api model and all necessary reconcilation logic.
-	Generate code for Threeport or its extensions. Code generation behaviour can be controlled
-	via different settings in the sdk config.
-	Suppose you have an APIObjectGroup with the name foo.
-	The following code is generated:
-	* 'pkg/api/v0/foo_gen.go:
-		* all model methods that satisfy the APIObject interface
-		* NATS subject constants that are used for controller notifications about
-	  	  the Foo objects
-	* 'internal/api/routes/foo.go':
-		* the routes used by clients to manage Foo objects
-	* 'internal/api/handlers/foo.go':
-		* the handlers that update database state for Foo objects
-	* 'internal/api/database/database.go':
-		* the auto migrate calls
-	* 'pkg/client/v0/foo_gen.go':
-		* go client library functions for Foo objects
-	* 'cmd/tptctl/cmd/':
-		* the tptctl commands to create, describe and delete foo-definition and
-	  	  foo-instance objects in the API
-	* the AddRoutes function in 'internal/api/routes/routes.go' that add the REST routes
-	  to the api-server.
-	* the tagged field maps that contain the field validation information for all
-	  API Models in 'internal/api/tagged_fields_gen.go'
-	* main package and reconcilers for API objects in foo.
-	`,
+	
+Generate code for Threeport or its extensions. Code generation behaviour can be controlled
+via different settings in the sdk config.
+Suppose you have an APIObjectGroup with the name foo.
+The following code is generated:
+* 'pkg/api/v0/foo_gen.go:
+    * all model methods that satisfy the APIObject interface
+    * NATS subject constants that are used for controller notifications about
+      the Foo objects
+* 'internal/api/routes/foo.go':
+    * the routes used by clients to manage Foo objects
+* 'internal/api/handlers/foo.go':
+    * the handlers that update database state for Foo objects
+* 'internal/api/database/database.go':
+    * the auto migrate calls
+* 'pkg/client/v0/foo_gen.go':
+    * go client library functions for Foo objects
+* 'cmd/tptctl/cmd/':
+    * the tptctl commands to create, describe and delete foo-definition and
+       foo-instance objects in the API
+* the AddRoutes function in 'internal/api/routes/routes.go' that add the REST routes
+  to the api-server.
+* the tagged field maps that contain the field validation information for all
+  API Models in 'internal/api/tagged_fields_gen.go'
+* main package and reconcilers for API objects in foo.
+`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get SDK config
 		sdkConfig, err := sdk.GetSDKConfig()
@@ -52,15 +53,15 @@ var genCmd = &cobra.Command{
 		// In that case we ensure the necessary api files exists for the user
 
 		// group objects according to version for version gen logic
-		versionObjMap := make(map[string][]*sdk.APIObject, 0)
+		versionObjMap := make(map[string][]*sdk.ApiObject, 0)
 
-		for _, apiObjectGroups := range sdkConfig.APIObjectGroups {
+		for _, apiObjectGroups := range sdkConfig.ApiObjectGroups {
 			for _, obj := range apiObjectGroups.Objects {
 				for _, v := range obj.Versions {
 					if _, exists := versionObjMap[*v]; exists {
 						versionObjMap[*v] = append(versionObjMap[*v], obj)
 					} else {
-						versionObjMap[*v] = []*sdk.APIObject{obj}
+						versionObjMap[*v] = []*sdk.ApiObject{obj}
 					}
 				}
 			}
@@ -70,7 +71,7 @@ var genCmd = &cobra.Command{
 			return fmt.Errorf("could not generate code for api-version: %w", err)
 		}
 
-		for _, og := range sdkConfig.APIObjectGroups {
+		for _, og := range sdkConfig.ApiObjectGroups {
 			if err := ApiModelGen(*og.Name, og.Objects); err != nil {
 				return fmt.Errorf("could not generate code for api-model: %w", err)
 			}

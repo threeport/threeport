@@ -1,4 +1,4 @@
-APIObjectGroups:
+ApiObjectGroups:
 - Name: secret
   Objects:
     - Name: SecretDefinition
@@ -113,6 +113,8 @@ APIObjectGroups:
     - Name: DomainNameDefinition
       Versions:
         - v0
+      Tptctl: 
+        Enabled: true
     - Name: DomainNameInstance
       Versions:
         - v0
@@ -125,13 +127,15 @@ APIObjectGroups:
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
+        Enabled: true 
         ConfigPath: true
     - Name: HelmWorkloadInstance
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
+        Enabled: true 
         ConfigPath: true
 - Name: kubernetes_runtime
   Objects:
@@ -164,13 +168,15 @@ APIObjectGroups:
       Versions:
         - v0
       Reconcilable: true
-      Tptctl: 
+      Tptctl:
+        Enabled: true 
         ConfigPath: true
     - Name: ObservabilityStackInstance
       Versions:
         - v0
       Reconcilable: true
       Tptctl: 
+        Enabled: true
         ConfigPath: true
     - Name: ObservabilityDashboardDefinition
       Versions:
@@ -203,12 +209,14 @@ APIObjectGroups:
         - v0
       Reconcilable: true
       Tptctl: 
+        Enabled: true
         ConfigPath: true
     - Name: TerraformInstance
       Versions:
         - v0
       Reconcilable: true
       Tptctl: 
+        Enabled: true
         ConfigPath: true
 - Name: workload
   Objects:
@@ -217,6 +225,7 @@ APIObjectGroups:
         - v0
       Reconcilable: true
       Tptctl: 
+        Enabled: true
         ConfigPath: true
     - Name: WorkloadResourceDefinition
       Versions:
