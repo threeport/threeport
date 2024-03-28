@@ -17,7 +17,7 @@ const (
 )
 
 // apiVersionCmd represents the apiVersion command
-func ApiVersionGen(versionObjMap map[string][]*sdk.APIObject) error {
+func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
 	var globalVersionConf versions.GlobalVersionConfig
 
 	// assemble all objects to process further

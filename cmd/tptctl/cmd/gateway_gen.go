@@ -18,6 +18,524 @@ import (
 )
 
 ///////////////////////////////////////////////////////////////////////////////
+// DomainName
+///////////////////////////////////////////////////////////////////////////////
+
+// GetDomainNamesCmd represents the domain-name command
+var GetDomainNamesCmd = &cobra.Command{
+	Example: "  tptctl get domain-names",
+	Long:    "Get domain names from the system.\n\nA domain name is a simple abstraction of domain name definitions and domain name instances.\nThis command displays all instances and the definitions used to configure them.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
+
+		// get domain names
+		domainNameInstances, err := client.GetDomainNameInstances(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to retrieve domain name instances", err)
+			os.Exit(1)
+		}
+
+		// write the output
+		if len(*domainNameInstances) == 0 {
+			cli.Info(fmt.Sprintf(
+				"No domain name instances currently managed by %s threeport control plane",
+				requestedControlPlane,
+			))
+			os.Exit(0)
+		}
+		if err := outputGetDomainNamesCmd(
+			domainNameInstances,
+			apiClient,
+			apiEndpoint,
+		); err != nil {
+			cli.Error("failed to produce output: %s", err)
+			os.Exit(0)
+		}
+	},
+	Short:        "Get domain names from the system",
+	SilenceUsage: true,
+	Use:          "domain-names",
+}
+
+func init() {
+	GetCmd.AddCommand(GetDomainNamesCmd)
+
+	GetDomainNamesCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+var createDomainNameConfigPath string
+
+// CreateDomainNameCmd represents the domain-name command
+var CreateDomainNameCmd = &cobra.Command{
+	Example: "  tptctl create domain-name --config path/to/config.yaml",
+	Long:    "Create a new domain name. This command creates a new domain name definition and domain name instance based on the domain name config.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
+
+		// load domain name config
+		configContent, err := os.ReadFile(createDomainNameConfigPath)
+		if err != nil {
+			cli.Error("failed to read config file", err)
+			os.Exit(1)
+		}
+		var domainNameConfig config.DomainNameConfig
+		if err := yaml.UnmarshalStrict(configContent, &domainNameConfig); err != nil {
+			cli.Error("failed to unmarshal config file yaml content", err)
+			os.Exit(1)
+		}
+
+		// create domain name
+		domainName := domainNameConfig.DomainName
+		createdDomainNameDefinition, createdDomainNameInstance, err := domainName.Create(
+			apiClient,
+			apiEndpoint,
+		)
+		if err != nil {
+			cli.Error("failed to create domain name", err)
+			os.Exit(1)
+		}
+
+		cli.Info(fmt.Sprintf("domain name definition %s created", *createdDomainNameDefinition.Name))
+		cli.Info(fmt.Sprintf("domain name instance %s created", *createdDomainNameInstance.Name))
+		cli.Complete(fmt.Sprintf("domain name %s created", domainNameConfig.DomainName.Name))
+	},
+	Short:        "Create a new domain name",
+	SilenceUsage: true,
+	Use:          "domain-name",
+}
+
+func init() {
+	CreateCmd.AddCommand(CreateDomainNameCmd)
+
+	CreateDomainNameCmd.Flags().StringVarP(
+		&createDomainNameConfigPath,
+		"config", "c", "", "Path to file with domain name config.",
+	)
+	CreateDomainNameCmd.MarkFlagRequired("config")
+	CreateDomainNameCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+var (
+	deleteDomainNameConfigPath string
+	deleteDomainNameName       string
+)
+
+// DeleteDomainNameCmd represents the domain-name command
+var DeleteDomainNameCmd = &cobra.Command{
+	Example: "  # delete based on config file\n  tptctl delete domain-name --config path/to/config.yaml\n\n  # delete based on name\n  tptctl delete domain-name --name some-domain-name",
+	Long:    "Delete an existing domain name. This command deletes an existing domain name definition and domain name instance based on the domain name config.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
+
+		// flag validation
+		if deleteDomainNameConfigPath == "" {
+			cli.Error("flag validation failed", errors.New("config file path is required"))
+		}
+
+		var domainNameConfig config.DomainNameConfig
+		// load domain name config
+		configContent, err := os.ReadFile(deleteDomainNameConfigPath)
+		if err != nil {
+			cli.Error("failed to read config file", err)
+			os.Exit(1)
+		}
+		if err := yaml.UnmarshalStrict(configContent, &domainNameConfig); err != nil {
+			cli.Error("failed to unmarshal config file yaml content", err)
+			os.Exit(1)
+		}
+
+		// delete domain name
+		domainName := domainNameConfig.DomainName
+		_, _, err = domainName.Delete(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to delete domain name", err)
+			os.Exit(1)
+		}
+
+		cli.Info(fmt.Sprintf("domain name definition %s deleted", domainName.Name))
+		cli.Info(fmt.Sprintf("domain name instance %s deleted", domainName.Name))
+		cli.Complete(fmt.Sprintf("domain name %s deleted", domainNameConfig.DomainName.Name))
+	},
+	Short:        "Delete an existing domain name",
+	SilenceUsage: true,
+	Use:          "domain-name",
+}
+
+func init() {
+	DeleteCmd.AddCommand(DeleteDomainNameCmd)
+
+	DeleteDomainNameCmd.Flags().StringVarP(
+		&deleteDomainNameConfigPath,
+		"config", "c", "", "Path to file with domain name config.",
+	)
+	DeleteDomainNameCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// DomainNameDefinition
+///////////////////////////////////////////////////////////////////////////////
+
+// GetDomainNameDefinitionsCmd represents the domain-name-definition command
+var GetDomainNameDefinitionsCmd = &cobra.Command{
+	Example: "  tptctl get domain-name-definitions",
+	Long:    "Get domain name definitions from the system.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
+
+		// get domain name definitions
+		domainNameDefinitions, err := client.GetDomainNameDefinitions(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to retrieve domain name definitions", err)
+			os.Exit(1)
+		}
+
+		// write the output
+		if len(*domainNameDefinitions) == 0 {
+			cli.Info(fmt.Sprintf(
+				"No domain name definitions currently managed by %s threeport control plane",
+				requestedControlPlane,
+			))
+			os.Exit(0)
+		}
+		if err := outputGetDomainNameDefinitionsCmd(
+			domainNameDefinitions,
+			apiClient,
+			apiEndpoint,
+		); err != nil {
+			cli.Error("failed to produce output", err)
+			os.Exit(0)
+		}
+	},
+	Short:        "Get domain name definitions from the system",
+	SilenceUsage: true,
+	Use:          "domain-name-definitions",
+}
+
+func init() {
+	GetCmd.AddCommand(GetDomainNameDefinitionsCmd)
+
+	GetDomainNameDefinitionsCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+var createDomainNameDefinitionConfigPath string
+
+// CreateDomainNameDefinitionCmd represents the domain-name-definition command
+var CreateDomainNameDefinitionCmd = &cobra.Command{
+	Example: "  tptctl create domain-name-definition --config path/to/config.yaml",
+	Long:    "Create a new domain name definition.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
+
+		// load domain name definition config
+		configContent, err := os.ReadFile(createDomainNameDefinitionConfigPath)
+		if err != nil {
+			cli.Error("failed to read config file", err)
+			os.Exit(1)
+		}
+		var domainNameDefinitionConfig config.DomainNameDefinitionConfig
+		if err := yaml.UnmarshalStrict(configContent, &domainNameDefinitionConfig); err != nil {
+			cli.Error("failed to unmarshal config file yaml content", err)
+			os.Exit(1)
+		}
+
+		// create domain name definition
+		domainNameDefinition := domainNameDefinitionConfig.DomainNameDefinition
+		createdDomainNameDefinition, err := domainNameDefinition.Create(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to create domain name definition", err)
+			os.Exit(1)
+		}
+
+		cli.Complete(fmt.Sprintf("domain name definition %s created", *createdDomainNameDefinition.Name))
+	},
+	Short:        "Create a new domain name definition",
+	SilenceUsage: true,
+	Use:          "domain-name-definition",
+}
+
+func init() {
+	CreateCmd.AddCommand(CreateDomainNameDefinitionCmd)
+
+	CreateDomainNameDefinitionCmd.Flags().StringVarP(
+		&createDomainNameDefinitionConfigPath,
+		"config", "c", "", "Path to file with domain name definition config.",
+	)
+	CreateDomainNameDefinitionCmd.MarkFlagRequired("config")
+	CreateDomainNameDefinitionCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+var (
+	deleteDomainNameDefinitionConfigPath string
+	deleteDomainNameDefinitionName       string
+)
+
+// DeleteDomainNameDefinitionCmd represents the domain-name-definition command
+var DeleteDomainNameDefinitionCmd = &cobra.Command{
+	Example: "  # delete based on config file\n  tptctl delete domain-name-definition --config path/to/config.yaml\n\n  # delete based on name\n  tptctl delete domain-name-definition --name some-domain-name-definition",
+	Long:    "Delete an existing domain name definition.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
+
+		// flag validation
+		if err := cli.ValidateConfigNameFlags(
+			deleteDomainNameDefinitionConfigPath,
+			deleteDomainNameDefinitionName,
+			"domain name definition",
+		); err != nil {
+			cli.Error("flag validation failed", err)
+			os.Exit(1)
+		}
+
+		var domainNameDefinitionConfig config.DomainNameDefinitionConfig
+		if deleteDomainNameDefinitionConfigPath != "" {
+			// load domain name definition config
+			configContent, err := os.ReadFile(deleteDomainNameDefinitionConfigPath)
+			if err != nil {
+				cli.Error("failed to read config file", err)
+				os.Exit(1)
+			}
+			if err := yaml.UnmarshalStrict(configContent, &domainNameDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+		} else {
+			domainNameDefinitionConfig = config.DomainNameDefinitionConfig{
+				DomainNameDefinition: config.DomainNameDefinitionValues{
+					Name: deleteDomainNameDefinitionName,
+				},
+			}
+		}
+
+		// delete domain name definition
+		domainNameDefinition := domainNameDefinitionConfig.DomainNameDefinition
+		deletedDomainNameDefinition, err := domainNameDefinition.Delete(apiClient, apiEndpoint)
+		if err != nil {
+			cli.Error("failed to delete domain name definition", err)
+			os.Exit(1)
+		}
+
+		cli.Complete(fmt.Sprintf("domain name definition %s deleted", *deletedDomainNameDefinition.Name))
+	},
+	Short:        "Delete an existing domain name definition",
+	SilenceUsage: true,
+	Use:          "domain-name-definition",
+}
+
+func init() {
+	DeleteCmd.AddCommand(DeleteDomainNameDefinitionCmd)
+
+	DeleteDomainNameDefinitionCmd.Flags().StringVarP(
+		&deleteDomainNameDefinitionConfigPath,
+		"config", "c", "", "Path to file with domain name definition config.",
+	)
+	DeleteDomainNameDefinitionCmd.Flags().StringVarP(
+		&deleteDomainNameDefinitionName,
+		"name", "n", "", "Name of domain name definition.",
+	)
+	DeleteDomainNameDefinitionCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+var (
+	describeDomainNameDefinitionConfigPath string
+	describeDomainNameDefinitionName       string
+	describeDomainNameDefinitionField      string
+	describeDomainNameDefinitionOutput     string
+)
+
+// DescribeDomainNameDefinitionCmd representes the domain-name-definition command
+var DescribeDomainNameDefinitionCmd = &cobra.Command{
+	Example: "  # Get the plain output description for a domain name definition\n  tptctl describe domain-name-definition -n some-domain-name-definition\n\n  # Get JSON output for a domain name definition\n  tptctl describe domain-name-definition -n some-domain-name-definition -o json\n\n  # Get the value of the Name field for a domain name definition\n  tptctl describe domain-name-definition -n some-domain-name-definition -f Name ",
+	Long:    "Describe a domain name definition.  This command can give you a plain output description, output all fields in JSON or YAML format, or provide the value of any specific field.\n\nNote: any values that are encrypted in the database will be redacted unless the field is specifically requested with the --field flag.",
+	PreRun:  commandPreRunFunc,
+	Run: func(cmd *cobra.Command, args []string) {
+		apiClient, _, apiEndpoint, _ := getClientContext(cmd)
+
+		// flag validation
+		if err := cli.ValidateConfigNameFlags(
+			describeDomainNameDefinitionConfigPath,
+			describeDomainNameDefinitionName,
+			"domain name definition",
+		); err != nil {
+			cli.Error("flag validation failed", err)
+			os.Exit(1)
+		}
+
+		if err := cli.ValidateDescribeOutputFlag(
+			describeDomainNameDefinitionOutput,
+			"domain name definition",
+		); err != nil {
+			cli.Error("flag validation failed", err)
+			os.Exit(1)
+		}
+
+		// load domain name definition config by name or config file
+		var domainNameDefinitionConfig config.DomainNameDefinitionConfig
+		if describeDomainNameDefinitionConfigPath != "" {
+			configContent, err := os.ReadFile(describeDomainNameDefinitionConfigPath)
+			if err != nil {
+				cli.Error("failed to read config file", err)
+				os.Exit(1)
+			}
+			if err := yaml.UnmarshalStrict(configContent, &domainNameDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+		} else {
+			domainNameDefinitionConfig = config.DomainNameDefinitionConfig{
+				DomainNameDefinition: config.DomainNameDefinitionValues{
+					Name: describeDomainNameDefinitionName,
+				},
+			}
+		}
+
+		// get domain name definition
+		domainNameDefinition, err := client.GetDomainNameDefinitionByName(
+			apiClient,
+			apiEndpoint,
+			domainNameDefinitionConfig.DomainNameDefinition.Name,
+		)
+		if err != nil {
+			cli.Error("failed to retrieve domain name definition details", err)
+			os.Exit(1)
+		}
+
+		// return field value if specified
+		if describeDomainNameDefinitionField != "" {
+			fieldVal, err := util.GetObjectFieldValue(
+				domainNameDefinition,
+				describeDomainNameDefinitionField,
+			)
+			if err != nil {
+				cli.Error("failed to get field value from domain name definition", err)
+				os.Exit(1)
+			}
+
+			// decrypt value as needed
+			encrypted, err := encryption.IsEncryptedField(domainNameDefinition, describeDomainNameDefinitionField)
+			if err != nil {
+				cli.Error("", err)
+			}
+			if encrypted {
+				// get encryption key from threeport config
+				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				if err != nil {
+					cli.Error("failed to get threeport config: %w", err)
+					os.Exit(1)
+				}
+				encryptionKey, err := threeportConfig.GetThreeportEncryptionKey(requestedControlPlane)
+				if err != nil {
+					cli.Error("failed to get encryption key from threeport config: %w", err)
+					os.Exit(1)
+				}
+
+				// decrypt value for output
+				decryptedVal, err := encryption.Decrypt(encryptionKey, fieldVal.String())
+				if err != nil {
+					cli.Error("failed to decrypt value: %w", err)
+				}
+				fmt.Println(decryptedVal)
+				os.Exit(0)
+			} else {
+				fmt.Println(fieldVal.Interface())
+				os.Exit(0)
+			}
+		}
+
+		switch describeDomainNameDefinitionOutput {
+		case "plain":
+			// produce plain object description output
+			if err := outputDescribeDomainNameDefinitionCmd(
+				domainNameDefinition,
+				&domainNameDefinitionConfig,
+				apiClient,
+				apiEndpoint,
+			); err != nil {
+				cli.Error("failed to describe domain name definition", err)
+				os.Exit(1)
+			}
+		case "json":
+			// redact encrypted values
+			redactedDomainNameDefinition := encryption.RedactEncryptedValues(domainNameDefinition)
+
+			// marshal to JSON then print
+			domainNameDefinitionJson, err := json.MarshalIndent(redactedDomainNameDefinition, "", "  ")
+			if err != nil {
+				cli.Error("failed to marshal domain name definition into JSON", err)
+				os.Exit(1)
+			}
+
+			fmt.Println(string(domainNameDefinitionJson))
+		case "yaml":
+			// redact encrypted values
+			redactedDomainNameDefinition := encryption.RedactEncryptedValues(domainNameDefinition)
+
+			// marshal to JSON then convert to YAML - this results in field
+			// names with correct capitalization vs marshalling directly to YAML
+			domainNameDefinitionJson, err := json.MarshalIndent(redactedDomainNameDefinition, "", "  ")
+			if err != nil {
+				cli.Error("failed to marshal domain name definition into JSON", err)
+				os.Exit(1)
+			}
+			domainNameDefinitionYaml, err := ghodss_yaml.JSONToYAML(domainNameDefinitionJson)
+			if err != nil {
+				cli.Error("failed to convert domain name definition JSON to YAML", err)
+				os.Exit(1)
+			}
+
+			fmt.Println(string(domainNameDefinitionYaml))
+		}
+	},
+	Short:        "Describe a domain name definition",
+	SilenceUsage: true,
+	Use:          "domain-name-definition",
+}
+
+func init() {
+	DescribeCmd.AddCommand(DescribeDomainNameDefinitionCmd)
+
+	DescribeDomainNameDefinitionCmd.Flags().StringVarP(
+		&describeDomainNameDefinitionConfigPath,
+		"config", "c", "", "Path to file with domain name definition config.")
+	DescribeDomainNameDefinitionCmd.Flags().StringVarP(
+		&describeDomainNameDefinitionName,
+		"name", "n", "", "Name of domain name definition.")
+	DescribeDomainNameDefinitionCmd.Flags().StringVarP(
+		&describeDomainNameDefinitionOutput,
+		"output", "o", "plain", "Output format for object description. One of 'plain','json','yaml'.  Will be ignored if the --field flag is also used.  Plain output produces select details about the object.  JSON and YAML output formats include all direct attributes of the object")
+	DescribeDomainNameDefinitionCmd.Flags().StringVarP(
+		&describeDomainNameDefinitionField,
+		"field", "f", "", "Object field to get value for. If used, --output flag will be ignored.  *Only* the value of the desired field will be returned.  Will not return information on related objects, only direct attributes of the object itself.")
+	DescribeDomainNameDefinitionCmd.Flags().StringVarP(
+		&cliArgs.ControlPlaneName,
+		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // DomainNameInstance
 ///////////////////////////////////////////////////////////////////////////////
 

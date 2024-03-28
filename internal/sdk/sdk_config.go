@@ -14,22 +14,31 @@ const (
 	SDKConfigType = "yaml"
 )
 
-// SDKConfig contains the config for the threeport sdk to use
-// It is a map of controller domains and the api objects under them
-type SDKConfig struct {
-	APIObjectGroups []*APIObjectGroup `yaml:"APIObjectGroups"`
+// SdkConfig contains all the configuration options available to a user
+// of the SDK.
+type SdkConfig struct {
+	ApiObjectConfig `yaml:",inline"`
 }
 
-type APIObjectGroup struct {
+// ApiObjectGroups contains the config for all API object groups.
+type ApiObjectConfig struct {
+	ApiObjectGroups []*ApiObjectGroup `yaml:"ApiObjectGroups"`
+}
+
+// ApiObjectGroup is a collection of API objects and the attributes used
+// for code generation.  When a group includes objects that are reconciled
+// by a controller, it also represents a controller domain, i.e. a single controller
+// manages reconciliation for all objects in an ApiObjectGroup.
+type ApiObjectGroup struct {
 	// Name of the api object group
 	Name *string `yaml:"Name"`
 
 	// List of api objects under the object group
-	Objects []*APIObject `yaml:"Objects"`
+	Objects []*ApiObject `yaml:"Objects"`
 }
 
-// APIObjectValues contains the attributes needed to manage a threeport api object.
-type APIObject struct {
+// ApiObject contains the attributes needed to manage a threeport api object.
+type ApiObject struct {
 	// Name of the api object to manage with threeport
 	Name *string `yaml:"Name"`
 
@@ -45,7 +54,7 @@ type APIObject struct {
 
 	// Indicates whether the route should be exposed on the rest-api for the object
 	// and whether the api model for this object needs to be generated
-	ExcludeRoute *bool `yaml:"RouteExclude"`
+	ExcludeRoute *bool `yaml:"ExcludeRoute"`
 
 	// Indicates whether the object needs to be maintained in a database
 	ExcludeFromDb *bool `yaml:"ExcludeFromDb"`
@@ -63,18 +72,16 @@ type APIObject struct {
 	Tptctl *Tptctl `yaml:"Tptctl"`
 }
 
-type APIObjectConfig struct {
-	SDKConfig `yaml:",inline"`
-}
-
+// Tptctl contains attributes used by the SDK to generate tptctl
+// command source code.
 type Tptctl struct {
 	Enabled    *bool `yaml:"Enabled"`
 	ConfigPath *bool `yaml:"ConfigPath"`
 }
 
 // GetSDKConfig retrieves the sdk config
-func GetSDKConfig() (*SDKConfig, error) {
-	sdkConfig := &SDKConfig{}
+func GetSDKConfig() (*ApiObjectConfig, error) {
+	sdkConfig := &ApiObjectConfig{}
 
 	path, err := DefaultSDKConfigPath()
 	if err != nil {

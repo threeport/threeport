@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/threeport/threeport/internal/sdk"
-	apiobjectmanager "github.com/threeport/threeport/internal/sdk/api-object-manager"
+	manager "github.com/threeport/threeport/internal/sdk/codegen-manager"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 )
 
@@ -35,13 +35,13 @@ var createAPICmd = &cobra.Command{
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var apiObjectConfig sdk.APIObjectConfig
+		var apiObjectConfig sdk.SdkConfig
 		if err := yaml.UnmarshalStrict(configContent, &apiObjectConfig); err != nil {
 			cli.Error("failed to unmarshal config file yaml content", err)
 			os.Exit(1)
 		}
 
-		objManager, err := apiobjectmanager.CreateManager(sdkConfig)
+		objManager, err := manager.CreateManager(sdkConfig)
 		if err != nil {
 			cli.Error("failed to get api object manager", err)
 			os.Exit(1)
