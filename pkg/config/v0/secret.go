@@ -108,7 +108,7 @@ func (s *SecretValues) GetOperations(
 		Create: func() error {
 			secretDefinition, err := secretDefinitionValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create secret definition: %w", err)
+				return err
 			}
 			createdSecretDefinition = *secretDefinition
 			return nil
@@ -116,7 +116,7 @@ func (s *SecretValues) GetOperations(
 		Delete: func() error {
 			_, err := secretDefinitionValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete secret definition: %w", err)
+				return err
 			}
 			return nil
 		},
@@ -134,7 +134,7 @@ func (s *SecretValues) GetOperations(
 		Create: func() error {
 			secretInstance, err := secretInstanceValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create secret instance: %w", err)
+				return err
 			}
 			createdSecretInstance = *secretInstance
 			return nil
@@ -142,7 +142,7 @@ func (s *SecretValues) GetOperations(
 		Delete: func() error {
 			_, err := secretInstanceValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete secret instance: %w", err)
+				return err
 			}
 			return nil
 		},
