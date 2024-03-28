@@ -14,7 +14,7 @@ import (
 // InitJetStreamContext generates the source code to initialize
 // the NATS JetStream context and controller streams used for
 // controller notifications.
-func (gvc *GlobalVersionConfig) InitJetStreamContext(sdkConfig *sdk.SDKConfig, modulePath string) error {
+func (gvc *GlobalVersionConfig) InitJetStreamContext(sdkConfig *sdk.ApiObjectConfig, modulePath string) error {
 
 	apiModulePath := fmt.Sprintf("%s/pkg/api/v0", modulePath)
 
