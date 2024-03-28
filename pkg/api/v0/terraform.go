@@ -1,9 +1,5 @@
-//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-sdk codegen controller --filename $GOFILE
 package v0
 
-// +threeport-sdk:reconciler
-// +threeport-sdk:tptctl:config-path
 // TerraformDefinition is the configuration for terraform-defined resources.
 type TerraformDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -18,8 +14,6 @@ type TerraformDefinition struct {
 	TerraformInstances []*TerraformInstance `json:"TerraformInstances,omitempty" validate:"optional,association"`
 }
 
-// +threeport-sdk:reconciler
-// +threeport-sdk:tptctl:config-path
 // TerraformInstance is the deployed instances of terraform resources defined in
 // the associated definition with the variables values.  The output from
 // terraform is stored here along with the terraform state document.

@@ -1,9 +1,5 @@
-//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-sdk codegen controller --filename $GOFILE
 package v0
 
-// +threeport-sdk:reconciler
-// +threeport-sdk:tptctl:config-path
 // ObservabilityStackDefinition defines an observability stack.
 type ObservabilityStackDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -54,8 +50,6 @@ type ObservabilityStackDefinition struct {
 	ObservabilityStackInstances []*ObservabilityStackInstance `json:"ObservabilityStackInstances,omitempty" validate:"optional,association"`
 }
 
-// +threeport-sdk:reconciler
-// +threeport-sdk:tptctl:config-path
 // ObservabilityStackInstances defines an instance of an observability stack.
 type ObservabilityStackInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -103,7 +97,6 @@ type ObservabilityStackInstance struct {
 	PromtailHelmValuesDocument *string `json:"PromtailHelmValuesDocument,omitempty" query:"promtailhelmvaluesdocument" validate:"optional"`
 }
 
-// +threeport-sdk:reconciler
 // ObservabilityDashboardDefinition defines an dashboard.
 type ObservabilityDashboardDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -124,7 +117,6 @@ type ObservabilityDashboardDefinition struct {
 	ObservabilityDashboardInstances []*ObservabilityDashboardInstance `json:"ObservabilityDashboardInstances,omitempty" validate:"optional,association"`
 }
 
-// +threeport-sdk:reconciler
 // ObservabilityDashboardInstances defines an instance of an observability dashboard.
 type ObservabilityDashboardInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -145,7 +137,6 @@ type ObservabilityDashboardInstance struct {
 	GrafanaHelmValuesDocument *string `json:"GrafanaHelmValuesDocument,omitempty" query:"grafanahelmvaluedsdocument" validate:"optional"`
 }
 
-// +threeport-sdk:reconciler
 // MetricsDefinition defines a metrics aggregation layer for a workload.
 type MetricsDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -166,7 +157,6 @@ type MetricsDefinition struct {
 	MetricsInstances []*MetricsInstance `json:"MetricsInstances,omitempty" validate:"optional,association"`
 }
 
-// +threeport-sdk:reconciler
 // MetricsInstances defines an instance of a metrics aggregation layer for a workload.
 type MetricsInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -187,7 +177,6 @@ type MetricsInstance struct {
 	KubePrometheusStackHelmValuesDocument *string `json:"KubePrometheusStackHelmValuesDocument,omitempty" query:"kubeprometheusstackhelmvaluesdocument" validate:"optional"`
 }
 
-// +threeport-sdk:reconciler
 // MetricsDefinition defines a metrics aggregation layer for a workload.
 type LoggingDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -218,7 +207,6 @@ type LoggingDefinition struct {
 	LoggingInstances []*LoggingInstance `json:"LoggingInstances,omitempty" validate:"optional,association"`
 }
 
-// +threeport-sdk:reconciler
 // MetricsInstances defines an instance of a metrics aggregation layer for a workload.
 type LoggingInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`

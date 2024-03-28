@@ -1,7 +1,7 @@
 /*
 Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 */
-package codegen
+package gen
 
 import (
 	"errors"
@@ -9,10 +9,11 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/iancoleman/strcase"
-	"github.com/spf13/cobra"
 
 	"github.com/threeport/threeport/internal/sdk"
 	"github.com/threeport/threeport/internal/sdk/models"
@@ -29,68 +30,82 @@ func nameFields() []string {
 	}
 }
 
-var (
-	filename    string
-	packageName string
-)
-
-// apiModelCmd represents the apiModel command
-var apiModelCmd = &cobra.Command{
-	Use:   "api-model",
-	Short: "Generate code for a REST API model",
-	Long: `The api-model command parses the object definitions for a threeport
-RESTful API model and produces all the boilerplate code for that model.  It is
-generally used with go generate.
-
-For example, let's suppose we create the models FooDefinition and FooInstance
-in the file 'pkg/api/v0/foo.go'.
-This creates a controller domain.  A controller domain is the set of objects
-that a controller is responsible for reconciling, in this case FooDefinition and
-FooInstance are the objects the foo-controller will be responsible for.
-We put the go:generate declaration at the top of that file:
-////go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
-
-Note: The controller domain and model objects must have unique names.  You
-cannot have a Foo model in the Foo controller domain.  This will create ambiguous
-names and is therefore not allowed.
-
-When 'make generate' is run, the following code is generated for API:
-* 'pkg/api/v0/foo_gen.go:
-	* all model methods that satisfy the APIObject interface
-	* NATS subject constants that are used for controller notifications about
-	  the Foo objects
-* 'internal/api/routes/foo.go':
-	* the routes used by clients to manage Foo objects
-* 'internal/api/handlers/foo.go':
-	* the handlers that update database state for Foo objects
-* 'internal/api/database/database.go':
-	* the auto migrate calls
-* 'pkg/client/v0/foo_gen.go':
-	* go client library functions for Foo objects
-* 'cmd/tptctl/cmd/':
-	* the tptctl commands to create, describe and delete foo-definition and
-	  foo-instance objects in the API
-`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// inspect source code
-		fset := token.NewFileSet()
-		pf, err := parser.ParseFile(fset, filename, nil, parser.ParseComments|parser.AllErrors)
-		if err != nil {
-			return fmt.Errorf("failed to parse source code file: %w", err)
+func ApiModelGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
+	filename := fmt.Sprintf("%s.go", controllerDomain)
+	// Assemble all api objects in this controller domain according to there version
+	versionObjMap := make(map[string][]*sdk.ApiObject, 0)
+	for _, obj := range apiObjects {
+		if obj.ExcludeRoute != nil && *obj.ExcludeRoute {
+			continue
 		}
-		////////////////////////////////////////////////////////////////////////////
-		//// print the syntax tree for dev purposes
-		//if err = ast.Print(fset, pf); err != nil {
-		//	return err
-		//}
-		////////////////////////////////////////////////////////////////////////////
-		var modelConfigs []models.ModelConfig
+
+		for _, v := range obj.Versions {
+			if _, exists := versionObjMap[*v]; exists {
+				versionObjMap[*v] = append(versionObjMap[*v], obj)
+			} else {
+				versionObjMap[*v] = []*sdk.ApiObject{obj}
+			}
+		}
+	}
+
+	for version, objects := range versionObjMap {
+		var modelConfigs []*models.ModelConfig
 		var reconcilerModels []string
 		var tptctlModels []string
 		var tptctlModelsConfigPath []string
 		var allowDuplicateNameModels []string
 		var allowCustomMiddleware []string
 		var dbLoadAssociations []string
+
+		for _, obj := range objects {
+
+			mc := &models.ModelConfig{
+				TypeName: *obj.Name,
+			}
+
+			if obj.Reconcilable != nil && *obj.Reconcilable {
+				reconcilerModels = append(reconcilerModels, *obj.Name)
+				mc.ReconciledField = true
+			}
+
+			if obj.AllowCustomMiddleware != nil && *obj.AllowCustomMiddleware {
+				allowCustomMiddleware = append(allowCustomMiddleware, *obj.Name)
+			}
+
+			if obj.AllowDuplicateModelNames != nil && *obj.AllowDuplicateModelNames {
+				allowDuplicateNameModels = append(allowDuplicateNameModels, *obj.Name)
+			}
+
+			if obj.LoadAssociationsFromDb != nil && *obj.LoadAssociationsFromDb {
+				dbLoadAssociations = append(dbLoadAssociations, *obj.Name)
+			}
+
+			if obj.Tptctl != nil {
+				if obj.Tptctl.Enabled != nil && *obj.Tptctl.Enabled {
+					tptctlModels = append(tptctlModels, *obj.Name)
+				}
+
+				if obj.Tptctl.ConfigPath != nil && *obj.Tptctl.ConfigPath {
+					tptctlModelsConfigPath = append(tptctlModelsConfigPath, *obj.Name)
+				}
+			}
+
+			modelConfigs = append(modelConfigs, mc)
+
+		}
+
+		sort.Slice(modelConfigs, func(i, j int) bool {
+			return modelConfigs[i].TypeName < modelConfigs[j].TypeName
+		})
+
+		filepath := filepath.Join("pkg", "api", version, filename)
+		// inspect source code
+		fset := token.NewFileSet()
+		pf, err := parser.ParseFile(fset, filepath, nil, parser.ParseComments|parser.AllErrors)
+		if err != nil {
+			return fmt.Errorf("failed to parse source code file: %w", err)
+		}
+
 		for _, node := range pf.Decls {
 			switch node.(type) {
 			case *ast.GenDecl:
@@ -102,33 +117,28 @@ When 'make generate' is run, the following code is generated for API:
 					case *ast.TypeSpec:
 						typeSpec := spec.(*ast.TypeSpec)
 						objectName = typeSpec.Name.Name
-						// capture the name of the struct - the model name
-						mc := models.ModelConfig{
-							TypeName:  typeSpec.Name.Name,
-							NameField: false, // will be set to true as needed below
-						}
 						// check if this is a struct type
 						if structType, ok := typeSpec.Type.(*ast.StructType); ok {
+							var mc *models.ModelConfig
+							for _, c := range modelConfigs {
+								if c.TypeName == objectName {
+									mc = c
+								}
+							}
+
 							// if so, iterate over the fields
 							for _, field := range structType.Fields.List {
-								//check if this is an ident type
-								checkNameField := func(name string) {
-									// if so, it may be an anonymous field - check
-									// the name
-									if util.StringSliceContains(nameFields(), name, true) {
-										mc.NameField = true
-									}
-									if name == "Reconciliation" {
-										mc.ReconciledField = true
-									}
-								}
 								// fields will be of type *ast.Ident
 								if identType, ok := field.Type.(*ast.Ident); ok {
-									checkNameField(identType.Name)
+									if util.StringSliceContains(nameFields(), identType.Name, true) {
+										mc.NameField = true
+									}
 								}
 								// structs will be of type *ast.SelectorExpr
 								if identType, ok := field.Type.(*ast.SelectorExpr); ok {
-									checkNameField(identType.Sel.Name)
+									if util.StringSliceContains(nameFields(), identType.Sel.Name, true) {
+										mc.NameField = true
+									}
 								}
 								// each field is an *ast.Field, which has a Names field that
 								// is a []*ast.Ident - iterate over those names to find the
@@ -137,32 +147,8 @@ When 'make generate' is run, the following code is generated for API:
 									if util.StringSliceContains(nameFields(), name.Name, true) {
 										mc.NameField = true
 									}
-									if name.Name == "Reconciled" {
-										mc.ReconciledField = true
-									}
 								}
 							}
-						}
-						modelConfigs = append(modelConfigs, mc)
-					}
-				}
-
-				if genDecl.Doc != nil {
-					for _, comment := range genDecl.Doc.List {
-						if strings.Contains(comment.Text, sdk.ReconclierMarkerText) {
-							reconcilerModels = append(reconcilerModels, objectName)
-						} else if strings.Contains(comment.Text, sdk.AllowDuplicateNamesMarkerText) {
-							allowDuplicateNameModels = append(allowDuplicateNameModels, objectName)
-						} else if strings.Contains(comment.Text, sdk.AddCustomMiddleware) {
-							allowCustomMiddleware = append(allowCustomMiddleware, objectName)
-						} else if strings.Contains(comment.Text, sdk.DbLoadAssociations) {
-							dbLoadAssociations = append(dbLoadAssociations, objectName)
-						}
-						if strings.Contains(comment.Text, sdk.TptctlMarkerText) {
-							tptctlModels = append(tptctlModels, objectName)
-						}
-						if strings.Contains(comment.Text, sdk.TptctlMarkerConfigPathText) {
-							tptctlModelsConfigPath = append(tptctlModelsConfigPath, objectName)
 						}
 					}
 				}
@@ -171,9 +157,9 @@ When 'make generate' is run, the following code is generated for API:
 
 		// construct the controller config object
 		controllerConfig := models.ControllerConfig{
+			Version:                version,
 			ModelFilename:          filename,
-			PackageName:            packageName,
-			ParsedModelFile:        *pf,
+			PackageName:            version,
 			ControllerDomain:       strcase.ToCamel(sdk.FilenameSansExt(filename)),
 			ControllerDomainLower:  strcase.ToLowerCamel(sdk.FilenameSansExt(filename)),
 			ModelConfigs:           modelConfigs,
@@ -352,27 +338,7 @@ When 'make generate' is run, the following code is generated for API:
 		if err := controllerConfig.TptctlCommands(); err != nil {
 			return fmt.Errorf("failed to generate tptctl commands: %w", err)
 		}
+	}
 
-		return nil
-	},
-}
-
-// init initializes the api-model subcommand
-func init() {
-	codegenCmd.AddCommand(apiModelCmd)
-
-	apiModelCmd.Flags().StringVarP(
-		&filename,
-		"filename", "f", "", "The filename for the file containing the API model/s.",
-	)
-	apiModelCmd.MarkFlagRequired("filename")
-	apiModelCmd.Flags().StringVarP(
-		&packageName,
-		"package", "p", "", "The package name of the the API model.",
-	)
-	apiModelCmd.MarkFlagRequired("package")
-	apiModelCmd.Flags().BoolVarP(
-		&extension,
-		"extension", "e", false, "Indicates whether code being generated is for a Threeport extension.",
-	)
+	return nil
 }

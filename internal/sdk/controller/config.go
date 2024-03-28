@@ -31,8 +31,9 @@ type ControllerConfig struct {
 // ReconciledObject is a struct that contains the name and version of a
 // reconciled object.
 type ReconciledObject struct {
-	Name    string
-	Version string
+	Name                           string
+	Version                        string
+	DisableNotificationPersistence bool
 }
 
 // CheckStructTagMap checks if a struct tag map contains a specific value.

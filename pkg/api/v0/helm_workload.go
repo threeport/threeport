@@ -1,11 +1,7 @@
-//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-sdk codegen controller --filename $GOFILE
 package v0
 
 import "gorm.io/datatypes"
 
-// +threeport-sdk:reconciler
-// +threeport-sdk:tptctl:config-path
 // HelmWorkloadDefinition includes the helm repo and chart that is used to
 // configure the workload.
 type HelmWorkloadDefinition struct {
@@ -38,8 +34,6 @@ type HelmWorkloadDefinition struct {
 	AdditionalResources *datatypes.JSONSlice[datatypes.JSON] `json:"AdditionalResources,omitempty" validate:"optional"`
 }
 
-// +threeport-sdk:reconciler
-// +threeport-sdk:tptctl:config-path
 // HelmWorkloadInstance is a deployed instance of a helm chart with the runtime
 // parameters as helm values.
 type HelmWorkloadInstance struct {
