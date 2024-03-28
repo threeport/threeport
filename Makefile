@@ -37,8 +37,8 @@ install-tptctl: build-tptctl
 generate: generate-code generate-docs
 
 #generate-code: @ Generate code
-generate-code: install-sdk
-	go generate ./...
+generate-code:
+	threeport-sdk gen
 
 #generate-docs: @ Generate swagger docs
 generate-docs:

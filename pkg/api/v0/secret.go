@@ -1,5 +1,3 @@
-//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-sdk codegen controller --filename $GOFILE
 package v0
 
 import "gorm.io/datatypes"

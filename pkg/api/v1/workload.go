@@ -1,12 +1,9 @@
-//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-sdk codegen controller --filename $GOFILE --api-versions v0
 package v1
 
 import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// +threeport-sdk:reconciler
 // WorkloadInstance is a deployed instance of a workload.
 type WorkloadInstance struct {
 	v0.Common         `swaggerignore:"true" mapstructure:",squash"`

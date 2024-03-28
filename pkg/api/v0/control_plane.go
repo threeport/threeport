@@ -1,9 +1,5 @@
-//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
-//go:generate threeport-sdk codegen controller --filename $GOFILE
 package v0
 
-// +threeport-sdk:reconciler
-// +threeport-sdk:tptctl
 // ControlPlaneDefinition is the configuration for a Control Plane.
 type ControlPlaneDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -22,9 +18,6 @@ type ControlPlaneDefinition struct {
 	ControlPlaneInstances []*ControlPlaneInstance `json:"ControlPlaneInstances,omitempty" validate:"optional,association"`
 }
 
-// +threeport-sdk:reconciler
-// +threeport-sdk:tptctl
-// +threeport-sdk:db-load-associations
 // ControlPlaneInstance is the instance for a deployed Control Plane.
 type ControlPlaneInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
