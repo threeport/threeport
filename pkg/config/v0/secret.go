@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -24,7 +23,7 @@ type SecretConfig struct {
 type SecretValues struct {
 	Name                      string                           `yaml:"Name"`
 	Data                      map[string]string                `yaml:"Data"`
-	AwsAccountID              string                           `yaml:"AwsAccountID"`
+	AwsAccountName            string                           `yaml:"AwsAccountName"`
 	SecretConfigPath          string                           `yaml:"SecretConfigPath"`
 	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
 	HelmWorkloadInstance      *HelmWorkloadInstanceValues      `yaml:"HelmWorkloadInstance"`
@@ -41,7 +40,7 @@ type SecretDefinitionConfig struct {
 // SecretDefinition object
 type SecretDefinitionValues struct {
 	Name             string            `yaml:"Name"`
-	AwsAccountID     string            `yaml:"AwsAccountID"`
+	AwsAccountName   string            `yaml:"AwsAccountName"`
 	Data             map[string]string `yaml:"Data"`
 	SecretConfigPath string            `yaml:"SecretConfigPath"`
 }
@@ -100,9 +99,9 @@ func (s *SecretValues) GetOperations(
 	operations := util.Operations{}
 
 	secretDefinitionValues := SecretDefinitionValues{
-		Name:         s.Name,
-		AwsAccountID: s.AwsAccountID,
-		Data:         s.Data,
+		Name:           s.Name,
+		AwsAccountName: s.AwsAccountName,
+		Data:           s.Data,
 	}
 	operations.AppendOperation(util.Operation{
 		Name: "secret definition",
@@ -164,7 +163,7 @@ func (s *SecretValues) ValidateCreate() error {
 		multiError.AppendError(errors.New("missing required field in config: Data"))
 	}
 
-	if s.AwsAccountID == "" {
+	if s.AwsAccountName == "" {
 		multiError.AppendError(errors.New("missing required field in config: AwsAccountID"))
 	}
 
@@ -202,9 +201,13 @@ func (s *SecretDefinitionValues) Create(
 	apiEndpoint string,
 ) (*v0.SecretDefinition, error) {
 
-	awsAccountID, err := strconv.Atoi(s.AwsAccountID)
+	awsAccount, err := client.GetAwsAccountByName(
+		apiClient,
+		apiEndpoint,
+		s.AwsAccountName,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert aws account id to int: %w", err)
+		return nil, fmt.Errorf("failed to get aws account by id: %w", err)
 	}
 
 	jsonData, err := json.Marshal(s.Data)
@@ -220,7 +223,7 @@ func (s *SecretDefinitionValues) Create(
 			Definition: v0.Definition{
 				Name: util.Ptr(s.Name),
 			},
-			AwsAccountID: util.Ptr(uint(awsAccountID)),
+			AwsAccountID: awsAccount.ID,
 			Data:         util.Ptr(datatypes.JSON(jsonData)),
 		},
 	)
@@ -283,8 +286,8 @@ func (s *SecretInstanceValues) Create(
 		Instance: v0.Instance{
 			Name: util.Ptr(s.Name),
 		},
-		KubernetesRuntimeInstanceID: util.Ptr(*kubernetesRuntimeInstance.ID),
-		SecretDefinitionID:          util.Ptr(*secretDefinition.ID),
+		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
+		SecretDefinitionID:          secretDefinition.ID,
 	}
 
 	if s.WorkloadInstance != nil {
@@ -296,7 +299,7 @@ func (s *SecretInstanceValues) Create(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workload instance by name: %w", err)
 		}
-		secretInstance.WorkloadInstanceID = util.Ptr(*workloadInstance.ID)
+		secretInstance.WorkloadInstanceID = workloadInstance.ID
 	}
 
 	if s.HelmWorkloadInstance != nil {
@@ -308,7 +311,7 @@ func (s *SecretInstanceValues) Create(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get helm workload instance by name: %w", err)
 		}
-		secretInstance.HelmWorkloadInstanceID = util.Ptr(*helmWorkloadInstance.ID)
+		secretInstance.HelmWorkloadInstanceID = helmWorkloadInstance.ID
 	}
 
 	createdSecretInstance, err := client.CreateSecretInstance(
