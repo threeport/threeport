@@ -1,4 +1,3 @@
-//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
 package v0
 
 // Profile is a named standard configuration for a definition object.
