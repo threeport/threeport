@@ -91,6 +91,7 @@ var CreateSecretCmd = &cobra.Command{
 
 		// create secret
 		secret := secretConfig.Secret
+		secret.SecretConfigPath = createSecretConfigPath
 		createdSecretDefinition, createdSecretInstance, err := secret.Create(
 			apiClient,
 			apiEndpoint,
@@ -155,6 +156,7 @@ var DeleteSecretCmd = &cobra.Command{
 
 		// delete secret
 		secret := secretConfig.Secret
+		secret.SecretConfigPath = deleteSecretConfigPath
 		_, _, err = secret.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete secret", err)
@@ -257,6 +259,7 @@ var CreateSecretDefinitionCmd = &cobra.Command{
 
 		// create secret definition
 		secretDefinition := secretDefinitionConfig.SecretDefinition
+		secretDefinition.SecretConfigPath = createSecretDefinitionConfigPath
 		createdSecretDefinition, err := secretDefinition.Create(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to create secret definition", err)
@@ -329,6 +332,7 @@ var DeleteSecretDefinitionCmd = &cobra.Command{
 
 		// delete secret definition
 		secretDefinition := secretDefinitionConfig.SecretDefinition
+		secretDefinition.SecretConfigPath = deleteSecretDefinitionConfigPath
 		deletedSecretDefinition, err := secretDefinition.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete secret definition", err)
@@ -609,6 +613,7 @@ var CreateSecretInstanceCmd = &cobra.Command{
 
 		// create secret instance
 		secretInstance := secretInstanceConfig.SecretInstance
+		secretInstance.SecretConfigPath = createSecretInstanceConfigPath
 		createdSecretInstance, err := secretInstance.Create(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to create secret instance", err)
@@ -681,6 +686,7 @@ var DeleteSecretInstanceCmd = &cobra.Command{
 
 		// delete secret instance
 		secretInstance := secretInstanceConfig.SecretInstance
+		secretInstance.SecretConfigPath = deleteSecretInstanceConfigPath
 		deletedSecretInstance, err := secretInstance.Delete(apiClient, apiEndpoint)
 		if err != nil {
 			cli.Error("failed to delete secret instance", err)

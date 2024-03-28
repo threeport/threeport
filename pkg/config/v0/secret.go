@@ -25,6 +25,7 @@ type SecretValues struct {
 	Name                      string                           `yaml:"Name"`
 	Data                      map[string]string                `yaml:"Data"`
 	AwsAccountID              string                           `yaml:"AwsAccountID"`
+	SecretConfigPath          string                           `yaml:"SecretConfigPath"`
 	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
 	HelmWorkloadInstance      *HelmWorkloadInstanceValues      `yaml:"HelmWorkloadInstance"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
@@ -39,9 +40,10 @@ type SecretDefinitionConfig struct {
 // SecretDefinitionValues contains the values for a
 // SecretDefinition object
 type SecretDefinitionValues struct {
-	Name         string            `yaml:"Name"`
-	AwsAccountID string            `yaml:"AwsAccountID"`
-	Data         map[string]string `yaml:"Data"`
+	Name             string            `yaml:"Name"`
+	AwsAccountID     string            `yaml:"AwsAccountID"`
+	Data             map[string]string `yaml:"Data"`
+	SecretConfigPath string            `yaml:"SecretConfigPath"`
 }
 
 // SecretInstanceConfig contains the configuration for a
@@ -58,6 +60,7 @@ type SecretInstanceValues struct {
 	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
 	HelmWorkloadInstance      *HelmWorkloadInstanceValues      `yaml:"HelmWorkloadInstance"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
+	SecretConfigPath          string                           `yaml:"SecretConfigPath"`
 }
 
 // Create creates a Secret object
