@@ -2,7 +2,7 @@ Workload:
   Name: "wordpress"
   YAMLDocument: "wordpress-manifest-remote.yaml"
   KubernetesRuntimeInstance:
-    Name: eks-k8s-runtime
+    Name: threeport-dev-0
   AwsRelationalDatabase:
     Name: wordpress-db
     AwsAccountName: default-account
@@ -24,9 +24,10 @@ Workload:
     Domain: example.com
     Zone: Public
     AdminEmail: admin@example.com
-  Secrets:
-  - Name: custom-ca-certificate
-    SecretData:
+  Secret:
+    Name: wordpress-secret
+    AwsAccountName: default-account
+    Data:
       CA_CERTIFICATE: |
         -----BEGIN CERTIFICATE-----
         MIIDdzCCAl+gAwIBAgIJAJ
@@ -37,10 +38,6 @@ Workload:
         -----END
   # If KubernetesRuntime provider is not AWS, then long-term credentials must
   # be used to authenticate to AWS
-  - Name: s3-client
-    SecretData:
-      AWS_ACCESS_KEY_ID: AKIAxxxxxxxxxxxxxxx
-      AWS_SECRET_ACCESS_KEY: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   Gateway:
     Name: web-service-gateway
     HttpPorts:

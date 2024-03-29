@@ -172,6 +172,16 @@ spec:
                 secretKeyRef:
                   name: wordpress-db-conn
                   key: db-password
+            - name: CA_CERTIFICATE
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secret
+                  key: CA_CERTIFICATE
+            - name: CA_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secret
+                  key: CA_PRIVATE_KEY
             - name: WORDPRESS_USERNAME
               value: "user"
             - name: WORDPRESS_PASSWORD
