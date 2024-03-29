@@ -245,7 +245,11 @@ func (s *SecretDefinitionValues) Delete(
 		s.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get secret definition by name: %w", err)
+		return nil, fmt.Errorf(
+			"failed to get secret definition by name %s: %w",
+			s.Name,
+			err,
+		)
 	}
 
 	deletedSecretDefinition, err := client.DeleteSecretDefinition(
@@ -271,7 +275,11 @@ func (s *SecretInstanceValues) Create(
 		s.KubernetesRuntimeInstance.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get kubernetes runtime instance by name: %w", err)
+		return nil, fmt.Errorf(
+			"failed to get kubernetes runtime instance by name %s: %w",
+			s.KubernetesRuntimeInstance.Name,
+			err,
+		)
 	}
 	secretDefinition, err := client.GetSecretDefinitionByName(
 		apiClient,
@@ -279,7 +287,7 @@ func (s *SecretInstanceValues) Create(
 		s.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get secret definition by name: %w", err)
+		return nil, fmt.Errorf("failed to get secret definition by name %s: %w", s.Name, err)
 	}
 
 	secretInstance := &v0.SecretInstance{
@@ -338,7 +346,7 @@ func (s *SecretInstanceValues) Delete(
 		s.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get secret instance by name: %w", err)
+		return nil, fmt.Errorf("failed to get secret instance by name %s: %w", s.Name, err)
 	}
 
 	deletedSecretInstance, err := client.DeleteSecretInstance(
