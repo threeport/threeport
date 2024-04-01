@@ -28,14 +28,8 @@ Workload:
     Name: wordpress-secret
     AwsAccountName: default-account
     Data:
-      CA_CERTIFICATE: |
-        -----BEGIN CERTIFICATE-----
-        MIIDdzCCAl+gAwIBAgIJAJ
-        -----END CERTIFICATE-----
-      CA_PRIVATE_KEY: |
-        -----BEGIN
-        MIIEpAIBAAKCAQEA
-        -----END
+      WORDPRESS_PASSWORD: admin_password
+      WORDPRESS_SMTP_PASSWORD: smtp_password
   # If KubernetesRuntime provider is not AWS, then long-term credentials must
   # be used to authenticate to AWS
   Gateway:
