@@ -374,6 +374,14 @@ func (s *SecretValues) ValidateCreate() error {
 		multiError.AppendError(errors.New("missing required field in config: WorkloadInstance or HelmWorkloadInstance"))
 	}
 
+	if s.KubernetesRuntimeInstance == nil {
+		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance"))
+	}
+
+	if s.KubernetesRuntimeInstance != nil && s.KubernetesRuntimeInstance.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
+	}
+
 	return multiError.Error()
 }
 
@@ -412,6 +420,15 @@ func (s *SecretInstanceValues) ValidateCreate() error {
 	if s.WorkloadInstance == nil && s.HelmWorkloadInstance == nil {
 		multiError.AppendError(errors.New("missing required field in config: WorkloadInstance or HelmWorkloadInstance"))
 	}
+
+	if s.KubernetesRuntimeInstance == nil {
+		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance"))
+	}
+
+	if s.KubernetesRuntimeInstance != nil && s.KubernetesRuntimeInstance.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
+	}
+
 
 	return multiError.Error()
 }
