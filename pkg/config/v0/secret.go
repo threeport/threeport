@@ -67,7 +67,6 @@ func (s *SecretValues) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*v0.SecretDefinition, *v0.SecretInstance, error) {
-
 	// validate required fields
 	if err := s.ValidateCreate(); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate secret values: %w", err)
@@ -92,7 +91,6 @@ func (s *SecretValues) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*util.Operations, *v0.SecretDefinition, *v0.SecretInstance) {
-
 	var createdSecretDefinition v0.SecretDefinition
 	var createdSecretInstance v0.SecretInstance
 
@@ -151,6 +149,210 @@ func (s *SecretValues) GetOperations(
 	return &operations, &createdSecretDefinition, &createdSecretInstance
 }
 
+// Delete deletes a Secret object
+func (s *SecretValues) Delete(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*v0.SecretDefinition, *v0.SecretInstance, error) {
+	// get operations
+	operations, _, _ := s.GetOperations(
+		apiClient,
+		apiEndpoint,
+	)
+
+	// execute create operations
+	if err := operations.Delete(); err != nil {
+		return nil, nil, fmt.Errorf("failed to delete secret: %w", err)
+	}
+
+	return nil, nil, nil
+}
+
+// Create creates a SecretDefinition object
+func (s *SecretDefinitionValues) Create(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*v0.SecretDefinition, error) {
+	// validate required fields
+	if err := s.ValidateCreate(); err != nil {
+		return nil, fmt.Errorf("failed to validate secret values: %w", err)
+	}
+
+	// get aws account
+	awsAccount, err := client.GetAwsAccountByName(
+		apiClient,
+		apiEndpoint,
+		s.AwsAccountName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get aws account by id: %w", err)
+	}
+
+	// marshal json data
+	jsonData, err := json.Marshal(s.Data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal data: %w", err)
+	}
+
+	// create secret definition
+	createdSecretDefinition, err := client.CreateSecretDefinition(
+		apiClient,
+		apiEndpoint,
+		&v0.SecretDefinition{
+			Definition: v0.Definition{
+				Name: util.Ptr(s.Name),
+			},
+			AwsAccountID: awsAccount.ID,
+			Data:         util.Ptr(datatypes.JSON(jsonData)),
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create secret definition: %w", err)
+	}
+
+	return createdSecretDefinition, nil
+}
+
+// Delete deletes a SecretDefinition object
+func (s *SecretDefinitionValues) Delete(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*v0.SecretDefinition, error) {
+	// get secret definition
+	secretDefinition, err := client.GetSecretDefinitionByName(
+		apiClient,
+		apiEndpoint,
+		s.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to get secret definition by name %s: %w",
+			s.Name,
+			err,
+		)
+	}
+
+	// delete secret definition
+	deletedSecretDefinition, err := client.DeleteSecretDefinition(
+		apiClient,
+		apiEndpoint,
+		*secretDefinition.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete secret definition: %w", err)
+	}
+
+	return deletedSecretDefinition, nil
+}
+
+// Create creates a SecretInstance object
+func (s *SecretInstanceValues) Create(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*v0.SecretInstance, error) {
+	// validate required fields
+	if err := s.ValidateCreate(); err != nil {
+		return nil, fmt.Errorf("failed to validate secret values: %w", err)
+	}
+
+	// get kubernetes runtime instance
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByName(
+		apiClient,
+		apiEndpoint,
+		s.KubernetesRuntimeInstance.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to get kubernetes runtime instance by name %s: %w",
+			s.KubernetesRuntimeInstance.Name,
+			err,
+		)
+	}
+
+	// get secret definition
+	secretDefinition, err := client.GetSecretDefinitionByName(
+		apiClient,
+		apiEndpoint,
+		s.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get secret definition by name %s: %w", s.Name, err)
+	}
+
+	// init secret instance object
+	secretInstance := &v0.SecretInstance{
+		Instance: v0.Instance{
+			Name: util.Ptr(s.Name),
+		},
+		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
+		SecretDefinitionID:          secretDefinition.ID,
+	}
+
+	// get workload instance
+	switch {
+	case s.WorkloadInstance != nil:
+		workloadInstance, err := client.GetWorkloadInstanceByName(
+			apiClient,
+			apiEndpoint,
+			s.WorkloadInstance.Name,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workload instance by name: %w", err)
+		}
+		secretInstance.WorkloadInstanceID = workloadInstance.ID
+	case s.HelmWorkloadInstance != nil:
+		helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByName(
+			apiClient,
+			apiEndpoint,
+			s.HelmWorkloadInstance.Name,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get helm workload instance by name: %w", err)
+		}
+		secretInstance.HelmWorkloadInstanceID = helmWorkloadInstance.ID
+	}
+
+	// create secret instance
+	createdSecretInstance, err := client.CreateSecretInstance(
+		apiClient,
+		apiEndpoint,
+		secretInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create secret instance: %w", err)
+	}
+
+	return createdSecretInstance, nil
+}
+
+// Delete deletes a SecretInstance object
+func (s *SecretInstanceValues) Delete(
+	apiClient *http.Client,
+	apiEndpoint string,
+) (*v0.SecretInstance, error) {
+	// get secret instance
+	secretInstance, err := client.GetSecretInstanceByName(
+		apiClient,
+		apiEndpoint,
+		s.Name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get secret instance by name %s: %w", s.Name, err)
+	}
+
+	// delete secret instance
+	deletedSecretInstance, err := client.DeleteSecretInstance(
+		apiClient,
+		apiEndpoint,
+		*secretInstance.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete secret instance: %w", err)
+	}
+
+	return deletedSecretInstance, nil
+}
+
 // ValidateCreate validates the secret values before creating a secret
 func (s *SecretValues) ValidateCreate() error {
 	multiError := util.MultiError{}
@@ -175,188 +377,41 @@ func (s *SecretValues) ValidateCreate() error {
 	return multiError.Error()
 }
 
-// Delete deletes a Secret object
-func (s *SecretValues) Delete(
-	apiClient *http.Client,
-	apiEndpoint string,
-) (*v0.SecretDefinition, *v0.SecretInstance, error) {
+// ValidateCreate validates the secret values before creating a secret
+func (s *SecretDefinitionValues) ValidateCreate() error {
+	multiError := util.MultiError{}
 
-	// get operations
-	operations, _, _ := s.GetOperations(
-		apiClient,
-		apiEndpoint,
-	)
-
-	// execute create operations
-	if err := operations.Delete(); err != nil {
-		return nil, nil, fmt.Errorf("failed to delete secret: %w", err)
+	if s.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
-	return nil, nil, nil
+	if s.Data == nil {
+		multiError.AppendError(errors.New("missing required field in config: Data"))
+	}
+
+	if s.AwsAccountName == "" {
+		multiError.AppendError(errors.New("missing required field in config: AwsAccountID"))
+	}
+
+	return multiError.Error()
 }
 
-// Create creates a SecretDefinition object
-func (s *SecretDefinitionValues) Create(
-	apiClient *http.Client,
-	apiEndpoint string,
-) (*v0.SecretDefinition, error) {
+// ValidateCreate validates the secret values before creating a secret
+func (s *SecretInstanceValues) ValidateCreate() error {
+	multiError := util.MultiError{}
 
-	awsAccount, err := client.GetAwsAccountByName(
-		apiClient,
-		apiEndpoint,
-		s.AwsAccountName,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get aws account by id: %w", err)
+	if s.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
-	jsonData, err := json.Marshal(s.Data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal data: %w", err)
+	if s.SecretDefinition == nil {
+		multiError.AppendError(errors.New("missing required field in config: SecretDefinition"))
 	}
 
-	// Initialize a datatypes.JSON value
-	createdSecretDefinition, err := client.CreateSecretDefinition(
-		apiClient,
-		apiEndpoint,
-		&v0.SecretDefinition{
-			Definition: v0.Definition{
-				Name: util.Ptr(s.Name),
-			},
-			AwsAccountID: awsAccount.ID,
-			Data:         util.Ptr(datatypes.JSON(jsonData)),
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create secret definition: %w", err)
+	// ensure definition values or definition values document is set
+	if s.WorkloadInstance == nil && s.HelmWorkloadInstance == nil {
+		multiError.AppendError(errors.New("missing required field in config: WorkloadInstance or HelmWorkloadInstance"))
 	}
 
-	return createdSecretDefinition, nil
-}
-
-// Delete deletes a SecretDefinition object
-func (s *SecretDefinitionValues) Delete(
-	apiClient *http.Client,
-	apiEndpoint string,
-) (*v0.SecretDefinition, error) {
-	secretDefinition, err := client.GetSecretDefinitionByName(
-		apiClient,
-		apiEndpoint,
-		s.Name,
-	)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to get secret definition by name %s: %w",
-			s.Name,
-			err,
-		)
-	}
-
-	deletedSecretDefinition, err := client.DeleteSecretDefinition(
-		apiClient,
-		apiEndpoint,
-		*secretDefinition.ID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to delete secret definition: %w", err)
-	}
-
-	return deletedSecretDefinition, nil
-}
-
-// Create creates a SecretInstance object
-func (s *SecretInstanceValues) Create(
-	apiClient *http.Client,
-	apiEndpoint string,
-) (*v0.SecretInstance, error) {
-	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByName(
-		apiClient,
-		apiEndpoint,
-		s.KubernetesRuntimeInstance.Name,
-	)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to get kubernetes runtime instance by name %s: %w",
-			s.KubernetesRuntimeInstance.Name,
-			err,
-		)
-	}
-	secretDefinition, err := client.GetSecretDefinitionByName(
-		apiClient,
-		apiEndpoint,
-		s.Name,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get secret definition by name %s: %w", s.Name, err)
-	}
-
-	secretInstance := &v0.SecretInstance{
-		Instance: v0.Instance{
-			Name: util.Ptr(s.Name),
-		},
-		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		SecretDefinitionID:          secretDefinition.ID,
-	}
-
-	if s.WorkloadInstance != nil {
-		workloadInstance, err := client.GetWorkloadInstanceByName(
-			apiClient,
-			apiEndpoint,
-			s.WorkloadInstance.Name,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workload instance by name: %w", err)
-		}
-		secretInstance.WorkloadInstanceID = workloadInstance.ID
-	}
-
-	if s.HelmWorkloadInstance != nil {
-		helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByName(
-			apiClient,
-			apiEndpoint,
-			s.HelmWorkloadInstance.Name,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get helm workload instance by name: %w", err)
-		}
-		secretInstance.HelmWorkloadInstanceID = helmWorkloadInstance.ID
-	}
-
-	createdSecretInstance, err := client.CreateSecretInstance(
-		apiClient,
-		apiEndpoint,
-		secretInstance,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create secret instance: %w", err)
-	}
-
-	return createdSecretInstance, nil
-}
-
-// Delete deletes a SecretInstance object
-func (s *SecretInstanceValues) Delete(
-	apiClient *http.Client,
-	apiEndpoint string,
-) (*v0.SecretInstance, error) {
-
-	secretInstance, err := client.GetSecretInstanceByName(
-		apiClient,
-		apiEndpoint,
-		s.Name,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get secret instance by name %s: %w", s.Name, err)
-	}
-
-	deletedSecretInstance, err := client.DeleteSecretInstance(
-		apiClient,
-		apiEndpoint,
-		*secretInstance.ID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to delete secret instance: %w", err)
-	}
-
-	return deletedSecretInstance, nil
+	return multiError.Error()
 }
