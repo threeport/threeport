@@ -17,6 +17,14 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+type ErrRecoverable struct {
+	Message string
+}
+
+func (e *ErrRecoverable) Error() string {
+	return e.Message
+}
+
 // SecretInstanceConfig contains the configuration for a secret instance
 // reconcile function.
 type SecretInstanceConfig struct {
@@ -392,6 +400,10 @@ func (c *SecretInstanceConfig) getThreeportObjects() error {
 // validateThreeportState validates the state of the threeport objects
 // required for secret instance reconciliation
 func (c *SecretInstanceConfig) validateThreeportState() error {
+
+	return &ErrRecoverable{Message: "test error"}
+	// return errors.New("test error")
+
 	// validate secret definition is reconciled
 	if !*c.secretDefinition.Reconciled {
 		return errors.New("secret definition not reconciled")

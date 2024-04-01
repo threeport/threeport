@@ -27,20 +27,40 @@ func secretInstanceCreated(
 
 	// get threeport objects
 	if err := c.getThreeportObjects(); err != nil {
-		return 0, fmt.Errorf("failed to get threeport objects: %w", err)
+		return 0, handleRecoverableError("failed to get threeport objects", err, log)
 	}
 
 	// validate threeport state
 	if err := c.validateThreeportState(); err != nil {
-		return 0, fmt.Errorf("failed to validate threeport state: %w", err)
+		return 0, handleRecoverableError("failed to validate threeport state", err, log)
 	}
 
 	// execute secret instance create operations
 	if err := c.getSecretInstanceOperations().Create(); err != nil {
-		return 0, fmt.Errorf("failed to execute secret instance create operations: %w", err)
+		return 0, handleRecoverableError("failed to execute secret instance create operations", err, log)
 	}
 
 	return 0, nil
+}
+
+// handleRecoverableError returns nil when errors are
+// not recoverable, which will prevent the controller from
+// requeuing the object. If the error is recoverable, it
+// will return the error to be handled by the caller.
+func handleRecoverableError(
+	msg string,
+	err error,
+	log *logr.Logger,
+) error {
+	var errRecoverable *ErrRecoverable
+	switch {
+	case errors.As(err, &errRecoverable):
+		log.Error(err, msg)
+		return err
+	default:
+		log.Error(err, msg)
+		return nil
+	}
 }
 
 // secretInstanceCreated reconciles state for a secret instance
