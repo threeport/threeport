@@ -4,11 +4,14 @@ package cmd
 
 import (
 	"fmt"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
 	"os"
 	"text/tabwriter"
+
+	v0 "github.com/threeport/threeport/pkg/api/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
+
+	client "github.com/threeport/threeport/pkg/client/v0"
 )
 
 // outputGetSecretsCmd produces the tabular output for the
@@ -18,14 +21,44 @@ func outputGetSecretsCmd(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) error {
+
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t AGE")
-	for _, secretInstance := range *secretInstances {
-		fmt.Fprintln(
-			writer,
-			*secretInstance.Name, "\t",
-			util.GetAge(secretInstance.CreatedAt),
-		)
+	fmt.Fprintln(writer, "NAME\t AGE\t WORKLOAD INSTANCE")
+	if len(*secretInstances) > 0 {
+		for _, secretInstance := range *secretInstances {
+			attachedObjectReferences, err := client.GetAttachedObjectReferencesByAttachedObjectID(
+				apiClient,
+				apiEndpoint,
+				*secretInstance.ID,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to get attached object references: %v", err)
+			}
+
+			if len(*attachedObjectReferences) == 0 {
+				return fmt.Errorf("expected 1 attached object reference, got %d", len(*attachedObjectReferences))
+			}
+
+			if len(*attachedObjectReferences) > 1 {
+				return fmt.Errorf("expected 1 attached object reference, got %d", len(*attachedObjectReferences))
+			}
+
+			workloadInstance, err := client.GetWorkloadInstanceByID(
+				apiClient,
+				apiEndpoint,
+				*(*attachedObjectReferences)[0].ObjectID,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to get workload instance: %v", err)
+			}
+
+			fmt.Fprintln(
+				writer,
+				*secretInstance.Name, "\t",
+				util.GetAge(secretInstance.CreatedAt), "\t",
+				*workloadInstance.Name,
+			)
+		}
 	}
 	writer.Flush()
 
@@ -61,13 +94,42 @@ func outputGetSecretInstancesCmd(
 	apiEndpoint string,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t AGE")
-	for _, secretInstance := range *secretInstances {
-		fmt.Fprintln(
-			writer,
-			*secretInstance.Name, "\t",
-			util.GetAge(secretInstance.CreatedAt),
-		)
+	fmt.Fprintln(writer, "NAME\t AGE\t WORKLOAD INSTANCE")
+	if len(*secretInstances) > 0 {
+		for _, secretInstance := range *secretInstances {
+			attachedObjectReferences, err := client.GetAttachedObjectReferencesByAttachedObjectID(
+				apiClient,
+				apiEndpoint,
+				*secretInstance.ID,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to get attached object references: %v", err)
+			}
+
+			if len(*attachedObjectReferences) == 0 {
+				return fmt.Errorf("expected 1 attached object reference, got %d", len(*attachedObjectReferences))
+			}
+
+			if len(*attachedObjectReferences) > 1 {
+				return fmt.Errorf("expected 1 attached object reference, got %d", len(*attachedObjectReferences))
+			}
+
+			workloadInstance, err := client.GetWorkloadInstanceByID(
+				apiClient,
+				apiEndpoint,
+				*(*attachedObjectReferences)[0].ObjectID,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to get workload instance: %v", err)
+			}
+
+			fmt.Fprintln(
+				writer,
+				*secretInstance.Name, "\t",
+				util.GetAge(secretInstance.CreatedAt), "\t",
+				*workloadInstance.Name,
+			)
+		}
 	}
 	writer.Flush()
 
