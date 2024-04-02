@@ -91,7 +91,7 @@ func (gvc *GlobalVersionConfig) ExtensionAllRoutes(modulePath string) error {
 		)
 
 		// write code to file
-		routesFilepath := filepath.Join("..", "..", "pkg", "api-server", v.VersionName, "routes", "routes_gen.go")
+		routesFilepath := filepath.Join("pkg", "api-server", v.VersionName, "routes", "routes_gen.go")
 		file, err := os.OpenFile(routesFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			return fmt.Errorf("failed to open file to write generated code for all routes: %w", err)
