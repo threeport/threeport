@@ -312,11 +312,17 @@ func (h Handler) DeleteLoggingDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeLoggingDefinition
 	loggingDefinitionID := c.Param("id")
 	var loggingDefinition v0.LoggingDefinition
-	if result := h.DB.First(&loggingDefinition, loggingDefinitionID); result.Error != nil {
+	if result := h.DB.Preload("LoggingInstances").First(&loggingDefinition, loggingDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check to make sure no dependent instances exist for this definition
+	if len(loggingDefinition.LoggingInstances) != 0 {
+		err := errors.New("logging definition has related logging instances - cannot be deleted")
+		return iapi.ResponseStatus409(c, nil, err, objectType)
 	}
 
 	// schedule for deletion if not already scheduled
@@ -1020,11 +1026,17 @@ func (h Handler) DeleteMetricsDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeMetricsDefinition
 	metricsDefinitionID := c.Param("id")
 	var metricsDefinition v0.MetricsDefinition
-	if result := h.DB.First(&metricsDefinition, metricsDefinitionID); result.Error != nil {
+	if result := h.DB.Preload("MetricsInstances").First(&metricsDefinition, metricsDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check to make sure no dependent instances exist for this definition
+	if len(metricsDefinition.MetricsInstances) != 0 {
+		err := errors.New("metrics definition has related metrics instances - cannot be deleted")
+		return iapi.ResponseStatus409(c, nil, err, objectType)
 	}
 
 	// schedule for deletion if not already scheduled
@@ -2436,11 +2448,17 @@ func (h Handler) DeleteObservabilityStackDefinition(c echo.Context) error {
 	objectType := v0.ObjectTypeObservabilityStackDefinition
 	observabilityStackDefinitionID := c.Param("id")
 	var observabilityStackDefinition v0.ObservabilityStackDefinition
-	if result := h.DB.First(&observabilityStackDefinition, observabilityStackDefinitionID); result.Error != nil {
+	if result := h.DB.Preload("ObservabilityStackInstances").First(&observabilityStackDefinition, observabilityStackDefinitionID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return iapi.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check to make sure no dependent instances exist for this definition
+	if len(observabilityStackDefinition.ObservabilityStackInstances) != 0 {
+		err := errors.New("observability stack definition has related observability stack instances - cannot be deleted")
+		return iapi.ResponseStatus409(c, nil, err, objectType)
 	}
 
 	// schedule for deletion if not already scheduled

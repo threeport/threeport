@@ -15,6 +15,9 @@ type SecretDefinition struct {
 
 	// The secret value to be stored in the provider.
 	Data *datatypes.JSON `json:"Data,omitempty" query:"data" validate:"required" persist:"false"`
+
+	// The associated secret instances that are deployed from this definition.
+	SecretInstances []*SecretInstance `json:"SecretInstances,omitempty" validate:"optional,association"`
 }
 
 // +threeport-sdk:reconciler
