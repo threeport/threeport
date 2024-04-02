@@ -48,6 +48,11 @@ func ApiModelGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 		}
 	}
 
+	extension, modulePath, err := isExtension()
+	if err != nil {
+		return fmt.Errorf("could not determine if running for an extension: %w", err)
+	}
+
 	for version, objects := range versionObjMap {
 		var modelConfigs []*models.ModelConfig
 		var reconcilerModels []string
@@ -268,16 +273,6 @@ func ApiModelGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 			}
 		}
 
-		// get module path if its an extension
-		var modulePath string
-		if extension {
-			var modError error
-			modulePath, modError = GetPathFromGoModule()
-			if modError != nil {
-				return fmt.Errorf("could not get go module path for extension: %w", modError)
-			}
-		}
-
 		// generate the model's constants and methods
 		if extension {
 			if err := controllerConfig.ExtensionModelConstantsMethods(); err != nil {
@@ -335,8 +330,12 @@ func ApiModelGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 		}
 
 		// generate tptctl commands
-		if err := controllerConfig.TptctlCommands(); err != nil {
-			return fmt.Errorf("failed to generate tptctl commands: %w", err)
+		if extension {
+
+		} else {
+			if err := controllerConfig.TptctlCommands(); err != nil {
+				return fmt.Errorf("failed to generate tptctl commands: %w", err)
+			}
 		}
 	}
 
