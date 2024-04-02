@@ -35,6 +35,7 @@ type WorkloadValues struct {
 	Gateway                   *GatewayDefinitionValues         `yaml:"Gateway"`
 	AwsRelationalDatabase     *AwsRelationalDatabaseValues     `yaml:"AwsRelationalDatabase"`
 	AwsObjectStorageBucket    *AwsObjectStorageBucketValues    `yaml:"AwsObjectStorageBucket"`
+	Secret                    *SecretValues                    `yaml:"Secret"`
 }
 
 // WorkloadDefinitionConfig contains the config for a workload definition.
@@ -496,6 +497,34 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Delete: func() error {
 				_, _, err := awsObjectStorageBucket.Delete(apiClient, apiEndpoint)
 				return err
+			},
+		})
+	}
+
+	// add secret operation
+	if w.Secret != nil {
+		secret := SecretValues{
+			Name:                      w.Secret.Name,
+			AwsAccountName:            w.Secret.AwsAccountName,
+			Data:                      w.Secret.Data,
+			KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
+			WorkloadInstance:          &workloadInstanceValues,
+		}
+		operations.AppendOperation(util.Operation{
+			Name: "secret",
+			Create: func() error {
+				_, _, err := secret.Create(apiClient, apiEndpoint)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+			Delete: func() error {
+				_, _, err := secret.Delete(apiClient, apiEndpoint)
+				if err != nil {
+					return err
+				}
+				return nil
 			},
 		})
 	}

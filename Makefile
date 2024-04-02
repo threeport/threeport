@@ -157,6 +157,7 @@ dev-reset-crdb:
 		set sql_safe_updates = false; \
 		update kubernetes_runtime_instances set gateway_controller_instance_id = NULL; \
 		update kubernetes_runtime_instances set dns_controller_instance_id = NULL; \
+		update kubernetes_runtime_instances set secrets_controller_instance_id = NULL; \
 		set sql_safe_updates = true; \
 		DELETE FROM control_plane_definitions WHERE name != 'dev-0'; \
 		DELETE FROM control_plane_instances WHERE name != 'dev-0'; \

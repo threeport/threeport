@@ -628,6 +628,34 @@ func (h *HelmWorkloadValues) GetOperations(
 	//	})
 	//}
 
+	// // add secret operation
+	// if h.Secret != nil {
+	// 	secret := SecretValues{
+	// 		Name:                      h.Secret.Name,
+	// 		AwsAccountName:            h.Secret.AwsAccountName,
+	// 		Data:                      h.Secret.Data,
+	// 		KubernetesRuntimeInstance: h.KubernetesRuntimeInstance,
+	// 		WorkloadInstance:          &workloadInstanceValues,
+	// 	}
+	// 	operations.AppendOperation(util.Operation{
+	// 		Name: "secret",
+	// 		Create: func() error {
+	// 			_, _, err := secret.Create(apiClient, apiEndpoint)
+	// 			if err != nil {
+	// 				return err
+	// 			}
+	// 			return nil
+	// 		},
+	// 		Delete: func() error {
+	// 			_, _, err := secret.Delete(apiClient, apiEndpoint)
+	// 			if err != nil {
+	// 				return err
+	// 			}
+	// 			return nil
+	// 		},
+	// 	})
+	// }
+
 	return &operations, &createdHelmWorkloadDefinition, &createdHelmWorkloadInstance, nil
 }
 
