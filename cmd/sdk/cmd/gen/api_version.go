@@ -20,6 +20,11 @@ const (
 func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
 	var globalVersionConf versions.GlobalVersionConfig
 
+	extension, modulePath, err := isExtension()
+	if err != nil {
+		return fmt.Errorf("could not determine if running for an extension: %w", err)
+	}
+
 	// assemble all objects to process further
 	for version, apiObjects := range versionObjMap {
 		sort.Slice(apiObjects, func(i, j int) bool {
@@ -46,7 +51,7 @@ func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
 
 		}
 
-		if version == "v0" {
+		if version == "v0" && !extension {
 			// this is a hack to ensure that there are order constraints satisfied for
 			// the db automigrate function to properly execute
 			swaps := map[string]string{
@@ -80,16 +85,6 @@ func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
 		versionConf.ReconciledNames = reconciledNames
 		versionConf.RouteNames = routeNames
 		globalVersionConf.Versions = append(globalVersionConf.Versions, versionConf)
-	}
-
-	// Get module path if its an extension
-	var modulePath string
-	if extension {
-		var modError error
-		modulePath, modError = GetPathFromGoModule()
-		if modError != nil {
-			return fmt.Errorf("could not get go module path for extension: %w", modError)
-		}
 	}
 
 	// generate all the APIs REST route mappings
@@ -138,13 +133,21 @@ func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
 	}
 
 	// generate client type switch functions
-	if err := globalVersionConf.DeleteObjects(); err != nil {
-		return fmt.Errorf("failed to generate model type switch functions: %w", err)
+	if extension {
+
+	} else {
+		if err := globalVersionConf.DeleteObjects(); err != nil {
+			return fmt.Errorf("failed to generate model type switch functions: %w", err)
+		}
 	}
 
 	// generate the notifications helper
-	if err := globalVersionConf.NotificationHelper(); err != nil {
-		return fmt.Errorf("failed to generate notification helper for controller's reconcilers: %w", err)
+	if extension {
+
+	} else {
+		if err := globalVersionConf.NotificationHelper(); err != nil {
+			return fmt.Errorf("failed to generate notification helper for controller's reconcilers: %w", err)
+		}
 	}
 
 	// generate the controller streams
@@ -154,7 +157,7 @@ func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
 	}
 
 	// Generate the jetstream context for the rest-api to interact with reconcilers
-	if err := globalVersionConf.InitJetStreamContext(sdkConfig); err != nil {
+	if err := globalVersionConf.InitJetStreamContext(sdkConfig, modulePath); err != nil {
 		return fmt.Errorf("failed to generate jetstream function for rest-api: %w", err)
 	}
 

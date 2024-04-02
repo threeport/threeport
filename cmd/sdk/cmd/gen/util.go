@@ -7,17 +7,26 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
-// flag used to indicate whether the command is being run for an extension
-var extension bool
+var modulePath string
 
-const GoModEnvVar string = "GO_MOD_FILE_PATH"
+const threeportGoPath string = "github.com/threeport/threeport"
 
-func GetPathFromGoModule() (string, error) {
-	goModFilePath, exists := os.LookupEnv(GoModEnvVar)
-	if !exists {
-		return "", fmt.Errorf("failed to find env var %s set for extension codegen", GoModEnvVar)
+// Determine whether the sdk is being run from an extension
+func isExtension() (bool, string, error) {
+	modPath, err := getPathFromGoModule()
+	if err != nil {
+		return false, "", fmt.Errorf("could not get go mod path: %w", err)
 	}
 
+	if modPath == threeportGoPath {
+		return false, modPath, nil
+	}
+
+	return true, modPath, nil
+}
+
+func getPathFromGoModule() (string, error) {
+	goModFilePath := "./go.mod"
 	goModBytes, err := os.ReadFile(goModFilePath)
 	if err != nil {
 		return "", fmt.Errorf("could not read go mod file from provided path %s: %w", goModFilePath, err)

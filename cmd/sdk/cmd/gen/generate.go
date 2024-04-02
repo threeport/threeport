@@ -19,7 +19,7 @@ var genCmd = &cobra.Command{
 	
 Generate code for Threeport or its extensions. Code generation behaviour can be controlled
 via different settings in the sdk config.
-Suppose you have an APIObjectGroup with the name foo.
+Suppose you have an APIObjectGroup with the name Foo.
 The following code is generated:
 * 'pkg/api/v0/foo_gen.go:
     * all model methods that satisfy the APIObject interface
@@ -40,7 +40,7 @@ The following code is generated:
   to the api-server.
 * the tagged field maps that contain the field validation information for all
   API Models in 'internal/api/tagged_fields_gen.go'
-* main package and reconcilers for API objects in foo.
+* main package and reconcilers for API objects in Foo.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get SDK config

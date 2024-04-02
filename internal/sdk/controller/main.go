@@ -331,7 +331,7 @@ func (cc *ControllerConfig) MainPackage() error {
 		For(
 			Id("_").Op(",").Id("r").Op(":=").Range().Id("reconcilerConfigs"),
 		).BlockFunc(func(g *jen.Group) {
-			cc.ConfigurePullSubscription(g, durable)
+			cc.ConfigurePullSubscription(g, durable, nil)
 			g.Line().Comment("create exit channel")
 			g.Id("shutdownChan").Op(":=").Make(Chan().Bool(), Lit(1))
 			g.Id("shutdownChans").Op("=").Append(Id("shutdownChans"), Id("shutdownChan"))
@@ -453,7 +453,6 @@ func (cc *ControllerConfig) MainPackage() error {
 	fmt.Printf("code generation complete for %s main package\n", cc.Name)
 
 	return nil
-
 }
 
 // ExtensionMainPackage generates the source code for a controller's main package in an extension.
@@ -464,7 +463,7 @@ func (cc *ControllerConfig) ExtensionMainPackage(modulePath string) error {
 
 	f.ImportAlias("github.com/threeport/threeport/pkg/client/v0", "client")
 	f.ImportAlias("github.com/threeport/threeport/pkg/controller/v0", "controller")
-	f.ImportAlias("github.com/qleet/qleetport/pkg/config/v0", "config")
+	f.ImportAlias(fmt.Sprintf("%s/pkg/config/v0", modulePath), "config")
 
 	//controllerShortName := strings.TrimSuffix(cc.Name, "-controller")
 	//controllerStreamName := fmt.Sprintf("%sStreamName", strcase.ToCamel(cc.ShortName))
@@ -637,7 +636,7 @@ func (cc *ControllerConfig) ExtensionMainPackage(modulePath string) error {
 
 		Line().Comment("config setup"),
 		Id("err").Op(":=").Qual(
-			"github.com/qleet/qleetport/pkg/config/v0",
+			fmt.Sprintf("%s/pkg/config/v0", modulePath),
 			"InitServerConfig",
 		).Call(),
 		If(Err().Op("!=").Nil()).Block(
@@ -787,7 +786,7 @@ func (cc *ControllerConfig) ExtensionMainPackage(modulePath string) error {
 		For(
 			Id("_").Op(",").Id("r").Op(":=").Range().Id("reconcilerConfigs"),
 		).BlockFunc(func(g *jen.Group) {
-			cc.ConfigurePullSubscription(g, durable)
+			cc.ConfigurePullSubscription(g, durable, &modulePath)
 			g.Line().Comment("create exit channel")
 			g.Id("shutdownChan").Op(":=").Make(Chan().Bool(), Lit(1))
 			g.Id("shutdownChans").Op("=").Append(Id("shutdownChans"), Id("shutdownChan"))
@@ -914,14 +913,18 @@ func (cc *ControllerConfig) ExtensionMainPackage(modulePath string) error {
 }
 
 // ConfigurePullSubscription adds a durable consumer to a controller's main package.
-func (cc *ControllerConfig) ConfigurePullSubscription(g *jen.Group, durable bool) {
+func (cc *ControllerConfig) ConfigurePullSubscription(g *jen.Group, durable bool, moduleOverride *string) {
+	modulePath := "github.com/threeport/threeport"
+	if moduleOverride != nil {
+		modulePath = *moduleOverride
+	}
 	consumer := Lit("")
 	if durable {
 		consumer = Id("consumer")
 		g.Line().Comment("create JetStream consumer")
 		g.Id("consumer").Op(":=").Id("r").Dot("Name").Op("+").Lit("Consumer")
 		g.Id("js").Dot("AddConsumer").Call(Qual(
-			"github.com/threeport/threeport/pkg/api/v0",
+			fmt.Sprintf("%s/pkg/api/v0", modulePath),
 			cc.StreamName,
 		).Op(",").Op("&").Qual(
 			"github.com/nats-io/nats.go",
@@ -945,7 +948,7 @@ func (cc *ControllerConfig) ConfigurePullSubscription(g *jen.Group, durable bool
 			"github.com/nats-io/nats.go",
 			"BindStream",
 		).Call(Qual(
-			"github.com/threeport/threeport/pkg/api/v0",
+			fmt.Sprintf("%s/pkg/api/v0", modulePath),
 			cc.StreamName,
 		)),
 	)

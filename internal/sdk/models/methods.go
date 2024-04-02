@@ -413,7 +413,8 @@ func (cc *ControllerConfig) ExtensionModelConstantsMethods() error {
 
 	// write code to file
 	genFilename := fmt.Sprintf("%s_gen.go", sdk.FilenameSansExt(cc.ModelFilename))
-	file, err := os.OpenFile(genFilename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	filepath := filepath.Join("pkg", "api", cc.Version, genFilename)
+	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for database models: %w", err)
 	}
