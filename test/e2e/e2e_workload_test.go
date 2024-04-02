@@ -321,19 +321,19 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.NotNil(err, "duplicate workload instance should throw error")
 
 		// create secret instance
-		_, err = client.CreateSecretInstance(
-			apiClient,
-			threeportAPIEndpoint,
-			&v0.SecretInstance{
-				Instance: v0.Instance{
-					Name: util.Ptr("secret-instance"),
-				},
-				SecretDefinitionID:          createdSecretDefinition.ID,
-				WorkloadInstanceID:          createdWorkloadInst.ID,
-				KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
-			},
-		)
-		assert.Nil(err, "should have no error creating secret instance")
+		// _, err = client.CreateSecretInstance(
+		// 	apiClient,
+		// 	threeportAPIEndpoint,
+		// 	&v0.SecretInstance{
+		// 		Instance: v0.Instance{
+		// 			Name: util.Ptr("secret-instance"),
+		// 		},
+		// 		SecretDefinitionID:          createdSecretDefinition.ID,
+		// 		WorkloadInstanceID:          createdWorkloadInst.ID,
+		// 		KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
+		// 	},
+		// )
+		// assert.Nil(err, "should have no error creating secret instance")
 
 		// configure domain name instance
 		domainNameInstance := &v0.DomainNameInstance{

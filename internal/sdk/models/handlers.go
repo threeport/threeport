@@ -23,6 +23,10 @@ func deletionInstanceCheckTypeNames() []string {
 		"WorkloadDefinition",
 		"ControlPlaneDefinition",
 		"HelmWorkloadDefinition",
+		"SecretDefinition",
+		"LoggingDefinition",
+		"MetricsDefinition",
+		"ObservabilityStackDefinition",
 	}
 }
 

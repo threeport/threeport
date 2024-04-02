@@ -172,6 +172,16 @@ spec:
                 secretKeyRef:
                   name: wordpress-db-conn
                   key: db-password
+            - name: WORDPRESS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secret
+                  key: WORDPRESS_PASSWORD
+            - name: WORDPRESS_SMTP_PASSOWRD
+              valueFrom:
+                secretKeyRef:
+                  name: wordpress-secret
+                  key: WORDPRESS_SMTP_PASSWORD
             - name: WORDPRESS_USERNAME
               value: "user"
             - name: WORDPRESS_PASSWORD
