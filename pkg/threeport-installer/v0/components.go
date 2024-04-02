@@ -182,18 +182,7 @@ NATS_PORT=4222
 	}
 
 	// configure additional init containers
-	additionalInitContainers := make([]map[string]interface{}, 0)
-	if cpi.Opts.RestApiInfo.AdditionalInitContainers != nil {
-		var v []map[string]interface{}
-		err := json.Unmarshal([]byte(*cpi.Opts.RestApiInfo.AdditionalInitContainers), &v)
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal additional init containers json: %w", err)
-		}
-
-		additionalInitContainers = v
-	}
-
-	for _, ic := range additionalInitContainers {
+	for _, ic := range cpi.Opts.RestApiAdditionalInitContainers {
 		initContainers = append(initContainers, ic)
 	}
 

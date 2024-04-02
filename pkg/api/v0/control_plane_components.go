@@ -36,9 +36,6 @@ type ControlPlaneComponent struct {
 	// The name of the secret with credentials to pull a private container image
 	ImagePullSecretName string `json:"ImagePullSecretName,omitempty" yaml:"ImagePullSecretName" query:"imagepullsecretname" validate:"optional"`
 
-	// The additional init containers to be added to the deployment spec of the component
-	AdditionalInitContainers *datatypes.JSON `json:"AdditionalInitContainers,omitempty" yaml:"AdditionalInitContainers" query:"additionalinitcontainers" validate:"optional"`
-
 	// The additional volumes to be added to the deployment spec of the component
 	AdditionalVolumes *datatypes.JSON `json:"AdditionalVolumes,omitempty" yaml:"AdditionalVolumes" query:"additionalvolumes" validate:"optional"`
 
