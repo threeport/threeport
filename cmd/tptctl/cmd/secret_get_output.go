@@ -26,37 +26,13 @@ func outputGetSecretsCmd(
 	fmt.Fprintln(writer, "NAME\t AGE\t WORKLOAD INSTANCE")
 	if len(*secretInstances) > 0 {
 		for _, secretInstance := range *secretInstances {
-			attachedObjectReferences, err := client.GetAttachedObjectReferencesByAttachedObjectID(
-				apiClient,
-				apiEndpoint,
-				*secretInstance.ID,
-			)
-			if err != nil {
-				return fmt.Errorf("failed to get attached object references: %v", err)
-			}
-
-			if len(*attachedObjectReferences) == 0 {
-				return fmt.Errorf("expected 1 attached object reference, got %d", len(*attachedObjectReferences))
-			}
-
-			if len(*attachedObjectReferences) > 1 {
-				return fmt.Errorf("expected 1 attached object reference, got %d", len(*attachedObjectReferences))
-			}
-
-			workloadInstance, err := client.GetWorkloadInstanceByID(
-				apiClient,
-				apiEndpoint,
-				*(*attachedObjectReferences)[0].ObjectID,
-			)
-			if err != nil {
-				return fmt.Errorf("failed to get workload instance: %v", err)
-			}
+			workloadInstanceName, _ := getWorkloadInstanceName(apiClient, apiEndpoint, secretInstance)
 
 			fmt.Fprintln(
 				writer,
 				*secretInstance.Name, "\t",
 				util.GetAge(secretInstance.CreatedAt), "\t",
-				*workloadInstance.Name,
+				workloadInstanceName,
 			)
 		}
 	}
@@ -97,41 +73,48 @@ func outputGetSecretInstancesCmd(
 	fmt.Fprintln(writer, "NAME\t AGE\t WORKLOAD INSTANCE")
 	if len(*secretInstances) > 0 {
 		for _, secretInstance := range *secretInstances {
-			attachedObjectReferences, err := client.GetAttachedObjectReferencesByAttachedObjectID(
-				apiClient,
-				apiEndpoint,
-				*secretInstance.ID,
-			)
-			if err != nil {
-				return fmt.Errorf("failed to get attached object references: %v", err)
-			}
-
-			if len(*attachedObjectReferences) == 0 {
-				return fmt.Errorf("expected 1 attached object reference, got %d", len(*attachedObjectReferences))
-			}
-
-			if len(*attachedObjectReferences) > 1 {
-				return fmt.Errorf("expected 1 attached object reference, got %d", len(*attachedObjectReferences))
-			}
-
-			workloadInstance, err := client.GetWorkloadInstanceByID(
-				apiClient,
-				apiEndpoint,
-				*(*attachedObjectReferences)[0].ObjectID,
-			)
-			if err != nil {
-				return fmt.Errorf("failed to get workload instance: %v", err)
-			}
-
+			workloadInstanceName, _ := getWorkloadInstanceName(apiClient, apiEndpoint, secretInstance)
 			fmt.Fprintln(
 				writer,
 				*secretInstance.Name, "\t",
 				util.GetAge(secretInstance.CreatedAt), "\t",
-				*workloadInstance.Name,
+				workloadInstanceName,
 			)
 		}
 	}
 	writer.Flush()
 
 	return nil
+}
+
+// getWorkloadInstanceName returns the name of the workload instance
+// that the secret instance is attached to.
+func getWorkloadInstanceName(apiClient *http.Client, apiEndpoint string, secretInstance v0.SecretInstance) (string, error) {
+	attachedObjectReferences, err := client.GetAttachedObjectReferencesByAttachedObjectID(
+		apiClient,
+		apiEndpoint,
+		*secretInstance.ID,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to get attached object references: %v", err)
+	}
+
+	if len(*attachedObjectReferences) == 0 {
+		return "", fmt.Errorf("expected 1 attached object reference, got %d", len(*attachedObjectReferences))
+	}
+
+	if len(*attachedObjectReferences) > 1 {
+		return "", fmt.Errorf("expected 1 attached object reference, got %d", len(*attachedObjectReferences))
+	}
+
+	workloadInstance, err := client.GetWorkloadInstanceByID(
+		apiClient,
+		apiEndpoint,
+		*(*attachedObjectReferences)[0].ObjectID,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to get workload instance: %v", err)
+	}
+
+	return *workloadInstance.Name, nil
 }
