@@ -3,4 +3,5 @@ KubernetesRuntimeInstance:
   KubernetesRuntimeDefinition:
     Name: eks-k8s-runtime
   Location: NorthAmerica:NewYork
+  DefaultRuntime: true
 
