@@ -9,31 +9,34 @@ import (
 	"helm.sh/helm/v3/pkg/cli/values"
 )
 
+const (
+	TempValuesFilePath   = "/tmp/values.yaml"
+	TempOverriedFilePath = "/tmp/override-values.yaml"
+)
+
 // MergeHelmValuesGo merges two helm values documents and
 // returns the result as a map[string]interface{}.
 func MergeHelmValuesGo(base, override string) (map[string]interface{}, error) {
 
 	temporaryFiles := map[string]string{
-		"/tmp/values.yaml":          base,
-		"/tmp/override-values.yaml": override,
+		TempValuesFilePath:   base,
+		TempOverriedFilePath: override,
 	}
 
-	var valueFiles []string
-	// create temporary files in /tmp and populate valueFiles
+	// create temporary files in /tmp
 	for path, file := range temporaryFiles {
 		err := os.WriteFile(path, []byte(file), 0644)
 		if err != nil {
 			return map[string]interface{}{}, fmt.Errorf("failed to write base helm values: %w", err)
 		}
-		valueFiles = append(valueFiles, path)
 	}
 
 	values := values.Options{
-		ValueFiles: valueFiles,
+		ValueFiles: []string{TempValuesFilePath, TempOverriedFilePath},
 	}
-	grafanaGoValues, err := values.MergeValues(nil)
+	mergedValues, err := values.MergeValues(nil)
 	if err != nil {
-		return map[string]interface{}{}, fmt.Errorf("failed to merge grafana helm values: %w", err)
+		return map[string]interface{}{}, fmt.Errorf("failed to merge helm values: %w", err)
 	}
 
 	// clean up temporary files
@@ -44,7 +47,7 @@ func MergeHelmValuesGo(base, override string) (map[string]interface{}, error) {
 		}
 	}
 
-	return grafanaGoValues, nil
+	return mergedValues, nil
 }
 
 // MergeHelmValuesString merges two helm values documents and
@@ -59,18 +62,18 @@ func MergeHelmValuesString(base, override string) (string, error) {
 	}
 
 	// merge the helm values
-	grafanaGoValues, err := MergeHelmValuesGo(base, override)
+	mergedValues, err := MergeHelmValuesGo(base, override)
 	if err != nil {
 		return "", fmt.Errorf("failed to merge helm values: %w", err)
 	}
 
 	// marshal the merged helm values
-	grafanaByteValues, err := yaml.Marshal(grafanaGoValues)
+	mergedByteValues, err := yaml.Marshal(mergedValues)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal grafana helm values: %w", err)
+		return "", fmt.Errorf("failed to marshal helm values: %w", err)
 	}
 
-	return string(grafanaByteValues), nil
+	return string(mergedByteValues), nil
 }
 
 // MergeHelmValuesPtrs merges two helm values documents
