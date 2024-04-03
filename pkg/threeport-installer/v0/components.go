@@ -144,6 +144,48 @@ NATS_PORT=4222
 			})
 	}
 
+	initContainers := []interface{}{
+		map[string]interface{}{
+			"name":            "db-init",
+			"image":           fmt.Sprintf("cockroachdb/cockroach:%s", DatabaseImageTag),
+			"imagePullPolicy": "IfNotPresent",
+			"command": []interface{}{
+				"bash",
+				"-c",
+				//- "cockroach sql --insecure --host crdb --port 26257 -f /etc/threeport/db-create/db.sql && cockroach sql --insecure --host crdb --port 26257 --database threeport_api -f /etc/threeport/db-load/create_tables.sql && cockroach sql --insecure --host crdb --port 26257 --database threeport_api -f /etc/threeport/db-load/fill_tables.sql"
+				"cockroach sql --insecure --host crdb --port 26257 -f /etc/threeport/db-create/db.sql",
+			},
+			"volumeMounts": []interface{}{
+				//- name: db-load
+				//  mountPath: "/etc/threeport/db-load"
+				map[string]interface{}{
+					"name":      "db-create",
+					"mountPath": "/etc/threeport/db-create",
+				},
+			},
+		},
+		map[string]interface{}{
+			"name":            "database-migrator",
+			"image":           dbMigratorImage,
+			"imagePullPolicy": cpi.getImagePullPolicy(),
+			"command": []interface{}{
+				fmt.Sprintf("/%s", cpi.Opts.DatabaseMigratorInfo.BinaryName),
+			},
+			"args": dbMigratorArgs,
+			"volumeMounts": []interface{}{
+				map[string]interface{}{
+					"name":      "db-config",
+					"mountPath": "/etc/threeport/",
+				},
+			},
+		},
+	}
+
+	// configure additional init containers
+	for _, ic := range cpi.Opts.RestApiAdditionalInitContainers {
+		initContainers = append(initContainers, ic)
+	}
+
 	var apiDeployment = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
@@ -166,42 +208,7 @@ NATS_PORT=4222
 						},
 					},
 					"spec": map[string]interface{}{
-						"initContainers": []interface{}{
-							map[string]interface{}{
-								"name":            "db-init",
-								"image":           fmt.Sprintf("cockroachdb/cockroach:%s", DatabaseImageTag),
-								"imagePullPolicy": "IfNotPresent",
-								"command": []interface{}{
-									"bash",
-									"-c",
-									//- "cockroach sql --insecure --host crdb --port 26257 -f /etc/threeport/db-create/db.sql && cockroach sql --insecure --host crdb --port 26257 --database threeport_api -f /etc/threeport/db-load/create_tables.sql && cockroach sql --insecure --host crdb --port 26257 --database threeport_api -f /etc/threeport/db-load/fill_tables.sql"
-									"cockroach sql --insecure --host crdb --port 26257 -f /etc/threeport/db-create/db.sql",
-								},
-								"volumeMounts": []interface{}{
-									//- name: db-load
-									//  mountPath: "/etc/threeport/db-load"
-									map[string]interface{}{
-										"name":      "db-create",
-										"mountPath": "/etc/threeport/db-create",
-									},
-								},
-							},
-							map[string]interface{}{
-								"name":            "database-migrator",
-								"image":           dbMigratorImage,
-								"imagePullPolicy": cpi.getImagePullPolicy(),
-								"command": []interface{}{
-									fmt.Sprintf("/%s", cpi.Opts.DatabaseMigratorInfo.BinaryName),
-								},
-								"args": dbMigratorArgs,
-								"volumeMounts": []interface{}{
-									map[string]interface{}{
-										"name":      "db-config",
-										"mountPath": "/etc/threeport/",
-									},
-								},
-							},
-						},
+						"initContainers": initContainers,
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            "api-server",

@@ -27,6 +27,9 @@ type Options struct {
 	// Info for the Rest Api being installed
 	RestApiInfo *v0.ControlPlaneComponent
 
+	// Additionl init containers for rest api
+	RestApiAdditionalInitContainers []map[string]interface{}
+
 	// Info for the Database migrator being installed for the Rest Api
 	DatabaseMigratorInfo *v0.ControlPlaneComponent
 
