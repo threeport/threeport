@@ -154,8 +154,8 @@ func getRegionMap() *[]RegionMap {
 			AwsRegion: "eu-central-2",
 		},
 		{
-			Location:  "SouthAmerica",
-			AwsRegion: "SaoPaulo",
+			Location:  "SouthAmerica:SaoPaulo",
+			AwsRegion: "sa-east-1",
 		},
 		{
 			Location:  "Africa:CapeTown",
