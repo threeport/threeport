@@ -25,7 +25,7 @@ require (
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/namsral/flag v1.7.4-pre
-	github.com/nats-io/nats.go v1.32.0
+	github.com/nats-io/nats.go v1.34.0
 	github.com/nukleros/aws-builder v0.4.4
 	github.com/onsi/ginkgo/v2 v2.14.0
 	github.com/onsi/gomega v1.30.0
