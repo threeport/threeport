@@ -223,7 +223,7 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 	}
 
 	// get domain name definition
-	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Domain)
+	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -563,6 +563,10 @@ func (d *DomainNameDefinitionValues) Validate() error {
 
 	multiError := util.MultiError{}
 
+	if d.Name == "" {
+		multiError.AppendError(errors.New("missing required field in config: Name"))
+	}
+
 	if d.Domain == "" {
 		multiError.AppendError(errors.New("missing required field in config: Domain"))
 	}
@@ -609,7 +613,7 @@ func (wd *DomainNameDefinitionValues) Describe(
 // Delete deletes a domain name definition from the Threeport API.
 func (d *DomainNameDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameDefinition, error) {
 	// check if domain name definition exists
-	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Domain)
+	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Name)
 	if err != nil {
 		return nil, nil
 	}
@@ -645,7 +649,7 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 	}
 
 	// get domain name definition
-	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.DomainNameDefinition.Domain)
+	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.DomainNameDefinition.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -715,7 +719,7 @@ func (d *DomainNameInstanceValues) Delete(apiClient *http.Client, apiEndpoint st
 
 // getDomainNameInstanceName returns the name of the domain name instance.
 func (d *DomainNameInstanceValues) getDomainNameInstanceName() string {
-	return fmt.Sprintf("%s-%s", d.WorkloadInstance.Name, strcase.ToKebab(d.DomainNameDefinition.Domain))
+	return fmt.Sprintf("%s-%s", d.WorkloadInstance.Name, strcase.ToKebab(d.DomainNameDefinition.Name))
 }
 
 // Validate validates the domain name instance values.
