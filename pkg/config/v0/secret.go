@@ -80,7 +80,11 @@ func (s *SecretValues) Create(
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, fmt.Errorf("failed to create secret: %w", err)
+		return nil, nil, fmt.Errorf(
+			"failed to create secret defined instance with name %s : %w",
+			s.Name,
+			err,
+		)
 	}
 
 	return createdSecretDefinition, createdSecretInstance, nil
@@ -106,7 +110,7 @@ func (s *SecretValues) GetOperations(
 		Create: func() error {
 			secretDefinition, err := secretDefinitionValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create secret definition with name %s: %w", s.Name, err)
 			}
 			createdSecretDefinition = *secretDefinition
 			return nil
@@ -114,7 +118,7 @@ func (s *SecretValues) GetOperations(
 		Delete: func() error {
 			_, err := secretDefinitionValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to delete secret definition with name %s: %w", s.Name, err)
 			}
 			return nil
 		},
@@ -132,7 +136,7 @@ func (s *SecretValues) GetOperations(
 		Create: func() error {
 			secretInstance, err := secretInstanceValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create secret instance with name %s: %w", s.Name, err)
 			}
 			createdSecretInstance = *secretInstance
 			return nil
@@ -140,7 +144,7 @@ func (s *SecretValues) GetOperations(
 		Delete: func() error {
 			_, err := secretInstanceValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to delete secret instance with name %s: %w", s.Name, err)
 			}
 			return nil
 		},
@@ -162,7 +166,7 @@ func (s *SecretValues) Delete(
 
 	// execute create operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, fmt.Errorf("failed to delete secret: %w", err)
+		return nil, nil, fmt.Errorf("failed to delete secret defined instance with name %s : %w", s.Name, err)
 	}
 
 	return nil, nil, nil
@@ -350,6 +354,14 @@ func (s *SecretInstanceValues) Delete(
 		return nil, fmt.Errorf("failed to delete secret instance: %w", err)
 	}
 
+	// wait for secret instance to be deleted
+	util.Retry(60, 1, func() error {
+		if _, err := client.GetSecretInstanceByName(apiClient, apiEndpoint, s.Name); err == nil {
+			return errors.New("secret instance not deleted")
+		}
+		return nil
+	})
+
 	return deletedSecretInstance, nil
 }
 
@@ -428,7 +440,6 @@ func (s *SecretInstanceValues) ValidateCreate() error {
 	if s.KubernetesRuntimeInstance != nil && s.KubernetesRuntimeInstance.Name == "" {
 		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
 	}
-
 
 	return multiError.Error()
 }

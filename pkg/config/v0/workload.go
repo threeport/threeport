@@ -72,7 +72,11 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf(
+			"failed to execute create operations for workload defined instance with name %s: %w",
+			w.Name,
+			err,
+		)
 	}
 
 	return createdWorkloadDefinition, createdWorkloadInstance, nil
@@ -88,7 +92,11 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf(
+			"failed to execute delete operations for workload defined instance with name %s: %w",
+			w.Name,
+			err,
+		)
 	}
 
 	return nil, nil, nil
@@ -109,7 +117,7 @@ func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 	// load YAML document
 	definitionContent, err := os.ReadFile(relativeYamlPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read definition YAMLDocument file %s: %w", wd.YAMLDocument, err)
+		return nil, fmt.Errorf("failed to read definition YAMLDocument file with name %s: %w", wd.YAMLDocument, err)
 	}
 	stringContent := string(definitionContent)
 
@@ -192,7 +200,7 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 		wi.WorkloadDefinition.Name,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get workload definition by name %s: %w", wi.WorkloadDefinition.Name, err)
 	}
 
 	// check to see if threeport is managing namespace
@@ -216,7 +224,7 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 			*workloadDefinition.ID,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get workload instances by workload definition ID %d: %w", *workloadDefinition.ID, err)
 		}
 
 		// if there's already an instance for a workload with client managed
@@ -265,7 +273,7 @@ func (wi *WorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint s
 	// get workload instance by name
 	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find workload instance with name %s: %w", wi.Name, err)
+		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", wi.Name, err)
 	}
 
 	// get workload instance status
@@ -277,7 +285,7 @@ func (wi *WorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint s
 		*workloadInstance.Reconciled,
 	)
 	if statusDetail.Error != nil {
-		return nil, fmt.Errorf("failed to get status for workload instance with name %s: %w", wi.Name, statusDetail.Error)
+		return nil, fmt.Errorf("failed to get status for workload instance by name %s: %w", wi.Name, statusDetail.Error)
 	}
 
 	return statusDetail, nil
@@ -288,7 +296,7 @@ func (wi *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint str
 	// get workload instance by name
 	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find workload instance with name %s: %w", wi.Name, err)
+		return nil, fmt.Errorf("failed to get workload instance by name %s: %w", wi.Name, err)
 	}
 
 	// delete workload instance
@@ -329,14 +337,14 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		Create: func() error {
 			workloadDefinition, err := workloadDefinitionValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create workload definition with name %s: %w", w.Name, err)
 			}
 			createdWorkloadDefinition = *workloadDefinition
 			return nil
 		},
 		Delete: func() error {
 			_, err = workloadDefinitionValues.Delete(apiClient, apiEndpoint)
-			return err
+			return fmt.Errorf("failed to delete workload definition with name %s: %w", w.Name, err)
 		},
 	})
 
@@ -353,14 +361,14 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		Create: func() error {
 			workloadInstance, err := workloadInstanceValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create workload instance with name %s: %w", w.Name, err)
 			}
 			createdWorkloadInstance = *workloadInstance
 			return nil
 		},
 		Delete: func() error {
 			_, err = workloadInstanceValues.Delete(apiClient, apiEndpoint)
-			return err
+			return fmt.Errorf("failed to delete workload instance with name %s: %w", w.Name, err)
 		},
 	})
 
@@ -378,11 +386,11 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Name: "domain name definition",
 			Create: func() error {
 				_, err = domainNameDefinitionValues.Create(apiClient, apiEndpoint)
-				return err
+				return fmt.Errorf("failed to create domain name definition with name %s: %w", w.DomainName.Name, err)
 			},
 			Delete: func() error {
 				_, err = domainNameDefinitionValues.Delete(apiClient, apiEndpoint)
-				return err
+				return fmt.Errorf("failed to delete domain name definition with name %s: %w", w.DomainName.Name, err)
 			},
 		})
 
@@ -397,11 +405,11 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Name: "domain name instance",
 			Create: func() error {
 				_, err = domainNameInstanceValues.Create(apiClient, apiEndpoint)
-				return err
+				return fmt.Errorf("failed to create domain name instance with name %s: %w", w.DomainName.Name, err)
 			},
 			Delete: func() error {
 				_, err = domainNameInstanceValues.Delete(apiClient, apiEndpoint)
-				return err
+				return fmt.Errorf("failed to delete domain name instance with name %s: %w", w.DomainName.Name, err)
 			},
 		})
 
@@ -418,11 +426,11 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Name: "gateway definition",
 			Create: func() error {
 				_, err = gatewayDefinitionValues.Create(apiClient, apiEndpoint)
-				return err
+				return fmt.Errorf("failed to create gateway definition with name %s: %w", w.Gateway.Name, err)
 			},
 			Delete: func() error {
 				_, err = gatewayDefinitionValues.Delete(apiClient, apiEndpoint)
-				return err
+				return fmt.Errorf("failed to delete gateway definition with name %s: %w", w.Gateway.Name, err)
 			},
 		})
 
@@ -437,11 +445,11 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Name: "gateway instance",
 			Create: func() error {
 				_, err = gatewayInstanceValues.Create(apiClient, apiEndpoint)
-				return err
+				return fmt.Errorf("failed to create gateway instance with name %s: %w", w.Gateway.Name, err)
 			},
 			Delete: func() error {
 				_, err = gatewayInstanceValues.Delete(apiClient, apiEndpoint)
-				return err
+				return fmt.Errorf("failed to delete gateway instance with name %s: %w", w.Gateway.Name, err)
 			},
 		})
 	}
@@ -467,11 +475,11 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Name: "aws relational database",
 			Create: func() error {
 				_, _, err := awsRelationalDatabase.Create(apiClient, apiEndpoint)
-				return err
+				return fmt.Errorf("failed to create aws relational database with name %s: %w", w.AwsRelationalDatabase.Name, err)
 			},
 			Delete: func() error {
 				_, _, err = awsRelationalDatabase.Delete(apiClient, apiEndpoint)
-				return err
+				return fmt.Errorf("failed to delete aws relational database with name %s: %w", w.AwsRelationalDatabase.Name, err)
 			},
 		})
 	}
@@ -492,11 +500,11 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Name: "aws object storage bucket",
 			Create: func() error {
 				_, _, err := awsObjectStorageBucket.Create(apiClient, apiEndpoint)
-				return err
+				return fmt.Errorf("failed to create aws object storage bucket with name %s: %w", w.AwsObjectStorageBucket.Name, err)
 			},
 			Delete: func() error {
 				_, _, err := awsObjectStorageBucket.Delete(apiClient, apiEndpoint)
-				return err
+				return fmt.Errorf("failed to delete aws object storage bucket with name %s: %w", w.AwsObjectStorageBucket.Name, err)
 			},
 		})
 	}
@@ -515,14 +523,14 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Create: func() error {
 				_, _, err := secret.Create(apiClient, apiEndpoint)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to create secret defined instance with name %s: %w", w.Secret.Name, err)
 				}
 				return nil
 			},
 			Delete: func() error {
 				_, _, err := secret.Delete(apiClient, apiEndpoint)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to delete secret defined instance with name %s: %w", w.Secret.Name, err)
 				}
 				return nil
 			},

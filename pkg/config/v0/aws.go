@@ -344,7 +344,11 @@ func (w *AwsEksKubernetesRuntimeValues) Create(
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf(
+			"failed to execute create operations for AWS EKS kubernetes runtime defined instance with name %s: %w",
+			w.Name,
+			err,
+		)
 	}
 
 	return createdAwsEksKubernetesRuntimeDefinition, createdAwsEksKubernetesRuntimeInstance, nil
@@ -362,7 +366,11 @@ func (w *AwsEksKubernetesRuntimeValues) Delete(
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf(
+			"failed to execute delete operations for AWS EKS kubernetes runtime defined instance %s: %w",
+			w.Name,
+			err,
+		)
 	}
 
 	return nil, nil, nil
@@ -1150,14 +1158,22 @@ func (e *AwsEksKubernetesRuntimeValues) GetOperations(
 				apiEndpoint,
 			)
 			if err != nil {
-				return err
+				return fmt.Errorf(
+					"failed to create AWS EKS kubernetes runtime definitiona with name %s: %w",
+					awsEksKubernetesRuntimeDefinitionValues.Name,
+					err,
+				)
 			}
 			createdAwsEksKubernetesRuntimeDefinition = *awsEksKubernetesRuntimeDefinition
 			return nil
 		},
 		Delete: func() error {
 			_, err = awsEksKubernetesRuntimeDefinitionValues.Delete(apiClient, apiEndpoint)
-			return err
+			return fmt.Errorf(
+				"failed to delete AWS EKS kubernetes runtime definitiona with name %s: %w",
+				awsEksKubernetesRuntimeDefinitionValues.Name,
+				err,
+			)
 		},
 	})
 
@@ -1177,14 +1193,22 @@ func (e *AwsEksKubernetesRuntimeValues) GetOperations(
 				apiEndpoint,
 			)
 			if err != nil {
-				return err
+				return fmt.Errorf(
+					"failed to create AWS EKS kubernetes runtime instance with name %s: %w",
+					awsEksKubernetesRuntimeInstanceValues.Name,
+					err,
+				)
 			}
 			createdAwsEksKubernetesRuntimeInstance = *awsEksKubernetesRuntimeInstance
 			return nil
 		},
 		Delete: func() error {
 			_, err = awsEksKubernetesRuntimeInstanceValues.Delete(apiClient, apiEndpoint)
-			return err
+			return fmt.Errorf(
+				"failed to delete AWS EKS kubernetes runtime instance: with name %s: %w",
+				awsEksKubernetesRuntimeInstanceValues.Name,
+				err,
+			)
 		},
 	})
 

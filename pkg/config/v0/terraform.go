@@ -66,7 +66,11 @@ func (t *TerraformValues) Create(apiClient *http.Client, apiEndpoint string) (*v
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf(
+			"failed to execute create operations for terraform defined instance with name %s: %w",
+			t.Name,
+			err,
+		)
 	}
 
 	return createdTerraformDefinition, createdTerraformInstance, nil
@@ -82,7 +86,11 @@ func (t *TerraformValues) Delete(apiClient *http.Client, apiEndpoint string) (*v
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf(
+			"failed to execute delete operations for terraform defined instance with name %s: %w",
+			t.Name,
+			err,
+		)
 	}
 
 	return nil, nil, nil
@@ -109,7 +117,7 @@ func (t *TerraformDefinitionValues) Validate() error {
 func (t *TerraformDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.TerraformDefinition, error) {
 	// validate inputs
 	if err := t.Validate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to validate values for terraform definition with name %s: %w", t.Name, err)
 	}
 
 	// build the path to the terraform config dir relative to the user's working
@@ -121,7 +129,7 @@ func (t *TerraformDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 	var terraformConfigFiles []string
 	if err := filepath.Walk(relativeTerraformConfigPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to walk terraform config dir with name %s: %w", relativeTerraformConfigPath, err)
 		}
 
 		if !info.IsDir() && strings.HasSuffix(info.Name(), ".tf") {
@@ -141,7 +149,7 @@ func (t *TerraformDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 	for _, configFile := range terraformConfigFiles {
 		configContent, err := os.ReadFile(configFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read terraform config file %s: %w", configFile, err)
+			return nil, fmt.Errorf("failed to read terraform config file with name %s: %w", configFile, err)
 		}
 		concatConfig += string(configContent)
 		concatConfig += "\n"
@@ -231,7 +239,7 @@ func (t *TerraformInstanceValues) Validate() error {
 func (t *TerraformInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.TerraformInstance, error) {
 	// validate inputs
 	if err := t.Validate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to validate values for terraform instance with name %s: %w", t.Name, err)
 	}
 
 	// get terraform definition by name
@@ -271,7 +279,7 @@ func (t *TerraformInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 		varsDoc := filepath.Join(configDir, t.VarsDocument)
 		varsContent, err := os.ReadFile(varsDoc)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read terraform vars file %s: %w", t.VarsDocument, err)
+			return nil, fmt.Errorf("failed to read terraform vars file with name %s: %w", t.VarsDocument, err)
 		}
 
 		// add the terraform vars to the terraform instance object
@@ -300,7 +308,7 @@ func (k *TerraformInstanceValues) Describe(
 		k.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find terraform instance with name %s: %w", k.Name, err)
+		return nil, fmt.Errorf("failed to find terraform instance by name %s: %w", k.Name, err)
 	}
 
 	// get terraform instance status
@@ -362,14 +370,14 @@ func (t *TerraformValues) GetOperations(apiClient *http.Client, apiEndpoint stri
 		Create: func() error {
 			terraformDefinition, err := terraformDefinitionValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create terraform definition with name %s: %w", terraformDefinitionValues.Name, err)
 			}
 			createdTerraformDefinition = *terraformDefinition
 			return nil
 		},
 		Delete: func() error {
 			_, err = terraformDefinitionValues.Delete(apiClient, apiEndpoint)
-			return err
+			return fmt.Errorf("failed to delete terraform definition with name %s: %w", terraformDefinitionValues.Name, err)
 		},
 	})
 
@@ -390,14 +398,14 @@ func (t *TerraformValues) GetOperations(apiClient *http.Client, apiEndpoint stri
 		Create: func() error {
 			terraformInstance, err := terraformInstanceValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create terraform instance with name %s: %w", terraformInstanceValues.Name, err)
 			}
 			createdTerraformInstance = *terraformInstance
 			return nil
 		},
 		Delete: func() error {
 			_, err = terraformInstanceValues.Delete(apiClient, apiEndpoint)
-			return err
+			return fmt.Errorf("failed to delete terraform instance with name %s: %w", terraformInstanceValues.Name, err)
 		},
 	})
 
