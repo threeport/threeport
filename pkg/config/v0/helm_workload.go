@@ -476,7 +476,10 @@ func (h *HelmWorkloadValues) GetOperations(
 			helmWorkloadDefinition, err := helmWorkloadDefinitionValues.Create(apiClient, apiEndpoint)
 			if err != nil {
 				return fmt.Errorf(
-					"failed to create helm workload definition with name %s: %w", h.Name, err)
+					"failed to create helm workload definition with name %s: %w",
+					h.Name,
+					err,
+				)
 			}
 			createdHelmWorkloadDefinition = *helmWorkloadDefinition
 			return nil
