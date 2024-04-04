@@ -350,6 +350,14 @@ func (s *SecretInstanceValues) Delete(
 		return nil, fmt.Errorf("failed to delete secret instance: %w", err)
 	}
 
+	// wait for secret instance to be deleted
+	util.Retry(60, 1, func() error {
+		if _, err := client.GetSecretInstanceByName(apiClient, apiEndpoint, s.Name); err == nil {
+			return errors.New("secret instance not deleted")
+		}
+		return nil
+	})
+
 	return deletedSecretInstance, nil
 }
 
@@ -428,7 +436,6 @@ func (s *SecretInstanceValues) ValidateCreate() error {
 	if s.KubernetesRuntimeInstance != nil && s.KubernetesRuntimeInstance.Name == "" {
 		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
 	}
-
 
 	return multiError.Error()
 }
