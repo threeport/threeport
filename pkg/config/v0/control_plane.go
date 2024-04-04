@@ -223,7 +223,7 @@ func (ci *ControlPlaneInstanceValues) Create(apiClient *http.Client, apiEndpoint
 		ci.ControlPlaneDefinition.Name,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to find control plane definition with name %s: %w", ci.ControlPlaneDefinition.Name, err)
 	}
 
 	// construct control plane instance object

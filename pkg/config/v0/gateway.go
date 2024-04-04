@@ -128,7 +128,7 @@ func (g *GatewayValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to execute create operations for gateway with name %s: %w", g.Name, err)
 	}
 
 	return createdGatewayDefinition, createdGatewayInstance, nil
@@ -142,7 +142,7 @@ func (g *GatewayValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to execute delete operations for gateway with name %s: %w", g.Name, err)
 	}
 
 	return nil, nil, nil
@@ -219,13 +219,13 @@ func (wd *GatewayDefinitionValues) Describe(
 // Create creates a gateway definition.
 func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayDefinition, error) {
 	if err := g.Validate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to validate values for gateway definition with name %s: %w", g.Name, err)
 	}
 
 	// get domain name definition
 	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", g.DomainNameDefinition.Name, err)
 	}
 
 	// construct list of http ports
@@ -238,7 +238,7 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 
 			// validate port config
 			if err := currentHttpPort.Validate(); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to validate values for http port %d: %w", currentHttpPort.Port, err)
 			}
 
 			httpPorts = append(httpPorts,
@@ -279,7 +279,7 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 	// create gateway definition
 	createdGatewayDefinition, err := client.CreateGatewayDefinition(apiClient, apiEndpoint, &gatewayDefinition)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create gateway definition with name %s: %w", g.Name, err)
 	}
 
 	return createdGatewayDefinition, nil
@@ -290,12 +290,12 @@ func (g *GatewayDefinitionValues) Delete(apiClient *http.Client, apiEndpoint str
 	// get domain name definition
 	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, g.Name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to find gateway definition with name %s: %w", g.Name, err)
 	}
 
 	deletedGatewayDefinition, err := client.DeleteGatewayDefinition(apiClient, apiEndpoint, *gatewayDefinition.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to delete gateway definition with name %s: %w", g.Name, err)
 	}
 
 	return deletedGatewayDefinition, nil
@@ -328,7 +328,7 @@ func (g *GatewayInstanceValues) Validate() error {
 func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayInstance, error) {
 	// validate required fields
 	if err := g.Validate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to validate values for gateay instance with name %s: %w", g.Name, err)
 	}
 
 	// get kubernetes runtime instance API object
@@ -338,19 +338,23 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 		apiEndpoint,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set kubernetes runtime instance: %w", err)
+		return nil, fmt.Errorf(
+			"failed to set kubernetes runtime instance with name %s: %w",
+			g.KubernetesRuntimeInstance.Name,
+			err,
+		)
 	}
 
 	// get workload instance
 	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, g.WorkloadInstance.Name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", g.WorkloadInstance.Name, err)
 	}
 
 	// get gateway definition
 	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, g.GatewayDefinition.Name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get gateway definition with name %s: %w", g.GatewayDefinition.Name, err)
 	}
 
 	// construct gateway instance object
@@ -366,7 +370,7 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 	// create gateway instance
 	createdGatewayInstance, err := client.CreateGatewayInstance(apiClient, apiEndpoint, &gatewayInstance)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create gateway instance with name %s: %w", g.Name, err)
 	}
 
 	return createdGatewayInstance, nil
@@ -405,13 +409,13 @@ func (g *GatewayInstanceValues) Delete(apiClient *http.Client, apiEndpoint strin
 	// get gateway instance by name
 	gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, g.Name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to find gateway instance with name %s: %w", g.Name, err)
 	}
 
 	// delete gateway instance
 	deletedGatewayInstance, err := client.DeleteGatewayInstance(apiClient, apiEndpoint, *gatewayInstance.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to delete gateway instance with name %s: %w", g.Name, err)
 	}
 
 	// wait for gateway instance to be deleted
@@ -452,14 +456,14 @@ func (g *GatewayValues) GetOperations(
 		Create: func() error {
 			gatewayDefinition, err := gatewayDefinitionValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create gateway definition with name %s: %w", g.Name, err)
 			}
 			createdGatewayDefinition = *gatewayDefinition
 			return nil
 		},
 		Delete: func() error {
 			_, err = gatewayDefinitionValues.Delete(apiClient, apiEndpoint)
-			return err
+			return fmt.Errorf("failed to delete gateway definition with name %s: %w", g.Name, err)
 		},
 	})
 
@@ -477,14 +481,14 @@ func (g *GatewayValues) GetOperations(
 		Create: func() error {
 			gatewayInstance, err := gatewayInstanceValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create gateway instance with name %s: %w", g.Name, err)
 			}
 			createdGatewayInstance = *gatewayInstance
 			return nil
 		},
 		Delete: func() error {
 			_, err = gatewayInstanceValues.Delete(apiClient, apiEndpoint)
-			return err
+			return fmt.Errorf("failed to delete gateway instance with name %s: %w", g.Name, err)
 		},
 	})
 
@@ -502,7 +506,11 @@ func (n *DomainNameValues) Create(
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf(
+			"failed to execute create operations for domain name defined instance with name %s: %w",
+			n.Name,
+			err,
+		)
 	}
 
 	return createdDomainNameDefinition, createdDomainNameInstance, nil
@@ -519,7 +527,11 @@ func (n *DomainNameValues) Delete(
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf(
+			"failed to execute delete operations for domain name defined instance with name %s: %w",
+			n.Name,
+			err,
+		)
 	}
 
 	return nil, nil, nil
@@ -530,7 +542,7 @@ func (n *DomainNameValues) Delete(
 func (d *DomainNameDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameDefinition, error) {
 	// validate required fields
 	if err := d.Validate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to validate values for domain name definition with name %s: %w", d.Name, err)
 	}
 
 	// check if domain name definition exists
@@ -552,7 +564,7 @@ func (d *DomainNameDefinitionValues) Create(apiClient *http.Client, apiEndpoint 
 	// create domain name definition
 	createdDomainNameDefinition, err := client.CreateDomainNameDefinition(apiClient, apiEndpoint, &domainNameDefinition)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create domain name definition with name %s: %w", d.Name, err)
 	}
 
 	return createdDomainNameDefinition, nil
@@ -620,7 +632,7 @@ func (d *DomainNameDefinitionValues) Delete(apiClient *http.Client, apiEndpoint 
 
 	deletedDomainNameDefinition, err := client.DeleteDomainNameDefinition(apiClient, apiEndpoint, *existingDomainNameDefinition.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to delete domain name definition with name %s: %w", d.Name, err)
 	}
 
 	return deletedDomainNameDefinition, nil
@@ -629,7 +641,11 @@ func (d *DomainNameDefinitionValues) Delete(apiClient *http.Client, apiEndpoint 
 // Create creates a domain name instance in the Threeport API.
 func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameInstance, error) {
 	if err := d.Validate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf(
+			"failed to validate values for domain name instance %s: %w",
+			d.getDomainNameInstanceName(),
+			err,
+		)
 	}
 
 	// get kubernetes runtime instance API object
@@ -645,13 +661,13 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 	// get workload instance
 	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, d.WorkloadInstance.Name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", d.WorkloadInstance.Name, err)
 	}
 
 	// get domain name definition
 	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.DomainNameDefinition.Name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", d.DomainNameDefinition.Name, err)
 	}
 
 	// construct domain name instance object
@@ -667,7 +683,11 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 	// create domain name instance
 	createdDomainNameInstance, err := client.CreateDomainNameInstance(apiClient, apiEndpoint, &domainNameInstance)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(
+			"failed to create domain name instance with name%s: %w",
+			d.getDomainNameInstanceName(),
+			err,
+		)
 	}
 
 	return createdDomainNameInstance, nil
@@ -711,7 +731,7 @@ func (d *DomainNameInstanceValues) Delete(apiClient *http.Client, apiEndpoint st
 
 	deletedDomainNameInstance, err := client.DeleteDomainNameInstance(apiClient, apiEndpoint, *existingDomainNameInstance.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to delete domain name instance %s: %w", d.getDomainNameInstanceName(), err)
 	}
 
 	return deletedDomainNameInstance, nil
@@ -766,14 +786,14 @@ func (n *DomainNameValues) GetOperations(
 		Create: func() error {
 			domainNameDefinition, err := domainNameDefinitionValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create domain name definition %s: %w", n.Name, err)
 			}
 			createdDomainNameDefinition = *domainNameDefinition
 			return nil
 		},
 		Delete: func() error {
 			_, err = domainNameDefinitionValues.Delete(apiClient, apiEndpoint)
-			return err
+			return fmt.Errorf("failed to delete domain name definition %s: %w", n.Name, err)
 		},
 	})
 
@@ -791,14 +811,22 @@ func (n *DomainNameValues) GetOperations(
 		Create: func() error {
 			domainNameInstance, err := domainNameInstanceValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return err
+				return fmt.Errorf(
+					"failed to create domain name instance %s: %w",
+					domainNameInstanceValues.Name,
+					err,
+				)
 			}
 			createdDomainNameInstance = *domainNameInstance
 			return nil
 		},
 		Delete: func() error {
 			_, err = domainNameInstanceValues.Delete(apiClient, apiEndpoint)
-			return err
+			return fmt.Errorf(
+				"failed to delete domain name instance %s: %w",
+				domainNameInstanceValues.Name,
+				err,
+			)
 		},
 	})
 
