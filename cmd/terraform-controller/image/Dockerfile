@@ -1,4 +1,4 @@
-FROM golang:1.20-alpine as builder
+FROM golang:1.21-alpine as builder
 ARG ARCH=amd64
 ARG TERRAFORM_VERSION=1.7.3
 WORKDIR /

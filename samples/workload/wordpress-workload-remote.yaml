@@ -30,8 +30,6 @@ Workload:
     Data:
       WORDPRESS_PASSWORD: admin_password
       WORDPRESS_SMTP_PASSWORD: smtp_password
-  # If KubernetesRuntime provider is not AWS, then long-term credentials must
-  # be used to authenticate to AWS
   Gateway:
     Name: web-service-gateway
     HttpPorts:
