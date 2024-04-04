@@ -66,7 +66,11 @@ func (t *TerraformValues) Create(apiClient *http.Client, apiEndpoint string) (*v
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, fmt.Errorf("failed to execute create operations for terraform defined instance with name %s: %w", t.Name, err)
+		return nil, nil, fmt.Errorf(
+			"failed to execute create operations for terraform defined instance with name %s: %w",
+			t.Name,
+			err,
+		)
 	}
 
 	return createdTerraformDefinition, createdTerraformInstance, nil
@@ -82,7 +86,11 @@ func (t *TerraformValues) Delete(apiClient *http.Client, apiEndpoint string) (*v
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, fmt.Errorf("failed to execute delete operations for terraform defined instance with name %s: %w", t.Name, err)
+		return nil, nil, fmt.Errorf(
+			"failed to execute delete operations for terraform defined instance with name %s: %w",
+			t.Name,
+			err,
+		)
 	}
 
 	return nil, nil, nil

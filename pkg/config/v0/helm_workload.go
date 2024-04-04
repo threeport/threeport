@@ -105,7 +105,7 @@ func (h *HelmWorkloadValues) Create(
 	// execute create operations
 	if err := operations.Create(); err != nil {
 		return nil, nil, fmt.Errorf(
-			"failed to execute create operations for helm workload with name %s: %w",
+			"failed to execute create operations for helm workload defined instance with name %s: %w",
 			h.Name,
 			err,
 		)
@@ -167,7 +167,7 @@ func (h *HelmWorkloadValues) Delete(
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
 		return nil, nil, fmt.Errorf(
-			"failed to execute delete operations for helm workload with name %s: %w",
+			"failed to execute delete operations for helm workload defined instance with name %s: %w",
 			h.Name,
 			err,
 		)

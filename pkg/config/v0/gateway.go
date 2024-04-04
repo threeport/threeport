@@ -142,7 +142,11 @@ func (g *GatewayValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, fmt.Errorf("failed to execute delete operations for gateway with name %s: %w", g.Name, err)
+		return nil, nil, fmt.Errorf(
+			"failed to execute delete operations for gateway defined instance with name %s: %w",
+			g.Name,
+			err,
+		)
 	}
 
 	return nil, nil, nil

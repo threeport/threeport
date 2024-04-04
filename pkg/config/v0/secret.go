@@ -80,7 +80,11 @@ func (s *SecretValues) Create(
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, fmt.Errorf("failed to create secret: %w", err)
+		return nil, nil, fmt.Errorf(
+			"failed to create secret defined instance with name %s : %w",
+			s.Name,
+			err,
+		)
 	}
 
 	return createdSecretDefinition, createdSecretInstance, nil
@@ -162,7 +166,7 @@ func (s *SecretValues) Delete(
 
 	// execute create operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, fmt.Errorf("failed to delete secret: %w", err)
+		return nil, nil, fmt.Errorf("failed to delete secret defined instance with name %s : %w", s.Name, err)
 	}
 
 	return nil, nil, nil
