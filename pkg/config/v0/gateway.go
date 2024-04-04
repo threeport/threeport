@@ -738,6 +738,14 @@ func (d *DomainNameInstanceValues) Delete(apiClient *http.Client, apiEndpoint st
 		return nil, fmt.Errorf("failed to delete domain name instance %s: %w", d.getDomainNameInstanceName(), err)
 	}
 
+	// wait for domain name instance to be deleted
+	util.Retry(60, 1, func() error {
+		if _, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, d.Name); err == nil {
+			return errors.New("domain name instance not deleted")
+		}
+		return nil
+	})
+
 	return deletedDomainNameInstance, nil
 }
 
