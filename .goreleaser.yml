@@ -66,6 +66,13 @@ builds:
       - linux
     main: cmd/helm-workload-controller/main_gen.go
     binary: helm-workload-controller
+  - id: threeport-terraform-controller
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: cmd/terraform-controller/main_gen.go
+    binary: terraform-controller
   - id: threeport-agent
     env:
       - CGO_ENABLED=0
@@ -196,6 +203,19 @@ dockers:
       - 'ghcr.io/threeport/threeport-helm-workload-controller:v{{ .Version }}'
       - 'ghcr.io/threeport/threeport-helm-workload-controller:latest'
     dockerfile: cmd/helm-workload-controller/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=Apache2"
+      - "--label=VERSION={{.Version}}"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-terraform-controller:v{{ .Version }}'
+      - 'ghcr.io/threeport/threeport-terraform-controller:latest'
+    dockerfile: cmd/terraform-controller/image/Dockerfile-goreleaser
     build_flag_templates:
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.name={{.ProjectName}}"
