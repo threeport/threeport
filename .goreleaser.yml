@@ -73,6 +73,20 @@ builds:
       - linux
     main: cmd/terraform-controller/main_gen.go
     binary: terraform-controller
+  - id: threeport-observability-controller
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: cmd/observability-controller/main_gen.go
+    binary: observability-controller
+  - id: threeport-secret-controller
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: cmd/secret-controller/main_gen.go
+    binary: secret-controller
   - id: threeport-agent
     env:
       - CGO_ENABLED=0
@@ -236,6 +250,32 @@ dockers:
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source={{.GitURL}}"
       - "--label=org.opencontainers.image.licenses=MIT"
+      - "--label=VERSION={{.Version}}"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-observability-controller:v{{ .Version }}'
+      - 'ghcr.io/threeport/threeport-observability-controller:latest'
+    dockerfile: cmd/observability-controller/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=Apache2"
+      - "--label=VERSION={{.Version}}"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-secret-controller:v{{ .Version }}'
+      - 'ghcr.io/threeport/threeport-secret-controller:latest'
+    dockerfile: cmd/secret-controller/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=Apache2"
       - "--label=VERSION={{.Version}}"
       - "--platform=linux/amd64"
   - image_templates:
