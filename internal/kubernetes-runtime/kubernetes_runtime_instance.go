@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
+	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -182,6 +183,22 @@ func kubernetesRuntimeInstanceUpdated(
 			return 0, fmt.Errorf("failed to get AWS account by name: %w", err)
 		}
 
+		// get aws config
+		awsConfig, err := kube.GetAwsConfigFromAwsAccount(
+			r.EncryptionKey,
+			*awsAccount.DefaultRegion,
+			awsAccount,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get AWS config from AWS account: %w", err)
+		}
+
+		// get caller identity
+		callerIdentity, err := provider.GetCallerIdentity(awsConfig)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get caller identity: %w", err)
+		}
+
 		// system components e.g. cluster-autoscaler
 		if err := threeport.InstallThreeportSystemServices(
 			dynamicKubeClient,
@@ -189,6 +206,7 @@ func kubernetesRuntimeInstanceUpdated(
 			*kubernetesRuntimeDefinition.InfraProvider,
 			*kubernetesRuntimeInstance.Name,
 			*awsAccount.AccountID,
+			provider.GetAwsPartition(callerIdentity),
 		); err != nil {
 			return 0, fmt.Errorf("failed to install system services: %w", err)
 		}
