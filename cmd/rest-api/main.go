@@ -32,7 +32,7 @@ import (
 )
 
 // @title Threeport RESTful API
-// @version v0.5.0
+// @version v0.5.1
 // @description Threeport RESTful API.
 // @termsOfService https://threeport.io/api-tos/
 // @contact.name Threeport Admin
