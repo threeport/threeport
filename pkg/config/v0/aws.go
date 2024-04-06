@@ -1169,11 +1169,14 @@ func (e *AwsEksKubernetesRuntimeValues) GetOperations(
 		},
 		Delete: func() error {
 			_, err = awsEksKubernetesRuntimeDefinitionValues.Delete(apiClient, apiEndpoint)
-			return fmt.Errorf(
-				"failed to delete AWS EKS kubernetes runtime definitiona with name %s: %w",
-				awsEksKubernetesRuntimeDefinitionValues.Name,
-				err,
-			)
+			if err != nil {
+				return fmt.Errorf(
+					"failed to delete AWS EKS kubernetes runtime definitiona with name %s: %w",
+					awsEksKubernetesRuntimeDefinitionValues.Name,
+					err,
+				)
+			}
+			return nil
 		},
 	})
 
@@ -1204,11 +1207,14 @@ func (e *AwsEksKubernetesRuntimeValues) GetOperations(
 		},
 		Delete: func() error {
 			_, err = awsEksKubernetesRuntimeInstanceValues.Delete(apiClient, apiEndpoint)
-			return fmt.Errorf(
-				"failed to delete AWS EKS kubernetes runtime instance: with name %s: %w",
-				awsEksKubernetesRuntimeInstanceValues.Name,
-				err,
-			)
+			if err != nil {
+				return fmt.Errorf(
+					"failed to delete AWS EKS kubernetes runtime instance: with name %s: %w",
+					awsEksKubernetesRuntimeInstanceValues.Name,
+					err,
+				)
+			}
+			return nil
 		},
 	})
 

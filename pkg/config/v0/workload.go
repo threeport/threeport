@@ -344,7 +344,10 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		},
 		Delete: func() error {
 			_, err = workloadDefinitionValues.Delete(apiClient, apiEndpoint)
-			return fmt.Errorf("failed to delete workload definition with name %s: %w", w.Name, err)
+			if err != nil {
+				return fmt.Errorf("failed to delete workload definition with name %s: %w", w.Name, err)
+			}
+			return nil
 		},
 	})
 
@@ -368,7 +371,10 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		},
 		Delete: func() error {
 			_, err = workloadInstanceValues.Delete(apiClient, apiEndpoint)
-			return fmt.Errorf("failed to delete workload instance with name %s: %w", w.Name, err)
+			if err != nil {
+				return fmt.Errorf("failed to delete workload instance with name %s: %w", w.Name, err)
+			}
+			return nil
 		},
 	})
 
@@ -386,11 +392,17 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Name: "domain name definition",
 			Create: func() error {
 				_, err = domainNameDefinitionValues.Create(apiClient, apiEndpoint)
-				return fmt.Errorf("failed to create domain name definition with name %s: %w", w.DomainName.Name, err)
+				if err != nil {
+					return fmt.Errorf("failed to create domain name definition with name %s: %w", w.DomainName.Name, err)
+				}
+				return nil
 			},
 			Delete: func() error {
 				_, err = domainNameDefinitionValues.Delete(apiClient, apiEndpoint)
-				return fmt.Errorf("failed to delete domain name definition with name %s: %w", w.DomainName.Name, err)
+				if err != nil {
+					return fmt.Errorf("failed to delete domain name definition with name %s: %w", w.DomainName.Name, err)
+				}
+				return nil
 			},
 		})
 
@@ -405,11 +417,17 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Name: "domain name instance",
 			Create: func() error {
 				_, err = domainNameInstanceValues.Create(apiClient, apiEndpoint)
-				return fmt.Errorf("failed to create domain name instance with name %s: %w", w.DomainName.Name, err)
+				if err != nil {
+					return fmt.Errorf("failed to create domain name instance with name %s: %w", w.DomainName.Name, err)
+				}
+				return nil
 			},
 			Delete: func() error {
 				_, err = domainNameInstanceValues.Delete(apiClient, apiEndpoint)
-				return fmt.Errorf("failed to delete domain name instance with name %s: %w", w.DomainName.Name, err)
+				if err != nil {
+					return fmt.Errorf("failed to delete domain name instance with name %s: %w", w.DomainName.Name, err)
+				}
+				return nil
 			},
 		})
 
@@ -426,11 +444,17 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Name: "gateway definition",
 			Create: func() error {
 				_, err = gatewayDefinitionValues.Create(apiClient, apiEndpoint)
-				return fmt.Errorf("failed to create gateway definition with name %s: %w", w.Gateway.Name, err)
+				if err != nil {
+					return fmt.Errorf("failed to create gateway definition with name %s: %w", w.Gateway.Name, err)
+				}
+				return nil
 			},
 			Delete: func() error {
 				_, err = gatewayDefinitionValues.Delete(apiClient, apiEndpoint)
-				return fmt.Errorf("failed to delete gateway definition with name %s: %w", w.Gateway.Name, err)
+				if err != nil {
+					return fmt.Errorf("failed to delete gateway definition with name %s: %w", w.Gateway.Name, err)
+				}
+				return nil
 			},
 		})
 
@@ -445,11 +469,17 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Name: "gateway instance",
 			Create: func() error {
 				_, err = gatewayInstanceValues.Create(apiClient, apiEndpoint)
-				return fmt.Errorf("failed to create gateway instance with name %s: %w", w.Gateway.Name, err)
+				if err != nil {
+					return fmt.Errorf("failed to create gateway instance with name %s: %w", w.Gateway.Name, err)
+				}
+				return nil
 			},
 			Delete: func() error {
 				_, err = gatewayInstanceValues.Delete(apiClient, apiEndpoint)
-				return fmt.Errorf("failed to delete gateway instance with name %s: %w", w.Gateway.Name, err)
+				if err != nil {
+					return fmt.Errorf("failed to delete gateway instance with name %s: %w", w.Gateway.Name, err)
+				}
+				return nil
 			},
 		})
 	}
@@ -475,11 +505,17 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Name: "aws relational database",
 			Create: func() error {
 				_, _, err := awsRelationalDatabase.Create(apiClient, apiEndpoint)
-				return fmt.Errorf("failed to create aws relational database with name %s: %w", w.AwsRelationalDatabase.Name, err)
+				if err != nil {
+					return fmt.Errorf("failed to create aws relational database with name %s: %w", w.AwsRelationalDatabase.Name, err)
+				}
+				return nil
 			},
 			Delete: func() error {
 				_, _, err = awsRelationalDatabase.Delete(apiClient, apiEndpoint)
-				return fmt.Errorf("failed to delete aws relational database with name %s: %w", w.AwsRelationalDatabase.Name, err)
+				if err != nil {
+					return fmt.Errorf("failed to delete aws relational database with name %s: %w", w.AwsRelationalDatabase.Name, err)
+				}
+				return nil
 			},
 		})
 	}
@@ -500,11 +536,17 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			Name: "aws object storage bucket",
 			Create: func() error {
 				_, _, err := awsObjectStorageBucket.Create(apiClient, apiEndpoint)
-				return fmt.Errorf("failed to create aws object storage bucket with name %s: %w", w.AwsObjectStorageBucket.Name, err)
+				if err != nil {
+					return fmt.Errorf("failed to create aws object storage bucket with name %s: %w", w.AwsObjectStorageBucket.Name, err)
+				}
+				return nil
 			},
 			Delete: func() error {
 				_, _, err := awsObjectStorageBucket.Delete(apiClient, apiEndpoint)
-				return fmt.Errorf("failed to delete aws object storage bucket with name %s: %w", w.AwsObjectStorageBucket.Name, err)
+				if err != nil {
+					return fmt.Errorf("failed to delete aws object storage bucket with name %s: %w", w.AwsObjectStorageBucket.Name, err)
+				}
+				return nil
 			},
 		})
 	}

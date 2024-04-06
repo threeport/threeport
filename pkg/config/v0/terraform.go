@@ -377,7 +377,10 @@ func (t *TerraformValues) GetOperations(apiClient *http.Client, apiEndpoint stri
 		},
 		Delete: func() error {
 			_, err = terraformDefinitionValues.Delete(apiClient, apiEndpoint)
-			return fmt.Errorf("failed to delete terraform definition with name %s: %w", terraformDefinitionValues.Name, err)
+			if err != nil {
+				return fmt.Errorf("failed to delete terraform definition with name %s: %w", terraformDefinitionValues.Name, err)
+			}
+			return nil
 		},
 	})
 
@@ -405,7 +408,10 @@ func (t *TerraformValues) GetOperations(apiClient *http.Client, apiEndpoint stri
 		},
 		Delete: func() error {
 			_, err = terraformInstanceValues.Delete(apiClient, apiEndpoint)
-			return fmt.Errorf("failed to delete terraform instance with name %s: %w", terraformInstanceValues.Name, err)
+			if err != nil {
+				return fmt.Errorf("failed to delete terraform instance with name %s: %w", terraformInstanceValues.Name, err)
+			}
+			return nil
 		},
 	})
 
