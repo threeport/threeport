@@ -486,7 +486,10 @@ func (h *HelmWorkloadValues) GetOperations(
 		},
 		Delete: func() error {
 			_, err = helmWorkloadDefinitionValues.Delete(apiClient, apiEndpoint)
-			return fmt.Errorf("failed to delete helm workload definition with name %s: %w", h.Name, err)
+			if err != nil {
+				return fmt.Errorf("failed to delete helm workload definition with name %s: %w", h.Name, err)
+			}
+			return nil
 		},
 	})
 
@@ -518,7 +521,10 @@ func (h *HelmWorkloadValues) GetOperations(
 		},
 		Delete: func() error {
 			_, err = helmWorkloadInstanceValues.Delete(apiClient, apiEndpoint)
-			return fmt.Errorf("failed to delete helm workload instance with name %s: %w", h.Name, err)
+			if err != nil {
+				return fmt.Errorf("failed to delete helm workload instance with name %s: %w", h.Name, err)
+			}
+			return nil
 		},
 	})
 
@@ -535,11 +541,17 @@ func (h *HelmWorkloadValues) GetOperations(
 	//		Name: "domain name definition",
 	//		Create: func() error {
 	//			_, err = domainNameDefinitionValues.Create(apiClient, apiEndpoint)
-	//	        return fmt.Errorf("failed to create domain name definition with name %s: %w", h.Name, err)
+	//			if err != nil {
+	//				return fmt.Errorf("failed to create domain name definition with name %s: %w", h.Name, err)
+	//			}
+	//			return nil
 	//		},
 	//		Delete: func() error {
 	//			_, err = domainNameDefinitionValues.Delete(apiClient, apiEndpoint)
-	//	        return fmt.Errorf("failed to delete domain name definition with name %s: %w", h.Name, err)
+	//			if err != nil {
+	//				return fmt.Errorf("failed to delete domain name definition with name %s: %w", h.Name, err)
+	//			}
+	//			return nil
 	//		},
 	//	})
 
@@ -553,11 +565,17 @@ func (h *HelmWorkloadValues) GetOperations(
 	//		Name: "domain name instance",
 	//		Create: func() error {
 	//			_, err = domainNameInstanceValues.Create(apiClient, apiEndpoint)
-	//	        return fmt.Errorf("failed to create domain name instance with name %s: %w", h.Name, err)
+	//			if err != nil {
+	//				return fmt.Errorf("failed to create domain name instance with name %s: %w", h.Name, err)
+	//			}
+	//			return nil
 	//		},
 	//		Delete: func() error {
 	//			_, err = domainNameInstanceValues.Delete(apiClient, apiEndpoint)
-	//	        return fmt.Errorf("failed to delete domain name instance with name %s: %w", h.Name, err)
+	//			if err != nil {
+	//				return fmt.Errorf("failed to delete domain name instance with name %s: %w", h.Name, err)
+	//			}
+	//			return nil
 	//		},
 	//	})
 
@@ -574,11 +592,17 @@ func (h *HelmWorkloadValues) GetOperations(
 	//		Name: "gateway definition",
 	//		Create: func() error {
 	//			_, err = gatewayDefinitionValues.Create(apiClient, apiEndpoint)
-	//	        return fmt.Errorf("failed to create gateway definition with name %s: %w", h.Name, err)
+	//			if err != nil {
+	//				return fmt.Errorf("failed to create gateway definition with name %s: %w", h.Name, err)
+	//			}
+	//			return nil
 	//		},
 	//		Delete: func() error {
 	//			_, err = gatewayDefinitionValues.Delete(apiClient, apiEndpoint)
-	//	        return fmt.Errorf("failed to delete gateway definition with name %s: %w", h.Name, err)
+	//			if err != nil {
+	//				return fmt.Errorf("failed to delete gateway definition with name %s: %w", h.Name, err)
+	//			}
+	//			return nil
 	//		},
 	//	})
 
@@ -592,11 +616,17 @@ func (h *HelmWorkloadValues) GetOperations(
 	//		Name: "gateway instance",
 	//		Create: func() error {
 	//			_, err = gatewayInstanceValues.Create(apiClient, apiEndpoint)
-	//			return fmt.Errorf("failed to create gateway instance with name %s: %w", h.Name, err)
+	//			if err != nil {
+	//				return fmt.Errorf("failed to create gateway instance with name %s: %w", h.Name, err)
+	//			}
+	//			return nil
 	//		},
 	//		Delete: func() error {
 	//			_, err = gatewayInstanceValues.Delete(apiClient, apiEndpoint)
-	//			return fmt.Errorf("failed to delete gateway instance with name %s: %w", h.Name, err)
+	//			if err != nil {
+	//				return fmt.Errorf("failed to delete gateway instance with name %s: %w", h.Name, err)
+	//			}
+	//			return nil
 	//		},
 	//	})
 	//}
@@ -622,11 +652,17 @@ func (h *HelmWorkloadValues) GetOperations(
 	//		Name: "aws relational database",
 	//		Create: func() error {
 	//			_, _, err := awsRelationalDatabase.Create(apiClient, apiEndpoint)
-	//          return fmt.Errorf("failed to create aws relational database with name %s: %w", h.Name, err)
+	//			if err != nil {
+	//			    return fmt.Errorf("failed to create aws relational database with name %s: %w", h.Name, err)
+	//			}
+	//			return nil
 	//		},
 	//		Delete: func() error {
 	//			_, _, err = awsRelationalDatabase.Delete(apiClient, apiEndpoint)
-	//			return fmt.Errorf()
+	//			if err != nil {
+	//				return fmt.Errorf("failed to delete aws relational database with name %s: %w", h.Name, err)
+	//			}
+	//			return nil
 	//		},
 	//	})
 	//}
@@ -647,11 +683,17 @@ func (h *HelmWorkloadValues) GetOperations(
 	//		Name: "aws object storage bucket",
 	//		Create: func() error {
 	//			_, _, err := awsObjectStorageBucket.Create(apiClient, apiEndpoint)
-	//          return fmt.Errorf("failed to create aws object storage bucket with name %s: %w", h.Name, err)
+	//			if err != nil {
+	//				return fmt.Errorf("failed to create aws object storage bucket with name %s: %w", h.Name, err)
+	//			}
+	//			return nil
 	//		},
 	//		Delete: func() error {
 	//			_, _, err := awsObjectStorageBucket.Delete(apiClient, apiEndpoint)
-	//          return fmt.Errorf("failed to delete aws object storage bucket with name %s: %w", h.Name, err)
+	//			if err != nil {
+	//				return fmt.Errorf("failed to delete aws object storage bucket with name %s: %w", h.Name, err)
+	//			}
+	//			return nil
 	//		},
 	//	})
 	//}

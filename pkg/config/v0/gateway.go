@@ -467,7 +467,10 @@ func (g *GatewayValues) GetOperations(
 		},
 		Delete: func() error {
 			_, err = gatewayDefinitionValues.Delete(apiClient, apiEndpoint)
-			return fmt.Errorf("failed to delete gateway definition with name %s: %w", g.Name, err)
+			if err != nil {
+				return fmt.Errorf("failed to delete gateway definition with name %s: %w", g.Name, err)
+			}
+			return nil
 		},
 	})
 
@@ -492,7 +495,10 @@ func (g *GatewayValues) GetOperations(
 		},
 		Delete: func() error {
 			_, err = gatewayInstanceValues.Delete(apiClient, apiEndpoint)
-			return fmt.Errorf("failed to delete gateway instance with name %s: %w", g.Name, err)
+			if err != nil {
+				return fmt.Errorf("failed to delete gateway instance with name %s: %w", g.Name, err)
+			}
+			return nil
 		},
 	})
 
@@ -805,7 +811,10 @@ func (n *DomainNameValues) GetOperations(
 		},
 		Delete: func() error {
 			_, err = domainNameDefinitionValues.Delete(apiClient, apiEndpoint)
-			return fmt.Errorf("failed to delete domain name definition %s: %w", n.Name, err)
+			if err != nil {
+				return fmt.Errorf("failed to delete domain name definition %s: %w", n.Name, err)
+			}
+			return nil
 		},
 	})
 
@@ -834,11 +843,14 @@ func (n *DomainNameValues) GetOperations(
 		},
 		Delete: func() error {
 			_, err = domainNameInstanceValues.Delete(apiClient, apiEndpoint)
-			return fmt.Errorf(
-				"failed to delete domain name instance %s: %w",
-				domainNameInstanceValues.Name,
-				err,
-			)
+			if err != nil {
+				return fmt.Errorf(
+					"failed to delete domain name instance %s: %w",
+					domainNameInstanceValues.Name,
+					err,
+				)
+			}
+			return nil
 		},
 	})
 
