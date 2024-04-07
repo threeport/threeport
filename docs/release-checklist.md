@@ -6,6 +6,9 @@
 
 - [] Ensure all planned changes are merged into minor release branch and pulled
   locally
+- [] Ensure builds for any new binaries and conatainers are included in
+  `.goreleaser.yml`.
+- [] Run local e2e tests as documented in [testing docs](testing.md)
 - [] Pull latest changes for feature branch, build tptctl and container images,
   test manually using Threeport user doc guides.  Ensure guides work as
   documented.  Copy-paste commands from docs to verify correctness.
@@ -48,11 +51,24 @@ versions as needed for future releases.
   git add .
   git commit -s -m "ci: update base branch check for 0.5 feature branch"
   ```
-- [] Update go dependencies.
+- [] Update version to mark as development.
+  ```bash
+  echo "v0.5.0-dev" > internal/versin/verstion.txt
+  git add .
+  git commit -s -m "dev: update version for development"
+  ```
+- [] Update Go to latest stable version.  Start by updating Go version locally.  Then,
+  update project Go version with:
+  ```bash
+  go mod edit -go=[latest go version]
+  go mod tidy
+  ```
+- [] Update Go dependencies.
   ```bash
   go get -u ./...
   go mod tidy
-  git commit -s -m "chore: update go dependencies"
+  git add .
+  git commit -s -m "chore: update go version and dependencies"
   ```
 - [] Re-build and test to make sure the dependency updates didn't break
   anything obvious.
@@ -65,7 +81,7 @@ versions as needed for future releases.
 - [] Update `DefaultKubernetesVersion` in `nukleros/aws-builder` to latest
   release of Kubernetes.  Cut new release for aws-builder and update aws-builder
   import version for Threeport.
-- [] Update kind version used for local control planes.  It is defined in two
+- [] Update `kindest/node` image version used for local control planes.  It is defined in two
   places in `internal/provider/kind.go`.
 - [] Update container image version to latest for CockroachDB and NATS in
   installer.
