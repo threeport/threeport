@@ -63,6 +63,9 @@ versions as needed for future releases.
   go mod edit -go=[latest go version]
   go mod tidy
   ```
+- [] If the Go version is updated, also update the `go-version` in the `.github/workflows`
+  that declare it as well as the base images for the Dockerfiles for each
+  Threeport component.
 - [] Update Go dependencies.
   ```bash
   go get -u ./...
