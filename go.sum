@@ -458,8 +458,8 @@ github.com/nats-io/nuid v1.0.1/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OS
 github.com/ncruces/go-strftime v0.1.9 h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdhx/f4=
 github.com/ncruces/go-strftime v0.1.9/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
-github.com/nukleros/aws-builder v0.4.5 h1:EDJT1rVkWlkXgwxiT6LLpGQ88eYwrG6s7holiaCoqmw=
-github.com/nukleros/aws-builder v0.4.5/go.mod h1:I+6SUB5jIzB1OaNyYHTZg82jiI2OyIZMD1gYhV0MPN8=
+github.com/nukleros/aws-builder v0.4.6 h1:AKQEfYcitUkSb6JANUmyYVGE2CsNkLUiqheJtaamP28=
+github.com/nukleros/aws-builder v0.4.6/go.mod h1:I+6SUB5jIzB1OaNyYHTZg82jiI2OyIZMD1gYhV0MPN8=
 github.com/onsi/ginkgo/v2 v2.14.0 h1:vSmGj2Z5YPb9JwCWT6z6ihcUvDhuXLc3sJiqd3jMKAY=
 github.com/onsi/ginkgo/v2 v2.14.0/go.mod h1:JkUdW7JkN0V6rFvsHcJ478egV3XH9NxpD27Hal/PhZw=
 github.com/onsi/gomega v1.30.0 h1:hvMK7xYz4D3HapigLTeGdId/NcfQx1VHMJc60ew99+8=

@@ -26,7 +26,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/namsral/flag v1.7.4-pre
 	github.com/nats-io/nats.go v1.34.1
-	github.com/nukleros/aws-builder v0.4.5
+	github.com/nukleros/aws-builder v0.4.6
 	github.com/onsi/ginkgo/v2 v2.14.0
 	github.com/onsi/gomega v1.30.0
 	github.com/pressly/goose/v3 v3.19.2
