@@ -5,17 +5,19 @@ package workload
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 // WorkloadInstanceReconciler reconciles system state when a WorkloadInstance
@@ -67,7 +69,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var workloadInstance v1.WorkloadInstance
-			if err := workloadInstance.DecodeNotifObject(notif.Object); err != nil {
+			if err = workloadInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("workload instance reconciliation requeued with identical payload and fixed delay")
@@ -107,7 +109,8 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestWorkloadInstance, err := client_v1.GetWorkloadInstanceByID(
+			var latestWorkloadInstance *v1.WorkloadInstance
+			latestWorkloadInstance, err = client_v1.GetWorkloadInstanceByID(
 				r.APIClient,
 				r.APIServer,
 				*workloadInstance.ID,
@@ -129,14 +132,15 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			workloadInstance = *latestWorkloadInstance
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if workloadInstance.DeletionScheduled != nil {
 					log.Info("workload instance scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := workloadInstanceCreated(r, &workloadInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = workloadInstanceCreated(r, &workloadInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created workload instance object")
 					r.UnlockAndRequeue(
 						&workloadInstance,
@@ -157,8 +161,8 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := workloadInstanceUpdated(r, &workloadInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = workloadInstanceUpdated(r, &workloadInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated workload instance object")
 					r.UnlockAndRequeue(
 						&workloadInstance,
@@ -179,8 +183,8 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := workloadInstanceDeleted(r, &workloadInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = workloadInstanceDeleted(r, &workloadInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted workload instance object")
 					r.UnlockAndRequeue(
 						&workloadInstance,
@@ -278,10 +282,20 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("workload instance unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"workload instance successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"workload instance successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case err != nil && errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile workload instance for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 
