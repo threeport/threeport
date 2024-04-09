@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -65,7 +66,7 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var awsObjectStorageBucketInstance v0.AwsObjectStorageBucketInstance
-			if err := awsObjectStorageBucketInstance.DecodeNotifObject(notif.Object); err != nil {
+			if err = awsObjectStorageBucketInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("aws object storage bucket instance reconciliation requeued with identical payload and fixed delay")
@@ -105,7 +106,8 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestAwsObjectStorageBucketInstance, err := client.GetAwsObjectStorageBucketInstanceByID(
+			var latestAwsObjectStorageBucketInstance *v0.AwsObjectStorageBucketInstance
+			latestAwsObjectStorageBucketInstance, err = client.GetAwsObjectStorageBucketInstanceByID(
 				r.APIClient,
 				r.APIServer,
 				*awsObjectStorageBucketInstance.ID,
@@ -127,14 +129,15 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 			awsObjectStorageBucketInstance = *latestAwsObjectStorageBucketInstance
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if awsObjectStorageBucketInstance.DeletionScheduled != nil {
 					log.Info("aws object storage bucket instance scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := awsObjectStorageBucketInstanceCreated(r, &awsObjectStorageBucketInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = awsObjectStorageBucketInstanceCreated(r, &awsObjectStorageBucketInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created aws object storage bucket instance object")
 					r.UnlockAndRequeue(
 						&awsObjectStorageBucketInstance,
@@ -155,8 +158,8 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := awsObjectStorageBucketInstanceUpdated(r, &awsObjectStorageBucketInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = awsObjectStorageBucketInstanceUpdated(r, &awsObjectStorageBucketInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated aws object storage bucket instance object")
 					r.UnlockAndRequeue(
 						&awsObjectStorageBucketInstance,
@@ -177,8 +180,8 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := awsObjectStorageBucketInstanceDeleted(r, &awsObjectStorageBucketInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = awsObjectStorageBucketInstanceDeleted(r, &awsObjectStorageBucketInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted aws object storage bucket instance object")
 					r.UnlockAndRequeue(
 						&awsObjectStorageBucketInstance,
@@ -276,10 +279,20 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("aws object storage bucket instance unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"aws object storage bucket instance successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"aws object storage bucket instance successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile aws object storage bucket instance for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 

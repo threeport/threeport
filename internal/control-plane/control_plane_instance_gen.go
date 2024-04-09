@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -65,7 +66,7 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var controlPlaneInstance v0.ControlPlaneInstance
-			if err := controlPlaneInstance.DecodeNotifObject(notif.Object); err != nil {
+			if err = controlPlaneInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("control plane instance reconciliation requeued with identical payload and fixed delay")
@@ -105,7 +106,8 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestControlPlaneInstance, err := client.GetControlPlaneInstanceByID(
+			var latestControlPlaneInstance *v0.ControlPlaneInstance
+			latestControlPlaneInstance, err = client.GetControlPlaneInstanceByID(
 				r.APIClient,
 				r.APIServer,
 				*controlPlaneInstance.ID,
@@ -127,14 +129,15 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 			controlPlaneInstance = *latestControlPlaneInstance
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if controlPlaneInstance.DeletionScheduled != nil {
 					log.Info("control plane instance scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := controlPlaneInstanceCreated(r, &controlPlaneInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = controlPlaneInstanceCreated(r, &controlPlaneInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created control plane instance object")
 					r.UnlockAndRequeue(
 						&controlPlaneInstance,
@@ -155,8 +158,8 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := controlPlaneInstanceUpdated(r, &controlPlaneInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = controlPlaneInstanceUpdated(r, &controlPlaneInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated control plane instance object")
 					r.UnlockAndRequeue(
 						&controlPlaneInstance,
@@ -177,8 +180,8 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := controlPlaneInstanceDeleted(r, &controlPlaneInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = controlPlaneInstanceDeleted(r, &controlPlaneInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted control plane instance object")
 					r.UnlockAndRequeue(
 						&controlPlaneInstance,
@@ -276,10 +279,20 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("control plane instance unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"control plane instance successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"control plane instance successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile control plane instance for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 

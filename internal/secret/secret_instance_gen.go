@@ -5,17 +5,16 @@ package secret
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 // SecretInstanceReconciler reconciles system state when a SecretInstance
@@ -42,8 +41,6 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 			break
 		}
 
-		var customRequeueDelay int64
-
 		// check for shutdown instruction
 		select {
 		case <-r.Shutdown:
@@ -56,7 +53,6 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// consume message data to capture notification from API
-			var notif *notifications.Notification
 			notif, err := notifications.ConsumeMessage(msg.Data)
 			if err != nil {
 				log.Error(
@@ -70,7 +66,7 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var secretInstance v0.SecretInstance
-			if err := secretInstance.DecodeNotifObject(notif.Object); err != nil {
+			if err = secretInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("secret instance reconciliation requeued with identical payload and fixed delay")
@@ -110,7 +106,8 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestSecretInstance, err := client.GetSecretInstanceByID(
+			var latestSecretInstance *v0.SecretInstance
+			latestSecretInstance, err = client.GetSecretInstanceByID(
 				r.APIClient,
 				r.APIServer,
 				*secretInstance.ID,
@@ -132,6 +129,7 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 			secretInstance = *latestSecretInstance
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if secretInstance.DeletionScheduled != nil {
@@ -274,17 +272,25 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 				)
 			}
 
-			// release the lock on the reconciliation of the object
-			if err == nil || tp_errors.IsErrRecoverable(err) {
-				if ok := r.ReleaseLock(&secretInstance, lockReleased, msg, true); !ok {
-					log.Error(errors.New("secret instance remains locked - will unlock when TTL expires"), "")
-				} else {
-					log.V(1).Info("secret instance unlocked")
-				}
+			// release the lock on the reconciliation of the created object
+			if ok := r.ReleaseLock(&secretInstance, lockReleased, msg, true); !ok {
+				log.Error(errors.New("secret instance remains locked - will unlock when TTL expires"), "")
+			} else {
+				log.V(1).Info("secret instance unlocked")
+			}
 
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
 				log.Info(fmt.Sprintf(
 					"secret instance successfully reconciled for %s operation",
 					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile secret instance for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
 				))
 			}
 		}

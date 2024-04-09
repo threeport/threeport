@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -65,7 +66,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var gatewayDefinition v0.GatewayDefinition
-			if err := gatewayDefinition.DecodeNotifObject(notif.Object); err != nil {
+			if err = gatewayDefinition.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("gateway definition reconciliation requeued with identical payload and fixed delay")
@@ -105,7 +106,8 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestGatewayDefinition, err := client.GetGatewayDefinitionByID(
+			var latestGatewayDefinition *v0.GatewayDefinition
+			latestGatewayDefinition, err = client.GetGatewayDefinitionByID(
 				r.APIClient,
 				r.APIServer,
 				*gatewayDefinition.ID,
@@ -127,14 +129,15 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			gatewayDefinition = *latestGatewayDefinition
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if gatewayDefinition.DeletionScheduled != nil {
 					log.Info("gateway definition scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := gatewayDefinitionCreated(r, &gatewayDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = gatewayDefinitionCreated(r, &gatewayDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created gateway definition object")
 					r.UnlockAndRequeue(
 						&gatewayDefinition,
@@ -155,8 +158,8 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := gatewayDefinitionUpdated(r, &gatewayDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = gatewayDefinitionUpdated(r, &gatewayDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated gateway definition object")
 					r.UnlockAndRequeue(
 						&gatewayDefinition,
@@ -177,8 +180,8 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := gatewayDefinitionDeleted(r, &gatewayDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = gatewayDefinitionDeleted(r, &gatewayDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted gateway definition object")
 					r.UnlockAndRequeue(
 						&gatewayDefinition,
@@ -276,10 +279,20 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("gateway definition unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"gateway definition successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"gateway definition successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile gateway definition for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 

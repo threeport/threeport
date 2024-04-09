@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -65,7 +66,7 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var awsRelationalDatabaseInstance v0.AwsRelationalDatabaseInstance
-			if err := awsRelationalDatabaseInstance.DecodeNotifObject(notif.Object); err != nil {
+			if err = awsRelationalDatabaseInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("aws relational database instance reconciliation requeued with identical payload and fixed delay")
@@ -105,7 +106,8 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestAwsRelationalDatabaseInstance, err := client.GetAwsRelationalDatabaseInstanceByID(
+			var latestAwsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance
+			latestAwsRelationalDatabaseInstance, err = client.GetAwsRelationalDatabaseInstanceByID(
 				r.APIClient,
 				r.APIServer,
 				*awsRelationalDatabaseInstance.ID,
@@ -127,14 +129,15 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 			awsRelationalDatabaseInstance = *latestAwsRelationalDatabaseInstance
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if awsRelationalDatabaseInstance.DeletionScheduled != nil {
 					log.Info("aws relational database instance scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := awsRelationalDatabaseInstanceCreated(r, &awsRelationalDatabaseInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = awsRelationalDatabaseInstanceCreated(r, &awsRelationalDatabaseInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created aws relational database instance object")
 					r.UnlockAndRequeue(
 						&awsRelationalDatabaseInstance,
@@ -155,8 +158,8 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := awsRelationalDatabaseInstanceUpdated(r, &awsRelationalDatabaseInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = awsRelationalDatabaseInstanceUpdated(r, &awsRelationalDatabaseInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated aws relational database instance object")
 					r.UnlockAndRequeue(
 						&awsRelationalDatabaseInstance,
@@ -177,8 +180,8 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := awsRelationalDatabaseInstanceDeleted(r, &awsRelationalDatabaseInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = awsRelationalDatabaseInstanceDeleted(r, &awsRelationalDatabaseInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted aws relational database instance object")
 					r.UnlockAndRequeue(
 						&awsRelationalDatabaseInstance,
@@ -276,10 +279,20 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("aws relational database instance unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"aws relational database instance successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"aws relational database instance successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile aws relational database instance for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 

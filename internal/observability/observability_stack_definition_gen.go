@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -65,7 +66,7 @@ func ObservabilityStackDefinitionReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var observabilityStackDefinition v0.ObservabilityStackDefinition
-			if err := observabilityStackDefinition.DecodeNotifObject(notif.Object); err != nil {
+			if err = observabilityStackDefinition.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("observability stack definition reconciliation requeued with identical payload and fixed delay")
@@ -105,7 +106,8 @@ func ObservabilityStackDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestObservabilityStackDefinition, err := client.GetObservabilityStackDefinitionByID(
+			var latestObservabilityStackDefinition *v0.ObservabilityStackDefinition
+			latestObservabilityStackDefinition, err = client.GetObservabilityStackDefinitionByID(
 				r.APIClient,
 				r.APIServer,
 				*observabilityStackDefinition.ID,
@@ -127,14 +129,15 @@ func ObservabilityStackDefinitionReconciler(r *controller.Reconciler) {
 			observabilityStackDefinition = *latestObservabilityStackDefinition
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if observabilityStackDefinition.DeletionScheduled != nil {
 					log.Info("observability stack definition scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := observabilityStackDefinitionCreated(r, &observabilityStackDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = observabilityStackDefinitionCreated(r, &observabilityStackDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created observability stack definition object")
 					r.UnlockAndRequeue(
 						&observabilityStackDefinition,
@@ -155,8 +158,8 @@ func ObservabilityStackDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := observabilityStackDefinitionUpdated(r, &observabilityStackDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = observabilityStackDefinitionUpdated(r, &observabilityStackDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated observability stack definition object")
 					r.UnlockAndRequeue(
 						&observabilityStackDefinition,
@@ -177,8 +180,8 @@ func ObservabilityStackDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := observabilityStackDefinitionDeleted(r, &observabilityStackDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = observabilityStackDefinitionDeleted(r, &observabilityStackDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted observability stack definition object")
 					r.UnlockAndRequeue(
 						&observabilityStackDefinition,
@@ -276,10 +279,20 @@ func ObservabilityStackDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("observability stack definition unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"observability stack definition successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"observability stack definition successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile observability stack definition for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 

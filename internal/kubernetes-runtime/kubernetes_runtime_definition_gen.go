@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -65,7 +66,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var kubernetesRuntimeDefinition v0.KubernetesRuntimeDefinition
-			if err := kubernetesRuntimeDefinition.DecodeNotifObject(notif.Object); err != nil {
+			if err = kubernetesRuntimeDefinition.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("kubernetes runtime definition reconciliation requeued with identical payload and fixed delay")
@@ -105,7 +106,8 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestKubernetesRuntimeDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
+			var latestKubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition
+			latestKubernetesRuntimeDefinition, err = client.GetKubernetesRuntimeDefinitionByID(
 				r.APIClient,
 				r.APIServer,
 				*kubernetesRuntimeDefinition.ID,
@@ -127,14 +129,15 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 			kubernetesRuntimeDefinition = *latestKubernetesRuntimeDefinition
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if kubernetesRuntimeDefinition.DeletionScheduled != nil {
 					log.Info("kubernetes runtime definition scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := kubernetesRuntimeDefinitionCreated(r, &kubernetesRuntimeDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = kubernetesRuntimeDefinitionCreated(r, &kubernetesRuntimeDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created kubernetes runtime definition object")
 					r.UnlockAndRequeue(
 						&kubernetesRuntimeDefinition,
@@ -155,8 +158,8 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := kubernetesRuntimeDefinitionUpdated(r, &kubernetesRuntimeDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = kubernetesRuntimeDefinitionUpdated(r, &kubernetesRuntimeDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated kubernetes runtime definition object")
 					r.UnlockAndRequeue(
 						&kubernetesRuntimeDefinition,
@@ -177,8 +180,8 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := kubernetesRuntimeDefinitionDeleted(r, &kubernetesRuntimeDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = kubernetesRuntimeDefinitionDeleted(r, &kubernetesRuntimeDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted kubernetes runtime definition object")
 					r.UnlockAndRequeue(
 						&kubernetesRuntimeDefinition,
@@ -276,10 +279,20 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("kubernetes runtime definition unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"kubernetes runtime definition successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"kubernetes runtime definition successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile kubernetes runtime definition for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 

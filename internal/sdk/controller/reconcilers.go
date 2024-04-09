@@ -28,6 +28,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 		f.ImportAlias("github.com/threeport/threeport/pkg/controller/v0", "controller")
 		f.ImportAlias("github.com/threeport/threeport/pkg/notifications/v0", "notifications")
 		f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
+		f.ImportAlias("github.com/threeport/threeport/pkg/errors/v0", "tp_errors")
 
 		f.Comment(fmt.Sprintf("%[1]sReconciler reconciles system state when a %[1]s", obj.Name))
 		f.Comment("is created, updated or deleted.")
@@ -116,7 +117,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 							fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", sdk.GetLatestObjectVersion(obj.Name)),
 							obj.Name,
 						)
-						g.If(Id("err").Op(":=").Id(strcase.ToLowerCamel(obj.Name)).Dot("DecodeNotifObject").Call(
+						g.If(Id("err").Op("=").Id(strcase.ToLowerCamel(obj.Name)).Dot("DecodeNotifObject").Call(
 							Id("notif").Dot("Object"),
 						).Op(";").Id("err").Op("!=").Nil().Block(
 							Id("log").Dot("Error").Call(
@@ -206,6 +207,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 
 						g.Line()
 						g.Comment("determine which operation and act accordingly")
+						g.Var().Id("customRequeueDelay").Int64()
 						g.Switch(Id("notif").Dot("Operation")).Block(
 							Case(Qual(
 								"github.com/threeport/threeport/pkg/notifications/v0",
@@ -217,7 +219,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									),
 									Break(),
 								),
-								Id("customRequeueDelay").Op(",").Err().Op(":=").Id(fmt.Sprintf(
+								Id("customRequeueDelay").Op(",").Err().Op("=").Id(fmt.Sprintf(
 									"%sCreated",
 									strcase.ToLowerCamel(obj.Name),
 								)).Call(
@@ -225,7 +227,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 									Op("&").Id("log"),
 								),
-								If(Err().Op("!=").Nil()).Block(
+								If(Err().Op("!=").Nil().Id("&&").Qual("github.com/threeport/threeport/pkg/errors/v0", "IsErrRecoverable").Call(Err())).Block(
 									Id("log").Dot("Error").Call(
 										Err(), Lit(fmt.Sprintf(
 											"failed to reconcile created %s object",
@@ -259,7 +261,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 								"github.com/threeport/threeport/pkg/notifications/v0",
 								"NotificationOperationUpdated",
 							)).Block(
-								Id("customRequeueDelay").Op(",").Err().Op(":=").Id(fmt.Sprintf(
+								Id("customRequeueDelay").Op(",").Err().Op("=").Id(fmt.Sprintf(
 									"%sUpdated",
 									strcase.ToLowerCamel(obj.Name),
 								)).Call(
@@ -267,7 +269,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 									Op("&").Id("log"),
 								),
-								If(Err().Op("!=").Nil()).Block(
+								If(Err().Op("!=").Nil().Id("&&").Qual("github.com/threeport/threeport/pkg/errors/v0", "IsErrRecoverable").Call(Err())).Block(
 									Id("log").Dot("Error").Call(
 										Err(), Lit(fmt.Sprintf(
 											"failed to reconcile updated %s object",
@@ -301,7 +303,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 								"github.com/threeport/threeport/pkg/notifications/v0",
 								"NotificationOperationDeleted",
 							)).Block(
-								Id("customRequeueDelay").Op(",").Err().Op(":=").Id(fmt.Sprintf(
+								Id("customRequeueDelay").Op(",").Err().Op("=").Id(fmt.Sprintf(
 									"%sDeleted",
 									strcase.ToLowerCamel(obj.Name),
 								)).Call(
@@ -309,7 +311,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									Op("&").Id(strcase.ToLowerCamel(obj.Name)),
 									Op("&").Id("log"),
 								),
-								If(Err().Op("!=").Nil()).Block(
+								If(Err().Op("!=").Nil().Id("&&").Qual("github.com/threeport/threeport/pkg/errors/v0", "IsErrRecoverable").Call(Err())).Block(
 									Id("log").Dot("Error").Call(
 										Err(), Lit(fmt.Sprintf(
 											"failed to reconcile deleted %s object",
@@ -513,17 +515,35 @@ func (cc *ControllerConfig) Reconcilers() error {
 							))),
 						)
 						g.Line()
+						g.Var().Id("errNonRecoverable").Op("*").Qual("github.com/threeport/threeport/pkg/errors/v0", "ErrNonRecoverable")
+						g.Switch().BlockFunc(func(g *jen.Group) {
+							g.Case(Err().Op("==").Nil()).BlockFunc(func(g *jen.Group) {
+								g.Id("log").Dot("Info").Call(
+									Qual("fmt", "Sprintf").Call(
+										Line().Lit(fmt.Sprintf(
+											"%s successfully reconciled for %%s operation",
+											strcase.ToDelimited(obj.Name, ' '),
+										)),
+										Line().Id("notif").Dot("Operation"),
+										Line(),
+									),
+								)
+							})
+							g.Case(Qual("errors", "As").Call(Err(), Op("&").Id("errNonRecoverable"))).BlockFunc(func(g *jen.Group) {
+								g.Id("log").Dot("Info").Call(
+									Qual("fmt", "Sprintf").Call(
+										Line().Lit(fmt.Sprintf(
+											"failed to reconcile %s for %%s operation: %%s",
+											strcase.ToDelimited(obj.Name, ' '),
+										)),
+										Line().Id("notif").Dot("Operation"),
+										Line().Id("errNonRecoverable").Dot("Error").Call(),
+										Line(),
+									),
+								)
 
-						g.Id("log").Dot("Info").Call(
-							Qual("fmt", "Sprintf").Call(
-								Line().Lit(fmt.Sprintf(
-									"%s successfully reconciled for %%s operation",
-									strcase.ToDelimited(obj.Name, ' '),
-								)),
-								Line().Id("notif").Dot("Operation"),
-								Line(),
-							),
-						)
+							})
+						})
 					}),
 				),
 			),
@@ -1195,10 +1215,17 @@ func (cc *ControllerConfig) GetLatestObject(g *jen.Group, obj string, moduleOver
 	}
 	// otherwise, generate the source code to retrieve the latest object
 	g.Comment("retrieve latest version of object")
+	g.Var().Id(fmt.Sprintf(
+		"latest%s",
+		obj,
+	)).Id("*").Qual(
+		fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", sdk.GetLatestObjectVersion(obj)),
+		obj,
+	)
 	g.Id(fmt.Sprintf(
 		"latest%s",
 		obj,
-	)).Op(",").Id("err").Op(":=").Qual(
+	)).Op(",").Id("err").Op("=").Qual(
 		fmt.Sprintf("%s/pkg/client/%s", modulePath, sdk.GetLatestObjectVersion(obj)),
 		fmt.Sprintf("Get%sByID", obj),
 	).Call(

@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -65,7 +66,7 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var terraformDefinition v0.TerraformDefinition
-			if err := terraformDefinition.DecodeNotifObject(notif.Object); err != nil {
+			if err = terraformDefinition.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("terraform definition reconciliation requeued with identical payload and fixed delay")
@@ -105,7 +106,8 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestTerraformDefinition, err := client.GetTerraformDefinitionByID(
+			var latestTerraformDefinition *v0.TerraformDefinition
+			latestTerraformDefinition, err = client.GetTerraformDefinitionByID(
 				r.APIClient,
 				r.APIServer,
 				*terraformDefinition.ID,
@@ -127,14 +129,15 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 			terraformDefinition = *latestTerraformDefinition
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if terraformDefinition.DeletionScheduled != nil {
 					log.Info("terraform definition scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := terraformDefinitionCreated(r, &terraformDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = terraformDefinitionCreated(r, &terraformDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created terraform definition object")
 					r.UnlockAndRequeue(
 						&terraformDefinition,
@@ -155,8 +158,8 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := terraformDefinitionUpdated(r, &terraformDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = terraformDefinitionUpdated(r, &terraformDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated terraform definition object")
 					r.UnlockAndRequeue(
 						&terraformDefinition,
@@ -177,8 +180,8 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := terraformDefinitionDeleted(r, &terraformDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = terraformDefinitionDeleted(r, &terraformDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted terraform definition object")
 					r.UnlockAndRequeue(
 						&terraformDefinition,
@@ -276,10 +279,20 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("terraform definition unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"terraform definition successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"terraform definition successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile terraform definition for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 

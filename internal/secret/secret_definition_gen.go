@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -65,7 +66,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var secretDefinition v0.SecretDefinition
-			if err := secretDefinition.DecodeNotifObject(notif.Object); err != nil {
+			if err = secretDefinition.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("secret definition reconciliation requeued with identical payload and fixed delay")
@@ -105,14 +106,15 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if secretDefinition.DeletionScheduled != nil {
 					log.Info("secret definition scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := secretDefinitionCreated(r, &secretDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = secretDefinitionCreated(r, &secretDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created secret definition object")
 					r.UnlockAndRequeue(
 						&secretDefinition,
@@ -133,8 +135,8 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := secretDefinitionUpdated(r, &secretDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = secretDefinitionUpdated(r, &secretDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated secret definition object")
 					r.UnlockAndRequeue(
 						&secretDefinition,
@@ -155,8 +157,8 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := secretDefinitionDeleted(r, &secretDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = secretDefinitionDeleted(r, &secretDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted secret definition object")
 					r.UnlockAndRequeue(
 						&secretDefinition,
@@ -254,10 +256,20 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("secret definition unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"secret definition successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"secret definition successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile secret definition for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 
