@@ -5,16 +5,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
+	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -270,7 +273,7 @@ func (c *SecretDefinitionConfig) DeleteSecretFromAwsSecretsManager() error {
 		}
 	}
 	if id == nil {
-		return fmt.Errorf("secret does not exist")
+		return tp_errors.NewErrNonRecoverable("secret does not exist")
 	}
 
 	// Create input for the CreateSecret operation
@@ -284,5 +287,32 @@ func (c *SecretDefinitionConfig) DeleteSecretFromAwsSecretsManager() error {
 		return fmt.Errorf("failed to create secret: %w", err)
 	}
 
+	return nil
+}
+
+// mapSecretsManagerError classifies an AWS Secrets Manager error
+// as non-recoverable or default error type.
+func mapSecretsManagerError(err error) error {
+
+	// return original error if it isn't an aws sdk error type
+	var operationError *smithy.OperationError
+	if !errors.As(err, &operationError) {
+		return err
+	}
+
+	// log.Printf("failed to call service: %s, operation: %s, error: %v", operationError.Service(), operationError.Operation(), operationError.Unwrap())
+	var invalidRequestException *types.InvalidRequestException
+	if errors.As(err, &invalidRequestException) {
+		log.Println("error:", invalidRequestException)
+		return tp_errors.NewErrNonRecoverable("invalid request")
+	}
+	// if aerr, ok := err.(awserr.Error); ok {
+	// 	switch aerr.Code() {
+	// 	case s3.ErrCodeNoSuchBucket:
+	// 		exitErrorf("bucket %s does not exist", os.Args[1])
+	// 	case s3.ErrCodeNoSuchKey:
+	// 		exitErrorf("object with key %s does not exist in bucket %s", os.Args[2], os.Args[1])
+	// 	}
+	// }
 	return nil
 }

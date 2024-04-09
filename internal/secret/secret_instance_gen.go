@@ -5,15 +5,17 @@ package secret
 import (
 	"errors"
 	"fmt"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client/v0"
-	controller "github.com/threeport/threeport/pkg/controller/v0"
-	notifications "github.com/threeport/threeport/pkg/notifications/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
+	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // SecretInstanceReconciler reconciles system state when a SecretInstance
@@ -40,6 +42,8 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 			break
 		}
 
+		var customRequeueDelay int64
+
 		// check for shutdown instruction
 		select {
 		case <-r.Shutdown:
@@ -52,6 +56,7 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// consume message data to capture notification from API
+			var notif *notifications.Notification
 			notif, err := notifications.ConsumeMessage(msg.Data)
 			if err != nil {
 				log.Error(
@@ -133,8 +138,8 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 					log.Info("secret instance scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := secretInstanceCreated(r, &secretInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = secretInstanceCreated(r, &secretInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created secret instance object")
 					r.UnlockAndRequeue(
 						&secretInstance,
@@ -155,8 +160,8 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := secretInstanceUpdated(r, &secretInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = secretInstanceUpdated(r, &secretInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated secret instance object")
 					r.UnlockAndRequeue(
 						&secretInstance,
@@ -177,8 +182,8 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := secretInstanceDeleted(r, &secretInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = secretInstanceDeleted(r, &secretInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted secret instance object")
 					r.UnlockAndRequeue(
 						&secretInstance,
@@ -269,17 +274,19 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 				)
 			}
 
-			// release the lock on the reconciliation of the created object
-			if ok := r.ReleaseLock(&secretInstance, lockReleased, msg, true); !ok {
-				log.Error(errors.New("secret instance remains locked - will unlock when TTL expires"), "")
-			} else {
-				log.V(1).Info("secret instance unlocked")
-			}
+			// release the lock on the reconciliation of the object
+			if err == nil || tp_errors.IsErrRecoverable(err) {
+				if ok := r.ReleaseLock(&secretInstance, lockReleased, msg, true); !ok {
+					log.Error(errors.New("secret instance remains locked - will unlock when TTL expires"), "")
+				} else {
+					log.V(1).Info("secret instance unlocked")
+				}
 
-			log.Info(fmt.Sprintf(
-				"secret instance successfully reconciled for %s operation",
-				notif.Operation,
-			))
+				log.Info(fmt.Sprintf(
+					"secret instance successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			}
 		}
 	}
 
