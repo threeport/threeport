@@ -22,6 +22,12 @@ func NewErrNonRecoverable(message string) *ErrNonRecoverable {
 	}
 }
 
+// NewErrNonRecoverablef creates a new non-recoverable error
+func NewErrNonRecoverablef(format string, a ...any) *ErrNonRecoverable {
+	return NewErrNonRecoverable(fmt.Errorf(format, a...).Error())
+}
+
+
 // IsErrRecoverable checks if an error is recoverable
 func IsErrRecoverable(err error) bool {
 	var errNonRecoverable *ErrNonRecoverable

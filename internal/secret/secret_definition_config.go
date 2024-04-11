@@ -75,7 +75,8 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 	// get aws config
 	awsConfig, err := kube.GetAwsConfigFromAwsAccount(c.r.EncryptionKey, *awsAccount.DefaultRegion, awsAccount)
 	if err != nil {
-		return fmt.Errorf("failed to get AWS config from AWS account: %w", err)
+		return tp_errors.NewErrNonRecoverablef("failed to get AWS config from AWS account: %w", err)
+
 	}
 
 	// Create a Secrets Manager awssmClient
