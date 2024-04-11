@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
@@ -143,7 +142,7 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 	// Call the CreateSecret operation
 	_, err = awssmClient.CreateSecret(context.Background(), input)
 	if err != nil {
-		return fmt.Errorf("failed to create secret: %w", err)
+		return getSecretsManagerError(err)
 	}
 
 	// TODO: implement this functionality using the external-secrets package
@@ -290,29 +289,20 @@ func (c *SecretDefinitionConfig) DeleteSecretFromAwsSecretsManager() error {
 	return nil
 }
 
-// mapSecretsManagerError classifies an AWS Secrets Manager error
+// getSecretsManagerError classifies an AWS Secrets Manager error
 // as non-recoverable or default error type.
-func mapSecretsManagerError(err error) error {
+func getSecretsManagerError(err error) error {
 
-	// return original error if it isn't an aws sdk error type
+	// map aws sdk errors threeport errors
 	var operationError *smithy.OperationError
-	if !errors.As(err, &operationError) {
+	var invalidRequestException *types.InvalidRequestException
+	switch {
+	case !errors.As(err, &operationError):
+		// return original error if it isn't an aws sdk error type
+		return err
+	case errors.As(err, &invalidRequestException):
+		return tp_errors.NewErrNonRecoverable(invalidRequestException.Error())
+	default:
 		return err
 	}
-
-	// log.Printf("failed to call service: %s, operation: %s, error: %v", operationError.Service(), operationError.Operation(), operationError.Unwrap())
-	var invalidRequestException *types.InvalidRequestException
-	if errors.As(err, &invalidRequestException) {
-		log.Println("error:", invalidRequestException)
-		return tp_errors.NewErrNonRecoverable("invalid request")
-	}
-	// if aerr, ok := err.(awserr.Error); ok {
-	// 	switch aerr.Code() {
-	// 	case s3.ErrCodeNoSuchBucket:
-	// 		exitErrorf("bucket %s does not exist", os.Args[1])
-	// 	case s3.ErrCodeNoSuchKey:
-	// 		exitErrorf("object with key %s does not exist in bucket %s", os.Args[2], os.Args[1])
-	// 	}
-	// }
-	return nil
 }
