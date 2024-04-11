@@ -1,6 +1,9 @@
 package v0
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // ErrNonRecoverable is a non-recoverable error
 type ErrNonRecoverable struct {
@@ -14,7 +17,9 @@ func (e *ErrNonRecoverable) Error() string {
 
 // NewErrNonRecoverable creates a new non-recoverable error
 func NewErrNonRecoverable(message string) *ErrNonRecoverable {
-	return &ErrNonRecoverable{Message: message}
+	return &ErrNonRecoverable{
+		Message: fmt.Sprintf("Non-Recoverable - %s", message),
+	}
 }
 
 // IsErrRecoverable checks if an error is recoverable
