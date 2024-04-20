@@ -79,8 +79,8 @@ func outputGetGatewayDefinitionsCmd(
 			writer,
 			*g.Name, "\t",
 			gwPorts, "\t",
-			*g.SubDomain, "\t",
-			*g.ServiceName, "\t",
+			util.DerefString(g.SubDomain), "\t",
+			util.DerefString(g.ServiceName), "\t",
 			util.GetAge(g.CreatedAt),
 		)
 	}

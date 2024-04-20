@@ -96,7 +96,7 @@ func GetGatewayPortsAsString(apiClient *http.Client, apiAddr string, id uint) (s
 
 	for _, httpPort := range *gatewayHttpPorts {
 		var protocol string
-		if *httpPort.TLSEnabled {
+		if httpPort.TLSEnabled != nil && *httpPort.TLSEnabled {
 			protocol = "https"
 		} else {
 			protocol = "http"
@@ -106,7 +106,7 @@ func GetGatewayPortsAsString(apiClient *http.Client, apiAddr string, id uint) (s
 
 	for _, tcpPort := range *gatewayTcpPorts {
 		var protocol string
-		if *tcpPort.TLSEnabled {
+		if tcpPort.TLSEnabled != nil && *tcpPort.TLSEnabled {
 			protocol = "tls"
 		} else {
 			protocol = "tcp"
