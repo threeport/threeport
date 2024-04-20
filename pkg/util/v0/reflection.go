@@ -6,8 +6,8 @@ import (
 	"reflect"
 )
 
-// GetStringPtrValue returns the string value of a pointer field.
-func GetStringPtrValue(field reflect.Value) (string, error) {
+// GetPtrValue returns the string value of a pointer field.
+func GetPtrValue(field reflect.Value) (string, error) {
 	if !IsNonNilPtr(field) {
 		return "", nil
 	}

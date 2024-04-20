@@ -28,7 +28,7 @@ func gatewayDefinitionCreated(
 	// construct workload definition object
 	workloadDefinition := v0.WorkloadDefinition{
 		Definition: v0.Definition{
-			Name: util.StringPtr(fmt.Sprintf("%s-gateway", *gatewayDefinition.Name)),
+			Name: util.Ptr(fmt.Sprintf("%s-gateway", *gatewayDefinition.Name)),
 		},
 		YAMLDocument: &yamlDocument,
 	}
@@ -40,7 +40,7 @@ func gatewayDefinitionCreated(
 	}
 
 	// update gateway definition
-	gatewayDefinition.Reconciled = util.BoolPtr(true)
+	gatewayDefinition.Reconciled = util.Ptr(true)
 	gatewayDefinition.WorkloadDefinitionID = createdWorkloadDefinition.ID
 	_, err = client.UpdateGatewayDefinition(
 		r.APIClient,
@@ -95,7 +95,7 @@ func gatewayDefinitionUpdated(
 
 	// update gateway definition
 	gatewayDefinition.WorkloadDefinitionID = workloadDefinition.ID
-	gatewayDefinition.Reconciled = util.BoolPtr(true)
+	gatewayDefinition.Reconciled = util.Ptr(true)
 	_, err = client.UpdateGatewayDefinition(
 		r.APIClient,
 		r.APIServer,

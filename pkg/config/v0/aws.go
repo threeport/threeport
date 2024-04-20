@@ -398,7 +398,7 @@ func (e *AwsEksKubernetesRuntimeDefinitionValues) Create(apiClient *http.Client,
 			Name: &e.Name,
 		},
 		Reconciliation: v0.Reconciliation{
-			Reconciled: util.BoolPtr(true),
+			Reconciled: util.Ptr(true),
 		},
 		InfraProvider:            &infraProvider,
 		InfraProviderAccountName: awsAccount.Name,
@@ -515,7 +515,7 @@ func (e *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Client, a
 			Name: &e.Name,
 		},
 		Reconciliation: v0.Reconciliation{
-			Reconciled: util.BoolPtr(true),
+			Reconciled: util.Ptr(true),
 		},
 		Location:                      &location,
 		ThreeportControlPlaneHost:     &controlPlaneHost,

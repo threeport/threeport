@@ -80,8 +80,8 @@ func MergeHelmValuesString(base, override string) (string, error) {
 // that are referred to by string pointers.
 func MergeHelmValuesPtrs(base, override *string) (string, error) {
 	mergedHelmValues, err := MergeHelmValuesString(
-		util.StringPtrToString(base),
-		util.StringPtrToString(override),
+		util.PtrToString(base),
+		util.PtrToString(override),
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to merge helm values: %w", err)
