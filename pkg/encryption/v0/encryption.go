@@ -174,7 +174,7 @@ func DecryptValues(obj interface{}, encryptionKey string) (interface{}, error) {
 		fieldVal := objVal.Field(i)
 		encrypt := field.Tag.Get("encrypt")
 		if encrypt == "true" {
-			underlyingVal, err := util.GetStringPtrValue(fieldVal)
+			underlyingVal, err := util.GetPtrValue(fieldVal)
 			if err != nil {
 				return obj, fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
 			}

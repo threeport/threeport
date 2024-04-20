@@ -70,14 +70,14 @@ func gatewayInstanceCreated(
 	}
 
 	// trigger a reconciliation of the workload instance
-	workloadInstance.Reconciled = util.BoolPtr(false)
+	workloadInstance.Reconciled = util.Ptr(false)
 	_, err = client_v1.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
 	if err != nil {
 		return 0, fmt.Errorf("failed to update workload instance: %w", err)
 	}
 
 	// update gateway instance
-	gatewayInstance.Reconciled = util.BoolPtr(true)
+	gatewayInstance.Reconciled = util.Ptr(true)
 	_, err = client.UpdateGatewayInstance(r.APIClient, r.APIServer, gatewayInstance)
 	if err != nil {
 		return 0, fmt.Errorf("failed to update gateway instance: %w", err)
@@ -227,8 +227,8 @@ func gatewayInstanceDeleted(
 		// schedule workload resource instance for deletion
 		workloadResourceInstance = &v0.WorkloadResourceInstance{
 			Common:               v0.Common{ID: workloadResourceInstance.ID},
-			ScheduledForDeletion: util.TimePtr(time.Now().UTC()),
-			Reconciled:           util.BoolPtr(false),
+			ScheduledForDeletion: util.Ptr(time.Now().UTC()),
+			Reconciled:           util.Ptr(false),
 		}
 		_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, workloadResourceInstance)
 		if err != nil {
@@ -246,7 +246,7 @@ func gatewayInstanceDeleted(
 	}
 	workloadInstance := &v1.WorkloadInstance{
 		Common:         v0.Common{ID: gatewayInstance.WorkloadInstanceID},
-		Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(false)},
+		Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
 	}
 	_, err = client_v1.UpdateWorkloadInstance(r.APIClient, r.APIServer, workloadInstance)
 	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
@@ -555,7 +555,7 @@ func confirmGatewayPortsExposed(
 	if err != nil {
 		return fmt.Errorf("failed to get gloo edge workload resource instance: %w", err)
 	}
-	glooEdgeObject.Reconciled = util.BoolPtr(false)
+	glooEdgeObject.Reconciled = util.Ptr(false)
 	glooEdgeObject.JSONDefinition = &jsonDefinition
 	_, err = client.UpdateWorkloadResourceInstance(r.APIClient, r.APIServer, glooEdgeObject)
 	if err != nil {
@@ -565,7 +565,7 @@ func confirmGatewayPortsExposed(
 	// trigger a reconciliation of the gateway controller workload instance
 	updatedGatewayControllerWorkloadInstance := v1.WorkloadInstance{
 		Common:         v0.Common{ID: kubernetesRuntimeInstance.GatewayControllerInstanceID},
-		Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(false)},
+		Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(false)},
 	}
 	_, err = client_v1.UpdateWorkloadInstance(r.APIClient, r.APIServer, &updatedGatewayControllerWorkloadInstance)
 	if err != nil {
@@ -1152,7 +1152,7 @@ func configureGatewayWorkloadResourceInstances(
 		workloadResourceInstance := v0.WorkloadResourceInstance{
 			JSONDefinition:     jsonManifest,
 			WorkloadInstanceID: workloadInstance.ID,
-			Reconciled:         util.BoolPtr(false),
+			Reconciled:         util.Ptr(false),
 		}
 		workloadResourceInstances = append(workloadResourceInstances, workloadResourceInstance)
 	}

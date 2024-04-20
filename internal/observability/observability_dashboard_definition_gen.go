@@ -198,13 +198,13 @@ func ObservabilityDashboardDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
-				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletionTimestamp := util.Ptr(time.Now().UTC())
 				deletedObservabilityDashboardDefinition := v0.ObservabilityDashboardDefinition{
 					Common: v0.Common{ID: observabilityDashboardDefinition.ID},
 					Reconciliation: v0.Reconciliation{
 						DeletionAcknowledged: deletionTimestamp,
 						DeletionConfirmed:    deletionTimestamp,
-						Reconciled:           util.BoolPtr(true),
+						Reconciled:           util.Ptr(true),
 					},
 				}
 				if err != nil {
@@ -251,7 +251,7 @@ func ObservabilityDashboardDefinitionReconciler(r *controller.Reconciler) {
 			if notif.Operation != notifications.NotificationOperationDeleted {
 				reconciledObservabilityDashboardDefinition := v0.ObservabilityDashboardDefinition{
 					Common:         v0.Common{ID: observabilityDashboardDefinition.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
+					Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(true)},
 				}
 				updatedObservabilityDashboardDefinition, err := client.UpdateObservabilityDashboardDefinition(
 					r.APIClient,

@@ -198,13 +198,13 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
-				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletionTimestamp := util.Ptr(time.Now().UTC())
 				deletedLoggingDefinition := v0.LoggingDefinition{
 					Common: v0.Common{ID: loggingDefinition.ID},
 					Reconciliation: v0.Reconciliation{
 						DeletionAcknowledged: deletionTimestamp,
 						DeletionConfirmed:    deletionTimestamp,
-						Reconciled:           util.BoolPtr(true),
+						Reconciled:           util.Ptr(true),
 					},
 				}
 				if err != nil {
@@ -251,7 +251,7 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 			if notif.Operation != notifications.NotificationOperationDeleted {
 				reconciledLoggingDefinition := v0.LoggingDefinition{
 					Common:         v0.Common{ID: loggingDefinition.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
+					Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(true)},
 				}
 				updatedLoggingDefinition, err := client.UpdateLoggingDefinition(
 					r.APIClient,

@@ -47,7 +47,7 @@ func observabilityDashboardInstanceCreated(
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
 			Instance: v0.Instance{
-				Name: util.StringPtr(GrafanaChartName(*observabilityDashboardInstance.Name)),
+				Name: util.Ptr(GrafanaChartName(*observabilityDashboardInstance.Name)),
 			},
 			KubernetesRuntimeInstanceID: observabilityDashboardInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    observabilityDashboardDefinition.GrafanaHelmWorkloadDefinitionID,
@@ -62,7 +62,7 @@ func observabilityDashboardInstanceCreated(
 	observabilityDashboardInstance.GrafanaHelmWorkloadInstanceID = grafanaHelmWorkloadInstance.ID
 
 	// update observability dashboard instance
-	observabilityDashboardInstance.Reconciled = util.BoolPtr(true)
+	observabilityDashboardInstance.Reconciled = util.Ptr(true)
 	if _, err = client.UpdateObservabilityDashboardInstance(
 		r.APIClient,
 		r.APIServer,

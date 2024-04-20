@@ -65,7 +65,7 @@ func observabilityStackInstanceCreated(
 	}
 
 	// update observability stack instance
-	observabilityStackInstance.Reconciled = util.BoolPtr(true)
+	observabilityStackInstance.Reconciled = util.Ptr(true)
 	if _, err := client.UpdateObservabilityStackInstance(
 		r.APIClient,
 		r.APIServer,

@@ -52,7 +52,7 @@ func (c *LoggingInstanceConfig) createLokiHelmWorkloadInstance() error {
 		c.r.APIServer,
 		&v0.HelmWorkloadInstance{
 			Instance: v0.Instance{
-				Name: util.StringPtr(LokiHelmChartName(*c.loggingInstance.Name)),
+				Name: util.Ptr(LokiHelmChartName(*c.loggingInstance.Name)),
 			},
 			KubernetesRuntimeInstanceID: c.loggingInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    c.loggingDefinition.LokiHelmWorkloadDefinitionID,
@@ -93,7 +93,7 @@ func (c *LoggingInstanceConfig) createPromtailHelmWorkloadInstance() error {
 		c.r.APIServer,
 		&v0.HelmWorkloadInstance{
 			Instance: v0.Instance{
-				Name: util.StringPtr(PromtailHelmChartName(*c.loggingInstance.Name)),
+				Name: util.Ptr(PromtailHelmChartName(*c.loggingInstance.Name)),
 			},
 			KubernetesRuntimeInstanceID: c.loggingInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    c.loggingDefinition.PromtailHelmWorkloadDefinitionID,

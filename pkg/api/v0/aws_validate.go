@@ -146,7 +146,7 @@ func (a *AwsAccount) BeforeCreate(tx *gorm.DB) error {
 
 		// check if AccessKeyID is set
 		if field.Name == "AccessKeyID" {
-			underlyingValue, err := util.GetStringPtrValue(fieldVal)
+			underlyingValue, err := util.GetPtrValue(fieldVal)
 			if err != nil {
 				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
 			}
@@ -158,7 +158,7 @@ func (a *AwsAccount) BeforeCreate(tx *gorm.DB) error {
 
 		// check if SecretAccessKey is set
 		if field.Name == "SecretAccessKey" {
-			underlyingValue, err := util.GetStringPtrValue(fieldVal)
+			underlyingValue, err := util.GetPtrValue(fieldVal)
 			if err != nil {
 				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
 			}
@@ -171,7 +171,7 @@ func (a *AwsAccount) BeforeCreate(tx *gorm.DB) error {
 		// encrypt field if encrypt tag is present
 		encrypt := field.Tag.Get("encrypt")
 		if encrypt == "true" {
-			underlyingValue, err := util.GetStringPtrValue(fieldVal)
+			underlyingValue, err := util.GetPtrValue(fieldVal)
 			if err != nil {
 				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
 			}
@@ -223,7 +223,7 @@ func (a *AwsAccount) BeforeUpdate(tx *gorm.DB) error {
 
 		encrypt := field.Tag.Get("encrypt")
 		if encrypt == "true" && tx.Statement.Changed(field.Name) {
-			underlyingValue, err := util.GetStringPtrValue(fieldVal)
+			underlyingValue, err := util.GetPtrValue(fieldVal)
 			if err != nil {
 				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
 			}
