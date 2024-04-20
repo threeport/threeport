@@ -53,7 +53,7 @@ func (c *ObservabilityStackDefinitionConfig) createObservabilityDashboardDefinit
 	// create observability dashboard definition
 	observabilityDashboardDefinition := &v0.ObservabilityDashboardDefinition{
 		Definition: v0.Definition{
-			Name: util.StringPtr(ObservabilityDashboardName(*c.observabilityStackDefinition.Name)),
+			Name: util.Ptr(ObservabilityDashboardName(*c.observabilityStackDefinition.Name)),
 		},
 	}
 
@@ -98,7 +98,7 @@ func (c *ObservabilityStackDefinitionConfig) createLoggingDefinition() error {
 	// create logging definition
 	loggingDefinition := &v0.LoggingDefinition{
 		Definition: v0.Definition{
-			Name: util.StringPtr(LoggingName(*c.observabilityStackDefinition.Name)),
+			Name: util.Ptr(LoggingName(*c.observabilityStackDefinition.Name)),
 		},
 	}
 
@@ -149,7 +149,7 @@ func (c *ObservabilityStackDefinitionConfig) createMetricsDefinition() error {
 	// create metrics definition
 	metricsDefinition := &v0.MetricsDefinition{
 		Definition: v0.Definition{
-			Name: util.StringPtr(MetricsName(*c.observabilityStackDefinition.Name)),
+			Name: util.Ptr(MetricsName(*c.observabilityStackDefinition.Name)),
 		},
 	}
 

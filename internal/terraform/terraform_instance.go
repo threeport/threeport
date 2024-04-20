@@ -46,7 +46,7 @@ func terraformInstanceCreated(
 	}
 
 	// update the terraform instance
-	terraformInstance.Reconciled = util.BoolPtr(true)
+	terraformInstance.Reconciled = util.Ptr(true)
 	terraformInstance.StateDocument = &c.tfState
 	terraformInstance.Outputs = &c.tfOutput
 	if _, err := client.UpdateTerraformInstance(

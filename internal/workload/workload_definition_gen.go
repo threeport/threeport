@@ -198,13 +198,13 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
-				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletionTimestamp := util.Ptr(time.Now().UTC())
 				deletedWorkloadDefinition := v0.WorkloadDefinition{
 					Common: v0.Common{ID: workloadDefinition.ID},
 					Reconciliation: v0.Reconciliation{
 						DeletionAcknowledged: deletionTimestamp,
 						DeletionConfirmed:    deletionTimestamp,
-						Reconciled:           util.BoolPtr(true),
+						Reconciled:           util.Ptr(true),
 					},
 				}
 				if err != nil {
@@ -251,7 +251,7 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			if notif.Operation != notifications.NotificationOperationDeleted {
 				reconciledWorkloadDefinition := v0.WorkloadDefinition{
 					Common:         v0.Common{ID: workloadDefinition.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
+					Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(true)},
 				}
 				updatedWorkloadDefinition, err := client.UpdateWorkloadDefinition(
 					r.APIClient,

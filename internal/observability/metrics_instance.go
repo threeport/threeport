@@ -47,7 +47,7 @@ func metricsInstanceCreated(
 		r.APIServer,
 		&v0.HelmWorkloadInstance{
 			Instance: v0.Instance{
-				Name: util.StringPtr(KubePrometheusStackChartName(*metricsInstance.Name)),
+				Name: util.Ptr(KubePrometheusStackChartName(*metricsInstance.Name)),
 			},
 			KubernetesRuntimeInstanceID: metricsInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID,
@@ -62,7 +62,7 @@ func metricsInstanceCreated(
 	metricsInstance.KubePrometheusStackHelmWorkloadInstanceID = kubePrometheusStackHelmWorkloadInstance.ID
 
 	// update metrics instance
-	metricsInstance.Reconciled = util.BoolPtr(true)
+	metricsInstance.Reconciled = util.Ptr(true)
 	if _, err = client.UpdateMetricsInstance(
 		r.APIClient,
 		r.APIServer,

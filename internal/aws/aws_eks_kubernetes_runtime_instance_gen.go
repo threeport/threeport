@@ -198,13 +198,13 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
-				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletionTimestamp := util.Ptr(time.Now().UTC())
 				deletedAwsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
 					Common: v0.Common{ID: awsEksKubernetesRuntimeInstance.ID},
 					Reconciliation: v0.Reconciliation{
 						DeletionAcknowledged: deletionTimestamp,
 						DeletionConfirmed:    deletionTimestamp,
-						Reconciled:           util.BoolPtr(true),
+						Reconciled:           util.Ptr(true),
 					},
 				}
 				if err != nil {
@@ -251,7 +251,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			if notif.Operation != notifications.NotificationOperationDeleted {
 				reconciledAwsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
 					Common:         v0.Common{ID: awsEksKubernetesRuntimeInstance.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
+					Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(true)},
 				}
 				updatedAwsEksKubernetesRuntimeInstance, err := client.UpdateAwsEksKubernetesRuntimeInstance(
 					r.APIClient,

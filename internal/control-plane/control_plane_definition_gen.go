@@ -198,13 +198,13 @@ func ControlPlaneDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
-				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletionTimestamp := util.Ptr(time.Now().UTC())
 				deletedControlPlaneDefinition := v0.ControlPlaneDefinition{
 					Common: v0.Common{ID: controlPlaneDefinition.ID},
 					Reconciliation: v0.Reconciliation{
 						DeletionAcknowledged: deletionTimestamp,
 						DeletionConfirmed:    deletionTimestamp,
-						Reconciled:           util.BoolPtr(true),
+						Reconciled:           util.Ptr(true),
 					},
 				}
 				if err != nil {
@@ -251,7 +251,7 @@ func ControlPlaneDefinitionReconciler(r *controller.Reconciler) {
 			if notif.Operation != notifications.NotificationOperationDeleted {
 				reconciledControlPlaneDefinition := v0.ControlPlaneDefinition{
 					Common:         v0.Common{ID: controlPlaneDefinition.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
+					Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(true)},
 				}
 				updatedControlPlaneDefinition, err := client.UpdateControlPlaneDefinition(
 					r.APIClient,

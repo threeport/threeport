@@ -707,7 +707,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// update uninstaller to clean the threeport config if an error occurs
-	uninstaller.cleanConfig = util.BoolPtr(true)
+	uninstaller.cleanConfig = util.Ptr(true)
 
 	// wait for API server to start running - it is not strictly necessary to
 	// wait for the API before installing the rest of the control plane, however

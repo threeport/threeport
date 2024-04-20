@@ -339,7 +339,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									Continue(),
 								),
 
-								Id("deletionTimestamp").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "TimePtr").Call(Qual("time", "Now").Call().Dot("UTC").Call()),
+								Id("deletionTimestamp").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Qual("time", "Now").Call().Dot("UTC").Call()),
 
 								Id(fmt.Sprintf(
 									"deleted%s",
@@ -358,7 +358,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 										"github.com/threeport/threeport/pkg/api/v0",
 										"Reconciliation",
 									).Values(Dict{
-										Id("Reconciled"):           Qual("github.com/threeport/threeport/pkg/util/v0", "BoolPtr").Call(Lit(true)),
+										Id("Reconciled"):           Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit(true)),
 										Id("DeletionAcknowledged"): Id("deletionTimestamp"),
 										Id("DeletionConfirmed"):    Id("deletionTimestamp"),
 									}),
@@ -452,7 +452,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 									"github.com/threeport/threeport/pkg/api/v0",
 									"Reconciliation",
 								).Values(Dict{
-									Id("Reconciled"): Qual("github.com/threeport/threeport/pkg/util/v0", "BoolPtr").Call(Lit(true)),
+									Id("Reconciled"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit(true)),
 								}),
 							}),
 							Id(fmt.Sprintf(
@@ -974,7 +974,7 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 									Continue(),
 								),
 
-								Id("deletionTimestamp").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "TimePtr").Call(Qual("time", "Now").Call().Dot("UTC").Call()),
+								Id("deletionTimestamp").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Qual("time", "Now").Call().Dot("UTC").Call()),
 
 								Id(fmt.Sprintf(
 									"deleted%s",
@@ -993,7 +993,7 @@ func (cc *ControllerConfig) ExtensionReconcilers(modulePath string) error {
 										"github.com/threeport/threeport/pkg/api/v0",
 										"Reconciliation",
 									).Values(Dict{
-										Id("Reconciled"):           Qual("github.com/threeport/threeport/pkg/util/v0", "BoolPtr").Call(Lit(true)),
+										Id("Reconciled"):           Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit(true)),
 										Id("DeletionAcknowledged"): Id("deletionTimestamp"),
 										Id("DeletionConfirmed"):    Id("deletionTimestamp"),
 									}),
