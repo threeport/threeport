@@ -37,7 +37,7 @@ func metricsDefinitionCreated(
 	// merge kube-prometheus-stack helm values if they are provided
 	kubePrometheusStackHelmWorkloadDefinitionValues, err := helmworkload.MergeHelmValuesString(
 		kubePrometheusStackValues,
-		util.PtrToString(metricsDefinition.KubePrometheusStackHelmValuesDocument),
+		util.DerefString(metricsDefinition.KubePrometheusStackHelmValuesDocument),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
