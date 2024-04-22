@@ -563,8 +563,8 @@ func configureChart(
 
 	// merge helm values
 	helmValues, err := MergeHelmValuesGo(
-		util.PtrToString(helmWorkloadDefinition.ValuesDocument),
-		util.PtrToString(helmWorkloadInstance.ValuesDocument),
+		util.DerefString(helmWorkloadDefinition.ValuesDocument),
+		util.DerefString(helmWorkloadInstance.ValuesDocument),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to merge helm values: %w", err)
