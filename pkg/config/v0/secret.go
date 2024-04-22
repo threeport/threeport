@@ -260,15 +260,15 @@ func (s *SecretInstanceValues) Create(
 	}
 
 	// get kubernetes runtime instance
-	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByName(
+	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+		s.KubernetesRuntimeInstance,
 		apiClient,
 		apiEndpoint,
-		s.KubernetesRuntimeInstance.Name,
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"failed to get kubernetes runtime instance by name %s: %w",
-			s.KubernetesRuntimeInstance.Name,
+			"failed to set kubernetes runtime instance for secret instance %s: %w",
+			s.Name,
 			err,
 		)
 	}
