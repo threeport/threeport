@@ -72,7 +72,7 @@ func loggingDefinitionCreated(
 	// merge loki helm values
 	c.lokiHelmWorkloadDefinitionValues, err = helmworkload.MergeHelmValuesString(
 		lokiValues,
-		util.PtrToString(loggingDefinition.LokiHelmValuesDocument),
+		util.DerefString(loggingDefinition.LokiHelmValuesDocument),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)
@@ -81,7 +81,7 @@ func loggingDefinitionCreated(
 	// merge promtail helm values
 	c.promtailHelmWorkloadDefinitionValues, err = helmworkload.MergeHelmValuesString(
 		promtailValues,
-		util.PtrToString(loggingDefinition.PromtailHelmValuesDocument),
+		util.DerefString(loggingDefinition.PromtailHelmValuesDocument),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to merge loki helm values: %w", err)

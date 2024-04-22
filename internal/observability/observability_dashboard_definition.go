@@ -46,7 +46,7 @@ func observabilityDashboardDefinitionCreated(
 	// merge grafana helm values
 	grafanaHelmValuesDocument, err := helmworkload.MergeHelmValuesString(
 		grafanaValues,
-		util.PtrToString(observabilityDashboardDefinition.GrafanaHelmValuesDocument),
+		util.DerefString(observabilityDashboardDefinition.GrafanaHelmValuesDocument),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to merge grafana helm values: %w", err)
