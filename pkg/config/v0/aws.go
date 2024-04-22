@@ -734,8 +734,8 @@ func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint
 
 	// wait for AWS relational database instance to be reconciled
 	deletedCheckAttempts := 0
-	deletedCheckAttemptsMax := 30
-	deletedCheckDurationSeconds := 10
+	deletedCheckAttemptsMax := 60
+	deletedCheckDurationSeconds := 15
 	awsRelationalDatabaseInstanceDeleted := false
 	for deletedCheckAttempts < deletedCheckAttemptsMax {
 		_, err := client.GetAwsRelationalDatabaseInstanceByID(apiClient, apiEndpoint, *awsRelationalDatabaseInstance.ID)

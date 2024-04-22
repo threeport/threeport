@@ -378,11 +378,14 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		},
 	})
 
-	// add domain name and gateway if provided
-	if w.DomainName != nil && w.Gateway != nil {
+	// add domain name if provided
+	domainNameUsed := false
+	var domainNameDefinitionValues DomainNameDefinitionValues
+	if w.DomainName != nil {
+		domainNameUsed = true
 
 		// add domain name definition operation
-		domainNameDefinitionValues := DomainNameDefinitionValues{
+		domainNameDefinitionValues = DomainNameDefinitionValues{
 			Name:       w.DomainName.Name,
 			Domain:     w.DomainName.Domain,
 			Zone:       w.DomainName.Zone,
@@ -430,16 +433,31 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 				return nil
 			},
 		})
+	}
 
+	// add gateway if provided
+	if w.Gateway != nil {
 		// add gateway definition operation
-		gatewayDefinitionValues := GatewayDefinitionValues{
-			Name:                 w.Gateway.Name,
-			HttpPorts:            w.Gateway.HttpPorts,
-			TcpPorts:             w.Gateway.TcpPorts,
-			ServiceName:          w.Gateway.ServiceName,
-			SubDomain:            w.Gateway.SubDomain,
-			DomainNameDefinition: domainNameDefinitionValues,
+		var gatewayDefinitionValues GatewayDefinitionValues
+		if domainNameUsed {
+			gatewayDefinitionValues = GatewayDefinitionValues{
+				Name:                 w.Gateway.Name,
+				HttpPorts:            w.Gateway.HttpPorts,
+				TcpPorts:             w.Gateway.TcpPorts,
+				ServiceName:          w.Gateway.ServiceName,
+				SubDomain:            w.Gateway.SubDomain,
+				DomainNameDefinition: domainNameDefinitionValues,
+			}
+		} else {
+			gatewayDefinitionValues = GatewayDefinitionValues{
+				Name:        w.Gateway.Name,
+				HttpPorts:   w.Gateway.HttpPorts,
+				TcpPorts:    w.Gateway.TcpPorts,
+				ServiceName: w.Gateway.ServiceName,
+				SubDomain:   w.Gateway.SubDomain,
+			}
 		}
+
 		operations.AppendOperation(util.Operation{
 			Name: "gateway definition",
 			Create: func() error {
