@@ -166,6 +166,25 @@ func (g *GatewayDefinitionValues) Validate() error {
 		multiError.AppendError(errors.New("missing required field in config: Must provide one of []HttpPorts or []TcpPorts"))
 	}
 
+	// make sure HTTPS redirect from 80 -> 443 is not set if port 443 is not set
+	if g.HttpPorts != nil {
+		port443 := false
+		redirect := false
+		for _, httpPort := range g.HttpPorts {
+			// see if redirect is set
+			if httpPort.Port == 80 && httpPort.HTTPSRedirect {
+				redirect = true
+			}
+			// see if port 443 is set
+			if httpPort.Port == 443 {
+				port443 = true
+			}
+		}
+		if !port443 && redirect {
+			multiError.AppendError(errors.New("an HTTPS redirect from port 80 to 443 is configured without port 443 being set"))
+		}
+	}
+
 	return multiError.Error()
 }
 
@@ -226,13 +245,8 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 		return nil, fmt.Errorf("failed to validate values for gateway definition with name %s: %w", g.Name, err)
 	}
 
-	// get domain name definition
-	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", g.DomainNameDefinition.Name, err)
-	}
-
 	// construct list of http ports
+	tlsEnabled := false
 	var httpPorts []*v0.GatewayHttpPort
 	if g.HttpPorts != nil {
 		for _, httpPort := range g.HttpPorts {
@@ -243,6 +257,10 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 			// validate port config
 			if err := currentHttpPort.Validate(); err != nil {
 				return nil, fmt.Errorf("failed to validate values for http port %d: %w", currentHttpPort.Port, err)
+			}
+
+			if currentHttpPort.TLSEnabled {
+				tlsEnabled = true
 			}
 
 			httpPorts = append(httpPorts,
@@ -268,16 +286,45 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 		}
 	}
 
+	// get domain name definition
+	domainNameUsed := false
+	domainNameDefinition := &v0.DomainNameDefinition{}
+	if g.DomainNameDefinition.Name != "" {
+		domainNameUsed = true
+		dnd, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", g.DomainNameDefinition.Name, err)
+		}
+		domainNameDefinition = dnd
+	} else {
+		if tlsEnabled {
+			return nil, errors.New("cannot use TLSEnabled without a domain name")
+		}
+	}
+
 	// construct gateway definition object
-	gatewayDefinition := v0.GatewayDefinition{
-		Definition: v0.Definition{
-			Name: &g.Name,
-		},
-		HttpPorts:              httpPorts,
-		TcpPorts:               tcpPorts,
-		SubDomain:              &g.SubDomain,
-		ServiceName:            &g.ServiceName,
-		DomainNameDefinitionID: domainNameDefinition.ID,
+	var gatewayDefinition v0.GatewayDefinition
+	if domainNameUsed {
+		gatewayDefinition = v0.GatewayDefinition{
+			Definition: v0.Definition{
+				Name: &g.Name,
+			},
+			HttpPorts:              httpPorts,
+			TcpPorts:               tcpPorts,
+			SubDomain:              &g.SubDomain,
+			ServiceName:            &g.ServiceName,
+			DomainNameDefinitionID: domainNameDefinition.ID,
+		}
+	} else {
+		gatewayDefinition = v0.GatewayDefinition{
+			Definition: v0.Definition{
+				Name: &g.Name,
+			},
+			HttpPorts:   httpPorts,
+			TcpPorts:    tcpPorts,
+			SubDomain:   &g.SubDomain,
+			ServiceName: &g.ServiceName,
+		}
 	}
 
 	// create gateway definition
