@@ -378,11 +378,11 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		},
 	})
 
-	// add domain name and gateway if provided
-	if w.DomainName != nil && w.Gateway != nil {
-
+	// add domain name if provided
+	var domainNameDefinitionValues DomainNameDefinitionValues
+	if w.DomainName != nil {
 		// add domain name definition operation
-		domainNameDefinitionValues := DomainNameDefinitionValues{
+		domainNameDefinitionValues = DomainNameDefinitionValues{
 			Name:       w.DomainName.Name,
 			Domain:     w.DomainName.Domain,
 			Zone:       w.DomainName.Zone,
@@ -430,7 +430,10 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 				return nil
 			},
 		})
+	}
 
+	// add gateway if provided
+	if w.Gateway != nil {
 		// add gateway definition operation
 		gatewayDefinitionValues := GatewayDefinitionValues{
 			Name:                 w.Gateway.Name,
@@ -440,6 +443,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			SubDomain:            w.Gateway.SubDomain,
 			DomainNameDefinition: domainNameDefinitionValues,
 		}
+
 		operations.AppendOperation(util.Operation{
 			Name: "gateway definition",
 			Create: func() error {
