@@ -128,6 +128,7 @@ func GetDbInterfaces() []interface{} {
 		&v0.Definition{},
 		&v0.DomainNameDefinition{},
 		&v0.DomainNameInstance{},
+		&v0.Event{},
 		&v0.GatewayDefinition{},
 		&v0.GatewayHttpPort{},
 		&v0.GatewayInstance{},

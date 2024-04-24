@@ -20,6 +20,7 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	ControlPlaneInstanceRoutes(e, h)
 	DomainNameDefinitionRoutes(e, h)
 	DomainNameInstanceRoutes(e, h)
+	EventRoutes(e, h)
 	GatewayDefinitionRoutes(e, h)
 	GatewayHttpPortRoutes(e, h)
 	GatewayInstanceRoutes(e, h)

@@ -96,6 +96,11 @@ ApiObjectGroups:
       Versions:
         - v0
       ExcludeRoute: true
+- Name: events
+  Objects:
+    - Name: Event
+      Versions:
+        - v0
 - Name: gateway
   Objects:
     - Name: GatewayDefinition
