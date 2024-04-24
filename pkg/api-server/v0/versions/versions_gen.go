@@ -15,6 +15,7 @@ func AddVersions() {
 	AddControlPlaneInstanceVersions()
 	AddDomainNameDefinitionVersions()
 	AddDomainNameInstanceVersions()
+	AddEventVersions()
 	AddGatewayDefinitionVersions()
 	AddGatewayHttpPortVersions()
 	AddGatewayInstanceVersions()
