@@ -10,8 +10,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"github.com/threeport/threeport/internal/event"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
 )
 
 // ReconcilerConfig contains values needed to start new reconcilers in
@@ -82,7 +82,7 @@ type Reconciler struct {
 	EncryptionKey string
 
 	// EventRecorder is the event recorder used to record events.
-	EventRecorder *v1.EventRecorder
+	EventRecorder *event.EventRecorder
 }
 
 // PullMessage checks the queue for a message and returns it if there was a
