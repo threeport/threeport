@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-logr/logr"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -29,9 +28,6 @@ type EventRecorder struct {
 
 	// APIClient is the HTTP client used to make requests to the Threeport API.
 	APIClient *http.Client
-
-	// Log is the logger used to write logs.
-	Log *logr.Logger
 }
 
 // Event records a new event with the given information.
@@ -41,7 +37,7 @@ func (r *EventRecorder) Event(
 	eventType,
 	action string,
 	attachedObjectId *uint,
-) {
+) error {
 	events, err := client_v0.GetEventsByQueryString(
 		r.APIClient,
 		r.APIServer,
@@ -54,7 +50,14 @@ func (r *EventRecorder) Event(
 		),
 	)
 	if err != nil {
-		// return err
+		return fmt.Errorf(
+			"failed to get events by query string reason=%s?note=%s?type=%s?action=%s: %w",
+			reason,
+			note,
+			eventType,
+			action,
+			err,
+		)
 	}
 
 	var event *v0.Event
@@ -73,7 +76,7 @@ func (r *EventRecorder) Event(
 		}
 		event, err = client_v0.CreateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
-			// return err
+			return fmt.Errorf("failed to create event: %w", err)
 		}
 	case 1:
 		event = &(*events)[0]
@@ -81,10 +84,10 @@ func (r *EventRecorder) Event(
 		event.LastObservedTime = time.Now()
 		_, err := client_v0.UpdateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
-			// return err
+			return fmt.Errorf("failed to update event: %w", err)
 		}
 	default:
-		// err
+		return fmt.Errorf("unexpected number of events found: %d", len(*events))
 	}
 
 	// TODO: decide on rules for edge direction
@@ -96,6 +99,8 @@ func (r *EventRecorder) Event(
 		r.AttachedObjectType,
 		attachedObjectId,
 	); err != nil {
-		// return err
+		return fmt.Errorf("failed to ensure attached object reference exists: %w", err)
 	}
+
+	return nil
 }
