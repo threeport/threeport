@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	// "github.com/threeport/threeport/internal/events"
 )
 
 // ReconcilerConfig contains values needed to start new reconcilers in
@@ -81,8 +80,13 @@ type Reconciler struct {
 	// EncryptionKey is the key used to encrypt and decrypt sensitive fields.
 	EncryptionKey string
 
-	// EventRecorder is the event recorder used to record events.
-	// EventRecorder *events.EventRecorder
+	// EventsRecorder is the recorder used to record events.
+	EventsRecorder Recorder
+}
+
+// Recorder is an interface for recording events.
+type Recorder interface {
+	Event(string, string, string, string, *uint)
 }
 
 // PullMessage checks the queue for a message and returns it if there was a
