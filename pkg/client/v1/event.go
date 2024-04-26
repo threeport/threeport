@@ -1,12 +1,15 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/go-logr/logr"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -30,8 +33,8 @@ type EventRecorder struct {
 	AttachedObjectType string
 }
 
-// Event records a new event with the given information.
-func (r *EventRecorder) Event(
+// RecordEvent records a new event with the given information.
+func (r *EventRecorder) RecordEvent(
 	event *v0.Event,
 	attachedObjectId *uint,
 ) error {
@@ -97,17 +100,38 @@ func (r *EventRecorder) Event(
 	return nil
 }
 
-// // NewEvent creates a new event with the given information.
-// func NewEvent(
-// 	reason,
-// 	note,
-// 	eventType,
-// 	action string,
-// ) *v0.Event {
-// 	return &v0.Event{
-// 		Reason: reason,
-// 		Note:   note,
-// 		Type:   eventType,
-// 		Action: action,
-// 	}
-// }
+// HandleEvent records the specified event
+// unless the provided error is an ErrWithEvent,
+// in which case it records the event provided
+func (r *EventRecorder) HandleEventOverride(
+	reason,
+	note,
+	eventType,
+	action string,
+	attachedObjectId *uint,
+	err error,
+	log *logr.Logger,
+) {
+	var errWithEvent *tp_errors.ErrWithEvent
+	switch {
+	case errors.As(err, &errWithEvent):
+		if err := r.RecordEvent(
+			&errWithEvent.Event,
+			attachedObjectId,
+		); err != nil {
+			log.Error(err, "failed to record event")
+		}
+	default:
+		if err := r.RecordEvent(
+			&v0.Event{
+				Reason: reason,
+				Note:   note,
+				Type:   eventType,
+				Action: action,
+			},
+			attachedObjectId,
+		); err != nil {
+			log.Error(err, "failed to record event")
+		}
+	}
+}

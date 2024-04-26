@@ -5,6 +5,11 @@ package workload
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -12,10 +17,6 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 // WorkloadInstanceReconciler reconciles system state when a WorkloadInstance
@@ -137,7 +138,17 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := workloadInstanceCreated(r, &workloadInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created workload instance object")
+					note := "failed to reconcile created workload instance object"
+					log.Error(err, note)
+					r.EventsRecorder.HandleEventOverride(
+						"WorkloadInstanceCreateFailed",
+						note,
+						"Normal",
+						"Create",
+						workloadInstance.ID,
+						err,
+						r.Log,
+					)
 					r.UnlockAndRequeue(
 						&workloadInstance,
 						requeueDelay,
