@@ -200,15 +200,11 @@ func main() {
 			ShutdownWait:     &shutdownWait,
 			Sub:              sub,
 			EventsRecorder: &client_v1.EventRecorder{
-				APIClient:           apiClient,
 				APIServer:           *apiServer,
-				ReportingController: "WorkloadController",
+				APIClient:           apiClient,
 				ReportingInstance:   os.Getenv("HOSTNAME"),
-				AttachedObjectType: fmt.Sprintf(
-					"%s.%s",
-					"v1",
-					r.ObjectType,
-				),
+				ReportingController: "Workload",
+				AttachedObjectType:  r.ObjectType,
 			},
 		}
 

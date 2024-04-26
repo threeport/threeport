@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -38,24 +39,24 @@ func (r *EventRecorder) RecordEvent(
 	event *v0.Event,
 	attachedObjectId *uint,
 ) error {
+	query := url.QueryEscape(
+		fmt.Sprintf(
+			"reason=%s?note=%s?type=%s?action=%s",
+			*event.Reason,
+			*event.Note,
+			*event.Type,
+			*event.Action,
+		),
+	)
 	events, err := client_v0.GetEventsByQueryString(
 		r.APIClient,
 		r.APIServer,
-		fmt.Sprintf(
-			"reason=%s?note=%s?type=%s?action=%s",
-			event.Reason,
-			event.Note,
-			event.Type,
-			event.Action,
-		),
+		query,
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"failed to get events by query string reason=%s?note=%s?type=%s?action=%s: %w",
-			event.Reason,
-			event.Note,
-			event.Type,
-			event.Action,
+			"failed to get events by query string %s: %w",
+			query,
 			err,
 		)
 	}
@@ -64,37 +65,38 @@ func (r *EventRecorder) RecordEvent(
 	switch len(*events) {
 	case 0:
 
-		event.ReportingController = r.ReportingController
-		event.ReportingInstance = r.ReportingInstance
-		event.EventTime = time.Now()
-		event.LastObservedTime = time.Now()
-		event.Count = 1
+		event.ReportingController = &r.ReportingController
+		event.ReportingInstance = &r.ReportingInstance
+		event.EventTime = util.Ptr(time.Now())
+		event.LastObservedTime = util.Ptr(time.Now())
+		event.Count = util.Ptr(uint(1))
 		createdEvent, err = client_v0.CreateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
 			return fmt.Errorf("failed to create event: %w", err)
 		}
+
+		// TODO: decide on rules for edge direction
+		if err = EnsureAttachedObjectReferenceExists(
+			r.APIClient,
+			r.APIServer,
+			util.TypeName(v0.Event{}),
+			createdEvent.ID,
+			r.AttachedObjectType,
+			attachedObjectId,
+		); err != nil {
+			return fmt.Errorf("failed to ensure attached object reference exists: %w", err)
+		}
+
 	case 1:
 		event = &(*events)[0]
-		event.Count++
-		event.LastObservedTime = time.Now()
+		event.Count = util.Ptr(uint((*event.Count + 1)))
+		event.LastObservedTime = util.Ptr(time.Now())
 		_, err := client_v0.UpdateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
 			return fmt.Errorf("failed to update event: %w", err)
 		}
 	default:
 		return fmt.Errorf("unexpected number of events found: %d", len(*events))
-	}
-
-	// TODO: decide on rules for edge direction
-	if err = EnsureAttachedObjectReferenceExists(
-		r.APIClient,
-		r.APIServer,
-		util.TypeName(v0.Event{}),
-		createdEvent.ID,
-		r.AttachedObjectType,
-		attachedObjectId,
-	); err != nil {
-		return fmt.Errorf("failed to ensure attached object reference exists: %w", err)
 	}
 
 	return nil
@@ -124,10 +126,10 @@ func (r *EventRecorder) HandleEventOverride(
 	default:
 		if err := r.RecordEvent(
 			&v0.Event{
-				Reason: reason,
-				Note:   note,
-				Type:   eventType,
-				Action: action,
+				Reason: &reason,
+				Note:   &note,
+				Type:   &eventType,
+				Action: &action,
 			},
 			attachedObjectId,
 		); err != nil {
