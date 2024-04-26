@@ -138,16 +138,15 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := workloadInstanceCreated(r, &workloadInstance, &log)
 				if err != nil {
-					note := "failed to reconcile created workload instance object"
-					log.Error(err, note)
+					log.Error(err, "failed to reconcile created workload instance object")
 					r.EventsRecorder.HandleEventOverride(
-						"WorkloadInstanceCreateFailed",
-						note,
-						"Normal",
-						"Create",
+						"WorkloadInstanceNotCreated",
+						"Failed to reconcile created workload instance object",
+						"Warning",
+						"CreateWorkloadInstance",
 						workloadInstance.ID,
 						err,
-						r.Log,
+						&log,
 					)
 					r.UnlockAndRequeue(
 						&workloadInstance,
