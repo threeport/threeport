@@ -21,6 +21,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // workloadInstanceCreated performs reconciliation when a workload instance
@@ -34,10 +35,10 @@ func workloadInstanceCreated(
 	return 0, &tp_errors.ErrWithEvent{
 		Message: "workload instance not created",
 		Event: v0.Event{
-			Reason: "WorkloadInstanceNotCreated",
-			Note:   "Workload instance has not been created",
-			Type:   "Normal",
-			Action: "action",
+			Reason: util.Ptr("WorkloadInstanceNotCreated"),
+			Note:   util.Ptr("Workload instance has not been created"),
+			Type:   util.Ptr("Normal"),
+			Action: util.Ptr("action"),
 		},
 	}
 
