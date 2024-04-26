@@ -199,7 +199,17 @@ func main() {
 			Shutdown:         shutdownChan,
 			ShutdownWait:     &shutdownWait,
 			Sub:              sub,
-			EventsRecorder:   &client_v1.EventRecorder{},
+			EventsRecorder: &client_v1.EventRecorder{
+				APIClient:           apiClient,
+				APIServer:           *apiServer,
+				ReportingController: "WorkloadController",
+				ReportingInstance:   os.Getenv("HOSTNAME"),
+				AttachedObjectType: fmt.Sprintf(
+					"%s.%s",
+					"v1",
+					r.ObjectType,
+				),
+			},
 		}
 
 		// start reconciler

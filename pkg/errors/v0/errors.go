@@ -1,9 +1,10 @@
 package v0
 
 import (
-	"fmt"
+	"errors"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 )
 
 // ErrWithEvent is a non-recoverable error
@@ -20,25 +21,32 @@ func (e *ErrWithEvent) Error() string {
 	return e.Message
 }
 
-// NewErrWithEvent creates a new non-recoverable error
-func NewErrWithEvent(message string) *ErrWithEvent {
-	return &ErrWithEvent{
-		Message: fmt.Sprintf("Non-Recoverable - %s", message),
+// HandleErrWithEvent broadcasts the event that caused the error
+func HandleErrWithEvent(
+	recorder *client_v1.EventRecorder,
+	err error,
+	reason,
+	note,
+	eventType,
+	action string,
+	attachedObjectId *uint,
+) {
+	var errWithEvent *ErrWithEvent
+	switch {
+	case errors.As(err, &errWithEvent):
+		recorder.Event(
+			&errWithEvent.Event,
+			attachedObjectId,
+		)
+	default:
+		recorder.Event(
+			&v0.Event{
+				Reason: reason,
+				Note:   note,
+				Type:   eventType,
+				Action: action,
+			},
+			attachedObjectId,
+		)
 	}
 }
-
-// NewErrNonRecoverablef creates a new non-recoverable error
-func NewErrNonRecoverablef(format string, a ...any) *ErrWithEvent {
-	return NewErrWithEvent(fmt.Errorf(format, a...).Error())
-}
-
-// // BroadcastEvent broadcasts the event that caused the error
-// func BroadcastEvent(recorder *v1.EventRecorder, err error, reason string) {
-// 	var errWithEvent *ErrWithEvent
-// 	switch {
-// 	case errors.As(err, &errWithEvent):
-// 		recorder.Event(errWithEvent.Event)
-// 	default:
-// 		fmt.Printf("Broadcasting event: %s\n", errWithEvent.Event)
-// 	}
-// }
