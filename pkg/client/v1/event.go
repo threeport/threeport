@@ -13,6 +13,13 @@ import (
 // EventRecorder records events to the backend.
 type EventRecorder struct {
 
+	// APIClient is the HTTP client used to make requests to the Threeport API.
+	APIClient *http.Client
+
+	// APIServer is the endpoint to reach Threeport REST API.
+	// format: [protocol]://[hostname]:[port]
+	APIServer string
+
 	// Name of the controller that emitted this Event, e.g. `kubernetes.io/kubelet`.
 	ReportingController string
 
@@ -21,21 +28,11 @@ type EventRecorder struct {
 
 	// AttachedObjectType is the type of the object that this event is attached to.
 	AttachedObjectType string
-
-	// APIServer is the endpoint to reach Threeport REST API.
-	// format: [protocol]://[hostname]:[port]
-	APIServer string
-
-	// APIClient is the HTTP client used to make requests to the Threeport API.
-	APIClient *http.Client
 }
 
 // Event records a new event with the given information.
 func (r *EventRecorder) Event(
-	reason,
-	note,
-	eventType,
-	action string,
+	event *v0.Event,
 	attachedObjectId *uint,
 ) error {
 	events, err := client_v0.GetEventsByQueryString(
@@ -43,38 +40,33 @@ func (r *EventRecorder) Event(
 		r.APIServer,
 		fmt.Sprintf(
 			"reason=%s?note=%s?type=%s?action=%s",
-			reason,
-			note,
-			eventType,
-			action,
+			event.Reason,
+			event.Note,
+			event.Type,
+			event.Action,
 		),
 	)
 	if err != nil {
 		return fmt.Errorf(
 			"failed to get events by query string reason=%s?note=%s?type=%s?action=%s: %w",
-			reason,
-			note,
-			eventType,
-			action,
+			event.Reason,
+			event.Note,
+			event.Type,
+			event.Action,
 			err,
 		)
 	}
 
-	var event *v0.Event
+	var createdEvent *v0.Event
 	switch len(*events) {
 	case 0:
-		event = &v0.Event{
-			Reason:              reason,
-			Note:                note,
-			Count:               1,
-			Type:                eventType,
-			EventTime:           time.Now(),
-			LastObservedTime:    time.Now(),
-			Action:              action,
-			ReportingController: r.ReportingController,
-			ReportingInstance:   r.ReportingInstance,
-		}
-		event, err = client_v0.CreateEvent(r.APIClient, r.APIServer, event)
+
+		event.ReportingController = r.ReportingController
+		event.ReportingInstance = r.ReportingInstance
+		event.EventTime = time.Now()
+		event.LastObservedTime = time.Now()
+		event.Count = 1
+		createdEvent, err = client_v0.CreateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
 			return fmt.Errorf("failed to create event: %w", err)
 		}
@@ -95,7 +87,7 @@ func (r *EventRecorder) Event(
 		r.APIClient,
 		r.APIServer,
 		util.TypeName(v0.Event{}),
-		event.ID,
+		createdEvent.ID,
 		r.AttachedObjectType,
 		attachedObjectId,
 	); err != nil {
@@ -104,3 +96,18 @@ func (r *EventRecorder) Event(
 
 	return nil
 }
+
+// // NewEvent creates a new event with the given information.
+// func NewEvent(
+// 	reason,
+// 	note,
+// 	eventType,
+// 	action string,
+// ) *v0.Event {
+// 	return &v0.Event{
+// 		Reason: reason,
+// 		Note:   note,
+// 		Type:   eventType,
+// 		Action: action,
+// 	}
+// }
