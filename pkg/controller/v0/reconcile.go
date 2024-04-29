@@ -87,7 +87,7 @@ type Reconciler struct {
 // Recorder is an interface for recording events.
 type Recorder interface {
 	RecordEvent(*v0.Event, *uint) error
-	HandleEventOverride(string, string, string, string, *uint, error, *logr.Logger)
+	HandleEventOverride(*v0.Event, *uint, error, *logr.Logger)
 }
 
 // PullMessage checks the queue for a message and returns it if there was a
