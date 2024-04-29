@@ -226,11 +226,22 @@ func (cc *ControllerConfig) Reconcilers() error {
 									Op("&").Id("log"),
 								),
 								If(Err().Op("!=").Nil()).Block(
+									Id("errorMsg").Op(":=").Lit(fmt.Sprintf("failed to reconcile created %s object", strcase.ToDelimited(obj.Name, ' '))),
 									Id("log").Dot("Error").Call(
-										Err(), Lit(fmt.Sprintf(
-											"failed to reconcile created %s object",
-											strcase.ToDelimited(obj.Name, ' '),
-										)),
+										Err(), Id("errorMsg"),
+									),
+									Id("r").Dot("EventsRecorder").Dot("HandleEventOverride").Call(
+										Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
+											Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+												Lit(fmt.Sprintf("%sNotCreated", obj.Name)),
+											),
+											Id("Note"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Id("errorMsg")),
+											Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit("Normal")),
+										}),
+										Line().Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
+										Line().Id("err"),
+										Line().Op("&").Id("log"),
+										Line(),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
@@ -268,11 +279,22 @@ func (cc *ControllerConfig) Reconcilers() error {
 									Op("&").Id("log"),
 								),
 								If(Err().Op("!=").Nil()).Block(
+									Id("errorMsg").Op(":=").Lit(fmt.Sprintf("failed to reconcile updated %s object", strcase.ToDelimited(obj.Name, ' '))),
 									Id("log").Dot("Error").Call(
-										Err(), Lit(fmt.Sprintf(
-											"failed to reconcile updated %s object",
-											strcase.ToDelimited(obj.Name, ' '),
-										)),
+										Err(), Id("errorMsg"),
+									),
+									Id("r").Dot("EventsRecorder").Dot("HandleEventOverride").Call(
+										Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
+											Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+												Lit(fmt.Sprintf("%sNotUpdated", obj.Name)),
+											),
+											Id("Note"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Id("errorMsg")),
+											Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit("Normal")),
+										}),
+										Line().Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
+										Line().Id("err"),
+										Line().Op("&").Id("log"),
+										Line(),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
@@ -310,11 +332,22 @@ func (cc *ControllerConfig) Reconcilers() error {
 									Op("&").Id("log"),
 								),
 								If(Err().Op("!=").Nil()).Block(
+									Id("errorMsg").Op(":=").Lit(fmt.Sprintf("failed to reconcile deleted %s object", strcase.ToDelimited(obj.Name, ' '))),
 									Id("log").Dot("Error").Call(
-										Err(), Lit(fmt.Sprintf(
-											"failed to reconcile deleted %s object",
-											strcase.ToDelimited(obj.Name, ' '),
-										)),
+										Err(), Id("errorMsg"),
+									),
+									Id("r").Dot("EventsRecorder").Dot("HandleEventOverride").Call(
+										Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
+											Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+												Lit(fmt.Sprintf("%sNotUpdated", obj.Name)),
+											),
+											Id("Note"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Id("errorMsg")),
+											Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit("Normal")),
+										}),
+										Line().Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
+										Line().Id("err"),
+										Line().Op("&").Id("log"),
+										Line(),
 									),
 									Id("r").Dot("UnlockAndRequeue").Call(
 										Line().Op("&").Id(strcase.ToLowerCamel(obj.Name)),
@@ -513,17 +546,35 @@ func (cc *ControllerConfig) Reconcilers() error {
 							))),
 						)
 						g.Line()
-
+						g.Id("successMsg").Op(":=").Lit(
+							fmt.Sprintf(
+								"%s successfully reconciled for %%s operation",
+								strcase.ToDelimited(obj.Name, ' '),
+							),
+						)
 						g.Id("log").Dot("Info").Call(
 							Qual("fmt", "Sprintf").Call(
-								Line().Lit(fmt.Sprintf(
-									"%s successfully reconciled for %%s operation",
-									strcase.ToDelimited(obj.Name, ' '),
-								)),
+								Line().Id("successMsg"),
 								Line().Id("notif").Dot("Operation"),
 								Line(),
 							),
 						)
+						g.If(Id("err").Op(":=").Id("r").Dot("EventsRecorder").Dot("RecordEvent").Call(
+							Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
+								Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+									Lit(fmt.Sprintf("%sSuccessfullyReconciled", obj.Name)),
+								),
+								Id("Note"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Id("successMsg")),
+								Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit("Normal")),
+							}),
+							Line().Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
+							Line(),
+						).Op(";").Id("err").Op("!=").Nil().Block(
+							Id("log").Dot("Error").Call(
+								Err(),
+								Lit(fmt.Sprintf("failed to record event for successful %s reconciliation", strcase.ToDelimited(obj.Name, ' '))),
+							),
+						))
 					}),
 				),
 			),

@@ -135,7 +135,18 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := controlPlaneInstanceCreated(r, &controlPlaneInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created control plane instance object")
+					errorMsg := "failed to reconcile created control plane instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ControlPlaneInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						controlPlaneInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&controlPlaneInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := controlPlaneInstanceUpdated(r, &controlPlaneInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated control plane instance object")
+					errorMsg := "failed to reconcile updated control plane instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ControlPlaneInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						controlPlaneInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&controlPlaneInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := controlPlaneInstanceDeleted(r, &controlPlaneInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted control plane instance object")
+					errorMsg := "failed to reconcile deleted control plane instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ControlPlaneInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						controlPlaneInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&controlPlaneInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("control plane instance unlocked")
 			}
 
+			successMsg := "control plane instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"control plane instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("ControlPlaneInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				controlPlaneInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful control plane instance reconciliation")
+			}
 		}
 	}
 

@@ -135,7 +135,18 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := metricsDefinitionCreated(r, &metricsDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created metrics definition object")
+					errorMsg := "failed to reconcile created metrics definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("MetricsDefinitionNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						metricsDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&metricsDefinition,
 						requeueDelay,
@@ -157,7 +168,18 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := metricsDefinitionUpdated(r, &metricsDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated metrics definition object")
+					errorMsg := "failed to reconcile updated metrics definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("MetricsDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						metricsDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&metricsDefinition,
 						requeueDelay,
@@ -179,7 +201,18 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := metricsDefinitionDeleted(r, &metricsDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted metrics definition object")
+					errorMsg := "failed to reconcile deleted metrics definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("MetricsDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						metricsDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&metricsDefinition,
 						requeueDelay,
@@ -276,10 +309,21 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("metrics definition unlocked")
 			}
 
+			successMsg := "metrics definition successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"metrics definition successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("MetricsDefinitionSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				metricsDefinition.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful metrics definition reconciliation")
+			}
 		}
 	}
 

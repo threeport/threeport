@@ -135,7 +135,18 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := metricsInstanceCreated(r, &metricsInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created metrics instance object")
+					errorMsg := "failed to reconcile created metrics instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("MetricsInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						metricsInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&metricsInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := metricsInstanceUpdated(r, &metricsInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated metrics instance object")
+					errorMsg := "failed to reconcile updated metrics instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("MetricsInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						metricsInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&metricsInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := metricsInstanceDeleted(r, &metricsInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted metrics instance object")
+					errorMsg := "failed to reconcile deleted metrics instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("MetricsInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						metricsInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&metricsInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("metrics instance unlocked")
 			}
 
+			successMsg := "metrics instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"metrics instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("MetricsInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				metricsInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful metrics instance reconciliation")
+			}
 		}
 	}
 

@@ -135,7 +135,18 @@ func HelmWorkloadInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := helmWorkloadInstanceCreated(r, &helmWorkloadInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created helm workload instance object")
+					errorMsg := "failed to reconcile created helm workload instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("HelmWorkloadInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						helmWorkloadInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&helmWorkloadInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func HelmWorkloadInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := helmWorkloadInstanceUpdated(r, &helmWorkloadInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated helm workload instance object")
+					errorMsg := "failed to reconcile updated helm workload instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("HelmWorkloadInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						helmWorkloadInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&helmWorkloadInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func HelmWorkloadInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := helmWorkloadInstanceDeleted(r, &helmWorkloadInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted helm workload instance object")
+					errorMsg := "failed to reconcile deleted helm workload instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("HelmWorkloadInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						helmWorkloadInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&helmWorkloadInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func HelmWorkloadInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("helm workload instance unlocked")
 			}
 
+			successMsg := "helm workload instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"helm workload instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("HelmWorkloadInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				helmWorkloadInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful helm workload instance reconciliation")
+			}
 		}
 	}
 

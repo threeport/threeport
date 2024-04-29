@@ -135,7 +135,18 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := observabilityDashboardInstanceCreated(r, &observabilityDashboardInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created observability dashboard instance object")
+					errorMsg := "failed to reconcile created observability dashboard instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ObservabilityDashboardInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						observabilityDashboardInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&observabilityDashboardInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := observabilityDashboardInstanceUpdated(r, &observabilityDashboardInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated observability dashboard instance object")
+					errorMsg := "failed to reconcile updated observability dashboard instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ObservabilityDashboardInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						observabilityDashboardInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&observabilityDashboardInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := observabilityDashboardInstanceDeleted(r, &observabilityDashboardInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted observability dashboard instance object")
+					errorMsg := "failed to reconcile deleted observability dashboard instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ObservabilityDashboardInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						observabilityDashboardInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&observabilityDashboardInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("observability dashboard instance unlocked")
 			}
 
+			successMsg := "observability dashboard instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"observability dashboard instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("ObservabilityDashboardInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				observabilityDashboardInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful observability dashboard instance reconciliation")
+			}
 		}
 	}
 

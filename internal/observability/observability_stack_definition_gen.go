@@ -135,7 +135,18 @@ func ObservabilityStackDefinitionReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := observabilityStackDefinitionCreated(r, &observabilityStackDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created observability stack definition object")
+					errorMsg := "failed to reconcile created observability stack definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ObservabilityStackDefinitionNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						observabilityStackDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&observabilityStackDefinition,
 						requeueDelay,
@@ -157,7 +168,18 @@ func ObservabilityStackDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := observabilityStackDefinitionUpdated(r, &observabilityStackDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated observability stack definition object")
+					errorMsg := "failed to reconcile updated observability stack definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ObservabilityStackDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						observabilityStackDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&observabilityStackDefinition,
 						requeueDelay,
@@ -179,7 +201,18 @@ func ObservabilityStackDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := observabilityStackDefinitionDeleted(r, &observabilityStackDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted observability stack definition object")
+					errorMsg := "failed to reconcile deleted observability stack definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ObservabilityStackDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						observabilityStackDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&observabilityStackDefinition,
 						requeueDelay,
@@ -276,10 +309,21 @@ func ObservabilityStackDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("observability stack definition unlocked")
 			}
 
+			successMsg := "observability stack definition successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"observability stack definition successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("ObservabilityStackDefinitionSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				observabilityStackDefinition.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful observability stack definition reconciliation")
+			}
 		}
 	}
 

@@ -135,7 +135,18 @@ func LoggingInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := loggingInstanceCreated(r, &loggingInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created logging instance object")
+					errorMsg := "failed to reconcile created logging instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("LoggingInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						loggingInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&loggingInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func LoggingInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := loggingInstanceUpdated(r, &loggingInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated logging instance object")
+					errorMsg := "failed to reconcile updated logging instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("LoggingInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						loggingInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&loggingInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func LoggingInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := loggingInstanceDeleted(r, &loggingInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted logging instance object")
+					errorMsg := "failed to reconcile deleted logging instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("LoggingInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						loggingInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&loggingInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func LoggingInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("logging instance unlocked")
 			}
 
+			successMsg := "logging instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"logging instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("LoggingInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				loggingInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful logging instance reconciliation")
+			}
 		}
 	}
 

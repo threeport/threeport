@@ -135,7 +135,18 @@ func ObservabilityDashboardDefinitionReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := observabilityDashboardDefinitionCreated(r, &observabilityDashboardDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created observability dashboard definition object")
+					errorMsg := "failed to reconcile created observability dashboard definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ObservabilityDashboardDefinitionNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						observabilityDashboardDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&observabilityDashboardDefinition,
 						requeueDelay,
@@ -157,7 +168,18 @@ func ObservabilityDashboardDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := observabilityDashboardDefinitionUpdated(r, &observabilityDashboardDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated observability dashboard definition object")
+					errorMsg := "failed to reconcile updated observability dashboard definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ObservabilityDashboardDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						observabilityDashboardDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&observabilityDashboardDefinition,
 						requeueDelay,
@@ -179,7 +201,18 @@ func ObservabilityDashboardDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := observabilityDashboardDefinitionDeleted(r, &observabilityDashboardDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted observability dashboard definition object")
+					errorMsg := "failed to reconcile deleted observability dashboard definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ObservabilityDashboardDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						observabilityDashboardDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&observabilityDashboardDefinition,
 						requeueDelay,
@@ -276,10 +309,21 @@ func ObservabilityDashboardDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("observability dashboard definition unlocked")
 			}
 
+			successMsg := "observability dashboard definition successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"observability dashboard definition successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("ObservabilityDashboardDefinitionSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				observabilityDashboardDefinition.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful observability dashboard definition reconciliation")
+			}
 		}
 	}
 

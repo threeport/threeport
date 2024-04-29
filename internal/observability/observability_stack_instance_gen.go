@@ -135,7 +135,18 @@ func ObservabilityStackInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := observabilityStackInstanceCreated(r, &observabilityStackInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created observability stack instance object")
+					errorMsg := "failed to reconcile created observability stack instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ObservabilityStackInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						observabilityStackInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&observabilityStackInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func ObservabilityStackInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := observabilityStackInstanceUpdated(r, &observabilityStackInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated observability stack instance object")
+					errorMsg := "failed to reconcile updated observability stack instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ObservabilityStackInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						observabilityStackInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&observabilityStackInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func ObservabilityStackInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := observabilityStackInstanceDeleted(r, &observabilityStackInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted observability stack instance object")
+					errorMsg := "failed to reconcile deleted observability stack instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ObservabilityStackInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						observabilityStackInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&observabilityStackInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func ObservabilityStackInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("observability stack instance unlocked")
 			}
 
+			successMsg := "observability stack instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"observability stack instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("ObservabilityStackInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				observabilityStackInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful observability stack instance reconciliation")
+			}
 		}
 	}
 
