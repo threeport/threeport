@@ -351,6 +351,7 @@ func DeleteServiceAccount(
 // CreateResourceManagerRole creates the IAM role needed for resource
 // management.
 func CreateResourceManagerRole(
+	namespace string,
 	tags *[]types.Tag,
 	roleName,
 	accountId,
@@ -360,6 +361,7 @@ func CreateResourceManagerRole(
 	attachAssumeAnyRolePolicy bool,
 	attachResourceManagerPolicy bool,
 	awsConfig aws.Config,
+	additionalIrsaConditions []string,
 ) (*types.Role, error) {
 	svc := iam.NewFromConfig(awsConfig)
 
@@ -369,7 +371,7 @@ func CreateResourceManagerRole(
 	}
 
 	// create trust policy document
-	resourceManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument(principalRoleName, accountId, externalAccountId, externalId, "")
+	resourceManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument(namespace, principalRoleName, accountId, externalAccountId, externalId, "", additionalIrsaConditions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role trust policy document: %w", err)
 	}
@@ -431,13 +433,13 @@ func AttachPolicy(document, roleName, policyName string, svc *iam.Client) error 
 
 // UpdateResourceManagerRoleTrustPolicy updates the IAM role needed for resource
 // management.
-func UpdateResourceManagerRoleTrustPolicy(clusterName, accountId, externalId, oidcProviderUrl string, awsConfig aws.Config) error {
+func UpdateResourceManagerRoleTrustPolicy(namespace, clusterName, accountId, externalId, oidcProviderUrl string, awsConfig aws.Config, additionalIrsaConditions []string) error {
 	svc := iam.NewFromConfig(awsConfig)
 
 	resourceManagerRoleName := GetResourceManagerRoleName(clusterName)
 
 	// update trust policy document
-	runtimeManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument("", accountId, "", externalId, oidcProviderUrl)
+	runtimeManagerTrustPolicyDocument, err := getResourceManagerTrustPolicyDocument(namespace, "", accountId, "", externalId, oidcProviderUrl, additionalIrsaConditions)
 	if err != nil {
 		return fmt.Errorf("failed to get role trust policy document: %w", err)
 	}
@@ -541,7 +543,7 @@ func getAllowAccountAccessStatement(identityService, accountId, accountEntity st
 
 // getResourceManagerTrustPolicyDocument returns the trust policy document for the
 // runtime manager role.
-func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, externalAccountId, externalId, oidcProviderUrl string) (string, error) {
+func getResourceManagerTrustPolicyDocument(namespace, externalRoleName, accountId, externalAccountId, externalId, oidcProviderUrl string, additionalIrsaConditions []string) (string, error) {
 
 	statements := []interface{}{}
 
@@ -591,8 +593,12 @@ func getResourceManagerTrustPolicyDocument(externalRoleName, accountId, external
 		// build list of valid condition values
 		conditionValues := []interface{}{}
 		for _, serviceAccount := range IrsaControllerNames() {
-			conditionValue := "system:serviceaccount:" + threeport.ControlPlaneNamespace + ":" + serviceAccount
+			conditionValue := "system:serviceaccount:" + namespace + ":" + serviceAccount
 			conditionValues = append(conditionValues, conditionValue)
+		}
+
+		for _, ic := range additionalIrsaConditions {
+			conditionValues = append(conditionValues, ic)
 		}
 
 		// construct statement for allowing a kubernetes service account
@@ -822,7 +828,8 @@ const (
 					"iam:UntagRole",
 					"iam:ListAttachedRolePolicies",
 					"iam:CreateServiceLinkedRole",
-					"iam:TagPolicy"
+					"iam:TagPolicy",
+					"iam:UpdateAssumeRolePolicy"
 				],
 				"Resource": "*"
 			},

@@ -342,6 +342,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			// create IAM role for resource management
 			resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
 			_, err = provider.CreateResourceManagerRole(
+				cpi.Opts.Namespace,
 				builder_iam.CreateIamTags(
 					cpi.Opts.Name,
 					map[string]string{},
@@ -354,6 +355,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				true,
 				true,
 				awsConfigUser,
+				cpi.Opts.AdditionalAwsIrsaConditions,
 			)
 			if err != nil {
 				deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, awsConfigUser)
@@ -539,11 +541,13 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return uninstaller.cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err)
 		}
 		if err = provider.UpdateResourceManagerRoleTrustPolicy(
+			cpi.Opts.Namespace,
 			cpi.Opts.ControlPlaneName,
 			*callerIdentity.Account,
 			"",
 			inventory.Cluster.OidcProviderUrl,
 			awsConfigUser,
+			cpi.Opts.AdditionalAwsIrsaConditions,
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to update resource manager role", err)
 		}

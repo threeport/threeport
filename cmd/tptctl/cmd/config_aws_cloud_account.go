@@ -20,6 +20,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
 var awsAccountName string
@@ -113,6 +114,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 
 		// create resource manager role
 		role, err := provider.CreateResourceManagerRole(
+			threeport.ControlPlaneNamespace,
 			builder_iam.CreateIamTags(
 				requestedControlPlane,
 				map[string]string{},
@@ -125,6 +127,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			true,
 			true,
 			*awsConf,
+			make([]string, 0),
 		)
 		if err != nil {
 			cli.Error("failed to create role", err)
