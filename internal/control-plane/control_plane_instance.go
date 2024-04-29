@@ -2,11 +2,13 @@ package controlplane
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
+	aws_iam "github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-logr/logr"
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
@@ -168,27 +170,57 @@ func controlPlaneInstanceCreated(
 		}
 	}
 
+	for _, c := range componentMap {
+		c.ImageRepo = "hqleet"
+		c.ImageTag = "latest"
+	}
+
+	cpi.Opts.DatabaseMigratorInfo.ImageRepo = "hqleet"
+	cpi.Opts.DatabaseMigratorInfo.ImageTag = "latest"
+
 	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
 
 	// perform provider specific configuration
 	var callerIdentity *sts.GetCallerIdentityOutput
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		// create AWS config
-		awsConf, err := builder_config.LoadAWSConfig(false, "", "", "", "", "")
+		resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(r.APIClient, r.APIServer, controlPlaneRuntimeInstance.KubernetesRuntimeInstanceID)
 		if err != nil {
-			return 0, fmt.Errorf("failed to load AWS configuration with local config: %w", err)
+			return 0, fmt.Errorf("failed to get resource inventory: %w", err)
 		}
-		awsConfigResourceManager := *awsConf
+
+		// get awsKubernetesRuntimeDef
+		awsKubernetesRuntimeDef, err := client.GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef(r.APIClient, r.APIServer, *kubernetesRuntimeDefinition.ID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get aws eks kubernetes runtime definition: %w", err)
+		}
+
+		// get AWS config
+		awsAccount, err := client.GetAwsAccountByID(r.APIClient, r.APIServer, *awsKubernetesRuntimeDef.AwsAccountID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get awsAccount: %w", err)
+		}
+
+		// Get region
+		awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(r.APIClient, r.APIServer, *kubernetesRuntimeInstance.ID)
+		if err != nil {
+			return 0, fmt.Errorf("could not get awk eks kubernetes runtime instance: %w", err)
+		}
+
+		awsConfig, err := kube.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
+		if err != nil {
+			return 0, fmt.Errorf("could not get aws config from aws account: %w", err)
+		}
 
 		// get account ID
-		if callerIdentity, err = provider.GetCallerIdentity(awsConf); err != nil {
+		if callerIdentity, err = provider.GetCallerIdentity(awsConfig); err != nil {
 			return 0, fmt.Errorf("failed to get caller identity: %w", err)
 		}
 
 		// create resource manager role
 		resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
 		_, err = provider.CreateResourceManagerRole(
+			cpi.Opts.Namespace,
 			iam.CreateIamTags(
 				cpi.Opts.ControlPlaneName,
 				map[string]string{},
@@ -199,11 +231,44 @@ func controlPlaneInstanceCreated(
 			"",
 			"",
 			true,
-			false, // don't attach internal resource manager policy
-			awsConfigResourceManager,
+			false, // don't attach internal resource manager policy, sectrity concern expand comment
+			*awsConfig,
+			cpi.Opts.AdditionalAwsIrsaConditions,
 		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to create runtime manager role: %w", err)
+		}
+
+		fmt.Println("Waiting for IAM role to become available...")
+		if err = util.Retry(30, 1, func() error {
+			svcIam := aws_iam.NewFromConfig(*awsConfig)
+			if _, err = svcIam.GetRole(
+				context.Background(),
+				&aws_iam.GetRoleInput{
+					RoleName: &resourceManagerRoleName,
+				},
+			); err != nil {
+				return fmt.Errorf("failed to retrieve role for ready check")
+			}
+			// wait 5 seconds to allow IAM resources to become available
+			time.Sleep(time.Second * 5)
+
+			fmt.Println("IAM resources created")
+			return nil
+		}); err != nil {
+			return 0, fmt.Errorf("failed to wait for IAM resources to be available: %w", err)
+		}
+
+		if err = provider.UpdateResourceManagerRoleTrustPolicy(
+			cpi.Opts.Namespace,
+			cpi.Opts.ControlPlaneName,
+			*callerIdentity.Account,
+			"",
+			resourceInventory.Cluster.OidcProviderUrl,
+			*awsConfig,
+			cpi.Opts.AdditionalAwsIrsaConditions,
+		); err != nil {
+			return 0, fmt.Errorf("failed to update resource manager role", err)
 		}
 
 	}
