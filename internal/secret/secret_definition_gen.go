@@ -113,7 +113,18 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := secretDefinitionCreated(r, &secretDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created secret definition object")
+					errorMsg := "failed to reconcile created secret definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("SecretDefinitionNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						secretDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&secretDefinition,
 						requeueDelay,
@@ -135,7 +146,18 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := secretDefinitionUpdated(r, &secretDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated secret definition object")
+					errorMsg := "failed to reconcile updated secret definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("SecretDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						secretDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&secretDefinition,
 						requeueDelay,
@@ -157,7 +179,18 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := secretDefinitionDeleted(r, &secretDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted secret definition object")
+					errorMsg := "failed to reconcile deleted secret definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("SecretDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						secretDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&secretDefinition,
 						requeueDelay,
@@ -254,10 +287,21 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("secret definition unlocked")
 			}
 
+			successMsg := "secret definition successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"secret definition successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("SecretDefinitionSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				secretDefinition.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful secret definition reconciliation")
+			}
 		}
 	}
 

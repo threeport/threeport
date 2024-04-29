@@ -135,7 +135,18 @@ func ControlPlaneDefinitionReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := controlPlaneDefinitionCreated(r, &controlPlaneDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created control plane definition object")
+					errorMsg := "failed to reconcile created control plane definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ControlPlaneDefinitionNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						controlPlaneDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&controlPlaneDefinition,
 						requeueDelay,
@@ -157,7 +168,18 @@ func ControlPlaneDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := controlPlaneDefinitionUpdated(r, &controlPlaneDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated control plane definition object")
+					errorMsg := "failed to reconcile updated control plane definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ControlPlaneDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						controlPlaneDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&controlPlaneDefinition,
 						requeueDelay,
@@ -179,7 +201,18 @@ func ControlPlaneDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := controlPlaneDefinitionDeleted(r, &controlPlaneDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted control plane definition object")
+					errorMsg := "failed to reconcile deleted control plane definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("ControlPlaneDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						controlPlaneDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&controlPlaneDefinition,
 						requeueDelay,
@@ -276,10 +309,21 @@ func ControlPlaneDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("control plane definition unlocked")
 			}
 
+			successMsg := "control plane definition successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"control plane definition successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("ControlPlaneDefinitionSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				controlPlaneDefinition.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful control plane definition reconciliation")
+			}
 		}
 	}
 

@@ -135,7 +135,18 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := awsObjectStorageBucketInstanceCreated(r, &awsObjectStorageBucketInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created aws object storage bucket instance object")
+					errorMsg := "failed to reconcile created aws object storage bucket instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("AwsObjectStorageBucketInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						awsObjectStorageBucketInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&awsObjectStorageBucketInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := awsObjectStorageBucketInstanceUpdated(r, &awsObjectStorageBucketInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated aws object storage bucket instance object")
+					errorMsg := "failed to reconcile updated aws object storage bucket instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("AwsObjectStorageBucketInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						awsObjectStorageBucketInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&awsObjectStorageBucketInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := awsObjectStorageBucketInstanceDeleted(r, &awsObjectStorageBucketInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted aws object storage bucket instance object")
+					errorMsg := "failed to reconcile deleted aws object storage bucket instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("AwsObjectStorageBucketInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						awsObjectStorageBucketInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&awsObjectStorageBucketInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("aws object storage bucket instance unlocked")
 			}
 
+			successMsg := "aws object storage bucket instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"aws object storage bucket instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("AwsObjectStorageBucketInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				awsObjectStorageBucketInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful aws object storage bucket instance reconciliation")
+			}
 		}
 	}
 

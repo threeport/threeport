@@ -135,7 +135,18 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := awsRelationalDatabaseInstanceCreated(r, &awsRelationalDatabaseInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created aws relational database instance object")
+					errorMsg := "failed to reconcile created aws relational database instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("AwsRelationalDatabaseInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						awsRelationalDatabaseInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&awsRelationalDatabaseInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := awsRelationalDatabaseInstanceUpdated(r, &awsRelationalDatabaseInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated aws relational database instance object")
+					errorMsg := "failed to reconcile updated aws relational database instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("AwsRelationalDatabaseInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						awsRelationalDatabaseInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&awsRelationalDatabaseInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := awsRelationalDatabaseInstanceDeleted(r, &awsRelationalDatabaseInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted aws relational database instance object")
+					errorMsg := "failed to reconcile deleted aws relational database instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("AwsRelationalDatabaseInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						awsRelationalDatabaseInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&awsRelationalDatabaseInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("aws relational database instance unlocked")
 			}
 
+			successMsg := "aws relational database instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"aws relational database instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("AwsRelationalDatabaseInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				awsRelationalDatabaseInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful aws relational database instance reconciliation")
+			}
 		}
 	}
 

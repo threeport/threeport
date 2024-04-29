@@ -135,7 +135,18 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := secretInstanceCreated(r, &secretInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created secret instance object")
+					errorMsg := "failed to reconcile created secret instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("SecretInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						secretInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&secretInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := secretInstanceUpdated(r, &secretInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated secret instance object")
+					errorMsg := "failed to reconcile updated secret instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("SecretInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						secretInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&secretInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := secretInstanceDeleted(r, &secretInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted secret instance object")
+					errorMsg := "failed to reconcile deleted secret instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("SecretInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						secretInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&secretInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("secret instance unlocked")
 			}
 
+			successMsg := "secret instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"secret instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("SecretInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				secretInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful secret instance reconciliation")
+			}
 		}
 	}
 

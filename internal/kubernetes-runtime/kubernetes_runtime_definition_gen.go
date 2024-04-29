@@ -135,7 +135,18 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := kubernetesRuntimeDefinitionCreated(r, &kubernetesRuntimeDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created kubernetes runtime definition object")
+					errorMsg := "failed to reconcile created kubernetes runtime definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("KubernetesRuntimeDefinitionNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						kubernetesRuntimeDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&kubernetesRuntimeDefinition,
 						requeueDelay,
@@ -157,7 +168,18 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := kubernetesRuntimeDefinitionUpdated(r, &kubernetesRuntimeDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated kubernetes runtime definition object")
+					errorMsg := "failed to reconcile updated kubernetes runtime definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("KubernetesRuntimeDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						kubernetesRuntimeDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&kubernetesRuntimeDefinition,
 						requeueDelay,
@@ -179,7 +201,18 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := kubernetesRuntimeDefinitionDeleted(r, &kubernetesRuntimeDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted kubernetes runtime definition object")
+					errorMsg := "failed to reconcile deleted kubernetes runtime definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("KubernetesRuntimeDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						kubernetesRuntimeDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&kubernetesRuntimeDefinition,
 						requeueDelay,
@@ -276,10 +309,21 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("kubernetes runtime definition unlocked")
 			}
 
+			successMsg := "kubernetes runtime definition successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"kubernetes runtime definition successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("KubernetesRuntimeDefinitionSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				kubernetesRuntimeDefinition.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful kubernetes runtime definition reconciliation")
+			}
 		}
 	}
 

@@ -135,7 +135,18 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := domainNameInstanceCreated(r, &domainNameInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created domain name instance object")
+					errorMsg := "failed to reconcile created domain name instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("DomainNameInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						domainNameInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&domainNameInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := domainNameInstanceUpdated(r, &domainNameInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated domain name instance object")
+					errorMsg := "failed to reconcile updated domain name instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("DomainNameInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						domainNameInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&domainNameInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := domainNameInstanceDeleted(r, &domainNameInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted domain name instance object")
+					errorMsg := "failed to reconcile deleted domain name instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("DomainNameInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						domainNameInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&domainNameInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("domain name instance unlocked")
 			}
 
+			successMsg := "domain name instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"domain name instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("DomainNameInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				domainNameInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful domain name instance reconciliation")
+			}
 		}
 	}
 

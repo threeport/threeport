@@ -135,7 +135,18 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := workloadDefinitionCreated(r, &workloadDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created workload definition object")
+					errorMsg := "failed to reconcile created workload definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("WorkloadDefinitionNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						workloadDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&workloadDefinition,
 						requeueDelay,
@@ -157,7 +168,18 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := workloadDefinitionUpdated(r, &workloadDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated workload definition object")
+					errorMsg := "failed to reconcile updated workload definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("WorkloadDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						workloadDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&workloadDefinition,
 						requeueDelay,
@@ -179,7 +201,18 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := workloadDefinitionDeleted(r, &workloadDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted workload definition object")
+					errorMsg := "failed to reconcile deleted workload definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("WorkloadDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						workloadDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&workloadDefinition,
 						requeueDelay,
@@ -276,10 +309,21 @@ func WorkloadDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("workload definition unlocked")
 			}
 
+			successMsg := "workload definition successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"workload definition successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("WorkloadDefinitionSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				workloadDefinition.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful workload definition reconciliation")
+			}
 		}
 	}
 

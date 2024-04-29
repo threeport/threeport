@@ -6,11 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"os"
-	"sync"
-	"time"
-
 	logr "github.com/go-logr/logr"
 	zapr "github.com/go-logr/zapr"
 	uuid "github.com/google/uuid"
@@ -21,9 +16,12 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	zap "go.uber.org/zap"
+	"net/http"
+	"os"
+	"sync"
+	"time"
 )
 
 func main() {
@@ -199,13 +197,6 @@ func main() {
 			Shutdown:         shutdownChan,
 			ShutdownWait:     &shutdownWait,
 			Sub:              sub,
-			EventsRecorder: &client_v1.EventRecorder{
-				APIServer:           *apiServer,
-				APIClient:           apiClient,
-				ReportingInstance:   os.Getenv("HOSTNAME"),
-				ReportingController: "Workload",
-				AttachedObjectType:  r.ObjectType,
-			},
 		}
 
 		// start reconciler
