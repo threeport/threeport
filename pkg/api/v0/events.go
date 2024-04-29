@@ -29,7 +29,7 @@ type Event struct {
 	// Series *EventSeries `validate:"optional"`
 
 	// What action was taken/failed regarding to the Regarding object.
-	Action *string `validate:"required"`
+	Action *string `validate:"optional"`
 
 	// Name of the controller that emitted this Event, e.g. `kubernetes.io/kubelet`.
 	ReportingController *string `validate:"required"`
