@@ -135,7 +135,18 @@ func TerraformInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := terraformInstanceCreated(r, &terraformInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created terraform instance object")
+					errorMsg := "failed to reconcile created terraform instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("TerraformInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						terraformInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&terraformInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func TerraformInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := terraformInstanceUpdated(r, &terraformInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated terraform instance object")
+					errorMsg := "failed to reconcile updated terraform instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("TerraformInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						terraformInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&terraformInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func TerraformInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := terraformInstanceDeleted(r, &terraformInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted terraform instance object")
+					errorMsg := "failed to reconcile deleted terraform instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("TerraformInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						terraformInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&terraformInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func TerraformInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("terraform instance unlocked")
 			}
 
+			successMsg := "terraform instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"terraform instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("TerraformInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				terraformInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful terraform instance reconciliation")
+			}
 		}
 	}
 

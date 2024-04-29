@@ -135,7 +135,18 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := loggingDefinitionCreated(r, &loggingDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created logging definition object")
+					errorMsg := "failed to reconcile created logging definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("LoggingDefinitionNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						loggingDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&loggingDefinition,
 						requeueDelay,
@@ -157,7 +168,18 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := loggingDefinitionUpdated(r, &loggingDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated logging definition object")
+					errorMsg := "failed to reconcile updated logging definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("LoggingDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						loggingDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&loggingDefinition,
 						requeueDelay,
@@ -179,7 +201,18 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := loggingDefinitionDeleted(r, &loggingDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted logging definition object")
+					errorMsg := "failed to reconcile deleted logging definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("LoggingDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						loggingDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&loggingDefinition,
 						requeueDelay,
@@ -276,10 +309,21 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("logging definition unlocked")
 			}
 
+			successMsg := "logging definition successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"logging definition successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("LoggingDefinitionSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				loggingDefinition.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful logging definition reconciliation")
+			}
 		}
 	}
 

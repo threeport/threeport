@@ -135,7 +135,18 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := gatewayDefinitionCreated(r, &gatewayDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created gateway definition object")
+					errorMsg := "failed to reconcile created gateway definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("GatewayDefinitionNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						gatewayDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&gatewayDefinition,
 						requeueDelay,
@@ -157,7 +168,18 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := gatewayDefinitionUpdated(r, &gatewayDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated gateway definition object")
+					errorMsg := "failed to reconcile updated gateway definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("GatewayDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						gatewayDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&gatewayDefinition,
 						requeueDelay,
@@ -179,7 +201,18 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := gatewayDefinitionDeleted(r, &gatewayDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted gateway definition object")
+					errorMsg := "failed to reconcile deleted gateway definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("GatewayDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						gatewayDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&gatewayDefinition,
 						requeueDelay,
@@ -276,10 +309,21 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("gateway definition unlocked")
 			}
 
+			successMsg := "gateway definition successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"gateway definition successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("GatewayDefinitionSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				gatewayDefinition.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful gateway definition reconciliation")
+			}
 		}
 	}
 

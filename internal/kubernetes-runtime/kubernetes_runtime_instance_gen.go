@@ -135,7 +135,18 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := kubernetesRuntimeInstanceCreated(r, &kubernetesRuntimeInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created kubernetes runtime instance object")
+					errorMsg := "failed to reconcile created kubernetes runtime instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("KubernetesRuntimeInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						kubernetesRuntimeInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&kubernetesRuntimeInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := kubernetesRuntimeInstanceUpdated(r, &kubernetesRuntimeInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated kubernetes runtime instance object")
+					errorMsg := "failed to reconcile updated kubernetes runtime instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("KubernetesRuntimeInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						kubernetesRuntimeInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&kubernetesRuntimeInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := kubernetesRuntimeInstanceDeleted(r, &kubernetesRuntimeInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted kubernetes runtime instance object")
+					errorMsg := "failed to reconcile deleted kubernetes runtime instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("KubernetesRuntimeInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						kubernetesRuntimeInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&kubernetesRuntimeInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("kubernetes runtime instance unlocked")
 			}
 
+			successMsg := "kubernetes runtime instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"kubernetes runtime instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("KubernetesRuntimeInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				kubernetesRuntimeInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful kubernetes runtime instance reconciliation")
+			}
 		}
 	}
 

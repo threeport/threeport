@@ -5,11 +5,6 @@ package workload
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -17,6 +12,10 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 // WorkloadInstanceReconciler reconciles system state when a WorkloadInstance
@@ -142,8 +141,8 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					log.Error(err, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&v0.Event{
-							Reason: util.Ptr("WorkloadInstanceNotCreated"),
 							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("WorkloadInstanceNotCreated"),
 							Type:   util.Ptr("Normal"),
 						},
 						workloadInstance.ID,
@@ -171,7 +170,18 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := workloadInstanceUpdated(r, &workloadInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated workload instance object")
+					errorMsg := "failed to reconcile updated workload instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("WorkloadInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						workloadInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&workloadInstance,
 						requeueDelay,
@@ -193,7 +203,18 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := workloadInstanceDeleted(r, &workloadInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted workload instance object")
+					errorMsg := "failed to reconcile deleted workload instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("WorkloadInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						workloadInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&workloadInstance,
 						requeueDelay,
@@ -290,18 +311,20 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("workload instance unlocked")
 			}
 
-			successMsg := fmt.Sprintf("workload instance successfully reconciled for %s operation", notif.Operation)
-			log.Info(successMsg)
-
-			if err = r.EventsRecorder.RecordEvent(
+			successMsg := "workload instance successfully reconciled for %s operation"
+			log.Info(fmt.Sprintf(
+				successMsg,
+				notif.Operation,
+			))
+			if err := r.EventsRecorder.RecordEvent(
 				&v0.Event{
-					Reason: util.Ptr("WorkloadInstanceReconciled"),
 					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("WorkloadInstanceSuccessfullyReconciled"),
 					Type:   util.Ptr("Normal"),
 				},
 				workloadInstance.ID,
 			); err != nil {
-				log.Error(err, "failed to record event for workload instance reconciliation")
+				log.Error(err, "failed to record event for successful workload instance reconciliation")
 			}
 		}
 	}

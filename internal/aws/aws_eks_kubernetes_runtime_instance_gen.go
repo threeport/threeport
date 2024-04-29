@@ -135,7 +135,18 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := awsEksKubernetesRuntimeInstanceCreated(r, &awsEksKubernetesRuntimeInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created aws eks kubernetes runtime instance object")
+					errorMsg := "failed to reconcile created aws eks kubernetes runtime instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("AwsEksKubernetesRuntimeInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						awsEksKubernetesRuntimeInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&awsEksKubernetesRuntimeInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := awsEksKubernetesRuntimeInstanceUpdated(r, &awsEksKubernetesRuntimeInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated aws eks kubernetes runtime instance object")
+					errorMsg := "failed to reconcile updated aws eks kubernetes runtime instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("AwsEksKubernetesRuntimeInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						awsEksKubernetesRuntimeInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&awsEksKubernetesRuntimeInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := awsEksKubernetesRuntimeInstanceDeleted(r, &awsEksKubernetesRuntimeInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted aws eks kubernetes runtime instance object")
+					errorMsg := "failed to reconcile deleted aws eks kubernetes runtime instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("AwsEksKubernetesRuntimeInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						awsEksKubernetesRuntimeInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&awsEksKubernetesRuntimeInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("aws eks kubernetes runtime instance unlocked")
 			}
 
+			successMsg := "aws eks kubernetes runtime instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"aws eks kubernetes runtime instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("AwsEksKubernetesRuntimeInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				awsEksKubernetesRuntimeInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful aws eks kubernetes runtime instance reconciliation")
+			}
 		}
 	}
 

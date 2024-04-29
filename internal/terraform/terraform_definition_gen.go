@@ -135,7 +135,18 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := terraformDefinitionCreated(r, &terraformDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created terraform definition object")
+					errorMsg := "failed to reconcile created terraform definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("TerraformDefinitionNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						terraformDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&terraformDefinition,
 						requeueDelay,
@@ -157,7 +168,18 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := terraformDefinitionUpdated(r, &terraformDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated terraform definition object")
+					errorMsg := "failed to reconcile updated terraform definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("TerraformDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						terraformDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&terraformDefinition,
 						requeueDelay,
@@ -179,7 +201,18 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := terraformDefinitionDeleted(r, &terraformDefinition, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted terraform definition object")
+					errorMsg := "failed to reconcile deleted terraform definition object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("TerraformDefinitionNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						terraformDefinition.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&terraformDefinition,
 						requeueDelay,
@@ -276,10 +309,21 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("terraform definition unlocked")
 			}
 
+			successMsg := "terraform definition successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"terraform definition successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("TerraformDefinitionSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				terraformDefinition.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful terraform definition reconciliation")
+			}
 		}
 	}
 

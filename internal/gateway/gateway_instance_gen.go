@@ -135,7 +135,18 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := gatewayInstanceCreated(r, &gatewayInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created gateway instance object")
+					errorMsg := "failed to reconcile created gateway instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("GatewayInstanceNotCreated"),
+							Type:   util.Ptr("Normal"),
+						},
+						gatewayInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&gatewayInstance,
 						requeueDelay,
@@ -157,7 +168,18 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationUpdated:
 				customRequeueDelay, err := gatewayInstanceUpdated(r, &gatewayInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile updated gateway instance object")
+					errorMsg := "failed to reconcile updated gateway instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("GatewayInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						gatewayInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&gatewayInstance,
 						requeueDelay,
@@ -179,7 +201,18 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				customRequeueDelay, err := gatewayInstanceDeleted(r, &gatewayInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile deleted gateway instance object")
+					errorMsg := "failed to reconcile deleted gateway instance object"
+					log.Error(err, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&v0.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr("GatewayInstanceNotUpdated"),
+							Type:   util.Ptr("Normal"),
+						},
+						gatewayInstance.ID,
+						err,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						&gatewayInstance,
 						requeueDelay,
@@ -276,10 +309,21 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("gateway instance unlocked")
 			}
 
+			successMsg := "gateway instance successfully reconciled for %s operation"
 			log.Info(fmt.Sprintf(
-				"gateway instance successfully reconciled for %s operation",
+				successMsg,
 				notif.Operation,
 			))
+			if err := r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr("GatewayInstanceSuccessfullyReconciled"),
+					Type:   util.Ptr("Normal"),
+				},
+				gatewayInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for successful gateway instance reconciliation")
+			}
 		}
 	}
 
