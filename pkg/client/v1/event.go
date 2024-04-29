@@ -106,10 +106,7 @@ func (r *EventRecorder) RecordEvent(
 // unless the provided error is an ErrWithEvent,
 // in which case it records the event provided
 func (r *EventRecorder) HandleEventOverride(
-	reason,
-	note,
-	eventType,
-	action string,
+	event *v0.Event,
 	attachedObjectId *uint,
 	err error,
 	log *logr.Logger,
@@ -125,12 +122,7 @@ func (r *EventRecorder) HandleEventOverride(
 		}
 	default:
 		if err := r.RecordEvent(
-			&v0.Event{
-				Reason: &reason,
-				Note:   &note,
-				Type:   &eventType,
-				Action: &action,
-			},
+			event,
 			attachedObjectId,
 		); err != nil {
 			log.Error(err, "failed to record event")

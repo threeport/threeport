@@ -138,12 +138,14 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				}
 				customRequeueDelay, err := workloadInstanceCreated(r, &workloadInstance, &log)
 				if err != nil {
-					log.Error(err, "failed to reconcile created workload instance object")
+					errorMsg := "failed to reconcile created workload instance object"
+					log.Error(err, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						"WorkloadInstanceNotCreated",
-						"Failed to reconcile created workload instance object",
-						"Warning",
-						"CreateWorkloadInstance",
+						&v0.Event{
+							Reason: util.Ptr("WorkloadInstanceNotCreated"),
+							Note:   util.Ptr(errorMsg),
+							Type:   util.Ptr("Normal"),
+						},
 						workloadInstance.ID,
 						err,
 						&log,
@@ -288,10 +290,19 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("workload instance unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"workload instance successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			successMsg := fmt.Sprintf("workload instance successfully reconciled for %s operation", notif.Operation)
+			log.Info(successMsg)
+
+			if err = r.EventsRecorder.RecordEvent(
+				&v0.Event{
+					Reason: util.Ptr("WorkloadInstanceReconciled"),
+					Note:   util.Ptr(successMsg),
+					Type:   util.Ptr("Normal"),
+				},
+				workloadInstance.ID,
+			); err != nil {
+				log.Error(err, "failed to record event for workload instance reconciliation")
+			}
 		}
 	}
 
