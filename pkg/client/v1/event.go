@@ -40,31 +40,26 @@ func (r *EventRecorder) RecordEvent(
 	attachedObjectId *uint,
 ) error {
 	formatString := ""
-	formatArgs := []string{}
+	formatArgs := []any{}
 
 	if event.Reason != nil {
-		formatString += "reason=%s?"
-		formatArgs = append(formatArgs, *event.Reason)
+		formatString += "reason=%s"
+		formatArgs = append(formatArgs, url.QueryEscape(*event.Reason))
 	}
 	if event.Note != nil {
-		formatString += "note=%s?"
-		formatArgs = append(formatArgs, *event.Note)
+		formatString += "&note=%s"
+		formatArgs = append(formatArgs, url.QueryEscape(*event.Note))
 	}
 	if event.Type != nil {
-		formatString += "type=%s?"
-		formatArgs = append(formatArgs, *event.Type)
+		formatString += "&type=%s"
+		formatArgs = append(formatArgs, url.QueryEscape(*event.Type))
 	}
 	if event.Action != nil {
-		formatString += "action=%s?"
-		formatArgs = append(formatArgs, *event.Action)
+		formatString += "&action=%s"
+		formatArgs = append(formatArgs, url.QueryEscape(*event.Action))
 	}
 
-	query := url.QueryEscape(
-		fmt.Sprintf(
-			formatString,
-			formatArgs,
-		),
-	)
+	query := fmt.Sprintf(formatString, formatArgs...)
 	events, err := client_v0.GetEventsByQueryString(
 		r.APIClient,
 		r.APIServer,
