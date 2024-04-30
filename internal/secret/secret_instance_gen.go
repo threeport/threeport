@@ -12,6 +12,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -309,11 +310,10 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("secret instance unlocked")
 			}
 
-			successMsg := "secret instance successfully reconciled for %s operation"
-			log.Info(fmt.Sprintf(
-				successMsg,
-				notif.Operation,
-			))
+			successMsg := fmt.Sprintf(
+				"secret instance successfully reconciled for %s operation",
+				strings.ToLower(string(notif.Operation)),
+			)
 			if err := r.EventsRecorder.RecordEvent(
 				&v0.Event{
 					Note:   util.Ptr(successMsg),
