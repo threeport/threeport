@@ -546,18 +546,10 @@ func (cc *ControllerConfig) Reconcilers() error {
 							))),
 						)
 						g.Line()
-						g.Id("successMsg").Op(":=").Lit(
-							fmt.Sprintf(
-								"%s successfully reconciled for %%s operation",
-								strcase.ToDelimited(obj.Name, ' '),
-							),
-						)
-						g.Id("log").Dot("Info").Call(
-							Qual("fmt", "Sprintf").Call(
-								Line().Id("successMsg"),
-								Line().Id("notif").Dot("Operation"),
-								Line(),
-							),
+						g.Id("successMsg").Op(":=").Qual("fmt", "Sprintf").Call(
+							Line().Lit(fmt.Sprintf("%s successfully reconciled for %%s operation", strcase.ToDelimited(obj.Name, ' '))),
+							Line().Qual("strings", "ToLower").Call(Id("string").Call(Id("notif").Dot("Operation"))),
+							Line(),
 						)
 						g.If(Id("err").Op(":=").Id("r").Dot("EventsRecorder").Dot("RecordEvent").Call(
 							Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
