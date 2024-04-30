@@ -15,6 +15,7 @@ import (
 	version "github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	zap "go.uber.org/zap"
 	"net/http"
@@ -172,10 +173,17 @@ func main() {
 
 		// create reconciler
 		reconciler := controller.Reconciler{
-			APIClient:        apiClient,
-			APIServer:        *apiServer,
-			ControllerID:     controllerID,
-			EncryptionKey:    encryptionKey,
+			APIClient:     apiClient,
+			APIServer:     *apiServer,
+			ControllerID:  controllerID,
+			EncryptionKey: encryptionKey,
+			EventsRecorder: &client_v1.EventRecorder{
+				APIClient:           apiClient,
+				APIServer:           *apiServer,
+				AttachedObjectType:  r.ObjectType,
+				ReportingController: "KubernetesRuntimeController",
+				ReportingInstance:   os.Getenv("HOSTNAME"),
+			},
 			JetStreamContext: js,
 			KeyValue:         kv,
 			Log:              &log,

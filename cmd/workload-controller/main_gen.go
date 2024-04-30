@@ -6,11 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"os"
-	"sync"
-	"time"
-
 	logr "github.com/go-logr/logr"
 	zapr "github.com/go-logr/zapr"
 	uuid "github.com/google/uuid"
@@ -24,6 +19,10 @@ import (
 	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	zap "go.uber.org/zap"
+	"net/http"
+	"os"
+	"sync"
+	"time"
 )
 
 func main() {
@@ -187,10 +186,17 @@ func main() {
 
 		// create reconciler
 		reconciler := controller.Reconciler{
-			APIClient:        apiClient,
-			APIServer:        *apiServer,
-			ControllerID:     controllerID,
-			EncryptionKey:    encryptionKey,
+			APIClient:     apiClient,
+			APIServer:     *apiServer,
+			ControllerID:  controllerID,
+			EncryptionKey: encryptionKey,
+			EventsRecorder: &client_v1.EventRecorder{
+				APIClient:           apiClient,
+				APIServer:           *apiServer,
+				AttachedObjectType:  r.ObjectType,
+				ReportingController: "WorkloadController",
+				ReportingInstance:   os.Getenv("HOSTNAME"),
+			},
 			JetStreamContext: js,
 			KeyValue:         kv,
 			Log:              &log,
@@ -199,13 +205,6 @@ func main() {
 			Shutdown:         shutdownChan,
 			ShutdownWait:     &shutdownWait,
 			Sub:              sub,
-			EventsRecorder: &client_v1.EventRecorder{
-				APIClient:           apiClient,
-				APIServer:           *apiServer,
-				AttachedObjectType:  r.ObjectType,
-				ReportingController: "WorkloadController",
-				ReportingInstance:   os.Getenv("HOSTNAME"),
-			},
 		}
 
 		// start reconciler
