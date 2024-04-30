@@ -39,13 +39,30 @@ func (r *EventRecorder) RecordEvent(
 	event *v0.Event,
 	attachedObjectId *uint,
 ) error {
+	formatString := ""
+	formatArgs := []string{}
+
+	if event.Reason != nil {
+		formatString += "reason=%s?"
+		formatArgs = append(formatArgs, *event.Reason)
+	}
+	if event.Note != nil {
+		formatString += "note=%s?"
+		formatArgs = append(formatArgs, *event.Note)
+	}
+	if event.Type != nil {
+		formatString += "type=%s?"
+		formatArgs = append(formatArgs, *event.Type)
+	}
+	if event.Action != nil {
+		formatString += "action=%s?"
+		formatArgs = append(formatArgs, *event.Action)
+	}
+
 	query := url.QueryEscape(
 		fmt.Sprintf(
-			"reason=%s?note=%s?type=%s?action=%s",
-			*event.Reason,
-			*event.Note,
-			*event.Type,
-			*event.Action,
+			formatString,
+			formatArgs,
 		),
 	)
 	events, err := client_v0.GetEventsByQueryString(
