@@ -1,4 +1,3 @@
-//go:generate threeport-sdk codegen api-model --filename $GOFILE --package $GOPACKAGE
 package v1
 
 import v0 "github.com/threeport/threeport/pkg/api/v0"
