@@ -90,10 +90,10 @@ func (r *EventRecorder) RecordEvent(
 		if err = EnsureAttachedObjectReferenceExists(
 			r.APIClient,
 			r.APIServer,
-			util.TypeName(v1.Event{}),
-			createdEvent.ID,
 			r.AttachedObjectType,
 			attachedObjectId,
+			util.TypeName(v1.Event{}),
+			createdEvent.ID,
 		); err != nil {
 			return fmt.Errorf("failed to ensure attached object reference exists: %w", err)
 		}
