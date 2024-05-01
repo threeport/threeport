@@ -231,7 +231,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 										Err(), Id("errorMsg"),
 									),
 									Id("r").Dot("EventsRecorder").Dot("HandleEventOverride").Call(
-										Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
+										Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v1", "Event").Values(Dict{
 											Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
 												Lit(fmt.Sprintf("%sNotCreated", obj.Name)),
 											),
@@ -284,7 +284,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 										Err(), Id("errorMsg"),
 									),
 									Id("r").Dot("EventsRecorder").Dot("HandleEventOverride").Call(
-										Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
+										Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v1", "Event").Values(Dict{
 											Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
 												Lit(fmt.Sprintf("%sNotUpdated", obj.Name)),
 											),
@@ -337,7 +337,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 										Err(), Id("errorMsg"),
 									),
 									Id("r").Dot("EventsRecorder").Dot("HandleEventOverride").Call(
-										Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
+										Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v1", "Event").Values(Dict{
 											Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
 												Lit(fmt.Sprintf("%sNotUpdated", obj.Name)),
 											),
@@ -552,7 +552,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 							Line(),
 						)
 						g.If(Id("err").Op(":=").Id("r").Dot("EventsRecorder").Dot("RecordEvent").Call(
-							Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
+							Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v1", "Event").Values(Dict{
 								Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
 									Lit(fmt.Sprintf("%sSuccessfullyReconciled", obj.Name)),
 								),

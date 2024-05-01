@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client_v0 "github.com/threeport/threeport/pkg/client/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -36,7 +35,7 @@ type EventRecorder struct {
 
 // RecordEvent records a new event with the given information.
 func (r *EventRecorder) RecordEvent(
-	event *v0.Event,
+	event *v1.Event,
 	attachedObjectId *uint,
 ) error {
 	formatString := ""
@@ -60,7 +59,7 @@ func (r *EventRecorder) RecordEvent(
 	}
 
 	query := fmt.Sprintf(formatString, formatArgs...)
-	events, err := client_v0.GetEventsByQueryString(
+	events, err := GetEventsByQueryString(
 		r.APIClient,
 		r.APIServer,
 		query,
@@ -73,7 +72,7 @@ func (r *EventRecorder) RecordEvent(
 		)
 	}
 
-	var createdEvent *v0.Event
+	var createdEvent *v1.Event
 	switch len(*events) {
 	case 0:
 
@@ -82,7 +81,7 @@ func (r *EventRecorder) RecordEvent(
 		event.EventTime = util.Ptr(time.Now())
 		event.LastObservedTime = util.Ptr(time.Now())
 		event.Count = util.Ptr(uint(1))
-		createdEvent, err = client_v0.CreateEvent(r.APIClient, r.APIServer, event)
+		createdEvent, err = CreateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
 			return fmt.Errorf("failed to create event: %w", err)
 		}
@@ -91,7 +90,7 @@ func (r *EventRecorder) RecordEvent(
 		if err = EnsureAttachedObjectReferenceExists(
 			r.APIClient,
 			r.APIServer,
-			util.TypeName(v0.Event{}),
+			util.TypeName(v1.Event{}),
 			createdEvent.ID,
 			r.AttachedObjectType,
 			attachedObjectId,
@@ -103,7 +102,7 @@ func (r *EventRecorder) RecordEvent(
 		event = &(*events)[0]
 		event.Count = util.Ptr(uint((*event.Count + 1)))
 		event.LastObservedTime = util.Ptr(time.Now())
-		_, err := client_v0.UpdateEvent(r.APIClient, r.APIServer, event)
+		_, err := UpdateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
 			return fmt.Errorf("failed to update event: %w", err)
 		}
@@ -118,7 +117,7 @@ func (r *EventRecorder) RecordEvent(
 // unless the provided error is an ErrWithEvent,
 // in which case it records the event provided
 func (r *EventRecorder) HandleEventOverride(
-	event *v0.Event,
+	event *v1.Event,
 	attachedObjectId *uint,
 	err error,
 	log *logr.Logger,

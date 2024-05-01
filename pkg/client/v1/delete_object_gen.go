@@ -15,6 +15,10 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 		if _, err := DeleteAttachedObjectReference(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete AttachedObjectReference: %w", err)
 		}
+	case "v1.Event":
+		if _, err := DeleteEvent(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete Event: %w", err)
+		}
 	case "v1.WorkloadInstance":
 		if _, err := DeleteWorkloadInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete WorkloadInstance: %w", err)

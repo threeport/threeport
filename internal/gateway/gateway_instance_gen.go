@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -139,7 +140,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					errorMsg := "failed to reconcile created gateway instance object"
 					log.Error(err, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&v0.Event{
+						&v1.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr("GatewayInstanceNotCreated"),
 							Type:   util.Ptr("Normal"),
@@ -172,7 +173,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					errorMsg := "failed to reconcile updated gateway instance object"
 					log.Error(err, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&v0.Event{
+						&v1.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr("GatewayInstanceNotUpdated"),
 							Type:   util.Ptr("Normal"),
@@ -205,7 +206,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 					errorMsg := "failed to reconcile deleted gateway instance object"
 					log.Error(err, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&v0.Event{
+						&v1.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr("GatewayInstanceNotUpdated"),
 							Type:   util.Ptr("Normal"),
@@ -315,7 +316,7 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 				strings.ToLower(string(notif.Operation)),
 			)
 			if err := r.EventsRecorder.RecordEvent(
-				&v0.Event{
+				&v1.Event{
 					Note:   util.Ptr(successMsg),
 					Reason: util.Ptr("GatewayInstanceSuccessfullyReconciled"),
 					Type:   util.Ptr("Normal"),
