@@ -11,7 +11,10 @@ type Event struct {
 	v0.Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// AttachedObjectReferenceID is a reference to an attached object.
-	AttachedObjectReferenceID *AttachedObjectReference `json:"AttachedObjectReferenceID,omitempty" query:"attachedobjectreferenceid" validate:"optional"`
+	AttachedObjectReferenceID int                     `json:"AttachedObjectReferenceID,omitempty" query:"attachedobjectreferenceid" gorm:"not null" validate:"required"`
+	AttachedObjectReference   AttachedObjectReference `json:"AttachedObjectReference,omitempty" query:"attachedobjectreference" gorm:"not null,references:ObjectID" validate:"required"`
+
+	// AttachedObjectReferenceObjectID *uint `json:"AttachedObjectReferenceObjectID,omitempty" query:"attachedobjectreferenceobjectid" validate:"optional"`
 
 	// A short, machine understandable string that gives the reason for the event being generated.
 	Reason *string `json:"Reason,omitempty" query:"reason" validate:"required"`
