@@ -9,6 +9,7 @@ import (
 
 func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	AttachedObjectReferenceRoutes(e, h)
+	EventRoutes(e, h)
 	WorkloadInstanceRoutes(e, h)
 
 }

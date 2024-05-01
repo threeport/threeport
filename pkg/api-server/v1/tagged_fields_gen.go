@@ -5,4 +5,5 @@ package v1
 import v0 "github.com/threeport/threeport/pkg/api-server/v0"
 
 var AttachedObjectReferenceTaggedFields = make(map[string]*v0.FieldsByTag)
+var EventTaggedFields = make(map[string]*v0.FieldsByTag)
 var WorkloadInstanceTaggedFields = make(map[string]*v0.FieldsByTag)
