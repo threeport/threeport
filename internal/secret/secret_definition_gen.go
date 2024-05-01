@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -117,7 +118,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					errorMsg := "failed to reconcile created secret definition object"
 					log.Error(err, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&v0.Event{
+						&v1.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr("SecretDefinitionNotCreated"),
 							Type:   util.Ptr("Normal"),
@@ -150,7 +151,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					errorMsg := "failed to reconcile updated secret definition object"
 					log.Error(err, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&v0.Event{
+						&v1.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr("SecretDefinitionNotUpdated"),
 							Type:   util.Ptr("Normal"),
@@ -183,7 +184,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					errorMsg := "failed to reconcile deleted secret definition object"
 					log.Error(err, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&v0.Event{
+						&v1.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr("SecretDefinitionNotUpdated"),
 							Type:   util.Ptr("Normal"),
@@ -293,7 +294,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 				strings.ToLower(string(notif.Operation)),
 			)
 			if err := r.EventsRecorder.RecordEvent(
-				&v0.Event{
+				&v1.Event{
 					Note:   util.Ptr(successMsg),
 					Reason: util.Ptr("SecretDefinitionSuccessfullyReconciled"),
 					Type:   util.Ptr("Normal"),

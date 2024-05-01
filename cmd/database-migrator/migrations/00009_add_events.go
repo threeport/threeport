@@ -7,7 +7,7 @@ import (
 
 	"github.com/pressly/goose/v3"
 
-	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 )
 
 func init() {
@@ -16,7 +16,7 @@ func init() {
 
 func getEventInterface() []interface{} {
 	return []interface{}{
-		&v0.Event{},
+		&v1.Event{},
 	}
 }
 

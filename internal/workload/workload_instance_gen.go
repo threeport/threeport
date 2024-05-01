@@ -141,7 +141,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					errorMsg := "failed to reconcile created workload instance object"
 					log.Error(err, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&v0.Event{
+						&v1.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr("WorkloadInstanceNotCreated"),
 							Type:   util.Ptr("Normal"),
@@ -174,7 +174,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					errorMsg := "failed to reconcile updated workload instance object"
 					log.Error(err, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&v0.Event{
+						&v1.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr("WorkloadInstanceNotUpdated"),
 							Type:   util.Ptr("Normal"),
@@ -207,7 +207,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					errorMsg := "failed to reconcile deleted workload instance object"
 					log.Error(err, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&v0.Event{
+						&v1.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr("WorkloadInstanceNotUpdated"),
 							Type:   util.Ptr("Normal"),
@@ -317,7 +317,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				strings.ToLower(string(notif.Operation)),
 			)
 			if err := r.EventsRecorder.RecordEvent(
-				&v0.Event{
+				&v1.Event{
 					Note:   util.Ptr(successMsg),
 					Reason: util.Ptr("WorkloadInstanceSuccessfullyReconciled"),
 					Type:   util.Ptr("Normal"),

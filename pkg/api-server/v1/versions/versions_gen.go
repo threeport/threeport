@@ -4,6 +4,7 @@ package versions
 
 func AddVersions() {
 	AddAttachedObjectReferenceVersions()
+	AddEventVersions()
 	AddWorkloadInstanceVersions()
 
 }
