@@ -86,18 +86,25 @@ func (r *EventRecorder) RecordEvent(
 			return fmt.Errorf("failed to create event: %w", err)
 		}
 
-		// TODO: decide on rules for edge direction
-		if err = EnsureAttachedObjectReferenceExists(
+		createdAttachedObjectReference, err := CreateAttachedObjectReference(
 			r.APIClient,
 			r.APIServer,
-			r.AttachedObjectType,
-			attachedObjectId,
-			util.TypeName(v1.Event{}),
-			createdEvent.ID,
-		); err != nil {
-			return fmt.Errorf("failed to ensure attached object reference exists: %w", err)
+			&v1.AttachedObjectReference{
+				ObjectType:         &r.AttachedObjectType,
+				ObjectID:           attachedObjectId,
+				AttachedObjectType: util.Ptr(util.TypeName(v1.Event{})),
+				AttachedObjectID:   createdEvent.ID,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create attached object reference: %w", err)
 		}
 
+		event.AttachedObjectReferenceID = int(*createdAttachedObjectReference.ID)
+		_, err = UpdateEvent(r.APIClient, r.APIServer, event)
+		if err != nil {
+			return fmt.Errorf("failed to update event: %w", err)
+		}
 	case 1:
 		event = &(*events)[0]
 		event.Count = util.Ptr(uint((*event.Count + 1)))
