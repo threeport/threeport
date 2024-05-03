@@ -148,6 +148,7 @@ func main() {
 
 	// routes
 	routes_v1.AddRoutes(e, &h_v1)
+	routes_v1.AddCustomRoutes(e, &h_v1)
 
 	// add version info for queries to /<object>/versions
 	iapi.Versions[0] = iapi.V0

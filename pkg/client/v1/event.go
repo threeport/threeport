@@ -1,14 +1,16 @@
 package v1
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
+	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -36,46 +38,52 @@ type EventRecorder struct {
 // RecordEvent records a new event with the given information.
 func (r *EventRecorder) RecordEvent(
 	event *v1.Event,
-	attachedObjectId *uint,
+	objectId *uint,
 ) error {
-	formatString := ""
-	formatArgs := []any{}
+	// formatString := ""
+	// formatArgs := []any{}
 
-	if event.Reason != nil {
-		formatString += "reason=%s"
-		formatArgs = append(formatArgs, url.QueryEscape(*event.Reason))
-	}
-	if event.Note != nil {
-		formatString += "&note=%s"
-		formatArgs = append(formatArgs, url.QueryEscape(*event.Note))
-	}
-	if event.Type != nil {
-		formatString += "&type=%s"
-		formatArgs = append(formatArgs, url.QueryEscape(*event.Type))
-	}
-	if event.Action != nil {
-		formatString += "&action=%s"
-		formatArgs = append(formatArgs, url.QueryEscape(*event.Action))
-	}
+	// if event.Reason != nil {
+	// 	formatString += "reason=%s"
+	// 	formatArgs = append(formatArgs, url.QueryEscape(*event.Reason))
+	// }
+	// if event.Note != nil {
+	// 	formatString += "&note=%s"
+	// 	formatArgs = append(formatArgs, url.QueryEscape(*event.Note))
+	// }
+	// if event.Type != nil {
+	// 	formatString += "&type=%s"
+	// 	formatArgs = append(formatArgs, url.QueryEscape(*event.Type))
+	// }
+	// if event.Action != nil {
+	// 	formatString += "&action=%s"
+	// 	formatArgs = append(formatArgs, url.QueryEscape(*event.Action))
+	// }
+	// if objectId != nil {
+	// 	formatString += "&objectid=%d"
+	// 	formatArgs = append(formatArgs, *objectId)
+	// }
 
-	query := fmt.Sprintf(formatString, formatArgs...)
-	events, err := GetEventsByQueryString(
+	// query := fmt.Sprintf(formatString, formatArgs...)
+	events, err := GetEventsByAttachedObjectReferenceObjectID(
 		r.APIClient,
 		r.APIServer,
-		query,
+		*objectId,
 	)
 	if err != nil {
-		return fmt.Errorf(
-			"failed to get events by query string %s: %w",
-			query,
-			err,
-		)
+		return fmt.Errorf("failed to get events by object id %d: %w", *objectId, err)
+		// return fmt.Errorf(
+		// 	"failed to get events by query string %s: %w",
+		// 	query,
+		// 	err,
+		// )
 	}
 
 	var createdEvent *v1.Event
 	switch len(*events) {
 	case 0:
 
+		//TODO: use util.Operations here
 		event.ReportingController = &r.ReportingController
 		event.ReportingInstance = &r.ReportingInstance
 		event.EventTime = util.Ptr(time.Now())
@@ -91,7 +99,7 @@ func (r *EventRecorder) RecordEvent(
 			r.APIServer,
 			&v1.AttachedObjectReference{
 				ObjectType:         &r.AttachedObjectType,
-				ObjectID:           attachedObjectId,
+				ObjectID:           objectId,
 				AttachedObjectType: util.Ptr(util.TypeName(v1.Event{})),
 				AttachedObjectID:   createdEvent.ID,
 			},
@@ -100,7 +108,7 @@ func (r *EventRecorder) RecordEvent(
 			return fmt.Errorf("failed to create attached object reference: %w", err)
 		}
 
-		event.AttachedObjectReferenceID = int(*createdAttachedObjectReference.ID)
+		event.AttachedObjectReferenceID = createdAttachedObjectReference.ID
 		_, err = UpdateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
 			return fmt.Errorf("failed to update event: %w", err)
@@ -125,7 +133,7 @@ func (r *EventRecorder) RecordEvent(
 // in which case it records the event provided
 func (r *EventRecorder) HandleEventOverride(
 	event *v1.Event,
-	attachedObjectId *uint,
+	objectId *uint,
 	err error,
 	log *logr.Logger,
 ) {
@@ -134,16 +142,46 @@ func (r *EventRecorder) HandleEventOverride(
 	case errors.As(err, &errWithEvent):
 		if err := r.RecordEvent(
 			&errWithEvent.Event,
-			attachedObjectId,
+			objectId,
 		); err != nil {
 			log.Error(err, "failed to record event")
 		}
 	default:
 		if err := r.RecordEvent(
 			event,
-			attachedObjectId,
+			objectId,
 		); err != nil {
 			log.Error(err, "failed to record event")
 		}
 	}
+}
+
+// GetEventByID fetches a event by ID.
+func GetEventsByAttachedObjectReferenceObjectID(apiClient *http.Client, apiAddr string, objectID uint) (*[]v1.Event, error) {
+	var events []v1.Event
+
+	response, err := client_v0.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/%s/events-join-attached-object-references?objectid=%d", apiAddr, ApiVersion, objectID),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &events, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &events, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&events); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &events, nil
 }
