@@ -1,6 +1,7 @@
 package versions
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -84,13 +85,6 @@ func (gvc *GlobalVersionConfig) DatabaseInit() error {
 			Id("Logger"): Op("&").Id("ZapLogger").Values(Dict{
 				Id("Logger"): Id("logger").Op(","),
 			}),
-			//Id("Logger"): Qual(
-			//	"gorm.io/gorm/logger",
-			//	"Default",
-			//).Dot("LogMode").Call(Qual(
-			//	"gorm.io/gorm/logger",
-			//	"Info",
-			//).Op(",")),
 			Id("NowFunc"): Func().Call().Qual(
 				"time", "Time",
 			).Block(
@@ -348,13 +342,6 @@ func (gvc *GlobalVersionConfig) ExtensionDatabaseInit(modulePath string) error {
 			Id("Logger"): Op("&").Id("ZapLogger").Values(Dict{
 				Id("Logger"): Id("logger").Op(","),
 			}),
-			//Id("Logger"): Qual(
-			//	"gorm.io/gorm/logger",
-			//	"Default",
-			//).Dot("LogMode").Call(Qual(
-			//	"gorm.io/gorm/logger",
-			//	"Info",
-			//).Op(",")),
 			Id("NowFunc"): Func().Call().Qual(
 				"time", "Time",
 			).Block(
@@ -521,8 +508,16 @@ func (gvc *GlobalVersionConfig) ExtensionDatabaseInit(modulePath string) error {
 		Return().Id("msg"),
 	)
 
+	// create directories if they don't exist
+	databaseInitPath := filepath.Join("pkg", "api-server", "v0", "database")
+	if _, err := os.Stat(databaseInitPath); errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(databaseInitPath, 0755); err != nil {
+			return fmt.Errorf("could not create directores for database initializer: %s, %w", databaseInitPath, err)
+		}
+	}
+
 	// write code to file
-	databaseInitFilepath := filepath.Join("pkg", "api-server", "v0", "database", "database_gen.go")
+	databaseInitFilepath := filepath.Join(databaseInitPath, "database_gen.go")
 	file, err := os.OpenFile(databaseInitFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for database initializer: %w", err)

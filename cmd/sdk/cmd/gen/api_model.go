@@ -16,6 +16,7 @@ import (
 	"github.com/iancoleman/strcase"
 
 	"github.com/threeport/threeport/internal/sdk"
+	"github.com/threeport/threeport/internal/sdk/mod"
 	"github.com/threeport/threeport/internal/sdk/models"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -32,7 +33,7 @@ func nameFields() []string {
 
 func ApiModelGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 	filename := fmt.Sprintf("%s.go", controllerDomain)
-	// Assemble all api objects in this controller domain according to there version
+	// assemble all api objects in this controller domain according to their version
 	versionObjMap := make(map[string][]*sdk.ApiObject, 0)
 	for _, obj := range apiObjects {
 		if obj.ExcludeRoute != nil && *obj.ExcludeRoute {
@@ -48,7 +49,7 @@ func ApiModelGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 		}
 	}
 
-	extension, modulePath, err := isExtension()
+	extension, modulePath, err := mod.IsExtension()
 	if err != nil {
 		return fmt.Errorf("could not determine if running for an extension: %w", err)
 	}
@@ -306,13 +307,12 @@ func ApiModelGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 			}
 		}
 
+		// generate functions to add API versions, validation
 		if extension {
-			// generate functions to add API versions, validation
 			if err := controllerConfig.ExtensionModelVersions(modulePath); err != nil {
 				return fmt.Errorf("failed to generate model versions for extension: %w", err)
 			}
 		} else {
-			// generate functions to add API versions, validation
 			if err := controllerConfig.ModelVersions(); err != nil {
 				return fmt.Errorf("failed to generate model versions: %w", err)
 			}
@@ -329,9 +329,14 @@ func ApiModelGen(controllerDomain string, apiObjects []*sdk.ApiObject) error {
 			}
 		}
 
+		// generate config package
+		if err := controllerConfig.ConfigPkg(); err != nil {
+			return fmt.Errorf("failed to generate config package: %w", err)
+		}
+
 		// generate tptctl commands
 		if extension {
-
+			// TDOO
 		} else {
 			if err := controllerConfig.TptctlCommands(); err != nil {
 				return fmt.Errorf("failed to generate tptctl commands: %w", err)

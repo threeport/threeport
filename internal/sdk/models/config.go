@@ -1,57 +1,54 @@
 package models
 
-// ControllerConfig contains the values at the controller scope.  A controller
-// corresponds to all the models that are grouped together in a file in the API.
-type ControllerConfig struct {
-	ModelFilename          string
-	PackageName            string
-	Version                string
-	ControllerDomain       string
-	ControllerDomainLower  string
-	ModelConfigs           []*ModelConfig
-	ReconcilerModels       []string
-	TptctlModels           []string
-	TptctlConfigPathModels []string
-	ApiVersion             string
-}
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 
-// ModelConfig contains the values for a particular model.
-type ModelConfig struct {
-	TypeName              string
-	AllowDuplicateNames   bool
-	AllowCustomMiddleware bool
-	DbLoadAssociations    bool
-	NameField             bool
-	Reconciler            bool
-	ReconciledField       bool
+	. "github.com/dave/jennifer/jen"
+	"github.com/iancoleman/strcase"
+	"github.com/threeport/threeport/internal/sdk"
+)
 
-	// if true, generate tptctl commands for the model
-	TptctlCommands bool
+// ConfigPkg generates the config package code.
+func (cc *ControllerConfig) ConfigPkg() error {
+	f := NewFile(cc.PackageName)
 
-	// if true, the config for the object, references another file and should
-	// have code that includes passing the config path to config package object
-	TptctlConfigPath bool
+	for _, modelConf := range cc.ModelConfigs {
+		configObjectName := fmt.Sprintf("%sConfig", modelConf.TypeName)
+		objectHuman := strcase.ToDelimited(modelConf.TypeName, ' ')
 
-	// only applied to definition objects - if true, there is a corresponding
-	// instance object
-	DefinedInstance bool
+		f.Comment(fmt.Sprintf(
+			"%s contains the config for a %s.",
+			configObjectName,
+			objectHuman,
+		))
+		f.Type().Id(configObjectName).Struct(
+			Id("Name").String().Tag(map[string]string{"json": "Name", "validate": "required"}),
+		)
+	}
 
-	// notification subjects
-	CreateSubject string
-	UpdateSubject string
-	DeleteSubject string
+	// create directories if they don't exist
+	configPkgPath := filepath.Join("pkg", "config", cc.PackageName)
+	if _, err := os.Stat(configPkgPath); errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(configPkgPath, 0755); err != nil {
+			return fmt.Errorf("could not create directores for config package: %s, %w", configPkgPath, err)
+		}
+	}
 
-	// handler names
-	GetVersionHandlerName    string
-	AddHandlerName           string
-	AddMiddlewareFuncName    string
-	GetAllHandlerName        string
-	GetOneHandlerName        string
-	GetMiddlewareFuncName    string
-	PatchHandlerName         string
-	PatchMiddlewareFuncName  string
-	PutHandlerName           string
-	PutMiddlewareFuncName    string
-	DeleteHandlerName        string
-	DeleteMiddlewareFuncName string
+	// write code to file
+	genFilename := fmt.Sprintf("%s_gen.go", sdk.FilenameSansExt(cc.ModelFilename))
+	genFilepath := filepath.Join(configPkgPath, genFilename)
+	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open file to write generated code for config package: %w", err)
+	}
+	defer file.Close()
+	if err := f.Render(file); err != nil {
+		return fmt.Errorf("failed to render generated source code for config package: %w", err)
+	}
+	fmt.Printf("code generation complete for %s config package\n", cc.ControllerDomainLower)
+
+	return nil
 }

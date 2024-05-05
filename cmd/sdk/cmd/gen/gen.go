@@ -11,18 +11,20 @@ import (
 	"github.com/threeport/threeport/internal/sdk"
 )
 
+var genConfig string
+
 // genCmd represents the parent command for all codegen related operations
 var genCmd = &cobra.Command{
 	Use:   "gen",
 	Short: "Generate code for Threeport or its extensions.",
 	Long: `The SDK will generate code for the api model and all necessary reconcilation logic.
-	
+
 Generate code for Threeport or its extensions. Code generation behaviour can be controlled
 via different settings in the sdk config.
 Suppose you have an APIObjectGroup with the name Foo.
 The following code is generated:
 * 'pkg/api/v0/foo_gen.go:
-    * all model methods that satisfy the APIObject interface
+    * all model methods that satisfy the ReconciledThreeportApiObject interface
     * NATS subject constants that are used for controller notifications about
       the Foo objects
 * 'internal/api/routes/foo.go':
@@ -43,40 +45,22 @@ The following code is generated:
 * main package and reconcilers for API objects in Foo.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get SDK config
-		sdkConfig, err := sdk.GetSDKConfig()
+		// get SDK config
+		sdkConfig, err := sdk.GetSdkConfig(genConfig)
 		if err != nil {
 			return fmt.Errorf("failed to get sdk config: %w", err)
 		}
 
-		// Determine whether an object is being created first time
-		// In that case we ensure the necessary api files exists for the user
-
-		// group objects according to version for version gen logic
-		versionObjMap := make(map[string][]*sdk.ApiObject, 0)
-
-		for _, apiObjectGroups := range sdkConfig.ApiObjectGroups {
-			for _, obj := range apiObjectGroups.Objects {
-				for _, v := range obj.Versions {
-					if _, exists := versionObjMap[*v]; exists {
-						versionObjMap[*v] = append(versionObjMap[*v], obj)
-					} else {
-						versionObjMap[*v] = []*sdk.ApiObject{obj}
-					}
-				}
-			}
-		}
-
-		if err := ApiVersionGen(versionObjMap); err != nil {
+		if err := ApiVersionGen(sdkConfig); err != nil {
 			return fmt.Errorf("could not generate code for api-version: %w", err)
 		}
 
-		for _, og := range sdkConfig.ApiObjectGroups {
+		for _, og := range sdkConfig.ApiObjectConfig.ApiObjectGroups {
 			if err := ApiModelGen(*og.Name, og.Objects); err != nil {
 				return fmt.Errorf("could not generate code for api-model: %w", err)
 			}
 
-			// Determine if any objects within this controller domain need reconcilliation
+			// determine if any objects within this controller domain need reconcilliation
 			needReconcilers := false
 			for _, obj := range og.Objects {
 				if obj.Reconcilable != nil && *obj.Reconcilable {
@@ -86,7 +70,7 @@ The following code is generated:
 			}
 
 			if needReconcilers {
-				if err := ControllerGen(*og.Name, og.Objects); err != nil {
+				if err := ControllerGen(*og.Name, og); err != nil {
 					return fmt.Errorf("could not generate code for controller: %w", err)
 				}
 			}
@@ -98,4 +82,10 @@ The following code is generated:
 
 func init() {
 	cmd.RootCmd.AddCommand(genCmd)
+
+	genCmd.Flags().StringVarP(
+		&genConfig,
+		"config", "c", "", "Path to file with Threeport SDK config.",
+	)
+	genCmd.MarkFlagRequired("config")
 }

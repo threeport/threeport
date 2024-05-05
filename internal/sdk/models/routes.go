@@ -211,7 +211,7 @@ func (cc *ControllerConfig) ExtensionModelRoutes(modulePath string) error {
 				"Echo",
 			),
 			Id("h").Op("*").Qual(
-				fmt.Sprintf("%s/pkg/api-server/v0/handlers", modulePath),
+				fmt.Sprintf("%s/pkg/api-server/%s/handlers", modulePath, cc.ApiVersion),
 				"Handler",
 			),
 		).Block(

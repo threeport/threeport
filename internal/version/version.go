@@ -10,7 +10,7 @@ import (
 //go:embed version.txt
 var Version string
 
-// GetVersion Returns REST API Version
+// GetVersion returns the version of Threeport as set in `version.txt`.
 func GetVersion() string {
 	return strings.TrimSuffix(Version, "\n")
 }

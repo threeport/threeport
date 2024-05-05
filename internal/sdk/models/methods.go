@@ -28,28 +28,6 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 		)).String().Op("=").Lit(mc.TypeName)
 		objectTypes.Line()
 	}
-	// NATS subject constants used for controller notifications
-	type modelSubjects struct {
-		model    string
-		subjects []string
-	}
-	subjects := &Statement{}
-	for i, mc := range cc.ModelConfigs {
-		mc.CreateSubject = mc.TypeName + "CreateSubject"
-		mc.UpdateSubject = mc.TypeName + "UpdateSubject"
-		mc.DeleteSubject = mc.TypeName + "DeleteSubject"
-		cc.ModelConfigs[i] = mc
-		subjects.Id(mc.TypeName + "Subject").Op("=").Lit(strcase.ToLowerCamel(mc.TypeName) + ".*")
-		subjects.Line()
-		subjects.Id(mc.CreateSubject).Op("=").Lit(strcase.ToLowerCamel(mc.TypeName) + ".create")
-		subjects.Line()
-		subjects.Id(mc.UpdateSubject).Op("=").Lit(strcase.ToLowerCamel(mc.TypeName) + ".update")
-		subjects.Line()
-		subjects.Id(mc.DeleteSubject).Op("=").Lit(strcase.ToLowerCamel(mc.TypeName) + ".delete")
-		subjects.Line()
-		subjects.Line()
-	}
-	// API routing path constants
 	paths := &Statement{}
 	for _, mc := range cc.ModelConfigs {
 		paths.Id("Path" + pluralize.Pluralize(mc.TypeName, 2, false)).Op("=").Lit(
@@ -60,55 +38,9 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 	f.Const().Defs(
 		objectTypes,
 		Line(),
-		Id(cc.ControllerDomain+"StreamName").Op("=").Lit(cc.ControllerDomainLower+"Stream"),
-		Line(),
-		subjects,
-		Line(),
 		paths,
 	)
 	f.Line()
-	// NATS subject functions by object
-	var subjectFuncs []string
-	for _, mc := range cc.ModelConfigs {
-		funcName := fmt.Sprintf("Get%sSubjects", mc.TypeName)
-		subjectFuncs = append(subjectFuncs, funcName)
-		subjects := &Statement{}
-		subjects.Id(mc.CreateSubject).Op(",")
-		subjects.Line()
-		subjects.Id(mc.UpdateSubject).Op(",")
-		subjects.Line()
-		subjects.Id(mc.DeleteSubject).Op(",")
-		f.Comment(fmt.Sprintf("%s returns the NATS subjects", funcName))
-		f.Comment(fmt.Sprintf("for %s.", pluralize.Pluralize(strcase.ToDelimited(mc.TypeName, ' '), 2, false)))
-		f.Func().Id(funcName).Params().Index().String().Block(
-			Return(
-				Index().String().Block(
-					subjects,
-				),
-			),
-		)
-		f.Line()
-	}
-	// all NATS subjects for controller domain
-	controllerSubjectsFuncName := fmt.Sprintf("Get%sSubjects", cc.ControllerDomain)
-	controllerSubjectsLower := fmt.Sprintf("%sSubjects", cc.ControllerDomainLower)
-	subjectAppends := &Statement{}
-	for _, sf := range subjectFuncs {
-		subjectAppends.Id(controllerSubjectsLower).Op("=").Append(
-			Id(controllerSubjectsLower),
-			Id(sf).Call().Op("..."),
-		)
-		subjectAppends.Line()
-	}
-	f.Comment(fmt.Sprintf("%s returns the NATS subjects", controllerSubjectsFuncName))
-	f.Comment(fmt.Sprintf("for all %s objects.", strcase.ToDelimited(cc.ControllerDomain, ' ')))
-	f.Func().Id(controllerSubjectsFuncName).Params().Index().String().Block(
-		Var().Id(controllerSubjectsLower).Index().String(),
-		Line(),
-		subjectAppends,
-		Line(),
-		Return(Id(controllerSubjectsLower)),
-	)
 	// API object methods
 	for _, mc := range cc.ModelConfigs {
 		// NotificationPayload method
@@ -184,22 +116,23 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 			),
 			Return(Nil()),
 		)
-		// GetID method
-		f.Comment("GetID returns the unique ID for the object.")
+		// GetId method
+		f.Comment("GetId returns the unique ID for the object.")
 		f.Func().Params(
 			Id(sdk.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
-		).Id("GetID").Params().Uint().Block(
+		).Id("GetId").Params().Uint().Block(
 			Return(Op("*").Id(sdk.TypeAbbrev(mc.TypeName)).Dot("ID")),
 		)
-		// String method
-		f.Comment("String returns a string representation of the ojbect.")
-		f.Func().Params(
-			Id(sdk.TypeAbbrev(mc.TypeName)).Id(mc.TypeName),
-		).Id("String").Params().String().Block(
-			Return(
-				Lit(fmt.Sprintf("%s.%s", cc.PackageName, mc.TypeName)),
-			),
-		)
+		// ScheduledForDeletion method
+		if mc.Reconciler {
+			f.Comment("ScheduledForDeletion returns a pointer to the DeletionScheduled timestamp")
+			f.Comment("if scheduled for deletion or nil if not scheduled for deletion.")
+			f.Func().Params(
+				Id(sdk.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
+			).Id("ScheduledForDeletion").Params().Op("*").Qual("time", "Time").Block(
+				Return(Op("*").Id(sdk.TypeAbbrev(mc.TypeName)).Dot("DeletionScheduled")),
+			)
+		}
 	}
 
 	// write code to file
@@ -391,22 +324,37 @@ func (cc *ControllerConfig) ExtensionModelConstantsMethods() error {
 			),
 			Return(Nil()),
 		)
-		// GetID method
-		f.Comment("GetID returns the unique ID for the object.")
+		// GetId method
+		f.Comment("GetId returns the unique ID for the object.")
 		f.Func().Params(
 			Id(sdk.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
-		).Id("GetID").Params().Uint().Block(
+		).Id("GetId").Params().Uint().Block(
 			Return(Op("*").Id(sdk.TypeAbbrev(mc.TypeName)).Dot("ID")),
 		)
-		// String method
-		f.Comment("String returns a string representation of the ojbect.")
+		// Type method
+		f.Comment("Type returns the object type.")
 		f.Func().Params(
-			Id(sdk.TypeAbbrev(mc.TypeName)).Id(mc.TypeName),
-		).Id("String").Params().String().Block(
-			Return(
-				Lit(fmt.Sprintf("%s.%s", cc.PackageName, mc.TypeName)),
-			),
+			Id(sdk.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
+		).Id("Type").Params().String().Block(
+			Return(Lit(mc.TypeName)),
 		)
+		// Version method
+		f.Comment("Version returns the version of the API object.")
+		f.Func().Params(
+			Id(sdk.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
+		).Id("Version").Params().String().Block(
+			Return(Lit(cc.Version)),
+		)
+		// ScheduledForDeletion method
+		if mc.Reconciler {
+			f.Comment("ScheduledForDeletion returns a pointer to the DeletionScheduled timestamp")
+			f.Comment("if scheduled for deletion or nil if not scheduled for deletion.")
+			f.Func().Params(
+				Id(sdk.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
+			).Id("ScheduledForDeletion").Params().Op("*").Qual("time", "Time").Block(
+				Return(Id(sdk.TypeAbbrev(mc.TypeName)).Dot("DeletionScheduled")),
+			)
+		}
 	}
 
 	// write code to file

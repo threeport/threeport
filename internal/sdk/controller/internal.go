@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,9 +31,17 @@ func (cc *ControllerConfig) InternalPackage() error {
 		)),
 	)
 
+	// create internal dir for controller if needed
+	internalPath := controllerInternalPackagePath(cc.ShortName)
+	if _, err := os.Stat(internalPath); errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(internalPath, 0755); err != nil {
+			return fmt.Errorf("could not create internal dir for controller %s: %w", err)
+		}
+	}
+
 	// write code to file
 	genFilename := fmt.Sprintf("%s_gen.go", strcase.ToSnake(cc.ShortName))
-	genFilepath := filepath.Join(controllerInternalPackagePath(cc.ShortName), genFilename)
+	genFilepath := filepath.Join(internalPath, genFilename)
 	file, err := os.OpenFile(genFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open file to write generated code for %s internal package file: %w", cc.ShortName, err)

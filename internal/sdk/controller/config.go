@@ -1,5 +1,7 @@
 package controller
 
+// ControllerConfig contains the attributes needed to generate controller source
+// code.
 type ControllerConfig struct {
 	// The name of the controller in kebab case, e.g.
 	// kubernetes-runtime-controller
@@ -32,7 +34,7 @@ type ControllerConfig struct {
 // reconciled object.
 type ReconciledObject struct {
 	Name                           string
-	Version                        string
+	Versions                       []string
 	DisableNotificationPersistence bool
 }
 

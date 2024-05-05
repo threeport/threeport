@@ -8,7 +8,6 @@ import (
 	. "github.com/dave/jennifer/jen"
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
-	"github.com/threeport/threeport/internal/sdk"
 )
 
 // controllerMainPackagePath returns the path from the models to the
@@ -28,21 +27,18 @@ func (cc *ControllerConfig) MainPackage() error {
 	f.ImportAlias("github.com/threeport/threeport/pkg/event/v0", "event_v0")
 	f.ImportAlias("github.com/threeport/threeport/pkg/controller/v0", "controller")
 
-	//controllerShortName := strings.TrimSuffix(cc.Name, "-controller")
-	//controllerStreamName := fmt.Sprintf("%sStreamName", strcase.ToCamel(cc.ShortName))
-
 	concurrencyFlags := &Statement{}
 	for _, obj := range cc.ReconciledObjects {
 		concurrencyFlags.Var().Id(fmt.Sprintf(
 			"%sConcurrentReconciles",
-			fmt.Sprintf("%s_%s", obj.Version, strcase.ToLowerCamel(obj.Name)),
+			strcase.ToLowerCamel(obj.Name),
 		)).Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"Int",
 		).Call(
 			Line().Lit(fmt.Sprintf(
-				"%s-concurrent-reconciles",
-				fmt.Sprintf("%s-%s", obj.Version, strcase.ToKebab(obj.Name)),
+				"concurrent-reconciles",
+				strcase.ToKebab(obj.Name),
 			)),
 			Line().Lit(1),
 			Line().Lit(fmt.Sprintf(
@@ -70,22 +66,9 @@ func (cc *ControllerConfig) MainPackage() error {
 			"ReconcilerConfig",
 		).Values(Dict{
 			Id("Name"): Lit(fmt.Sprintf("%sReconciler", obj.Name)),
-			Id("ObjectType"): Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", obj.Version),
-				fmt.Sprintf("ObjectType%s", obj.Name),
-			),
-			Id("ObjectVersion"): Lit(sdk.GetLatestObjectVersion(obj.Name)),
 			Id("ReconcileFunc"): Qual(
 				fmt.Sprintf("github.com/threeport/threeport/internal/%s", cc.ShortName),
 				fmt.Sprintf("%sReconciler", obj.Name),
-			),
-			Id("ConcurrentReconciles"): Op("*").Id(fmt.Sprintf(
-				"%sConcurrentReconciles",
-				fmt.Sprintf("%s_%s", obj.Version, strcase.ToLowerCamel(obj.Name)),
-			)),
-			Id("NotifSubject"): Qual(
-				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", obj.Version),
-				fmt.Sprintf("%sSubject", obj.Name),
 			),
 		}))
 		reconcilerConfigs.Line()
@@ -94,62 +77,68 @@ func (cc *ControllerConfig) MainPackage() error {
 	f.Func().Id("main").Params().Block(
 		Comment("flags"),
 		concurrencyFlags,
+		Var().Id("configFile").Op("=").Qual(
+			"flag",
+			"String",
+		).Call(
+			Lit("config-file").Op(",").Lit("").Op(",").Lit("File path to runtime configuration file"),
+		),
 		Var().Id("apiServer").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"String",
 		).Call(
 			Lit("api-server").Op(",").Lit("threeport-api-server").Op(",").Lit("Threepoort REST API server endpoint"),
 		),
 		Var().Id("msgBrokerHost").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"String",
 		).Call(
 			Lit("msg-broker-host").Op(",").Lit("").Op(",").Lit("Threeport message broker hostname"),
 		),
 		Var().Id("msgBrokerPort").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"String",
 		).Call(
 			Lit("msg-broker-port").Op(",").Lit("").Op(",").Lit("Threeport message broker port"),
 		),
 		Var().Id("msgBrokerUser").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"String",
 		).Call(
 			Lit("msg-broker-user").Op(",").Lit("").Op(",").Lit("Threeport message broker user"),
 		),
 		Var().Id("msgBrokerPassword").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"String",
 		).Call(
 			Lit("msg-broker-password").Op(",").Lit("").Op(",").Lit("Threeport message broker user password"),
 		),
 		Var().Id("shutdownPort").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"String",
 		).Call(
 			Lit("shutdown-port").Op(",").Lit("8181").Op(",").Lit("Port to listen for shutdown calls"),
 		),
 		Var().Id("verbose").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"Bool",
 		).Call(
 			Lit("verbose").Op(",").Lit(false).Op(",").Lit("Write logs with v(1).InfoLevel and above"),
 		),
 		Var().Id("help").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"Bool",
 		).Call(
 			Lit("help").Op(",").Lit(false).Op(",").Lit("Show help info"),
 		),
 		Var().Id("authEnabled").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"Bool",
 		).Call(
 			Lit("auth-enabled").Op(",").Lit(true).Op(",").Lit("Enable client certificate authentication (default is true)"),
 		),
 		Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"Parse",
 		).Call(),
 
@@ -482,24 +471,20 @@ func (cc *ControllerConfig) ExtensionMainPackage(modulePath string) error {
 
 	f.ImportAlias("github.com/threeport/threeport/pkg/client/v0", "client")
 	f.ImportAlias("github.com/threeport/threeport/pkg/controller/v0", "controller")
+	f.ImportAlias("github.com/threeport/threeport/pkg/runtime/v0", "runtime")
 	f.ImportAlias(fmt.Sprintf("%s/pkg/config/v0", modulePath), "config")
-
-	//controllerShortName := strings.TrimSuffix(cc.Name, "-controller")
-	//controllerStreamName := fmt.Sprintf("%sStreamName", strcase.ToCamel(cc.ShortName))
 
 	concurrencyFlags := &Statement{}
 	for _, obj := range cc.ReconciledObjects {
 		concurrencyFlags.Var().Id(fmt.Sprintf(
-			"%sConcurrentReconciles",
-			fmt.Sprintf("%s_%s", obj.Version, strcase.ToLowerCamel(obj.Name)),
+			fmt.Sprintf("%sConcurrentReconciles", strcase.ToLowerCamel(obj.Name)),
 		)).Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"Int",
 		).Call(
-			Line().Lit(fmt.Sprintf(
-				"%s-concurrent-reconciles",
-				fmt.Sprintf("%s-%s", obj.Version, strcase.ToKebab(obj.Name)),
-			)),
+			Line().Lit(
+				fmt.Sprintf("%s-concurrent-reconciles", strcase.ToKebab(obj.Name)),
+			),
 			Line().Lit(1),
 			Line().Lit(fmt.Sprintf(
 				"Number of concurrent reconcilers to run for %s",
@@ -526,20 +511,15 @@ func (cc *ControllerConfig) ExtensionMainPackage(modulePath string) error {
 			"ReconcilerConfig",
 		).Values(Dict{
 			Id("Name"): Lit(fmt.Sprintf("%sReconciler", obj.Name)),
-			Id("ObjectType"): Qual(
-				fmt.Sprintf("%s/pkg/api/v0", modulePath),
-				fmt.Sprintf("ObjectType%s", obj.Name),
-			),
 			Id("ReconcileFunc"): Qual(
 				fmt.Sprintf("%s/internal/%s", modulePath, cc.ShortName),
 				fmt.Sprintf("%sReconciler", obj.Name),
 			),
-			Id("ConcurrentReconciles"): Op("*").Id(fmt.Sprintf(
-				"%sConcurrentReconciles",
-				fmt.Sprintf("%s_%s", obj.Version, strcase.ToLowerCamel(obj.Name)),
-			)),
+			Id("ConcurrentReconciles"): Op("*").Id(
+				fmt.Sprintf("%sConcurrentReconciles", strcase.ToLowerCamel(obj.Name)),
+			),
 			Id("NotifSubject"): Qual(
-				fmt.Sprintf("%s/pkg/api/v0", modulePath),
+				fmt.Sprintf("%s/internal/%s/notif", modulePath, cc.ShortName),
 				fmt.Sprintf("%sSubject", obj.Name),
 			),
 		}))
@@ -549,62 +529,68 @@ func (cc *ControllerConfig) ExtensionMainPackage(modulePath string) error {
 	f.Func().Id("main").Params().Block(
 		Comment("flags"),
 		concurrencyFlags,
+		Var().Id("configFile").Op("=").Qual(
+			"flag",
+			"String",
+		).Call(
+			Lit("config-file").Op(",").Lit("").Op(",").Lit("File path to runtime configuration file"),
+		),
 		Var().Id("apiServer").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"String",
 		).Call(
 			Lit("api-server").Op(",").Lit("threeport-api-server").Op(",").Lit("Threepoort REST API server endpoint"),
 		),
 		Var().Id("msgBrokerHost").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"String",
 		).Call(
 			Lit("msg-broker-host").Op(",").Lit("").Op(",").Lit("Threeport message broker hostname"),
 		),
 		Var().Id("msgBrokerPort").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"String",
 		).Call(
 			Lit("msg-broker-port").Op(",").Lit("").Op(",").Lit("Threeport message broker port"),
 		),
 		Var().Id("msgBrokerUser").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"String",
 		).Call(
 			Lit("msg-broker-user").Op(",").Lit("").Op(",").Lit("Threeport message broker user"),
 		),
 		Var().Id("msgBrokerPassword").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"String",
 		).Call(
 			Lit("msg-broker-password").Op(",").Lit("").Op(",").Lit("Threeport message broker user password"),
 		),
 		Var().Id("shutdownPort").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"String",
 		).Call(
 			Lit("shutdown-port").Op(",").Lit("8181").Op(",").Lit("Port to listen for shutdown calls"),
 		),
 		Var().Id("verbose").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"Bool",
 		).Call(
 			Lit("verbose").Op(",").Lit(false).Op(",").Lit("Write logs with v(1).InfoLevel and above"),
 		),
 		Var().Id("help").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"Bool",
 		).Call(
 			Lit("help").Op(",").Lit(false).Op(",").Lit("Show help info"),
 		),
 		Var().Id("authEnabled").Op("=").Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"Bool",
 		).Call(
 			Lit("auth-enabled").Op(",").Lit(true).Op(",").Lit("Enable client certificate authentication (default is true)"),
 		),
 		Qual(
-			"github.com/namsral/flag",
+			"flag",
 			"Parse",
 		).Call(),
 
@@ -655,9 +641,9 @@ func (cc *ControllerConfig) ExtensionMainPackage(modulePath string) error {
 
 		Line().Comment("config setup"),
 		Id("err").Op(":=").Qual(
-			fmt.Sprintf("%s/pkg/config/v0", modulePath),
-			"InitServerConfig",
-		).Call(),
+			"github.com/threeport/threeport/pkg/runtime/v0",
+			"LoadRuntimeConfig",
+		).Call(Op("*").Id("configFile")),
 		If(Err().Op("!=").Nil()).Block(
 			Id("log").Dot("Error").Call(
 				Err(),
@@ -813,7 +799,6 @@ func (cc *ControllerConfig) ExtensionMainPackage(modulePath string) error {
 			g.Line().Comment("create reconciler")
 			g.Id("reconciler").Op(":=").Id("controller").Dot("Reconciler").Values(Dict{
 				Id("Name"):             Id("r").Dot("Name"),
-				Id("ObjectType"):       Id("r").Dot("ObjectType"),
 				Id("APIServer"):        Op("*").Id("apiServer"),
 				Id("APIClient"):        Id("apiClient"),
 				Id("JetStreamContext"): Id("js"),

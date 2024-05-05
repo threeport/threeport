@@ -1,6 +1,7 @@
 package versions
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,8 +36,16 @@ func (gvc *GlobalVersionConfig) AddVersions() error {
 			versionFuncCalls,
 		)
 
+		// create directories if they don't exist
+		versionsPath := filepath.Join("pkg", "api-server", v.VersionName, "versions")
+		if _, err := os.Stat(versionsPath); errors.Is(err, os.ErrNotExist) {
+			if err := os.MkdirAll(versionsPath, 0755); err != nil {
+				return fmt.Errorf("could not create directores for API version maps: %s, %w", versionsPath, err)
+			}
+		}
+
 		// write code to file
-		routesFilepath := filepath.Join("pkg", "api-server", v.VersionName, "versions", "versions_gen.go")
+		routesFilepath := filepath.Join(versionsPath, "versions_gen.go")
 		file, err := os.OpenFile(routesFilepath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			return fmt.Errorf("failed to open file to write generated code to add versions: %w", err)

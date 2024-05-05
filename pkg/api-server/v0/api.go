@@ -8,10 +8,6 @@ import (
 	"net/http"
 )
 
-const (
-	V0 = "v0"
-)
-
 var Versions = make(map[int]string)
 
 func ResponseStatus200(c echo.Context, response v0.Response) error {

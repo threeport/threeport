@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/threeport/threeport/internal/sdk"
+	"github.com/threeport/threeport/internal/sdk/mod"
 	"github.com/threeport/threeport/internal/sdk/versions"
 )
 
@@ -16,13 +17,30 @@ const (
 	databaseExcludeMarker = "+threeport-sdk database-exclude"
 )
 
-// apiVersionCmd represents the apiVersion command
-func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
+// ApiVersionGen generates the source code across API versions.
+func ApiVersionGen(
+	sdkConfig *sdk.SdkConfig,
+) error {
 	var globalVersionConf versions.GlobalVersionConfig
 
-	extension, modulePath, err := isExtension()
+	extension, modulePath, err := mod.IsExtension()
 	if err != nil {
-		return fmt.Errorf("could not determine if running for an extension: %w", err)
+		return fmt.Errorf("could not determine if generating code for an extension: %w", err)
+	}
+
+	// group objects according to version for version gen logic
+	versionObjMap := make(map[string][]*sdk.ApiObject, 0)
+
+	for _, apiObjectGroups := range sdkConfig.ApiObjectConfig.ApiObjectGroups {
+		for _, obj := range apiObjectGroups.Objects {
+			for _, v := range obj.Versions {
+				if _, exists := versionObjMap[*v]; exists {
+					versionObjMap[*v] = append(versionObjMap[*v], obj)
+				} else {
+					versionObjMap[*v] = []*sdk.ApiObject{obj}
+				}
+			}
+		}
 	}
 
 	// assemble all objects to process further
@@ -87,10 +105,32 @@ func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
 		globalVersionConf.Versions = append(globalVersionConf.Versions, versionConf)
 	}
 
+	// generate the APIs main package
+	if extension {
+		if err := globalVersionConf.ExtensionApiMain(sdkConfig); err != nil {
+			return fmt.Errorf("failed to generate API main package: %w", err)
+		}
+	} else {
+		if err := globalVersionConf.ApiMain(sdkConfig); err != nil {
+			return fmt.Errorf("failed to generate API main package: %w", err)
+		}
+	}
+
+	// generate API server handler boilerplate
+	if extension {
+		if err := globalVersionConf.ExtensionApiHandler(); err != nil {
+			return fmt.Errorf("failed to create API handler boilerplate: %w", err)
+		}
+	} else {
+		if err := globalVersionConf.ApiHandler(); err != nil {
+			return fmt.Errorf("failed to create API handler boilerplate: %w", err)
+		}
+	}
+
 	// generate all the APIs REST route mappings
 	if extension {
 		if err := globalVersionConf.ExtensionAllRoutes(modulePath); err != nil {
-			return fmt.Errorf("failed to write all routes source code for extension: %w", err)
+			return fmt.Errorf("failed to write all routes source code: %w", err)
 		}
 	} else {
 		if err := globalVersionConf.AllRoutes(); err != nil {
@@ -101,7 +141,7 @@ func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
 	// generate the database init code incl the automigrate calls
 	if extension {
 		if err := globalVersionConf.ExtensionDatabaseInit(modulePath); err != nil {
-			return fmt.Errorf("failed to write database init source code for extension: %w", err)
+			return fmt.Errorf("failed to write database init source code: %w", err)
 		}
 	} else {
 		if err := globalVersionConf.DatabaseInit(); err != nil {
@@ -112,7 +152,7 @@ func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
 	// generate the tagged fields code
 	if extension {
 		if err := globalVersionConf.ExtensionTaggedFields(); err != nil {
-			return fmt.Errorf("failed to write tagged field source code for extension: %w", err)
+			return fmt.Errorf("failed to write tagged field source code: %w", err)
 		}
 	} else {
 		if err := globalVersionConf.TaggedFields(); err != nil {
@@ -128,7 +168,7 @@ func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
 	// generate response object type conversions
 	if extension {
 		if err := globalVersionConf.ExtensionResponseObjects(); err != nil {
-			return fmt.Errorf("failed to write response object source code for extension: %w", err)
+			return fmt.Errorf("failed to write response object source code: %w", err)
 		}
 	}
 
@@ -150,15 +190,21 @@ func ApiVersionGen(versionObjMap map[string][]*sdk.ApiObject) error {
 		}
 	}
 
-	// generate the controller streams
-	sdkConfig, err := sdk.GetSDKConfig()
-	if err != nil {
-		return fmt.Errorf("could not get sdk config: %w", err)
+	// generate the jetstream context for the rest-api to interact with reconcilers
+	if err := globalVersionConf.InitJetStreamContext(&sdkConfig.ApiObjectConfig, modulePath); err != nil {
+		return fmt.Errorf("failed to generate jetstream function for rest-api: %w", err)
 	}
 
-	// Generate the jetstream context for the rest-api to interact with reconcilers
-	if err := globalVersionConf.InitJetStreamContext(sdkConfig, modulePath); err != nil {
-		return fmt.Errorf("failed to generate jetstream function for rest-api: %w", err)
+	// generate the version route function for serving the API version at
+	// /version
+	if extension {
+		if err := globalVersionConf.ExtensionApiVersion(modulePath); err != nil {
+			return fmt.Errorf("failed to generate the API version route function: %w", err)
+		}
+	} else {
+		if err := globalVersionConf.ApiVersion(); err != nil {
+			return fmt.Errorf("failed to generate the API version route function: %w", err)
+		}
 	}
 
 	return nil
