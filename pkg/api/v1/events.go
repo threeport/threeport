@@ -11,6 +11,7 @@ type Event struct {
 	v0.Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// AttachedObjectReferenceID is a reference to an attached object.
+	// A foreign key is configured via db migration in cmd/database-migrator/migrations/000010_add_events_foreign_key.go
 	AttachedObjectReferenceID *uint `json:"AttachedObjectReferenceID,omitempty" query:"attachedobjectreferenceid" validate:"optional"`
 
 	// A short, machine understandable string that gives the reason for the event being generated.
