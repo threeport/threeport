@@ -5,7 +5,6 @@ import (
 	iapi "github.com/threeport/threeport/pkg/api-server/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
-	clause "gorm.io/gorm/clause"
 )
 
 // @Summary gets all events.
@@ -31,20 +30,13 @@ func (h Handler) GetEventsJoinAttachedObjectReferences(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v1.Event{}).Where(&filter).Count(&totalCount); result.Error != nil {
-		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
-	}
-
 	records := &[]v1.Event{}
-	// .Joins("AttachedObjectReferences").
-
 	objectID := c.QueryParam("objectid")
 	if result := h.DB.Joins(
 		"INNER JOIN attached_object_references ON events.attached_object_reference_id = attached_object_references.id",
 	).Where(
 		"attached_object_references.object_id = ?", objectID,
-	).
-		Find(records); result.Error != nil {
+	).Where(&filter).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
