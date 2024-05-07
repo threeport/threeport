@@ -243,11 +243,6 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update aws object storage bucket instance to mark as reconciled")
-					r.UnlockAndRequeue(&awsObjectStorageBucketInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateAwsObjectStorageBucketInstance(
 					r.APIClient,
 					r.APIServer,

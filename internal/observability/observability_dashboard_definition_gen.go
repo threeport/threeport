@@ -243,11 +243,6 @@ func ObservabilityDashboardDefinitionReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update observability dashboard definition to mark as reconciled")
-					r.UnlockAndRequeue(&observabilityDashboardDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateObservabilityDashboardDefinition(
 					r.APIClient,
 					r.APIServer,

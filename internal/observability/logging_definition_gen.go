@@ -243,11 +243,6 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update logging definition to mark as reconciled")
-					r.UnlockAndRequeue(&loggingDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateLoggingDefinition(
 					r.APIClient,
 					r.APIServer,
