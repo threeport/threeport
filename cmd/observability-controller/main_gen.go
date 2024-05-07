@@ -15,8 +15,8 @@ import (
 	version "github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	event_v0 "github.com/threeport/threeport/pkg/event/v0"
 	zap "go.uber.org/zap"
 	"net/http"
 	"os"
@@ -257,7 +257,7 @@ func main() {
 			APIServer:     *apiServer,
 			ControllerID:  controllerID,
 			EncryptionKey: encryptionKey,
-			EventsRecorder: &client_v1.EventRecorder{
+			EventsRecorder: &event_v0.EventRecorder{
 				APIClient:    apiClient,
 				APIServer:    *apiServer,
 				ControllerID: controllerID.String(),

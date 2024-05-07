@@ -1,4 +1,4 @@
-package v1
+package v0
 
 import (
 	"bytes"
@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -79,12 +80,12 @@ func (r *EventRecorder) RecordEvent(
 		event.LastObservedTime = util.Ptr(time.Now())
 		event.Count = util.Ptr(uint(1))
 		event.ControllerID = util.Ptr(r.ControllerID)
-		createdEvent, err = CreateEvent(r.APIClient, r.APIServer, event)
+		createdEvent, err = client_v1.CreateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
 			return fmt.Errorf("failed to create event: %w", err)
 		}
 
-		createdAttachedObjectReference, err := CreateAttachedObjectReference(
+		createdAttachedObjectReference, err := client_v1.CreateAttachedObjectReference(
 			r.APIClient,
 			r.APIServer,
 			&v1.AttachedObjectReference{
@@ -99,7 +100,7 @@ func (r *EventRecorder) RecordEvent(
 		}
 
 		event.AttachedObjectReferenceID = createdAttachedObjectReference.ID
-		_, err = UpdateEvent(r.APIClient, r.APIServer, event)
+		_, err = client_v1.UpdateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
 			return fmt.Errorf("failed to update event: %w", err)
 		}
@@ -107,7 +108,7 @@ func (r *EventRecorder) RecordEvent(
 		event = &(*events)[0]
 		event.Count = util.Ptr(uint((*event.Count + 1)))
 		event.LastObservedTime = util.Ptr(time.Now())
-		_, err := UpdateEvent(r.APIClient, r.APIServer, event)
+		_, err := client_v1.UpdateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
 			return fmt.Errorf("failed to update event: %w", err)
 		}
@@ -152,7 +153,7 @@ func GetEventsJoinAttachedObjectReferenceByQueryString(apiClient *http.Client, a
 
 	response, err := client_v0.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/events-join-attached-object-references?%s", apiAddr, ApiVersion, queryString),
+		fmt.Sprintf("%s/%s/events-join-attached-object-references?%s", apiAddr, client_v1.ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
