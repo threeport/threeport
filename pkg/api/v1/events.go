@@ -35,10 +35,10 @@ type Event struct {
 	// What action was taken/failed regarding to the Regarding object.
 	Action *string `json:"Action,omitempty" query:"action" validate:"optional"`
 
-	// Name of the controller that emitted this Event, e.g. `kubernetes.io/kubelet`.
+	// Name of the controller that emitted this Event.
 	ReportingController *string `json:"ReportingController,omitempty" query:"reportingcontroller" validate:"required"`
 
-	// ID of the controller instance, e.g. `kubelet-xyzf`.
+	// ID of the controller instance.
 	ReportingInstance *string `json:"ReportingInstance,omitempty" query:"reportinginstance" validate:"required"`
 
 	// ControllerID is the unique identifier for each controller instance.
