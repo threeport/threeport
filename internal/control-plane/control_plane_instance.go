@@ -170,14 +170,6 @@ func controlPlaneInstanceCreated(
 		}
 	}
 
-	for _, c := range componentMap {
-		c.ImageRepo = "hqleet"
-		c.ImageTag = "latest"
-	}
-
-	cpi.Opts.DatabaseMigratorInfo.ImageRepo = "hqleet"
-	cpi.Opts.DatabaseMigratorInfo.ImageTag = "latest"
-
 	cpi.Opts.InfraProvider = *kubernetesRuntimeDefinition.InfraProvider
 
 	// perform provider specific configuration
