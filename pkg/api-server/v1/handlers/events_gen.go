@@ -10,7 +10,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	gorm "gorm.io/gorm"
-	clause "gorm.io/gorm/clause"
 	"net/http"
 )
 
@@ -92,12 +91,12 @@ func (h Handler) GetEvents(c echo.Context) error {
 	}
 
 	var totalCount int64
-	if result := h.DB.Preload(clause.Associations).Model(&v1.Event{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&v1.Event{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]v1.Event{}
-	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -123,7 +122,7 @@ func (h Handler) GetEvent(c echo.Context) error {
 	objectType := v1.ObjectTypeEvent
 	eventID := c.Param("id")
 	var event v1.Event
-	if result := h.DB.Preload(clause.Associations).First(&event, eventID); result.Error != nil {
+	if result := h.DB.First(&event, eventID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return iapi.ResponseStatus404(c, nil, result.Error, objectType)
 		}
