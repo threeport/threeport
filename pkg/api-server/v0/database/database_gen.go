@@ -114,6 +114,9 @@ func (zl *ZapLogger) Trace(ctx context.Context, begin time.Time, fc func() (stri
 func GetDbInterfaces() []interface{} {
 	return []interface{}{
 
+		&v1.AttachedObjectReference{},
+		&v1.Event{},
+		&v1.WorkloadInstance{},
 		&v0.AttachedObjectReference{},
 		&v0.AwsAccount{},
 		&v0.AwsEksKubernetesRuntimeDefinition{},
@@ -160,9 +163,6 @@ func GetDbInterfaces() []interface{} {
 		&v0.WorkloadInstance{},
 		&v0.WorkloadResourceDefinition{},
 		&v0.WorkloadResourceInstance{},
-		&v1.AttachedObjectReference{},
-		&v1.Event{},
-		&v1.WorkloadInstance{},
 	}
 }
 

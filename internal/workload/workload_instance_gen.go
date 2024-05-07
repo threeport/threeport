@@ -5,12 +5,6 @@ package workload
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
-	"time"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -19,6 +13,11 @@ import (
 	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
 )
 
 // WorkloadInstanceReconciler reconciles system state when a WorkloadInstance
