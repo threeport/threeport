@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/google/uuid"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
@@ -34,7 +33,7 @@ type EventRecorder struct {
 	ReportingInstance string
 
 	// ControllerID is the unique identifier for each controller instance.
-	ControllerID uuid.UUID
+	ControllerID string
 
 	// ObjectType is the type of the object that this event is attached to.
 	ObjectType string
@@ -50,7 +49,7 @@ func (r *EventRecorder) RecordEvent(
 		url.QueryEscape(*event.Reason),
 		url.QueryEscape(*event.Note),
 		url.QueryEscape(*event.Type),
-		*event.ControllerID,
+		r.ControllerID,
 		*objectId,
 	}
 
@@ -79,6 +78,7 @@ func (r *EventRecorder) RecordEvent(
 		event.EventTime = util.Ptr(time.Now())
 		event.LastObservedTime = util.Ptr(time.Now())
 		event.Count = util.Ptr(uint(1))
+		event.ControllerID = util.Ptr(r.ControllerID)
 		createdEvent, err = CreateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
 			return fmt.Errorf("failed to create event: %w", err)
