@@ -243,11 +243,6 @@ func ControlPlaneDefinitionReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update control plane definition to mark as reconciled")
-					r.UnlockAndRequeue(&controlPlaneDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateControlPlaneDefinition(
 					r.APIClient,
 					r.APIServer,

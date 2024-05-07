@@ -243,11 +243,6 @@ func TerraformInstanceReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update terraform instance to mark as reconciled")
-					r.UnlockAndRequeue(&terraformInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateTerraformInstance(
 					r.APIClient,
 					r.APIServer,

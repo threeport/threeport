@@ -243,11 +243,6 @@ func GatewayInstanceReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update gateway instance to mark as reconciled")
-					r.UnlockAndRequeue(&gatewayInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateGatewayInstance(
 					r.APIClient,
 					r.APIServer,

@@ -244,11 +244,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update workload instance to mark as reconciled")
-					r.UnlockAndRequeue(&workloadInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client_v1.UpdateWorkloadInstance(
 					r.APIClient,
 					r.APIServer,

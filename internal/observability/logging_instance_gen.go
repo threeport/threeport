@@ -243,11 +243,6 @@ func LoggingInstanceReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update logging instance to mark as reconciled")
-					r.UnlockAndRequeue(&loggingInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateLoggingInstance(
 					r.APIClient,
 					r.APIServer,

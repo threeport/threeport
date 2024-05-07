@@ -243,11 +243,6 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update gateway definition to mark as reconciled")
-					r.UnlockAndRequeue(&gatewayDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateGatewayDefinition(
 					r.APIClient,
 					r.APIServer,

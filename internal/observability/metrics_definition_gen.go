@@ -243,11 +243,6 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update metrics definition to mark as reconciled")
-					r.UnlockAndRequeue(&metricsDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateMetricsDefinition(
 					r.APIClient,
 					r.APIServer,

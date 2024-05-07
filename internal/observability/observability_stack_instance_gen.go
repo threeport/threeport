@@ -243,11 +243,6 @@ func ObservabilityStackInstanceReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update observability stack instance to mark as reconciled")
-					r.UnlockAndRequeue(&observabilityStackInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateObservabilityStackInstance(
 					r.APIClient,
 					r.APIServer,

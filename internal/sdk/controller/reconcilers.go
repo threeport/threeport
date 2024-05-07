@@ -403,15 +403,6 @@ func (cc *ControllerConfig) Reconcilers() error {
 										Id("DeletionConfirmed"):    Id("deletionTimestamp"),
 									}),
 								}),
-								If(Id("err").Op("!=").Nil()).Block(
-									Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
-										"failed to update %s to mark as reconciled",
-										strcase.ToDelimited(obj.Name, ' '),
-									))),
-									Id("r").Dot("UnlockAndRequeue").Call(Op("&").Id(strcase.ToLowerCamel(obj.Name)), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
-									Continue(),
-								),
-
 								Id("_").Op(",").Id("err").Op("=").Qual(
 									fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", sdk.GetLatestObjectVersion(obj.Name)),
 									fmt.Sprintf("Update%s", obj.Name),
