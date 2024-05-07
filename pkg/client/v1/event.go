@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
@@ -32,6 +33,9 @@ type EventRecorder struct {
 	// ID of the controller instance, e.g. `kubelet-xyzf`.
 	ReportingInstance string
 
+	// ControllerID is the unique identifier for each controller instance.
+	ControllerID uuid.UUID
+
 	// ObjectType is the type of the object that this event is attached to.
 	ObjectType string
 }
@@ -41,11 +45,12 @@ func (r *EventRecorder) RecordEvent(
 	event *v1.Event,
 	objectId *uint,
 ) error {
-	formatString := "reason=%s&note=%s&type=%s&objectid=%d"
+	formatString := "reason=%s&note=%s&type=%s&controllerid=%s&objectid=%d"
 	formatArgs := []any{
 		url.QueryEscape(*event.Reason),
 		url.QueryEscape(*event.Note),
 		url.QueryEscape(*event.Type),
+		*event.ControllerID,
 		*objectId,
 	}
 

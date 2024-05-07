@@ -258,8 +258,9 @@ func main() {
 			ControllerID:  controllerID,
 			EncryptionKey: encryptionKey,
 			EventsRecorder: &client_v1.EventRecorder{
-				APIClient: apiClient,
-				APIServer: *apiServer,
+				APIClient:    apiClient,
+				APIServer:    *apiServer,
+				ControllerID: controllerID,
 				ObjectType: fmt.Sprintf(
 					"%s.%s",
 					r.ObjectVersion,

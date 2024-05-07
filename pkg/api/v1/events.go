@@ -44,4 +44,7 @@ type Event struct {
 
 	// ID of the controller instance, e.g. `kubelet-xyzf`.
 	ReportingInstance *string `json:"ReportingInstance,omitempty" query:"reportinginstance" validate:"required"`
+
+	// ControllerID is the unique identifier for each controller instance.
+	ControllerID *string `json:"ControllerID,omitempty" query:"controllerid" validate:"required"`
 }
