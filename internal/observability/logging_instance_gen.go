@@ -9,6 +9,7 @@ import (
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -142,8 +143,8 @@ func LoggingInstanceReconciler(r *controller.Reconciler) {
 					r.EventsRecorder.HandleEventOverride(
 						&v1.Event{
 							Note:   util.Ptr(errorMsg),
-							Reason: util.Ptr("LoggingInstanceNotCreated"),
-							Type:   util.Ptr("Normal"),
+							Reason: util.Ptr(event.ReasonFailedCreate),
+							Type:   util.Ptr(event.TypeNormal),
 						},
 						loggingInstance.ID,
 						err,
@@ -175,8 +176,8 @@ func LoggingInstanceReconciler(r *controller.Reconciler) {
 					r.EventsRecorder.HandleEventOverride(
 						&v1.Event{
 							Note:   util.Ptr(errorMsg),
-							Reason: util.Ptr("LoggingInstanceNotUpdated"),
-							Type:   util.Ptr("Normal"),
+							Reason: util.Ptr(event.ReasonFailedUpdate),
+							Type:   util.Ptr(event.TypeNormal),
 						},
 						loggingInstance.ID,
 						err,
@@ -208,8 +209,8 @@ func LoggingInstanceReconciler(r *controller.Reconciler) {
 					r.EventsRecorder.HandleEventOverride(
 						&v1.Event{
 							Note:   util.Ptr(errorMsg),
-							Reason: util.Ptr("LoggingInstanceNotUpdated"),
-							Type:   util.Ptr("Normal"),
+							Reason: util.Ptr(event.ReasonFailedUpdate),
+							Type:   util.Ptr(event.TypeNormal),
 						},
 						loggingInstance.ID,
 						err,
@@ -318,8 +319,8 @@ func LoggingInstanceReconciler(r *controller.Reconciler) {
 			if err := r.EventsRecorder.RecordEvent(
 				&v1.Event{
 					Note:   util.Ptr(successMsg),
-					Reason: util.Ptr("LoggingInstanceSuccessfullyReconciled"),
-					Type:   util.Ptr("Normal"),
+					Reason: util.Ptr(event.GetSuccessReasonForOperation(notif.Operation)),
+					Type:   util.Ptr(event.TypeNormal),
 				},
 				loggingInstance.ID,
 			); err != nil {

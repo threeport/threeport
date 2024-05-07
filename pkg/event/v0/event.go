@@ -14,7 +14,24 @@ import (
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
+	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
+)
+
+const (
+	// Default event reasons for crud operations.
+	ReasonSuccessfulCreate = "SuccessfulCreate"
+	ReasonFailedCreate     = "FailedCreate"
+
+	ReasonSuccessfulUpdate = "SuccessfulUpdate"
+	ReasonFailedUpdate     = "FailedUpdate"
+
+	ReasonSuccessfulDelete = "SuccessfulDelete"
+	ReasonFailedDelete     = "FailedDelete"
+
+	// Default event types
+	TypeNormal  = "Normal"
+	TypeWarning = "Warning"
 )
 
 // EventRecorder records events to the backend.
@@ -175,4 +192,18 @@ func GetEventsJoinAttachedObjectReferenceByQueryString(apiClient *http.Client, a
 	}
 
 	return &events, nil
+}
+
+// GetSuccessReasonForOperation returns the default reason for the operation.
+func GetSuccessReasonForOperation(operation notifications.NotificationOperation) string {
+	switch operation {
+	case notifications.NotificationOperationCreated:
+		return ReasonSuccessfulCreate
+	case notifications.NotificationOperationUpdated:
+		return ReasonSuccessfulUpdate
+	case notifications.NotificationOperationDeleted:
+		return ReasonSuccessfulDelete
+	default:
+		return ""
+	}
 }

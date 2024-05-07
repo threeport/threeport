@@ -28,6 +28,7 @@ func (cc *ControllerConfig) Reconcilers() error {
 		f.ImportAlias("github.com/threeport/threeport/pkg/controller/v0", "controller")
 		f.ImportAlias("github.com/threeport/threeport/pkg/notifications/v0", "notifications")
 		f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
+		f.ImportAlias("github.com/threeport/threeport/pkg/event/v0", "event")
 
 		f.Comment(fmt.Sprintf("%[1]sReconciler reconciles system state when a %[1]s", obj.Name))
 		f.Comment("is created, updated or deleted.")
@@ -233,10 +234,12 @@ func (cc *ControllerConfig) Reconcilers() error {
 									Id("r").Dot("EventsRecorder").Dot("HandleEventOverride").Call(
 										Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v1", "Event").Values(Dict{
 											Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
-												Lit(fmt.Sprintf("%sNotCreated", obj.Name)),
+												Qual("github.com/threeport/threeport/pkg/event/v0", "ReasonFailedCreate"),
 											),
 											Id("Note"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Id("errorMsg")),
-											Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit("Normal")),
+											Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+												Qual("github.com/threeport/threeport/pkg/event/v0", "TypeNormal"),
+											),
 										}),
 										Line().Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
 										Line().Id("err"),
@@ -286,10 +289,12 @@ func (cc *ControllerConfig) Reconcilers() error {
 									Id("r").Dot("EventsRecorder").Dot("HandleEventOverride").Call(
 										Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v1", "Event").Values(Dict{
 											Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
-												Lit(fmt.Sprintf("%sNotUpdated", obj.Name)),
+												Qual("github.com/threeport/threeport/pkg/event/v0", "ReasonFailedUpdate"),
 											),
 											Id("Note"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Id("errorMsg")),
-											Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit("Normal")),
+											Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+												Qual("github.com/threeport/threeport/pkg/event/v0", "TypeNormal"),
+											),
 										}),
 										Line().Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
 										Line().Id("err"),
@@ -339,10 +344,12 @@ func (cc *ControllerConfig) Reconcilers() error {
 									Id("r").Dot("EventsRecorder").Dot("HandleEventOverride").Call(
 										Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v1", "Event").Values(Dict{
 											Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
-												Lit(fmt.Sprintf("%sNotUpdated", obj.Name)),
+												Qual("github.com/threeport/threeport/pkg/event/v0", "ReasonFailedUpdate"),
 											),
 											Id("Note"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Id("errorMsg")),
-											Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit("Normal")),
+											Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+												Qual("github.com/threeport/threeport/pkg/event/v0", "TypeNormal"),
+											),
 										}),
 										Line().Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
 										Line().Id("err"),
@@ -554,10 +561,12 @@ func (cc *ControllerConfig) Reconcilers() error {
 						g.If(Id("err").Op(":=").Id("r").Dot("EventsRecorder").Dot("RecordEvent").Call(
 							Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v1", "Event").Values(Dict{
 								Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
-									Lit(fmt.Sprintf("%sSuccessfullyReconciled", obj.Name)),
+									Qual("github.com/threeport/threeport/pkg/event/v0", "GetSuccessReasonForOperation").Call(Id("notif").Dot("Operation")),
 								),
 								Id("Note"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Id("successMsg")),
-								Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit("Normal")),
+								Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+									Qual("github.com/threeport/threeport/pkg/event/v0", "TypeNormal"),
+								),
 							}),
 							Line().Id(strcase.ToLowerCamel(obj.Name)).Dot("ID"),
 							Line(),

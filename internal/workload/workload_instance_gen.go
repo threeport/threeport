@@ -5,18 +5,20 @@ package workload
 import (
 	"errors"
 	"fmt"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
-	client "github.com/threeport/threeport/pkg/client/v0"
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
-	controller "github.com/threeport/threeport/pkg/controller/v0"
-	notifications "github.com/threeport/threeport/pkg/notifications/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
+
+	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
+	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
+	event "github.com/threeport/threeport/pkg/event/v0"
+	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // WorkloadInstanceReconciler reconciles system state when a WorkloadInstance
@@ -143,8 +145,8 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					r.EventsRecorder.HandleEventOverride(
 						&v1.Event{
 							Note:   util.Ptr(errorMsg),
-							Reason: util.Ptr("WorkloadInstanceNotCreated"),
-							Type:   util.Ptr("Normal"),
+							Reason: util.Ptr(event.ReasonFailedCreate),
+							Type:   util.Ptr(event.TypeNormal),
 						},
 						workloadInstance.ID,
 						err,
@@ -176,8 +178,8 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					r.EventsRecorder.HandleEventOverride(
 						&v1.Event{
 							Note:   util.Ptr(errorMsg),
-							Reason: util.Ptr("WorkloadInstanceNotUpdated"),
-							Type:   util.Ptr("Normal"),
+							Reason: util.Ptr(event.ReasonFailedUpdate),
+							Type:   util.Ptr(event.TypeNormal),
 						},
 						workloadInstance.ID,
 						err,
@@ -209,8 +211,8 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					r.EventsRecorder.HandleEventOverride(
 						&v1.Event{
 							Note:   util.Ptr(errorMsg),
-							Reason: util.Ptr("WorkloadInstanceNotUpdated"),
-							Type:   util.Ptr("Normal"),
+							Reason: util.Ptr(event.ReasonFailedUpdate),
+							Type:   util.Ptr(event.TypeNormal),
 						},
 						workloadInstance.ID,
 						err,
@@ -319,8 +321,8 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			if err := r.EventsRecorder.RecordEvent(
 				&v1.Event{
 					Note:   util.Ptr(successMsg),
-					Reason: util.Ptr("WorkloadInstanceSuccessfullyReconciled"),
-					Type:   util.Ptr("Normal"),
+					Reason: util.Ptr(event.GetSuccessReasonForOperation(notif.Operation)),
+					Type:   util.Ptr(event.TypeNormal),
 				},
 				workloadInstance.ID,
 			); err != nil {
