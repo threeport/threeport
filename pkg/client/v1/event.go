@@ -41,28 +41,17 @@ func (r *EventRecorder) RecordEvent(
 	event *v1.Event,
 	objectId *uint,
 ) error {
-	formatString := ""
-	formatArgs := []any{}
+	formatString := "reason=%s&note=%s&type=%s&objectid=%d"
+	formatArgs := []any{
+		url.QueryEscape(*event.Reason),
+		url.QueryEscape(*event.Note),
+		url.QueryEscape(*event.Type),
+		*objectId,
+	}
 
-	if event.Reason != nil {
-		formatString += "reason=%s"
-		formatArgs = append(formatArgs, url.QueryEscape(*event.Reason))
-	}
-	if event.Note != nil {
-		formatString += "&note=%s"
-		formatArgs = append(formatArgs, url.QueryEscape(*event.Note))
-	}
-	if event.Type != nil {
-		formatString += "&type=%s"
-		formatArgs = append(formatArgs, url.QueryEscape(*event.Type))
-	}
 	if event.Action != nil {
 		formatString += "&action=%s"
 		formatArgs = append(formatArgs, url.QueryEscape(*event.Action))
-	}
-	if objectId != nil {
-		formatString += "&objectid=%d"
-		formatArgs = append(formatArgs, *objectId)
 	}
 
 	query := fmt.Sprintf(formatString, formatArgs...)
