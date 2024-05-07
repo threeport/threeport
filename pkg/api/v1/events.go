@@ -13,8 +13,6 @@ type Event struct {
 	// AttachedObjectReferenceID is a reference to an attached object.
 	AttachedObjectReferenceID *uint `json:"AttachedObjectReferenceID,omitempty" query:"attachedobjectreferenceid" validate:"optional"`
 
-	// AttachedObjectReferenceObjectID *uint `json:"AttachedObjectReferenceObjectID,omitempty" query:"attachedobjectreferenceobjectid" validate:"optional"`
-
 	// A short, machine understandable string that gives the reason for the event being generated.
 	Reason *string `json:"Reason,omitempty" query:"reason" validate:"required"`
 
@@ -32,9 +30,6 @@ type Event struct {
 
 	// Type of this event (Normal, Warning), new types could be added in the future.
 	Type *string `json:"Type,omitempty" query:"type" validate:"required"`
-
-	// Data about the Event series this event represents or nil if it's a singleton Event.
-	// Series *EventSeries `validate:"optional"`
 
 	// What action was taken/failed regarding to the Regarding object.
 	Action *string `json:"Action,omitempty" query:"action" validate:"optional"`
