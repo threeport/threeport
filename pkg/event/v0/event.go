@@ -62,7 +62,7 @@ func (r *EventRecorder) RecordEvent(
 	event *v1.Event,
 	objectId *uint,
 ) error {
-	formatString := "reason=%s&note=%s&type=%s&controllerid=%s&objectid=%d"
+	formatString := "reason=%s&note=%s&type=%s&objectid=%d"
 	formatArgs := []any{
 		url.QueryEscape(*event.Reason),
 		url.QueryEscape(*event.Note),
@@ -92,11 +92,9 @@ func (r *EventRecorder) RecordEvent(
 
 		//TODO: use util.Operations here
 		event.ReportingController = &r.ReportingController
-		event.ReportingInstance = &r.ReportingInstance
 		event.EventTime = util.Ptr(time.Now())
 		event.LastObservedTime = util.Ptr(time.Now())
 		event.Count = util.Ptr(uint(1))
-		event.ControllerID = util.Ptr(r.ControllerID)
 		createdEvent, err = client_v1.CreateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
 			return fmt.Errorf("failed to create event: %w", err)
