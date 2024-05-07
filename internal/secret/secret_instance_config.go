@@ -141,7 +141,7 @@ func (c *SecretInstanceConfig) createSecretObjects() error {
 		}
 
 		// trigger workload instance reconciliation
-		workloadInstance.Reconciled = util.BoolPtr(false)
+		workloadInstance.Reconciled = util.Ptr(false)
 		_, err = client.UpdateWorkloadInstance(c.r.APIClient, c.r.APIServer, workloadInstance)
 		if err != nil {
 			return fmt.Errorf("failed to update workload instance: %w", err)
@@ -173,7 +173,7 @@ func (c *SecretInstanceConfig) createSecretObjects() error {
 		}
 
 		helmWorkloadInstance.AdditionalResources = &appendedResources
-		helmWorkloadInstance.Reconciled = util.BoolPtr(false)
+		helmWorkloadInstance.Reconciled = util.Ptr(false)
 		_, err = client.UpdateHelmWorkloadInstance(c.r.APIClient, c.r.APIServer, helmWorkloadInstance)
 		if err != nil {
 			return fmt.Errorf("failed to update helm workload instance: %w", err)
@@ -239,8 +239,8 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 			// schedule workload resource instance for deletion
 			workloadResourceInstance = &v0.WorkloadResourceInstance{
 				Common:               v0.Common{ID: workloadResourceInstance.ID},
-				ScheduledForDeletion: util.TimePtr(time.Now().UTC()),
-				Reconciled:           util.BoolPtr(false),
+				ScheduledForDeletion: util.Ptr(time.Now().UTC()),
+				Reconciled:           util.Ptr(false),
 			}
 			_, err = client.UpdateWorkloadResourceInstance(
 				c.r.APIClient,
@@ -257,7 +257,7 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 		}
 
 		// trigger workload instance reconciliation
-		workloadInstance.Reconciled = util.BoolPtr(false)
+		workloadInstance.Reconciled = util.Ptr(false)
 		_, err = client.UpdateWorkloadInstance(
 			c.r.APIClient,
 			c.r.APIServer,
@@ -287,7 +287,7 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 			}
 		}
 
-		helmWorkloadInstance.Reconciled = util.BoolPtr(false)
+		helmWorkloadInstance.Reconciled = util.Ptr(false)
 		_, err = client.UpdateHelmWorkloadInstance(c.r.APIClient, c.r.APIServer, helmWorkloadInstance)
 		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
 			return fmt.Errorf("failed to update helm workload instance: %w", err)

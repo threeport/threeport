@@ -134,7 +134,7 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 	// Create input for the CreateSecret operation
 	input := &secretsmanager.CreateSecretInput{
 		Name:         c.secretDefinition.Name,
-		SecretString: util.StringPtr(jsonString),
+		SecretString: util.Ptr(jsonString),
 	}
 
 	// Call the CreateSecret operation

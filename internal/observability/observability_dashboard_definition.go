@@ -58,10 +58,10 @@ func observabilityDashboardDefinitionCreated(
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
 			Definition: v0.Definition{
-				Name: util.StringPtr(GrafanaChartName(*observabilityDashboardDefinition.Name)),
+				Name: util.Ptr(GrafanaChartName(*observabilityDashboardDefinition.Name)),
 			},
-			Repo:           util.StringPtr(GrafanaHelmRepo),
-			Chart:          util.StringPtr("grafana"),
+			Repo:           util.Ptr(GrafanaHelmRepo),
+			Chart:          util.Ptr("grafana"),
 			ChartVersion:   observabilityDashboardDefinition.GrafanaHelmChartVersion,
 			ValuesDocument: &grafanaHelmValuesDocument,
 		})
@@ -73,7 +73,7 @@ func observabilityDashboardDefinitionCreated(
 	observabilityDashboardDefinition.GrafanaHelmWorkloadDefinitionID = grafanaHelmWorkloadDefinition.ID
 
 	// update observability dashboard definition
-	observabilityDashboardDefinition.Reconciled = util.BoolPtr(true)
+	observabilityDashboardDefinition.Reconciled = util.Ptr(true)
 	if _, err := client.UpdateObservabilityDashboardDefinition(
 		r.APIClient,
 		r.APIServer,

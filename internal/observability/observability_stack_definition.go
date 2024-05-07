@@ -30,7 +30,7 @@ func observabilityStackDefinitionCreated(
 	}
 
 	// update observability stack definition
-	observabilityStackDefinition.Reconciled = util.BoolPtr(true)
+	observabilityStackDefinition.Reconciled = util.Ptr(true)
 	if _, err := client.UpdateObservabilityStackDefinition(
 		r.APIClient,
 		r.APIServer,

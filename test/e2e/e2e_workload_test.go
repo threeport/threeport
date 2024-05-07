@@ -71,7 +71,7 @@ func TestWorkloadE2E(t *testing.T) {
 			Definition: v0.Definition{
 				Name: &workloadDefName,
 			},
-			YAMLDocument: util.StringPtr(""),
+			YAMLDocument: util.Ptr(""),
 		}
 
 		// determine if the API is serving HTTPS or HTTP
@@ -119,11 +119,11 @@ func TestWorkloadE2E(t *testing.T) {
 		// configure domain name definition object
 		domainNameDefinition := &v0.DomainNameDefinition{
 			Definition: v0.Definition{
-				Name: util.StringPtr("domainNameDefinition"),
+				Name: util.Ptr("domainNameDefinition"),
 			},
-			Domain:     util.StringPtr("test.threeport.io"),
-			Zone:       util.StringPtr("testZone"),
-			AdminEmail: util.StringPtr("no-reply@threeport.io"),
+			Domain:     util.Ptr("test.threeport.io"),
+			Zone:       util.Ptr("testZone"),
+			AdminEmail: util.Ptr("no-reply@threeport.io"),
 		}
 
 		// create domain name definition
@@ -137,23 +137,23 @@ func TestWorkloadE2E(t *testing.T) {
 		// configure gateway definition object
 		gatewayDefinition := &v0.GatewayDefinition{
 			Definition: v0.Definition{
-				Name: util.StringPtr("gateway-definition"),
+				Name: util.Ptr("gateway-definition"),
 			},
 			DomainNameDefinitionID: createdDomainNameDefinition.ID,
 			HttpPorts: []*v0.GatewayHttpPort{
 				{
-					Port:       util.IntPtr(80),
-					TLSEnabled: util.BoolPtr(false),
+					Port:       util.Ptr(80),
+					TLSEnabled: util.Ptr(false),
 				},
 				{
-					Port:       util.IntPtr(443),
-					TLSEnabled: util.BoolPtr(true),
+					Port:       util.Ptr(443),
+					TLSEnabled: util.Ptr(true),
 				},
 			},
 			TcpPorts: []*v0.GatewayTcpPort{
 				{
-					Port:       util.IntPtr(22),
-					TLSEnabled: util.BoolPtr(false),
+					Port:       util.Ptr(22),
+					TLSEnabled: util.Ptr(false),
 				},
 			},
 		}
@@ -169,7 +169,7 @@ func TestWorkloadE2E(t *testing.T) {
 		// update gateway definition
 		gatewayDefinition.HttpPorts = []*v0.GatewayHttpPort{
 			{
-				Port: util.IntPtr(443),
+				Port: util.Ptr(443),
 			},
 		}
 		_, err = client.UpdateGatewayDefinition(
@@ -193,7 +193,7 @@ func TestWorkloadE2E(t *testing.T) {
 			threeportAPIEndpoint,
 			&v0.SecretDefinition{
 				Definition: v0.Definition{
-					Name: util.StringPtr("secret-definition"),
+					Name: util.Ptr("secret-definition"),
 				},
 				Data: util.Ptr(datatypes.JSON(jsonData)),
 			},
@@ -356,7 +356,7 @@ func TestWorkloadE2E(t *testing.T) {
 		// create a gateway instance
 		gatewayInstance := &v0.GatewayInstance{
 			Instance: v0.Instance{
-				Name: util.StringPtr("gatewayInstance"),
+				Name: util.Ptr("gatewayInstance"),
 			},
 			KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
 			GatewayDefinitionID:         gatewayDefinition.ID,

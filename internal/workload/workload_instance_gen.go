@@ -5,12 +5,6 @@ package workload
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
-	"time"
-
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -19,6 +13,11 @@ import (
 	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
 )
 
 // WorkloadInstanceReconciler reconciles system state when a WorkloadInstance
@@ -236,13 +235,13 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
-				deletionTimestamp := util.TimePtr(time.Now().UTC())
+				deletionTimestamp := util.Ptr(time.Now().UTC())
 				deletedWorkloadInstance := v1.WorkloadInstance{
 					Common: v0.Common{ID: workloadInstance.ID},
 					Reconciliation: v0.Reconciliation{
 						DeletionAcknowledged: deletionTimestamp,
 						DeletionConfirmed:    deletionTimestamp,
-						Reconciled:           util.BoolPtr(true),
+						Reconciled:           util.Ptr(true),
 					},
 				}
 				if err != nil {
@@ -289,7 +288,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			if notif.Operation != notifications.NotificationOperationDeleted {
 				reconciledWorkloadInstance := v1.WorkloadInstance{
 					Common:         v0.Common{ID: workloadInstance.ID},
-					Reconciliation: v0.Reconciliation{Reconciled: util.BoolPtr(true)},
+					Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(true)},
 				}
 				updatedWorkloadInstance, err := client_v1.UpdateWorkloadInstance(
 					r.APIClient,

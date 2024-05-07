@@ -93,7 +93,7 @@ func loggingDefinitionCreated(
 	}
 
 	// update logging definition
-	loggingDefinition.Reconciled = util.BoolPtr(true)
+	loggingDefinition.Reconciled = util.Ptr(true)
 	_, err = client.UpdateLoggingDefinition(
 		r.APIClient,
 		r.APIServer,

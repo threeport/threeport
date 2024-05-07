@@ -67,7 +67,7 @@ func loggingInstanceCreated(
 	}
 
 	// update logging instance
-	loggingInstance.Reconciled = util.BoolPtr(true)
+	loggingInstance.Reconciled = util.Ptr(true)
 	if _, err = client.UpdateLoggingInstance(
 		r.APIClient,
 		r.APIServer,

@@ -184,7 +184,7 @@ func helmWorkloadInstanceCreated(
 		log.Error(err, "failed to remove files written to disk")
 	}
 	// update helm workload instance reconciled field
-	helmWorkloadInstance.Reconciled = util.BoolPtr(true)
+	helmWorkloadInstance.Reconciled = util.Ptr(true)
 	_, err = client.UpdateHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,

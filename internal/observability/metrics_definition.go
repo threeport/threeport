@@ -49,10 +49,10 @@ func metricsDefinitionCreated(
 		r.APIServer,
 		&v0.HelmWorkloadDefinition{
 			Definition: v0.Definition{
-				Name: util.StringPtr(KubePrometheusStackChartName(*metricsDefinition.Name)),
+				Name: util.Ptr(KubePrometheusStackChartName(*metricsDefinition.Name)),
 			},
-			Repo:           util.StringPtr(PrometheusCommunityHelmRepo),
-			Chart:          util.StringPtr("kube-prometheus-stack"),
+			Repo:           util.Ptr(PrometheusCommunityHelmRepo),
+			Chart:          util.Ptr("kube-prometheus-stack"),
 			ChartVersion:   metricsDefinition.KubePrometheusStackHelmChartVersion,
 			ValuesDocument: &kubePrometheusStackHelmWorkloadDefinitionValues,
 		})
@@ -64,7 +64,7 @@ func metricsDefinitionCreated(
 	metricsDefinition.KubePrometheusStackHelmWorkloadDefinitionID = kubePrometheusStackHelmWorkloadDefinition.ID
 
 	// update metrics definition
-	metricsDefinition.Reconciled = util.BoolPtr(true)
+	metricsDefinition.Reconciled = util.Ptr(true)
 	if _, err := client.UpdateMetricsDefinition(
 		r.APIClient,
 		r.APIServer,
