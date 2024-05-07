@@ -176,7 +176,7 @@ func (dnd *DomainNameDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (dnd DomainNameDefinition) String() string {
-	return fmt.Sprintf("v0.DomainNameDefinition")
+	return "v0.DomainNameDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -224,7 +224,7 @@ func (dni *DomainNameInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (dni DomainNameInstance) String() string {
-	return fmt.Sprintf("v0.DomainNameInstance")
+	return "v0.DomainNameInstance"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -272,7 +272,7 @@ func (gd *GatewayDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (gd GatewayDefinition) String() string {
-	return fmt.Sprintf("v0.GatewayDefinition")
+	return "v0.GatewayDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -320,7 +320,7 @@ func (ghp *GatewayHttpPort) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (ghp GatewayHttpPort) String() string {
-	return fmt.Sprintf("v0.GatewayHttpPort")
+	return "v0.GatewayHttpPort"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -368,7 +368,7 @@ func (gi *GatewayInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (gi GatewayInstance) String() string {
-	return fmt.Sprintf("v0.GatewayInstance")
+	return "v0.GatewayInstance"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -416,5 +416,5 @@ func (gtp *GatewayTcpPort) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (gtp GatewayTcpPort) String() string {
-	return fmt.Sprintf("v0.GatewayTcpPort")
+	return "v0.GatewayTcpPort"
 }

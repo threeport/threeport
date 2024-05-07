@@ -86,5 +86,5 @@ func (wi *WorkloadInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (wi WorkloadInstance) String() string {
-	return fmt.Sprintf("v1.WorkloadInstance")
+	return "v1.WorkloadInstance"
 }

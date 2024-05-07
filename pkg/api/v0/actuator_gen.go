@@ -104,7 +104,7 @@ func (p *Profile) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (p Profile) String() string {
-	return fmt.Sprintf("v0.Profile")
+	return "v0.Profile"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -152,5 +152,5 @@ func (t *Tier) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (t Tier) String() string {
-	return fmt.Sprintf("v0.Tier")
+	return "v0.Tier"
 }

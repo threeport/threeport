@@ -86,5 +86,5 @@ func (aor *AttachedObjectReference) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (aor AttachedObjectReference) String() string {
-	return fmt.Sprintf("v1.AttachedObjectReference")
+	return "v1.AttachedObjectReference"
 }

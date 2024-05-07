@@ -196,9 +196,8 @@ func (cc *ControllerConfig) ModelConstantsMethods() error {
 		f.Func().Params(
 			Id(sdk.TypeAbbrev(mc.TypeName)).Id(mc.TypeName),
 		).Id("String").Params().String().Block(
-			Return(Qual(
-				"fmt", "Sprintf",
-			).Call(Lit(fmt.Sprintf("%s.%s", cc.PackageName, mc.TypeName))),
+			Return(
+				Lit(fmt.Sprintf("%s.%s", cc.PackageName, mc.TypeName)),
 			),
 		)
 	}
@@ -404,9 +403,8 @@ func (cc *ControllerConfig) ExtensionModelConstantsMethods() error {
 		f.Func().Params(
 			Id(sdk.TypeAbbrev(mc.TypeName)).Id(mc.TypeName),
 		).Id("String").Params().String().Block(
-			Return(Qual(
-				"fmt", "Sprintf",
-			).Call(Lit(fmt.Sprintf("%s.%s", cc.PackageName, mc.TypeName))),
+			Return(
+				Lit(fmt.Sprintf("%s.%s", cc.PackageName, mc.TypeName)),
 			),
 		)
 	}
