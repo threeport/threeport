@@ -182,7 +182,7 @@ func main() {
 			EventsRecorder: &client_v1.EventRecorder{
 				APIClient:    apiClient,
 				APIServer:    *apiServer,
-				ControllerID: controllerID,
+				ControllerID: controllerID.String(),
 				ObjectType: fmt.Sprintf(
 					"%s.%s",
 					r.ObjectVersion,
