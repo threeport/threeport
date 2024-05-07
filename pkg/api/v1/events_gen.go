@@ -86,5 +86,5 @@ func (e *Event) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (e Event) String() string {
-	return fmt.Sprintf("v1.Event")
+	return "v1.Event"
 }

@@ -104,7 +104,7 @@ func (hwd *HelmWorkloadDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (hwd HelmWorkloadDefinition) String() string {
-	return fmt.Sprintf("v0.HelmWorkloadDefinition")
+	return "v0.HelmWorkloadDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -152,5 +152,5 @@ func (hwi *HelmWorkloadInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (hwi HelmWorkloadInstance) String() string {
-	return fmt.Sprintf("v0.HelmWorkloadInstance")
+	return "v0.HelmWorkloadInstance"
 }

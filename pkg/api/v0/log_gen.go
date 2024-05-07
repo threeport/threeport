@@ -122,7 +122,7 @@ func (lb *LogBackend) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (lb LogBackend) String() string {
-	return fmt.Sprintf("v0.LogBackend")
+	return "v0.LogBackend"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -170,7 +170,7 @@ func (lsd *LogStorageDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (lsd LogStorageDefinition) String() string {
-	return fmt.Sprintf("v0.LogStorageDefinition")
+	return "v0.LogStorageDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -218,5 +218,5 @@ func (lsi *LogStorageInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (lsi LogStorageInstance) String() string {
-	return fmt.Sprintf("v0.LogStorageInstance")
+	return "v0.LogStorageInstance"
 }

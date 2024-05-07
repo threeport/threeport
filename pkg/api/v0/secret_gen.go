@@ -104,7 +104,7 @@ func (sd *SecretDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (sd SecretDefinition) String() string {
-	return fmt.Sprintf("v0.SecretDefinition")
+	return "v0.SecretDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -152,5 +152,5 @@ func (si *SecretInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (si SecretInstance) String() string {
-	return fmt.Sprintf("v0.SecretInstance")
+	return "v0.SecretInstance"
 }

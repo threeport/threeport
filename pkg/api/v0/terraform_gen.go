@@ -104,7 +104,7 @@ func (td *TerraformDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (td TerraformDefinition) String() string {
-	return fmt.Sprintf("v0.TerraformDefinition")
+	return "v0.TerraformDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -152,5 +152,5 @@ func (ti *TerraformInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (ti TerraformInstance) String() string {
-	return fmt.Sprintf("v0.TerraformInstance")
+	return "v0.TerraformInstance"
 }

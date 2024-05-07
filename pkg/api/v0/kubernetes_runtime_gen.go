@@ -104,7 +104,7 @@ func (krd *KubernetesRuntimeDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (krd KubernetesRuntimeDefinition) String() string {
-	return fmt.Sprintf("v0.KubernetesRuntimeDefinition")
+	return "v0.KubernetesRuntimeDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -152,5 +152,5 @@ func (kri *KubernetesRuntimeInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (kri KubernetesRuntimeInstance) String() string {
-	return fmt.Sprintf("v0.KubernetesRuntimeInstance")
+	return "v0.KubernetesRuntimeInstance"
 }

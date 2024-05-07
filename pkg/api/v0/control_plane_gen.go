@@ -104,7 +104,7 @@ func (cpd *ControlPlaneDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (cpd ControlPlaneDefinition) String() string {
-	return fmt.Sprintf("v0.ControlPlaneDefinition")
+	return "v0.ControlPlaneDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -152,5 +152,5 @@ func (cpi *ControlPlaneInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (cpi ControlPlaneInstance) String() string {
-	return fmt.Sprintf("v0.ControlPlaneInstance")
+	return "v0.ControlPlaneInstance"
 }

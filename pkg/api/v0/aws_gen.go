@@ -194,7 +194,7 @@ func (aa *AwsAccount) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (aa AwsAccount) String() string {
-	return fmt.Sprintf("v0.AwsAccount")
+	return "v0.AwsAccount"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -242,7 +242,7 @@ func (aekrd *AwsEksKubernetesRuntimeDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (aekrd AwsEksKubernetesRuntimeDefinition) String() string {
-	return fmt.Sprintf("v0.AwsEksKubernetesRuntimeDefinition")
+	return "v0.AwsEksKubernetesRuntimeDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -290,7 +290,7 @@ func (aekri *AwsEksKubernetesRuntimeInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (aekri AwsEksKubernetesRuntimeInstance) String() string {
-	return fmt.Sprintf("v0.AwsEksKubernetesRuntimeInstance")
+	return "v0.AwsEksKubernetesRuntimeInstance"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -338,7 +338,7 @@ func (aosbd *AwsObjectStorageBucketDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (aosbd AwsObjectStorageBucketDefinition) String() string {
-	return fmt.Sprintf("v0.AwsObjectStorageBucketDefinition")
+	return "v0.AwsObjectStorageBucketDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -386,7 +386,7 @@ func (aosbi *AwsObjectStorageBucketInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (aosbi AwsObjectStorageBucketInstance) String() string {
-	return fmt.Sprintf("v0.AwsObjectStorageBucketInstance")
+	return "v0.AwsObjectStorageBucketInstance"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -434,7 +434,7 @@ func (ardd *AwsRelationalDatabaseDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (ardd AwsRelationalDatabaseDefinition) String() string {
-	return fmt.Sprintf("v0.AwsRelationalDatabaseDefinition")
+	return "v0.AwsRelationalDatabaseDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -482,5 +482,5 @@ func (ardi *AwsRelationalDatabaseInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (ardi AwsRelationalDatabaseInstance) String() string {
-	return fmt.Sprintf("v0.AwsRelationalDatabaseInstance")
+	return "v0.AwsRelationalDatabaseInstance"
 }
