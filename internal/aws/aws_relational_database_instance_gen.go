@@ -243,11 +243,6 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update aws relational database instance to mark as reconciled")
-					r.UnlockAndRequeue(&awsRelationalDatabaseInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateAwsRelationalDatabaseInstance(
 					r.APIClient,
 					r.APIServer,

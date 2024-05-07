@@ -243,11 +243,6 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update control plane instance to mark as reconciled")
-					r.UnlockAndRequeue(&controlPlaneInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateControlPlaneInstance(
 					r.APIClient,
 					r.APIServer,

@@ -243,11 +243,6 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update helm workload definition to mark as reconciled")
-					r.UnlockAndRequeue(&helmWorkloadDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateHelmWorkloadDefinition(
 					r.APIClient,
 					r.APIServer,

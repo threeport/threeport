@@ -243,11 +243,6 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update metrics instance to mark as reconciled")
-					r.UnlockAndRequeue(&metricsInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateMetricsInstance(
 					r.APIClient,
 					r.APIServer,

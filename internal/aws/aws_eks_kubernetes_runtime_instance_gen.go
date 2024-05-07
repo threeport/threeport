@@ -243,11 +243,6 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update aws eks kubernetes runtime instance to mark as reconciled")
-					r.UnlockAndRequeue(&awsEksKubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateAwsEksKubernetesRuntimeInstance(
 					r.APIClient,
 					r.APIServer,

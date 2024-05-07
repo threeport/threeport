@@ -243,11 +243,6 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update kubernetes runtime definition to mark as reconciled")
-					r.UnlockAndRequeue(&kubernetesRuntimeDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateKubernetesRuntimeDefinition(
 					r.APIClient,
 					r.APIServer,

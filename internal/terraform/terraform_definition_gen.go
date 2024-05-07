@@ -243,11 +243,6 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 						Reconciled:           util.Ptr(true),
 					},
 				}
-				if err != nil {
-					log.Error(err, "failed to update terraform definition to mark as reconciled")
-					r.UnlockAndRequeue(&terraformDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
 				_, err = client.UpdateTerraformDefinition(
 					r.APIClient,
 					r.APIServer,
