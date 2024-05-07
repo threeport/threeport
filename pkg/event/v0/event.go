@@ -44,10 +44,10 @@ type EventRecorder struct {
 	// format: [protocol]://[hostname]:[port]
 	APIServer string
 
-	// Name of the controller that emitted this Event, e.g. `kubernetes.io/kubelet`.
+	// Name of the controller that emitted this Event.
 	ReportingController string
 
-	// ID of the controller instance, e.g. `kubelet-xyzf`.
+	// ID of the controller instance.
 	ReportingInstance string
 
 	// ControllerID is the unique identifier for each controller instance.
