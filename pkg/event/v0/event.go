@@ -71,11 +71,6 @@ func (r *EventRecorder) RecordEvent(
 		*objectId,
 	}
 
-	if event.Action != nil {
-		formatString += "&action=%s"
-		formatArgs = append(formatArgs, url.QueryEscape(*event.Action))
-	}
-
 	query := fmt.Sprintf(formatString, formatArgs...)
 	events, err := GetEventsJoinAttachedObjectReferenceByQueryString(
 		r.APIClient,
