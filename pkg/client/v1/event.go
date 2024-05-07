@@ -113,7 +113,7 @@ func (r *EventRecorder) RecordEvent(
 	return nil
 }
 
-// HandleEvent records the specified event
+// HandleEventOverride records the specified event
 // unless the provided error is an ErrWithEvent,
 // in which case it records the event provided
 func (r *EventRecorder) HandleEventOverride(
