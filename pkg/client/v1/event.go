@@ -32,8 +32,8 @@ type EventRecorder struct {
 	// ID of the controller instance, e.g. `kubelet-xyzf`.
 	ReportingInstance string
 
-	// AttachedObjectType is the type of the object that this event is attached to.
-	AttachedObjectType string
+	// ObjectType is the type of the object that this event is attached to.
+	ObjectType string
 }
 
 // RecordEvent records a new event with the given information.
@@ -94,7 +94,7 @@ func (r *EventRecorder) RecordEvent(
 			r.APIClient,
 			r.APIServer,
 			&v1.AttachedObjectReference{
-				ObjectType:         &r.AttachedObjectType,
+				ObjectType:         &r.ObjectType,
 				ObjectID:           objectId,
 				AttachedObjectType: util.Ptr(util.TypeName(v1.Event{})),
 				AttachedObjectID:   createdEvent.ID,

@@ -140,6 +140,7 @@ func main() {
 		Name:                 "TerraformDefinitionReconciler",
 		NotifSubject:         v0.TerraformDefinitionSubject,
 		ObjectType:           v0.ObjectTypeTerraformDefinition,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        terraform.TerraformDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -147,6 +148,7 @@ func main() {
 		Name:                 "TerraformInstanceReconciler",
 		NotifSubject:         v0.TerraformInstanceSubject,
 		ObjectType:           v0.ObjectTypeTerraformInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        terraform.TerraformInstanceReconciler,
 	})
 
@@ -178,9 +180,13 @@ func main() {
 			ControllerID:  controllerID,
 			EncryptionKey: encryptionKey,
 			EventsRecorder: &client_v1.EventRecorder{
-				APIClient:           apiClient,
-				APIServer:           *apiServer,
-				AttachedObjectType:  r.ObjectType,
+				APIClient: apiClient,
+				APIServer: *apiServer,
+				ObjectType: fmt.Sprintf(
+					"%s.%s",
+					r.ObjectVersion,
+					r.ObjectType,
+				),
 				ReportingController: "TerraformController",
 				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},

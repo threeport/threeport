@@ -140,6 +140,7 @@ func main() {
 		Name:                 "SecretDefinitionReconciler",
 		NotifSubject:         v0.SecretDefinitionSubject,
 		ObjectType:           v0.ObjectTypeSecretDefinition,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        secret.SecretDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -147,6 +148,7 @@ func main() {
 		Name:                 "SecretInstanceReconciler",
 		NotifSubject:         v0.SecretInstanceSubject,
 		ObjectType:           v0.ObjectTypeSecretInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        secret.SecretInstanceReconciler,
 	})
 
@@ -170,9 +172,13 @@ func main() {
 			ControllerID:  controllerID,
 			EncryptionKey: encryptionKey,
 			EventsRecorder: &client_v1.EventRecorder{
-				APIClient:           apiClient,
-				APIServer:           *apiServer,
-				AttachedObjectType:  r.ObjectType,
+				APIClient: apiClient,
+				APIServer: *apiServer,
+				ObjectType: fmt.Sprintf(
+					"%s.%s",
+					r.ObjectVersion,
+					r.ObjectType,
+				),
 				ReportingController: "SecretController",
 				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},

@@ -146,6 +146,7 @@ func main() {
 		Name:                 "WorkloadDefinitionReconciler",
 		NotifSubject:         v0.WorkloadDefinitionSubject,
 		ObjectType:           v0.ObjectTypeWorkloadDefinition,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        workload.WorkloadDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -153,6 +154,7 @@ func main() {
 		Name:                 "WorkloadInstanceReconciler",
 		NotifSubject:         v0.WorkloadInstanceSubject,
 		ObjectType:           v0.ObjectTypeWorkloadInstance,
+		ObjectVersion:        "v1",
 		ReconcileFunc:        workload.WorkloadInstanceReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -160,6 +162,7 @@ func main() {
 		Name:                 "WorkloadInstanceReconciler",
 		NotifSubject:         v1.WorkloadInstanceSubject,
 		ObjectType:           v1.ObjectTypeWorkloadInstance,
+		ObjectVersion:        "v1",
 		ReconcileFunc:        workload.WorkloadInstanceReconciler,
 	})
 
@@ -191,9 +194,13 @@ func main() {
 			ControllerID:  controllerID,
 			EncryptionKey: encryptionKey,
 			EventsRecorder: &client_v1.EventRecorder{
-				APIClient:           apiClient,
-				APIServer:           *apiServer,
-				AttachedObjectType:  r.ObjectType,
+				APIClient: apiClient,
+				APIServer: *apiServer,
+				ObjectType: fmt.Sprintf(
+					"%s.%s",
+					r.ObjectVersion,
+					r.ObjectType,
+				),
 				ReportingController: "WorkloadController",
 				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},

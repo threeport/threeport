@@ -140,6 +140,7 @@ func main() {
 		Name:                 "ControlPlaneDefinitionReconciler",
 		NotifSubject:         v0.ControlPlaneDefinitionSubject,
 		ObjectType:           v0.ObjectTypeControlPlaneDefinition,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        controlplane.ControlPlaneDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -147,6 +148,7 @@ func main() {
 		Name:                 "ControlPlaneInstanceReconciler",
 		NotifSubject:         v0.ControlPlaneInstanceSubject,
 		ObjectType:           v0.ObjectTypeControlPlaneInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        controlplane.ControlPlaneInstanceReconciler,
 	})
 
@@ -178,9 +180,13 @@ func main() {
 			ControllerID:  controllerID,
 			EncryptionKey: encryptionKey,
 			EventsRecorder: &client_v1.EventRecorder{
-				APIClient:           apiClient,
-				APIServer:           *apiServer,
-				AttachedObjectType:  r.ObjectType,
+				APIClient: apiClient,
+				APIServer: *apiServer,
+				ObjectType: fmt.Sprintf(
+					"%s.%s",
+					r.ObjectVersion,
+					r.ObjectType,
+				),
 				ReportingController: "ControlPlaneController",
 				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},

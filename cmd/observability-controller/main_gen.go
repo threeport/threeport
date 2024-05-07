@@ -170,6 +170,7 @@ func main() {
 		Name:                 "ObservabilityStackDefinitionReconciler",
 		NotifSubject:         v0.ObservabilityStackDefinitionSubject,
 		ObjectType:           v0.ObjectTypeObservabilityStackDefinition,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        observability.ObservabilityStackDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -177,6 +178,7 @@ func main() {
 		Name:                 "ObservabilityStackInstanceReconciler",
 		NotifSubject:         v0.ObservabilityStackInstanceSubject,
 		ObjectType:           v0.ObjectTypeObservabilityStackInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        observability.ObservabilityStackInstanceReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -184,6 +186,7 @@ func main() {
 		Name:                 "ObservabilityDashboardDefinitionReconciler",
 		NotifSubject:         v0.ObservabilityDashboardDefinitionSubject,
 		ObjectType:           v0.ObjectTypeObservabilityDashboardDefinition,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        observability.ObservabilityDashboardDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -191,6 +194,7 @@ func main() {
 		Name:                 "ObservabilityDashboardInstanceReconciler",
 		NotifSubject:         v0.ObservabilityDashboardInstanceSubject,
 		ObjectType:           v0.ObjectTypeObservabilityDashboardInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        observability.ObservabilityDashboardInstanceReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -198,6 +202,7 @@ func main() {
 		Name:                 "MetricsDefinitionReconciler",
 		NotifSubject:         v0.MetricsDefinitionSubject,
 		ObjectType:           v0.ObjectTypeMetricsDefinition,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        observability.MetricsDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -205,6 +210,7 @@ func main() {
 		Name:                 "MetricsInstanceReconciler",
 		NotifSubject:         v0.MetricsInstanceSubject,
 		ObjectType:           v0.ObjectTypeMetricsInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        observability.MetricsInstanceReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -212,6 +218,7 @@ func main() {
 		Name:                 "LoggingDefinitionReconciler",
 		NotifSubject:         v0.LoggingDefinitionSubject,
 		ObjectType:           v0.ObjectTypeLoggingDefinition,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        observability.LoggingDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -219,6 +226,7 @@ func main() {
 		Name:                 "LoggingInstanceReconciler",
 		NotifSubject:         v0.LoggingInstanceSubject,
 		ObjectType:           v0.ObjectTypeLoggingInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        observability.LoggingInstanceReconciler,
 	})
 
@@ -250,9 +258,13 @@ func main() {
 			ControllerID:  controllerID,
 			EncryptionKey: encryptionKey,
 			EventsRecorder: &client_v1.EventRecorder{
-				APIClient:           apiClient,
-				APIServer:           *apiServer,
-				AttachedObjectType:  r.ObjectType,
+				APIClient: apiClient,
+				APIServer: *apiServer,
+				ObjectType: fmt.Sprintf(
+					"%s.%s",
+					r.ObjectVersion,
+					r.ObjectType,
+				),
 				ReportingController: "ObservabilityController",
 				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},
