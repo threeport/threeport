@@ -101,6 +101,7 @@ ApiObjectGroups:
     - Name: Event
       Versions:
         - v0
+        - v1
 - Name: gateway
   Objects:
     - Name: GatewayDefinition
