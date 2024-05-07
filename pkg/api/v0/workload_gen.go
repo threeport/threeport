@@ -176,7 +176,7 @@ func (aor *AttachedObjectReference) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (aor AttachedObjectReference) String() string {
-	return fmt.Sprintf("v0.AttachedObjectReference")
+	return "v0.AttachedObjectReference"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -224,7 +224,7 @@ func (wd *WorkloadDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (wd WorkloadDefinition) String() string {
-	return fmt.Sprintf("v0.WorkloadDefinition")
+	return "v0.WorkloadDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -272,7 +272,7 @@ func (we *WorkloadEvent) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (we WorkloadEvent) String() string {
-	return fmt.Sprintf("v0.WorkloadEvent")
+	return "v0.WorkloadEvent"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -320,7 +320,7 @@ func (wi *WorkloadInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (wi WorkloadInstance) String() string {
-	return fmt.Sprintf("v0.WorkloadInstance")
+	return "v0.WorkloadInstance"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -368,7 +368,7 @@ func (wrd *WorkloadResourceDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (wrd WorkloadResourceDefinition) String() string {
-	return fmt.Sprintf("v0.WorkloadResourceDefinition")
+	return "v0.WorkloadResourceDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -416,5 +416,5 @@ func (wri *WorkloadResourceInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (wri WorkloadResourceInstance) String() string {
-	return fmt.Sprintf("v0.WorkloadResourceInstance")
+	return "v0.WorkloadResourceInstance"
 }

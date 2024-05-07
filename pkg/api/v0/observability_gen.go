@@ -212,7 +212,7 @@ func (ld *LoggingDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (ld LoggingDefinition) String() string {
-	return fmt.Sprintf("v0.LoggingDefinition")
+	return "v0.LoggingDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -260,7 +260,7 @@ func (li *LoggingInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (li LoggingInstance) String() string {
-	return fmt.Sprintf("v0.LoggingInstance")
+	return "v0.LoggingInstance"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -308,7 +308,7 @@ func (md *MetricsDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (md MetricsDefinition) String() string {
-	return fmt.Sprintf("v0.MetricsDefinition")
+	return "v0.MetricsDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -356,7 +356,7 @@ func (mi *MetricsInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (mi MetricsInstance) String() string {
-	return fmt.Sprintf("v0.MetricsInstance")
+	return "v0.MetricsInstance"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -404,7 +404,7 @@ func (odd *ObservabilityDashboardDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (odd ObservabilityDashboardDefinition) String() string {
-	return fmt.Sprintf("v0.ObservabilityDashboardDefinition")
+	return "v0.ObservabilityDashboardDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -452,7 +452,7 @@ func (odi *ObservabilityDashboardInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (odi ObservabilityDashboardInstance) String() string {
-	return fmt.Sprintf("v0.ObservabilityDashboardInstance")
+	return "v0.ObservabilityDashboardInstance"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -500,7 +500,7 @@ func (osd *ObservabilityStackDefinition) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (osd ObservabilityStackDefinition) String() string {
-	return fmt.Sprintf("v0.ObservabilityStackDefinition")
+	return "v0.ObservabilityStackDefinition"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -548,5 +548,5 @@ func (osi *ObservabilityStackInstance) GetID() uint {
 
 // String returns a string representation of the ojbect.
 func (osi ObservabilityStackInstance) String() string {
-	return fmt.Sprintf("v0.ObservabilityStackInstance")
+	return "v0.ObservabilityStackInstance"
 }
