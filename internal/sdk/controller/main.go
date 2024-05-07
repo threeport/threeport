@@ -9,6 +9,7 @@ import (
 	. "github.com/dave/jennifer/jen"
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
+	"github.com/threeport/threeport/internal/sdk"
 )
 
 // controllerMainPackagePath returns the path from the models to the
@@ -73,6 +74,7 @@ func (cc *ControllerConfig) MainPackage() error {
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", obj.Version),
 				fmt.Sprintf("ObjectType%s", obj.Name),
 			),
+			Id("ObjectVersion"): Lit(sdk.GetLatestObjectVersion(obj.Name)),
 			Id("ReconcileFunc"): Qual(
 				fmt.Sprintf("github.com/threeport/threeport/internal/%s", cc.ShortName),
 				fmt.Sprintf("%sReconciler", obj.Name),
@@ -355,13 +357,18 @@ func (cc *ControllerConfig) MainPackage() error {
 					"github.com/threeport/threeport/pkg/client/v1",
 					"EventRecorder",
 				).Values(Dict{
-					Id("APIClient"):           Id("apiClient"),
-					Id("APIServer"):           Op("*").Id("apiServer"),
-					Id("AttachedObjectType"):  Id("r").Dot("ObjectType"),
+					Id("APIClient"): Id("apiClient"),
+					Id("APIServer"): Op("*").Id("apiServer"),
+					Id("ObjectType"): Qual("fmt", "Sprintf").Call(
+						Line().Lit("%s.%s"),
+						Line().Id("r").Dot("ObjectVersion"),
+						Line().Id("r").Dot("ObjectType"),
+						Line(),
+					),
 					Id("ReportingController"): Lit(
 						fmt.Sprintf("%sController", strcase.ToCamel(cc.ShortName)),
 					),
-					Id("ReportingInstance"):   Qual("os", "Getenv").Call(Lit("HOSTNAME")),
+					Id("ReportingInstance"): Qual("os", "Getenv").Call(Lit("HOSTNAME")),
 				}),
 			})
 

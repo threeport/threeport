@@ -140,6 +140,7 @@ func main() {
 		Name:                 "KubernetesRuntimeDefinitionReconciler",
 		NotifSubject:         v0.KubernetesRuntimeDefinitionSubject,
 		ObjectType:           v0.ObjectTypeKubernetesRuntimeDefinition,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        kubernetesruntime.KubernetesRuntimeDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -147,6 +148,7 @@ func main() {
 		Name:                 "KubernetesRuntimeInstanceReconciler",
 		NotifSubject:         v0.KubernetesRuntimeInstanceSubject,
 		ObjectType:           v0.ObjectTypeKubernetesRuntimeInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        kubernetesruntime.KubernetesRuntimeInstanceReconciler,
 	})
 
@@ -178,9 +180,13 @@ func main() {
 			ControllerID:  controllerID,
 			EncryptionKey: encryptionKey,
 			EventsRecorder: &client_v1.EventRecorder{
-				APIClient:           apiClient,
-				APIServer:           *apiServer,
-				AttachedObjectType:  r.ObjectType,
+				APIClient: apiClient,
+				APIServer: *apiServer,
+				ObjectType: fmt.Sprintf(
+					"%s.%s",
+					r.ObjectVersion,
+					r.ObjectType,
+				),
 				ReportingController: "KubernetesRuntimeController",
 				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},

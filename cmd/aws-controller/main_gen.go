@@ -145,6 +145,7 @@ func main() {
 		Name:                 "AwsEksKubernetesRuntimeInstanceReconciler",
 		NotifSubject:         v0.AwsEksKubernetesRuntimeInstanceSubject,
 		ObjectType:           v0.ObjectTypeAwsEksKubernetesRuntimeInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        aws.AwsEksKubernetesRuntimeInstanceReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -152,6 +153,7 @@ func main() {
 		Name:                 "AwsRelationalDatabaseInstanceReconciler",
 		NotifSubject:         v0.AwsRelationalDatabaseInstanceSubject,
 		ObjectType:           v0.ObjectTypeAwsRelationalDatabaseInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        aws.AwsRelationalDatabaseInstanceReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -159,6 +161,7 @@ func main() {
 		Name:                 "AwsObjectStorageBucketInstanceReconciler",
 		NotifSubject:         v0.AwsObjectStorageBucketInstanceSubject,
 		ObjectType:           v0.ObjectTypeAwsObjectStorageBucketInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        aws.AwsObjectStorageBucketInstanceReconciler,
 	})
 
@@ -190,9 +193,13 @@ func main() {
 			ControllerID:  controllerID,
 			EncryptionKey: encryptionKey,
 			EventsRecorder: &client_v1.EventRecorder{
-				APIClient:           apiClient,
-				APIServer:           *apiServer,
-				AttachedObjectType:  r.ObjectType,
+				APIClient: apiClient,
+				APIServer: *apiServer,
+				ObjectType: fmt.Sprintf(
+					"%s.%s",
+					r.ObjectVersion,
+					r.ObjectType,
+				),
 				ReportingController: "AwsController",
 				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},
