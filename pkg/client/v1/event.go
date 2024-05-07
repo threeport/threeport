@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -40,43 +41,38 @@ func (r *EventRecorder) RecordEvent(
 	event *v1.Event,
 	objectId *uint,
 ) error {
-	// formatString := ""
-	// formatArgs := []any{}
+	formatString := ""
+	formatArgs := []any{}
 
-	// if event.Reason != nil {
-	// 	formatString += "reason=%s"
-	// 	formatArgs = append(formatArgs, url.QueryEscape(*event.Reason))
-	// }
-	// if event.Note != nil {
-	// 	formatString += "&note=%s"
-	// 	formatArgs = append(formatArgs, url.QueryEscape(*event.Note))
-	// }
-	// if event.Type != nil {
-	// 	formatString += "&type=%s"
-	// 	formatArgs = append(formatArgs, url.QueryEscape(*event.Type))
-	// }
-	// if event.Action != nil {
-	// 	formatString += "&action=%s"
-	// 	formatArgs = append(formatArgs, url.QueryEscape(*event.Action))
-	// }
-	// if objectId != nil {
-	// 	formatString += "&objectid=%d"
-	// 	formatArgs = append(formatArgs, *objectId)
-	// }
+	if event.Reason != nil {
+		formatString += "reason=%s"
+		formatArgs = append(formatArgs, url.QueryEscape(*event.Reason))
+	}
+	if event.Note != nil {
+		formatString += "&note=%s"
+		formatArgs = append(formatArgs, url.QueryEscape(*event.Note))
+	}
+	if event.Type != nil {
+		formatString += "&type=%s"
+		formatArgs = append(formatArgs, url.QueryEscape(*event.Type))
+	}
+	if event.Action != nil {
+		formatString += "&action=%s"
+		formatArgs = append(formatArgs, url.QueryEscape(*event.Action))
+	}
+	if objectId != nil {
+		formatString += "&objectid=%d"
+		formatArgs = append(formatArgs, *objectId)
+	}
 
-	// query := fmt.Sprintf(formatString, formatArgs...)
-	events, err := GetEventsByAttachedObjectReferenceObjectID(
+	query := fmt.Sprintf(formatString, formatArgs...)
+	events, err := GetEventsJoinAttachedObjectReferenceByQueryString(
 		r.APIClient,
 		r.APIServer,
-		*objectId,
+		query,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get events by object id %d: %w", *objectId, err)
-		// return fmt.Errorf(
-		// 	"failed to get events by query string %s: %w",
-		// 	query,
-		// 	err,
-		// )
 	}
 
 	var createdEvent *v1.Event
@@ -156,13 +152,13 @@ func (r *EventRecorder) HandleEventOverride(
 	}
 }
 
-// GetEventByID fetches a event by ID.
-func GetEventsByAttachedObjectReferenceObjectID(apiClient *http.Client, apiAddr string, objectID uint) (*[]v1.Event, error) {
+// GetEventsJoinAttachedObjectReferenceByQueryString retrieves events joined to attached object reference by object ID.
+func GetEventsJoinAttachedObjectReferenceByQueryString(apiClient *http.Client, apiAddr, queryString string) (*[]v1.Event, error) {
 	var events []v1.Event
 
 	response, err := client_v0.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/events-join-attached-object-references?objectid=%d", apiAddr, ApiVersion, objectID),
+		fmt.Sprintf("%s/%s/events-join-attached-object-references?%s", apiAddr, ApiVersion, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
