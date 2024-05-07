@@ -26,6 +26,7 @@ func (cc *ControllerConfig) MainPackage() error {
 
 	f.ImportAlias("github.com/threeport/threeport/pkg/client/v0", "client")
 	f.ImportAlias("github.com/threeport/threeport/pkg/client/v1", "client_v1")
+	f.ImportAlias("github.com/threeport/threeport/pkg/event/v0", "event_v0")
 	f.ImportAlias("github.com/threeport/threeport/pkg/controller/v0", "controller")
 
 	//controllerShortName := strings.TrimSuffix(cc.Name, "-controller")
@@ -354,7 +355,7 @@ func (cc *ControllerConfig) MainPackage() error {
 				Id("ShutdownWait"):     Op("&").Id("shutdownWait"),
 				Id("EncryptionKey"):    Id("encryptionKey"),
 				Id("EventsRecorder"): Op("&").Qual(
-					"github.com/threeport/threeport/pkg/client/v1",
+					"github.com/threeport/threeport/pkg/event/v0",
 					"EventRecorder",
 				).Values(Dict{
 					Id("APIClient"): Id("apiClient"),
