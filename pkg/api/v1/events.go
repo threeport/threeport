@@ -37,10 +37,4 @@ type Event struct {
 
 	// Name of the controller that emitted this Event.
 	ReportingController *string `json:"ReportingController,omitempty" query:"reportingcontroller" validate:"required"`
-
-	// ID of the controller instance.
-	ReportingInstance *string `json:"ReportingInstance,omitempty" query:"reportinginstance" validate:"required"`
-
-	// ControllerID is the unique identifier for each controller instance.
-	ControllerID *string `json:"ControllerID,omitempty" query:"controllerid" validate:"required"`
 }
