@@ -23,6 +23,9 @@ type ReconcilerConfig struct {
 	// The object type the reconciler will manage.
 	ObjectType string
 
+	// The version of the object type the reconciler will manage.
+	ObjectVersion string
+
 	// The function that will perform object reconciliation.
 	ReconcileFunc func(r *Reconciler)
 

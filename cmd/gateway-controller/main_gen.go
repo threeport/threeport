@@ -145,6 +145,7 @@ func main() {
 		Name:                 "GatewayDefinitionReconciler",
 		NotifSubject:         v0.GatewayDefinitionSubject,
 		ObjectType:           v0.ObjectTypeGatewayDefinition,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        gateway.GatewayDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -152,6 +153,7 @@ func main() {
 		Name:                 "GatewayInstanceReconciler",
 		NotifSubject:         v0.GatewayInstanceSubject,
 		ObjectType:           v0.ObjectTypeGatewayInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        gateway.GatewayInstanceReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -159,6 +161,7 @@ func main() {
 		Name:                 "DomainNameInstanceReconciler",
 		NotifSubject:         v0.DomainNameInstanceSubject,
 		ObjectType:           v0.ObjectTypeDomainNameInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        gateway.DomainNameInstanceReconciler,
 	})
 
@@ -190,9 +193,13 @@ func main() {
 			ControllerID:  controllerID,
 			EncryptionKey: encryptionKey,
 			EventsRecorder: &client_v1.EventRecorder{
-				APIClient:           apiClient,
-				APIServer:           *apiServer,
-				AttachedObjectType:  r.ObjectType,
+				APIClient: apiClient,
+				APIServer: *apiServer,
+				ObjectType: fmt.Sprintf(
+					"%s.%s",
+					r.ObjectVersion,
+					r.ObjectType,
+				),
 				ReportingController: "GatewayController",
 				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},

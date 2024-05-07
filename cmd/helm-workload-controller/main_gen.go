@@ -140,6 +140,7 @@ func main() {
 		Name:                 "HelmWorkloadDefinitionReconciler",
 		NotifSubject:         v0.HelmWorkloadDefinitionSubject,
 		ObjectType:           v0.ObjectTypeHelmWorkloadDefinition,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        helmworkload.HelmWorkloadDefinitionReconciler,
 	})
 	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
@@ -147,6 +148,7 @@ func main() {
 		Name:                 "HelmWorkloadInstanceReconciler",
 		NotifSubject:         v0.HelmWorkloadInstanceSubject,
 		ObjectType:           v0.ObjectTypeHelmWorkloadInstance,
+		ObjectVersion:        "v0",
 		ReconcileFunc:        helmworkload.HelmWorkloadInstanceReconciler,
 	})
 
@@ -178,9 +180,13 @@ func main() {
 			ControllerID:  controllerID,
 			EncryptionKey: encryptionKey,
 			EventsRecorder: &client_v1.EventRecorder{
-				APIClient:           apiClient,
-				APIServer:           *apiServer,
-				AttachedObjectType:  r.ObjectType,
+				APIClient: apiClient,
+				APIServer: *apiServer,
+				ObjectType: fmt.Sprintf(
+					"%s.%s",
+					r.ObjectVersion,
+					r.ObjectType,
+				),
 				ReportingController: "HelmWorkloadController",
 				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},
