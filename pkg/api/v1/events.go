@@ -32,9 +32,6 @@ type Event struct {
 	// Type of this event (Normal, Warning), new types could be added in the future.
 	Type *string `json:"Type,omitempty" query:"type" validate:"required"`
 
-	// What action was taken/failed regarding to the Regarding object.
-	Action *string `json:"Action,omitempty" query:"action" validate:"optional"`
-
 	// Name of the controller that emitted this Event.
 	ReportingController *string `json:"ReportingController,omitempty" query:"reportingcontroller" validate:"required"`
 }
