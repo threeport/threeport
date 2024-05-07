@@ -447,8 +447,16 @@ func workloadInstanceDeleted(
 		return 0, fmt.Errorf("failed to get attached object references by workload instance ID: %w", err)
 	}
 	for _, object := range *attachedObjectReferences {
+
+		// skip deletion of event objects
+		objectType := strings.Split(*object.AttachedObjectType, ".")[1]
+		if objectType == "Event" {
+			continue
+		}
+
 		var err error
-		switch strings.Split(*object.AttachedObjectType, ".")[0] {
+		objectVersion := strings.Split(*object.AttachedObjectType, ".")[0]
+		switch objectVersion {
 		case "v0":
 			err = client.DeleteObjectByTypeAndID(r.APIClient, r.APIServer, *object.AttachedObjectType, *object.AttachedObjectID)
 		case "v1":
