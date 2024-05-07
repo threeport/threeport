@@ -1,8 +1,6 @@
 package v0
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -72,7 +70,7 @@ func (r *EventRecorder) RecordEvent(
 	}
 
 	query := fmt.Sprintf(formatString, formatArgs...)
-	events, err := GetEventsJoinAttachedObjectReferenceByQueryString(
+	events, err := client_v0.GetEventsJoinAttachedObjectReferenceByQueryString(
 		r.APIClient,
 		r.APIServer,
 		query,
@@ -155,36 +153,6 @@ func (r *EventRecorder) HandleEventOverride(
 			log.Error(err, "failed to record event")
 		}
 	}
-}
-
-// GetEventsJoinAttachedObjectReferenceByQueryString retrieves events joined to attached object reference by object ID.
-func GetEventsJoinAttachedObjectReferenceByQueryString(apiClient *http.Client, apiAddr, queryString string) (*[]v1.Event, error) {
-	var events []v1.Event
-
-	response, err := client_v0.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s/%s/events-join-attached-object-references?%s", apiAddr, client_v1.ApiVersion, queryString),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &events, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &events, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&events); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &events, nil
 }
 
 // GetSuccessReasonForOperation returns the default reason for the operation.
