@@ -188,7 +188,6 @@ func main() {
 					r.ObjectType,
 				),
 				ReportingController: "TerraformController",
-				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},
 			JetStreamContext: js,
 			KeyValue:         kv,

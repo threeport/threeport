@@ -201,7 +201,6 @@ func main() {
 					r.ObjectType,
 				),
 				ReportingController: "AwsController",
-				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},
 			JetStreamContext: js,
 			KeyValue:         kv,

@@ -368,7 +368,6 @@ func (cc *ControllerConfig) MainPackage() error {
 					Id("ReportingController"): Lit(
 						fmt.Sprintf("%sController", strcase.ToCamel(cc.ShortName)),
 					),
-					Id("ReportingInstance"): Qual("os", "Getenv").Call(Lit("HOSTNAME")),
 				}),
 			})
 
