@@ -202,7 +202,6 @@ func main() {
 					r.ObjectType,
 				),
 				ReportingController: "WorkloadController",
-				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},
 			JetStreamContext: js,
 			KeyValue:         kv,

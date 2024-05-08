@@ -266,7 +266,6 @@ func main() {
 					r.ObjectType,
 				),
 				ReportingController: "ObservabilityController",
-				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},
 			JetStreamContext: js,
 			KeyValue:         kv,
