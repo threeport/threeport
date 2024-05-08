@@ -48,9 +48,6 @@ type EventRecorder struct {
 	// ID of the controller instance.
 	ReportingInstance string
 
-	// ControllerID is the unique identifier for each controller instance.
-	ControllerID string
-
 	// ObjectType is the type of the object that this event is attached to.
 	ObjectType string
 }
