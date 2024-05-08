@@ -180,7 +180,6 @@ func main() {
 					r.ObjectType,
 				),
 				ReportingController: "SecretController",
-				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},
 			JetStreamContext: js,
 			KeyValue:         kv,

@@ -201,7 +201,6 @@ func main() {
 					r.ObjectType,
 				),
 				ReportingController: "GatewayController",
-				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},
 			JetStreamContext: js,
 			KeyValue:         kv,

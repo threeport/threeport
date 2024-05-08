@@ -45,9 +45,6 @@ type EventRecorder struct {
 	// Name of the controller that emitted this Event.
 	ReportingController string
 
-	// ID of the controller instance.
-	ReportingInstance string
-
 	// ObjectType is the type of the object that this event is attached to.
 	ObjectType string
 }

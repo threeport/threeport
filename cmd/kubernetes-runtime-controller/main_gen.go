@@ -188,7 +188,6 @@ func main() {
 					r.ObjectType,
 				),
 				ReportingController: "KubernetesRuntimeController",
-				ReportingInstance:   os.Getenv("HOSTNAME"),
 			},
 			JetStreamContext: js,
 			KeyValue:         kv,
