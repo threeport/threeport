@@ -15,7 +15,7 @@ func init() {
 func Up00011(ctx context.Context, tx *sql.Tx) error {
 	// events table ttl
 	if _, err := tx.ExecContext(ctx, `
-		ALTER TABLE events SET (ttl_expire_after = '1 minute');
+		ALTER TABLE events SET (ttl_expire_after = '1 hour', ttl_job_cron = '0 * * * *');
 	`); err != nil {
 		return fmt.Errorf("failed to add ttl to events table: %w", err)
 	}
