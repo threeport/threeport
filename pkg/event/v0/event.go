@@ -65,7 +65,6 @@ func (r *EventRecorder) RecordEvent(
 		url.QueryEscape(*event.Reason),
 		url.QueryEscape(*event.Note),
 		url.QueryEscape(*event.Type),
-		r.ControllerID,
 		*objectId,
 	}
 
