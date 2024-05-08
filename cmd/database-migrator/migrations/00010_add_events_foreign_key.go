@@ -20,7 +20,7 @@ func Up00010(ctx context.Context, tx *sql.Tx) error {
 		FOREIGN KEY (attached_object_reference_id)
 		REFERENCES attached_object_references(id);
 	`); err != nil {
-		return fmt.Errorf("failed to add unique constraint on object_id: %w", err)
+		return fmt.Errorf("failed to add foreign key constraint: %w", err)
 	}
 
 	return nil
