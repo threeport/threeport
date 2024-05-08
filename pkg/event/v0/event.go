@@ -78,35 +78,80 @@ func (r *EventRecorder) RecordEvent(
 	var createdEvent *v1.Event
 	switch len(*events) {
 	case 0:
+		// use operations abstraction to atomically create event
+		// and attached object reference
+		operations := util.Operations{}
+		var createdAttachedObjectReference *v1.AttachedObjectReference
 
-		//TODO: use util.Operations here
 		event.ReportingController = &r.ReportingController
 		event.EventTime = util.Ptr(time.Now())
 		event.LastObservedTime = util.Ptr(time.Now())
 		event.Count = util.Ptr(uint(1))
-		createdEvent, err = client_v1.CreateEvent(r.APIClient, r.APIServer, event)
-		if err != nil {
-			return fmt.Errorf("failed to create event: %w", err)
-		}
+		operations.AppendOperation(util.Operation{
+			Name: "event",
+			Create: func() error {
+				createdEvent, err = client_v1.CreateEvent(r.APIClient, r.APIServer, event)
+				if err != nil {
+					return fmt.Errorf("failed to create event: %w", err)
+				}
 
-		createdAttachedObjectReference, err := client_v1.CreateAttachedObjectReference(
-			r.APIClient,
-			r.APIServer,
-			&v1.AttachedObjectReference{
-				ObjectType:         &r.ObjectType,
-				ObjectID:           objectId,
-				AttachedObjectType: util.Ptr(util.TypeName(v1.Event{})),
-				AttachedObjectID:   createdEvent.ID,
+				return nil
 			},
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create attached object reference: %w", err)
-		}
+			Delete: func() error {
+				_, err = client_v1.DeleteEvent(r.APIClient, r.APIServer, *createdEvent.ID)
+				if err != nil {
+					return fmt.Errorf("failed to delete event: %w", err)
+				}
+				return nil
+			},
+		})
 
-		event.AttachedObjectReferenceID = createdAttachedObjectReference.ID
-		_, err = client_v1.UpdateEvent(r.APIClient, r.APIServer, event)
-		if err != nil {
-			return fmt.Errorf("failed to update event: %w", err)
+		operations.AppendOperation(util.Operation{
+			Name: "attached object reference",
+			Create: func() error {
+				createdAttachedObjectReference, err = client_v1.CreateAttachedObjectReference(
+					r.APIClient,
+					r.APIServer,
+					&v1.AttachedObjectReference{
+						ObjectType:         &r.ObjectType,
+						ObjectID:           objectId,
+						AttachedObjectType: util.Ptr(util.TypeName(v1.Event{})),
+						AttachedObjectID:   createdEvent.ID,
+					},
+				)
+				if err != nil {
+					return fmt.Errorf("failed to create attached object reference: %w", err)
+				}
+				return nil
+			},
+			Delete: func() error {
+				_, err = client_v1.DeleteAttachedObjectReference(
+					r.APIClient,
+					r.APIServer,
+					*createdAttachedObjectReference.ID,
+				)
+				if err != nil {
+					return fmt.Errorf("failed to delete attached object reference: %w", err)
+				}
+				return nil
+			},
+		})
+
+		operations.AppendOperation(util.Operation{
+			Name: "update event",
+			Create: func() error {
+				event.AttachedObjectReferenceID = createdAttachedObjectReference.ID
+				_, err = client_v1.UpdateEvent(r.APIClient, r.APIServer, event)
+				if err != nil {
+					return fmt.Errorf("failed to update event: %w", err)
+				}
+				return nil
+			},
+		})
+
+		// execute all operations
+		if err := operations.Create(); err != nil {
+			return fmt.Errorf("failed to create event: %w", err)
 		}
 	case 1:
 		event = &(*events)[0]
