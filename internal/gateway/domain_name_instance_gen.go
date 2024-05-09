@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -65,7 +66,7 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var domainNameInstance v0.DomainNameInstance
-			if err := domainNameInstance.DecodeNotifObject(notif.Object); err != nil {
+			if err = domainNameInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("domain name instance reconciliation requeued with identical payload and fixed delay")
@@ -105,7 +106,8 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestDomainNameInstance, err := client.GetDomainNameInstanceByID(
+			var latestDomainNameInstance *v0.DomainNameInstance
+			latestDomainNameInstance, err = client.GetDomainNameInstanceByID(
 				r.APIClient,
 				r.APIServer,
 				*domainNameInstance.ID,
@@ -127,14 +129,15 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 			domainNameInstance = *latestDomainNameInstance
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if domainNameInstance.DeletionScheduled != nil {
 					log.Info("domain name instance scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := domainNameInstanceCreated(r, &domainNameInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = domainNameInstanceCreated(r, &domainNameInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created domain name instance object")
 					r.UnlockAndRequeue(
 						&domainNameInstance,
@@ -155,8 +158,8 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := domainNameInstanceUpdated(r, &domainNameInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = domainNameInstanceUpdated(r, &domainNameInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated domain name instance object")
 					r.UnlockAndRequeue(
 						&domainNameInstance,
@@ -177,8 +180,8 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := domainNameInstanceDeleted(r, &domainNameInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = domainNameInstanceDeleted(r, &domainNameInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted domain name instance object")
 					r.UnlockAndRequeue(
 						&domainNameInstance,
@@ -276,10 +279,20 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("domain name instance unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"domain name instance successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"domain name instance successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile domain name instance for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 

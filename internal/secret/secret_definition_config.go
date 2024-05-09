@@ -9,12 +9,14 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
+	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -73,7 +75,8 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 	// get aws config
 	awsConfig, err := kube.GetAwsConfigFromAwsAccount(c.r.EncryptionKey, *awsAccount.DefaultRegion, awsAccount)
 	if err != nil {
-		return fmt.Errorf("failed to get AWS config from AWS account: %w", err)
+		return tp_errors.NewErrNonRecoverablef("failed to get AWS config from AWS account: %w", err)
+
 	}
 
 	// Create a Secrets Manager awssmClient
@@ -140,7 +143,7 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 	// Call the CreateSecret operation
 	_, err = awssmClient.CreateSecret(context.Background(), input)
 	if err != nil {
-		return fmt.Errorf("failed to create secret: %w", err)
+		return getSecretsManagerError(err)
 	}
 
 	// TODO: implement this functionality using the external-secrets package
@@ -270,7 +273,7 @@ func (c *SecretDefinitionConfig) DeleteSecretFromAwsSecretsManager() error {
 		}
 	}
 	if id == nil {
-		return fmt.Errorf("secret does not exist")
+		return tp_errors.NewErrNonRecoverable("secret does not exist")
 	}
 
 	// Create input for the CreateSecret operation
@@ -285,4 +288,22 @@ func (c *SecretDefinitionConfig) DeleteSecretFromAwsSecretsManager() error {
 	}
 
 	return nil
+}
+
+// getSecretsManagerError classifies an AWS Secrets Manager error
+// as non-recoverable or default error type.
+func getSecretsManagerError(err error) error {
+
+	// map aws sdk errors threeport errors
+	var operationError *smithy.OperationError
+	var invalidRequestException *types.InvalidRequestException
+	switch {
+	case !errors.As(err, &operationError):
+		// return original error if it isn't an aws sdk error type
+		return err
+	case errors.As(err, &invalidRequestException):
+		return tp_errors.NewErrNonRecoverable(invalidRequestException.Error())
+	default:
+		return err
+	}
 }

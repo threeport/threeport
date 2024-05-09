@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -65,7 +66,7 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var metricsDefinition v0.MetricsDefinition
-			if err := metricsDefinition.DecodeNotifObject(notif.Object); err != nil {
+			if err = metricsDefinition.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("metrics definition reconciliation requeued with identical payload and fixed delay")
@@ -105,7 +106,8 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestMetricsDefinition, err := client.GetMetricsDefinitionByID(
+			var latestMetricsDefinition *v0.MetricsDefinition
+			latestMetricsDefinition, err = client.GetMetricsDefinitionByID(
 				r.APIClient,
 				r.APIServer,
 				*metricsDefinition.ID,
@@ -127,14 +129,15 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 			metricsDefinition = *latestMetricsDefinition
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if metricsDefinition.DeletionScheduled != nil {
 					log.Info("metrics definition scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := metricsDefinitionCreated(r, &metricsDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = metricsDefinitionCreated(r, &metricsDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created metrics definition object")
 					r.UnlockAndRequeue(
 						&metricsDefinition,
@@ -155,8 +158,8 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := metricsDefinitionUpdated(r, &metricsDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = metricsDefinitionUpdated(r, &metricsDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated metrics definition object")
 					r.UnlockAndRequeue(
 						&metricsDefinition,
@@ -177,8 +180,8 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := metricsDefinitionDeleted(r, &metricsDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = metricsDefinitionDeleted(r, &metricsDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted metrics definition object")
 					r.UnlockAndRequeue(
 						&metricsDefinition,
@@ -276,10 +279,20 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("metrics definition unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"metrics definition successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"metrics definition successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile metrics definition for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 

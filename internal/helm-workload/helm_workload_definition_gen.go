@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -65,7 +66,7 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var helmWorkloadDefinition v0.HelmWorkloadDefinition
-			if err := helmWorkloadDefinition.DecodeNotifObject(notif.Object); err != nil {
+			if err = helmWorkloadDefinition.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("helm workload definition reconciliation requeued with identical payload and fixed delay")
@@ -105,7 +106,8 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestHelmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByID(
+			var latestHelmWorkloadDefinition *v0.HelmWorkloadDefinition
+			latestHelmWorkloadDefinition, err = client.GetHelmWorkloadDefinitionByID(
 				r.APIClient,
 				r.APIServer,
 				*helmWorkloadDefinition.ID,
@@ -127,14 +129,15 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 			helmWorkloadDefinition = *latestHelmWorkloadDefinition
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if helmWorkloadDefinition.DeletionScheduled != nil {
 					log.Info("helm workload definition scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := helmWorkloadDefinitionCreated(r, &helmWorkloadDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = helmWorkloadDefinitionCreated(r, &helmWorkloadDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created helm workload definition object")
 					r.UnlockAndRequeue(
 						&helmWorkloadDefinition,
@@ -155,8 +158,8 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := helmWorkloadDefinitionUpdated(r, &helmWorkloadDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = helmWorkloadDefinitionUpdated(r, &helmWorkloadDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated helm workload definition object")
 					r.UnlockAndRequeue(
 						&helmWorkloadDefinition,
@@ -177,8 +180,8 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := helmWorkloadDefinitionDeleted(r, &helmWorkloadDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = helmWorkloadDefinitionDeleted(r, &helmWorkloadDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted helm workload definition object")
 					r.UnlockAndRequeue(
 						&helmWorkloadDefinition,
@@ -276,10 +279,20 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("helm workload definition unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"helm workload definition successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"helm workload definition successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile helm workload definition for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 

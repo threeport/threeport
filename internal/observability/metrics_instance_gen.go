@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -65,7 +66,7 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var metricsInstance v0.MetricsInstance
-			if err := metricsInstance.DecodeNotifObject(notif.Object); err != nil {
+			if err = metricsInstance.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("metrics instance reconciliation requeued with identical payload and fixed delay")
@@ -105,7 +106,8 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestMetricsInstance, err := client.GetMetricsInstanceByID(
+			var latestMetricsInstance *v0.MetricsInstance
+			latestMetricsInstance, err = client.GetMetricsInstanceByID(
 				r.APIClient,
 				r.APIServer,
 				*metricsInstance.ID,
@@ -127,14 +129,15 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 			metricsInstance = *latestMetricsInstance
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if metricsInstance.DeletionScheduled != nil {
 					log.Info("metrics instance scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := metricsInstanceCreated(r, &metricsInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = metricsInstanceCreated(r, &metricsInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created metrics instance object")
 					r.UnlockAndRequeue(
 						&metricsInstance,
@@ -155,8 +158,8 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := metricsInstanceUpdated(r, &metricsInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = metricsInstanceUpdated(r, &metricsInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated metrics instance object")
 					r.UnlockAndRequeue(
 						&metricsInstance,
@@ -177,8 +180,8 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := metricsInstanceDeleted(r, &metricsInstance, &log)
-				if err != nil {
+				customRequeueDelay, err = metricsInstanceDeleted(r, &metricsInstance, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted metrics instance object")
 					r.UnlockAndRequeue(
 						&metricsInstance,
@@ -276,10 +279,20 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 				log.V(1).Info("metrics instance unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"metrics instance successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"metrics instance successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile metrics instance for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 

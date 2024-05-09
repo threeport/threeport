@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
@@ -65,7 +66,7 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 
 			// decode the object that was sent in the notification
 			var loggingDefinition v0.LoggingDefinition
-			if err := loggingDefinition.DecodeNotifObject(notif.Object); err != nil {
+			if err = loggingDefinition.DecodeNotifObject(notif.Object); err != nil {
 				log.Error(err, "failed to marshal object map from consumed notification message")
 				r.RequeueRaw(msg)
 				log.V(1).Info("logging definition reconciliation requeued with identical payload and fixed delay")
@@ -105,7 +106,8 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 			}
 
 			// retrieve latest version of object
-			latestLoggingDefinition, err := client.GetLoggingDefinitionByID(
+			var latestLoggingDefinition *v0.LoggingDefinition
+			latestLoggingDefinition, err = client.GetLoggingDefinitionByID(
 				r.APIClient,
 				r.APIServer,
 				*loggingDefinition.ID,
@@ -127,14 +129,15 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 			loggingDefinition = *latestLoggingDefinition
 
 			// determine which operation and act accordingly
+			var customRequeueDelay int64
 			switch notif.Operation {
 			case notifications.NotificationOperationCreated:
 				if loggingDefinition.DeletionScheduled != nil {
 					log.Info("logging definition scheduled for deletion - skipping create")
 					break
 				}
-				customRequeueDelay, err := loggingDefinitionCreated(r, &loggingDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = loggingDefinitionCreated(r, &loggingDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile created logging definition object")
 					r.UnlockAndRequeue(
 						&loggingDefinition,
@@ -155,8 +158,8 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
-				customRequeueDelay, err := loggingDefinitionUpdated(r, &loggingDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = loggingDefinitionUpdated(r, &loggingDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile updated logging definition object")
 					r.UnlockAndRequeue(
 						&loggingDefinition,
@@ -177,8 +180,8 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
-				customRequeueDelay, err := loggingDefinitionDeleted(r, &loggingDefinition, &log)
-				if err != nil {
+				customRequeueDelay, err = loggingDefinitionDeleted(r, &loggingDefinition, &log)
+				if err != nil && tp_errors.IsErrRecoverable(err) {
 					log.Error(err, "failed to reconcile deleted logging definition object")
 					r.UnlockAndRequeue(
 						&loggingDefinition,
@@ -276,10 +279,20 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("logging definition unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
-				"logging definition successfully reconciled for %s operation",
-				notif.Operation,
-			))
+			var errNonRecoverable *tp_errors.ErrNonRecoverable
+			switch {
+			case err == nil:
+				log.Info(fmt.Sprintf(
+					"logging definition successfully reconciled for %s operation",
+					notif.Operation,
+				))
+			case errors.As(err, &errNonRecoverable):
+				log.Info(fmt.Sprintf(
+					"failed to reconcile logging definition for %s operation: %s",
+					notif.Operation,
+					errNonRecoverable.Error(),
+				))
+			}
 		}
 	}
 
