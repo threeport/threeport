@@ -3,7 +3,7 @@ package api
 import (
 	_ "embed"
 
-	iapi "github.com/threeport/threeport/pkg/api-server/v0"
+	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 )
 
 // RESTAPIVersions provides the versions for individual REST endpoints.
@@ -16,7 +16,7 @@ type RESTAPIVersions struct {
 
 var RestapiVersions = make(map[string]RESTAPIVersions)
 
-func AddRestApiVersion(vo iapi.VersionObject) {
+func AddRestApiVersion(vo apiserver_lib.VersionObject) {
 	var Exists bool = false
 	for _, v := range RestapiVersions {
 		if v.API == vo.Object {

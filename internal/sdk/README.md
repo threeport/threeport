@@ -1,41 +1,31 @@
 # internal/sdk
 
-Here you will find the `models` and `versions` packages.  These packages are
-used by the `threeport-sdk` CLI.  More general info about it can be found in
-the docs for that tool [here](../../cmd/sdk/README.md).
+This package contains all the functionality for the Threeport SDK.  The
+functions here are called from the commands in `cmd/sdk/cmd/`.
 
-# Codegen for Models
+It includes the data model for the SDK config which is the configuration the SDK
+user provides to the SDK to configure the code generation.
 
-The code generation in this package gets called by the `threeport-sdk codegen 
-api-model` command.  This command is called when `go generate` is run as
-instructed by the `//go:generate` comments at the top of the API model files in
-`pkg/api/<version>/`.  It is called many times as there are many different files
-containing model definitions.
+## Code Generation Library
 
-It generates code for each model based on the source code found in that API
-model file:
-* client library code
-* API handler code
-* methods for all the objects that comprise the API data model
-* API routes
-* validation of objects received by the API from clients
-* API version responses
+The SDK makes extensive use of the [jennifer](https://github.com/dave/jennifer)
+library which uses Go to generate Go source code.
 
-# Codegen for Versions
+## Organization
 
-The code generation in this package gets called by the `threeport-sdk codegen 
-api-version` command.  This commannd is called just one time when `go generate`
-is run.  The `//go:generate` comment in `cmd/rest-api/main.go` triggers it.
+The code is first organized by the command they serve.
 
-That command iterates over all versions of all APIs in `pkg/api` and generates
-code based on what it finds there.  It skips files that have exclude markers at
-the top of the file, e.g. `pkg/api/v0/common.go`.  It also skips generated code
-files that have the `_gen.go` suffix.
+The `create` package
+contains the code generation for the `threeport-sdk create` command.  That
+command generates minimal scaffolding for the API objects.  It ingest the
+SDK config to inform this code gen.
 
-The code generated includes:
-* database initialization
-* object type mappings for API responses
-* adding all routes to the server when API starts
-* object field validation maps
-* API version mapping
+The 'gen' package contains the code generation for the `threeport-sdk gen`
+command.  This command ingests the SDK config, reads the project's go.mod file
+and parses the API object source code.  This ingestion is used to build the
+`Generator` object which is defined in `gen/generator.go`.  That generator
+contains the values for generating the rest of the source code.  The `gen`
+package is organized by the project packages that code is being generated for.
+So if you're looking for the SDK function that generates code for the api-server
+package, you'll find it in `gen/pkg`.
 

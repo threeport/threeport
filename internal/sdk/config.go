@@ -3,8 +3,11 @@ package sdk
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v2"
+
+	"github.com/threeport/threeport/internal/sdk/util"
 )
 
 // SdkConfig contains all the configuration options available to a user
@@ -74,6 +77,28 @@ type ApiObject struct {
 	// Name of the api object to manage with threeport.
 	Versions []*string `yaml:"Versions"`
 
+	// If false, acts as an override for API objects that have a "Definition" or
+	// "Instance" suffix that do NOT want a connection established beteen them
+	// for a DefinedInstance abstraction, e.g. WorkloadResourceDefinition and
+	// WorkloadResourceInstance.  If this field is not included, the default
+	// behavior is to create the DefinedInstance fields.
+	//
+	// If false on an API object with a "Definition" suffix:
+	// * `threeport-sdk create` will not add a `Definition` field to the API
+	//   object definition.
+	// * `threeport-sdk create` will not add a slice of corresponding instances
+	//   to the API object definition.
+	// * `threeport-sdk gen` will not include a check in the API handler that
+	//   deletes a definition to see if there are corresponding instances of the
+	//   definition.
+	//
+	// If false on an API object with a "Instance" suffix:
+	// * `threeport-sdk create` will not add an `Instance` field to the API
+	//   object definition.
+	// * `threeport-sdk create` will not add a foreign key reference back to the
+	//   definition.
+	DefinedInstance *bool `yaml:"DefinedInstance"`
+
 	// Indicate whether the object will need a controller
 	// that is registered with the rest-api for reconciliation.
 	Reconcilable *bool `yaml:"Reconcilable"`
@@ -116,12 +141,12 @@ type Tptctl struct {
 func GetSdkConfig(configPath string) (*SdkConfig, error) {
 	configContent, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file", err)
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
 	var sdkConfig SdkConfig
 	if err := yaml.UnmarshalStrict(configContent, &sdkConfig); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config file yaml content", err)
+		return nil, fmt.Errorf("failed to unmarshal config file yaml content: %w", err)
 	}
 
 	if err := ValidateSdkConfig(&sdkConfig); err != nil {
@@ -133,9 +158,107 @@ func GetSdkConfig(configPath string) (*SdkConfig, error) {
 
 // ValidateSdkConfig validates an SDK config.
 func ValidateSdkConfig(sdkConfig *SdkConfig) error {
-	if sdkConfig.ApiNamespace == "" {
+	// determine if repo is an extension
+	extension, _, err := util.IsExtension()
+	if err != nil {
+		fmt.Errorf("failed to determine if generating code for an extension: %w", err)
+	}
+
+	if extension && sdkConfig.ApiNamespace == "" {
 		return fmt.Errorf("ApiNamespace is a required field")
 	}
 
+	// check to make sure that defined instance objects have matching values for
+	// the `DefinedInstance` field.  If they don't the API object definitions
+	// will be incompatible.
+	for _, objectGroup := range sdkConfig.ApiObjectConfig.ApiObjectGroups {
+		for _, object := range objectGroup.Objects {
+			definedInstance, definitionName, instanceName := IsOfDefinedInstance(
+				*object.Name,
+				objectGroup.Objects,
+			)
+			if !definedInstance {
+				continue
+			}
+			switch {
+			case strings.HasSuffix(*object.Name, "Definition"):
+				for _, obj := range objectGroup.Objects {
+					if *obj.Name == instanceName {
+						if obj.DefinedInstance != nil && !*obj.DefinedInstance {
+							return fmt.Errorf(
+								"%s has 'DefinedInstance: false' but %s has 'DefinedInstance: true' (or is not set).  This will result in invalid API objects.  Both definition and instance must have the same value for 'DefinedInstance'.",
+								instanceName,
+								*object.Name,
+							)
+						}
+					}
+				}
+			case strings.HasSuffix(*object.Name, "Instance"):
+				for _, obj := range objectGroup.Objects {
+					if *obj.Name == definitionName {
+						if obj.DefinedInstance != nil && !*obj.DefinedInstance {
+							return fmt.Errorf(
+								"%s has 'DefinedInstance: false' but %s has 'DefinedInstance: true' (or is not set).  This will result in invalid API objects.  Both definition and instance must have the same value for 'DefinedInstance'.",
+								definitionName,
+								*object.Name,
+							)
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return nil
+}
+
+// IsOfDefinedInstance takes the name of any API object and the API object
+// group it belongs to and returns whether it is a part of a DefinedInstance
+// abstraction.  If it is, it returns the definition object name and the
+// instance object name.
+func IsOfDefinedInstance(
+	objectName string,
+	objGroupObjects []*ApiObject,
+) (bool, string, string) {
+	// check if SDK config declares is not of a DefinedInstance abstraction
+	for _, obj := range objGroupObjects {
+		if objectName == *obj.Name {
+			if obj.DefinedInstance != nil && !*obj.DefinedInstance {
+				return false, "", ""
+			}
+		}
+	}
+
+	switch {
+	case strings.HasSuffix(objectName, "Definition"):
+		// check for corresponding instance object
+		rootObjectName := strings.TrimSuffix(objectName, "Definition")
+		instanceName := fmt.Sprintf("%sInstance", rootObjectName)
+		instanceFound := false
+		for _, obj := range objGroupObjects {
+			if *obj.Name == instanceName {
+				instanceFound = true
+				break
+			}
+		}
+		if instanceFound {
+			return true, objectName, instanceName
+		}
+	case strings.HasSuffix(objectName, "Instance"):
+		// check for corresponding definition object
+		rootObjectName := strings.TrimSuffix(objectName, "Instance")
+		definitionName := fmt.Sprintf("%sDefinition", rootObjectName)
+		definitionFound := false
+		for _, obj := range objGroupObjects {
+			if *obj.Name == definitionName {
+				definitionFound = true
+				break
+			}
+		}
+		if definitionFound {
+			return true, definitionName, objectName
+		}
+	}
+
+	return false, "", ""
 }
