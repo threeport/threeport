@@ -223,7 +223,7 @@ func controlPlaneInstanceCreated(
 			"",
 			"",
 			true,
-			false, // don't attach internal resource manager policy, sectrity concern expand comment
+			false, // We don't attach internal resource manager policy as we dont want the customer role having permissions within our aws account
 			*awsConfig,
 			cpi.Opts.AdditionalAwsIrsaConditions,
 		)
