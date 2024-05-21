@@ -8,7 +8,6 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
 
-	"github.com/threeport/threeport/internal/sdk"
 	"github.com/threeport/threeport/internal/sdk/gen"
 	"github.com/threeport/threeport/internal/sdk/util"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
@@ -55,7 +54,7 @@ func GenApiObjectMethods(gen *gen.Generator) error {
 				f.Comment("controller when a change is made.  It includes the object as presented by the")
 				f.Comment("client when the change was made.")
 				f.Func().Params(
-					Id(sdk.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
+					Id(util.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
 				).Id("NotificationPayload").Params(
 					Line().Id("operation").Qual(
 						"github.com/threeport/threeport/pkg/notifications/v0",
@@ -74,7 +73,7 @@ func GenApiObjectMethods(gen *gen.Generator) error {
 					).Values(Dict{
 						Id("Operation"):    Id("operation"),
 						Id("CreationTime"): Op("&").Id("creationTime"),
-						Id("Object"):       Id(sdk.TypeAbbrev(mc.TypeName)),
+						Id("Object"):       Id(util.TypeAbbrev(mc.TypeName)),
 					}),
 					Line(),
 					List(
@@ -87,7 +86,7 @@ func GenApiObjectMethods(gen *gen.Generator) error {
 							Op("&").Id("payload"),
 							Qual("fmt", "Errorf").Call(
 								Lit("failed to marshal notification payload %+v: %w"),
-								Id(sdk.TypeAbbrev(mc.TypeName)),
+								Id(util.TypeAbbrev(mc.TypeName)),
 								Err(),
 							),
 						)),
@@ -107,7 +106,7 @@ func GenApiObjectMethods(gen *gen.Generator) error {
 				f.Comment("mapstructure library here as that requires custom decode hooks to manage")
 				f.Comment("fields with non-native go types.")
 				f.Func().Params(
-					Id(sdk.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
+					Id(util.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
 				).Id("DecodeNotifObject").Params(Id("object").Interface()).Error().Block(
 					List(Id("jsonObject"), Id("err")).Op(":=").Qual("encoding/json", "Marshal").Call(Id("object")),
 					If(Id("err").Op("!=").Nil()).Block(
@@ -116,7 +115,7 @@ func GenApiObjectMethods(gen *gen.Generator) error {
 						),
 					),
 					If(Err().Op(":=").Qual("encoding/json", "Unmarshal").Call(
-						Id("jsonObject"), Op("&").Id(sdk.TypeAbbrev(mc.TypeName)),
+						Id("jsonObject"), Op("&").Id(util.TypeAbbrev(mc.TypeName)),
 					).Op(";").Id("err").Op("!=").Nil()).Block(
 						Return(Qual("fmt", "Errorf").Call(
 							Lit("failed to unmarshal json object to typed object: %w"), Id("err"),
@@ -127,21 +126,21 @@ func GenApiObjectMethods(gen *gen.Generator) error {
 				// GetId method
 				f.Comment("GetId returns the unique ID for the object.")
 				f.Func().Params(
-					Id(sdk.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
+					Id(util.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
 				).Id("GetId").Params().Uint().Block(
-					Return(Op("*").Id(sdk.TypeAbbrev(mc.TypeName)).Dot("ID")),
+					Return(Op("*").Id(util.TypeAbbrev(mc.TypeName)).Dot("ID")),
 				)
 				// Type method
 				f.Comment("Type returns the object type.")
 				f.Func().Params(
-					Id(sdk.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
+					Id(util.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
 				).Id("GetType").Params().String().Block(
 					Return(Lit(mc.TypeName)),
 				)
 				// Version method
 				f.Comment("Version returns the version of the API object.")
 				f.Func().Params(
-					Id(sdk.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
+					Id(util.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
 				).Id("GetVersion").Params().String().Block(
 					Return(Lit(objCollection.Version)),
 				)
@@ -150,9 +149,9 @@ func GenApiObjectMethods(gen *gen.Generator) error {
 					f.Comment("ScheduledForDeletion returns a pointer to the DeletionScheduled timestamp")
 					f.Comment("if scheduled for deletion or nil if not scheduled for deletion.")
 					f.Func().Params(
-						Id(sdk.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
+						Id(util.TypeAbbrev(mc.TypeName)).Op("*").Id(mc.TypeName),
 					).Id("ScheduledForDeletion").Params().Op("*").Qual("time", "Time").Block(
-						Return(Id(sdk.TypeAbbrev(mc.TypeName)).Dot("DeletionScheduled")),
+						Return(Id(util.TypeAbbrev(mc.TypeName)).Dot("DeletionScheduled")),
 					)
 				}
 			}
