@@ -260,7 +260,7 @@ func controlPlaneInstanceCreated(
 			*awsConfig,
 			cpi.Opts.AdditionalAwsIrsaConditions,
 		); err != nil {
-			return 0, fmt.Errorf("failed to update resource manager role", err)
+			return 0, fmt.Errorf("failed to update resource manager role: %w", err)
 		}
 
 	}
