@@ -61,14 +61,8 @@ func GetResponse(
 		return nil, fmt.Errorf("failed to read response body from threeport API: %w", err)
 	}
 
-	if resp.StatusCode != expectedStatusCode {
-		return nil, errors.New(fmt.Sprintf("API returned status: %s\n%s\nexpected: %d", resp.Status, string(respBody), expectedStatusCode))
-	}
-
 	var response v0.Response
-	decoder := json.NewDecoder(bytes.NewReader(respBody))
-	decoder.UseNumber()
-	if err := decoder.Decode(&response); err != nil {
+	if resp.StatusCode != expectedStatusCode {
 		if err := json.Unmarshal(respBody, &response); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal response body from threeport API: %w", err)
 		}
@@ -90,6 +84,12 @@ func GetResponse(
 		default:
 			return nil, errors.New(fmt.Sprintf("API returned status: %d, %s\n%s\nexpected: %d", response.Status.Code, response.Status.Message, string(status), expectedStatusCode))
 		}
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(respBody))
+	decoder.UseNumber()
+	if err := decoder.Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response body from threeport API: %w", err)
 	}
 
 	if IsDebug() {
