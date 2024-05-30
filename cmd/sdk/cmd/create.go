@@ -53,13 +53,6 @@ See the Threeport SDK docs for more information: https://docs.threeport.io/sdk/s
 		}
 		cli.Info("API object scaffolding generation complete")
 
-		// create mage file
-		if err = create.CreateMageFile(sdkConfig); err != nil {
-			cli.Error("failed to create project mage file", err)
-			os.Exit(1)
-		}
-		cli.Info("project Makefile created")
-
 		cli.Complete("source code scaffolding complete")
 
 		cli.Info(`next add the fields to your API objects in 'pkg/api'.  Then run
