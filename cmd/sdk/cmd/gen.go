@@ -4,8 +4,6 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -42,7 +40,6 @@ See the Threeport SDK docs for more information: https://docs.threeport.io/sdk/s
 		// get SDK config
 		sdkConfig, err := sdk.GetSdkConfig(genConfig)
 		if err != nil {
-			//return fmt.Errorf("failed to get sdk config: %w", err)
 			cli.Error("failed to get valid Threeport SDK config", err)
 			os.Exit(1)
 		}
@@ -54,22 +51,6 @@ See the Threeport SDK docs for more information: https://docs.threeport.io/sdk/s
 			os.Exit(1)
 		}
 
-		fmt.Println("----------------------------------------------------------")
-		genJson, err := json.MarshalIndent(generator, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal generator JSON: %w", err)
-		}
-		fmt.Println(string(genJson))
-		fmt.Println("----------------------------------------------------------")
-		for _, objGroup := range generator.ApiObjectGroups {
-			for _, obj := range objGroup.ApiObjects {
-				fmt.Println("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
-				fmt.Printf("%+v\n", *obj)
-				fmt.Println("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
-			}
-		}
-
-		////////////////////////////////////////////////////////////////////////
 		// build source code at root of project
 		if err := root.GenRoot(&generator); err != nil {
 			cli.Error("failed to generate source code at prject root", err)
@@ -93,33 +74,6 @@ See the Threeport SDK docs for more information: https://docs.threeport.io/sdk/s
 			cli.Error("failed to generate source code for pkg package", err)
 			//os.Exit(1)
 		}
-
-		////////////////////////////////////////////////////////////////////////
-
-		//if err := ApiVersionGen(sdkConfig); err != nil {
-		//	return fmt.Errorf("could not generate code for api-version: %w", err)
-		//}
-
-		//for _, og := range sdkConfig.ApiObjectConfig.ApiObjectGroups {
-		//	if err := ApiModelGen(*og.Name, og.Objects); err != nil {
-		//		return fmt.Errorf("could not generate code for api-model: %w", err)
-		//	}
-
-		//	// determine if any objects within this controller domain need reconcilliation
-		//	needReconcilers := false
-		//	for _, obj := range og.Objects {
-		//		if obj.Reconcilable != nil && *obj.Reconcilable {
-		//			needReconcilers = true
-		//			break
-		//		}
-		//	}
-
-		//	if needReconcilers {
-		//		if err := ControllerGen(*og.Name, og); err != nil {
-		//			return fmt.Errorf("could not generate code for controller: %w", err)
-		//		}
-		//	}
-		//}
 
 		cli.Complete("source code generation complete")
 

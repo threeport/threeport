@@ -46,25 +46,12 @@ See the Threeport SDK docs for more information: https://docs.threeport.io/sdk/s
 			return fmt.Errorf("could not determine if creating scaffolding for an extension: %w", err)
 		}
 
-		//// create internal version package
-		//if err = create.CreateVersionPackage(); err != nil {
-		//	cli.Error("failed to version package", err)
-		//	os.Exit(1)
-		//}
-		//cli.Info("internal version package generated")
-
 		// create API object source code scaffolding
 		if err = create.CreateAPIObjects(sdkConfig, extension); err != nil {
 			cli.Error("failed to create API objects", err)
 			os.Exit(1)
 		}
 		cli.Info("API object scaffolding generation complete")
-
-		//// create component cmd scaffolding
-		//if err = create.CreateComponentCmd(sdkConfig); err != nil {
-		//	cli.Error("failed to create component cmd scaffolding", err)
-		//	os.Exit(1)
-		//}
 
 		// create mage file
 		if err = create.CreateMageFile(sdkConfig); err != nil {
