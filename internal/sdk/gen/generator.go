@@ -72,16 +72,10 @@ type VersionConfig struct {
 // in pkg/api.  Reconciliation for API objects in a group is performed by one
 // controller for each group - with each object using its own reconciler within
 // that controller.  Therefore, an API object group is also a controller domain.
-type ApiObjectGroup struct { // was: ControllerConfig
+type ApiObjectGroup struct {
 	// The name of the source code file where the API objects' data models are
 	// defined.
 	ModelFilename string
-
-	//// The name of the go package where the API objects data models are defined.
-	//PackageName string  // moved to: ApiObject
-
-	//// The version of the API objects in the group.
-	//Version string  // moved to: ApiObject
 
 	// The controller domain for an object group.
 	ControllerDomain string
@@ -89,8 +83,6 @@ type ApiObjectGroup struct { // was: ControllerConfig
 	// The controller domain in all lowercase.
 	ControllerDomainLower string
 
-	//// The API objects that are reconciled by a controller.
-	//ReconcilerModels []string
 	// List of API object names that are reconciled by a controller.
 	ReconciledApiObjectNames []string
 
@@ -103,22 +95,19 @@ type ApiObjectGroup struct { // was: ControllerConfig
 	TptctlConfigPathModels []string
 
 	// The details for each API object in the group.
-	ApiObjects []*ApiObject // was: ModelConfigs
-
-	// Below: fields from `ControllerConfig` in
-	// internal/sdk/controller/config.go
+	ApiObjects []*ApiObject
 
 	// The name of the object group's controller in kebab case, e.g.
 	// kubernetes-runtime-controller
-	ControllerName string // was: Name
+	ControllerName string
 
 	// The name of the controller in kebab case sans "-controler", e.g
 	// kubernetes-runtime
-	ControllerShortName string // was: ShortName
+	ControllerShortName string
 
 	// The name of the controller in lower case, no spaces, e.g.
 	// kubernetesruntime
-	ControllerPackageName string // was: PackageName
+	ControllerPackageName string
 
 	// The name of a NATS Jetstream stream for a controller, e.g.
 	// KubernetesRuntimeStreamName
