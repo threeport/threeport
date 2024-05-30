@@ -22,6 +22,9 @@ type LogStorageDefinition struct {
 
 	// The backend storage mechanisms for retaining logs.
 	LogBackends []*LogBackend `json:"LogBackends,omitempty" query:"logbackends" gorm:"many2many:log_backends_log_storage_definitions;" validate:"optional,association"`
+
+	// The associated log storage instances that are derived from this definition.
+	LogStorageInstances []*LogStorageInstance `json:"LogStorageInstances,omitempty" validate:"optional,association"`
 }
 
 // An instance of log storage deployed to a compute space cluster.

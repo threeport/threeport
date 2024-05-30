@@ -10,7 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
-	"github.com/threeport/threeport/pkg/api"
+	apilib "github.com/threeport/threeport/pkg/api/lib/v0"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 )
 
@@ -118,7 +118,7 @@ func (r *Reconciler) RequeueRaw(msg *nats.Msg) {
 // UnlockAndRequeue releases the lock on the object and requeues reconciliation
 // for that object.
 func (r *Reconciler) UnlockAndRequeue(
-	object api.ReconciledThreeportApiObject,
+	object apilib.ReconciledThreeportApiObject,
 	requeueDelay int64,
 	lockReleased chan bool,
 	msg *nats.Msg,
@@ -126,15 +126,15 @@ func (r *Reconciler) UnlockAndRequeue(
 	if ok := r.ReleaseLock(object, lockReleased, msg, false); !ok {
 		r.Log.V(1).Info(
 			"object remains locked - will unlock when TTL expires",
-			"objectType", object.Type(),
-			"objectVersion", object.Version(),
+			"objectType", object.GetType(),
+			"objectVersion", object.GetVersion(),
 			"objectID", object.GetId(),
 		)
 	} else {
 		r.Log.V(1).Info(
 			"object unlocked",
-			"objectType", object.Type(),
-			"objectVersion", object.Version(),
+			"objectType", object.GetType(),
+			"objectVersion", object.GetVersion(),
 			"objectID", object.GetId(),
 		)
 	}
@@ -145,7 +145,7 @@ func (r *Reconciler) UnlockAndRequeue(
 // Requeue waits for the delay duration and then sends the notifcation to the
 // NATS server to trigger reconciliation.
 func (r *Reconciler) Requeue(
-	object api.ReconciledThreeportApiObject,
+	object apilib.ReconciledThreeportApiObject,
 	requeueDelay int64,
 	msg *nats.Msg,
 ) {
@@ -153,16 +153,16 @@ func (r *Reconciler) Requeue(
 	if err != nil {
 		r.Log.V(1).Info(
 			"failed to perform negative acknowledgement with delay",
-			"objectType", object.Type(),
-			"objectVersion", object.Version(),
+			"objectType", object.GetType(),
+			"objectVersion", object.GetVersion(),
 			"objectID", object.GetId(),
 		)
 	} else {
 		r.Log.V(1).Info(
 			"requeue notification sent",
 			"reconcilerName", r.Name,
-			"objectType", object.Type(),
-			"objectVersion", object.Version(),
+			"objectType", object.GetType(),
+			"objectVersion", object.GetVersion(),
 			"objectID", object.GetId(),
 			"requeueDelay", requeueDelay,
 		)
@@ -178,7 +178,7 @@ func (r *Reconciler) lockKey(id uint) string {
 // first value is whether the object is locked and the second is the status of
 // the check.  If the check was unsuccessful and unable to be clearly determined
 // the second value will be false.
-func (r *Reconciler) CheckLock(object api.ReconciledThreeportApiObject) (bool, bool) {
+func (r *Reconciler) CheckLock(object apilib.ReconciledThreeportApiObject) (bool, bool) {
 	lockKey := r.lockKey(object.GetId())
 
 	kvEntry, err := r.KeyValue.Get(lockKey)
@@ -195,8 +195,8 @@ func (r *Reconciler) CheckLock(object api.ReconciledThreeportApiObject) (bool, b
 	if kvEntry != nil {
 		r.Log.V(1).Info(
 			"object is locked - requeue",
-			"objectType", object.Type(),
-			"objectVersion", object.Version(),
+			"objectType", object.GetType(),
+			"objectVersion", object.GetVersion(),
 			"objectID", object.GetId(),
 		)
 		return true, true
@@ -207,7 +207,7 @@ func (r *Reconciler) CheckLock(object api.ReconciledThreeportApiObject) (bool, b
 
 // Lock puts a lock on the given object so that no other reconcilation of this
 // object is attempted until unlocked.  Returns true if successful.
-func (r *Reconciler) Lock(object api.ReconciledThreeportApiObject) bool {
+func (r *Reconciler) Lock(object apilib.ReconciledThreeportApiObject) bool {
 	lockKey := r.lockKey(object.GetId())
 
 	rev, err := r.KeyValue.Create(lockKey, []byte(r.ControllerID.String()))
@@ -222,8 +222,8 @@ func (r *Reconciler) Lock(object api.ReconciledThreeportApiObject) bool {
 	r.Log.V(1).Info(
 		"object locked for reconciliation",
 		"keyValueRevision", rev,
-		"objectType", object.Type(),
-		"objectVersion", object.Version(),
+		"objectType", object.GetType(),
+		"objectVersion", object.GetVersion(),
 		"objectID", object.GetId(),
 	)
 
@@ -233,7 +233,7 @@ func (r *Reconciler) Lock(object api.ReconciledThreeportApiObject) bool {
 // ReleaseLock deletes the kev-value key so that future reconciliation will no
 // longer be locked.  Rerturns true if successful.  If the lock fails to be
 // released it will remain locked until the TTL expires in NATS.
-func (r *Reconciler) ReleaseLock(object api.ReconciledThreeportApiObject, lockReleased chan bool, msg *nats.Msg, reconcileSuccess bool) bool {
+func (r *Reconciler) ReleaseLock(object apilib.ReconciledThreeportApiObject, lockReleased chan bool, msg *nats.Msg, reconcileSuccess bool) bool {
 	lockKey := r.lockKey(object.GetId())
 
 	if err := r.KeyValue.Delete(lockKey); err != nil {
@@ -256,8 +256,8 @@ func (r *Reconciler) ReleaseLock(object api.ReconciledThreeportApiObject, lockRe
 		if err := msg.AckSync(); err != nil {
 			r.Log.Error(
 				err, "failed to perform acknowledgement",
-				"objectType", object.Type(),
-				"objectVersion", object.Version(),
+				"objectType", object.GetType(),
+				"objectVersion", object.GetVersion(),
 				"objectID", object.GetId(),
 			)
 		}

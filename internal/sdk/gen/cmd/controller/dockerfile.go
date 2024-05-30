@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,7 +22,22 @@ func GenControllerDockerfiles(gen *gen.Generator) error {
 				return fmt.Errorf("failed to ensure %s Dockerfile directories exist: %w", objGroup.ControllerName, err)
 			}
 
+			// check if file exists - continue to next controller if it does
 			dockerfileFile := filepath.Join(dockerfilePath, "Dockerfile")
+			dockerfileExists := true
+			if _, err := os.Stat(dockerfileFile); errors.Is(err, os.ErrNotExist) {
+				dockerfileExists = false
+			}
+			if dockerfileExists {
+				cli.Info(fmt.Sprintf(
+					"%s Dockerfile already exists at %s - not overwritten",
+					objGroup.ControllerName,
+					dockerfileFile,
+				))
+				continue
+			}
+
+			// file doesn't exist - write it
 			if err := os.WriteFile(dockerfileFile, []byte(dockerfileString), 0644); err != nil {
 				return fmt.Errorf("failed to write %s Dockerfile to %s: %w", objGroup.ControllerName, dockerfileFile, err)
 			}

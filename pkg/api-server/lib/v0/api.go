@@ -3,35 +3,33 @@ package v0
 import (
 	"github.com/labstack/echo/v4"
 
-	v0 "github.com/threeport/threeport/pkg/api/v0"
-
 	"net/http"
 )
 
 var Versions = make(map[int]string)
 
-func ResponseStatus200(c echo.Context, response v0.Response) error {
+func ResponseStatus200(c echo.Context, response Response) error {
 	code := http.StatusOK
 	message := http.StatusText(code)
-	v0.UpdateResponseStatus(&response, code, message, "")
+	UpdateResponseStatus(&response, code, message, "")
 	return c.JSON(code, response)
 }
 
-func ResponseStatus201(c echo.Context, response v0.Response) error {
+func ResponseStatus201(c echo.Context, response Response) error {
 	code := http.StatusCreated
 	message := http.StatusText(code)
-	v0.UpdateResponseStatus(&response, code, message, "")
+	UpdateResponseStatus(&response, code, message, "")
 	return c.JSON(code, response)
 }
 
-func ResponseStatus202(c echo.Context, response v0.Response) error {
+func ResponseStatus202(c echo.Context, response Response) error {
 	code := http.StatusAccepted
 	message := http.StatusText(code)
-	v0.UpdateResponseStatus(&response, code, message, "")
+	UpdateResponseStatus(&response, code, message, "")
 	return c.JSON(code, response)
 }
 
-func ResponseStatusExpected(id int, c echo.Context, response v0.Response) error {
+func ResponseStatusExpected(id int, c echo.Context, response Response) error {
 	switch id {
 	case 200:
 		return ResponseStatus200(c, response)
@@ -41,31 +39,31 @@ func ResponseStatusExpected(id int, c echo.Context, response v0.Response) error 
 	return c.JSON(http.StatusInternalServerError, "")
 }
 
-func ResponseStatus400(c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
-	return c.JSON(http.StatusBadRequest, v0.CreateResponseWithError400(params, error, objectType))
+func ResponseStatus400(c echo.Context, params *PageRequestParams, error error, objectType string) error {
+	return c.JSON(http.StatusBadRequest, CreateResponseWithError400(params, error, objectType))
 }
 
-func ResponseStatus401(c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
-	return c.JSON(http.StatusUnauthorized, v0.CreateResponseWithError401(params, error, objectType))
+func ResponseStatus401(c echo.Context, params *PageRequestParams, error error, objectType string) error {
+	return c.JSON(http.StatusUnauthorized, CreateResponseWithError401(params, error, objectType))
 }
 
-func ResponseStatus403(c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
-	return c.JSON(http.StatusForbidden, v0.CreateResponseWithError403(params, error, objectType))
+func ResponseStatus403(c echo.Context, params *PageRequestParams, error error, objectType string) error {
+	return c.JSON(http.StatusForbidden, CreateResponseWithError403(params, error, objectType))
 }
 
-func ResponseStatus404(c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
-	return c.JSON(http.StatusNotFound, v0.CreateResponseWithError404(params, error, objectType))
+func ResponseStatus404(c echo.Context, params *PageRequestParams, error error, objectType string) error {
+	return c.JSON(http.StatusNotFound, CreateResponseWithError404(params, error, objectType))
 }
 
-func ResponseStatus409(c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
-	return c.JSON(http.StatusConflict, v0.CreateResponseWithError409(params, error, objectType))
+func ResponseStatus409(c echo.Context, params *PageRequestParams, error error, objectType string) error {
+	return c.JSON(http.StatusConflict, CreateResponseWithError409(params, error, objectType))
 }
 
-func ResponseStatus500(c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
-	return c.JSON(http.StatusInternalServerError, v0.CreateResponseWithError500(params, error, objectType))
+func ResponseStatus500(c echo.Context, params *PageRequestParams, error error, objectType string) error {
+	return c.JSON(http.StatusInternalServerError, CreateResponseWithError500(params, error, objectType))
 }
 
-func ResponseStatusErr(id int, c echo.Context, params *v0.PageRequestParams, error error, objectType string) error {
+func ResponseStatusErr(id int, c echo.Context, params *PageRequestParams, error error, objectType string) error {
 	switch id {
 	case 400:
 		return ResponseStatus400(c, params, error, objectType)

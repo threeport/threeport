@@ -8,8 +8,6 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
-
-	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 const (
@@ -81,7 +79,7 @@ func ValidateBoundData(c echo.Context, obj interface{}, objectType string) (int,
 	}
 
 	if len(missingRequiredFields) > 0 {
-		return 400, errors.New(v0.ErrMsgMissingRequiredFields + " : " + strings.Join(missingRequiredFields, ","))
+		return 400, errors.New(ErrMsgMissingRequiredFields + " : " + strings.Join(missingRequiredFields, ","))
 	}
 
 	return 500, nil

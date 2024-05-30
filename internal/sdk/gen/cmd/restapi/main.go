@@ -408,7 +408,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Qual("fmt", "Printf").Call(Lit(startupMessage), Qual(
 				fmt.Sprintf("%s/internal/version", gen.ModulePath),
 				"GetVersion",
-			)),
+			).Call()),
 			Id("configureHealthCheckEndpoint").Call(),
 			If(Id("server.ListenAndServeTLS").Call(Lit(""), Lit("")).Op("!=").Qual(
 				"net/http", "ErrServerClosed",
@@ -423,7 +423,10 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			}),
 			Line(),
 
-			Qual("fmt", "Printf").Call(Lit(startupMessage), Id("version.GetVersion")),
+			Qual("fmt", "Printf").Call(Lit(startupMessage), Qual(
+				fmt.Sprintf("%s/internal/version", gen.ModulePath),
+				"GetVersion",
+			).Call()),
 			Id("configureHealthCheckEndpoint").Call(),
 			If(Id("server.ListenAndServe").Call().Op("!=").Qual("net/http", "ErrServerClosed")).Block(
 				Id("e.Logger.Fatal").Call(Id("err")),

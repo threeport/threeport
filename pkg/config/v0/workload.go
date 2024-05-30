@@ -13,7 +13,9 @@ import (
 	"github.com/threeport/threeport/internal/agent"
 	"github.com/threeport/threeport/internal/workload/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -65,7 +67,7 @@ type WorkloadInstanceValues struct {
 }
 
 // Create creates a workload definition and instance in the Threeport API.
-func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
+func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v1.WorkloadInstance, error) {
 
 	// get operations
 	operations, createdWorkloadDefinition, createdWorkloadInstance := w.GetOperations(apiClient, apiEndpoint)
@@ -85,7 +87,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 // Delete deletes a workload definition, workload instance,
 // domain name definition, domain name instance,
 // gateway definition, and gateway instance from the Threeport API.
-func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
+func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v1.WorkloadInstance, error) {
 
 	// get operation
 	operations, _, _ := w.GetOperations(apiClient, apiEndpoint)
@@ -177,7 +179,7 @@ func (wd *WorkloadDefinitionValues) Delete(apiClient *http.Client, apiEndpoint s
 }
 
 // Create creates a workload instance in the Threeport API.
-func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadInstance, error) {
+func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v1.WorkloadInstance, error) {
 	// validate required fields
 	if wi.Name == "" || wi.WorkloadDefinition.Name == "" {
 		return nil, errors.New("missing required field/s in config - required fields: Name, WorkloadDefinition.Name")
@@ -251,7 +253,7 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 	}
 
 	// construct workload instance object
-	workloadInstance := v0.WorkloadInstance{
+	workloadInstance := v1.WorkloadInstance{
 		Instance: v0.Instance{
 			Name: &wi.Name,
 		},
@@ -260,7 +262,7 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 	}
 
 	// create workload instance
-	createdWorkloadInstance, err := client.CreateWorkloadInstance(apiClient, apiEndpoint, &workloadInstance)
+	createdWorkloadInstance, err := client_v1.CreateWorkloadInstance(apiClient, apiEndpoint, &workloadInstance)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workload instance in threeport API: %w", err)
 	}
@@ -271,7 +273,7 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 // Describe returns important failure events related to a workload instance.
 func (wi *WorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint string) (*status.WorkloadInstanceStatusDetail, error) {
 	// get workload instance by name
-	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name)
+	workloadInstance, err := client_v1.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", wi.Name, err)
 	}
@@ -292,22 +294,22 @@ func (wi *WorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint s
 }
 
 // Delete deletes a workload instance from the Threeport API.
-func (wi *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadInstance, error) {
+func (wi *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v1.WorkloadInstance, error) {
 	// get workload instance by name
-	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name)
+	workloadInstance, err := client_v1.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workload instance by name %s: %w", wi.Name, err)
 	}
 
 	// delete workload instance
-	deletedWorkloadInstance, err := client.DeleteWorkloadInstance(apiClient, apiEndpoint, *workloadInstance.ID)
+	deletedWorkloadInstance, err := client_v1.DeleteWorkloadInstance(apiClient, apiEndpoint, *workloadInstance.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete workload instance from threeport API: %w", err)
 	}
 
 	// wait for workload instance to be deleted
 	util.Retry(60, 1, func() error {
-		if _, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name); err == nil {
+		if _, err := client_v1.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name); err == nil {
 			return errors.New("workload instance not deleted")
 		}
 		return nil
@@ -318,10 +320,10 @@ func (wi *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint str
 
 // GetOperations returns a slice of operations used to create or delete a
 // workload.
-func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint string) (*util.Operations, *v0.WorkloadDefinition, *v0.WorkloadInstance) {
+func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint string) (*util.Operations, *v0.WorkloadDefinition, *v1.WorkloadInstance) {
 
 	var err error
-	var createdWorkloadInstance v0.WorkloadInstance
+	var createdWorkloadInstance v1.WorkloadInstance
 	var createdWorkloadDefinition v0.WorkloadDefinition
 
 	operations := util.Operations{}

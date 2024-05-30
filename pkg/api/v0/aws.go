@@ -130,6 +130,9 @@ type AwsRelationalDatabaseDefinition struct {
 
 	// The AWS account in which the RDS instance will be provisioned.
 	AwsAccountID *uint `json:"AwsAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
+
+	// The associated object storage bucket instances that are derived from this definition.
+	AwsRelationalDatabaseInstances []*AwsRelationalDatabaseInstance `json:"AwsRelationalDatabaseInstances,omitempty" validate:"optional,association"`
 }
 
 // AwsRelationalDatabaseInstance is a deployed instance of an RDS instance.
@@ -171,6 +174,9 @@ type AwsObjectStorageBucketDefinition struct {
 
 	// The AWS account in which the RDS instance will be provisioned.
 	AwsAccountID *uint `json:"AwsAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
+
+	// The associated object storage bucket instances that are derived from this definition.
+	AwsObjectStorageBucketInstances []*AwsObjectStorageBucketInstance `json:"AwsObjectStorageBucketInstances,omitempty" validate:"optional,association"`
 }
 
 // AwsObjectStorageBucketInstance is a deployed instance of an S3 bucket.

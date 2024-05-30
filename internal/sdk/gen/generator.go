@@ -44,10 +44,6 @@ type Generator struct {
 	// All API objects collected together by version in the way the API is
 	// organized in the codebase.
 	VersionedApiObjectCollections []VersionedApiObjectCollection
-
-	//// A collection of controllers with details for generating controller source
-	//// code.
-	//ControllerConfigs []ControllerConfig
 }
 
 // GlobalVersionConfig contains all API versions for which code is being
@@ -106,16 +102,6 @@ type ApiObjectGroup struct { // was: ControllerConfig
 	// properly.
 	TptctlConfigPathModels []string
 
-	//// The version of the API objects in the group.
-	//// TODO: Is this field redundant? See Version field above.
-	//// TODO: Invalid: An API object group can have multiple versions.
-	//ApiVersion string
-
-	//////////////////////////////////////////////////////////////////////////////
-	//// The details for all API objects in the group, organized by version.
-	//VersionedApiObjects []*VersionedApiObject
-	//////////////////////////////////////////////////////////////////////////////
-
 	// The details for each API object in the group.
 	ApiObjects []*ApiObject // was: ModelConfigs
 
@@ -157,9 +143,6 @@ type VersionedApiObjectCollection struct {
 
 	// The object groups organized by version.
 	VersionedApiObjectGroups []VersionedApiObjectGroup
-
-	//// The API objects for a particular version.
-	//ApiObjects []*ApiObject
 }
 
 type VersionedApiObjectGroup struct {
@@ -220,38 +203,6 @@ type ApiObject struct { // was: ModelConfig
 	DeleteMiddlewareFuncName string
 }
 
-// Below consolidated into ApiObjectGroup above
-
-//// ControllerConfig contains the attributes needed to generate controller source
-//// code.
-//type ControllerConfig struct {
-//	// The name of the controller in kebab case, e.g.
-//	// kubernetes-runtime-controller
-//	Name string
-//
-//	// The name of the controller in kebab case sans "-controler", e.g
-//	// kubernetes-runtime
-//	ShortName string
-//
-//	// The name of the controller in lower case, no spaces, e.g.
-//	// kubernetesruntime
-//	PackageName string
-//
-//	// The name of a NATS Jetstream stream for a controller, e.g.
-//	// KubernetesRuntimeStreamName
-//	StreamName string
-//
-//	// The objects for which reconcilers should be generated.
-//	ReconciledObjects []ReconciledObject
-//
-//	// The struct values parsed from the controller's model file.
-//	// The data model can be interpreted as:
-//	// map[objectName]map[fieldName]map[tagKey]tagValue
-//	// An example of this data model with a WorkloadDefinition is:
-//	// map["WorkloadDefinition"]map["YAMLDocument"]map["validate"]"required"
-//	StructTags map[string]map[string]map[string]string
-//}
-
 // ReconciledObject is a struct that contains the name and version of a
 // reconciled object.
 type ReconciledObject struct {
@@ -264,17 +215,6 @@ type ReconciledObject struct {
 	// If true, do not persist notifications in NATS JetStream.
 	DisableNotificationPersistence bool
 }
-
-//// getQualifiedPath returns the qualified path for the client library code
-//// based on the API version.
-//func (vc VersionConfig) getQualifiedPath() string {
-//	switch vc.VersionName {
-//	case "v0":
-//		return ""
-//	default:
-//		return "github.com/threeport/threeport/pkg/api-server/v0"
-//	}
-//}
 
 // New populates a new Generator in preparation for source code generation.  It
 // primarily uses two data sources to populate the Generator:
@@ -432,27 +372,6 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 					}
 				}
 
-				//// for all definition objects that have a corresponding instance object:
-				//// * set DefinedInstance to true on the definition model config
-				//for i, mc := range genApiObjectGroup.ApiObjects {
-				//	if strings.HasSuffix(mc.TypeName, "Definition") {
-				//		// have found a definition object, see if there's a
-				//		// corresponding instance
-				//		rootDefObj := strings.TrimSuffix(mc.TypeName, "Definition")
-				//		for _, imc := range genApiObjectGroup.ApiObjects {
-				//			if strings.HasSuffix(imc.TypeName, "Instance") {
-				//				rootInstObj := strings.TrimSuffix(imc.TypeName, "Instance")
-				//				if rootDefObj == rootInstObj {
-				//					// asdf
-				//					// TODO: check the SDK config to see if this
-				//					// should be false
-				//					genApiObjectGroup.ApiObjects[i].DefinedInstance = true
-				//				}
-				//			}
-				//		}
-				//	}
-				//}
-
 				if obj.Reconcilable != nil && *obj.Reconcilable {
 					reconcilerModels = append(reconcilerModels, *obj.Name)
 					mc.ReconciledField = true
@@ -514,6 +433,10 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 				return fmt.Errorf("failed to parse source code file: %w", err)
 			}
 
+			// determine which objects must be reconciled and build a map
+			// of struct tags for each object
+			structTags := make(map[string]map[string]map[string]string)
+
 			// inspect the syntax tree for the object models
 			for _, node := range pf.Decls {
 				switch node.(type) {
@@ -524,8 +447,11 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 						switch spec.(type) {
 						// in the case we're looking at a struct type definition, inspect
 						case *ast.TypeSpec:
+							// if the spec is a type spec, get the type spec and
+							// its name
 							typeSpec := spec.(*ast.TypeSpec)
 							objectName = typeSpec.Name.Name
+
 							// check if this is a struct type
 							if structType, ok := typeSpec.Type.(*ast.StructType); ok {
 								var mc *ApiObject
@@ -535,8 +461,18 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 									}
 								}
 
+								structTags[objectName] = make(map[string]map[string]string)
+
 								// if so, iterate over the fields
 								for _, field := range structType.Fields.List {
+									// populate the struct tags map
+									if len(field.Names) == 0 {
+										continue
+									}
+									fieldName := field.Names[0].Name
+									tagMap := util.ParseStructTag(field.Tag.Value)
+									structTags[objectName][fieldName] = tagMap
+
 									// fields will be of type *ast.Ident
 									if identType, ok := field.Type.(*ast.Ident); ok {
 										if util.StringSliceContains(nameFields(), identType.Name, true) {
@@ -566,17 +502,14 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 
 			// populate the ApiObjectGroup
 			genApiObjectGroup = ApiObjectGroup{
-				//Version:                version,
-				ModelFilename: filename,
-				//PackageName:            version,
-				ControllerDomain:      strcase.ToCamel(sdkutil.FilenameSansExt(filename)),
-				ControllerDomainLower: strcase.ToLowerCamel(sdkutil.FilenameSansExt(filename)),
-				ApiObjects:            apiObjects,
-				//ReconcilerModels:       reconcilerModels,
+				ModelFilename:            filename,
+				ControllerDomain:         strcase.ToCamel(sdkutil.FilenameSansExt(filename)),
+				ControllerDomainLower:    strcase.ToLowerCamel(sdkutil.FilenameSansExt(filename)),
+				ApiObjects:               apiObjects,
 				ReconciledApiObjectNames: reconcilerModels,
 				TptctlModels:             tptctlModels,
 				TptctlConfigPathModels:   tptctlModelsConfigPath,
-				//ApiVersion:             pf.Name.Name,
+				StructTags:               structTags,
 			}
 
 			// validate model configs
@@ -591,27 +524,6 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 					return fmt.Errorf("naming conflict encountered: %s", err)
 				}
 			}
-
-			//// for all definition objects that have a corresponding instance object:
-			//// * set DefinedInstance to true on the definition model config
-			//for i, mc := range genApiObjectGroup.ApiObjects {
-			//	if strings.HasSuffix(mc.TypeName, "Definition") {
-			//		// have found a definition object, see if there's a
-			//		// corresponding instance
-			//		rootDefObj := strings.TrimSuffix(mc.TypeName, "Definition")
-			//		for _, imc := range genApiObjectGroup.ApiObjects {
-			//			if strings.HasSuffix(imc.TypeName, "Instance") {
-			//				rootInstObj := strings.TrimSuffix(imc.TypeName, "Instance")
-			//				if rootDefObj == rootInstObj {
-			//					// asdf
-			//					// TODO: check the SDK config to see if this
-			//					// should be false
-			//					genApiObjectGroup.ApiObjects[i].DefinedInstance = true
-			//				}
-			//			}
-			//		}
-			//	}
-			//}
 
 			// for all objects with a reconciler:
 			// * validate the model includes the Reconciled field

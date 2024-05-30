@@ -12,7 +12,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	v0 "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -56,7 +55,7 @@ func indexAt(s, substr string, n int) int {
 }
 
 // GetPaginationParams parses pagination query parameters into PageRequestParams.
-func (c *CustomContext) GetPaginationParams() (params v0.PageRequestParams, err error) {
+func (c *CustomContext) GetPaginationParams() (params PageRequestParams, err error) {
 
 	strPage := c.Request().URL.Query().Get(QueryParamPage)
 	params.Page = -1
@@ -117,7 +116,7 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 
 	// error out if a GORM Model field was passed for an update
 	for k, _ := range payloadObject {
-		if util.StringSliceContains(v0.GORMModelFields, k, false) {
+		if util.StringSliceContains(GORMModelFields, k, false) {
 			*providedGORMModelFields = append(*providedGORMModelFields, k)
 		}
 	}
@@ -186,7 +185,7 @@ func PayloadCheck(c echo.Context, checkAssociation bool, objectType string, obje
 			return 500, err
 		} else {
 			if len(payloadArray) == 0 {
-				return 400, errors.New(v0.ErrMsgJSONPayloadEmpty)
+				return 400, errors.New(ErrMsgJSONPayloadEmpty)
 			}
 			// check array/slice of payload objects
 			for _, v := range payloadArray {
@@ -197,7 +196,7 @@ func PayloadCheck(c echo.Context, checkAssociation bool, objectType string, obje
 		}
 	} else {
 		if len(payload) == 0 {
-			return 400, errors.New(v0.ErrMsgJSONPayloadEmpty)
+			return 400, errors.New(ErrMsgJSONPayloadEmpty)
 		}
 		// check single payload object
 		if id, err := CheckPayloadObject(apiVer, payload, objectType, objectStruct, &providedGORMModelFields, &providedAssociationsFields, &unsupportedFields); err != nil {
@@ -206,17 +205,17 @@ func PayloadCheck(c echo.Context, checkAssociation bool, objectType string, obje
 	}
 
 	if len(providedGORMModelFields) > 0 {
-		return 400, errors.New(v0.ErrMsgGORMModelFieldsUpdateNotAllowed + " : " + strings.Join(providedGORMModelFields, ","))
+		return 400, errors.New(ErrMsgGORMModelFieldsUpdateNotAllowed + " : " + strings.Join(providedGORMModelFields, ","))
 	}
 
 	if checkAssociation {
 		if len(providedAssociationsFields) > 0 {
-			return 400, errors.New(v0.ErrMsgAssociationsUpdateNotAllowed + " : " + strings.Join(providedAssociationsFields, ","))
+			return 400, errors.New(ErrMsgAssociationsUpdateNotAllowed + " : " + strings.Join(providedAssociationsFields, ","))
 		}
 	}
 
 	if len(unsupportedFields) > 0 {
-		return 400, errors.New(v0.ErrMsgUnsupportedFieldsNotAllowed + " : " + strings.Join(unsupportedFields, ","))
+		return 400, errors.New(ErrMsgUnsupportedFieldsNotAllowed + " : " + strings.Join(unsupportedFields, ","))
 	}
 
 	return 500, nil

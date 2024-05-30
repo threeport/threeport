@@ -16,6 +16,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	config "github.com/threeport/threeport/pkg/config/v0"
@@ -482,7 +483,7 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.NotNil(err, "should have an error returned when trying to delete workload definition with workload instance still in place")
 
 		// delete workload instance
-		deletedWorkloadInst, err := client.DeleteWorkloadInstance(
+		deletedWorkloadInst, err := client_v1.DeleteWorkloadInstance(
 			apiClient,
 			threeportAPIEndpoint,
 			*createdWorkloadInst.ID,
@@ -497,7 +498,7 @@ func TestWorkloadE2E(t *testing.T) {
 		for deletedCheckAttempts < deletedCheckAttemptsMax {
 			_, err := client.GetWorkloadInstanceByID(apiClient, threeportAPIEndpoint, *createdWorkloadInst.ID)
 			if err != nil {
-				if errors.Is(err, client.ErrObjectNotFound) {
+				if errors.Is(err, client_lib.ErrObjectNotFound) {
 					workloadInstanceDeleted = true
 					break
 				}

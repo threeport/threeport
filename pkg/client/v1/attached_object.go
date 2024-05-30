@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	v1 "github.com/threeport/threeport/pkg/api/v1"
-	client_v0 "github.com/threeport/threeport/pkg/client/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
 
 // GetAttachedObjectReferenceByAttachedObjectID fetches an attached object reference
@@ -44,7 +44,7 @@ func GetAttachedObjectReferencesByAttachedObjectID(
 ) {
 	var attachedObjectReferences []v1.AttachedObjectReference
 
-	response, err := client_v0.GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s%s?attachedobjectid=%d", apiAddr, v1.PathAttachedObjectReferences, id),
 		http.MethodGet,
@@ -82,7 +82,7 @@ func GetAttachedObjectReferencesByObjectID(
 ) {
 	var attachedObjectReferences []v1.AttachedObjectReference
 
-	response, err := client_v0.GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s%s?objectid=%d", apiAddr, v1.PathAttachedObjectReferences, id),
 		http.MethodGet,

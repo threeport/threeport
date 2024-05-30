@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	v0 "github.com/threeport/threeport/pkg/api/v0"
+	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 )
 
 var ErrObjectNotFound = errors.New("object not found")
@@ -24,7 +24,7 @@ func GetResponse(
 	reqBody *bytes.Buffer,
 	reqHeader map[string]string,
 	expectedStatusCode int,
-) (*v0.Response, error) {
+) (*apiserver_lib.Response, error) {
 
 	urlScheme := "http://"
 
@@ -61,7 +61,7 @@ func GetResponse(
 		return nil, fmt.Errorf("failed to read response body from threeport API: %w", err)
 	}
 
-	var response v0.Response
+	var response apiserver_lib.Response
 	if resp.StatusCode != expectedStatusCode {
 		if err := json.Unmarshal(respBody, &response); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal response body from threeport API: %w", err)

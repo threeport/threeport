@@ -99,7 +99,7 @@ func BuildDevImage(threeportPath string) error {
 func BuildGoBinary(threeportPath, arch string, component *v0.ControlPlaneComponent, noCache bool) error {
 	// set name of main.go file
 	main := "main_gen.go"
-	if strings.Contains(component.Name, "rest-api") || strings.Contains(component.Name, "agent") || strings.Contains(component.Name, "database-migrator") {
+	if strings.Contains(component.Name, "agent") || strings.Contains(component.Name, "database-migrator") {
 		main = "main.go"
 	}
 

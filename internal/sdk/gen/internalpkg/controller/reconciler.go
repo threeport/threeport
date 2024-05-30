@@ -30,6 +30,7 @@ func GenReconcilers(gen *gen.Generator) error {
 			f.ImportAlias("github.com/threeport/threeport/pkg/controller/v0", "controller")
 			f.ImportAlias("github.com/threeport/threeport/pkg/notifications/v0", "notifications")
 			f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
+			f.ImportAlias("github.com/threeport/threeport/pkg/event/v0", "event")
 			for _, version := range obj.Versions {
 				f.ImportAlias(
 					fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, version),
@@ -139,10 +140,13 @@ func GenReconcilers(gen *gen.Generator) error {
 								}
 								h.Default().Block(
 									Id("log").Dot("Error").Call(
-										Id("err"), Lit(fmt.Sprintf(
-											"received unrecognized version of %s object",
-											strcase.ToDelimited(obj.Name, ' '),
-										)),
+										Qual("errors", "New").Call(
+											Lit(fmt.Sprintf(
+												"received unrecognized version of %s object",
+												strcase.ToDelimited(obj.Name, ' '),
+											)),
+										),
+										Lit(""),
 									),
 									Id("r").Dot("RequeueRaw").Call(Id("msg")),
 									Id("log").Dot("V").Call(Lit(1)).Dot("Info").Call(
@@ -291,9 +295,10 @@ func GenReconcilers(gen *gen.Generator) error {
 											for _, version := range obj.Versions {
 												j.Case(Lit(version)).Block(
 													List(Id("requeueDelay"), Id("err")).Op(":=").Id(fmt.Sprintf(
-														"%s%sCreated",
+														"%s%s%s",
 														version,
 														obj.Name,
+														opVars.upperOpPast,
 													)).Call(
 														Line().Id("r"),
 														Line().Id(varObjectName).Assert(Op("*").Qual(
@@ -308,25 +313,18 @@ func GenReconcilers(gen *gen.Generator) error {
 												)
 											}
 											j.Default().Block(
-												Id("log").Dot("Error").Call(
-													Id("err"),
-													Lit(fmt.Sprintf(
-														"unrecognized version of %s encountered for creation",
-														strcase.ToDelimited(obj.Name, ' '),
-													)),
-												),
-												Id("r").Dot("UnlockAndRequeue").Call(
-													Id(varObjectName),
-													Id("requeueDelay"),
-													Id("lockReleased"),
-													Id("msg"),
-												),
-												Continue(),
+												Id("operationErr").Op("=").Qual(
+													"errors",
+													"New",
+												).Call(Lit(fmt.Sprintf(
+													"unrecognized version of %s encountered for creation",
+													strcase.ToDelimited(obj.Name, ' '),
+												))),
 											)
 										})
 										h.If(Id("operationErr").Op("!=").Nil()).Block(
 											Id("log").Dot("Error").Call(
-												Err(), Lit(fmt.Sprintf(
+												Id("operationErr"), Lit(fmt.Sprintf(
 													"failed to reconcile %s %s object",
 													opVars.lowerOpPast,
 													strcase.ToDelimited(obj.Name, ' '),
@@ -628,7 +626,7 @@ func GetLatestObject(
 	g.Switch(Id("notif").Dot("ObjectVersion")).BlockFunc(func(h *Group) {
 		for _, version := range obj.Versions {
 			h.Case(Lit(version)).Block(
-				List(Id(objVar), Err()).Op("=").Qual(
+				List(Id("latestObject"), Err()).Op(":=").Qual(
 					fmt.Sprintf("%s/pkg/client/%s", modulePath, version),
 					fmt.Sprintf("Get%sByID", obj.Name),
 				).Call(
@@ -637,22 +635,17 @@ func GetLatestObject(
 					Line().Id(objVar).Dot("GetId").Call(),
 					Line(),
 				),
-				Id(latestObjVar).Op("=").Id(objVar),
+				Id(latestObjVar).Op("=").Id("latestObject"),
 				Id(latestObjErrVar).Op("=").Err(),
 			)
 		}
 		h.Default().Block(
-			Err().Op(":=").Qual("errors", "New").Call(
+			Id(latestObjErrVar).Op("=").Qual("errors", "New").Call(
 				Lit(fmt.Sprintf(
 					"received unrecognized version of %s object",
 					strcase.ToDelimited(obj.Name, ' '),
 				)),
 			),
-			Id("log").Dot("Error").Call(
-				Id("err"), Lit(""),
-			),
-			Id("r").Dot("UnlockAndRequeue").Call(Id(objVar), Id("requeueDelay"), Id("lockReleased"), Id("msg")),
-			Continue(),
 		)
 	})
 	g.Line()
@@ -662,16 +655,9 @@ func GetLatestObject(
 		"github.com/threeport/threeport/pkg/client/lib/v0",
 		"ErrObjectNotFound",
 	))).Block(
-		Id("log").Dot("Info").Call(Qual(
-			"fmt", "Sprintf",
-		).Call(
-			Line().Lit("object with ID %d no longer exists - halting reconciliation"),
-			Line().Id(fmt.Sprintf(
-				"%s",
-				objVar,
-			)).Dot("GetId").Call(),
-			Line(),
-		)),
+		Id("log").Dot("Info").Call(
+			Lit("object no longer exists - halting reconciliation"),
+		),
 		Id("r").Dot("ReleaseLock").Call(Id(objVar), Id("lockReleased"), Id("msg"), Lit(true)),
 		Continue(),
 	)

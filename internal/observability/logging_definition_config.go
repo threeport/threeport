@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -74,7 +75,7 @@ func (c *LoggingDefinitionConfig) deleteLokiHelmWorkloadDefinition() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.loggingDefinition.LokiHelmWorkloadDefinitionID,
-	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete loki helm workload definition: %w", err)
 	}
 
@@ -113,7 +114,7 @@ func (c *LoggingDefinitionConfig) deletePromtailHelmWorkloadDefinition() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.loggingDefinition.PromtailHelmWorkloadDefinitionID,
-	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete promtail helm workload definition: %w", err)
 	}
 

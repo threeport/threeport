@@ -35,12 +35,6 @@ func GenHandlers(gen *gen.Generator) error {
 				gen.Extension,
 			))
 			f.ImportAlias(util.SetImportAlias(
-				"github.com/threeport/threeport/pkg/api/lib/v0",
-				"api_lib",
-				"tpapi_lib",
-				gen.Extension,
-			))
-			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/api-server/v0/handlers",
 				"handlers_v0",
 				"tp_handlers",
@@ -609,7 +603,7 @@ func GenHandlers(gen *gen.Generator) error {
 					notifyControllersCreateHandler,
 					Line(),
 					Id("response").Op(",").Id("err").Op(":=").Qual(
-						"github.com/threeport/threeport/pkg/api/lib/v0",
+						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
 					).Call(Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType")),
 					If(Id("err").Op("!=").Nil()).Block(
@@ -763,10 +757,10 @@ func GenHandlers(gen *gen.Generator) error {
 					),
 					Line(),
 					Id("response").Op(",").Id("err").Op(":=").Qual(
-						"github.com/threeport/threeport/pkg/api/lib/v0",
+						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
 					).Call(Qual(
-						"github.com/threeport/threeport/pkg/api/lib/v0",
+						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateMeta",
 					).Call(Id("params").Op(",").Id("totalCount")).Op(",").Op("*").Id("records").Op(",").Id("objectType")),
 					If(Id("err").Op("!=").Nil().Block(
@@ -875,7 +869,7 @@ func GenHandlers(gen *gen.Generator) error {
 						Line(),
 						Line(),
 						Id("response").Op(",").Id("err").Op(":=").Qual(
-							"github.com/threeport/threeport/pkg/api/lib/v0",
+							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"CreateResponse",
 						).Call(
 							Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType"),
@@ -1063,7 +1057,7 @@ func GenHandlers(gen *gen.Generator) error {
 					notifyControllersUpdateHandler,
 					Line(),
 					Id("response").Op(",").Id("err").Op(":=").Qual(
-						"github.com/threeport/threeport/pkg/api/lib/v0",
+						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
 					).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id("objectType")),
 					If(
@@ -1303,7 +1297,7 @@ func GenHandlers(gen *gen.Generator) error {
 					),
 					Line(),
 					Id("response").Op(",").Id("err").Op(":=").Qual(
-						"github.com/threeport/threeport/pkg/api/lib/v0",
+						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
 					).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id("objectType")),
 					If(
@@ -1392,7 +1386,7 @@ func GenHandlers(gen *gen.Generator) error {
 					deleteObjectExecution,
 					Line(),
 					Id("response").Op(",").Id("err").Op(":=").Qual(
-						"github.com/threeport/threeport/pkg/api/lib/v0",
+						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
 					).Call(Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType")),
 					If(

@@ -32,7 +32,7 @@ func GenControllerMain(gen *gen.Generator) error {
 				concurrencyFlags.Var().Id(fmt.Sprintf(
 					fmt.Sprintf("%sConcurrentReconciles", strcase.ToLowerCamel(obj.Name)),
 				)).Op("=").Qual(
-					"flag",
+					"github.com/namsral/flag",
 					"Int",
 				).Call(
 					Line().Lit(
@@ -82,68 +82,62 @@ func GenControllerMain(gen *gen.Generator) error {
 			f.Func().Id("main").Params().Block(
 				Comment("flags"),
 				concurrencyFlags,
-				Var().Id("configFile").Op("=").Qual(
-					"flag",
-					"String",
-				).Call(
-					Lit("config-file").Op(",").Lit("").Op(",").Lit("File path to runtime configuration file"),
-				),
 				Var().Id("apiServer").Op("=").Qual(
-					"flag",
+					"github.com/namsral/flag",
 					"String",
 				).Call(
 					Lit("api-server").Op(",").Lit("threeport-api-server").Op(",").Lit("Threepoort REST API server endpoint"),
 				),
 				Var().Id("msgBrokerHost").Op("=").Qual(
-					"flag",
+					"github.com/namsral/flag",
 					"String",
 				).Call(
 					Lit("msg-broker-host").Op(",").Lit("").Op(",").Lit("Threeport message broker hostname"),
 				),
 				Var().Id("msgBrokerPort").Op("=").Qual(
-					"flag",
+					"github.com/namsral/flag",
 					"String",
 				).Call(
 					Lit("msg-broker-port").Op(",").Lit("").Op(",").Lit("Threeport message broker port"),
 				),
 				Var().Id("msgBrokerUser").Op("=").Qual(
-					"flag",
+					"github.com/namsral/flag",
 					"String",
 				).Call(
 					Lit("msg-broker-user").Op(",").Lit("").Op(",").Lit("Threeport message broker user"),
 				),
 				Var().Id("msgBrokerPassword").Op("=").Qual(
-					"flag",
+					"github.com/namsral/flag",
 					"String",
 				).Call(
 					Lit("msg-broker-password").Op(",").Lit("").Op(",").Lit("Threeport message broker user password"),
 				),
 				Var().Id("shutdownPort").Op("=").Qual(
-					"flag",
+					"github.com/namsral/flag",
 					"String",
 				).Call(
 					Lit("shutdown-port").Op(",").Lit("8181").Op(",").Lit("Port to listen for shutdown calls"),
 				),
 				Var().Id("verbose").Op("=").Qual(
-					"flag",
+					"github.com/namsral/flag",
 					"Bool",
 				).Call(
 					Lit("verbose").Op(",").Lit(false).Op(",").Lit("Write logs with v(1).InfoLevel and above"),
 				),
 				Var().Id("help").Op("=").Qual(
-					"flag",
+					"github.com/namsral/flag",
 					"Bool",
 				).Call(
 					Lit("help").Op(",").Lit(false).Op(",").Lit("Show help info"),
 				),
 				Var().Id("authEnabled").Op("=").Qual(
-					"flag",
+					"github.com/namsral/flag",
 					"Bool",
 				).Call(
 					Lit("auth-enabled").Op(",").Lit(true).Op(",").Lit("Enable client certificate authentication (default is true)"),
 				),
 				Qual(
-					"flag",
+					"github.com/namsral/flag",
 					"Parse",
 				).Call(),
 
@@ -190,19 +184,6 @@ func GenControllerMain(gen *gen.Generator) error {
 							"NewLogger",
 						).Call(Id("zapLog")).Dot("WithValues").Call(Lit("controllerID"), Id("controllerID")),
 					),
-				),
-
-				Line().Comment("config setup"),
-				Id("err").Op(":=").Qual(
-					"github.com/threeport/threeport/pkg/runtime/v0",
-					"LoadRuntimeConfig",
-				).Call(Op("*").Id("configFile")),
-				If(Err().Op("!=").Nil()).Block(
-					Id("log").Dot("Error").Call(
-						Err(),
-						Lit("failed to initialize controller config"),
-					),
-					Qual("os", "Exit").Call(Lit(1)),
 				),
 
 				Line().Comment("connect to NATS server"),
@@ -291,7 +272,7 @@ func GenControllerMain(gen *gen.Generator) error {
 						fmt.Sprintf(
 							"%s/internal/%s/notif",
 							gen.ModulePath,
-							strcase.ToSnake(objGroup.ControllerShortName),
+							objGroup.ControllerShortName,
 						),
 						objGroup.StreamName,
 					)).Block(
@@ -316,7 +297,7 @@ func GenControllerMain(gen *gen.Generator) error {
 							fmt.Sprintf(
 								"%s/internal/%s/notif",
 								gen.ModulePath,
-								strcase.ToSnake(objGroup.ControllerShortName),
+								objGroup.ControllerShortName,
 							),
 							objGroup.StreamName,
 						),
@@ -355,7 +336,6 @@ func GenControllerMain(gen *gen.Generator) error {
 				For(
 					Id("_").Op(",").Id("r").Op(":=").Range().Id("reconcilerConfigs"),
 				).BlockFunc(func(g *jen.Group) {
-					// asdf
 					ConfigurePullSubscription(g, objGroup, durable, gen.ModulePath)
 					g.Line().Comment("create exit channel")
 					g.Id("shutdownChan").Op(":=").Make(Chan().Bool(), Lit(1))
@@ -374,6 +354,22 @@ func GenControllerMain(gen *gen.Generator) error {
 						Id("Shutdown"):         Id("shutdownChan"),
 						Id("ShutdownWait"):     Op("&").Id("shutdownWait"),
 						Id("EncryptionKey"):    Id("encryptionKey"),
+						Id("EventsRecorder"): Op("&").Qual(
+							"github.com/threeport/threeport/pkg/event/v0",
+							"EventRecorder",
+						).Values(Dict{
+							Id("APIClient"): Id("apiClient"),
+							Id("APIServer"): Op("*").Id("apiServer"),
+							Id("ObjectType"): Qual("fmt", "Sprintf").Call(
+								Line().Lit("%s.%s"),
+								Line().Id("r").Dot("ObjectVersion"),
+								Line().Id("r").Dot("ObjectType"),
+								Line(),
+							),
+							Id("ReportingController"): Lit(
+								fmt.Sprintf("%sController", strcase.ToCamel(cc.ShortName)),
+							),
+						}),
 					})
 
 					g.Line().Comment("start reconciler")
@@ -463,7 +459,10 @@ func GenControllerMain(gen *gen.Generator) error {
 					objGroup.ControllerShortName,
 				))),
 				Qual("fmt", "Println").Call(Lit("options:")),
-				Id("flag").Dot("PrintDefaults").Call(),
+				Qual(
+					"github.com/namsral/flag",
+					"PrintDefaults",
+				).Call(),
 				Qual("os", "Exit").Call(Id("exitCode")),
 			)
 
@@ -496,7 +495,7 @@ func ConfigurePullSubscription(
 			fmt.Sprintf(
 				"%s/internal/%s/notif",
 				modulePath,
-				strcase.ToSnake(objGroup.ControllerShortName),
+				objGroup.ControllerShortName,
 			),
 			objGroup.StreamName,
 		).Op(",").Op("&").Qual(
@@ -524,7 +523,7 @@ func ConfigurePullSubscription(
 			fmt.Sprintf(
 				"%s/internal/%s/notif",
 				modulePath,
-				strcase.ToSnake(objGroup.ControllerShortName),
+				objGroup.ControllerShortName,
 			),
 			objGroup.StreamName,
 		)),

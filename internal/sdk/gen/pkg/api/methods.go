@@ -71,9 +71,10 @@ func GenApiObjectMethods(gen *gen.Generator) error {
 						"github.com/threeport/threeport/pkg/notifications/v0",
 						"Notification",
 					).Values(Dict{
-						Id("Operation"):    Id("operation"),
-						Id("CreationTime"): Op("&").Id("creationTime"),
-						Id("Object"):       Id(util.TypeAbbrev(mc.TypeName)),
+						Id("Operation"):     Id("operation"),
+						Id("CreationTime"):  Op("&").Id("creationTime"),
+						Id("Object"):        Id(util.TypeAbbrev(mc.TypeName)),
+						Id("ObjectVersion"): Id(util.TypeAbbrev(mc.TypeName)).Dot("GetVersion").Call(),
 					}),
 					Line(),
 					List(
