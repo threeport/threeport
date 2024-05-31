@@ -248,210 +248,15 @@ func GenReconcilers(gen *gen.Generator) error {
 							// the retrieval of the latest object. Otherwise, generate the
 							// source code to retrieve the latest object.
 							if !objGroup.CheckStructTagMap(obj.Name, "Data", "persist", "false") {
-								GetLatestObject(g, &obj, gen.ModulePath)
+								getLatestObject(g, &obj, gen.ModulePath)
 							}
 
 							g.Line()
 							g.Comment("determine which operation and act accordingly")
 							g.Switch(Id("notif").Dot("Operation")).BlockFunc(func(h *Group) {
-								type opVars struct {
-									upperOpPast string
-									lowerOpPast string
-								}
-								ops := map[string]opVars{
-									"create": opVars{
-										upperOpPast: "Created",
-										lowerOpPast: "created",
-									},
-									"update": opVars{
-										upperOpPast: "Updated",
-										lowerOpPast: "updated",
-									},
-									"delete": opVars{
-										upperOpPast: "Deleted",
-										lowerOpPast: "deleted",
-									},
-								}
-								for op, opVars := range ops {
-									h.Case(Qual(
-										"github.com/threeport/threeport/pkg/notifications/v0",
-										fmt.Sprintf("NotificationOperation%s", opVars.upperOpPast),
-									)).BlockFunc(func(i *Group) {
-										if op == "create" {
-											h.If(Id(varObjectName).Dot("ScheduledForDeletion").Call().Op("!=").Nil()).Block(
-												Id("log").Dot("Info").Call(
-													Lit(fmt.Sprintf(
-														"%s scheduled for deletion - skipping %s",
-														strcase.ToDelimited(obj.Name, ' '),
-														op,
-													)),
-												),
-												Break(),
-											)
-										}
-										h.Var().Id("operationErr").Error()
-										h.Var().Id("customRequeueDelay").Int64()
-										h.Switch(Id(varObjectName).Dot("GetVersion").Call()).BlockFunc(func(j *Group) {
-											for _, version := range obj.Versions {
-												j.Case(Lit(version)).Block(
-													List(Id("requeueDelay"), Id("err")).Op(":=").Id(fmt.Sprintf(
-														"%s%s%s",
-														version,
-														obj.Name,
-														opVars.upperOpPast,
-													)).Call(
-														Line().Id("r"),
-														Line().Id(varObjectName).Assert(Op("*").Qual(
-															fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, version),
-															obj.Name,
-														)),
-														Line().Op("&").Id("log"),
-														Line(),
-													),
-													Id("customRequeueDelay").Op("=").Id("requeueDelay"),
-													Id("operationErr").Op("=").Id("err"),
-												)
-											}
-											j.Default().Block(
-												Id("operationErr").Op("=").Qual(
-													"errors",
-													"New",
-												).Call(Lit(fmt.Sprintf(
-													"unrecognized version of %s encountered for creation",
-													strcase.ToDelimited(obj.Name, ' '),
-												))),
-											)
-										})
-										h.If(Id("operationErr").Op("!=").Nil()).Block(
-											Id("log").Dot("Error").Call(
-												Id("operationErr"), Lit(fmt.Sprintf(
-													"failed to reconcile %s %s object",
-													opVars.lowerOpPast,
-													strcase.ToDelimited(obj.Name, ' '),
-												)),
-											),
-											Id("r").Dot("UnlockAndRequeue").Call(
-												Line().Id(varObjectName),
-												Line().Id("requeueDelay"),
-												Line().Id("lockReleased"),
-												Line().Id("msg"),
-												Line(),
-											),
-											Continue(),
-										)
-										h.If(Id("customRequeueDelay").Op("!=").Lit(0)).Block(
-											Id("log").Dot("Info").Call(
-												Lit(fmt.Sprintf(
-													"%s requeued for future reconciliation",
-													op,
-												)),
-											),
-											Id("r").Dot("UnlockAndRequeue").Call(
-												Line().Id(varObjectName),
-												Line().Id("customRequeueDelay"),
-												Line().Id("lockReleased"),
-												Line().Id("msg"),
-												Line(),
-											),
-											Continue(),
-										)
-										if op == "delete" {
-											h.Id("deletionTimestamp").Op(":=").Qual(
-												"github.com/threeport/threeport/pkg/util/v0",
-												"Ptr",
-											).Call(Qual("time", "Now").Call().Dot("UTC").Call())
-											h.Id(fmt.Sprintf(
-												"deleted%s",
-												obj.Name,
-											)).Op(":=").Qual(
-												fmt.Sprintf("%s/pkg/api/v0", gen.ModulePath),
-												obj.Name,
-											).Values(Dict{
-												Id("Common"): Qual(
-													"github.com/threeport/threeport/pkg/api/v0",
-													"Common",
-												).Values(Dict{
-													Id("ID"): Qual(
-														"github.com/threeport/threeport/pkg/util/v0",
-														"Ptr",
-													).Call(Id(varObjectName).Dot("GetId").Call()),
-												}),
-												Id("Reconciliation"): Qual(
-													"github.com/threeport/threeport/pkg/api/v0",
-													"Reconciliation",
-												).Values(Dict{
-													Id("Reconciled"): Qual(
-														"github.com/threeport/threeport/pkg/util/v0",
-														"Ptr",
-													).Call(Lit(true)),
-													Id("DeletionAcknowledged"): Id("deletionTimestamp"),
-													Id("DeletionConfirmed"):    Id("deletionTimestamp"),
-												}),
-											})
-											h.If(Id("err").Op("!=").Nil()).Block(
-												Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
-													"failed to update %s to mark as reconciled",
-													strcase.ToDelimited(obj.Name, ' '),
-												))),
-												Id("r").Dot("UnlockAndRequeue").Call(
-													Id(varObjectName),
-													Id("requeueDelay"),
-													Id("lockReleased"),
-													Id("msg"),
-												),
-												Continue(),
-											)
-											h.Id("_").Op(",").Id("err").Op("=").Qual(
-												fmt.Sprintf("%s/pkg/client/v0", gen.ModulePath),
-												fmt.Sprintf("Update%s", obj.Name),
-											).Call(
-												Line().Id("r").Dot("APIClient"),
-												Line().Id("r").Dot("APIServer"),
-												Line().Op("&").Id(fmt.Sprintf(
-													"deleted%s",
-													obj.Name,
-												)),
-												Line(),
-											)
-											h.If(Id("err").Op("!=").Nil()).Block(
-												Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
-													"failed to update %s to mark as deleted",
-													strcase.ToDelimited(obj.Name, ' '),
-												))),
-												Id("r").Dot("UnlockAndRequeue").Call(
-													Id(varObjectName),
-													Id("requeueDelay"),
-													Id("lockReleased"),
-													Id("msg"),
-												),
-												Continue(),
-											)
-
-											h.Id("_").Op(",").Id("err").Op("=").Qual(
-												fmt.Sprintf("%s/pkg/client/v0", gen.ModulePath),
-												fmt.Sprintf("Delete%s", obj.Name),
-											).Call(
-												Line().Id("r").Dot("APIClient"),
-												Line().Id("r").Dot("APIServer"),
-												Line().Id(varObjectName).Dot("GetId").Call(),
-												Line(),
-											)
-											h.If(Id("err").Op("!=").Nil()).Block(
-												Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
-													"failed to delete %s",
-													strcase.ToDelimited(obj.Name, ' '),
-												))),
-												Id("r").Dot("UnlockAndRequeue").Call(
-													Id(varObjectName),
-													Id("requeueDelay"),
-													Id("lockReleased"),
-													Id("msg"),
-												),
-												Continue(),
-											)
-										}
-									})
-								}
+								operationCase(h, "create", &obj, varObjectName, gen.ModulePath)
+								operationCase(h, "update", &obj, varObjectName, gen.ModulePath)
+								operationCase(h, "delete", &obj, varObjectName, gen.ModulePath)
 								h.Default().Block(
 									Id("log").Dot("Error").Call(
 										Line().Id("errors").Dot("New").Call(Lit("unrecognized notifcation operation")),
@@ -605,9 +410,9 @@ func GenReconcilers(gen *gen.Generator) error {
 	return nil
 }
 
-// GetLatestObject generates the source code for a controller's reconcile functions
+// getLatestObject generates the source code for a controller's reconcile functions
 // to get the latest object if the "persist" field is not present or set to true.
-func GetLatestObject(
+func getLatestObject(
 	g *jen.Group,
 	obj *gen.ReconciledObject,
 	modulePath string,
@@ -673,4 +478,196 @@ func GetLatestObject(
 		"latest%s",
 		obj.Name,
 	))
+}
+
+// operationCase generates the source code for each create, update and delete
+// case in the operation switch statement.
+func operationCase(
+	h *jen.Group,
+	op string,
+	obj *gen.ReconciledObject,
+	varObjectName string,
+	modulePath string,
+) {
+	lowerOpPast := op + "d"
+	upperOpPast := strcase.ToCamel(lowerOpPast)
+
+	h.Case(Qual(
+		"github.com/threeport/threeport/pkg/notifications/v0",
+		fmt.Sprintf("NotificationOperation%s", upperOpPast),
+	)).BlockFunc(func(i *Group) {
+		if op == "create" {
+			h.If(Id(varObjectName).Dot("ScheduledForDeletion").Call().Op("!=").Nil()).Block(
+				Id("log").Dot("Info").Call(
+					Lit(fmt.Sprintf(
+						"%s scheduled for deletion - skipping %s",
+						strcase.ToDelimited(obj.Name, ' '),
+						op,
+					)),
+				),
+				Break(),
+			)
+		}
+		h.Var().Id("operationErr").Error()
+		h.Var().Id("customRequeueDelay").Int64()
+		h.Switch(Id(varObjectName).Dot("GetVersion").Call()).BlockFunc(func(j *Group) {
+			for _, version := range obj.Versions {
+				j.Case(Lit(version)).Block(
+					List(Id("requeueDelay"), Id("err")).Op(":=").Id(fmt.Sprintf(
+						"%s%s%s",
+						version,
+						obj.Name,
+						upperOpPast,
+					)).Call(
+						Line().Id("r"),
+						Line().Id(varObjectName).Assert(Op("*").Qual(
+							fmt.Sprintf("%s/pkg/api/%s", modulePath, version),
+							obj.Name,
+						)),
+						Line().Op("&").Id("log"),
+						Line(),
+					),
+					Id("customRequeueDelay").Op("=").Id("requeueDelay"),
+					Id("operationErr").Op("=").Id("err"),
+				)
+			}
+			j.Default().Block(
+				Id("operationErr").Op("=").Qual(
+					"errors",
+					"New",
+				).Call(Lit(fmt.Sprintf(
+					"unrecognized version of %s encountered for creation",
+					strcase.ToDelimited(obj.Name, ' '),
+				))),
+			)
+		})
+		h.If(Id("operationErr").Op("!=").Nil()).Block(
+			Id("log").Dot("Error").Call(
+				Id("operationErr"), Lit(fmt.Sprintf(
+					"failed to reconcile %s %s object",
+					lowerOpPast,
+					strcase.ToDelimited(obj.Name, ' '),
+				)),
+			),
+			Id("r").Dot("UnlockAndRequeue").Call(
+				Line().Id(varObjectName),
+				Line().Id("requeueDelay"),
+				Line().Id("lockReleased"),
+				Line().Id("msg"),
+				Line(),
+			),
+			Continue(),
+		)
+		h.If(Id("customRequeueDelay").Op("!=").Lit(0)).Block(
+			Id("log").Dot("Info").Call(
+				Lit(fmt.Sprintf(
+					"%s requeued for future reconciliation",
+					op,
+				)),
+			),
+			Id("r").Dot("UnlockAndRequeue").Call(
+				Line().Id(varObjectName),
+				Line().Id("customRequeueDelay"),
+				Line().Id("lockReleased"),
+				Line().Id("msg"),
+				Line(),
+			),
+			Continue(),
+		)
+		if op == "delete" {
+			h.Id("deletionTimestamp").Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/util/v0",
+				"Ptr",
+			).Call(Qual("time", "Now").Call().Dot("UTC").Call())
+			h.Id(fmt.Sprintf(
+				"deleted%s",
+				obj.Name,
+			)).Op(":=").Qual(
+				fmt.Sprintf("%s/pkg/api/v0", modulePath),
+				obj.Name,
+			).Values(Dict{
+				Id("Common"): Qual(
+					"github.com/threeport/threeport/pkg/api/v0",
+					"Common",
+				).Values(Dict{
+					Id("ID"): Qual(
+						"github.com/threeport/threeport/pkg/util/v0",
+						"Ptr",
+					).Call(Id(varObjectName).Dot("GetId").Call()),
+				}),
+				Id("Reconciliation"): Qual(
+					"github.com/threeport/threeport/pkg/api/v0",
+					"Reconciliation",
+				).Values(Dict{
+					Id("Reconciled"): Qual(
+						"github.com/threeport/threeport/pkg/util/v0",
+						"Ptr",
+					).Call(Lit(true)),
+					Id("DeletionAcknowledged"): Id("deletionTimestamp"),
+					Id("DeletionConfirmed"):    Id("deletionTimestamp"),
+				}),
+			})
+			h.If(Id("err").Op("!=").Nil()).Block(
+				Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
+					"failed to update %s to mark as reconciled",
+					strcase.ToDelimited(obj.Name, ' '),
+				))),
+				Id("r").Dot("UnlockAndRequeue").Call(
+					Id(varObjectName),
+					Id("requeueDelay"),
+					Id("lockReleased"),
+					Id("msg"),
+				),
+				Continue(),
+			)
+			h.Id("_").Op(",").Id("err").Op("=").Qual(
+				fmt.Sprintf("%s/pkg/client/v0", modulePath),
+				fmt.Sprintf("Update%s", obj.Name),
+			).Call(
+				Line().Id("r").Dot("APIClient"),
+				Line().Id("r").Dot("APIServer"),
+				Line().Op("&").Id(fmt.Sprintf(
+					"deleted%s",
+					obj.Name,
+				)),
+				Line(),
+			)
+			h.If(Id("err").Op("!=").Nil()).Block(
+				Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
+					"failed to update %s to mark as deleted",
+					strcase.ToDelimited(obj.Name, ' '),
+				))),
+				Id("r").Dot("UnlockAndRequeue").Call(
+					Id(varObjectName),
+					Id("requeueDelay"),
+					Id("lockReleased"),
+					Id("msg"),
+				),
+				Continue(),
+			)
+
+			h.Id("_").Op(",").Id("err").Op("=").Qual(
+				fmt.Sprintf("%s/pkg/client/v0", modulePath),
+				fmt.Sprintf("Delete%s", obj.Name),
+			).Call(
+				Line().Id("r").Dot("APIClient"),
+				Line().Id("r").Dot("APIServer"),
+				Line().Id(varObjectName).Dot("GetId").Call(),
+				Line(),
+			)
+			h.If(Id("err").Op("!=").Nil()).Block(
+				Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
+					"failed to delete %s",
+					strcase.ToDelimited(obj.Name, ' '),
+				))),
+				Id("r").Dot("UnlockAndRequeue").Call(
+					Id(varObjectName),
+					Id("requeueDelay"),
+					Id("lockReleased"),
+					Id("msg"),
+				),
+				Continue(),
+			)
+		}
+	})
 }
