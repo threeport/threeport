@@ -349,6 +349,21 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingAwsEksKubernetesRuntimeDefinition api_v0.AwsEksKubernetesRuntimeDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsEksKubernetesRuntimeDefinition.Name).First(&existingAwsEksKubernetesRuntimeDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
 	// persist to DB
 	if result := h.DB.Create(&awsEksKubernetesRuntimeDefinition); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
@@ -629,6 +644,21 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, awsEksKubernetesRuntimeInstance, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingAwsEksKubernetesRuntimeInstance api_v0.AwsEksKubernetesRuntimeInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsEksKubernetesRuntimeInstance.Name).First(&existingAwsEksKubernetesRuntimeInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
 	// persist to DB
@@ -970,6 +1000,21 @@ func (h Handler) AddAwsObjectStorageBucketDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingAwsObjectStorageBucketDefinition api_v0.AwsObjectStorageBucketDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsObjectStorageBucketDefinition.Name).First(&existingAwsObjectStorageBucketDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
 	// persist to DB
 	if result := h.DB.Create(&awsObjectStorageBucketDefinition); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
@@ -1250,6 +1295,21 @@ func (h Handler) AddAwsObjectStorageBucketInstance(c echo.Context) error {
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, awsObjectStorageBucketInstance, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingAwsObjectStorageBucketInstance api_v0.AwsObjectStorageBucketInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsObjectStorageBucketInstance.Name).First(&existingAwsObjectStorageBucketInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
 	// persist to DB
@@ -1591,6 +1651,21 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingAwsRelationalDatabaseDefinition api_v0.AwsRelationalDatabaseDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsRelationalDatabaseDefinition.Name).First(&existingAwsRelationalDatabaseDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
 	// persist to DB
 	if result := h.DB.Create(&awsRelationalDatabaseDefinition); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
@@ -1871,6 +1946,21 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, awsRelationalDatabaseInstance, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingAwsRelationalDatabaseInstance api_v0.AwsRelationalDatabaseInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsRelationalDatabaseInstance.Name).First(&existingAwsRelationalDatabaseInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
 	// persist to DB

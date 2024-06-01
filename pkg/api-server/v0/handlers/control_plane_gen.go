@@ -59,6 +59,21 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingControlPlaneDefinition api_v0.ControlPlaneDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", controlPlaneDefinition.Name).First(&existingControlPlaneDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
 	// persist to DB
 	if result := h.DB.Create(&controlPlaneDefinition); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
@@ -402,6 +417,21 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, controlPlaneInstance, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingControlPlaneInstance api_v0.ControlPlaneInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", controlPlaneInstance.Name).First(&existingControlPlaneInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
 	// persist to DB

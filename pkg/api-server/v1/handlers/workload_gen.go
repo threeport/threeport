@@ -59,6 +59,21 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingWorkloadInstance api_v1.WorkloadInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", workloadInstance.Name).First(&existingWorkloadInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
 	// persist to DB
 	if result := h.DB.Create(&workloadInstance); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)

@@ -58,6 +58,21 @@ func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingKubernetesRuntimeDefinition api_v0.KubernetesRuntimeDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", kubernetesRuntimeDefinition.Name).First(&existingKubernetesRuntimeDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
 	// persist to DB
 	if result := h.DB.Create(&kubernetesRuntimeDefinition); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
@@ -401,6 +416,21 @@ func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, kubernetesRuntimeInstance, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingKubernetesRuntimeInstance api_v0.KubernetesRuntimeInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", kubernetesRuntimeInstance.Name).First(&existingKubernetesRuntimeInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
 	// persist to DB

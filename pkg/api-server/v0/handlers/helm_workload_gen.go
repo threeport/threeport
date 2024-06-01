@@ -58,6 +58,21 @@ func (h Handler) AddHelmWorkloadDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingHelmWorkloadDefinition api_v0.HelmWorkloadDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", helmWorkloadDefinition.Name).First(&existingHelmWorkloadDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
 	// persist to DB
 	if result := h.DB.Create(&helmWorkloadDefinition); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
@@ -401,6 +416,21 @@ func (h Handler) AddHelmWorkloadInstance(c echo.Context) error {
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, helmWorkloadInstance, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingHelmWorkloadInstance api_v0.HelmWorkloadInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", helmWorkloadInstance.Name).First(&existingHelmWorkloadInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
 	// persist to DB

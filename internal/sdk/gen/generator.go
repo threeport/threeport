@@ -454,14 +454,6 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 
 								// if so, iterate over the fields
 								for _, field := range structType.Fields.List {
-									// populate the struct tags map
-									if len(field.Names) == 0 {
-										continue
-									}
-									fieldName := field.Names[0].Name
-									tagMap := util.ParseStructTag(field.Tag.Value)
-									structTags[objectName][fieldName] = tagMap
-
 									// fields will be of type *ast.Ident
 									if identType, ok := field.Type.(*ast.Ident); ok {
 										if util.StringSliceContains(nameFields(), identType.Name, true) {
@@ -482,6 +474,14 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 											mc.NameField = true
 										}
 									}
+
+									// populate the struct tags map
+									if len(field.Names) == 0 {
+										continue
+									}
+									fieldName := field.Names[0].Name
+									tagMap := util.ParseStructTag(field.Tag.Value)
+									structTags[objectName][fieldName] = tagMap
 								}
 							}
 						}

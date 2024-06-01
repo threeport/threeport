@@ -58,6 +58,21 @@ func (h Handler) AddLoggingDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingLoggingDefinition api_v0.LoggingDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", loggingDefinition.Name).First(&existingLoggingDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
 	// persist to DB
 	if result := h.DB.Create(&loggingDefinition); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
@@ -403,6 +418,21 @@ func (h Handler) AddLoggingInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingLoggingInstance api_v0.LoggingInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", loggingInstance.Name).First(&existingLoggingInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
 	// persist to DB
 	if result := h.DB.Create(&loggingInstance); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
@@ -740,6 +770,21 @@ func (h Handler) AddMetricsDefinition(c echo.Context) error {
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, metricsDefinition, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingMetricsDefinition api_v0.MetricsDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", metricsDefinition.Name).First(&existingMetricsDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
 	// persist to DB
@@ -1087,6 +1132,21 @@ func (h Handler) AddMetricsInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingMetricsInstance api_v0.MetricsInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", metricsInstance.Name).First(&existingMetricsInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
 	// persist to DB
 	if result := h.DB.Create(&metricsInstance); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
@@ -1424,6 +1484,21 @@ func (h Handler) AddObservabilityDashboardDefinition(c echo.Context) error {
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, observabilityDashboardDefinition, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingObservabilityDashboardDefinition api_v0.ObservabilityDashboardDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", observabilityDashboardDefinition.Name).First(&existingObservabilityDashboardDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
 	// persist to DB
@@ -1771,6 +1846,21 @@ func (h Handler) AddObservabilityDashboardInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
+	// check for duplicate names
+	var existingObservabilityDashboardInstance api_v0.ObservabilityDashboardInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", observabilityDashboardInstance.Name).First(&existingObservabilityDashboardInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
 	// persist to DB
 	if result := h.DB.Create(&observabilityDashboardInstance); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
@@ -2108,6 +2198,21 @@ func (h Handler) AddObservabilityStackDefinition(c echo.Context) error {
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, observabilityStackDefinition, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingObservabilityStackDefinition api_v0.ObservabilityStackDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", observabilityStackDefinition.Name).First(&existingObservabilityStackDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
 	// persist to DB
@@ -2453,6 +2558,21 @@ func (h Handler) AddObservabilityStackInstance(c echo.Context) error {
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, observabilityStackInstance, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingObservabilityStackInstance api_v0.ObservabilityStackInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", observabilityStackInstance.Name).First(&existingObservabilityStackInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
 	// persist to DB
