@@ -26,19 +26,6 @@ func GenRoutes(gen *gen.Generator) error {
 
 			for _, apiObj := range objGroup.ApiObjects {
 				routeFuncName := fmt.Sprintf("%sRoutes", apiObj.TypeName)
-				//apiObj.GetVersionHandlerName = fmt.Sprintf("Get%sVersions", apiObj.TypeName)
-				//apiObj.AddHandlerName = fmt.Sprintf("Add%s", apiObj.TypeName)
-				//apiObj.AddMiddlewareFuncName = fmt.Sprintf("Add%sMiddleware", apiObj.TypeName)
-				//apiObj.GetAllHandlerName = fmt.Sprintf("Get%s", pluralize.Pluralize(apiObj.TypeName, 2, false))
-				//apiObj.GetOneHandlerName = fmt.Sprintf("Get%s", apiObj.TypeName)
-				//apiObj.GetMiddlewareFuncName = fmt.Sprintf("Get%sMiddleware", apiObj.TypeName)
-				//apiObj.PatchHandlerName = fmt.Sprintf("Update%s", apiObj.TypeName)
-				//apiObj.PatchMiddlewareFuncName = fmt.Sprintf("Patch%sMiddleware", apiObj.TypeName)
-				//apiObj.PutHandlerName = fmt.Sprintf("Replace%s", apiObj.TypeName)
-				//apiObj.PutMiddlewareFuncName = fmt.Sprintf("Put%sMiddleware", apiObj.TypeName)
-				//apiObj.DeleteHandlerName = fmt.Sprintf("Delete%s", apiObj.TypeName)
-				//apiObj.DeleteMiddlewareFuncName = fmt.Sprintf("Delete%sMiddleware", apiObj.TypeName)
-				//gen.VersionedApiObjectCollections[i].VersionedApiObjectGroups[j].ApiObjects[k] = apiObj
 
 				addMiddleware := Null()
 				getMiddleware := Null()

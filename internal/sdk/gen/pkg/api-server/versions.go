@@ -28,9 +28,6 @@ func GenObjValidationVersions(gen *gen.Generator) error {
 				fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
 				fmt.Sprintf("api_%s", objCollection.Version),
 			)
-			//if gen.Extension {
-			//	f.ImportAlias("github.com/threeport/threeport/pkg/api-server/v0", "tp_apiserver")
-			//}
 			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/api-server/lib/v0",
 				"apiserver_lib",

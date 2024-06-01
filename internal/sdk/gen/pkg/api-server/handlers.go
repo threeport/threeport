@@ -332,13 +332,9 @@ func GenHandlers(gen *gen.Generator) error {
 				}
 
 				instanceCheck := false
-				//if strings.HasSuffix(apiObject.TypeName, "Definition") {
-				//	instanceCheck = true
-				//}
 				if apiObject.DefinedInstance {
 					instanceCheck = true
 				}
-				// asdf
 				deleteObjectChecks := &Statement{}
 				if instanceCheck {
 					instancesName := strings.TrimSuffix(apiObject.TypeName, "Definition") + "Instances"

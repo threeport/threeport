@@ -19,12 +19,6 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		return fmt.Errorf("failed to generate API object methods: %w", err)
 	}
 
-	//// TODO: confirm this can be removed
-	//// generate API object metadata
-	//if err := api.GenObjectMetadata(generator); err != nil {
-	//	return fmt.Errorf("failed to generate API object metadata: %w", err)
-	//}
-
 	//////////////////////////// pkg/api-server ////////////////////////////////
 	// generate API server routes
 	if err := apiserver.GenRoutes(generator); err != nil {
@@ -88,7 +82,7 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	////////////////////////////// pkg/config //////////////////////////////////
 	// TODO: remove generate.Extension if statement to apply to core threeport
-	// as well.  Complete codegen.
+	// as well.  Complete codegen for config package.
 	if generator.Extension {
 		if err := config.GenConfig(generator); err != nil {
 			return fmt.Errorf("failed to generate config package: %w", err)
