@@ -16,6 +16,7 @@ import (
 	notif "github.com/threeport/threeport/internal/workload/notif"
 	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	event "github.com/threeport/threeport/pkg/event/v0"
 	zap "go.uber.org/zap"
 	"net/http"
 	"os"
@@ -170,10 +171,15 @@ func main() {
 
 		// create reconciler
 		reconciler := controller.Reconciler{
-			APIClient:        apiClient,
-			APIServer:        *apiServer,
-			ControllerID:     controllerID,
-			EncryptionKey:    encryptionKey,
+			APIClient:     apiClient,
+			APIServer:     *apiServer,
+			ControllerID:  controllerID,
+			EncryptionKey: encryptionKey,
+			EventsRecorder: &event.EventRecorder{
+				APIClient:           apiClient,
+				APIServer:           *apiServer,
+				ReportingController: "WorkloadController",
+			},
 			JetStreamContext: js,
 			KeyValue:         kv,
 			Log:              &log,

@@ -7,12 +7,15 @@ import (
 	"fmt"
 	tpapi_lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpapi_v1 "github.com/threeport/threeport/pkg/api/v1"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -138,7 +141,20 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of secret definition encountered for creation")
 				}
 				if operationErr != nil {
-					log.Error(operationErr, "failed to reconcile created secret definition object")
+					errorMsg := "failed to reconcile created secret definition object"
+					log.Error(operationErr, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&tpapi_v1.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr(event.ReasonFailedCreate),
+							Type:   util.Ptr(event.TypeNormal),
+						},
+						secretDefinition.GetId(),
+						secretDefinition.GetVersion(),
+						secretDefinition.GetType(),
+						operationErr,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						secretDefinition,
 						requeueDelay,
@@ -173,7 +189,20 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of secret definition encountered for creation")
 				}
 				if operationErr != nil {
-					log.Error(operationErr, "failed to reconcile updated secret definition object")
+					errorMsg := "failed to reconcile created secret definition object"
+					log.Error(operationErr, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&tpapi_v1.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr(event.ReasonFailedUpdate),
+							Type:   util.Ptr(event.TypeNormal),
+						},
+						secretDefinition.GetId(),
+						secretDefinition.GetVersion(),
+						secretDefinition.GetType(),
+						operationErr,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						secretDefinition,
 						requeueDelay,
@@ -208,7 +237,20 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of secret definition encountered for creation")
 				}
 				if operationErr != nil {
-					log.Error(operationErr, "failed to reconcile deleted secret definition object")
+					errorMsg := "failed to reconcile created secret definition object"
+					log.Error(operationErr, errorMsg)
+					r.EventsRecorder.HandleEventOverride(
+						&tpapi_v1.Event{
+							Note:   util.Ptr(errorMsg),
+							Reason: util.Ptr(event.ReasonFailedDelete),
+							Type:   util.Ptr(event.TypeNormal),
+						},
+						secretDefinition.GetId(),
+						secretDefinition.GetVersion(),
+						secretDefinition.GetType(),
+						operationErr,
+						&log,
+					)
 					r.UnlockAndRequeue(
 						secretDefinition,
 						requeueDelay,
@@ -235,11 +277,6 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 						DeletionConfirmed:    deletionTimestamp,
 						Reconciled:           util.Ptr(true),
 					},
-				}
-				if err != nil {
-					log.Error(err, "failed to update secret definition to mark as reconciled")
-					r.UnlockAndRequeue(secretDefinition, requeueDelay, lockReleased, msg)
-					continue
 				}
 				_, err = client_v0.UpdateSecretDefinition(
 					r.APIClient,
@@ -277,10 +314,9 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 
 			// set the object's Reconciled field to true if not deleted
 			if notif.Operation != notifications.NotificationOperationDeleted {
-				objectReconciled := true
 				reconciledSecretDefinition := api_v0.SecretDefinition{
 					Common:         api_v0.Common{ID: util.Ptr(secretDefinition.GetId())},
-					Reconciliation: api_v0.Reconciliation{Reconciled: &objectReconciled},
+					Reconciliation: api_v0.Reconciliation{Reconciled: util.Ptr(true)},
 				}
 				updatedSecretDefinition, err := client_v0.UpdateSecretDefinition(
 					r.APIClient,
@@ -305,10 +341,24 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 				log.V(1).Info("secret definition unlocked")
 			}
 
-			log.Info(fmt.Sprintf(
+			// log and record event for successful reconciliation
+			successMsg := fmt.Sprintf(
 				"secret definition successfully reconciled for %s operation",
-				notif.Operation,
-			))
+				strings.ToLower(string(notif.Operation)),
+			)
+			if err := r.EventsRecorder.RecordEvent(
+				&tpapi_v1.Event{
+					Note:   util.Ptr(successMsg),
+					Reason: util.Ptr(event.GetSuccessReasonForOperation(notif.Operation)),
+					Type:   util.Ptr(event.TypeNormal),
+				},
+				secretDefinition.GetId(),
+				secretDefinition.GetVersion(),
+				secretDefinition.GetType(),
+			); err != nil {
+				log.Error(err, "failed to record event for successful secret definition reconciliation")
+			}
+			log.Info(successMsg)
 		}
 	}
 

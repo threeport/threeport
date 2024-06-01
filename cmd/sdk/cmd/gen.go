@@ -4,6 +4,8 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -50,6 +52,14 @@ See the Threeport SDK docs for more information: https://docs.threeport.io/sdk/s
 			cli.Error("failed to create new generator from SDK config for code generation", err)
 			os.Exit(1)
 		}
+
+		fmt.Println("##########################################################")
+		jsonGen, err := json.Marshal(generator)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(string(jsonGen))
+		fmt.Println("##########################################################")
 
 		// build source code at root of project
 		if err := root.GenRoot(&generator); err != nil {

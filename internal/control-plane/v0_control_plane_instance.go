@@ -178,30 +178,50 @@ func v0ControlPlaneInstanceCreated(
 	var callerIdentity *sts.GetCallerIdentityOutput
 	switch *kubernetesRuntimeDefinition.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(r.APIClient, r.APIServer, controlPlaneRuntimeInstance.KubernetesRuntimeInstanceID)
+		resourceInventory, err := client.GetResourceInventoryByK8sRuntimeInst(
+			r.APIClient,
+			r.APIServer,
+			controlPlaneInstance.KubernetesRuntimeInstanceID,
+		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get resource inventory: %w", err)
 		}
 
 		// get awsKubernetesRuntimeDef
-		awsKubernetesRuntimeDef, err := client.GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef(r.APIClient, r.APIServer, *kubernetesRuntimeDefinition.ID)
+		awsKubernetesRuntimeDef, err := client.GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeDefinition.ID,
+		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get aws eks kubernetes runtime definition: %w", err)
 		}
 
 		// get AWS config
-		awsAccount, err := client.GetAwsAccountByID(r.APIClient, r.APIServer, *awsKubernetesRuntimeDef.AwsAccountID)
+		awsAccount, err := client.GetAwsAccountByID(
+			r.APIClient,
+			r.APIServer,
+			*awsKubernetesRuntimeDef.AwsAccountID,
+		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get awsAccount: %w", err)
 		}
 
 		// Get region
-		awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(r.APIClient, r.APIServer, *kubernetesRuntimeInstance.ID)
+		awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeInstance.ID,
+		)
 		if err != nil {
 			return 0, fmt.Errorf("could not get awk eks kubernetes runtime instance: %w", err)
 		}
 
-		awsConfig, err := kube.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
+		awsConfig, err := kube.GetAwsConfigFromAwsAccount(
+			r.EncryptionKey,
+			*awsEksKubernetesRuntimeInstance.Region,
+			awsAccount,
+		)
 		if err != nil {
 			return 0, fmt.Errorf("could not get aws config from aws account: %w", err)
 		}
@@ -225,7 +245,10 @@ func v0ControlPlaneInstanceCreated(
 			"",
 			"",
 			true,
-			false, // We don't attach internal resource manager policy as we dont want the customer role having permissions within our aws account
+			// resource manager policy is not attached so that the child control
+			// plane's cloud provider account doesn't have permissions with the parent
+			// control plane's cloud provider account.
+			false,
 			*awsConfig,
 			cpi.Opts.AdditionalAwsIrsaConditions,
 		)

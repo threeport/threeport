@@ -7,13 +7,14 @@ import (
 	"net/http"
 
 	v1 "github.com/threeport/threeport/pkg/api/v1"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
 
 // GetEventsJoinAttachedObjectReferenceByQueryString retrieves events joined to attached object reference by object ID.
 func GetEventsJoinAttachedObjectReferenceByQueryString(apiClient *http.Client, apiAddr, queryString string) (*[]v1.Event, error) {
 	var events []v1.Event
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/v1/events-join-attached-object-references?%s", apiAddr, queryString),
 		http.MethodGet,

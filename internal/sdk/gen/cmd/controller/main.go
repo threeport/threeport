@@ -25,6 +25,7 @@ func GenControllerMain(gen *gen.Generator) error {
 			f.ImportAlias("github.com/threeport/threeport/pkg/client/lib/v0", "tpclient_lib")
 			f.ImportAlias("github.com/threeport/threeport/pkg/controller/v0", "controller")
 			f.ImportAlias("github.com/threeport/threeport/pkg/runtime/v0", "runtime")
+			f.ImportAlias("github.com/threeport/threeport/pkg/event/v0", "event")
 			f.ImportAlias(fmt.Sprintf("%s/pkg/config/v0", gen.ModulePath), "config")
 
 			concurrencyFlags := &Statement{}
@@ -360,14 +361,8 @@ func GenControllerMain(gen *gen.Generator) error {
 						).Values(Dict{
 							Id("APIClient"): Id("apiClient"),
 							Id("APIServer"): Op("*").Id("apiServer"),
-							Id("ObjectType"): Qual("fmt", "Sprintf").Call(
-								Line().Lit("%s.%s"),
-								Line().Id("r").Dot("ObjectVersion"),
-								Line().Id("r").Dot("ObjectType"),
-								Line(),
-							),
 							Id("ReportingController"): Lit(
-								fmt.Sprintf("%sController", strcase.ToCamel(cc.ShortName)),
+								fmt.Sprintf("%sController", strcase.ToCamel(objGroup.ControllerShortName)),
 							),
 						}),
 					})
