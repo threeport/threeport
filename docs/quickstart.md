@@ -8,12 +8,13 @@ following installed:
 * [kubectl](https://kubernetes.io/docs/reference/kubectl/)
 
 The following will also need to be installed locally for the relevant development
-operations and make targets:
+operations:
 
 * [swag CLI](https://github.com/swaggo/swag) `>=v1.16.2,<v2.0.0` for generating API docs.
 * [NATS CLI](https://github.com/nats-io/natscli) for interacting with NATS
   messages used by the control plane.
 * [delve](https://github.com/go-delve/delve) for running debug sessions.
+* [mage](https://magefile.org/) for using mage targets.
 
 Spin up a local dev control plane:
 

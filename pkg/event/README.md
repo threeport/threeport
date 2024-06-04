@@ -1,7 +1,7 @@
-# pkg/threeport
+# pkg/event
 
-This package is used to install and manage components of the threeport control
-plane.
+This package contains utilities for recording Event objects in the Threeport API.  It
+is used by Threeport controllers for this purpose.
 
 This package is versioned to maintain compatibility for projects importing it
 while still being able to upgrade to the latest version of threeport. This

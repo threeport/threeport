@@ -1,7 +1,7 @@
-# pkg/threeport
+# pkg/errors
 
-This package is used to install and manage components of the threeport control
-plane.
+This package is used for error management for events.  It is used by controllers
+when recording events in the Threeport API.
 
 This package is versioned to maintain compatibility for projects importing it
 while still being able to upgrade to the latest version of threeport. This

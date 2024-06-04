@@ -2,7 +2,7 @@
 
 Manage Kubernetes clusters as runtime environments for workloads.
 
-Here you will find the main package for the threeport kubernetes runtime
+Here you will find the main package for the Threeport Kubernetes runtime
 controller.  It is responsible for reconciling KubernetesRuntimeDefinition and
 KubernetesRuntimeInstance objects.  It serves as an abstraction to
 cloud-provider specific implementation details so that users can declare a

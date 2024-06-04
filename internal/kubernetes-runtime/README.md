@@ -1,6 +1,6 @@
-# internal/kubernetesruntime
+# internal/kubernetes-runtime
 
-This package contains the generated and custom code for the kubernetes runtime
+This package contains the generated and custom code for the kubernetes-runtime
 controller.  It reconciles state for runtimes by managing the objects needed for
 cloud providers to run Kubernetes clusters.
 
