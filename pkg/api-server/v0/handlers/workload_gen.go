@@ -7,7 +7,6 @@ import (
 	"fmt"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/workload/notif"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -24,10 +23,10 @@ import (
 // @Description Get the supported API versions for attached object references.
 // @ID attachedObjectReference-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /attached-object-references/versions [GET]
 func (h Handler) GetAttachedObjectReferenceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeAttachedObjectReference)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAttachedObjectReference)])
 }
 
 // @Summary adds a new attached object reference.
@@ -35,7 +34,7 @@ func (h Handler) GetAttachedObjectReferenceVersions(c echo.Context) error {
 // @ID add-v0-attachedObjectReference
 // @Accept json
 // @Produce json
-// @Param attachedObjectReference body v0.AttachedObjectReference true "AttachedObjectReference object"
+// @Param attachedObjectReference body api_v0.AttachedObjectReference true "AttachedObjectReference object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -150,7 +149,7 @@ func (h Handler) GetAttachedObjectReference(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param attachedObjectReference body v0.AttachedObjectReference true "AttachedObjectReference object"
+// @Param attachedObjectReference body api_v0.AttachedObjectReference true "AttachedObjectReference object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -202,7 +201,7 @@ func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param attachedObjectReference body v0.AttachedObjectReference true "AttachedObjectReference object"
+// @Param attachedObjectReference body api_v0.AttachedObjectReference true "AttachedObjectReference object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -300,10 +299,10 @@ func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
 // @Description Get the supported API versions for workload definitions.
 // @ID workloadDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /workload-definitions/versions [GET]
 func (h Handler) GetWorkloadDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeWorkloadDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeWorkloadDefinition)])
 }
 
 // @Summary adds a new workload definition.
@@ -311,7 +310,7 @@ func (h Handler) GetWorkloadDefinitionVersions(c echo.Context) error {
 // @ID add-v0-workloadDefinition
 // @Accept json
 // @Produce json
-// @Param workloadDefinition body v0.WorkloadDefinition true "WorkloadDefinition object"
+// @Param workloadDefinition body api_v0.WorkloadDefinition true "WorkloadDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -454,7 +453,7 @@ func (h Handler) GetWorkloadDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param workloadDefinition body v0.WorkloadDefinition true "WorkloadDefinition object"
+// @Param workloadDefinition body api_v0.WorkloadDefinition true "WorkloadDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -519,7 +518,7 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param workloadDefinition body v0.WorkloadDefinition true "WorkloadDefinition object"
+// @Param workloadDefinition body api_v0.WorkloadDefinition true "WorkloadDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -660,10 +659,10 @@ func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 // @Description Get the supported API versions for workload events.
 // @ID workloadEvent-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /workload-events/versions [GET]
 func (h Handler) GetWorkloadEventVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeWorkloadEvent)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeWorkloadEvent)])
 }
 
 // @Summary adds a new workload event.
@@ -671,7 +670,7 @@ func (h Handler) GetWorkloadEventVersions(c echo.Context) error {
 // @ID add-v0-workloadEvent
 // @Accept json
 // @Produce json
-// @Param workloadEvent body v0.WorkloadEvent true "WorkloadEvent object"
+// @Param workloadEvent body api_v0.WorkloadEvent true "WorkloadEvent object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -786,7 +785,7 @@ func (h Handler) GetWorkloadEvent(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param workloadEvent body v0.WorkloadEvent true "WorkloadEvent object"
+// @Param workloadEvent body api_v0.WorkloadEvent true "WorkloadEvent object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -838,7 +837,7 @@ func (h Handler) UpdateWorkloadEvent(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param workloadEvent body v0.WorkloadEvent true "WorkloadEvent object"
+// @Param workloadEvent body api_v0.WorkloadEvent true "WorkloadEvent object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -936,10 +935,10 @@ func (h Handler) DeleteWorkloadEvent(c echo.Context) error {
 // @Description Get the supported API versions for workload instances.
 // @ID workloadInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /workload-instances/versions [GET]
 func (h Handler) GetWorkloadInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeWorkloadInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeWorkloadInstance)])
 }
 
 // @Summary adds a new workload instance.
@@ -947,7 +946,7 @@ func (h Handler) GetWorkloadInstanceVersions(c echo.Context) error {
 // @ID add-v0-workloadInstance
 // @Accept json
 // @Produce json
-// @Param workloadInstance body v0.WorkloadInstance true "WorkloadInstance object"
+// @Param workloadInstance body api_v0.WorkloadInstance true "WorkloadInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1090,7 +1089,7 @@ func (h Handler) GetWorkloadInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param workloadInstance body v0.WorkloadInstance true "WorkloadInstance object"
+// @Param workloadInstance body api_v0.WorkloadInstance true "WorkloadInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1155,7 +1154,7 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param workloadInstance body v0.WorkloadInstance true "WorkloadInstance object"
+// @Param workloadInstance body api_v0.WorkloadInstance true "WorkloadInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1290,10 +1289,10 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 // @Description Get the supported API versions for workload resource definitions.
 // @ID workloadResourceDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /workload-resource-definitions/versions [GET]
 func (h Handler) GetWorkloadResourceDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeWorkloadResourceDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeWorkloadResourceDefinition)])
 }
 
 // @Summary adds a new workload resource definition.
@@ -1301,7 +1300,7 @@ func (h Handler) GetWorkloadResourceDefinitionVersions(c echo.Context) error {
 // @ID add-v0-workloadResourceDefinition
 // @Accept json
 // @Produce json
-// @Param workloadResourceDefinition body v0.WorkloadResourceDefinition true "WorkloadResourceDefinition object"
+// @Param workloadResourceDefinition body api_v0.WorkloadResourceDefinition true "WorkloadResourceDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1416,7 +1415,7 @@ func (h Handler) GetWorkloadResourceDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param workloadResourceDefinition body v0.WorkloadResourceDefinition true "WorkloadResourceDefinition object"
+// @Param workloadResourceDefinition body api_v0.WorkloadResourceDefinition true "WorkloadResourceDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1468,7 +1467,7 @@ func (h Handler) UpdateWorkloadResourceDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param workloadResourceDefinition body v0.WorkloadResourceDefinition true "WorkloadResourceDefinition object"
+// @Param workloadResourceDefinition body api_v0.WorkloadResourceDefinition true "WorkloadResourceDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1566,10 +1565,10 @@ func (h Handler) DeleteWorkloadResourceDefinition(c echo.Context) error {
 // @Description Get the supported API versions for workload resource instances.
 // @ID workloadResourceInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /workload-resource-instances/versions [GET]
 func (h Handler) GetWorkloadResourceInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeWorkloadResourceInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeWorkloadResourceInstance)])
 }
 
 // @Summary adds a new workload resource instance.
@@ -1577,7 +1576,7 @@ func (h Handler) GetWorkloadResourceInstanceVersions(c echo.Context) error {
 // @ID add-v0-workloadResourceInstance
 // @Accept json
 // @Produce json
-// @Param workloadResourceInstance body v0.WorkloadResourceInstance true "WorkloadResourceInstance object"
+// @Param workloadResourceInstance body api_v0.WorkloadResourceInstance true "WorkloadResourceInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1692,7 +1691,7 @@ func (h Handler) GetWorkloadResourceInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param workloadResourceInstance body v0.WorkloadResourceInstance true "WorkloadResourceInstance object"
+// @Param workloadResourceInstance body api_v0.WorkloadResourceInstance true "WorkloadResourceInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1744,7 +1743,7 @@ func (h Handler) UpdateWorkloadResourceInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param workloadResourceInstance body v0.WorkloadResourceInstance true "WorkloadResourceInstance object"
+// @Param workloadResourceInstance body api_v0.WorkloadResourceInstance true "WorkloadResourceInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"

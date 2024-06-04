@@ -3,7 +3,6 @@
 package versions
 
 import (
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	apiserver_v0 "github.com/threeport/threeport/pkg/api-server/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -39,7 +38,7 @@ func AddHelmWorkloadDefinitionVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.HelmWorkloadDefinitionTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddHelmWorkloadInstanceVersions adds field validation info and adds it
@@ -71,5 +70,5 @@ func AddHelmWorkloadInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.HelmWorkloadInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }

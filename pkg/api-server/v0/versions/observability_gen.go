@@ -3,7 +3,6 @@
 package versions
 
 import (
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	apiserver_v0 "github.com/threeport/threeport/pkg/api-server/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -39,7 +38,7 @@ func AddLoggingDefinitionVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.LoggingDefinitionTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddLoggingInstanceVersions adds field validation info and adds it
@@ -71,7 +70,7 @@ func AddLoggingInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.LoggingInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddMetricsDefinitionVersions adds field validation info and adds it
@@ -103,7 +102,7 @@ func AddMetricsDefinitionVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.MetricsDefinitionTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddMetricsInstanceVersions adds field validation info and adds it
@@ -135,7 +134,7 @@ func AddMetricsInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.MetricsInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddObservabilityDashboardDefinitionVersions adds field validation info and adds it
@@ -167,7 +166,7 @@ func AddObservabilityDashboardDefinitionVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.ObservabilityDashboardDefinitionTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddObservabilityDashboardInstanceVersions adds field validation info and adds it
@@ -199,7 +198,7 @@ func AddObservabilityDashboardInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.ObservabilityDashboardInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddObservabilityStackDefinitionVersions adds field validation info and adds it
@@ -231,7 +230,7 @@ func AddObservabilityStackDefinitionVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.ObservabilityStackDefinitionTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddObservabilityStackInstanceVersions adds field validation info and adds it
@@ -263,5 +262,5 @@ func AddObservabilityStackInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.ObservabilityStackInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }

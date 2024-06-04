@@ -3,7 +3,6 @@
 package versions
 
 import (
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	apiserver_v0 "github.com/threeport/threeport/pkg/api-server/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -39,7 +38,7 @@ func AddLogBackendVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.LogBackendTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddLogStorageDefinitionVersions adds field validation info and adds it
@@ -71,7 +70,7 @@ func AddLogStorageDefinitionVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.LogStorageDefinitionTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddLogStorageInstanceVersions adds field validation info and adds it
@@ -103,5 +102,5 @@ func AddLogStorageInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.LogStorageInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }

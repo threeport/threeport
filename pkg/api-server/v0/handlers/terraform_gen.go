@@ -7,7 +7,6 @@ import (
 	"fmt"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/terraform/notif"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -24,10 +23,10 @@ import (
 // @Description Get the supported API versions for terraform definitions.
 // @ID terraformDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /terraform-definitions/versions [GET]
 func (h Handler) GetTerraformDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeTerraformDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeTerraformDefinition)])
 }
 
 // @Summary adds a new terraform definition.
@@ -35,7 +34,7 @@ func (h Handler) GetTerraformDefinitionVersions(c echo.Context) error {
 // @ID add-v0-terraformDefinition
 // @Accept json
 // @Produce json
-// @Param terraformDefinition body v0.TerraformDefinition true "TerraformDefinition object"
+// @Param terraformDefinition body api_v0.TerraformDefinition true "TerraformDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -178,7 +177,7 @@ func (h Handler) GetTerraformDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param terraformDefinition body v0.TerraformDefinition true "TerraformDefinition object"
+// @Param terraformDefinition body api_v0.TerraformDefinition true "TerraformDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -243,7 +242,7 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param terraformDefinition body v0.TerraformDefinition true "TerraformDefinition object"
+// @Param terraformDefinition body api_v0.TerraformDefinition true "TerraformDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -384,10 +383,10 @@ func (h Handler) DeleteTerraformDefinition(c echo.Context) error {
 // @Description Get the supported API versions for terraform instances.
 // @ID terraformInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /terraform-instances/versions [GET]
 func (h Handler) GetTerraformInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeTerraformInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeTerraformInstance)])
 }
 
 // @Summary adds a new terraform instance.
@@ -395,7 +394,7 @@ func (h Handler) GetTerraformInstanceVersions(c echo.Context) error {
 // @ID add-v0-terraformInstance
 // @Accept json
 // @Produce json
-// @Param terraformInstance body v0.TerraformInstance true "TerraformInstance object"
+// @Param terraformInstance body api_v0.TerraformInstance true "TerraformInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -538,7 +537,7 @@ func (h Handler) GetTerraformInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param terraformInstance body v0.TerraformInstance true "TerraformInstance object"
+// @Param terraformInstance body api_v0.TerraformInstance true "TerraformInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -603,7 +602,7 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param terraformInstance body v0.TerraformInstance true "TerraformInstance object"
+// @Param terraformInstance body api_v0.TerraformInstance true "TerraformInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/workload/notif"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	api_v1 "github.com/threeport/threeport/pkg/api/v1"
@@ -25,10 +24,10 @@ import (
 // @Description Get the supported API versions for workload instances.
 // @ID workloadInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /workload-instances/versions [GET]
 func (h Handler) GetWorkloadInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v1.ObjectTypeWorkloadInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v1.ObjectTypeWorkloadInstance)])
 }
 
 // @Summary adds a new workload instance.
@@ -36,10 +35,10 @@ func (h Handler) GetWorkloadInstanceVersions(c echo.Context) error {
 // @ID add-v1-workloadInstance
 // @Accept json
 // @Produce json
-// @Param workloadInstance body v1.WorkloadInstance true "WorkloadInstance object"
-// @Success 201 {object} v1.Response "Created"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Param workloadInstance body api_v1.WorkloadInstance true "WorkloadInstance object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/workload-instances [POST]
 func (h Handler) AddWorkloadInstance(c echo.Context) error {
 	objectType := api_v1.ObjectTypeWorkloadInstance
@@ -106,9 +105,9 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param name query string false "workload instance search by name"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/workload-instances [GET]
 func (h Handler) GetWorkloadInstances(c echo.Context) error {
 	objectType := api_v1.ObjectTypeWorkloadInstance
@@ -146,9 +145,9 @@ func (h Handler) GetWorkloadInstances(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/workload-instances/{id} [GET]
 func (h Handler) GetWorkloadInstance(c echo.Context) error {
 	objectType := api_v1.ObjectTypeWorkloadInstance
@@ -179,11 +178,11 @@ func (h Handler) GetWorkloadInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param workloadInstance body v1.WorkloadInstance true "WorkloadInstance object"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Param workloadInstance body api_v1.WorkloadInstance true "WorkloadInstance object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/workload-instances/{id} [PATCH]
 func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 	objectType := api_v1.ObjectTypeWorkloadInstance
@@ -244,11 +243,11 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param workloadInstance body v1.WorkloadInstance true "WorkloadInstance object"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Param workloadInstance body api_v1.WorkloadInstance true "WorkloadInstance object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/workload-instances/{id} [PUT]
 func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 	objectType := api_v1.ObjectTypeWorkloadInstance
@@ -305,10 +304,10 @@ func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 409 {object} v1.Response "Conflict"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/workload-instances/{id} [DELETE]
 func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 	objectType := api_v1.ObjectTypeWorkloadInstance

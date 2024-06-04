@@ -5,7 +5,6 @@ package handlers
 import (
 	"errors"
 	echo "github.com/labstack/echo/v4"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	gorm "gorm.io/gorm"
@@ -20,10 +19,10 @@ import (
 // @Description Get the supported API versions for profiles.
 // @ID profile-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /profiles/versions [GET]
 func (h Handler) GetProfileVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeProfile)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeProfile)])
 }
 
 // @Summary adds a new profile.
@@ -31,7 +30,7 @@ func (h Handler) GetProfileVersions(c echo.Context) error {
 // @ID add-v0-profile
 // @Accept json
 // @Produce json
-// @Param profile body v0.Profile true "Profile object"
+// @Param profile body api_v0.Profile true "Profile object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -161,7 +160,7 @@ func (h Handler) GetProfile(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param profile body v0.Profile true "Profile object"
+// @Param profile body api_v0.Profile true "Profile object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -213,7 +212,7 @@ func (h Handler) UpdateProfile(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param profile body v0.Profile true "Profile object"
+// @Param profile body api_v0.Profile true "Profile object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -311,10 +310,10 @@ func (h Handler) DeleteProfile(c echo.Context) error {
 // @Description Get the supported API versions for tiers.
 // @ID tier-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /tiers/versions [GET]
 func (h Handler) GetTierVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeTier)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeTier)])
 }
 
 // @Summary adds a new tier.
@@ -322,7 +321,7 @@ func (h Handler) GetTierVersions(c echo.Context) error {
 // @ID add-v0-tier
 // @Accept json
 // @Produce json
-// @Param tier body v0.Tier true "Tier object"
+// @Param tier body api_v0.Tier true "Tier object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -452,7 +451,7 @@ func (h Handler) GetTier(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param tier body v0.Tier true "Tier object"
+// @Param tier body api_v0.Tier true "Tier object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -504,7 +503,7 @@ func (h Handler) UpdateTier(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param tier body v0.Tier true "Tier object"
+// @Param tier body api_v0.Tier true "Tier object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"

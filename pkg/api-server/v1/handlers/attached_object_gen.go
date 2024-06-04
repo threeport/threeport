@@ -5,7 +5,6 @@ package handlers
 import (
 	"errors"
 	echo "github.com/labstack/echo/v4"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v1 "github.com/threeport/threeport/pkg/api/v1"
 	gorm "gorm.io/gorm"
@@ -20,10 +19,10 @@ import (
 // @Description Get the supported API versions for attached object references.
 // @ID attachedObjectReference-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /attached-object-references/versions [GET]
 func (h Handler) GetAttachedObjectReferenceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v1.ObjectTypeAttachedObjectReference)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v1.ObjectTypeAttachedObjectReference)])
 }
 
 // @Summary adds a new attached object reference.
@@ -31,10 +30,10 @@ func (h Handler) GetAttachedObjectReferenceVersions(c echo.Context) error {
 // @ID add-v1-attachedObjectReference
 // @Accept json
 // @Produce json
-// @Param attachedObjectReference body v1.AttachedObjectReference true "AttachedObjectReference object"
-// @Success 201 {object} v1.Response "Created"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Param attachedObjectReference body api_v1.AttachedObjectReference true "AttachedObjectReference object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/attached-object-references [POST]
 func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 	objectType := api_v1.ObjectTypeAttachedObjectReference
@@ -73,9 +72,9 @@ func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param name query string false "attached object reference search by name"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/attached-object-references [GET]
 func (h Handler) GetAttachedObjectReferences(c echo.Context) error {
 	objectType := api_v1.ObjectTypeAttachedObjectReference
@@ -113,9 +112,9 @@ func (h Handler) GetAttachedObjectReferences(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/attached-object-references/{id} [GET]
 func (h Handler) GetAttachedObjectReference(c echo.Context) error {
 	objectType := api_v1.ObjectTypeAttachedObjectReference
@@ -146,11 +145,11 @@ func (h Handler) GetAttachedObjectReference(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param attachedObjectReference body v1.AttachedObjectReference true "AttachedObjectReference object"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Param attachedObjectReference body api_v1.AttachedObjectReference true "AttachedObjectReference object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/attached-object-references/{id} [PATCH]
 func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 	objectType := api_v1.ObjectTypeAttachedObjectReference
@@ -198,11 +197,11 @@ func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param attachedObjectReference body v1.AttachedObjectReference true "AttachedObjectReference object"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Param attachedObjectReference body api_v1.AttachedObjectReference true "AttachedObjectReference object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/attached-object-references/{id} [PUT]
 func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 	objectType := api_v1.ObjectTypeAttachedObjectReference
@@ -259,10 +258,10 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 409 {object} v1.Response "Conflict"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/attached-object-references/{id} [DELETE]
 func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
 	objectType := api_v1.ObjectTypeAttachedObjectReference

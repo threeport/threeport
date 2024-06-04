@@ -3,7 +3,6 @@
 package versions
 
 import (
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	apiserver_v1 "github.com/threeport/threeport/pkg/api-server/v1"
 	api_v1 "github.com/threeport/threeport/pkg/api/v1"
@@ -39,5 +38,5 @@ func AddWorkloadInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v1.WorkloadInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }

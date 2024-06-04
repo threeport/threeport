@@ -7,7 +7,6 @@ import (
 	"fmt"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/control-plane/notif"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -25,10 +24,10 @@ import (
 // @Description Get the supported API versions for control plane definitions.
 // @ID controlPlaneDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /control-plane-definitions/versions [GET]
 func (h Handler) GetControlPlaneDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeControlPlaneDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeControlPlaneDefinition)])
 }
 
 // @Summary adds a new control plane definition.
@@ -36,7 +35,7 @@ func (h Handler) GetControlPlaneDefinitionVersions(c echo.Context) error {
 // @ID add-v0-controlPlaneDefinition
 // @Accept json
 // @Produce json
-// @Param controlPlaneDefinition body v0.ControlPlaneDefinition true "ControlPlaneDefinition object"
+// @Param controlPlaneDefinition body api_v0.ControlPlaneDefinition true "ControlPlaneDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -179,7 +178,7 @@ func (h Handler) GetControlPlaneDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param controlPlaneDefinition body v0.ControlPlaneDefinition true "ControlPlaneDefinition object"
+// @Param controlPlaneDefinition body api_v0.ControlPlaneDefinition true "ControlPlaneDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -244,7 +243,7 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param controlPlaneDefinition body v0.ControlPlaneDefinition true "ControlPlaneDefinition object"
+// @Param controlPlaneDefinition body api_v0.ControlPlaneDefinition true "ControlPlaneDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -385,10 +384,10 @@ func (h Handler) DeleteControlPlaneDefinition(c echo.Context) error {
 // @Description Get the supported API versions for control plane instances.
 // @ID controlPlaneInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /control-plane-instances/versions [GET]
 func (h Handler) GetControlPlaneInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeControlPlaneInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeControlPlaneInstance)])
 }
 
 // @Summary adds a new control plane instance.
@@ -396,7 +395,7 @@ func (h Handler) GetControlPlaneInstanceVersions(c echo.Context) error {
 // @ID add-v0-controlPlaneInstance
 // @Accept json
 // @Produce json
-// @Param controlPlaneInstance body v0.ControlPlaneInstance true "ControlPlaneInstance object"
+// @Param controlPlaneInstance body api_v0.ControlPlaneInstance true "ControlPlaneInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -539,7 +538,7 @@ func (h Handler) GetControlPlaneInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param controlPlaneInstance body v0.ControlPlaneInstance true "ControlPlaneInstance object"
+// @Param controlPlaneInstance body api_v0.ControlPlaneInstance true "ControlPlaneInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -604,7 +603,7 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param controlPlaneInstance body v0.ControlPlaneInstance true "ControlPlaneInstance object"
+// @Param controlPlaneInstance body api_v0.ControlPlaneInstance true "ControlPlaneInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"

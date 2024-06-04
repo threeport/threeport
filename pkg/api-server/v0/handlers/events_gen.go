@@ -5,7 +5,6 @@ package handlers
 import (
 	"errors"
 	echo "github.com/labstack/echo/v4"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	gorm "gorm.io/gorm"
@@ -20,10 +19,10 @@ import (
 // @Description Get the supported API versions for events.
 // @ID event-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /events/versions [GET]
 func (h Handler) GetEventVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeEvent)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeEvent)])
 }
 
 // @Summary adds a new event.
@@ -31,7 +30,7 @@ func (h Handler) GetEventVersions(c echo.Context) error {
 // @ID add-v0-event
 // @Accept json
 // @Produce json
-// @Param event body v0.Event true "Event object"
+// @Param event body api_v0.Event true "Event object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -146,7 +145,7 @@ func (h Handler) GetEvent(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param event body v0.Event true "Event object"
+// @Param event body api_v0.Event true "Event object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -198,7 +197,7 @@ func (h Handler) UpdateEvent(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param event body v0.Event true "Event object"
+// @Param event body api_v0.Event true "Event object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"

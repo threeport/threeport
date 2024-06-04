@@ -7,7 +7,6 @@ import (
 	"fmt"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/gateway/notif"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -24,10 +23,10 @@ import (
 // @Description Get the supported API versions for domain name definitions.
 // @ID domainNameDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /domain-name-definitions/versions [GET]
 func (h Handler) GetDomainNameDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeDomainNameDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeDomainNameDefinition)])
 }
 
 // @Summary adds a new domain name definition.
@@ -35,7 +34,7 @@ func (h Handler) GetDomainNameDefinitionVersions(c echo.Context) error {
 // @ID add-v0-domainNameDefinition
 // @Accept json
 // @Produce json
-// @Param domainNameDefinition body v0.DomainNameDefinition true "DomainNameDefinition object"
+// @Param domainNameDefinition body api_v0.DomainNameDefinition true "DomainNameDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -165,7 +164,7 @@ func (h Handler) GetDomainNameDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param domainNameDefinition body v0.DomainNameDefinition true "DomainNameDefinition object"
+// @Param domainNameDefinition body api_v0.DomainNameDefinition true "DomainNameDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -217,7 +216,7 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param domainNameDefinition body v0.DomainNameDefinition true "DomainNameDefinition object"
+// @Param domainNameDefinition body api_v0.DomainNameDefinition true "DomainNameDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -321,10 +320,10 @@ func (h Handler) DeleteDomainNameDefinition(c echo.Context) error {
 // @Description Get the supported API versions for domain name instances.
 // @ID domainNameInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /domain-name-instances/versions [GET]
 func (h Handler) GetDomainNameInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeDomainNameInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeDomainNameInstance)])
 }
 
 // @Summary adds a new domain name instance.
@@ -332,7 +331,7 @@ func (h Handler) GetDomainNameInstanceVersions(c echo.Context) error {
 // @ID add-v0-domainNameInstance
 // @Accept json
 // @Produce json
-// @Param domainNameInstance body v0.DomainNameInstance true "DomainNameInstance object"
+// @Param domainNameInstance body api_v0.DomainNameInstance true "DomainNameInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -475,7 +474,7 @@ func (h Handler) GetDomainNameInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param domainNameInstance body v0.DomainNameInstance true "DomainNameInstance object"
+// @Param domainNameInstance body api_v0.DomainNameInstance true "DomainNameInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -540,7 +539,7 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param domainNameInstance body v0.DomainNameInstance true "DomainNameInstance object"
+// @Param domainNameInstance body api_v0.DomainNameInstance true "DomainNameInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -675,10 +674,10 @@ func (h Handler) DeleteDomainNameInstance(c echo.Context) error {
 // @Description Get the supported API versions for gateway definitions.
 // @ID gatewayDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /gateway-definitions/versions [GET]
 func (h Handler) GetGatewayDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeGatewayDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeGatewayDefinition)])
 }
 
 // @Summary adds a new gateway definition.
@@ -686,7 +685,7 @@ func (h Handler) GetGatewayDefinitionVersions(c echo.Context) error {
 // @ID add-v0-gatewayDefinition
 // @Accept json
 // @Produce json
-// @Param gatewayDefinition body v0.GatewayDefinition true "GatewayDefinition object"
+// @Param gatewayDefinition body api_v0.GatewayDefinition true "GatewayDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -829,7 +828,7 @@ func (h Handler) GetGatewayDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param gatewayDefinition body v0.GatewayDefinition true "GatewayDefinition object"
+// @Param gatewayDefinition body api_v0.GatewayDefinition true "GatewayDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -894,7 +893,7 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param gatewayDefinition body v0.GatewayDefinition true "GatewayDefinition object"
+// @Param gatewayDefinition body api_v0.GatewayDefinition true "GatewayDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1035,10 +1034,10 @@ func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
 // @Description Get the supported API versions for gateway http ports.
 // @ID gatewayHttpPort-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /gateway-http-ports/versions [GET]
 func (h Handler) GetGatewayHttpPortVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeGatewayHttpPort)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeGatewayHttpPort)])
 }
 
 // @Summary adds a new gateway http port.
@@ -1046,7 +1045,7 @@ func (h Handler) GetGatewayHttpPortVersions(c echo.Context) error {
 // @ID add-v0-gatewayHttpPort
 // @Accept json
 // @Produce json
-// @Param gatewayHttpPort body v0.GatewayHttpPort true "GatewayHttpPort object"
+// @Param gatewayHttpPort body api_v0.GatewayHttpPort true "GatewayHttpPort object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1161,7 +1160,7 @@ func (h Handler) GetGatewayHttpPort(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param gatewayHttpPort body v0.GatewayHttpPort true "GatewayHttpPort object"
+// @Param gatewayHttpPort body api_v0.GatewayHttpPort true "GatewayHttpPort object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1213,7 +1212,7 @@ func (h Handler) UpdateGatewayHttpPort(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param gatewayHttpPort body v0.GatewayHttpPort true "GatewayHttpPort object"
+// @Param gatewayHttpPort body api_v0.GatewayHttpPort true "GatewayHttpPort object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1311,10 +1310,10 @@ func (h Handler) DeleteGatewayHttpPort(c echo.Context) error {
 // @Description Get the supported API versions for gateway instances.
 // @ID gatewayInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /gateway-instances/versions [GET]
 func (h Handler) GetGatewayInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeGatewayInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeGatewayInstance)])
 }
 
 // @Summary adds a new gateway instance.
@@ -1322,7 +1321,7 @@ func (h Handler) GetGatewayInstanceVersions(c echo.Context) error {
 // @ID add-v0-gatewayInstance
 // @Accept json
 // @Produce json
-// @Param gatewayInstance body v0.GatewayInstance true "GatewayInstance object"
+// @Param gatewayInstance body api_v0.GatewayInstance true "GatewayInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1465,7 +1464,7 @@ func (h Handler) GetGatewayInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param gatewayInstance body v0.GatewayInstance true "GatewayInstance object"
+// @Param gatewayInstance body api_v0.GatewayInstance true "GatewayInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1530,7 +1529,7 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param gatewayInstance body v0.GatewayInstance true "GatewayInstance object"
+// @Param gatewayInstance body api_v0.GatewayInstance true "GatewayInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1665,10 +1664,10 @@ func (h Handler) DeleteGatewayInstance(c echo.Context) error {
 // @Description Get the supported API versions for gateway tcp ports.
 // @ID gatewayTcpPort-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /gateway-tcp-ports/versions [GET]
 func (h Handler) GetGatewayTcpPortVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeGatewayTcpPort)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeGatewayTcpPort)])
 }
 
 // @Summary adds a new gateway tcp port.
@@ -1676,7 +1675,7 @@ func (h Handler) GetGatewayTcpPortVersions(c echo.Context) error {
 // @ID add-v0-gatewayTcpPort
 // @Accept json
 // @Produce json
-// @Param gatewayTcpPort body v0.GatewayTcpPort true "GatewayTcpPort object"
+// @Param gatewayTcpPort body api_v0.GatewayTcpPort true "GatewayTcpPort object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1791,7 +1790,7 @@ func (h Handler) GetGatewayTcpPort(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param gatewayTcpPort body v0.GatewayTcpPort true "GatewayTcpPort object"
+// @Param gatewayTcpPort body api_v0.GatewayTcpPort true "GatewayTcpPort object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1843,7 +1842,7 @@ func (h Handler) UpdateGatewayTcpPort(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param gatewayTcpPort body v0.GatewayTcpPort true "GatewayTcpPort object"
+// @Param gatewayTcpPort body api_v0.GatewayTcpPort true "GatewayTcpPort object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"

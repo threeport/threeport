@@ -7,7 +7,6 @@ import (
 	"fmt"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/helm-workload/notif"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -24,10 +23,10 @@ import (
 // @Description Get the supported API versions for helm workload definitions.
 // @ID helmWorkloadDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /helm-workload-definitions/versions [GET]
 func (h Handler) GetHelmWorkloadDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeHelmWorkloadDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeHelmWorkloadDefinition)])
 }
 
 // @Summary adds a new helm workload definition.
@@ -35,7 +34,7 @@ func (h Handler) GetHelmWorkloadDefinitionVersions(c echo.Context) error {
 // @ID add-v0-helmWorkloadDefinition
 // @Accept json
 // @Produce json
-// @Param helmWorkloadDefinition body v0.HelmWorkloadDefinition true "HelmWorkloadDefinition object"
+// @Param helmWorkloadDefinition body api_v0.HelmWorkloadDefinition true "HelmWorkloadDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -178,7 +177,7 @@ func (h Handler) GetHelmWorkloadDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param helmWorkloadDefinition body v0.HelmWorkloadDefinition true "HelmWorkloadDefinition object"
+// @Param helmWorkloadDefinition body api_v0.HelmWorkloadDefinition true "HelmWorkloadDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -243,7 +242,7 @@ func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param helmWorkloadDefinition body v0.HelmWorkloadDefinition true "HelmWorkloadDefinition object"
+// @Param helmWorkloadDefinition body api_v0.HelmWorkloadDefinition true "HelmWorkloadDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -384,10 +383,10 @@ func (h Handler) DeleteHelmWorkloadDefinition(c echo.Context) error {
 // @Description Get the supported API versions for helm workload instances.
 // @ID helmWorkloadInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /helm-workload-instances/versions [GET]
 func (h Handler) GetHelmWorkloadInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeHelmWorkloadInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeHelmWorkloadInstance)])
 }
 
 // @Summary adds a new helm workload instance.
@@ -395,7 +394,7 @@ func (h Handler) GetHelmWorkloadInstanceVersions(c echo.Context) error {
 // @ID add-v0-helmWorkloadInstance
 // @Accept json
 // @Produce json
-// @Param helmWorkloadInstance body v0.HelmWorkloadInstance true "HelmWorkloadInstance object"
+// @Param helmWorkloadInstance body api_v0.HelmWorkloadInstance true "HelmWorkloadInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -538,7 +537,7 @@ func (h Handler) GetHelmWorkloadInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param helmWorkloadInstance body v0.HelmWorkloadInstance true "HelmWorkloadInstance object"
+// @Param helmWorkloadInstance body api_v0.HelmWorkloadInstance true "HelmWorkloadInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -603,7 +602,7 @@ func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param helmWorkloadInstance body v0.HelmWorkloadInstance true "HelmWorkloadInstance object"
+// @Param helmWorkloadInstance body api_v0.HelmWorkloadInstance true "HelmWorkloadInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"

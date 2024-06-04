@@ -5,7 +5,6 @@ package handlers
 import (
 	"errors"
 	echo "github.com/labstack/echo/v4"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	gorm "gorm.io/gorm"
@@ -20,10 +19,10 @@ import (
 // @Description Get the supported API versions for log backends.
 // @ID logBackend-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /log-backends/versions [GET]
 func (h Handler) GetLogBackendVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeLogBackend)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeLogBackend)])
 }
 
 // @Summary adds a new log backend.
@@ -31,7 +30,7 @@ func (h Handler) GetLogBackendVersions(c echo.Context) error {
 // @ID add-v0-logBackend
 // @Accept json
 // @Produce json
-// @Param logBackend body v0.LogBackend true "LogBackend object"
+// @Param logBackend body api_v0.LogBackend true "LogBackend object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -161,7 +160,7 @@ func (h Handler) GetLogBackend(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param logBackend body v0.LogBackend true "LogBackend object"
+// @Param logBackend body api_v0.LogBackend true "LogBackend object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -213,7 +212,7 @@ func (h Handler) UpdateLogBackend(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param logBackend body v0.LogBackend true "LogBackend object"
+// @Param logBackend body api_v0.LogBackend true "LogBackend object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -311,10 +310,10 @@ func (h Handler) DeleteLogBackend(c echo.Context) error {
 // @Description Get the supported API versions for log storage definitions.
 // @ID logStorageDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /log-storage-definitions/versions [GET]
 func (h Handler) GetLogStorageDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeLogStorageDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeLogStorageDefinition)])
 }
 
 // @Summary adds a new log storage definition.
@@ -322,7 +321,7 @@ func (h Handler) GetLogStorageDefinitionVersions(c echo.Context) error {
 // @ID add-v0-logStorageDefinition
 // @Accept json
 // @Produce json
-// @Param logStorageDefinition body v0.LogStorageDefinition true "LogStorageDefinition object"
+// @Param logStorageDefinition body api_v0.LogStorageDefinition true "LogStorageDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -452,7 +451,7 @@ func (h Handler) GetLogStorageDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param logStorageDefinition body v0.LogStorageDefinition true "LogStorageDefinition object"
+// @Param logStorageDefinition body api_v0.LogStorageDefinition true "LogStorageDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -504,7 +503,7 @@ func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param logStorageDefinition body v0.LogStorageDefinition true "LogStorageDefinition object"
+// @Param logStorageDefinition body api_v0.LogStorageDefinition true "LogStorageDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -608,10 +607,10 @@ func (h Handler) DeleteLogStorageDefinition(c echo.Context) error {
 // @Description Get the supported API versions for log storage instances.
 // @ID logStorageInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /log-storage-instances/versions [GET]
 func (h Handler) GetLogStorageInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeLogStorageInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeLogStorageInstance)])
 }
 
 // @Summary adds a new log storage instance.
@@ -619,7 +618,7 @@ func (h Handler) GetLogStorageInstanceVersions(c echo.Context) error {
 // @ID add-v0-logStorageInstance
 // @Accept json
 // @Produce json
-// @Param logStorageInstance body v0.LogStorageInstance true "LogStorageInstance object"
+// @Param logStorageInstance body api_v0.LogStorageInstance true "LogStorageInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -749,7 +748,7 @@ func (h Handler) GetLogStorageInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param logStorageInstance body v0.LogStorageInstance true "LogStorageInstance object"
+// @Param logStorageInstance body api_v0.LogStorageInstance true "LogStorageInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -801,7 +800,7 @@ func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param logStorageInstance body v0.LogStorageInstance true "LogStorageInstance object"
+// @Param logStorageInstance body api_v0.LogStorageInstance true "LogStorageInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"

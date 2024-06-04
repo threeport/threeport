@@ -7,7 +7,6 @@ import (
 	"fmt"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/aws/notif"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -24,10 +23,10 @@ import (
 // @Description Get the supported API versions for aws accounts.
 // @ID awsAccount-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /aws-accounts/versions [GET]
 func (h Handler) GetAwsAccountVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeAwsAccount)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAwsAccount)])
 }
 
 // @Summary adds a new aws account.
@@ -35,7 +34,7 @@ func (h Handler) GetAwsAccountVersions(c echo.Context) error {
 // @ID add-v0-awsAccount
 // @Accept json
 // @Produce json
-// @Param awsAccount body v0.AwsAccount true "AwsAccount object"
+// @Param awsAccount body api_v0.AwsAccount true "AwsAccount object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -165,7 +164,7 @@ func (h Handler) GetAwsAccount(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsAccount body v0.AwsAccount true "AwsAccount object"
+// @Param awsAccount body api_v0.AwsAccount true "AwsAccount object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -217,7 +216,7 @@ func (h Handler) UpdateAwsAccount(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsAccount body v0.AwsAccount true "AwsAccount object"
+// @Param awsAccount body api_v0.AwsAccount true "AwsAccount object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -315,10 +314,10 @@ func (h Handler) DeleteAwsAccount(c echo.Context) error {
 // @Description Get the supported API versions for aws eks kubernetes runtime definitions.
 // @ID awsEksKubernetesRuntimeDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /aws-eks-kubernetes-runtime-definitions/versions [GET]
 func (h Handler) GetAwsEksKubernetesRuntimeDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeAwsEksKubernetesRuntimeDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAwsEksKubernetesRuntimeDefinition)])
 }
 
 // @Summary adds a new aws eks kubernetes runtime definition.
@@ -326,7 +325,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinitionVersions(c echo.Context) er
 // @ID add-v0-awsEksKubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
-// @Param awsEksKubernetesRuntimeDefinition body v0.AwsEksKubernetesRuntimeDefinition true "AwsEksKubernetesRuntimeDefinition object"
+// @Param awsEksKubernetesRuntimeDefinition body api_v0.AwsEksKubernetesRuntimeDefinition true "AwsEksKubernetesRuntimeDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -456,7 +455,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsEksKubernetesRuntimeDefinition body v0.AwsEksKubernetesRuntimeDefinition true "AwsEksKubernetesRuntimeDefinition object"
+// @Param awsEksKubernetesRuntimeDefinition body api_v0.AwsEksKubernetesRuntimeDefinition true "AwsEksKubernetesRuntimeDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -508,7 +507,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsEksKubernetesRuntimeDefinition body v0.AwsEksKubernetesRuntimeDefinition true "AwsEksKubernetesRuntimeDefinition object"
+// @Param awsEksKubernetesRuntimeDefinition body api_v0.AwsEksKubernetesRuntimeDefinition true "AwsEksKubernetesRuntimeDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -612,10 +611,10 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 // @Description Get the supported API versions for aws eks kubernetes runtime instances.
 // @ID awsEksKubernetesRuntimeInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /aws-eks-kubernetes-runtime-instances/versions [GET]
 func (h Handler) GetAwsEksKubernetesRuntimeInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeAwsEksKubernetesRuntimeInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAwsEksKubernetesRuntimeInstance)])
 }
 
 // @Summary adds a new aws eks kubernetes runtime instance.
@@ -623,7 +622,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstanceVersions(c echo.Context) erro
 // @ID add-v0-awsEksKubernetesRuntimeInstance
 // @Accept json
 // @Produce json
-// @Param awsEksKubernetesRuntimeInstance body v0.AwsEksKubernetesRuntimeInstance true "AwsEksKubernetesRuntimeInstance object"
+// @Param awsEksKubernetesRuntimeInstance body api_v0.AwsEksKubernetesRuntimeInstance true "AwsEksKubernetesRuntimeInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -766,7 +765,7 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsEksKubernetesRuntimeInstance body v0.AwsEksKubernetesRuntimeInstance true "AwsEksKubernetesRuntimeInstance object"
+// @Param awsEksKubernetesRuntimeInstance body api_v0.AwsEksKubernetesRuntimeInstance true "AwsEksKubernetesRuntimeInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -831,7 +830,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsEksKubernetesRuntimeInstance body v0.AwsEksKubernetesRuntimeInstance true "AwsEksKubernetesRuntimeInstance object"
+// @Param awsEksKubernetesRuntimeInstance body api_v0.AwsEksKubernetesRuntimeInstance true "AwsEksKubernetesRuntimeInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -966,10 +965,10 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 // @Description Get the supported API versions for aws object storage bucket definitions.
 // @ID awsObjectStorageBucketDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /aws-object-storage-bucket-definitions/versions [GET]
 func (h Handler) GetAwsObjectStorageBucketDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeAwsObjectStorageBucketDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAwsObjectStorageBucketDefinition)])
 }
 
 // @Summary adds a new aws object storage bucket definition.
@@ -977,7 +976,7 @@ func (h Handler) GetAwsObjectStorageBucketDefinitionVersions(c echo.Context) err
 // @ID add-v0-awsObjectStorageBucketDefinition
 // @Accept json
 // @Produce json
-// @Param awsObjectStorageBucketDefinition body v0.AwsObjectStorageBucketDefinition true "AwsObjectStorageBucketDefinition object"
+// @Param awsObjectStorageBucketDefinition body api_v0.AwsObjectStorageBucketDefinition true "AwsObjectStorageBucketDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1107,7 +1106,7 @@ func (h Handler) GetAwsObjectStorageBucketDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsObjectStorageBucketDefinition body v0.AwsObjectStorageBucketDefinition true "AwsObjectStorageBucketDefinition object"
+// @Param awsObjectStorageBucketDefinition body api_v0.AwsObjectStorageBucketDefinition true "AwsObjectStorageBucketDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1159,7 +1158,7 @@ func (h Handler) UpdateAwsObjectStorageBucketDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsObjectStorageBucketDefinition body v0.AwsObjectStorageBucketDefinition true "AwsObjectStorageBucketDefinition object"
+// @Param awsObjectStorageBucketDefinition body api_v0.AwsObjectStorageBucketDefinition true "AwsObjectStorageBucketDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1263,10 +1262,10 @@ func (h Handler) DeleteAwsObjectStorageBucketDefinition(c echo.Context) error {
 // @Description Get the supported API versions for aws object storage bucket instances.
 // @ID awsObjectStorageBucketInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /aws-object-storage-bucket-instances/versions [GET]
 func (h Handler) GetAwsObjectStorageBucketInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeAwsObjectStorageBucketInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAwsObjectStorageBucketInstance)])
 }
 
 // @Summary adds a new aws object storage bucket instance.
@@ -1274,7 +1273,7 @@ func (h Handler) GetAwsObjectStorageBucketInstanceVersions(c echo.Context) error
 // @ID add-v0-awsObjectStorageBucketInstance
 // @Accept json
 // @Produce json
-// @Param awsObjectStorageBucketInstance body v0.AwsObjectStorageBucketInstance true "AwsObjectStorageBucketInstance object"
+// @Param awsObjectStorageBucketInstance body api_v0.AwsObjectStorageBucketInstance true "AwsObjectStorageBucketInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1417,7 +1416,7 @@ func (h Handler) GetAwsObjectStorageBucketInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsObjectStorageBucketInstance body v0.AwsObjectStorageBucketInstance true "AwsObjectStorageBucketInstance object"
+// @Param awsObjectStorageBucketInstance body api_v0.AwsObjectStorageBucketInstance true "AwsObjectStorageBucketInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1482,7 +1481,7 @@ func (h Handler) UpdateAwsObjectStorageBucketInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsObjectStorageBucketInstance body v0.AwsObjectStorageBucketInstance true "AwsObjectStorageBucketInstance object"
+// @Param awsObjectStorageBucketInstance body api_v0.AwsObjectStorageBucketInstance true "AwsObjectStorageBucketInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1617,10 +1616,10 @@ func (h Handler) DeleteAwsObjectStorageBucketInstance(c echo.Context) error {
 // @Description Get the supported API versions for aws relational database definitions.
 // @ID awsRelationalDatabaseDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /aws-relational-database-definitions/versions [GET]
 func (h Handler) GetAwsRelationalDatabaseDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeAwsRelationalDatabaseDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAwsRelationalDatabaseDefinition)])
 }
 
 // @Summary adds a new aws relational database definition.
@@ -1628,7 +1627,7 @@ func (h Handler) GetAwsRelationalDatabaseDefinitionVersions(c echo.Context) erro
 // @ID add-v0-awsRelationalDatabaseDefinition
 // @Accept json
 // @Produce json
-// @Param awsRelationalDatabaseDefinition body v0.AwsRelationalDatabaseDefinition true "AwsRelationalDatabaseDefinition object"
+// @Param awsRelationalDatabaseDefinition body api_v0.AwsRelationalDatabaseDefinition true "AwsRelationalDatabaseDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1758,7 +1757,7 @@ func (h Handler) GetAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsRelationalDatabaseDefinition body v0.AwsRelationalDatabaseDefinition true "AwsRelationalDatabaseDefinition object"
+// @Param awsRelationalDatabaseDefinition body api_v0.AwsRelationalDatabaseDefinition true "AwsRelationalDatabaseDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1810,7 +1809,7 @@ func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsRelationalDatabaseDefinition body v0.AwsRelationalDatabaseDefinition true "AwsRelationalDatabaseDefinition object"
+// @Param awsRelationalDatabaseDefinition body api_v0.AwsRelationalDatabaseDefinition true "AwsRelationalDatabaseDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1914,10 +1913,10 @@ func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
 // @Description Get the supported API versions for aws relational database instances.
 // @ID awsRelationalDatabaseInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /aws-relational-database-instances/versions [GET]
 func (h Handler) GetAwsRelationalDatabaseInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeAwsRelationalDatabaseInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAwsRelationalDatabaseInstance)])
 }
 
 // @Summary adds a new aws relational database instance.
@@ -1925,7 +1924,7 @@ func (h Handler) GetAwsRelationalDatabaseInstanceVersions(c echo.Context) error 
 // @ID add-v0-awsRelationalDatabaseInstance
 // @Accept json
 // @Produce json
-// @Param awsRelationalDatabaseInstance body v0.AwsRelationalDatabaseInstance true "AwsRelationalDatabaseInstance object"
+// @Param awsRelationalDatabaseInstance body api_v0.AwsRelationalDatabaseInstance true "AwsRelationalDatabaseInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -2068,7 +2067,7 @@ func (h Handler) GetAwsRelationalDatabaseInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsRelationalDatabaseInstance body v0.AwsRelationalDatabaseInstance true "AwsRelationalDatabaseInstance object"
+// @Param awsRelationalDatabaseInstance body api_v0.AwsRelationalDatabaseInstance true "AwsRelationalDatabaseInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -2133,7 +2132,7 @@ func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param awsRelationalDatabaseInstance body v0.AwsRelationalDatabaseInstance true "AwsRelationalDatabaseInstance object"
+// @Param awsRelationalDatabaseInstance body api_v0.AwsRelationalDatabaseInstance true "AwsRelationalDatabaseInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"

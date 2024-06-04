@@ -3,7 +3,6 @@
 package versions
 
 import (
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	apiserver_v0 "github.com/threeport/threeport/pkg/api-server/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -39,7 +38,7 @@ func AddDomainNameDefinitionVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.DomainNameDefinitionTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddDomainNameInstanceVersions adds field validation info and adds it
@@ -71,7 +70,7 @@ func AddDomainNameInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.DomainNameInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddGatewayDefinitionVersions adds field validation info and adds it
@@ -103,7 +102,7 @@ func AddGatewayDefinitionVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.GatewayDefinitionTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddGatewayHttpPortVersions adds field validation info and adds it
@@ -135,7 +134,7 @@ func AddGatewayHttpPortVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.GatewayHttpPortTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddGatewayInstanceVersions adds field validation info and adds it
@@ -167,7 +166,7 @@ func AddGatewayInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.GatewayInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddGatewayTcpPortVersions adds field validation info and adds it
@@ -199,5 +198,5 @@ func AddGatewayTcpPortVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.GatewayTcpPortTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }

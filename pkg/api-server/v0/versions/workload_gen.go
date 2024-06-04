@@ -3,7 +3,6 @@
 package versions
 
 import (
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	apiserver_v0 "github.com/threeport/threeport/pkg/api-server/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -39,7 +38,7 @@ func AddAttachedObjectReferenceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.AttachedObjectReferenceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddWorkloadDefinitionVersions adds field validation info and adds it
@@ -71,7 +70,7 @@ func AddWorkloadDefinitionVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.WorkloadDefinitionTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddWorkloadEventVersions adds field validation info and adds it
@@ -103,7 +102,7 @@ func AddWorkloadEventVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.WorkloadEventTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddWorkloadInstanceVersions adds field validation info and adds it
@@ -135,7 +134,7 @@ func AddWorkloadInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.WorkloadInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddWorkloadResourceDefinitionVersions adds field validation info and adds it
@@ -167,7 +166,7 @@ func AddWorkloadResourceDefinitionVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.WorkloadResourceDefinitionTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddWorkloadResourceInstanceVersions adds field validation info and adds it
@@ -199,5 +198,5 @@ func AddWorkloadResourceInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.WorkloadResourceInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }

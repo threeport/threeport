@@ -7,7 +7,6 @@ import (
 	"fmt"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/observability/notif"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -24,10 +23,10 @@ import (
 // @Description Get the supported API versions for logging definitions.
 // @ID loggingDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /logging-definitions/versions [GET]
 func (h Handler) GetLoggingDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeLoggingDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeLoggingDefinition)])
 }
 
 // @Summary adds a new logging definition.
@@ -35,7 +34,7 @@ func (h Handler) GetLoggingDefinitionVersions(c echo.Context) error {
 // @ID add-v0-loggingDefinition
 // @Accept json
 // @Produce json
-// @Param loggingDefinition body v0.LoggingDefinition true "LoggingDefinition object"
+// @Param loggingDefinition body api_v0.LoggingDefinition true "LoggingDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -178,7 +177,7 @@ func (h Handler) GetLoggingDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param loggingDefinition body v0.LoggingDefinition true "LoggingDefinition object"
+// @Param loggingDefinition body api_v0.LoggingDefinition true "LoggingDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -243,7 +242,7 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param loggingDefinition body v0.LoggingDefinition true "LoggingDefinition object"
+// @Param loggingDefinition body api_v0.LoggingDefinition true "LoggingDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -384,10 +383,10 @@ func (h Handler) DeleteLoggingDefinition(c echo.Context) error {
 // @Description Get the supported API versions for logging instances.
 // @ID loggingInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /logging-instances/versions [GET]
 func (h Handler) GetLoggingInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeLoggingInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeLoggingInstance)])
 }
 
 // @Summary adds a new logging instance.
@@ -395,7 +394,7 @@ func (h Handler) GetLoggingInstanceVersions(c echo.Context) error {
 // @ID add-v0-loggingInstance
 // @Accept json
 // @Produce json
-// @Param loggingInstance body v0.LoggingInstance true "LoggingInstance object"
+// @Param loggingInstance body api_v0.LoggingInstance true "LoggingInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -538,7 +537,7 @@ func (h Handler) GetLoggingInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param loggingInstance body v0.LoggingInstance true "LoggingInstance object"
+// @Param loggingInstance body api_v0.LoggingInstance true "LoggingInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -603,7 +602,7 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param loggingInstance body v0.LoggingInstance true "LoggingInstance object"
+// @Param loggingInstance body api_v0.LoggingInstance true "LoggingInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -738,10 +737,10 @@ func (h Handler) DeleteLoggingInstance(c echo.Context) error {
 // @Description Get the supported API versions for metrics definitions.
 // @ID metricsDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /metrics-definitions/versions [GET]
 func (h Handler) GetMetricsDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeMetricsDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeMetricsDefinition)])
 }
 
 // @Summary adds a new metrics definition.
@@ -749,7 +748,7 @@ func (h Handler) GetMetricsDefinitionVersions(c echo.Context) error {
 // @ID add-v0-metricsDefinition
 // @Accept json
 // @Produce json
-// @Param metricsDefinition body v0.MetricsDefinition true "MetricsDefinition object"
+// @Param metricsDefinition body api_v0.MetricsDefinition true "MetricsDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -892,7 +891,7 @@ func (h Handler) GetMetricsDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param metricsDefinition body v0.MetricsDefinition true "MetricsDefinition object"
+// @Param metricsDefinition body api_v0.MetricsDefinition true "MetricsDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -957,7 +956,7 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param metricsDefinition body v0.MetricsDefinition true "MetricsDefinition object"
+// @Param metricsDefinition body api_v0.MetricsDefinition true "MetricsDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1098,10 +1097,10 @@ func (h Handler) DeleteMetricsDefinition(c echo.Context) error {
 // @Description Get the supported API versions for metrics instances.
 // @ID metricsInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /metrics-instances/versions [GET]
 func (h Handler) GetMetricsInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeMetricsInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeMetricsInstance)])
 }
 
 // @Summary adds a new metrics instance.
@@ -1109,7 +1108,7 @@ func (h Handler) GetMetricsInstanceVersions(c echo.Context) error {
 // @ID add-v0-metricsInstance
 // @Accept json
 // @Produce json
-// @Param metricsInstance body v0.MetricsInstance true "MetricsInstance object"
+// @Param metricsInstance body api_v0.MetricsInstance true "MetricsInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1252,7 +1251,7 @@ func (h Handler) GetMetricsInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param metricsInstance body v0.MetricsInstance true "MetricsInstance object"
+// @Param metricsInstance body api_v0.MetricsInstance true "MetricsInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1317,7 +1316,7 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param metricsInstance body v0.MetricsInstance true "MetricsInstance object"
+// @Param metricsInstance body api_v0.MetricsInstance true "MetricsInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1452,10 +1451,10 @@ func (h Handler) DeleteMetricsInstance(c echo.Context) error {
 // @Description Get the supported API versions for observability dashboard definitions.
 // @ID observabilityDashboardDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /observability-dashboard-definitions/versions [GET]
 func (h Handler) GetObservabilityDashboardDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeObservabilityDashboardDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeObservabilityDashboardDefinition)])
 }
 
 // @Summary adds a new observability dashboard definition.
@@ -1463,7 +1462,7 @@ func (h Handler) GetObservabilityDashboardDefinitionVersions(c echo.Context) err
 // @ID add-v0-observabilityDashboardDefinition
 // @Accept json
 // @Produce json
-// @Param observabilityDashboardDefinition body v0.ObservabilityDashboardDefinition true "ObservabilityDashboardDefinition object"
+// @Param observabilityDashboardDefinition body api_v0.ObservabilityDashboardDefinition true "ObservabilityDashboardDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1606,7 +1605,7 @@ func (h Handler) GetObservabilityDashboardDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param observabilityDashboardDefinition body v0.ObservabilityDashboardDefinition true "ObservabilityDashboardDefinition object"
+// @Param observabilityDashboardDefinition body api_v0.ObservabilityDashboardDefinition true "ObservabilityDashboardDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1671,7 +1670,7 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param observabilityDashboardDefinition body v0.ObservabilityDashboardDefinition true "ObservabilityDashboardDefinition object"
+// @Param observabilityDashboardDefinition body api_v0.ObservabilityDashboardDefinition true "ObservabilityDashboardDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -1812,10 +1811,10 @@ func (h Handler) DeleteObservabilityDashboardDefinition(c echo.Context) error {
 // @Description Get the supported API versions for observability dashboard instances.
 // @ID observabilityDashboardInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /observability-dashboard-instances/versions [GET]
 func (h Handler) GetObservabilityDashboardInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeObservabilityDashboardInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeObservabilityDashboardInstance)])
 }
 
 // @Summary adds a new observability dashboard instance.
@@ -1823,7 +1822,7 @@ func (h Handler) GetObservabilityDashboardInstanceVersions(c echo.Context) error
 // @ID add-v0-observabilityDashboardInstance
 // @Accept json
 // @Produce json
-// @Param observabilityDashboardInstance body v0.ObservabilityDashboardInstance true "ObservabilityDashboardInstance object"
+// @Param observabilityDashboardInstance body api_v0.ObservabilityDashboardInstance true "ObservabilityDashboardInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1966,7 +1965,7 @@ func (h Handler) GetObservabilityDashboardInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param observabilityDashboardInstance body v0.ObservabilityDashboardInstance true "ObservabilityDashboardInstance object"
+// @Param observabilityDashboardInstance body api_v0.ObservabilityDashboardInstance true "ObservabilityDashboardInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -2031,7 +2030,7 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param observabilityDashboardInstance body v0.ObservabilityDashboardInstance true "ObservabilityDashboardInstance object"
+// @Param observabilityDashboardInstance body api_v0.ObservabilityDashboardInstance true "ObservabilityDashboardInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -2166,10 +2165,10 @@ func (h Handler) DeleteObservabilityDashboardInstance(c echo.Context) error {
 // @Description Get the supported API versions for observability stack definitions.
 // @ID observabilityStackDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /observability-stack-definitions/versions [GET]
 func (h Handler) GetObservabilityStackDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeObservabilityStackDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeObservabilityStackDefinition)])
 }
 
 // @Summary adds a new observability stack definition.
@@ -2177,7 +2176,7 @@ func (h Handler) GetObservabilityStackDefinitionVersions(c echo.Context) error {
 // @ID add-v0-observabilityStackDefinition
 // @Accept json
 // @Produce json
-// @Param observabilityStackDefinition body v0.ObservabilityStackDefinition true "ObservabilityStackDefinition object"
+// @Param observabilityStackDefinition body api_v0.ObservabilityStackDefinition true "ObservabilityStackDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -2320,7 +2319,7 @@ func (h Handler) GetObservabilityStackDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param observabilityStackDefinition body v0.ObservabilityStackDefinition true "ObservabilityStackDefinition object"
+// @Param observabilityStackDefinition body api_v0.ObservabilityStackDefinition true "ObservabilityStackDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -2385,7 +2384,7 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param observabilityStackDefinition body v0.ObservabilityStackDefinition true "ObservabilityStackDefinition object"
+// @Param observabilityStackDefinition body api_v0.ObservabilityStackDefinition true "ObservabilityStackDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -2526,10 +2525,10 @@ func (h Handler) DeleteObservabilityStackDefinition(c echo.Context) error {
 // @Description Get the supported API versions for observability stack instances.
 // @ID observabilityStackInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /observability-stack-instances/versions [GET]
 func (h Handler) GetObservabilityStackInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeObservabilityStackInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeObservabilityStackInstance)])
 }
 
 // @Summary adds a new observability stack instance.
@@ -2537,7 +2536,7 @@ func (h Handler) GetObservabilityStackInstanceVersions(c echo.Context) error {
 // @ID add-v0-observabilityStackInstance
 // @Accept json
 // @Produce json
-// @Param observabilityStackInstance body v0.ObservabilityStackInstance true "ObservabilityStackInstance object"
+// @Param observabilityStackInstance body api_v0.ObservabilityStackInstance true "ObservabilityStackInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -2680,7 +2679,7 @@ func (h Handler) GetObservabilityStackInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param observabilityStackInstance body v0.ObservabilityStackInstance true "ObservabilityStackInstance object"
+// @Param observabilityStackInstance body api_v0.ObservabilityStackInstance true "ObservabilityStackInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -2745,7 +2744,7 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param observabilityStackInstance body v0.ObservabilityStackInstance true "ObservabilityStackInstance object"
+// @Param observabilityStackInstance body api_v0.ObservabilityStackInstance true "ObservabilityStackInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"

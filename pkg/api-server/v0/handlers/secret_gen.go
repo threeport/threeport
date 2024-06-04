@@ -7,7 +7,6 @@ import (
 	"fmt"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/secret/notif"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -24,10 +23,10 @@ import (
 // @Description Get the supported API versions for secret definitions.
 // @ID secretDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /secret-definitions/versions [GET]
 func (h Handler) GetSecretDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeSecretDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeSecretDefinition)])
 }
 
 // @Summary adds a new secret definition.
@@ -35,7 +34,7 @@ func (h Handler) GetSecretDefinitionVersions(c echo.Context) error {
 // @ID add-v0-secretDefinition
 // @Accept json
 // @Produce json
-// @Param secretDefinition body v0.SecretDefinition true "SecretDefinition object"
+// @Param secretDefinition body api_v0.SecretDefinition true "SecretDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -178,7 +177,7 @@ func (h Handler) GetSecretDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param secretDefinition body v0.SecretDefinition true "SecretDefinition object"
+// @Param secretDefinition body api_v0.SecretDefinition true "SecretDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -243,7 +242,7 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param secretDefinition body v0.SecretDefinition true "SecretDefinition object"
+// @Param secretDefinition body api_v0.SecretDefinition true "SecretDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -384,10 +383,10 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 // @Description Get the supported API versions for secret instances.
 // @ID secretInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /secret-instances/versions [GET]
 func (h Handler) GetSecretInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeSecretInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeSecretInstance)])
 }
 
 // @Summary adds a new secret instance.
@@ -395,7 +394,7 @@ func (h Handler) GetSecretInstanceVersions(c echo.Context) error {
 // @ID add-v0-secretInstance
 // @Accept json
 // @Produce json
-// @Param secretInstance body v0.SecretInstance true "SecretInstance object"
+// @Param secretInstance body api_v0.SecretInstance true "SecretInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -538,7 +537,7 @@ func (h Handler) GetSecretInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param secretInstance body v0.SecretInstance true "SecretInstance object"
+// @Param secretInstance body api_v0.SecretInstance true "SecretInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -603,7 +602,7 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param secretInstance body v0.SecretInstance true "SecretInstance object"
+// @Param secretInstance body api_v0.SecretInstance true "SecretInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"

@@ -3,7 +3,6 @@
 package versions
 
 import (
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	apiserver_v0 "github.com/threeport/threeport/pkg/api-server/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -39,7 +38,7 @@ func AddAwsAccountVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.AwsAccountTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddAwsEksKubernetesRuntimeDefinitionVersions adds field validation info and adds it
@@ -71,7 +70,7 @@ func AddAwsEksKubernetesRuntimeDefinitionVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.AwsEksKubernetesRuntimeDefinitionTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddAwsEksKubernetesRuntimeInstanceVersions adds field validation info and adds it
@@ -103,7 +102,7 @@ func AddAwsEksKubernetesRuntimeInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.AwsEksKubernetesRuntimeInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddAwsObjectStorageBucketDefinitionVersions adds field validation info and adds it
@@ -135,7 +134,7 @@ func AddAwsObjectStorageBucketDefinitionVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.AwsObjectStorageBucketDefinitionTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddAwsObjectStorageBucketInstanceVersions adds field validation info and adds it
@@ -167,7 +166,7 @@ func AddAwsObjectStorageBucketInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.AwsObjectStorageBucketInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddAwsRelationalDatabaseDefinitionVersions adds field validation info and adds it
@@ -199,7 +198,7 @@ func AddAwsRelationalDatabaseDefinitionVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.AwsRelationalDatabaseDefinitionTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }
 
 // AddAwsRelationalDatabaseInstanceVersions adds field validation info and adds it
@@ -231,5 +230,5 @@ func AddAwsRelationalDatabaseInstanceVersions() {
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.AwsRelationalDatabaseInstanceTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
-	api.AddRestApiVersion(versionObj)
+	apiserver_lib.AddObjectVersion(versionObj)
 }

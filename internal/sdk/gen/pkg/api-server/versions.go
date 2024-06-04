@@ -125,8 +125,8 @@ func GenObjValidationVersions(gen *gen.Generator) error {
 					Line(),
 					Comment("add the object tagged fields to the rest API version"),
 					Qual(
-						"github.com/threeport/threeport/pkg/api",
-						"AddRestApiVersion",
+						"github.com/threeport/threeport/pkg/api-server/lib/v0",
+						"AddObjectVersion",
 					).Call(Id("versionObj")),
 				)
 				f.Line()

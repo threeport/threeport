@@ -24,14 +24,27 @@ func GenHandlers(gen *gen.Generator) error {
 
 			f.ImportAlias("github.com/labstack/echo/v4", "echo")
 			f.ImportAlias("github.com/threeport/threeport/pkg/notifications/v0", "notifications")
+
+			objectImportAlias := fmt.Sprintf("api_%s", objCollection.Version)
 			f.ImportAlias(
 				fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
-				fmt.Sprintf("api_%s", objCollection.Version),
+				objectImportAlias,
 			)
+
+			tpApiServerLibAlias := "apiserver_lib"
+			extApiServerLibAlias := "tpapiserver_lib"
+			var apiServerLibAlias string
+			if gen.Extension {
+				apiServerLibAlias = extApiServerLibAlias
+			} else {
+				apiServerLibAlias = tpApiServerLibAlias
+			}
 			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/api-server/lib/v0",
-				"apiserver_lib",
-				"tpapiserver_lib",
+				tpApiServerLibAlias,
+				//"apiserver_lib",
+				extApiServerLibAlias,
+				//"tpapiserver_lib",
 				gen.Extension,
 			))
 			f.ImportAlias(util.SetImportAlias(
@@ -439,7 +452,10 @@ func GenHandlers(gen *gen.Generator) error {
 					"@ID %s-get-versions", strcase.ToLowerCamel(apiObject.TypeName),
 				))
 				f.Comment("@Produce json")
-				f.Comment("@Success 200 {object} api.RESTAPIVersions \"OK\"")
+				f.Comment(fmt.Sprintf(
+					"@Success 200 {object} %s.ApiObjectVersions \"OK\"",
+					apiServerLibAlias,
+				))
 				f.Comment(fmt.Sprintf(
 					"@Router /%s/versions [GET]", pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
 				))
@@ -457,8 +473,8 @@ func GenHandlers(gen *gen.Generator) error {
 						Id("c").Dot("JSON").Call(
 							Qual("net/http", "StatusOK"),
 							Qual(
-								"github.com/threeport/threeport/pkg/api",
-								"RestapiVersions",
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"ObjectVersions",
 							).Index(String().Call(Qual(
 								fmt.Sprintf(
 									"%s/pkg/api/%s",
@@ -488,21 +504,13 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment(fmt.Sprintf(
 					"@Param %[1]s body %[2]s.%[3]s true \"%[3]s object\"",
 					strcase.ToLowerCamel(apiObject.TypeName),
-					objCollection.Version,
+					//objCollection.Version,
+					objectImportAlias,
 					apiObject.TypeName,
 				))
-				f.Comment(fmt.Sprintf(
-					"@Success 201 {object} %s.Response \"Created\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 400 {object} %s.Response \"Bad Request\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 500 {object} %s.Response \"Internal Server Error\"",
-					objCollection.Version,
-				))
+				f.Comment("@Success 201 {object} v0.Response \"Created\"")
+				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
+				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
 				f.Comment(fmt.Sprintf(
 					"@Router /%s/%s [POST]",
 					objCollection.Version,
@@ -635,18 +643,9 @@ func GenHandlers(gen *gen.Generator) error {
 					"name", // TODO: get fields from model for query params
 					strcase.ToDelimited(apiObject.TypeName, ' '),
 				))
-				f.Comment(fmt.Sprintf(
-					"@Success 200 {object} %s.Response \"OK\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 400 {object} %s.Response \"Bad Request\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 500 {object} %s.Response \"Internal Server Error\"",
-					objCollection.Version,
-				))
+				f.Comment("@Success 200 {object} v0.Response \"OK\"")
+				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
+				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
 				f.Comment(fmt.Sprintf(
 					"@Router /%s/%s [GET]",
 					objCollection.Version,
@@ -786,18 +785,9 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Accept json")
 				f.Comment("@Produce json")
 				f.Comment("@Param id path int true \"ID\"")
-				f.Comment(fmt.Sprintf(
-					"@Success 200 {object} %s.Response \"OK\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 404 {object} %s.Response \"Not Found\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 500 {object} %s.Response \"Internal Server Error\"",
-					objCollection.Version,
-				))
+				f.Comment("@Success 200 {object} v0.Response \"OK\"")
+				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
+				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
 				f.Comment(fmt.Sprintf(
 					"@Router /%s/%s/{id} [GET]",
 					objCollection.Version,
@@ -908,25 +898,14 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment(fmt.Sprintf(
 					"@Param %[1]s body %[2]s.%[3]s true \"%[3]s object\"",
 					strcase.ToLowerCamel(apiObject.TypeName),
-					objCollection.Version,
+					//objCollection.Version,
+					objectImportAlias,
 					apiObject.TypeName,
 				))
-				f.Comment(fmt.Sprintf(
-					"@Success 200 {object} %s.Response \"OK\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 400 {object} %s.Response \"Bad Request\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 404 {object} %s.Response \"Not Found\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 500 {object} %s.Response \"Internal Server Error\"",
-					objCollection.Version,
-				))
+				f.Comment("@Success 200 {object} v0.Response \"OK\"")
+				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
+				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
+				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
 				f.Comment(fmt.Sprintf(
 					"@Router /%s/%s/{id} [PATCH]",
 					objCollection.Version,
@@ -1095,25 +1074,14 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment(fmt.Sprintf(
 					"@Param %[1]s body %[2]s.%[3]s true \"%[3]s object\"",
 					strcase.ToLowerCamel(apiObject.TypeName),
-					objCollection.Version,
+					//objCollection.Version,
+					objectImportAlias,
 					apiObject.TypeName,
 				))
-				f.Comment(fmt.Sprintf(
-					"@Success 200 {object} %s.Response \"OK\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 400 {object} %s.Response \"Bad Request\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 404 {object} %s.Response \"Not Found\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 500 {object} %s.Response \"Internal Server Error\"",
-					objCollection.Version,
-				))
+				f.Comment("@Success 200 {object} v0.Response \"OK\"")
+				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
+				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
+				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
 				f.Comment(fmt.Sprintf(
 					"@Router /%s/%s/{id} [PUT]",
 					objCollection.Version,
@@ -1324,22 +1292,10 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Accept json")
 				f.Comment("@Produce json")
 				f.Comment("@Param id path int true \"ID\"")
-				f.Comment(fmt.Sprintf(
-					"@Success 200 {object} %s.Response \"OK\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 404 {object} %s.Response \"Not Found\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 409 {object} %s.Response \"Conflict\"",
-					objCollection.Version,
-				))
-				f.Comment(fmt.Sprintf(
-					"@Failure 500 {object} %s.Response \"Internal Server Error\"",
-					objCollection.Version,
-				))
+				f.Comment("@Success 200 {object} v0.Response \"OK\"")
+				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
+				f.Comment("@Failure 409 {object} v0.Response \"Conflict\"")
+				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
 				f.Comment(fmt.Sprintf(
 					"@Router /%s/%s/{id} [DELETE]",
 					objCollection.Version,

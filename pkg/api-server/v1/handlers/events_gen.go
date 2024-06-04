@@ -5,7 +5,6 @@ package handlers
 import (
 	"errors"
 	echo "github.com/labstack/echo/v4"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v1 "github.com/threeport/threeport/pkg/api/v1"
 	gorm "gorm.io/gorm"
@@ -20,10 +19,10 @@ import (
 // @Description Get the supported API versions for events.
 // @ID event-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /events/versions [GET]
 func (h Handler) GetEventVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v1.ObjectTypeEvent)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v1.ObjectTypeEvent)])
 }
 
 // @Summary adds a new event.
@@ -31,10 +30,10 @@ func (h Handler) GetEventVersions(c echo.Context) error {
 // @ID add-v1-event
 // @Accept json
 // @Produce json
-// @Param event body v1.Event true "Event object"
-// @Success 201 {object} v1.Response "Created"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Param event body api_v1.Event true "Event object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/events [POST]
 func (h Handler) AddEvent(c echo.Context) error {
 	objectType := api_v1.ObjectTypeEvent
@@ -73,9 +72,9 @@ func (h Handler) AddEvent(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param name query string false "event search by name"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/events [GET]
 func (h Handler) GetEvents(c echo.Context) error {
 	objectType := api_v1.ObjectTypeEvent
@@ -113,9 +112,9 @@ func (h Handler) GetEvents(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/events/{id} [GET]
 func (h Handler) GetEvent(c echo.Context) error {
 	objectType := api_v1.ObjectTypeEvent
@@ -146,11 +145,11 @@ func (h Handler) GetEvent(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param event body v1.Event true "Event object"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Param event body api_v1.Event true "Event object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/events/{id} [PATCH]
 func (h Handler) UpdateEvent(c echo.Context) error {
 	objectType := api_v1.ObjectTypeEvent
@@ -198,11 +197,11 @@ func (h Handler) UpdateEvent(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param event body v1.Event true "Event object"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 400 {object} v1.Response "Bad Request"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Param event body api_v1.Event true "Event object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/events/{id} [PUT]
 func (h Handler) ReplaceEvent(c echo.Context) error {
 	objectType := api_v1.ObjectTypeEvent
@@ -259,10 +258,10 @@ func (h Handler) ReplaceEvent(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Success 200 {object} v1.Response "OK"
-// @Failure 404 {object} v1.Response "Not Found"
-// @Failure 409 {object} v1.Response "Conflict"
-// @Failure 500 {object} v1.Response "Internal Server Error"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v1/events/{id} [DELETE]
 func (h Handler) DeleteEvent(c echo.Context) error {
 	objectType := api_v1.ObjectTypeEvent

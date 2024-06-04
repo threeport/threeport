@@ -7,7 +7,6 @@ import (
 	"fmt"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/kubernetes-runtime/notif"
-	api "github.com/threeport/threeport/pkg/api"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -24,10 +23,10 @@ import (
 // @Description Get the supported API versions for kubernetes runtime definitions.
 // @ID kubernetesRuntimeDefinition-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /kubernetes-runtime-definitions/versions [GET]
 func (h Handler) GetKubernetesRuntimeDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeKubernetesRuntimeDefinition)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeKubernetesRuntimeDefinition)])
 }
 
 // @Summary adds a new kubernetes runtime definition.
@@ -35,7 +34,7 @@ func (h Handler) GetKubernetesRuntimeDefinitionVersions(c echo.Context) error {
 // @ID add-v0-kubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
-// @Param kubernetesRuntimeDefinition body v0.KubernetesRuntimeDefinition true "KubernetesRuntimeDefinition object"
+// @Param kubernetesRuntimeDefinition body api_v0.KubernetesRuntimeDefinition true "KubernetesRuntimeDefinition object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -178,7 +177,7 @@ func (h Handler) GetKubernetesRuntimeDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param kubernetesRuntimeDefinition body v0.KubernetesRuntimeDefinition true "KubernetesRuntimeDefinition object"
+// @Param kubernetesRuntimeDefinition body api_v0.KubernetesRuntimeDefinition true "KubernetesRuntimeDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -243,7 +242,7 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param kubernetesRuntimeDefinition body v0.KubernetesRuntimeDefinition true "KubernetesRuntimeDefinition object"
+// @Param kubernetesRuntimeDefinition body api_v0.KubernetesRuntimeDefinition true "KubernetesRuntimeDefinition object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -384,10 +383,10 @@ func (h Handler) DeleteKubernetesRuntimeDefinition(c echo.Context) error {
 // @Description Get the supported API versions for kubernetes runtime instances.
 // @ID kubernetesRuntimeInstance-get-versions
 // @Produce json
-// @Success 200 {object} api.RESTAPIVersions "OK"
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /kubernetes-runtime-instances/versions [GET]
 func (h Handler) GetKubernetesRuntimeInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, api.RestapiVersions[string(api_v0.ObjectTypeKubernetesRuntimeInstance)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeKubernetesRuntimeInstance)])
 }
 
 // @Summary adds a new kubernetes runtime instance.
@@ -395,7 +394,7 @@ func (h Handler) GetKubernetesRuntimeInstanceVersions(c echo.Context) error {
 // @ID add-v0-kubernetesRuntimeInstance
 // @Accept json
 // @Produce json
-// @Param kubernetesRuntimeInstance body v0.KubernetesRuntimeInstance true "KubernetesRuntimeInstance object"
+// @Param kubernetesRuntimeInstance body api_v0.KubernetesRuntimeInstance true "KubernetesRuntimeInstance object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -538,7 +537,7 @@ func (h Handler) GetKubernetesRuntimeInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param kubernetesRuntimeInstance body v0.KubernetesRuntimeInstance true "KubernetesRuntimeInstance object"
+// @Param kubernetesRuntimeInstance body api_v0.KubernetesRuntimeInstance true "KubernetesRuntimeInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
@@ -603,7 +602,7 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param kubernetesRuntimeInstance body v0.KubernetesRuntimeInstance true "KubernetesRuntimeInstance object"
+// @Param kubernetesRuntimeInstance body api_v0.KubernetesRuntimeInstance true "KubernetesRuntimeInstance object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
