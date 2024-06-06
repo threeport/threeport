@@ -84,7 +84,7 @@ each object's version is structured differently in different places:
       |-- Versions
   ```
   See the `sdk-config.yaml` for examples.
-* Codebase: In `pkg/api` of the Threeport codebase and its extentions, the object
+* Codebase: In `pkg/api` of the Threeport codebase and its extensions, the object
   version hierachy is as follows:
   ```
   Version
@@ -119,7 +119,7 @@ We run into this pretty often.  It usually goes as follows:
 1. Upgrade depeendencies with `go get -u ./...`.
 1. New library versions are downloaded and recored in `go.mod`.
 1. Re-build project components and find compile errors.
-1. Find library function signatures that have chaned and update library usage in
+1. Find library function signatures that have changed and update library usage in
    local project.  On occasion, a function has been entirely removed and we find
    the fix too troublesome and revert to an earlier version of the library so
    our code still works.
@@ -149,7 +149,7 @@ recorded in `go.mod` does not need to change.
 
 We want to make upgrade paths as smooth as possible.
 
-With this library versionoing, your extensions and integrations with Threeport
+With this library versioning, your extensions and integrations with Threeport
 are able to readily maintain compatibility with multiple versions of Threeport
 simultaneously.
 
