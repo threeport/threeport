@@ -2,7 +2,7 @@
 
 Manage observability systems for your deployed workloads.
 
-This controller supports mangaing Prometheus for metrics collection, Promtail
+This controller supports managing Prometheus for metrics collection, Promtail
 for log forwarding, Loki for log storage and Grafana for an observability
 dashboard.
 
