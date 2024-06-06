@@ -7,7 +7,8 @@ import (
 	"net/http"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	"github.com/threeport/threeport/pkg/controller/v0"
+	v1 "github.com/threeport/threeport/pkg/api/v1"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -23,7 +24,7 @@ func CreateWorkloadResourceDefinitions(
 		return workloadResourceDefinitions, fmt.Errorf("failed to marshal provided objects to JSON: %w", err)
 	}
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadResourceDefinitionSets),
 		http.MethodPost,
@@ -54,7 +55,7 @@ func CreateWorkloadResourceDefinitions(
 func GetWorkloadResourceDefinitionsByWorkloadDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s%s?workloaddefinitionid=%d", apiAddr, v0.PathWorkloadResourceDefinitions, id),
 		http.MethodGet,
@@ -82,12 +83,12 @@ func GetWorkloadResourceDefinitionsByWorkloadDefinitionID(apiClient *http.Client
 
 // GetWorkloadInstancesByWorkloadDefinitionID fetches workload instances
 // by workload definition ID
-func GetWorkloadInstancesByWorkloadDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.WorkloadInstance, error) {
-	var workloadInstances []v0.WorkloadInstance
+func GetWorkloadInstancesByWorkloadDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v1.WorkloadInstance, error) {
+	var workloadInstances []v1.WorkloadInstance
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?workloaddefinitionid=%d", apiAddr, v0.PathWorkloadInstances, id),
+		fmt.Sprintf("%s%s?workloaddefinitionid=%d", apiAddr, v1.PathWorkloadInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -116,7 +117,7 @@ func GetWorkloadInstancesByWorkloadDefinitionID(apiClient *http.Client, apiAddr 
 func GetWorkloadResourceInstancesByWorkloadInstanceID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s%s?workloadinstanceid=%d", apiAddr, v0.PathWorkloadResourceInstances, id),
 		http.MethodGet,
@@ -143,12 +144,12 @@ func GetWorkloadResourceInstancesByWorkloadInstanceID(apiClient *http.Client, ap
 }
 
 // GetWorkloadInstancesByKubernetesRuntimeInstanceID
-func GetWorkloadInstancesByKubernetesRuntimeInstanceID(apiClient *http.Client, apiAddr string, kubernetesRuntimeID uint) (*[]v0.WorkloadInstance, error) {
-	var workloadInstances []v0.WorkloadInstance
+func GetWorkloadInstancesByKubernetesRuntimeInstanceID(apiClient *http.Client, apiAddr string, kubernetesRuntimeID uint) (*[]v1.WorkloadInstance, error) {
+	var workloadInstances []v1.WorkloadInstance
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?kubernetesruntimeinstanceid=%d", apiAddr, v0.PathWorkloadInstances, kubernetesRuntimeID),
+		fmt.Sprintf("%s%s?kubernetesruntimeinstanceid=%d", apiAddr, v1.PathWorkloadInstances, kubernetesRuntimeID),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -176,7 +177,7 @@ func GetWorkloadInstancesByKubernetesRuntimeInstanceID(apiClient *http.Client, a
 func DeleteWorkloadEventsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.WorkloadEvent, error) {
 	var workloadEvents []v0.WorkloadEvent
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/%s/workload-events?%s", apiAddr, ApiVersion, queryString),
 		http.MethodDelete,
@@ -209,14 +210,14 @@ func GetAttachedObjectReferencesByAttachedObjectID(
 	apiAddr string,
 	id uint,
 ) (
-	*[]v0.AttachedObjectReference,
+	*[]v1.AttachedObjectReference,
 	error,
 ) {
-	var attachedObjectReferences []v0.AttachedObjectReference
+	var attachedObjectReferences []v1.AttachedObjectReference
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?attachedobjectid=%d", apiAddr, v0.PathAttachedObjectReferences, id),
+		fmt.Sprintf("%s%s?attachedobjectid=%d", apiAddr, v1.PathAttachedObjectReferences, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -247,14 +248,14 @@ func GetAttachedObjectReferencesByObjectID(
 	apiAddr string,
 	id uint,
 ) (
-	*[]v0.AttachedObjectReference,
+	*[]v1.AttachedObjectReference,
 	error,
 ) {
-	var attachedObjectReferences []v0.AttachedObjectReference
+	var attachedObjectReferences []v1.AttachedObjectReference
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?objectid=%d", apiAddr, v0.PathAttachedObjectReferences, id),
+		fmt.Sprintf("%s%s?objectid=%d", apiAddr, v1.PathAttachedObjectReferences, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -276,46 +277,4 @@ func GetAttachedObjectReferencesByObjectID(
 	}
 
 	return &attachedObjectReferences, nil
-}
-
-// ConfirmWorkloadInstanceReconciled confirms whether a workload instance
-// is reconciled.
-func ConfirmWorkloadInstanceReconciled(
-	r *controller.Reconciler,
-	instanceID uint,
-) (bool, error) {
-
-	// get workload instance id
-	workloadInstance, err := GetWorkloadInstanceByID(r.APIClient, r.APIServer, instanceID)
-	if err != nil {
-		return false, fmt.Errorf("failed to get workload instance by workload instance ID: %w", err)
-	}
-
-	// if the workload instance is not reconciled, return false
-	if workloadInstance.Reconciled != nil && !*workloadInstance.Reconciled {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-// ConfirmWorkloadDefinitionReconciled confirms whether a workload definition
-// is reconciled.
-func ConfirmWorkloadDefinitionReconciled(
-	r *controller.Reconciler,
-	definitionID uint,
-) (bool, error) {
-
-	// get workload definition id
-	workloadDefinition, err := GetWorkloadDefinitionByID(r.APIClient, r.APIServer, definitionID)
-	if err != nil {
-		return false, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
-	}
-
-	// if the workload instance is not reconciled, return false
-	if workloadDefinition.Reconciled != nil && !*workloadDefinition.Reconciled {
-		return false, nil
-	}
-
-	return true, nil
 }

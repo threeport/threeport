@@ -41,7 +41,7 @@ import (
 	"github.com/threeport/threeport/internal/agent/controller"
 	"github.com/threeport/threeport/internal/agent/notify"
 	controlplanev1alpha1 "github.com/threeport/threeport/pkg/agent/api/v1alpha1"
-	tpapiclient "github.com/threeport/threeport/pkg/client/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -137,7 +137,7 @@ func main() {
 	notifChan := make(chan notify.ThreeportNotif, 10000)
 
 	// configure http client for calls to threeport API
-	threeportAPIClient, err := tpapiclient.GetHTTPClient(authEnabled, "", "", "", "")
+	threeportAPIClient, err := client_lib.GetHTTPClient(authEnabled, "", "", "", "")
 	if err != nil {
 		log.Error(err, "failed to create http client")
 		os.Exit(1)

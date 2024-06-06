@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	helmworkload "github.com/threeport/threeport/internal/helm-workload"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -89,7 +90,7 @@ func (c *ObservabilityStackInstanceConfig) deleteObservabilityDashboardInstance(
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.observabilityStackInstance.ObservabilityDashboardInstanceID,
-	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete observability dashboard instance: %w", err)
 	}
 
@@ -127,7 +128,7 @@ func (c *ObservabilityStackInstanceConfig) deleteMetricsInstance() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.observabilityStackInstance.MetricsInstanceID,
-	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete metrics instance: %w", err)
 	}
 
@@ -166,7 +167,7 @@ func (c *ObservabilityStackInstanceConfig) deleteLoggingInstance() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.observabilityStackInstance.LoggingInstanceID,
-	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete logging instance: %w", err)
 	}
 

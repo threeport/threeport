@@ -38,11 +38,12 @@ generate: generate-code generate-docs
 
 #generate-code: @ Generate code
 generate-code:
-	threeport-sdk gen
+	threeport-sdk gen -c sdk-config.yaml
 
 #generate-docs: @ Generate swagger docs
 generate-docs:
-	swag init --dir cmd/rest-api,pkg/api,pkg/api-server/v0,pkg/api-server/v1 --parseDependency --generalInfo main.go --output pkg/api-server/v0/docs
+	swag init --dir cmd/rest-api,pkg/api-server/v0,pkg/api-server/v1 --parseDependency --generalInfo main_gen.go --output pkg/api-server/v0/docs
+
 
 ## testing
 

@@ -10,6 +10,7 @@ import (
 	"github.com/threeport/threeport/internal/gateway/status"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -397,7 +398,7 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 	}
 
 	// get workload instance
-	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, g.WorkloadInstance.Name)
+	workloadInstance, err := client_v1.GetWorkloadInstanceByName(apiClient, apiEndpoint, g.WorkloadInstance.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", g.WorkloadInstance.Name, err)
 	}
@@ -716,7 +717,7 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 	}
 
 	// get workload instance
-	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, d.WorkloadInstance.Name)
+	workloadInstance, err := client_v1.GetWorkloadInstanceByName(apiClient, apiEndpoint, d.WorkloadInstance.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", d.WorkloadInstance.Name, err)
 	}

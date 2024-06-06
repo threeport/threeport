@@ -8,6 +8,7 @@ import (
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"gorm.io/datatypes"
 )
@@ -295,7 +296,7 @@ func (s *SecretInstanceValues) Create(
 	// get workload instance
 	switch {
 	case s.WorkloadInstance != nil:
-		workloadInstance, err := client.GetWorkloadInstanceByName(
+		workloadInstance, err := client_v1.GetWorkloadInstanceByName(
 			apiClient,
 			apiEndpoint,
 			s.WorkloadInstance.Name,

@@ -81,6 +81,9 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 
 	// Define the secret name and value
 	var secretData map[string]string
+	if c.secretDefinition.Data == nil {
+		return fmt.Errorf("secret data not found")
+	}
 	if err = json.Unmarshal([]byte(*c.secretDefinition.Data), &secretData); err != nil {
 		return fmt.Errorf("failed to unmarshal secret data")
 	}
