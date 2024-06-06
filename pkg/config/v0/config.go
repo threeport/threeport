@@ -13,8 +13,10 @@ import (
 	"github.com/mitchellh/go-homedir"
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/spf13/viper"
+
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -235,7 +237,7 @@ func (cfg *ThreeportConfig) GetHTTPClient(requestedControlPlane string) (*http.C
 		return nil, fmt.Errorf("failed to get threeport certificates: %w", err)
 	}
 
-	apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey, "")
+	apiClient, err := client_lib.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get http client: %w", err)
 	}

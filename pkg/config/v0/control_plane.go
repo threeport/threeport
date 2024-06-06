@@ -7,6 +7,7 @@ import (
 	"time"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
 
@@ -130,7 +131,7 @@ func (c *ControlPlaneValues) Delete(apiClient *http.Client, apiEndpoint string) 
 	for deletedCheckAttempts < deletedCheckAttemptsMax {
 		_, err := client.GetControlPlaneInstanceByID(apiClient, apiEndpoint, *controlPlaneInstance.ID)
 		if err != nil {
-			if errors.Is(err, client.ErrObjectNotFound) {
+			if errors.Is(err, client_lib.ErrObjectNotFound) {
 				controlPlaneInstanceDeleted = true
 				break
 			} else {

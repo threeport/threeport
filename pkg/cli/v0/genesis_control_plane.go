@@ -29,6 +29,7 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
@@ -74,7 +75,7 @@ type Uninstaller struct {
 	createErrMsg           string
 	createErr              error
 	controlPlane           *threeport.ControlPlane
-	kubernetesRuntimeInfra *provider.KubernetesRuntimeInfra
+	kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	dynamicKubeClient      *dynamic.Interface
 	mapper                 *meta.RESTMapper
 	cleanConfig            *bool
@@ -293,7 +294,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}()
 
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
-		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfra
+		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfra
 		if cpi.Opts.ControlPlaneOnly {
 			kubeConnectionInfo, err = kube.GetConnectionInfoFromKubeconfig(kubernetesRuntimeInfraKind.KubeconfigPath)
 			if err != nil {
@@ -419,6 +420,23 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			&eksInventoryChan,
 		}
 
+		// TODO: add flags to tptctl command for high availability, etc to
+		// deterimine these values
+		// construct eks kubernetes runtime infra object
+		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
+			RuntimeInstanceName:          provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			AwsAccountID:                 *callerIdentity.Account,
+			AwsConfig:                    awsConfigResourceManager,
+			ResourceClient:               &eksClient,
+			ZoneCount:                    int32(2),
+			DefaultNodeGroupInstanceType: "t3.medium",
+			DefaultNodeGroupInitialNodes: int32(3),
+			DefaultNodeGroupMinNodes:     int32(3),
+			DefaultNodeGroupMaxNodes:     int32(250),
+		}
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
+		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfra
+
 		// capture messages as resources are created and return to user
 		go func() {
 			for msg := range *eksClient.MessageChan {
@@ -450,23 +468,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			}
 			os.Exit(1)
 		}()
-
-		// TODO: add flags to tptctl command for high availability, etc to
-		// deterimine these values
-		// construct eks kubernetes runtime infra object
-		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
-			RuntimeInstanceName:          provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
-			AwsAccountID:                 *callerIdentity.Account,
-			AwsConfig:                    awsConfigResourceManager,
-			ResourceClient:               &eksClient,
-			ZoneCount:                    int32(2),
-			DefaultNodeGroupInstanceType: "t3.medium",
-			DefaultNodeGroupInitialNodes: int32(3),
-			DefaultNodeGroupMinNodes:     int32(3),
-			DefaultNodeGroupMaxNodes:     int32(250),
-		}
-
-		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
 
 		if cpi.Opts.ControlPlaneOnly {
 			kubeConnectionInfo, err = kubernetesRuntimeInfraEKS.GetConnection()
@@ -722,7 +723,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	attemptsMax := 30
 	waitDurationSeconds := 10
 	if err = util.Retry(attemptsMax, waitDurationSeconds, func() error {
-		_, err := client.GetResponse(
+		_, err := client_lib.GetResponse(
 			apiClient,
 			fmt.Sprintf("%s/version", threeportAPIEndpoint),
 			http.MethodGet,
@@ -1103,7 +1104,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err != nil {
 		return fmt.Errorf("failed to get threeport certificates from config: %w", err)
 	}
-	apiClient, err := client.GetHTTPClient(threeportControlPlaneConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
+	apiClient, err := client_lib.GetHTTPClient(threeportControlPlaneConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
 	if err != nil {
 		return fmt.Errorf("failed to create http client: %w", err)
 	}
@@ -1345,11 +1346,11 @@ func (u *Uninstaller) cleanOnCreateError(
 		); invErr != nil {
 			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to read eks kubernetes runtime inventory for resource deletion: %w", createErr, invErr)
 		}
-		(*u.kubernetesRuntimeInfra).(*provider.KubernetesRuntimeInfraEKS).ResourceInventory = &inventory
+		u.kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).ResourceInventory = &inventory
 	}
 
 	// delete infra
-	if deleteErr := (*u.kubernetesRuntimeInfra).Delete(); deleteErr != nil {
+	if deleteErr := u.kubernetesRuntimeInfra.Delete(); deleteErr != nil {
 		return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", createErr, deleteErr)
 	}
 	Info("Created Threeport infra deleted due to error")

@@ -44,22 +44,21 @@ type EventRecorder struct {
 
 	// Name of the controller that emitted this Event.
 	ReportingController string
-
-	// ObjectType is the type of the object that this event is attached to.
-	ObjectType string
 }
 
 // RecordEvent records a new event with the given information.
 func (r *EventRecorder) RecordEvent(
 	event *v1.Event,
-	objectId *uint,
+	objectId uint,
+	objectVersion string,
+	objectType string,
 ) error {
 	formatString := "reason=%s&note=%s&type=%s&objectid=%d"
 	formatArgs := []any{
 		url.QueryEscape(*event.Reason),
 		url.QueryEscape(*event.Note),
 		url.QueryEscape(*event.Type),
-		*objectId,
+		objectId,
 	}
 
 	query := fmt.Sprintf(formatString, formatArgs...)
@@ -69,7 +68,7 @@ func (r *EventRecorder) RecordEvent(
 		query,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get events by object id %d: %w", *objectId, err)
+		return fmt.Errorf("failed to get events by object id %d: %w", objectId, err)
 	}
 
 	var createdEvent *v1.Event
@@ -110,8 +109,8 @@ func (r *EventRecorder) RecordEvent(
 					r.APIClient,
 					r.APIServer,
 					&v1.AttachedObjectReference{
-						ObjectType:         &r.ObjectType,
-						ObjectID:           objectId,
+						ObjectType:         util.Ptr(fmt.Sprintf("%s.%s", objectVersion, objectType)),
+						ObjectID:           util.Ptr(objectId),
 						AttachedObjectType: util.Ptr(util.TypeName(v1.Event{})),
 						AttachedObjectID:   createdEvent.ID,
 					},
@@ -170,7 +169,9 @@ func (r *EventRecorder) RecordEvent(
 // in which case it records the event provided
 func (r *EventRecorder) HandleEventOverride(
 	event *v1.Event,
-	objectId *uint,
+	objectId uint,
+	objectVersion string,
+	objectType string,
 	err error,
 	log *logr.Logger,
 ) {
@@ -180,6 +181,8 @@ func (r *EventRecorder) HandleEventOverride(
 		if err := r.RecordEvent(
 			&errWithEvent.Event,
 			objectId,
+			objectVersion,
+			objectType,
 		); err != nil {
 			log.Error(err, "failed to record event")
 		}
@@ -187,6 +190,8 @@ func (r *EventRecorder) HandleEventOverride(
 		if err := r.RecordEvent(
 			event,
 			objectId,
+			objectVersion,
+			objectType,
 		); err != nil {
 			log.Error(err, "failed to record event")
 		}

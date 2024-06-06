@@ -11,7 +11,9 @@ import (
 	"github.com/threeport/threeport/internal/aws/status"
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -475,7 +477,7 @@ func (e *AwsEksKubernetesRuntimeDefinitionValues) Delete(apiClient *http.Client,
 		apiEndpoint,
 		*awsEksKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
 	)
-	if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 		return nil, fmt.Errorf("failed to delete associated kubernetes runtime definition: %w", err)
 	}
 
@@ -615,7 +617,7 @@ func (e *AwsEksKubernetesRuntimeInstanceValues) Delete(apiClient *http.Client, a
 	if err != nil {
 		// if the kubernetes runtime instance wasn't found, there's no more to
 		// do - return the error if something other than 'object not found'
-		if !errors.Is(err, client.ErrObjectNotFound) {
+		if !errors.Is(err, client_lib.ErrObjectNotFound) {
 			return nil, fmt.Errorf("failed to get associated kubernetes runtime instance: %w", err)
 		}
 	}
@@ -740,7 +742,7 @@ func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint
 	for deletedCheckAttempts < deletedCheckAttemptsMax {
 		_, err := client.GetAwsRelationalDatabaseInstanceByID(apiClient, apiEndpoint, *awsRelationalDatabaseInstance.ID)
 		if err != nil {
-			if errors.Is(err, client.ErrObjectNotFound) {
+			if errors.Is(err, client_lib.ErrObjectNotFound) {
 				awsRelationalDatabaseInstanceDeleted = true
 				break
 			} else {
@@ -841,7 +843,7 @@ func (r *AwsRelationalDatabaseInstanceValues) Create(apiClient *http.Client, api
 	}
 
 	// get workload instance by name
-	workloadInstance, err := client.GetWorkloadInstanceByName(
+	workloadInstance, err := client_v1.GetWorkloadInstanceByName(
 		apiClient,
 		apiEndpoint,
 		r.WorkloadInstance.Name,
@@ -959,7 +961,7 @@ func (o *AwsObjectStorageBucketValues) Delete(apiClient *http.Client, apiEndpoin
 	for deletedCheckAttempts < deletedCheckAttemptsMax {
 		_, err := client.GetAwsObjectStorageBucketInstanceByID(apiClient, apiEndpoint, *awsObjectStorageBucketInstance.ID)
 		if err != nil {
-			if errors.Is(err, client.ErrObjectNotFound) {
+			if errors.Is(err, client_lib.ErrObjectNotFound) {
 				awsObjectStorageBucketInstanceDeleted = true
 				break
 			} else {
@@ -1083,7 +1085,7 @@ func (o *AwsObjectStorageBucketInstanceValues) Create(apiClient *http.Client, ap
 	}
 
 	// get workload instance by name
-	workloadInstance, err := client.GetWorkloadInstanceByName(
+	workloadInstance, err := client_v1.GetWorkloadInstanceByName(
 		apiClient,
 		apiEndpoint,
 		o.WorkloadInstance.Name,

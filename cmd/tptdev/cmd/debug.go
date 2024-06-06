@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/util/homedir"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
-	client "github.com/threeport/threeport/pkg/client/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 )
@@ -56,7 +56,7 @@ var DebugCmd = &cobra.Command{
 		cpi.Opts.Namespace = controlPlaneNamespace
 
 		// create dynamic client and rest mapper
-		dynamicKubeClient, mapper, err := client.GetKubeDynamicClientAndMapper(kubeconfigPath)
+		dynamicKubeClient, mapper, err := client_lib.GetKubeDynamicClientAndMapper(kubeconfigPath)
 		if err != nil {
 			cli.Error("failed to create dynamic kube client and mapper", err)
 			os.Exit(1)

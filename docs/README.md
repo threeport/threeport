@@ -5,82 +5,127 @@ Guide](quickstart.md) and [Contribuing Guide](contributing.md).
 
 ## Overview
 
-This threeport repo contains the core components of the threeport control plane.
-In addition, this repo contains the threport command line tool `tptctl`, the
-developer command line tool `tptdev` and a client library for the threeport API.
+This repo contains source code for the following:
+
+* Core components of the Threeport control plane, including:
+  * Threeport RESTful API server: accepts client requests to make changes to the
+    system, persists changes in the Threeport database, and sends notifications
+    to the Threeport controllers to reconcile changes.
+  * Threeport core controllers: provide the functionality for Threeport.  When
+    changes to objects are made through the API, notifications are sent to
+    controllers to manage reconciliation of those changes.
+  * Threeport agent: a Kubernetes controller that runs in each Threeport-managed
+    Kubernetes runtime environment to report updates back to the Threeport API.
+* `tptctl` CLI: the primary client tool for bootstrapping and using Threeport.
+* `tptdev` CLI: a developer tool for managing development builds and
+  environments.
+* `threeport-sdk` CLI: a platform engineering tool for building custom
+  extensions to Threeport and for managing the Threeport codebase itself.
 
 Following is an overview of what lives at the root of this repo:
 * The `bin` directory is where binary artifacts are stored when built.
 * The `cmd` directory contains the main package for each program that produces a
   binary artifact:
-  * [agent](../cmd/agent/README.md) is the runtime control plane agent.
-  * [aws-controller](../cmd/aws-controller/README.md) is the threeport
-    controller that manages AWS resources as workload dependencies.
-  * [codegen](../cmd/codegen/README.md) generates scaffolding and boilerplate code
-    for various components and packages.
-  * [gateway-controller](../cmd/gateway-controller/README.md) is the threeport
+  * [agent](../cmd/agent/README.md) is the Threeport agent.
+  * [aws-controller](../cmd/aws-controller/README.md) is the Threeport
+    controller that manages AWS resources for Threeport installations and as
+    workload dependencies.
+  * [control-plane-controller](../cmd/control-plane-controller/README.md) is
+    the Threeport controller for managing other Threeport control planes.
+  * [database-migrator](../cmd/database-migrator/README.md) is a sidecar to the
+    Threeport API for managing the Threeport database schema.
+  * [gateway-controller](../cmd/gateway-controller/README.md) is the Threeport
     controller that manages network ingress gateways and DNS records for workloads.
+  * [helm-workload-controller](../cmd/helm-workload-controller/README.md) is the
+    Threeport controller for managing containerized workloads on Kubernetes
+    defined with Helm charts.
   * [kubernetes-runtime-controller](../cmd/kubernetes-runtime-controller/README.md)
-    is the threeport controller that manages Kubernetes clusters as runtime
+    is the Threeport controller that manages Kubernetes clusters as runtime
     environments for workloads.
-  * [rest-api](../cmd/rest-api/README.md) is the RESTful API for the threeport
+  * [observability-controller](../cmd/observability-controller/README.md) is the
+    Threeport controller that manages metrics collection, log aggregation and
+    observability dashboard support services for workloads.
+  * [rest-api](../cmd/rest-api/README.md) is the RESTful API for the Threeport
     control plane.
-  * [tptctl](../cmd/tptctl/README.md) is the primary client CLI for threeport uers.
-  * [tptdev](../cmd/tptdev/README.md) is a developer tool for threeport.
-  * [workload-controller](../cmd/workload-controller/README.md) is the threeport
-    controller that manages containerized workloads on Kubernetes for users.
-  * [control-plane-controller](../cmd/control-plane-controller/README.md) is the threeport
-    controller that manages control planes created by the threeport control plane itself.
+  * [sdk](../cmd/sdk/README.md) is the CLI tool that generates scaffolding and
+    boilerplate code for the Threeport code base and custom extensions.
+    for the Threeport codebase and custom extensions to Threeport.
+  * [secret-controller](../cmd/secret-controller/README.md) is the Threeport
+    controller that manages workload secrets in secret vaults and exposing them
+    to workloads.
+  * [terraform-controller](../cmd/terraform-controller/README.md) is the
+    Threeport controller that mangages cloud provider infrastructure using
+    Terraform configs.
+  * [tptctl](../cmd/tptctl/README.md) is the primary client CLI for Threeport
+    users.
+  * [tptdev](../cmd/tptdev/README.md) is a developer CLI tool for Threeport.
+  * [workload-controller](../cmd/workload-controller/README.md) is the Threeport
+    controller that manages containerized workloads on Kubernetes for users from
+    static Kubernetes manifest generated by users, controllers or other systems.
 * The `docs` directory contains these developer docs.
-* The `example` directory contains example configurations for testing threeport.
 * The `hack` directory contains ad hoc scripts and utilities that have not made
   into a real package or `tptdev`.
 * The `internal` directory contains packages that are used internally by core
-  threeport components only.
-* The `pkg` directory contains packages that are used by threeport and can be
+  Threeport components only.
+* The `pkg` directory contains packages that are used by Threeport and can be
   imported into other projects.
-* The `test` directory contains testing components such end-to-end tests.
+* The `samples` directory contains sample configurations for testing Threeport.
+* The `test` directory contains testing components such as end-to-end tests.
 
 ## Core Components from the Community
 
-The threeport control plane core components consist of the RESTful API and the
+The Threeport control plane core components consist of the RESTful API and the
 various controllers that provide logic and functionality for the system.  In
-addition there are two 3rd party components:
+addition there are two primary 3rd party components:
 * [CockroachDB](https://github.com/cockroachdb/cockroach) serves as the
-  persistence layer for the threeport API.
+  persistence layer for the Threeport API.
 * [NATS](https://github.com/nats-io/nats-server) is the message broker used to
   relay notifications from the API to controllers, and by the controllers to
   place distributed locks on objects being reconciled.
 
-## Makefile
+## Mage & Make Targets
 
-This contains a collection of helpful developer make targets.  Run `make` to get
-a list of available operations.
+`Makefile` contains all the make targets used in Threeport development.  Run
+`make` to get a list of available operations.
+
+`magefile_gen.go` contains mage targets that are generated by the Threeport SDK
+and `magefile.go` contains mage targets written by Threeport devs.  Run `mage`
+to get a list of all available targets in both files.
+
+> Note: We have begun using [Mage](https://magefile.org/) as an alternative to
+> make recently and will probably migrate everything over to Mage eventually.
 
 ## Packages
 
 Following is an index of package documentation:
 * [`internal/agent`](../internal/agent/README.md)
-* [`internal/api`](../internal/api/README.md)
 * [`internal/aws`](../internal/aws/README.md)
-* [`internal/cli`](../internal/cli/README.md)
-* [`internal/codegen`](../internal/codegen/README.md)
+* [`internal/control-plane`](../internal/control-plane/README.md)
 * [`internal/gateway`](../internal/gateway/README.md)
-* [`internal/kube`](../internal/kube/README.md)
-* [`internal/kubernetesruntime`](../internal/kubernetesruntime/README.md)
-* [`internal/log`](../internal/log/README.md)
+* [`internal/helm-workload`](../internal/helm-workload/README.md)
+* [`internal/kubernetes-runtime`](../internal/kubernetes-runtime/README.md)
+* [`internal/observability`](../internal/observability/README.md)
 * [`internal/provider`](../internal/provider/README.md)
-* [`internal/threeport`](../internal/threeport/README.md)
-* [`internal/tptdev`](../internal/tptdev/README.md)
-* [`internal/util`](../internal/util/README.md)
+* [`internal/sdk`](../internal/sdk/README.md)
+* [`internal/secret`](../internal/secret/README.md)
+* [`internal/terraform`](../internal/terraform/README.md)
 * [`internal/version`](../internal/version/README.md)
 * [`internal/workload`](../internal/workload/README.md)
 * [`pkg/agent`](../pkg/agent/README.md)
 * [`pkg/api`](../pkg/api/README.md)
+* [`pkg/api-server`](../pkg/api-server/README.md)
 * [`pkg/auth`](../pkg/auth/README.md)
+* [`pkg/cli`](../pkg/cli/README.md)
 * [`pkg/client`](../pkg/client/README.md)
 * [`pkg/config`](../pkg/config/README.md)
 * [`pkg/controller`](../pkg/controller/README.md)
 * [`pkg/encryption`](../pkg/encryption/README.md)
+* [`pkg/errors`](../pkg/errors/README.md)
+* [`pkg/event`](../pkg/event/README.md)
+* [`pkg/kube`](../pkg/kube/README.md)
+* [`pkg/log`](../pkg/log/README.md)
 * [`pkg/notifications`](../pkg/notifications/README.md)
+* [`pkg/runtime`](../pkg/runtime/README.md)
+* [`pkg/threeport-installer`](../pkg/threeport-installer/README.md)
+* [`pkg/util`](../pkg/util/README.md)
 

@@ -1,6 +1,45 @@
 basePath: /
 definitions:
-  api.RESTAPIVersions:
+  github_com_threeport_threeport_pkg_api_v1.Event:
+    properties:
+      AttachedObjectReferenceID:
+        description: |-
+          AttachedObjectReferenceID is a reference to an attached object.
+          A foreign key is configured via db migration in cmd/database-migrator/migrations/000010_add_events_foreign_key.go
+        type: integer
+      Count:
+        description: The number of times this event has occurred.
+        type: integer
+      EventTime:
+        description: Time when this Event was first observed.
+        type: string
+      LastObservedTime:
+        description: The time at which the most recent occurrence of this event was
+          recorded.
+        type: string
+      Note:
+        description: A human-readable description of the status of this operation.
+        type: string
+      Reason:
+        description: A short, machine understandable string that gives the reason
+          for the event being generated.
+        type: string
+      ReportingController:
+        description: Name of the controller that emitted this Event.
+        type: string
+      Type:
+        description: Type of this event (Normal, Warning), new types could be added
+          in the future.
+        type: string
+    required:
+    - Count
+    - EventTime
+    - LastObservedTime
+    - Reason
+    - ReportingController
+    - Type
+    type: object
+  v0.ApiObjectVersions:
     properties:
       API:
         description: Required.  REST API resource name.
@@ -191,6 +230,12 @@ definitions:
       AwsAccountID:
         description: The AWS account in which the RDS instance will be provisioned.
         type: integer
+      AwsObjectStorageBucketInstances:
+        description: The associated object storage bucket instances that are derived
+          from this definition.
+        items:
+          $ref: '#/definitions/v0.AwsObjectStorageBucketInstance'
+        type: array
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -296,6 +341,12 @@ definitions:
       AwsAccountID:
         description: The AWS account in which the RDS instance will be provisioned.
         type: integer
+      AwsRelationalDatabaseInstances:
+        description: The associated object storage bucket instances that are derived
+          from this definition.
+        items:
+          $ref: '#/definitions/v0.AwsRelationalDatabaseInstance'
+        type: array
       BackupDays:
         description: The number of days to retain database backups for.
         type: integer
@@ -783,6 +834,8 @@ definitions:
     - KubernetesRuntimeInstanceID
     - Name
     - WorkloadInstanceID
+    type: object
+  v0.Event:
     type: object
   v0.GatewayDefinition:
     properties:
@@ -1375,6 +1428,12 @@ definitions:
         description: The backend storage mechanisms for retaining logs.
         items:
           $ref: '#/definitions/v0.LogBackend'
+        type: array
+      LogStorageInstances:
+        description: The associated log storage instances that are derived from this
+          definition.
+        items:
+          $ref: '#/definitions/v0.LogStorageInstance'
         type: array
       Name:
         description: An arbitrary name for the definition.
@@ -2166,6 +2225,11 @@ definitions:
         description: Indicates if object is considered to be reconciled by the object's
           controller.
         type: boolean
+      SecretInstances:
+        description: The associated secret instances that are deployed from this definition.
+        items:
+          $ref: '#/definitions/v0.SecretInstance'
+        type: array
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of
@@ -2739,23 +2803,13 @@ definitions:
     - Name
     - WorkloadDefinitionID
     type: object
-  version.RESTAPIVersion:
-    properties:
-      Version:
-        type: string
-    required:
-    - Version
-    type: object
-host: rest-api.threeport.io
 info:
   contact:
-    email: support@threeport.io
-    name: Threeport Admin
-    url: https://threeport.io/support
-  description: Threeport RESTful API.
-  termsOfService: https://threeport.io/api-tos/
+    url: https://threerport.io
+  description: Core API server for the Threeport application orchestration control
+    plane.
   title: Threeport RESTful API
-  version: v0.4.0-rc.1
+  version: v0.6.0-dev
 paths:
   /attached-object-references/versions:
     get:
@@ -2767,7 +2821,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetAttachedObjectReferenceVersions gets the supported versions for
         the attached object reference API.
   /aws-accounts/versions:
@@ -2780,7 +2834,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetAwsAccountVersions gets the supported versions for the aws account
         API.
   /aws-eks-kubernetes-runtime-definitions/versions:
@@ -2793,7 +2847,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetAwsEksKubernetesRuntimeDefinitionVersions gets the supported versions
         for the aws eks kubernetes runtime definition API.
   /aws-eks-kubernetes-runtime-instances/versions:
@@ -2806,7 +2860,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetAwsEksKubernetesRuntimeInstanceVersions gets the supported versions
         for the aws eks kubernetes runtime instance API.
   /aws-object-storage-bucket-definitions/versions:
@@ -2819,7 +2873,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetAwsObjectStorageBucketDefinitionVersions gets the supported versions
         for the aws object storage bucket definition API.
   /aws-object-storage-bucket-instances/versions:
@@ -2832,7 +2886,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetAwsObjectStorageBucketInstanceVersions gets the supported versions
         for the aws object storage bucket instance API.
   /aws-relational-database-definitions/versions:
@@ -2845,7 +2899,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetAwsRelationalDatabaseDefinitionVersions gets the supported versions
         for the aws relational database definition API.
   /aws-relational-database-instances/versions:
@@ -2858,7 +2912,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetAwsRelationalDatabaseInstanceVersions gets the supported versions
         for the aws relational database instance API.
   /control-plane-definitions/versions:
@@ -2871,7 +2925,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetControlPlaneDefinitionVersions gets the supported versions for the
         control plane definition API.
   /control-plane-instances/versions:
@@ -2884,7 +2938,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetControlPlaneInstanceVersions gets the supported versions for the
         control plane instance API.
   /domain-name-definitions/versions:
@@ -2897,7 +2951,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetDomainNameDefinitionVersions gets the supported versions for the
         domain name definition API.
   /domain-name-instances/versions:
@@ -2910,9 +2964,21 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetDomainNameInstanceVersions gets the supported versions for the domain
         name instance API.
+  /events/versions:
+    get:
+      description: Get the supported API versions for events.
+      operationId: event-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.ApiObjectVersions'
+      summary: GetEventVersions gets the supported versions for the event API.
   /gateway-definitions/versions:
     get:
       description: Get the supported API versions for gateway definitions.
@@ -2923,7 +2989,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetGatewayDefinitionVersions gets the supported versions for the gateway
         definition API.
   /gateway-http-ports/versions:
@@ -2936,7 +3002,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetGatewayHttpPortVersions gets the supported versions for the gateway
         http port API.
   /gateway-instances/versions:
@@ -2949,7 +3015,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetGatewayInstanceVersions gets the supported versions for the gateway
         instance API.
   /gateway-tcp-ports/versions:
@@ -2962,7 +3028,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetGatewayTcpPortVersions gets the supported versions for the gateway
         tcp port API.
   /helm-workload-definitions/versions:
@@ -2975,7 +3041,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetHelmWorkloadDefinitionVersions gets the supported versions for the
         helm workload definition API.
   /helm-workload-instances/versions:
@@ -2988,7 +3054,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetHelmWorkloadInstanceVersions gets the supported versions for the
         helm workload instance API.
   /kubernetes-runtime-definitions/versions:
@@ -3001,7 +3067,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetKubernetesRuntimeDefinitionVersions gets the supported versions
         for the kubernetes runtime definition API.
   /kubernetes-runtime-instances/versions:
@@ -3014,7 +3080,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetKubernetesRuntimeInstanceVersions gets the supported versions for
         the kubernetes runtime instance API.
   /log-backends/versions:
@@ -3027,7 +3093,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetLogBackendVersions gets the supported versions for the log backend
         API.
   /log-storage-definitions/versions:
@@ -3040,7 +3106,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetLogStorageDefinitionVersions gets the supported versions for the
         log storage definition API.
   /log-storage-instances/versions:
@@ -3053,7 +3119,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetLogStorageInstanceVersions gets the supported versions for the log
         storage instance API.
   /logging-definitions/versions:
@@ -3066,7 +3132,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetLoggingDefinitionVersions gets the supported versions for the logging
         definition API.
   /logging-instances/versions:
@@ -3079,7 +3145,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetLoggingInstanceVersions gets the supported versions for the logging
         instance API.
   /metrics-definitions/versions:
@@ -3092,7 +3158,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetMetricsDefinitionVersions gets the supported versions for the metrics
         definition API.
   /metrics-instances/versions:
@@ -3105,7 +3171,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetMetricsInstanceVersions gets the supported versions for the metrics
         instance API.
   /observability-dashboard-definitions/versions:
@@ -3118,7 +3184,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetObservabilityDashboardDefinitionVersions gets the supported versions
         for the observability dashboard definition API.
   /observability-dashboard-instances/versions:
@@ -3131,7 +3197,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetObservabilityDashboardInstanceVersions gets the supported versions
         for the observability dashboard instance API.
   /observability-stack-definitions/versions:
@@ -3144,7 +3210,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetObservabilityStackDefinitionVersions gets the supported versions
         for the observability stack definition API.
   /observability-stack-instances/versions:
@@ -3157,7 +3223,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetObservabilityStackInstanceVersions gets the supported versions for
         the observability stack instance API.
   /profiles/versions:
@@ -3170,7 +3236,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetProfileVersions gets the supported versions for the profile API.
   /secret-definitions/versions:
     get:
@@ -3182,7 +3248,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetSecretDefinitionVersions gets the supported versions for the secret
         definition API.
   /secret-instances/versions:
@@ -3195,7 +3261,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetSecretInstanceVersions gets the supported versions for the secret
         instance API.
   /terraform-definitions/versions:
@@ -3208,7 +3274,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetTerraformDefinitionVersions gets the supported versions for the
         terraform definition API.
   /terraform-instances/versions:
@@ -3221,7 +3287,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetTerraformInstanceVersions gets the supported versions for the terraform
         instance API.
   /tiers/versions:
@@ -3234,7 +3300,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetTierVersions gets the supported versions for the tier API.
   /v0/attached-object-references:
     get:
@@ -5646,6 +5712,205 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing domain name instance by replacing the entire object.
+  /v0/events:
+    get:
+      consumes:
+      - application/json
+      description: Get all events from the Threeport database.
+      operationId: get-v0-events
+      parameters:
+      - description: event search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all events.
+    post:
+      consumes:
+      - application/json
+      description: Add a new event to the Threeport database.
+      operationId: add-v0-event
+      parameters:
+      - description: Event object
+        in: body
+        name: event
+        required: true
+        schema:
+          $ref: '#/definitions/v0.Event'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new event.
+  /v0/events/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a event by ID from the database.
+      operationId: delete-v0-event
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a event.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular event from the database.
+      operationId: get-v0-event
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a event.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a event in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating event objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-v0-event
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Event object
+        in: body
+        name: event
+        required: true
+        schema:
+          $ref: '#/definitions/v0.Event'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing event.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a event in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating event objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-v0-event
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Event object
+        in: body
+        name: event
+        required: true
+        schema:
+          $ref: '#/definitions/v0.Event'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing event by replacing the entire object.
   /v0/gateway-definitions:
     get:
       consumes:
@@ -11886,6 +12151,232 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing attached object reference by replacing the entire
         object.
+  /v1/events:
+    get:
+      consumes:
+      - application/json
+      description: Get all events from the Threeport database.
+      operationId: get-v1-events
+      parameters:
+      - description: event search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all events.
+    post:
+      consumes:
+      - application/json
+      description: Add a new event to the Threeport database.
+      operationId: add-v1-event
+      parameters:
+      - description: Event object
+        in: body
+        name: event
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_threeport_threeport_pkg_api_v1.Event'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new event.
+  /v1/events-join-attached-object-references:
+    get:
+      consumes:
+      - application/json
+      description: Get all events joined with attached object references
+      operationId: get-v1-events-join-attached-object-references
+      parameters:
+      - description: events joined with attached object references search by objectId
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all events joined with attached object references.
+  /v1/events/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a event by ID from the database.
+      operationId: delete-v1-event
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a event.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular event from the database.
+      operationId: get-v1-event
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a event.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a event in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating event objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-v1-event
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Event object
+        in: body
+        name: event
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_threeport_threeport_pkg_api_v1.Event'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing event.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a event in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating event objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-v1-event
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Event object
+        in: body
+        name: event
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_threeport_threeport_pkg_api_v1.Event'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing event by replacing the entire object.
   /v1/workload-instances:
     get:
       consumes:
@@ -12085,22 +12576,6 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload instance by replacing the entire object.
-  /version:
-    get:
-      description: Get a version of REST API.
-      operationId: get-api-version
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/version.RESTAPIVersion'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/version.RESTAPIVersion'
-      summary: gets an REST API version.
   /workload-definitions/versions:
     get:
       description: Get the supported API versions for workload definitions.
@@ -12111,7 +12586,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetWorkloadDefinitionVersions gets the supported versions for the workload
         definition API.
   /workload-events/versions:
@@ -12124,7 +12599,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetWorkloadEventVersions gets the supported versions for the workload
         event API.
   /workload-instances/versions:
@@ -12137,7 +12612,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetWorkloadInstanceVersions gets the supported versions for the workload
         instance API.
   /workload-resource-definitions/versions:
@@ -12150,7 +12625,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetWorkloadResourceDefinitionVersions gets the supported versions for
         the workload resource definition API.
   /workload-resource-instances/versions:
@@ -12163,7 +12638,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.RESTAPIVersions'
+            $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetWorkloadResourceInstanceVersions gets the supported versions for
         the workload resource instance API.
 swagger: "2.0"

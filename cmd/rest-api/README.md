@@ -1,9 +1,9 @@
 # Threeport RESTful API
 
-The heart of the threeport control plane.
+The heart of the Threeport control plane.
 
-Here you will find the main package for the threeport API.  It is the
-interaction point for clients to use the threeport control plane.  The API is
+Here you will find the main package for the Threeport API.  It is the
+interaction point for clients to use the Threeport control plane.  The API is
 responsible for persisting desired state of the system as expressed by users and
 external systems, and for notifying the controllers in the system to reconcile
 state accordingly.  The controllers read and write to and from the API as needed
@@ -53,7 +53,7 @@ fields, that will result in a new API version.
 
 ### Required HTTP headers
 
-The threeport REST API accept an input in JSON format and return an output in
+The Threeport REST API accept an input in JSON format and return an output in
 JSON format.  Following HTTP conventions, the `Content-Type` request header is
 required for operations that provide JSON input, and the `Accept` request header
 is required for operations that produce JSON output, with the media type value

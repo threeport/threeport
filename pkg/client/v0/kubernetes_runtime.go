@@ -8,13 +8,14 @@ import (
 	"net/http"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
 
 // GetDefaultKubernetesRuntimeInstance gets the default kubernetes runtime instance.
 func GetDefaultKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string) (*v0.KubernetesRuntimeInstance, error) {
 	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances?defaultruntime=true", apiAddr, ApiVersion),
 		http.MethodGet,
@@ -51,7 +52,7 @@ func GetDefaultKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string)
 func GetKubernetesRuntimeInstancesByKubernetesRuntimeDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.KubernetesRuntimeInstance, error) {
 	var kubernetesRuntimeInstances []v0.KubernetesRuntimeInstance
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s%s?kubernetesruntimedefinitionid=%d", apiAddr, v0.PathKubernetesRuntimeInstances, id),
 		http.MethodGet,
@@ -82,7 +83,7 @@ func GetKubernetesRuntimeInstancesByKubernetesRuntimeDefinitionID(apiClient *htt
 func GetThreeportControlPlaneKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string) (*v0.KubernetesRuntimeInstance, error) {
 	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/%s/kubernetes-runtime-instances?threeportcontrolplanehost=true", apiAddr, ApiVersion),
 		http.MethodGet,

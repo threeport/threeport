@@ -9,11 +9,8 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "https://threeport.io/api-tos/",
         "contact": {
-            "name": "Threeport Admin",
-            "url": "https://threeport.io/support",
-            "email": "support@threeport.io"
+            "url": "https://threerport.io"
         },
         "version": "{{.Version}}"
     },
@@ -32,7 +29,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -50,7 +47,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -68,7 +65,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -86,7 +83,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -104,7 +101,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -122,7 +119,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -140,7 +137,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -158,7 +155,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -176,7 +173,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -194,7 +191,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -212,7 +209,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -230,7 +227,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/events/versions": {
+            "get": {
+                "description": "Get the supported API versions for events.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetEventVersions gets the supported versions for the event API.",
+                "operationId": "event-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -248,7 +263,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -266,7 +281,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -284,7 +299,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -302,7 +317,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -320,7 +335,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -338,7 +353,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -356,7 +371,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -374,7 +389,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -392,7 +407,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -410,7 +425,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -428,7 +443,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -446,7 +461,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -464,7 +479,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -482,7 +497,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -500,7 +515,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -518,7 +533,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -536,7 +551,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -554,7 +569,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -572,7 +587,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -590,7 +605,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -608,7 +623,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -626,7 +641,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -644,7 +659,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -662,7 +677,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -680,7 +695,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -4027,6 +4042,287 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.DomainNameInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/events": {
+            "get": {
+                "description": "Get all events from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all events.",
+                "operationId": "get-v0-events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "event search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new event to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new event.",
+                "operationId": "add-v0-event",
+                "parameters": [
+                    {
+                        "description": "Event object",
+                        "name": "event",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.Event"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/events/{id}": {
+            "get": {
+                "description": "Get a particular event from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a event.",
+                "operationId": "get-v0-event",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a event in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating event objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing event by replacing the entire object.",
+                "operationId": "replace-v0-event",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Event object",
+                        "name": "event",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.Event"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a event by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a event.",
+                "operationId": "delete-v0-event",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a event in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating event objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing event.",
+                "operationId": "update-v0-event",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Event object",
+                        "name": "event",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.Event"
                         }
                     }
                 ],
@@ -12855,6 +13151,328 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/events": {
+            "get": {
+                "description": "Get all events from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all events.",
+                "operationId": "get-v1-events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "event search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new event to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new event.",
+                "operationId": "add-v1-event",
+                "parameters": [
+                    {
+                        "description": "Event object",
+                        "name": "event",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_threeport_threeport_pkg_api_v1.Event"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/events-join-attached-object-references": {
+            "get": {
+                "description": "Get all events joined with attached object references",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all events joined with attached object references.",
+                "operationId": "get-v1-events-join-attached-object-references",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "events joined with attached object references search by objectId",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/events/{id}": {
+            "get": {
+                "description": "Get a particular event from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a event.",
+                "operationId": "get-v1-event",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a event in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating event objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing event by replacing the entire object.",
+                "operationId": "replace-v1-event",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Event object",
+                        "name": "event",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_threeport_threeport_pkg_api_v1.Event"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a event by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a event.",
+                "operationId": "delete-v1-event",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a event in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating event objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing event.",
+                "operationId": "update-v1-event",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Event object",
+                        "name": "event",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_threeport_threeport_pkg_api_v1.Event"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/workload-instances": {
             "get": {
                 "description": "Get all workload instances from the Threeport database.",
@@ -13136,30 +13754,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/version": {
-            "get": {
-                "description": "Get a version of REST API.",
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets an REST API version.",
-                "operationId": "get-api-version",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/version.RESTAPIVersion"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/version.RESTAPIVersion"
-                        }
-                    }
-                }
-            }
-        },
         "/workload-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for workload definitions.",
@@ -13172,7 +13766,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -13190,7 +13784,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -13208,7 +13802,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -13226,7 +13820,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -13244,7 +13838,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.RESTAPIVersions"
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
                         }
                     }
                 }
@@ -13252,7 +13846,52 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "api.RESTAPIVersions": {
+        "github_com_threeport_threeport_pkg_api_v1.Event": {
+            "type": "object",
+            "required": [
+                "Count",
+                "EventTime",
+                "LastObservedTime",
+                "Reason",
+                "ReportingController",
+                "Type"
+            ],
+            "properties": {
+                "AttachedObjectReferenceID": {
+                    "description": "AttachedObjectReferenceID is a reference to an attached object.\nA foreign key is configured via db migration in cmd/database-migrator/migrations/000010_add_events_foreign_key.go",
+                    "type": "integer"
+                },
+                "Count": {
+                    "description": "The number of times this event has occurred.",
+                    "type": "integer"
+                },
+                "EventTime": {
+                    "description": "Time when this Event was first observed.",
+                    "type": "string"
+                },
+                "LastObservedTime": {
+                    "description": "The time at which the most recent occurrence of this event was recorded.",
+                    "type": "string"
+                },
+                "Note": {
+                    "description": "A human-readable description of the status of this operation.",
+                    "type": "string"
+                },
+                "Reason": {
+                    "description": "A short, machine understandable string that gives the reason for the event being generated.",
+                    "type": "string"
+                },
+                "ReportingController": {
+                    "description": "Name of the controller that emitted this Event.",
+                    "type": "string"
+                },
+                "Type": {
+                    "description": "Type of this event (Normal, Warning), new types could be added in the future.",
+                    "type": "string"
+                }
+            }
+        },
+        "v0.ApiObjectVersions": {
             "type": "object",
             "required": [
                 "API",
@@ -13483,6 +14122,13 @@ const docTemplate = `{
                     "description": "The AWS account in which the RDS instance will be provisioned.",
                     "type": "integer"
                 },
+                "AwsObjectStorageBucketInstances": {
+                    "description": "The associated object storage bucket instances that are derived from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.AwsObjectStorageBucketInstance"
+                    }
+                },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
@@ -13591,6 +14237,13 @@ const docTemplate = `{
                 "AwsAccountID": {
                     "description": "The AWS account in which the RDS instance will be provisioned.",
                     "type": "integer"
+                },
+                "AwsRelationalDatabaseInstances": {
+                    "description": "The associated object storage bucket instances that are derived from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.AwsRelationalDatabaseInstance"
+                    }
                 },
                 "BackupDays": {
                     "description": "The number of days to retain database backups for.",
@@ -14083,6 +14736,9 @@ const docTemplate = `{
                     "type": "integer"
                 }
             }
+        },
+        "v0.Event": {
+            "type": "object"
         },
         "v0.GatewayDefinition": {
             "type": "object",
@@ -14692,6 +15348,13 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/v0.LogBackend"
+                    }
+                },
+                "LogStorageInstances": {
+                    "description": "The associated log storage instances that are derived from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.LogStorageInstance"
                     }
                 },
                 "Name": {
@@ -15482,6 +16145,13 @@ const docTemplate = `{
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
+                "SecretInstances": {
+                    "description": "The associated secret instances that are deployed from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.SecretInstance"
+                    }
+                },
                 "TierID": {
                     "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
                     "type": "integer"
@@ -16083,29 +16753,18 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "version.RESTAPIVersion": {
-            "type": "object",
-            "required": [
-                "Version"
-            ],
-            "properties": {
-                "Version": {
-                    "type": "string"
-                }
-            }
         }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.4.0-rc.1",
-	Host:             "rest-api.threeport.io",
+	Version:          "v0.6.0-dev",
+	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Threeport RESTful API",
-	Description:      "Threeport RESTful API.",
+	Description:      "Core API server for the Threeport application orchestration control plane.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

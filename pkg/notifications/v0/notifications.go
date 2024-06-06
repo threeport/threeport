@@ -34,6 +34,11 @@ type Notification struct {
 
 	// The API object that has been changed.
 	Object interface{}
+
+	// The API object version.  This allows controller code to determine which
+	// version of the object has been delivered in the notification payload so
+	// as to process it properly.
+	ObjectVersion string
 }
 
 // ConsumeMessage generates a Notificatiion object from a json notification from

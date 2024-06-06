@@ -3,9 +3,9 @@
 Manage development operations with ease.
 
 Here you will find the main package for `tptdev` which is a developer tool to help make
-developers' lives easier.  Currently it supports spinning up and down development
-environments, building docker images, and managing debug mode of threeport control plane
-components.  The dev environment differs from a regular instance of threeport in that the
+developers' lives more efficient.  Currently it supports spinning up and down development
+environments, building docker images, and managing debug mode of Threeport control plane
+components.  The dev environment differs from a regular instance of Threeport in that the
 API and controller components are created with your local code repo mounted. Code changes
 can optionally be live-reloaded into a control plane component by enabling it via `tptdev
 debug`.
@@ -26,8 +26,7 @@ Spins down a developer genesis control plane.
 
 ## tptdev build
 
-Builds docker images that are used by Threeport control plane components. In order to push
-docker images, you must set `DOCKER_USERNAME` and `DOCKER_PASSWORD` environment variables.
+Builds docker images that are used by Threeport control plane components.
 
 ## tptdev debug
 

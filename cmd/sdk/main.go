@@ -5,8 +5,6 @@ package main
 
 import (
 	"github.com/threeport/threeport/cmd/sdk/cmd"
-	_ "github.com/threeport/threeport/cmd/sdk/cmd/create"
-	_ "github.com/threeport/threeport/cmd/sdk/cmd/gen"
 )
 
 func main() {
