@@ -14,7 +14,7 @@ Requirements:
   at the time the core Threeport control plane is deployed.
 
 Implications:
-* We will need to provide a namespacing mechanixm in the Threeport API that
+* We will need to provide a namespacing mechanism in the Threeport API that
   prevents naming collisions between API objects.
   e.g. if two extensions that are used in the same control plane include an
   object called `FancyWorkload`, the API route path will collide.  They will both

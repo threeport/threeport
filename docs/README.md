@@ -19,7 +19,7 @@ This repo contains source code for the following:
 * `tptctl` CLI: the primary client tool for bootstrapping and using Threeport.
 * `tptdev` CLI: a developer tool for managing development builds and
   environments.
-* `threeport-sdk` CLI: a platform enginerring tool for building custom
+* `threeport-sdk` CLI: a platform engineering tool for building custom
   extensions to Threeport and for managing the Threeport codebase itself.
 
 Following is an overview of what lives at the root of this repo:
