@@ -11,7 +11,7 @@ A "genesis" control plane is a Threeport control plane that is provisioned with
 
 ## Parent & Child Control Planes
 
-When a Threeprot control plane is used to spin up another, new Threeport control
+When a Threeport control plane is used to spin up another, new Threeport control
 plane, the provisioning control plane is called the "parent" control plane.  The
 provisioned control plane is called a "child" control plane.
 
