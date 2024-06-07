@@ -83,6 +83,14 @@ func init() {
 		"kind-kubeconfig", "", "Path to kubeconfig used for kind provider installs (default is ~/.kube/config).",
 	)
 	UpCmd.Flags().StringVar(
+		&cliArgs.AzureCredentialsPath,
+		"azure-creds-path", "", "Path to credentials file for the Azure account to use during deployment.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.AzureRegion,
+		"azure-region", "", "The region in Azure to deploy the cluster in.",
+	)
+	UpCmd.Flags().StringVar(
 		&cliArgs.AwsConfigProfile,
 		"aws-config-profile", "default", "The AWS config profile to draw credentials from when using eks provider.",
 	)

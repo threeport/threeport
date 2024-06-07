@@ -61,6 +61,9 @@ type ControlPlane struct {
 	// Provider configuration for EKS-hosted threeport control planes.
 	EKSProviderConfig EKSProviderConfig `yaml:"EKSProviderConfig"`
 
+	// Provider configuration for AKS-hosted threeport control planes.
+	AKSProviderConfig AKSProviderConfig `yaml:"AKSProviderConfig"`
+
 	// Client authentication credentials to threeport API.
 	Credentials []Credential `yaml:"Credentials"`
 
@@ -76,6 +79,7 @@ type KubeAPI struct {
 	Certificate   string `yaml:"Certificate"`
 	Key           string `yaml:"Key"`
 	EKSToken      string `yaml:"EKSToken"`
+	AKSToken      string `yaml:"AKSToken"`
 }
 
 // EKSProviderConfig is the set of provider config information needed to manage
@@ -84,6 +88,13 @@ type EKSProviderConfig struct {
 	AwsConfigProfile string `yaml:"AWSConfigProfile"`
 	AwsRegion        string `yaml:"AWSRegion"`
 	AwsAccountID     string `yaml:"AWSAccountID"`
+}
+
+// AKSProviderConfig is the set of provider config information needed to manage
+// AKS clusters on AWS.
+type AKSProviderConfig struct {
+	AzureRegion      string `yaml:"AzureRegion"`
+	AzureCredentials string `yaml:"AzureCredentials"`
 }
 
 // Credential is a client certificate and key pair for authenticating to a Threeport instance.
@@ -280,6 +291,16 @@ func (cfg *ThreeportConfig) GetControlPlaneConfig(name string) (*ControlPlane, e
 		}
 	}
 	return nil, fmt.Errorf("control plane %s not found", name)
+}
+
+// GetAksProviderConfig returns the AKS provider config for the control plane
+func (cfg *ThreeportConfig) GetAksProviderConfig(requestedControlPlane string) (*AKSProviderConfig, error) {
+	controlPlane, err := cfg.GetControlPlaneConfig(requestedControlPlane)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get control plane config: %w", err)
+	}
+
+	return &controlPlane.AKSProviderConfig, nil
 }
 
 // GetAwsConfigs returns AWS configs for the user and resource manager.

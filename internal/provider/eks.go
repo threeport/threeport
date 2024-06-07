@@ -121,7 +121,7 @@ func (i *KubernetesRuntimeInfraEKS) Delete() error {
 	return nil
 }
 
-// GetConnection gets the latest connection infor for authentication to an EKS cluster.
+// GetConnection gets the latest connection info for authentication to an EKS cluster.
 func (i *KubernetesRuntimeInfraEKS) GetConnection() (*kube.KubeConnectionInfo, error) {
 	// get connection info
 	eksClusterConn := connection.EksClusterConnectionInfo{

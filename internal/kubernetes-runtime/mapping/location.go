@@ -11,6 +11,7 @@ import (
 type RegionMap struct {
 	Location  string
 	AwsRegion string
+	AksRegion string
 	//GcpRegion string  // future use
 }
 
@@ -64,6 +65,7 @@ func getRegionMap() *[]RegionMap {
 		{
 			Location:  "NorthAmerica:LosAngeles",
 			AwsRegion: "us-west-1",
+			AksRegion: "West US",
 		},
 		{
 			Location:  "NorthAmerica:Seattle",
@@ -186,6 +188,8 @@ func GetProviderRegionForLocation(provider, location string) (string, error) {
 			switch provider {
 			case util.AwsProvider:
 				return r.AwsRegion, nil
+			case util.AksProvider:
+				return r.AksRegion, nil
 			default:
 				msg := fmt.Sprintf("provider %s not supported", provider)
 				return "", &ProviderError{Message: msg}
@@ -207,5 +211,17 @@ func GetLocationForAwsRegion(awsRegion string) (string, error) {
 	}
 
 	msg := fmt.Sprintf("AWS region %s not supported", awsRegion)
+	return "", &RegionError{Message: msg}
+}
+
+// GetLocationFor
+func GetLocationForAksRegion(aksRegion string) (string, error) {
+	for _, r := range *getRegionMap() {
+		if r.AksRegion == aksRegion {
+			return r.Location, nil
+		}
+	}
+
+	msg := fmt.Sprintf("AKS region %s not supported", aksRegion)
 	return "", &RegionError{Message: msg}
 }

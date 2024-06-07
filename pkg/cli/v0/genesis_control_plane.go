@@ -2,6 +2,7 @@ package v0
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 	"github.com/nukleros/aws-builder/pkg/eks"
 	"github.com/nukleros/aws-builder/pkg/eks/connection"
 	builder_iam "github.com/nukleros/aws-builder/pkg/iam"
+	azconfig "github.com/nukleros/azure-builder/pkg/config"
 	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
@@ -49,6 +51,8 @@ type GenesisControlPlaneCLIArgs struct {
 	AwsRegion             string
 	AwsRoleArn            string
 	AwsSerialNumber       string
+	AzureCredentialsPath  string
+	AzureRegion           string
 	CfgFile               string
 	ControlPlaneImageRepo string
 	ControlPlaneImageTag  string
@@ -149,6 +153,8 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	}
 
 	cpi.Opts.AuthEnabled = a.AuthEnabled
+	cpi.Opts.AzureCredentialsPath = a.AzureCredentialsPath
+	cpi.Opts.AzureRegion = a.AzureRegion
 	cpi.Opts.AwsConfigProfile = a.AwsConfigProfile
 	cpi.Opts.AwsConfigEnv = a.AwsConfigEnv
 	cpi.Opts.AwsRegion = a.AwsRegion
@@ -479,6 +485,50 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
 			}
 		}
+	case v0.KubernetesRuntimeInfraProviderAKS:
+		// Load credentials used to connect to Azure
+		credFileBytes, err := os.ReadFile(cpi.Opts.AzureCredentialsPath)
+		if err != nil {
+			return uninstaller.cleanOnCreateError("could not read credentials file", err)
+		}
+
+		var credentialsConfig azconfig.AzureCredentialsConfig
+		if err = json.Unmarshal(credFileBytes, &credentialsConfig); err != nil {
+			return uninstaller.cleanOnCreateError("could not JSON unmarshal credentials config", err)
+		}
+
+		var aksConfig azconfig.AksConfig = azconfig.AksConfig{
+			Name:   &cpi.Opts.ControlPlaneName,
+			Region: &cpi.Opts.AzureRegion,
+		}
+
+		// update threeport config with aks provider info
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+			c.AKSProviderConfig = config.AKSProviderConfig{
+				AzureRegion:      cpi.Opts.AzureRegion,
+				AzureCredentials: util.Base64Encode(string(credFileBytes)),
+			}
+		}); err != nil {
+			return fmt.Errorf("failed to update threeport config: %w", err)
+		}
+
+		kubernetesRuntimeInfraAKS := &provider.KubernetesRuntimeInfraAKS{
+			AksConfig:              aksConfig,
+			AzureCredentialsConfig: credentialsConfig,
+		}
+
+		if !cpi.Opts.ControlPlaneOnly {
+			kubeConnectionInfo, err = kubernetesRuntimeInfraAKS.Create()
+			if err != nil {
+				return uninstaller.cleanOnCreateError("could not create control plane infra for threeport", err)
+			}
+		} else {
+			kubeConnectionInfo, err = kubernetesRuntimeInfraAKS.GetConnection()
+			if err != nil {
+				return fmt.Errorf("could not get kube connection info: %w", err)
+			}
+		}
+
 	}
 
 	// update threeport config with kube API info
@@ -489,6 +539,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			Certificate:   util.Base64Encode(kubeConnectionInfo.Certificate),
 			Key:           util.Base64Encode(kubeConnectionInfo.Key),
 			EKSToken:      util.Base64Encode(kubeConnectionInfo.EKSToken),
+			AKSToken:      util.Base64Encode(kubeConnectionInfo.AKSToken),
 		}
 	}); err != nil {
 		return uninstaller.cleanOnCreateError("failed to update threeport config", err)
@@ -571,6 +622,26 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			CACertificate:             &kubeConnectionInfo.CACertificate,
 			ConnectionToken:           &kubeConnectionInfo.EKSToken,
 			ConnectionTokenExpiration: &kubeConnectionInfo.EKSTokenExpiration,
+			DefaultRuntime:            &defaultRuntime,
+		}
+	case v0.KubernetesRuntimeInfraProviderAKS:
+		location, err := mapping.GetLocationForAksRegion(cpi.Opts.AzureRegion)
+		if err != nil {
+			return uninstaller.cleanOnCreateError(fmt.Sprintf("failed to get threeport location for AKS region %s", cpi.Opts.AzureRegion), err)
+		}
+
+		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
+			Instance: v0.Instance{
+				Name: &kubernetesRuntimeInstName,
+			},
+			Reconciliation: v0.Reconciliation{
+				Reconciled: &instReconciled,
+			},
+			Location:                  &location,
+			ThreeportControlPlaneHost: &controlPlaneHost,
+			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
+			CACertificate:             &kubeConnectionInfo.CACertificate,
+			ConnectionToken:           &kubeConnectionInfo.AKSToken,
 			DefaultRuntime:            &defaultRuntime,
 		}
 	}
@@ -694,6 +765,16 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			if err := cpi.CreateOrUpdateKubeResource(serviceAccount, dynamicKubeClient, mapper); err != nil {
 				return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
 			}
+		}
+	case v0.KubernetesRuntimeInfraProviderAKS:
+		threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+		if err != nil {
+			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
+		}
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
+		}); err != nil {
+			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
 		}
 	}
 
@@ -1097,6 +1178,31 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			ResourceInventory:   &inventory,
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
+	case v0.KubernetesRuntimeInfraProviderAKS:
+		providerConfig, err := threeportConfig.GetAksProviderConfig(requestedControlPlane)
+		if err != nil {
+			return fmt.Errorf("failed to get the aks provider config from threeport config: %w", err)
+		}
+
+		decodedCertContent, err := util.Base64Decode(providerConfig.AzureCredentials)
+		if err != nil {
+			return fmt.Errorf("failed to base64 decode aks credentials content: %w", err)
+		}
+
+		var credentialsConfig azconfig.AzureCredentialsConfig
+		if err = json.Unmarshal([]byte(decodedCertContent), &credentialsConfig); err != nil {
+			return fmt.Errorf("could not JSON unmarshal credentials config", err)
+		}
+
+		// construct aks kubernetes runtime infra object
+		kubernetesRuntimeInfraAKS := provider.KubernetesRuntimeInfraAKS{
+			AksConfig: azconfig.AksConfig{
+				Name:   &cpi.Opts.Name,
+				Region: &providerConfig.AzureRegion,
+			},
+			AzureCredentialsConfig: credentialsConfig,
+		}
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraAKS
 	}
 
 	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.ControlPlaneName)
@@ -1214,6 +1320,57 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			err = provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
 			if err != nil {
 				return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
+			}
+		}
+	case v0.KubernetesRuntimeInfraProviderAKS:
+		// check for workload instances on non-kind kubernetes runtimes - halt delete if
+		// any are present
+		workloadInstances, err := client.GetWorkloadInstances(
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve workload instances from threeport API: %w", err)
+		}
+		if len(*workloadInstances) > 0 {
+			return errors.New("found workload instances that could prevent control plane deletion - delete all workload instances before deleting control plane")
+		}
+
+		// get control plane instances
+		controlPlaneInstances, err := client.GetControlPlaneInstances(
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve control plane instances from threeport API: %w", err)
+		}
+		if len(*controlPlaneInstances) > 1 {
+			return errors.New("found non-genesis control plane instance(s) that could prevent control plane deletion - delete all non-genesis control plane instances before deleting genesis control plane")
+		}
+
+		// create a client and resource mapper to connect to kubernetes cluster
+		// API for deleting resources
+		var dynamicKubeClient dynamic.Interface
+		var mapper *meta.RESTMapper
+		dynamicKubeClient, mapper, err = kube.GetClient(
+			kubernetesRuntimeInstance,
+			false,
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+			threeportControlPlaneConfig.EncryptionKey,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
+		}
+
+		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
+			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
+		}
+
+		if !cpi.Opts.ControlPlaneOnly {
+			// delete control plane infra
+			if err := kubernetesRuntimeInfra.Delete(); err != nil {
+				return fmt.Errorf("failed to delete control plane infra: %w", err)
 			}
 		}
 	}

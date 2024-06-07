@@ -1203,7 +1203,13 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIEndpoint(
 			}
 
 			firstIngress := ingress[0].(map[string]interface{})
-			apiEndpoint, found, err = unstructured.NestedString(firstIngress, "hostname")
+			// default location for addr in k8s service in EKS
+			var key string = "hostname"
+			// AKS uses a different key for the addr info
+			if cpi.Opts.InfraProvider == "aks" {
+				key = "ip"
+			}
+			apiEndpoint, found, err = unstructured.NestedString(firstIngress, key)
 			if err != nil || !found {
 				return fmt.Errorf("failed to retrieve threeport API load balancer hostname: %w", err)
 			}
@@ -1650,7 +1656,7 @@ func (cpi *ControlPlaneInstaller) GetAPIServicePort() (string, int32) {
 			return "https", 443
 		}
 		return "http", 80
-	} else if cpi.Opts.InfraProvider == "eks" {
+	} else if cpi.Opts.InfraProvider == "eks" || cpi.Opts.InfraProvider == "aks" {
 		if cpi.Opts.AuthEnabled {
 			return "https", 443
 		}

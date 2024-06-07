@@ -45,6 +45,12 @@ type Options struct {
 	// Installer option to determine if auth is enabled/disabled
 	AuthEnabled bool
 
+	// The azure credentials file path
+	AzureCredentialsPath string
+
+	// The Azure region to deploy the aks cluster in
+	AzureRegion string
+
 	// The AWS config profile to draw credentials from when using eks provider.
 	AwsConfigProfile string
 

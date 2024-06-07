@@ -10,6 +10,9 @@ const (
 	// used to query GetProviderRegionForLocation to determine the AWS region
 	AwsProvider = "aws"
 
+	// used to query GetProviderRegionForLocation to determine the AKS region
+	AksProvider = "aks"
+
 	// namespace used by the gateway system
 	GatewaySystemNamespace = "nukleros-gateway-system"
 )
