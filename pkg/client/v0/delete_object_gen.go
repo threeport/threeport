@@ -51,6 +51,21 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 			return fmt.Errorf("failed to delete AwsRelationalDatabaseInstance: %w", err)
 		}
 
+	case "v0.AzureAccount":
+		if _, err := DeleteAzureAccount(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete AzureAccount: %w", err)
+		}
+
+	case "v0.AzureAksKubernetesRuntimeDefinition":
+		if _, err := DeleteAzureAksKubernetesRuntimeDefinition(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete AzureAksKubernetesRuntimeDefinition: %w", err)
+		}
+
+	case "v0.AzureAksKubernetesRuntimeInstance":
+		if _, err := DeleteAzureAksKubernetesRuntimeInstance(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete AzureAksKubernetesRuntimeInstance: %w", err)
+		}
+
 	case "v0.ControlPlaneDefinition":
 		if _, err := DeleteControlPlaneDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete ControlPlaneDefinition: %w", err)

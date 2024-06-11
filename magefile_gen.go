@@ -70,6 +70,26 @@ func BuildAwsController() error {
 	return nil
 }
 
+// BuildAzureController builds the binary for the azure-controller.
+func BuildAzureController() error {
+	buildCmd := exec.Command(
+		"go",
+		"build",
+		"-o",
+		"bin/azure-controller",
+		"cmd/azure-controller/main_gen.go",
+	)
+
+	output, err := buildCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("build failed for azure-controller with output '%s': %w", output, err)
+	}
+
+	fmt.Println("azure-controller binary built and available at bin/azure-controller")
+
+	return nil
+}
+
 // BuildControlPlaneController builds the binary for the control-plane-controller.
 func BuildControlPlaneController() error {
 	buildCmd := exec.Command(

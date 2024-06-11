@@ -69,6 +69,24 @@ ApiObjectGroups:
       Reconcilable: true
       Tptctl:
         Enabled: true
+- Name: azure
+  Objects:
+    - Name: AzureAccount
+      Versions:
+        - v0
+      Tptctl:
+        Enabled: true
+    - Name: AzureAksKubernetesRuntimeDefinition
+      Versions:
+        - v0
+      Tptctl:
+        Enabled: true
+    - Name: AzureAksKubernetesRuntimeInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl:
+        Enabled: true
 - Name: control_plane
   Objects:
     - Name: ControlPlaneDefinition

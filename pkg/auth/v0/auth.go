@@ -28,9 +28,9 @@ type AuthConfig struct {
 }
 
 // GetAuthConfig populates an AuthConfig object and returns a pointer to it.
-func GetAuthConfig() (*AuthConfig, error) {
+func GetAuthConfig(caIPs []string) (*AuthConfig, error) {
 	// generate certificate authority for the threeport API
-	caConfig, ca, caPrivateKey, err := GenerateCACertificate()
+	caConfig, ca, caPrivateKey, err := GenerateCACertificate(caIPs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate certificate authority and private key: %w", err)
 	}
@@ -52,12 +52,17 @@ func GetAuthConfig() (*AuthConfig, error) {
 }
 
 // GenerateCACertificate generates a certificate authority and private key for the Threeport API.
-func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKey *rsa.PrivateKey, err error) {
+func GenerateCACertificate(certIPs []string) (caConfig *x509.Certificate, ca []byte, caPrivateKey *rsa.PrivateKey, err error) {
 	// generate a random identifier for use as a serial number
 	max := new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil)
 	randomNumber, err := rand.Int(rand.Reader, max)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to generate random serial number: %w", err)
+	}
+
+	ipAddrs := make([]net.IP, 0)
+	for _, ip := range certIPs {
+		ipAddrs = append(ipAddrs, net.ParseIP(ip))
 	}
 
 	// set config options for a new CA certificate
@@ -72,7 +77,7 @@ func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKe
 			"threeport-api-server.threeport-control-plane.svc.cluster",
 			"threeport-api-server.threeport-control-plane.svc.cluster.local",
 		},
-		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+		IPAddresses: ipAddrs,
 		Subject: pkix.Name{
 			CommonName:   "localhost",
 			Organization: []string{"Threeport"},
@@ -107,6 +112,7 @@ func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKe
 func GenerateCertificate(
 	caConfig *x509.Certificate,
 	caPrivateKey *rsa.PrivateKey,
+	certIPs []string,
 	altNames ...string,
 ) (certificate string, privateKey string, err error) {
 	// generate a random identifier for use as a serial number
@@ -126,11 +132,16 @@ func GenerateCertificate(
 		"threeport-api-server.threeport-control-plane.svc.cluster.local",
 	}
 	dnsNames = append(dnsNames, altNames...)
+	ipAddrs := make([]net.IP, 0)
+	for _, ip := range certIPs {
+		ipAddrs = append(ipAddrs, net.ParseIP(ip))
+	}
+
 	cert := &x509.Certificate{
 		SerialNumber: randomNumber,
 		URIs:         []*url.URL{{Scheme: "https", Host: "localhost"}},
 		DNSNames:     dnsNames,
-		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+		IPAddresses:  ipAddrs,
 		Subject: pkix.Name{
 			CommonName:   "localhost",
 			Organization: []string{"Threeport"},

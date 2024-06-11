@@ -238,6 +238,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	var threeportAPIEndpoint string
 	var callerIdentity *sts.GetCallerIdentityOutput
 	var kubeConnectionInfo *kube.KubeConnectionInfo
+	var azureCredentials string
 	awsConfigUser := aws.Config{}
 	uninstaller.awsConfig = &awsConfigUser
 	awsConfigResourceManager := &aws.Config{}
@@ -492,6 +493,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return uninstaller.cleanOnCreateError("could not read credentials file", err)
 		}
 
+		azureCredentials = string(credFileBytes)
+
 		var credentialsConfig azconfig.AzureCredentialsConfig
 		if err = json.Unmarshal(credFileBytes, &credentialsConfig); err != nil {
 			return uninstaller.cleanOnCreateError("could not JSON unmarshal credentials config", err)
@@ -675,9 +678,24 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// if auth is enabled, generate client certificate and add to local config
 	var authConfig *auth.AuthConfig
 	var clientCredentials *config.Credential
+	var certIPs []string
 	if cpi.Opts.AuthEnabled {
+		// because of the nature of load balancer provisioning in azure,
+		// we need the load balancer certIPs to generate the correct certs below
+		certIPs = make([]string, 0)
+		if controlPlane.InfraProvider == v0.KubernetesRuntimeInfraProviderAKS {
+			threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+			if err != nil {
+				return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
+			}
+
+			certIPs = append(certIPs, threeportAPIEndpoint)
+		} else {
+			certIPs = append(certIPs, "127.0.0.1")
+		}
+
 		// get auth config
-		authConfig, err = auth.GetAuthConfig()
+		authConfig, err = auth.GetAuthConfig(certIPs)
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to get auth config", err)
 		}
@@ -686,6 +704,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(
 			authConfig.CAConfig,
 			&authConfig.CAPrivateKey,
+			certIPs,
 		)
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to generate client certificate and private key", err)
@@ -786,6 +805,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			dynamicKubeClient,
 			mapper,
 			authConfig,
+			certIPs,
 			threeportAPIEndpoint,
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to install threeport API TLS assets", err)
@@ -920,13 +940,12 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return uninstaller.cleanOnCreateError("failed to create new kubernetes runtime instance for default compute space", err)
 	}
 
+	switch controlPlane.InfraProvider {
 	// for eks clusters:
 	// * create aws account
-	// * set region in threeport config
 	// * create aws eks k8s runtime definition
 	// * create aws eks k8s runtime instance
 	// * copy aws eks resource inventory to cluster
-	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 
 		awsAccountName := "default-account"
@@ -1013,6 +1032,69 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		)
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to create new AWS EKS kubernetes runtime instance for control plane cluster", err)
+		}
+	// for aks clsuter:
+	// * create aks account
+	// * create aks k8s runtime definition
+	// * create aks k8s runtime instance
+	case v0.KubernetesRuntimeInfraProviderAKS:
+		azureAccountName := "default-account"
+		defaultAccount := true
+
+		azureAccount := v0.AzureAccount{
+			Name:           &azureAccountName,
+			DefaultAccount: &defaultAccount,
+			DefaultRegion:  &cpi.Opts.AzureRegion,
+			Credentials:    &azureCredentials,
+		}
+		createdAzureAccount, err := client.CreateAzureAccount(
+			apiClient,
+			threeportAPIEndpoint,
+			&azureAccount,
+		)
+		if err != nil {
+			return uninstaller.cleanOnCreateError("failed to create new default Azure account", err)
+		}
+
+		reconciled := true
+		aksKubernetesRuntimeDefinition := v0.AzureAksKubernetesRuntimeDefinition{
+			Definition: v0.Definition{
+				Name: &cpi.Opts.ControlPlaneName,
+			},
+			AzureAccountID:                createdAzureAccount.ID,
+			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
+		}
+
+		createdAksKubernetesRuntimeDefinition, err := client.CreateAzureAksKubernetesRuntimeDefinition(
+			apiClient,
+			threeportAPIEndpoint,
+			&aksKubernetesRuntimeDefinition,
+		)
+
+		if err != nil {
+			return uninstaller.cleanOnCreateError("failed to create new Azure AKS runtime definition for control plane cluster", err)
+		}
+
+		aksKubernetesRuntimeInstance := v0.AzureAksKubernetesRuntimeInstance{
+			Instance: v0.Instance{
+				Name: &cpi.Opts.ControlPlaneName,
+			},
+			Reconciliation: v0.Reconciliation{
+				Reconciled: &reconciled,
+			},
+			Region:                                &cpi.Opts.AzureRegion,
+			AzureAksKubernetesRuntimeDefinitionID: createdAksKubernetesRuntimeDefinition.ID,
+			KubernetesRuntimeInstanceID:           kubernetesRuntimeInstResult.ID,
+		}
+
+		_, err = client.CreateAzureAksKubernetesRuntimeInstance(
+			apiClient,
+			threeportAPIEndpoint,
+			&aksKubernetesRuntimeInstance,
+		)
+
+		if err != nil {
+			return uninstaller.cleanOnCreateError("failed to create new Azure AKS runtime instance for control plane cluster", err)
 		}
 	}
 
@@ -1197,7 +1279,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		// construct aks kubernetes runtime infra object
 		kubernetesRuntimeInfraAKS := provider.KubernetesRuntimeInfraAKS{
 			AksConfig: azconfig.AksConfig{
-				Name:   &cpi.Opts.Name,
+				Name:   &cpi.Opts.ControlPlaneName,
 				Region: &providerConfig.AzureRegion,
 			},
 			AzureCredentialsConfig: credentialsConfig,

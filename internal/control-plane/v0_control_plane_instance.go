@@ -296,7 +296,7 @@ func v0ControlPlaneInstanceCreated(
 	if *controlPlaneDefinition.AuthEnabled {
 		cpi.Opts.AuthEnabled = true
 		// get auth config
-		authConfig, err = auth.GetAuthConfig()
+		authConfig, err = auth.GetAuthConfig([]string{"127.0.0.1"})
 		if err != nil {
 			return 0, fmt.Errorf("failed to get auth config: %w", err)
 		}
@@ -305,6 +305,7 @@ func v0ControlPlaneInstanceCreated(
 		clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(
 			authConfig.CAConfig,
 			&authConfig.CAPrivateKey,
+			[]string{"127.0.0.1"},
 		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to generate client certificate and private key: %w", err)
@@ -394,6 +395,7 @@ func v0ControlPlaneInstanceCreated(
 			dynamicKubeClient,
 			mapper,
 			authConfig,
+			[]string{"127.0.0.1"},
 			threeportAPIEndpoint,
 		); err != nil {
 			return 0, fmt.Errorf("failed to install threeport API TLS assets: %w", err)

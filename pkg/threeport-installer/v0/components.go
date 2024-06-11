@@ -247,6 +247,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAPITLS(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	authConfig *auth.AuthConfig,
+	certIPs []string,
 	serverAltName string,
 ) error {
 	if authConfig != nil {
@@ -254,6 +255,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAPITLS(
 		serverCertificate, serverPrivateKey, err := auth.GenerateCertificate(
 			authConfig.CAConfig,
 			&authConfig.CAPrivateKey,
+			certIPs,
 			serverAltName,
 		)
 		if err != nil {
@@ -295,7 +297,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 		// secrets
 		if authConfig != nil {
 
-			certificate, privateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+			certificate, privateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey, []string{"127.0.0.1"})
 			if err != nil {
 				return fmt.Errorf("failed to generate client certificate and private key for workload controller: %w", err)
 			}
@@ -394,7 +396,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 	// if auth is enabled on API, generate client cert and key and store in
 	// secrets
 	if authConfig != nil {
-		agentCertificate, agentPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+		agentCertificate, agentPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey, []string{"127.0.0.1"})
 		if err != nil {
 			return fmt.Errorf("failed to generate client certificate and private key for threeport agent: %w", err)
 		}

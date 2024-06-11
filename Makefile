@@ -34,7 +34,11 @@ install-tptctl: build-tptctl
 ## code generation
 
 #generate: @ Run code generation
-generate: generate-code generate-docs
+generate: generate-files generate-code generate-docs
+
+#generate-files: @ Generate files for codegen
+generate-files:
+	threeport-sdk create -c sdk-config.yaml
 
 #generate-code: @ Generate code
 generate-code:

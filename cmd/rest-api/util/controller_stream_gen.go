@@ -6,6 +6,7 @@ import (
 	"fmt"
 	nats "github.com/nats-io/nats.go"
 	aws_notif "github.com/threeport/threeport/internal/aws/notif"
+	notif "github.com/threeport/threeport/internal/azure/notif"
 	controlplane_notif "github.com/threeport/threeport/internal/control-plane/notif"
 	gateway_notif "github.com/threeport/threeport/internal/gateway/notif"
 	helmworkload_notif "github.com/threeport/threeport/internal/helm-workload/notif"
@@ -38,6 +39,14 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", aws_notif.AwsStreamName, err)
+	}
+
+	_, err = js.AddStream(&nats.StreamConfig{
+		Name:     notif.AzureStreamName,
+		Subjects: notif.GetAzureSubjects(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not add stream %s: %w", notif.AzureStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
