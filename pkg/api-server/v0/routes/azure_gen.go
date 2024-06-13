@@ -43,3 +43,27 @@ func AzureAksKubernetesRuntimeInstanceRoutes(e *echo.Echo, h *handlers.Handler) 
 	e.PUT(v0.PathAzureAksKubernetesRuntimeInstances+"/:id", h.ReplaceAzureAksKubernetesRuntimeInstance)
 	e.DELETE(v0.PathAzureAksKubernetesRuntimeInstances+"/:id", h.DeleteAzureAksKubernetesRuntimeInstance)
 }
+
+// AzureRelationalDatabaseDefinitionRoutes sets up all routes for the AzureRelationalDatabaseDefinition handlers.
+func AzureRelationalDatabaseDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/azure-relational-database-definitions/versions", h.GetAzureRelationalDatabaseDefinitionVersions)
+
+	e.POST(v0.PathAzureRelationalDatabaseDefinitions, h.AddAzureRelationalDatabaseDefinition)
+	e.GET(v0.PathAzureRelationalDatabaseDefinitions, h.GetAzureRelationalDatabaseDefinitions)
+	e.GET(v0.PathAzureRelationalDatabaseDefinitions+"/:id", h.GetAzureRelationalDatabaseDefinition)
+	e.PATCH(v0.PathAzureRelationalDatabaseDefinitions+"/:id", h.UpdateAzureRelationalDatabaseDefinition)
+	e.PUT(v0.PathAzureRelationalDatabaseDefinitions+"/:id", h.ReplaceAzureRelationalDatabaseDefinition)
+	e.DELETE(v0.PathAzureRelationalDatabaseDefinitions+"/:id", h.DeleteAzureRelationalDatabaseDefinition)
+}
+
+// AzureRelationalDatabaseInstanceRoutes sets up all routes for the AzureRelationalDatabaseInstance handlers.
+func AzureRelationalDatabaseInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET("/azure-relational-database-instances/versions", h.GetAzureRelationalDatabaseInstanceVersions)
+
+	e.POST(v0.PathAzureRelationalDatabaseInstances, h.AddAzureRelationalDatabaseInstance)
+	e.GET(v0.PathAzureRelationalDatabaseInstances, h.GetAzureRelationalDatabaseInstances)
+	e.GET(v0.PathAzureRelationalDatabaseInstances+"/:id", h.GetAzureRelationalDatabaseInstance)
+	e.PATCH(v0.PathAzureRelationalDatabaseInstances+"/:id", h.UpdateAzureRelationalDatabaseInstance)
+	e.PUT(v0.PathAzureRelationalDatabaseInstances+"/:id", h.ReplaceAzureRelationalDatabaseInstance)
+	e.DELETE(v0.PathAzureRelationalDatabaseInstances+"/:id", h.DeleteAzureRelationalDatabaseInstance)
+}

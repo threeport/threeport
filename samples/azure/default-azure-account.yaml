@@ -1,0 +1,12 @@
+AzureAccount:
+  Name: default-account
+  AccountID: "555555555555"
+  DefaultAccount: true
+
+  # option 1: provide explicit configs/credentials
+  #DefaultRegion: "West US"
+  #Credentials: <Contents of credentials.json from Azure CLI>
+
+  # option 2: use local path to a credentials file location
+  LocalCredentials: /path/to/local/.azure/credentials.json
+

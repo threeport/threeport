@@ -1,0 +1,6 @@
+AzureAksKubernetesRuntimeInstance:
+  Name: test-runtime-01
+  Region: "West US"
+  AzureAksKubernetesRuntimeDefinition:
+    Name: test-runtime
+

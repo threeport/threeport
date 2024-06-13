@@ -31,6 +31,11 @@ func main() {
 		1,
 		"Number of concurrent reconcilers to run for azure aks kubernetes runtime instances",
 	)
+	var azureRelationalDatabaseInstanceConcurrentReconciles = flag.Int(
+		"azure-relational-database-instance-concurrent-reconciles",
+		1,
+		"Number of concurrent reconcilers to run for azure relational database instances",
+	)
 
 	var apiServer = flag.String("api-server", "threeport-api-server", "Threepoort REST API server endpoint")
 	var msgBrokerHost = flag.String("msg-broker-host", "", "Threeport message broker hostname")
@@ -135,6 +140,12 @@ func main() {
 		Name:                 "AzureAksKubernetesRuntimeInstanceReconciler",
 		NotifSubject:         notif.AzureAksKubernetesRuntimeInstanceSubject,
 		ReconcileFunc:        azure.AzureAksKubernetesRuntimeInstanceReconciler,
+	})
+	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
+		ConcurrentReconciles: *azureRelationalDatabaseInstanceConcurrentReconciles,
+		Name:                 "AzureRelationalDatabaseInstanceReconciler",
+		NotifSubject:         notif.AzureRelationalDatabaseInstanceSubject,
+		ReconcileFunc:        azure.AzureRelationalDatabaseInstanceReconciler,
 	})
 
 	for _, r := range reconcilerConfigs {

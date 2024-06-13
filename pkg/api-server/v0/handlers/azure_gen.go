@@ -956,3 +956,654 @@ func (h Handler) DeleteAzureAksKubernetesRuntimeInstance(c echo.Context) error {
 
 	return apiserver_lib.ResponseStatus200(c, *response)
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// AzureRelationalDatabaseDefinition
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetAzureRelationalDatabaseDefinitionVersions gets the supported versions for the azure relational database definition API.
+// @Description Get the supported API versions for azure relational database definitions.
+// @ID azureRelationalDatabaseDefinition-get-versions
+// @Produce json
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
+// @Router /azure-relational-database-definitions/versions [GET]
+func (h Handler) GetAzureRelationalDatabaseDefinitionVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAzureRelationalDatabaseDefinition)])
+}
+
+// @Summary adds a new azure relational database definition.
+// @Description Add a new azure relational database definition to the Threeport database.
+// @ID add-v0-azureRelationalDatabaseDefinition
+// @Accept json
+// @Produce json
+// @Param azureRelationalDatabaseDefinition body api_v0.AzureRelationalDatabaseDefinition true "AzureRelationalDatabaseDefinition object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/azure-relational-database-definitions [POST]
+func (h Handler) AddAzureRelationalDatabaseDefinition(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAzureRelationalDatabaseDefinition
+	var azureRelationalDatabaseDefinition api_v0.AzureRelationalDatabaseDefinition
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, azureRelationalDatabaseDefinition); err != nil {
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&azureRelationalDatabaseDefinition); err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := apiserver_lib.ValidateBoundData(c, azureRelationalDatabaseDefinition, objectType); err != nil {
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingAzureRelationalDatabaseDefinition api_v0.AzureRelationalDatabaseDefinition
+	nameUsed := true
+	result := h.DB.Where("name = ?", azureRelationalDatabaseDefinition.Name).First(&existingAzureRelationalDatabaseDefinition)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&azureRelationalDatabaseDefinition); result.Error != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, azureRelationalDatabaseDefinition, objectType)
+	if err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all azure relational database definitions.
+// @Description Get all azure relational database definitions from the Threeport database.
+// @ID get-v0-azureRelationalDatabaseDefinitions
+// @Accept json
+// @Produce json
+// @Param name query string false "azure relational database definition search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/azure-relational-database-definitions [GET]
+func (h Handler) GetAzureRelationalDatabaseDefinitions(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAzureRelationalDatabaseDefinition
+	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
+	}
+
+	var filter api_v0.AzureRelationalDatabaseDefinition
+	if err := c.Bind(&filter); err != nil {
+		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	var totalCount int64
+	if result := h.DB.Model(&api_v0.AzureRelationalDatabaseDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	records := &[]api_v0.AzureRelationalDatabaseDefinition{}
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
+	if err != nil {
+		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a azure relational database definition.
+// @Description Get a particular azure relational database definition from the database.
+// @ID get-v0-azureRelationalDatabaseDefinition
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/azure-relational-database-definitions/{id} [GET]
+func (h Handler) GetAzureRelationalDatabaseDefinition(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAzureRelationalDatabaseDefinition
+	azureRelationalDatabaseDefinitionID := c.Param("id")
+	var azureRelationalDatabaseDefinition api_v0.AzureRelationalDatabaseDefinition
+	if result := h.DB.First(&azureRelationalDatabaseDefinition, azureRelationalDatabaseDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, azureRelationalDatabaseDefinition, objectType)
+	if err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing azure relational database definition.
+// @Description Update a azure relational database definition in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating azure relational database definition objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-v0-azureRelationalDatabaseDefinition
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param azureRelationalDatabaseDefinition body api_v0.AzureRelationalDatabaseDefinition true "AzureRelationalDatabaseDefinition object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/azure-relational-database-definitions/{id} [PATCH]
+func (h Handler) UpdateAzureRelationalDatabaseDefinition(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAzureRelationalDatabaseDefinition
+	azureRelationalDatabaseDefinitionID := c.Param("id")
+	var existingAzureRelationalDatabaseDefinition api_v0.AzureRelationalDatabaseDefinition
+	if result := h.DB.First(&existingAzureRelationalDatabaseDefinition, azureRelationalDatabaseDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAzureRelationalDatabaseDefinition); err != nil {
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedAzureRelationalDatabaseDefinition api_v0.AzureRelationalDatabaseDefinition
+	if err := c.Bind(&updatedAzureRelationalDatabaseDefinition); err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingAzureRelationalDatabaseDefinition).Updates(updatedAzureRelationalDatabaseDefinition); result.Error != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, existingAzureRelationalDatabaseDefinition, objectType)
+	if err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing azure relational database definition by replacing the entire object.
+// @Description Replace a azure relational database definition in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating azure relational database definition objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-v0-azureRelationalDatabaseDefinition
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param azureRelationalDatabaseDefinition body api_v0.AzureRelationalDatabaseDefinition true "AzureRelationalDatabaseDefinition object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/azure-relational-database-definitions/{id} [PUT]
+func (h Handler) ReplaceAzureRelationalDatabaseDefinition(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAzureRelationalDatabaseDefinition
+	azureRelationalDatabaseDefinitionID := c.Param("id")
+	var existingAzureRelationalDatabaseDefinition api_v0.AzureRelationalDatabaseDefinition
+	if result := h.DB.First(&existingAzureRelationalDatabaseDefinition, azureRelationalDatabaseDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAzureRelationalDatabaseDefinition); err != nil {
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedAzureRelationalDatabaseDefinition api_v0.AzureRelationalDatabaseDefinition
+	if err := c.Bind(&updatedAzureRelationalDatabaseDefinition); err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := apiserver_lib.ValidateBoundData(c, updatedAzureRelationalDatabaseDefinition, objectType); err != nil {
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedAzureRelationalDatabaseDefinition.ID = existingAzureRelationalDatabaseDefinition.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAzureRelationalDatabaseDefinition); result.Error != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingAzureRelationalDatabaseDefinition, azureRelationalDatabaseDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, existingAzureRelationalDatabaseDefinition, objectType)
+	if err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a azure relational database definition.
+// @Description Delete a azure relational database definition by ID from the database.
+// @ID delete-v0-azureRelationalDatabaseDefinition
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/azure-relational-database-definitions/{id} [DELETE]
+func (h Handler) DeleteAzureRelationalDatabaseDefinition(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAzureRelationalDatabaseDefinition
+	azureRelationalDatabaseDefinitionID := c.Param("id")
+	var azureRelationalDatabaseDefinition api_v0.AzureRelationalDatabaseDefinition
+	if result := h.DB.Preload("AzureRelationalDatabaseInstances").First(&azureRelationalDatabaseDefinition, azureRelationalDatabaseDefinitionID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check to make sure no dependent instances exist for this definition
+	if len(azureRelationalDatabaseDefinition.AzureRelationalDatabaseInstances) != 0 {
+		err := errors.New("azure relational database definition has related azure relational database instances - cannot be deleted")
+		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
+	}
+
+	// delete object
+	if result := h.DB.Delete(&azureRelationalDatabaseDefinition); result.Error != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, azureRelationalDatabaseDefinition, objectType)
+	if err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// AzureRelationalDatabaseInstance
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetAzureRelationalDatabaseInstanceVersions gets the supported versions for the azure relational database instance API.
+// @Description Get the supported API versions for azure relational database instances.
+// @ID azureRelationalDatabaseInstance-get-versions
+// @Produce json
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
+// @Router /azure-relational-database-instances/versions [GET]
+func (h Handler) GetAzureRelationalDatabaseInstanceVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAzureRelationalDatabaseInstance)])
+}
+
+// @Summary adds a new azure relational database instance.
+// @Description Add a new azure relational database instance to the Threeport database.
+// @ID add-v0-azureRelationalDatabaseInstance
+// @Accept json
+// @Produce json
+// @Param azureRelationalDatabaseInstance body api_v0.AzureRelationalDatabaseInstance true "AzureRelationalDatabaseInstance object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/azure-relational-database-instances [POST]
+func (h Handler) AddAzureRelationalDatabaseInstance(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAzureRelationalDatabaseInstance
+	var azureRelationalDatabaseInstance api_v0.AzureRelationalDatabaseInstance
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, azureRelationalDatabaseInstance); err != nil {
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&azureRelationalDatabaseInstance); err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := apiserver_lib.ValidateBoundData(c, azureRelationalDatabaseInstance, objectType); err != nil {
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingAzureRelationalDatabaseInstance api_v0.AzureRelationalDatabaseInstance
+	nameUsed := true
+	result := h.DB.Where("name = ?", azureRelationalDatabaseInstance.Name).First(&existingAzureRelationalDatabaseInstance)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&azureRelationalDatabaseInstance); result.Error != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// notify controller if reconciliation is required
+	if !*azureRelationalDatabaseInstance.Reconciled {
+		notifPayload, err := azureRelationalDatabaseInstance.NotificationPayload(
+			notifications.NotificationOperationCreated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(notif.AzureRelationalDatabaseInstanceCreateSubject, *notifPayload)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, azureRelationalDatabaseInstance, objectType)
+	if err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all azure relational database instances.
+// @Description Get all azure relational database instances from the Threeport database.
+// @ID get-v0-azureRelationalDatabaseInstances
+// @Accept json
+// @Produce json
+// @Param name query string false "azure relational database instance search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/azure-relational-database-instances [GET]
+func (h Handler) GetAzureRelationalDatabaseInstances(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAzureRelationalDatabaseInstance
+	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
+	}
+
+	var filter api_v0.AzureRelationalDatabaseInstance
+	if err := c.Bind(&filter); err != nil {
+		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	var totalCount int64
+	if result := h.DB.Model(&api_v0.AzureRelationalDatabaseInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	records := &[]api_v0.AzureRelationalDatabaseInstance{}
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
+	if err != nil {
+		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a azure relational database instance.
+// @Description Get a particular azure relational database instance from the database.
+// @ID get-v0-azureRelationalDatabaseInstance
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/azure-relational-database-instances/{id} [GET]
+func (h Handler) GetAzureRelationalDatabaseInstance(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAzureRelationalDatabaseInstance
+	azureRelationalDatabaseInstanceID := c.Param("id")
+	var azureRelationalDatabaseInstance api_v0.AzureRelationalDatabaseInstance
+	if result := h.DB.First(&azureRelationalDatabaseInstance, azureRelationalDatabaseInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, azureRelationalDatabaseInstance, objectType)
+	if err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing azure relational database instance.
+// @Description Update a azure relational database instance in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating azure relational database instance objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-v0-azureRelationalDatabaseInstance
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param azureRelationalDatabaseInstance body api_v0.AzureRelationalDatabaseInstance true "AzureRelationalDatabaseInstance object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/azure-relational-database-instances/{id} [PATCH]
+func (h Handler) UpdateAzureRelationalDatabaseInstance(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAzureRelationalDatabaseInstance
+	azureRelationalDatabaseInstanceID := c.Param("id")
+	var existingAzureRelationalDatabaseInstance api_v0.AzureRelationalDatabaseInstance
+	if result := h.DB.First(&existingAzureRelationalDatabaseInstance, azureRelationalDatabaseInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAzureRelationalDatabaseInstance); err != nil {
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedAzureRelationalDatabaseInstance api_v0.AzureRelationalDatabaseInstance
+	if err := c.Bind(&updatedAzureRelationalDatabaseInstance); err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingAzureRelationalDatabaseInstance).Updates(updatedAzureRelationalDatabaseInstance); result.Error != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// notify controller if reconciliation is required
+	if !*existingAzureRelationalDatabaseInstance.Reconciled {
+		notifPayload, err := existingAzureRelationalDatabaseInstance.NotificationPayload(
+			notifications.NotificationOperationUpdated,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(notif.AzureRelationalDatabaseInstanceUpdateSubject, *notifPayload)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, existingAzureRelationalDatabaseInstance, objectType)
+	if err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing azure relational database instance by replacing the entire object.
+// @Description Replace a azure relational database instance in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating azure relational database instance objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-v0-azureRelationalDatabaseInstance
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param azureRelationalDatabaseInstance body api_v0.AzureRelationalDatabaseInstance true "AzureRelationalDatabaseInstance object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/azure-relational-database-instances/{id} [PUT]
+func (h Handler) ReplaceAzureRelationalDatabaseInstance(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAzureRelationalDatabaseInstance
+	azureRelationalDatabaseInstanceID := c.Param("id")
+	var existingAzureRelationalDatabaseInstance api_v0.AzureRelationalDatabaseInstance
+	if result := h.DB.First(&existingAzureRelationalDatabaseInstance, azureRelationalDatabaseInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAzureRelationalDatabaseInstance); err != nil {
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedAzureRelationalDatabaseInstance api_v0.AzureRelationalDatabaseInstance
+	if err := c.Bind(&updatedAzureRelationalDatabaseInstance); err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := apiserver_lib.ValidateBoundData(c, updatedAzureRelationalDatabaseInstance, objectType); err != nil {
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedAzureRelationalDatabaseInstance.ID = existingAzureRelationalDatabaseInstance.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAzureRelationalDatabaseInstance); result.Error != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingAzureRelationalDatabaseInstance, azureRelationalDatabaseInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, existingAzureRelationalDatabaseInstance, objectType)
+	if err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a azure relational database instance.
+// @Description Delete a azure relational database instance by ID from the database.
+// @ID delete-v0-azureRelationalDatabaseInstance
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/azure-relational-database-instances/{id} [DELETE]
+func (h Handler) DeleteAzureRelationalDatabaseInstance(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAzureRelationalDatabaseInstance
+	azureRelationalDatabaseInstanceID := c.Param("id")
+	var azureRelationalDatabaseInstance api_v0.AzureRelationalDatabaseInstance
+	if result := h.DB.First(&azureRelationalDatabaseInstance, azureRelationalDatabaseInstanceID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// schedule for deletion if not already scheduled
+	// if scheduled and reconciled, delete object from DB
+	// if scheduled but not reconciled, return 409 (controller is working on it)
+	if azureRelationalDatabaseInstance.DeletionScheduled == nil {
+		// schedule for deletion
+		reconciled := false
+		timestamp := time.Now().UTC()
+		scheduledAzureRelationalDatabaseInstance := api_v0.AzureRelationalDatabaseInstance{
+			Reconciliation: api_v0.Reconciliation{
+				DeletionScheduled: &timestamp,
+				Reconciled:        &reconciled,
+			}}
+		if result := h.DB.Model(&azureRelationalDatabaseInstance).Updates(scheduledAzureRelationalDatabaseInstance); result.Error != nil {
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+		// notify controller
+		notifPayload, err := azureRelationalDatabaseInstance.NotificationPayload(
+			notifications.NotificationOperationDeleted,
+			false,
+			time.Now().Unix(),
+		)
+		if err != nil {
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		}
+		h.JS.Publish(notif.AzureRelationalDatabaseInstanceDeleteSubject, *notifPayload)
+	} else {
+		if azureRelationalDatabaseInstance.DeletionConfirmed == nil {
+			// if deletion scheduled but not reconciled, return 409 - deletion
+			// already underway
+			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
+				"object with ID %d already being deleted",
+				*azureRelationalDatabaseInstance.ID,
+			)), objectType)
+		} else {
+			// object scheduled for deletion and confirmed - it can be deleted
+			// from DB
+			if result := h.DB.Delete(&azureRelationalDatabaseInstance); result.Error != nil {
+				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+			}
+		}
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, azureRelationalDatabaseInstance, objectType)
+	if err != nil {
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}

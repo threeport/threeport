@@ -9,6 +9,11 @@ const (
 	AzureAksKubernetesRuntimeInstanceCreateSubject = "azureAksKubernetesRuntimeInstance.create"
 	AzureAksKubernetesRuntimeInstanceUpdateSubject = "azureAksKubernetesRuntimeInstance.update"
 	AzureAksKubernetesRuntimeInstanceDeleteSubject = "azureAksKubernetesRuntimeInstance.delete"
+
+	AzureRelationalDatabaseInstanceSubject       = "azureRelationalDatabaseInstance.*"
+	AzureRelationalDatabaseInstanceCreateSubject = "azureRelationalDatabaseInstance.create"
+	AzureRelationalDatabaseInstanceUpdateSubject = "azureRelationalDatabaseInstance.update"
+	AzureRelationalDatabaseInstanceDeleteSubject = "azureRelationalDatabaseInstance.delete"
 )
 
 // Get GetAzureAksKubernetesRuntimeInstanceSubjects returns the NATS subjects
@@ -21,12 +26,23 @@ func GetAzureAksKubernetesRuntimeInstanceSubjects() []string {
 	}
 }
 
+// Get GetAzureRelationalDatabaseInstanceSubjects returns the NATS subjects
+// for azure relational database instances.
+func GetAzureRelationalDatabaseInstanceSubjects() []string {
+	return []string{
+		AzureRelationalDatabaseInstanceCreateSubject,
+		AzureRelationalDatabaseInstanceUpdateSubject,
+		AzureRelationalDatabaseInstanceDeleteSubject,
+	}
+}
+
 // GetAzureSubjects returns the NATS subjects
 // for all azure objects.
 func GetAzureSubjects() []string {
 	var azureSubjects []string
 
 	azureSubjects = append(azureSubjects, GetAzureAksKubernetesRuntimeInstanceSubjects()...)
+	azureSubjects = append(azureSubjects, GetAzureRelationalDatabaseInstanceSubjects()...)
 
 	return azureSubjects
 }

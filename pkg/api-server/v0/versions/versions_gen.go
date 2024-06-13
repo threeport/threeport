@@ -14,6 +14,8 @@ func AddVersions() {
 	AddAzureAccountVersions()
 	AddAzureAksKubernetesRuntimeDefinitionVersions()
 	AddAzureAksKubernetesRuntimeInstanceVersions()
+	AddAzureRelationalDatabaseDefinitionVersions()
+	AddAzureRelationalDatabaseInstanceVersions()
 	AddControlPlaneDefinitionVersions()
 	AddControlPlaneInstanceVersions()
 	AddDomainNameDefinitionVersions()

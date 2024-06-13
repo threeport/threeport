@@ -124,6 +124,8 @@ func GetDbInterfaces() []interface{} {
 		&v0.AzureAccount{},
 		&v0.AzureAksKubernetesRuntimeDefinition{},
 		&v0.AzureAksKubernetesRuntimeInstance{},
+		&v0.AzureRelationalDatabaseDefinition{},
+		&v0.AzureRelationalDatabaseInstance{},
 		&v0.ControlPlaneComponent{},
 		&v0.KubernetesRuntimeDefinition{},
 		&v0.KubernetesRuntimeInstance{},

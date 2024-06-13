@@ -13,10 +13,14 @@ const (
 	ObjectTypeAzureAccount                        string = "AzureAccount"
 	ObjectTypeAzureAksKubernetesRuntimeDefinition string = "AzureAksKubernetesRuntimeDefinition"
 	ObjectTypeAzureAksKubernetesRuntimeInstance   string = "AzureAksKubernetesRuntimeInstance"
+	ObjectTypeAzureRelationalDatabaseDefinition   string = "AzureRelationalDatabaseDefinition"
+	ObjectTypeAzureRelationalDatabaseInstance     string = "AzureRelationalDatabaseInstance"
 
 	PathAzureAccounts                        = "/v0/azure-accounts"
 	PathAzureAksKubernetesRuntimeDefinitions = "/v0/azure-aks-kubernetes-runtime-definitions"
 	PathAzureAksKubernetesRuntimeInstances   = "/v0/azure-aks-kubernetes-runtime-instances"
+	PathAzureRelationalDatabaseDefinitions   = "/v0/azure-relational-database-definitions"
+	PathAzureRelationalDatabaseInstances     = "/v0/azure-relational-database-instances"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -185,4 +189,118 @@ func (aakri *AzureAksKubernetesRuntimeInstance) GetVersion() string {
 // if scheduled for deletion or nil if not scheduled for deletion.
 func (aakri *AzureAksKubernetesRuntimeInstance) ScheduledForDeletion() *time.Time {
 	return aakri.DeletionScheduled
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (ardd *AzureRelationalDatabaseDefinition) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime:  &creationTime,
+		Object:        ardd,
+		ObjectVersion: ardd.GetVersion(),
+		Operation:     operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", ardd, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (ardd *AzureRelationalDatabaseDefinition) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &ardd); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetId returns the unique ID for the object.
+func (ardd *AzureRelationalDatabaseDefinition) GetId() uint {
+	return *ardd.ID
+}
+
+// Type returns the object type.
+func (ardd *AzureRelationalDatabaseDefinition) GetType() string {
+	return "AzureRelationalDatabaseDefinition"
+}
+
+// Version returns the version of the API object.
+func (ardd *AzureRelationalDatabaseDefinition) GetVersion() string {
+	return "v0"
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (ardi *AzureRelationalDatabaseInstance) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime:  &creationTime,
+		Object:        ardi,
+		ObjectVersion: ardi.GetVersion(),
+		Operation:     operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", ardi, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (ardi *AzureRelationalDatabaseInstance) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &ardi); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetId returns the unique ID for the object.
+func (ardi *AzureRelationalDatabaseInstance) GetId() uint {
+	return *ardi.ID
+}
+
+// Type returns the object type.
+func (ardi *AzureRelationalDatabaseInstance) GetType() string {
+	return "AzureRelationalDatabaseInstance"
+}
+
+// Version returns the version of the API object.
+func (ardi *AzureRelationalDatabaseInstance) GetVersion() string {
+	return "v0"
+}
+
+// ScheduledForDeletion returns a pointer to the DeletionScheduled timestamp
+// if scheduled for deletion or nil if not scheduled for deletion.
+func (ardi *AzureRelationalDatabaseInstance) ScheduledForDeletion() *time.Time {
+	return ardi.DeletionScheduled
 }

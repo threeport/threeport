@@ -20,6 +20,8 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	AzureAccountRoutes(e, h)
 	AzureAksKubernetesRuntimeDefinitionRoutes(e, h)
 	AzureAksKubernetesRuntimeInstanceRoutes(e, h)
+	AzureRelationalDatabaseDefinitionRoutes(e, h)
+	AzureRelationalDatabaseInstanceRoutes(e, h)
 	ControlPlaneDefinitionRoutes(e, h)
 	ControlPlaneInstanceRoutes(e, h)
 	DomainNameDefinitionRoutes(e, h)

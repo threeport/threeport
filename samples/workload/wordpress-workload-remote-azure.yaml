@@ -1,0 +1,21 @@
+Workload:
+  Name: "wordpress"
+  YAMLDocument: "wordpress-manifest-remote.yaml"
+  KubernetesRuntimeInstance:
+    Name: azure-k8s-runtime
+  AzureRelationalDatabase:
+    Name: wordpress-db
+    AzureAccountName: default-account
+    Engine: mariadb
+    EngineVersion: "10.11"
+    DatabaseName: wordpress
+    DatabasePort: 3306
+    StorageGb: 20
+    MachineSize: XSmall
+    WorkloadSecretName: wordpress-db-conn
+  AzureObjectStorageBucket:
+    Name: s3-client-bucket
+    AzureAccountName: default-account
+    PublicReadAccess: false
+    WorkloadServiceAccountName: s3-client
+    WorkloadBucketEnvVar: S3_BUCKET_NAME

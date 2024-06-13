@@ -717,3 +717,473 @@ func DeleteAzureAksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr str
 
 	return &azureAksKubernetesRuntimeInstance, nil
 }
+
+// GetAzureRelationalDatabaseDefinitions fetches all azure relational database definitions.
+// TODO: implement pagination
+func GetAzureRelationalDatabaseDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.AzureRelationalDatabaseDefinition, error) {
+	var azureRelationalDatabaseDefinitions []v0.AzureRelationalDatabaseDefinition
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-definitions", apiAddr),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &azureRelationalDatabaseDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &azureRelationalDatabaseDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&azureRelationalDatabaseDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &azureRelationalDatabaseDefinitions, nil
+}
+
+// GetAzureRelationalDatabaseDefinitionByID fetches a azure relational database definition by ID.
+func GetAzureRelationalDatabaseDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AzureRelationalDatabaseDefinition, error) {
+	var azureRelationalDatabaseDefinition v0.AzureRelationalDatabaseDefinition
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-definitions/%d", apiAddr, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &azureRelationalDatabaseDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &azureRelationalDatabaseDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&azureRelationalDatabaseDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &azureRelationalDatabaseDefinition, nil
+}
+
+// GetAzureRelationalDatabaseDefinitionsByQueryString fetches azure relational database definitions by provided query string.
+func GetAzureRelationalDatabaseDefinitionsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AzureRelationalDatabaseDefinition, error) {
+	var azureRelationalDatabaseDefinitions []v0.AzureRelationalDatabaseDefinition
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-definitions?%s", apiAddr, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &azureRelationalDatabaseDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &azureRelationalDatabaseDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&azureRelationalDatabaseDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &azureRelationalDatabaseDefinitions, nil
+}
+
+// GetAzureRelationalDatabaseDefinitionByName fetches a azure relational database definition by name.
+func GetAzureRelationalDatabaseDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v0.AzureRelationalDatabaseDefinition, error) {
+	var azureRelationalDatabaseDefinitions []v0.AzureRelationalDatabaseDefinition
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-definitions?name=%s", apiAddr, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.AzureRelationalDatabaseDefinition{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.AzureRelationalDatabaseDefinition{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&azureRelationalDatabaseDefinitions); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(azureRelationalDatabaseDefinitions) < 1:
+		return &v0.AzureRelationalDatabaseDefinition{}, errors.New(fmt.Sprintf("no azure relational database definition with name %s", name))
+	case len(azureRelationalDatabaseDefinitions) > 1:
+		return &v0.AzureRelationalDatabaseDefinition{}, errors.New(fmt.Sprintf("more than one azure relational database definition with name %s returned", name))
+	}
+
+	return &azureRelationalDatabaseDefinitions[0], nil
+}
+
+// CreateAzureRelationalDatabaseDefinition creates a new azure relational database definition.
+func CreateAzureRelationalDatabaseDefinition(apiClient *http.Client, apiAddr string, azureRelationalDatabaseDefinition *v0.AzureRelationalDatabaseDefinition) (*v0.AzureRelationalDatabaseDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(azureRelationalDatabaseDefinition)
+	jsonAzureRelationalDatabaseDefinition, err := util.MarshalObject(azureRelationalDatabaseDefinition)
+	if err != nil {
+		return azureRelationalDatabaseDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-definitions", apiAddr),
+		http.MethodPost,
+		bytes.NewBuffer(jsonAzureRelationalDatabaseDefinition),
+		map[string]string{},
+		http.StatusCreated,
+	)
+	if err != nil {
+		return azureRelationalDatabaseDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return azureRelationalDatabaseDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&azureRelationalDatabaseDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return azureRelationalDatabaseDefinition, nil
+}
+
+// UpdateAzureRelationalDatabaseDefinition updates a azure relational database definition.
+func UpdateAzureRelationalDatabaseDefinition(apiClient *http.Client, apiAddr string, azureRelationalDatabaseDefinition *v0.AzureRelationalDatabaseDefinition) (*v0.AzureRelationalDatabaseDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(azureRelationalDatabaseDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	azureRelationalDatabaseDefinitionID := *azureRelationalDatabaseDefinition.ID
+	payloadAzureRelationalDatabaseDefinition := *azureRelationalDatabaseDefinition
+	payloadAzureRelationalDatabaseDefinition.ID = nil
+	payloadAzureRelationalDatabaseDefinition.CreatedAt = nil
+	payloadAzureRelationalDatabaseDefinition.UpdatedAt = nil
+
+	jsonAzureRelationalDatabaseDefinition, err := util.MarshalObject(payloadAzureRelationalDatabaseDefinition)
+	if err != nil {
+		return azureRelationalDatabaseDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-definitions/%d", apiAddr, azureRelationalDatabaseDefinitionID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonAzureRelationalDatabaseDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return azureRelationalDatabaseDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return azureRelationalDatabaseDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadAzureRelationalDatabaseDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadAzureRelationalDatabaseDefinition.ID = &azureRelationalDatabaseDefinitionID
+	return &payloadAzureRelationalDatabaseDefinition, nil
+}
+
+// DeleteAzureRelationalDatabaseDefinition deletes a azure relational database definition by ID.
+func DeleteAzureRelationalDatabaseDefinition(apiClient *http.Client, apiAddr string, id uint) (*v0.AzureRelationalDatabaseDefinition, error) {
+	var azureRelationalDatabaseDefinition v0.AzureRelationalDatabaseDefinition
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-definitions/%d", apiAddr, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &azureRelationalDatabaseDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &azureRelationalDatabaseDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&azureRelationalDatabaseDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &azureRelationalDatabaseDefinition, nil
+}
+
+// GetAzureRelationalDatabaseInstances fetches all azure relational database instances.
+// TODO: implement pagination
+func GetAzureRelationalDatabaseInstances(apiClient *http.Client, apiAddr string) (*[]v0.AzureRelationalDatabaseInstance, error) {
+	var azureRelationalDatabaseInstances []v0.AzureRelationalDatabaseInstance
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-instances", apiAddr),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &azureRelationalDatabaseInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &azureRelationalDatabaseInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&azureRelationalDatabaseInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &azureRelationalDatabaseInstances, nil
+}
+
+// GetAzureRelationalDatabaseInstanceByID fetches a azure relational database instance by ID.
+func GetAzureRelationalDatabaseInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AzureRelationalDatabaseInstance, error) {
+	var azureRelationalDatabaseInstance v0.AzureRelationalDatabaseInstance
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-instances/%d", apiAddr, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &azureRelationalDatabaseInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &azureRelationalDatabaseInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&azureRelationalDatabaseInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &azureRelationalDatabaseInstance, nil
+}
+
+// GetAzureRelationalDatabaseInstancesByQueryString fetches azure relational database instances by provided query string.
+func GetAzureRelationalDatabaseInstancesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AzureRelationalDatabaseInstance, error) {
+	var azureRelationalDatabaseInstances []v0.AzureRelationalDatabaseInstance
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-instances?%s", apiAddr, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &azureRelationalDatabaseInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &azureRelationalDatabaseInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&azureRelationalDatabaseInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &azureRelationalDatabaseInstances, nil
+}
+
+// GetAzureRelationalDatabaseInstanceByName fetches a azure relational database instance by name.
+func GetAzureRelationalDatabaseInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.AzureRelationalDatabaseInstance, error) {
+	var azureRelationalDatabaseInstances []v0.AzureRelationalDatabaseInstance
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-instances?name=%s", apiAddr, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.AzureRelationalDatabaseInstance{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.AzureRelationalDatabaseInstance{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&azureRelationalDatabaseInstances); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(azureRelationalDatabaseInstances) < 1:
+		return &v0.AzureRelationalDatabaseInstance{}, errors.New(fmt.Sprintf("no azure relational database instance with name %s", name))
+	case len(azureRelationalDatabaseInstances) > 1:
+		return &v0.AzureRelationalDatabaseInstance{}, errors.New(fmt.Sprintf("more than one azure relational database instance with name %s returned", name))
+	}
+
+	return &azureRelationalDatabaseInstances[0], nil
+}
+
+// CreateAzureRelationalDatabaseInstance creates a new azure relational database instance.
+func CreateAzureRelationalDatabaseInstance(apiClient *http.Client, apiAddr string, azureRelationalDatabaseInstance *v0.AzureRelationalDatabaseInstance) (*v0.AzureRelationalDatabaseInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(azureRelationalDatabaseInstance)
+	jsonAzureRelationalDatabaseInstance, err := util.MarshalObject(azureRelationalDatabaseInstance)
+	if err != nil {
+		return azureRelationalDatabaseInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-instances", apiAddr),
+		http.MethodPost,
+		bytes.NewBuffer(jsonAzureRelationalDatabaseInstance),
+		map[string]string{},
+		http.StatusCreated,
+	)
+	if err != nil {
+		return azureRelationalDatabaseInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return azureRelationalDatabaseInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&azureRelationalDatabaseInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return azureRelationalDatabaseInstance, nil
+}
+
+// UpdateAzureRelationalDatabaseInstance updates a azure relational database instance.
+func UpdateAzureRelationalDatabaseInstance(apiClient *http.Client, apiAddr string, azureRelationalDatabaseInstance *v0.AzureRelationalDatabaseInstance) (*v0.AzureRelationalDatabaseInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(azureRelationalDatabaseInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	azureRelationalDatabaseInstanceID := *azureRelationalDatabaseInstance.ID
+	payloadAzureRelationalDatabaseInstance := *azureRelationalDatabaseInstance
+	payloadAzureRelationalDatabaseInstance.ID = nil
+	payloadAzureRelationalDatabaseInstance.CreatedAt = nil
+	payloadAzureRelationalDatabaseInstance.UpdatedAt = nil
+
+	jsonAzureRelationalDatabaseInstance, err := util.MarshalObject(payloadAzureRelationalDatabaseInstance)
+	if err != nil {
+		return azureRelationalDatabaseInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-instances/%d", apiAddr, azureRelationalDatabaseInstanceID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonAzureRelationalDatabaseInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return azureRelationalDatabaseInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return azureRelationalDatabaseInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadAzureRelationalDatabaseInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadAzureRelationalDatabaseInstance.ID = &azureRelationalDatabaseInstanceID
+	return &payloadAzureRelationalDatabaseInstance, nil
+}
+
+// DeleteAzureRelationalDatabaseInstance deletes a azure relational database instance by ID.
+func DeleteAzureRelationalDatabaseInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.AzureRelationalDatabaseInstance, error) {
+	var azureRelationalDatabaseInstance v0.AzureRelationalDatabaseInstance
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s/v0/azure-relational-database-instances/%d", apiAddr, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &azureRelationalDatabaseInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &azureRelationalDatabaseInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&azureRelationalDatabaseInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &azureRelationalDatabaseInstance, nil
+}

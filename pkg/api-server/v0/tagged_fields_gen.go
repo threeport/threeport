@@ -16,6 +16,8 @@ var (
 	AzureAccountTaggedFields                        = make(map[string]*apiserver_lib.FieldsByTag)
 	AzureAksKubernetesRuntimeDefinitionTaggedFields = make(map[string]*apiserver_lib.FieldsByTag)
 	AzureAksKubernetesRuntimeInstanceTaggedFields   = make(map[string]*apiserver_lib.FieldsByTag)
+	AzureRelationalDatabaseDefinitionTaggedFields   = make(map[string]*apiserver_lib.FieldsByTag)
+	AzureRelationalDatabaseInstanceTaggedFields     = make(map[string]*apiserver_lib.FieldsByTag)
 	ControlPlaneComponentTaggedFields               = make(map[string]*apiserver_lib.FieldsByTag)
 	KubernetesRuntimeDefinitionTaggedFields         = make(map[string]*apiserver_lib.FieldsByTag)
 	KubernetesRuntimeInstanceTaggedFields           = make(map[string]*apiserver_lib.FieldsByTag)

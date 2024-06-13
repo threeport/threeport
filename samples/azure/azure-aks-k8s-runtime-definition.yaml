@@ -1,0 +1,8 @@
+AzureAksKubernetesRuntimeDefinition:
+  Name: test-runtime
+  AzureAccountName: default-account
+  ZoneCount: 2
+  DefaultNodeGroupInstanceType: t2.micro
+  DefaultNodeGroupInitialSize: 2
+  DefaultNodeGroupMinimumSize: 2
+  DefaultNodeGroupMaximumSize: 2

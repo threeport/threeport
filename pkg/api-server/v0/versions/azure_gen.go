@@ -104,3 +104,67 @@ func AddAzureAksKubernetesRuntimeInstanceVersions() {
 	// add the object tagged fields to the rest API version
 	apiserver_lib.AddObjectVersion(versionObj)
 }
+
+// AddAzureRelationalDatabaseDefinitionVersions adds field validation info and adds it
+// to the REST API versions.
+func AddAzureRelationalDatabaseDefinitionVersions() {
+	apiserver_v0.AzureRelationalDatabaseDefinitionTaggedFields[apiserver_lib.TagNameValidate] = &apiserver_lib.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              apiserver_lib.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	apiserver_lib.ParseStruct(
+		apiserver_lib.TagNameValidate,
+		reflect.ValueOf(new(api_v0.AzureRelationalDatabaseDefinition)),
+		"",
+		apiserver_lib.Translate,
+		apiserver_v0.AzureRelationalDatabaseDefinitionTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := apiserver_lib.VersionObject{
+		Object:  string(api_v0.ObjectTypeAzureRelationalDatabaseDefinition),
+		Version: "v0",
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.AzureRelationalDatabaseDefinitionTaggedFields[apiserver_lib.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	apiserver_lib.AddObjectVersion(versionObj)
+}
+
+// AddAzureRelationalDatabaseInstanceVersions adds field validation info and adds it
+// to the REST API versions.
+func AddAzureRelationalDatabaseInstanceVersions() {
+	apiserver_v0.AzureRelationalDatabaseInstanceTaggedFields[apiserver_lib.TagNameValidate] = &apiserver_lib.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              apiserver_lib.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	apiserver_lib.ParseStruct(
+		apiserver_lib.TagNameValidate,
+		reflect.ValueOf(new(api_v0.AzureRelationalDatabaseInstance)),
+		"",
+		apiserver_lib.Translate,
+		apiserver_v0.AzureRelationalDatabaseInstanceTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := apiserver_lib.VersionObject{
+		Object:  string(api_v0.ObjectTypeAzureRelationalDatabaseInstance),
+		Version: "v0",
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.AzureRelationalDatabaseInstanceTaggedFields[apiserver_lib.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	apiserver_lib.AddObjectVersion(versionObj)
+}
