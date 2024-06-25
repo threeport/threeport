@@ -3,10 +3,22 @@
 package azure
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
 	logr "github.com/go-logr/logr"
+	"github.com/labstack/gommon/log"
+	"github.com/nukleros/azure-builder/pkg/aks"
+	azconfig "github.com/nukleros/azure-builder/pkg/config"
+	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
+
+const staleAckDurationSeconds = 240
 
 // v0AzureAksKubernetesRuntimeInstanceCreated performs reconciliation when a v0 workload definition
 // has been created.
@@ -15,7 +27,166 @@ func v0AzureAksKubernetesRuntimeInstanceCreated(
 	azureAksKubernetesRuntimeInstance *v0.AzureAksKubernetesRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	return 0, nil
+	ctx := context.TODO()
+
+	// call the API to ensure we have the most up-to-date version of the AKS
+	// runtime instance
+	azureAksKubernetesRuntimeInstance, err := client.GetAzureAksKubernetesRuntimeInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*azureAksKubernetesRuntimeInstance.ID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get latest version of AWS EKS kubernetes runtime instance: %w", err)
+	}
+
+	// check to see if reconciled - it should not be, but if so we should do
+	// nothing more
+	if azureAksKubernetesRuntimeInstance.CreationConfirmed != nil {
+		return 0, nil
+	}
+
+	// get cluster definition and aws account info
+	azureAksKubernetesRuntimeDefinition, err := client.GetAzureAksKubernetesRuntimeDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*azureAksKubernetesRuntimeInstance.AzureAksKubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retreive cluster definition by ID: %w", err)
+	}
+
+	azureAccount, err := client.GetAzureAccountByID(
+		r.APIClient,
+		r.APIServer,
+		*azureAksKubernetesRuntimeDefinition.AzureAccountID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
+	}
+
+	if azureAccount.Credentials == nil {
+		return 0, fmt.Errorf("no credentials found for azure account: %w", err)
+	}
+
+	var credentialsConfig azconfig.AzureCredentialsConfig
+	if err = json.Unmarshal([]byte(*azureAccount.Credentials), &credentialsConfig); err != nil {
+		return 0, fmt.Errorf("could not JSON unmarshal credentials config", err)
+	}
+
+	clusterConfig := azconfig.AzureResourceConfig{
+		Name:          azureAksKubernetesRuntimeInstance.Name,
+		Region:        azureAksKubernetesRuntimeInstance.Region,
+		ResourceGroup: azureAksKubernetesRuntimeInstance.ResourceGroup,
+	}
+
+	// get kubernetes cluster connection info
+	clusterInfra := provider.KubernetesRuntimeInfraAKS{
+		AksConfig:              clusterConfig,
+		AzureCredentialsConfig: credentialsConfig,
+	}
+
+	// check to see if previously acknowledged - not nil means it has been
+	// previously acknowledged
+	if azureAksKubernetesRuntimeInstance.CreationAcknowledged != nil && !*azureAksKubernetesRuntimeInstance.CreationFailed {
+		// creation acknowledged - check to see if creation is complete
+		cluster, err := aks.GetAksCluster(ctx, &clusterConfig, &credentialsConfig)
+		if err != nil {
+			return 0, fmt.Errorf("failed to check if EKS cluster infra resources have been created: %w", err)
+		}
+		if cluster.SystemData.CreatedAt != nil {
+
+			kubeConnectionInfo, err := clusterInfra.GetConnection()
+			if err != nil {
+				return 0, fmt.Errorf("failed to Kubernetes API connection info: %w", err)
+			}
+
+			// get kubernetes runtime instance to update kube connection info
+			kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
+				r.APIClient,
+				r.APIServer,
+				*azureAksKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to get kubernetes runtime instance to update kube connection info: %w", err)
+			}
+
+			// update kube connection info
+			kubeRuntimeReconciled := false
+			kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
+			kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
+			kubernetesRuntimeInstance.ConnectionToken = &kubeConnectionInfo.AKSToken
+			kubernetesRuntimeInstance.Reconciled = &kubeRuntimeReconciled
+			_, err = client.UpdateKubernetesRuntimeInstance(
+				r.APIClient,
+				r.APIServer,
+				kubernetesRuntimeInstance,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to update kubernetes runtime instance with kube connection info: %w", err)
+			}
+
+			// confirm creation and set reconciled to true
+			creationReconciled := true
+			creationTimestamp := time.Now().UTC()
+			createdAwsEksKubernetesRuntimeInstance := v0.AzureAksKubernetesRuntimeInstance{
+				Common: v0.Common{
+					ID: azureAksKubernetesRuntimeInstance.ID,
+				},
+				Reconciliation: v0.Reconciliation{
+					Reconciled:        &creationReconciled,
+					CreationConfirmed: &creationTimestamp,
+				},
+			}
+			_, err = client.UpdateAzureAksKubernetesRuntimeInstance(
+				r.APIClient,
+				r.APIServer,
+				&createdAwsEksKubernetesRuntimeInstance,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to confirm creation of AKS cluster infra resources: %w", err)
+			}
+
+			return 0, nil
+		}
+
+		// TODO stale check logic here
+		// // check duration since last acknowledged
+		// stale := checkStaleEksAck(*awsEksKubernetesRuntimeInstance.CreationAcknowledged)
+		// if !stale {
+		// 	return 90, nil
+		// }
+		return 90, nil
+	}
+
+	// one of the following is true at this point:
+	// 1. creation has not been acknowledged - new create request
+	// 2. creation has previously failed - time to retry
+	// 3. the last acknowledgement is stale - creation was interrupted
+	// in each case we will attempt to create/resume creation
+
+	// acknowledge creation and set creation failure to false
+	creationAckTimestamp := time.Now().UTC()
+	creationFailed := false
+	azureAksKubernetesRuntimeInstance.CreationAcknowledged = &creationAckTimestamp
+	azureAksKubernetesRuntimeInstance.CreationFailed = &creationFailed
+	_, err = client.UpdateAzureAksKubernetesRuntimeInstance(
+		r.APIClient,
+		r.APIServer,
+		azureAksKubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to set creation acknowledged timestamp: %w", err)
+	}
+
+	go createInfra(
+		r,
+		&clusterInfra,
+		azureAksKubernetesRuntimeInstance,
+		log,
+	)
+
+	return 90, nil
 }
 
 // v0AzureAksKubernetesRuntimeInstanceUpdated performs reconciliation when a v0 workload definition
@@ -36,4 +207,53 @@ func v0AzureAksKubernetesRuntimeInstanceDeleted(
 	log *logr.Logger,
 ) (int64, error) {
 	return 0, nil
+}
+
+func createInfra(
+	r *controller.Reconciler,
+	clusterInfra *provider.KubernetesRuntimeInfraAKS,
+	azureAksKubernetesRuntimeInstance *v0.AzureAksKubernetesRuntimeInstance,
+	log *logr.Logger,
+) {
+	_, err := clusterInfra.Create()
+	if err != nil {
+		log.Error(err, "failed to create AKS cluster infra")
+		persistCreateFailure(
+			r,
+			*azureAksKubernetesRuntimeInstance.ID,
+		)
+	}
+}
+
+// persistCreateFailure calls the threeport API to set CreationFailed to true to
+// notify subsequent reconciliation loops that creation failed.  If the call to
+// the API fails, it is retried every 10 seconds until it succeeds.
+func persistCreateFailure(
+	r *controller.Reconciler,
+	aksRuntimeInstanceId uint,
+) {
+	failurePersisted := false
+	for !failurePersisted {
+		creationFailed := true
+		failedAzureAksKubernetesRuntimeInstance := v0.AzureAksKubernetesRuntimeInstance{
+			Common: v0.Common{
+				ID: &aksRuntimeInstanceId,
+			},
+			Reconciliation: v0.Reconciliation{
+				CreationFailed: &creationFailed,
+			},
+		}
+		_, err := client.UpdateAzureAksKubernetesRuntimeInstance(
+			r.APIClient,
+			r.APIServer,
+			&failedAzureAksKubernetesRuntimeInstance,
+		)
+		if err != nil {
+			log.Error(err, "failed to persist failure of AKS cluster infra resource creation - retrying in 10 sec")
+			time.Sleep(time.Second * 10)
+			continue
+		}
+
+		failurePersisted = true
+	}
 }

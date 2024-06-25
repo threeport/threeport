@@ -500,9 +500,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return uninstaller.cleanOnCreateError("could not JSON unmarshal credentials config", err)
 		}
 
-		var aksConfig azconfig.AksConfig = azconfig.AksConfig{
-			Name:   &cpi.Opts.ControlPlaneName,
-			Region: &cpi.Opts.AzureRegion,
+		resourceGroupName := fmt.Sprintf("%s-threeport-cluster", cpi.Opts.ControlPlaneName)
+		var aksConfig azconfig.AzureResourceConfig = azconfig.AzureResourceConfig{
+			Name:          &cpi.Opts.ControlPlaneName,
+			ResourceGroup: &resourceGroupName,
+			Region:        &cpi.Opts.AzureRegion,
 		}
 
 		// update threeport config with aks provider info
@@ -1276,11 +1278,13 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("could not JSON unmarshal credentials config", err)
 		}
 
+		resourceGroupName := fmt.Sprintf("%s-threeport-cluster", cpi.Opts.ControlPlaneName)
 		// construct aks kubernetes runtime infra object
 		kubernetesRuntimeInfraAKS := provider.KubernetesRuntimeInfraAKS{
-			AksConfig: azconfig.AksConfig{
-				Name:   &cpi.Opts.ControlPlaneName,
-				Region: &providerConfig.AzureRegion,
+			AksConfig: azconfig.AzureResourceConfig{
+				Name:          &cpi.Opts.ControlPlaneName,
+				ResourceGroup: &resourceGroupName,
+				Region:        &providerConfig.AzureRegion,
 			},
 			AzureCredentialsConfig: credentialsConfig,
 		}

@@ -15,7 +15,7 @@ import (
 // cluster.
 type KubernetesRuntimeInfraAKS struct {
 	// The Azure-Builder AKS config file used to create the cluster
-	AksConfig azconfig.AksConfig
+	AksConfig azconfig.AzureResourceConfig
 
 	// The azure credentials config
 	AzureCredentialsConfig azconfig.AzureCredentialsConfig
@@ -51,7 +51,8 @@ func (i *KubernetesRuntimeInfraAKS) Delete() error {
 
 // GetConnection get the latest connection info for authentication to an AKS cluster.
 func (i *KubernetesRuntimeInfraAKS) GetConnection() (*kube.KubeConnectionInfo, error) {
-	aksClusterKubeConfig, err := aks.GetKubeConfigForCluster(&i.AksConfig, &i.AzureCredentialsConfig, context.TODO())
+	ctx := context.TODO()
+	aksClusterKubeConfig, err := aks.GetKubeConfigForCluster(ctx, &i.AksConfig, &i.AzureCredentialsConfig)
 	if err != nil {
 		return nil, fmt.Errorf("could not retrieve kube config for cluster: %w")
 	}

@@ -1,0 +1,7 @@
+AzureRelationalDatabaseInstance:
+  Name: wordpress-db-0
+  AzureRelationalDatabaseDefinition:
+    Name: wordpress-db
+  WorkloadInstance:
+    Name: wordpress-0
+

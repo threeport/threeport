@@ -19,6 +19,10 @@ type AzureAccount struct {
 	// The region to use for Azure managed services if not specified.
 	DefaultRegion *string `json:"DefaultRegion,omitempty" query:"defaultregion" gorm:"not null" validate:"required"`
 
+	// The default resource group to use for Azure managed services if not specified.
+	// If default is not provided, a resource group with the same name as the resource is used
+	DefaultResourceGroup *string `json:"DefaultResourceGroup,omitempty" query:"defaultresourcegroup" gorm:"not null" validate:"optional"`
+
 	// The cluster instances deployed in this Azure account.
 	AzureAksKubernetesRuntimeDefinition []*AzureAksKubernetesRuntimeDefinition `json:"AzureAksKubernetesRuntimeDefinition,omitempty" validate:"optional,association"`
 }
@@ -53,6 +57,9 @@ type AzureAksKubernetesRuntimeInstance struct {
 
 	// The Azure Region in which the cluster is provisioned.
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
+
+	// The Azure Resource group in which the cluster is provisioned
+	ResourceGroup *string `json:"ResourceGroup,omitempty" query:"resourcegroup" validate:"optional"`
 
 	// The kubernetes runtime instance associated with the AWS EKS cluster.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`

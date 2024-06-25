@@ -1,0 +1,11 @@
+AzureRelationalDatabaseDefinition:
+  Name: wordpress-db
+  AzureAccountName: default-account
+  Engine: mariadb
+  EngineVersion: "10.6"
+  DatabaseName: wordpress
+  DatabasePort: 3306
+  StorageGb: 20
+  MachineSize: XSmall
+  WorkloadSecretName: wordpress-db-connection
+
