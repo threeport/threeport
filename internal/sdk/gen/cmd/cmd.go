@@ -43,7 +43,6 @@ func GenCmd(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	// generate CLI commands
-	// TODO
 	if err := cli.GenCliCommands(generator); err != nil {
 		return fmt.Errorf("failed to generate CLI commands: %w", err)
 	}

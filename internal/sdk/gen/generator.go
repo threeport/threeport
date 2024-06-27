@@ -94,8 +94,34 @@ type ApiObjectGroup struct {
 	// properly.
 	TptctlConfigPathModels []string
 
-	// The details for each API object in the group.
+	// The details for each API object in the group.  This slice contains a
+	// distinct object for each version of each API object.
+	// Example:
+	//    {
+	//      "Version": "v0",
+	//      "TypeName": "WorkloadInstance",
+	//	    ...
+	//	},
+	//    {
+	//      "Version": "v1",
+	//      "TypeName": "WorkloadInstance",
+	//	    ...
+	//	},
 	ApiObjects []*ApiObject
+
+	// The details for each unique API object with versions as an attribute.
+	// This slice contains one object for each unique API object with all
+	// available versions as an attribute.
+	// Example:
+	//    {
+	//      "Versions": [
+	//		  "v0",
+	//		  "v1"
+	//		]
+	//      "TypeName": "WorkloadInstance",
+	//	    ...
+	//	},
+	UniqueApiObjects []*UniqueApiObject
 
 	// The name of the object group's controller in kebab case, e.g.
 	// kubernetes-runtime-controller
@@ -116,6 +142,9 @@ type ApiObjectGroup struct {
 	// The objects for which reconcilers should be generated.
 	ReconciledObjects []ReconciledObject
 
+	//// The objects mapped to all versions for that object
+	//ObjectVersionMap map[string][]string
+
 	// The struct values parsed from the object group's model file.
 	// The data model can be interpreted as:
 	// map[objectName]map[fieldName]map[tagKey]tagValue
@@ -124,8 +153,7 @@ type ApiObjectGroup struct {
 	StructTags map[string]map[string]map[string]string
 }
 
-// VersionedApiObjectCollection contains all API objects grouped by version and
-// then group in the way the API is organized.
+// VersionedApiObjectCollection contains all API objects grouped by version.
 type VersionedApiObjectCollection struct {
 	// The version for all API objects.
 	Version string
@@ -142,8 +170,29 @@ type VersionedApiObjectGroup struct {
 	ApiObjects []*ApiObject
 }
 
-// ApiObject contains the values for a particular model.
-type ApiObject struct { // was: ModelConfig
+// UniqueApiObject is an object with a unique name that may have one or more
+// versions of that object and includes a slice of available versions for it.
+type UniqueApiObject struct {
+	// The name of the object, e.g. WorkloadInstance
+	TypeName string
+
+	// Only applied to definition objects - if true, there is a corresponding
+	// instance object that a DefinedInstance conncection must be made with.
+	DefinedInstance bool
+
+	// If true, generate tptctl commands for the model.
+	TptctlCommands bool
+
+	// If true, the config for the object, references another file and should
+	// have code that includes passing the config path to config package object.
+	TptctlConfigPath bool
+
+	// All available versions for the API object.
+	Versions []string
+}
+
+// ApiObject contains the values for a particular object in the API.
+type ApiObject struct {
 	// The name of the go package where the API object's data models is defined.
 	PackageName string
 
@@ -158,12 +207,12 @@ type ApiObject struct { // was: ModelConfig
 	Reconciler            bool
 	ReconciledField       bool
 
-	// If true, generate tptctl commands for the model.
-	TptctlCommands bool
+	//// If true, generate tptctl commands for the model.
+	//TptctlCommands bool
 
-	// If true, the config for the object, references another file and should
-	// have code that includes passing the config path to config package object.
-	TptctlConfigPath bool
+	//// If true, the config for the object, references another file and should
+	//// have code that includes passing the config path to config package object.
+	//TptctlConfigPath bool
 
 	// Only applied to definition objects - if true, there is a corresponding
 	// instance object.
@@ -315,24 +364,29 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 		// map the API versions to the API objects in each version for this
 		// object group
 		versionObjMap := make(map[string][]*sdk.ApiObject, 0)
+		//objVersionMap := make(map[string][]string)
 		for _, obj := range apiObjectGroup.Objects {
 			if obj.ExcludeRoute != nil && *obj.ExcludeRoute {
 				continue
 			}
 
+			//var objVersions []string
 			for _, v := range obj.Versions {
 				if _, exists := versionObjMap[*v]; exists {
 					versionObjMap[*v] = append(versionObjMap[*v], obj)
 				} else {
 					versionObjMap[*v] = []*sdk.ApiObject{obj}
 				}
+				//objVersions = append(objVersions, *v)
 			}
+			//objVersionMap[*obj.Name] = objVersions
 		}
 
 		// iterate over the objects in each version in the map to populate the
 		// generator's ApiObjectGroup
 		var genApiObjectGroup ApiObjectGroup
 		var apiObjects []*ApiObject
+		var uniqueApiObjects []*UniqueApiObject
 		for version, mappedApiObjects := range versionObjMap {
 			var reconcilerModels []string
 			var tptctlModels []string
@@ -349,6 +403,11 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 					TypeName:    *obj.Name,
 				}
 
+				uniqueObj := &UniqueApiObject{
+					TypeName: *obj.Name,
+					Versions: []string{version},
+				}
+
 				// if a definition object, determine if a part of a
 				// DefinedInstance abstraction
 				if strings.HasSuffix(*obj.Name, "Definition") {
@@ -358,6 +417,7 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 					)
 					if definedInstance {
 						mc.DefinedInstance = true
+						uniqueObj.DefinedInstance = true
 					}
 				}
 
@@ -408,6 +468,20 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 				mc.DeleteSubject = *obj.Name + "DeleteSubject"
 
 				apiObjects = append(apiObjects, mc)
+
+				// append the unique API object if not present, otherwise just
+				// add the version
+				present := false
+				for i, uObj := range uniqueApiObjects {
+					if uObj.TypeName == uniqueObj.TypeName {
+						present = true
+						uniqueApiObjects[i].Versions = append(uniqueApiObjects[i].Versions, version)
+						break
+					}
+				}
+				if !present {
+					uniqueApiObjects = append(uniqueApiObjects, uniqueObj)
+				}
 			}
 
 			sort.Slice(apiObjects, func(i, j int) bool {
@@ -495,10 +569,12 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 				ControllerDomain:         strcase.ToCamel(sdkutil.FilenameSansExt(filename)),
 				ControllerDomainLower:    strcase.ToLowerCamel(sdkutil.FilenameSansExt(filename)),
 				ApiObjects:               apiObjects,
+				UniqueApiObjects:         uniqueApiObjects,
 				ReconciledApiObjectNames: reconcilerModels,
 				TptctlModels:             tptctlModels,
 				TptctlConfigPathModels:   tptctlModelsConfigPath,
 				StructTags:               structTags,
+				//ObjectVersionMap:         objVersionMap,
 			}
 
 			// validate model configs
@@ -535,9 +611,9 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 			// for all objects getting tptctl commands:
 			// * set TptctlCommands field in model config to true
 			for _, tc := range genApiObjectGroup.TptctlModels {
-				for i, mc := range genApiObjectGroup.ApiObjects {
-					if tc == mc.TypeName {
-						genApiObjectGroup.ApiObjects[i].TptctlCommands = true
+				for i, uniqueObj := range genApiObjectGroup.UniqueApiObjects {
+					if tc == uniqueObj.TypeName {
+						genApiObjectGroup.UniqueApiObjects[i].TptctlCommands = true
 					}
 				}
 			}
@@ -546,9 +622,9 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 			// a config path for external files:
 			// * set TptctlConfigPath field in model config to true
 			for _, tc := range genApiObjectGroup.TptctlConfigPathModels {
-				for i, mc := range genApiObjectGroup.ApiObjects {
-					if tc == mc.TypeName {
-						genApiObjectGroup.ApiObjects[i].TptctlConfigPath = true
+				for i, uniqueObj := range genApiObjectGroup.UniqueApiObjects {
+					if tc == uniqueObj.TypeName {
+						genApiObjectGroup.UniqueApiObjects[i].TptctlConfigPath = true
 					}
 				}
 			}

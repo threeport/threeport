@@ -19,7 +19,8 @@ import (
 // outputGetWorkloadsCmd produces the tabular output for the
 // 'tptctl get workloads' command.
 func outputGetWorkloadsCmd(
-	workloadInstances *[]v1.WorkloadInstance,
+	v0WorkloadInstances *[]v0.WorkloadInstance,
+	v1WorkloadInstances *[]v1.WorkloadInstance,
 	apiClient *http.Client,
 	apiEndpoint string,
 ) error {
@@ -29,7 +30,7 @@ func outputGetWorkloadsCmd(
 	var workloadDefErr error
 	var kubernetesRuntimeInstErr error
 	var statusErr error
-	for _, wi := range *workloadInstances {
+	for _, wi := range *v1WorkloadInstances {
 		// get workload definition name for instance
 		var workloadDef string
 		workloadDefinition, err := client.GetWorkloadDefinitionByID(
@@ -133,7 +134,8 @@ func outputGetWorkloadDefinitionsCmd(
 // outputGetWorkloadInstancesCmd produces the tabular output for the
 // 'tptctl get workload-instances' command.
 func outputGetWorkloadInstancesCmd(
-	workloadInstances *[]v1.WorkloadInstance,
+	v0WorkloadInstances *[]v0.WorkloadInstance,
+	v1WorkloadInstances *[]v1.WorkloadInstance,
 	apiClient *http.Client,
 	apiEndpoint string,
 ) error {
@@ -143,7 +145,7 @@ func outputGetWorkloadInstancesCmd(
 	var workloadDefErr error
 	var kubernetesRuntimeInstErr error
 	var statusErr error
-	for _, wi := range *workloadInstances {
+	for _, wi := range *v1WorkloadInstances {
 		// get workload definition name for instance
 		var workloadDef string
 		workloadDefinition, err := client.GetWorkloadDefinitionByID(
