@@ -636,6 +636,7 @@ func IrsaControllerNames() []string {
 		threeport.ThreeportWorkloadControllerName,
 		threeport.ThreeportHelmWorkloadControllerName,
 		threeport.ThreeportControlPlaneControllerName,
+		threeport.ThreeportTerraformControllerName,
 	}
 }
 
@@ -807,6 +808,8 @@ const (
 					"iam:CreatePolicy",
 					"iam:DeletePolicy",
 					"iam:ListPolicies",
+					"iam:ListRolePolicies",
+					"iam:ListInstanceProfilesForRole",
 					"iam:CreatePolicyVersion",
 					"iam:DeletePolicyVersion",
 					"iam:SetDefaultPolicyVersion",

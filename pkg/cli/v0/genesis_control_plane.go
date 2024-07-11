@@ -197,6 +197,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	uninstaller := &Uninstaller{
 		cpi:          cpi,
 		skipTeardown: &cpi.Opts.SkipTeardown,
+		cleanConfig:  util.Ptr(true),
 	}
 
 	// check threeport config to see if it is empty
@@ -705,9 +706,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return uninstaller.cleanOnCreateError("failed to install threeport API TLS assets", err)
 		}
 	}
-
-	// update uninstaller to clean the threeport config if an error occurs
-	uninstaller.cleanConfig = util.BoolPtr(true)
 
 	// wait for API server to start running - it is not strictly necessary to
 	// wait for the API before installing the rest of the control plane, however
@@ -1365,6 +1363,7 @@ func (u *Uninstaller) cleanOnCreateError(
 		}
 	}
 
+	// remove control plane from Threeport config
 	if *u.cleanConfig {
 		threeportConfig, _, configErr := config.GetThreeportConfig("")
 		if configErr != nil {
