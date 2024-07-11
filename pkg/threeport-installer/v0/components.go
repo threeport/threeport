@@ -21,7 +21,9 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// InstallComputeSpaceControlPlaneComponents
+// InstallComputeSpaceControlPlaneComponents installs the Threeport control
+// plane components that are deployed to Threeport-managed compute space
+// clusters, i.e. clusters that do not have the Threeport control plane installed.
 func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
