@@ -15,10 +15,16 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/internal/version"
+	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
+)
+
+const (
+	dbRootCertSecretName      = "db-root-cert"
+	dbThreeportCertSecretName = "db-threeport-cert"
 )
 
 // InstallComputeSpaceControlPlaneComponents installs the Threeport control
@@ -55,11 +61,12 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	return nil
 }
 
-// InstallThreeportControlPlaneAPI installs the threeport API in a Kubernetes
+// UpdateThreeportAPIDeployment installs the threeport API in a Kubernetes
 // cluster.
 func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
+	dbCreds *auth.DbCreds,
 ) error {
 	apiImage := cpi.getImage(cpi.Opts.RestApiInfo.Name, cpi.Opts.RestApiInfo.ImageName, cpi.Opts.RestApiInfo.ImageRepo, cpi.Opts.RestApiInfo.ImageTag)
 	apiArgs := cpi.getAPIArgs()
@@ -79,7 +86,51 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 
 	dbMigratorArgs := []interface{}{"-env-file=/etc/threeport/env", "up"}
 
-	var dbCreateConfig = &unstructured.Unstructured{
+	// secret for 'root' user credentials to database - used for database
+	// initialization
+	var dbRootCertsSecret = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      dbRootCertSecretName,
+				"namespace": cpi.Opts.Namespace,
+			},
+			"stringData": map[string]interface{}{
+				"ca.crt":          dbCreds.AuthConfig.CAPemEncoded,
+				"client.root.crt": dbCreds.RootCert,
+				"client.root.key": dbCreds.RootKey,
+			},
+		},
+	}
+
+	if err := cpi.CreateOrUpdateKubeResource(dbRootCertsSecret, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create DB root user certs secret: %w", err)
+	}
+
+	// secret for 'threeport' user credentials to database - used by threeport
+	// API for DB connectectivity
+	var dbThreeportCertsSecret = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      dbThreeportCertSecretName,
+				"namespace": cpi.Opts.Namespace,
+			},
+			"stringData": map[string]interface{}{
+				"ca.crt":               dbCreds.AuthConfig.CAPemEncoded,
+				"client.threeport.crt": dbCreds.ThreeportCert,
+				"client.threeport.key": dbCreds.ThreeportKey,
+			},
+		},
+	}
+
+	if err := cpi.CreateOrUpdateKubeResource(dbThreeportCertsSecret, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create DB threeport user certs secret: %w", err)
+	}
+
+	var dbCreateSecret = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
 			"kind":       "ConfigMap",
@@ -88,20 +139,16 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 				"namespace": cpi.Opts.Namespace,
 			},
 			"data": map[string]interface{}{
-				"db.sql": `CREATE USER IF NOT EXISTS tp_rest_api
-  LOGIN
-;
-CREATE DATABASE IF NOT EXISTS threeport_api
-    encoding='utf-8'
-;
-GRANT ALL ON DATABASE threeport_api TO tp_rest_api;
+				"db.sql": `CREATE USER IF NOT EXISTS threeport;
+CREATE DATABASE IF NOT EXISTS threeport_api encoding='utf-8';
+GRANT ALL ON DATABASE threeport_api TO threeport;
 `,
 			},
 		},
 	}
 
-	if err := cpi.CreateOrUpdateKubeResource(dbCreateConfig, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create DB configmap: %w", err)
+	if err := cpi.CreateOrUpdateKubeResource(dbCreateSecret, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create DB initialization secret: %w", err)
 	}
 
 	var apiSecret = &unstructured.Unstructured{
@@ -113,20 +160,24 @@ GRANT ALL ON DATABASE threeport_api TO tp_rest_api;
 				"namespace": cpi.Opts.Namespace,
 			},
 			"stringData": map[string]interface{}{
-				"env": `DB_HOST=crdb
-DB_USER=tp_rest_api
-DB_PASSWORD=tp-rest-api-pwd
-DB_NAME=threeport_api
-DB_PORT=26257
-DB_SSL_MODE=disable
+				"env": fmt.Sprintf(`DB_HOST=%s
+DB_USER=%s
+DB_NAME=%s
+DB_PORT=%s
+DB_SSL_MODE=%s
 NATS_HOST=nats-js
 NATS_PORT=4222
 `,
+					database.ThreeportDatabaseHost,
+					database.ThreeportDatabaseUser,
+					database.ThreeportDatabaseName,
+					database.ThreeportDatabasePort,
+					database.ThreeportDatabaseSslMode),
 			},
 		},
 	}
 	if err := cpi.CreateOrUpdateKubeResource(apiSecret, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
+		return fmt.Errorf("failed to create/update API server secret for DB connection: %w", err)
 	}
 
 	// configure ports
@@ -154,15 +205,16 @@ NATS_PORT=4222
 			"command": []interface{}{
 				"bash",
 				"-c",
-				//- "cockroach sql --insecure --host crdb --port 26257 -f /etc/threeport/db-create/db.sql && cockroach sql --insecure --host crdb --port 26257 --database threeport_api -f /etc/threeport/db-load/create_tables.sql && cockroach sql --insecure --host crdb --port 26257 --database threeport_api -f /etc/threeport/db-load/fill_tables.sql"
-				"cockroach sql --insecure --host crdb --port 26257 -f /etc/threeport/db-create/db.sql",
+				"cockroach sql --certs-dir=/etc/threeport/db-certs --host crdb --port 26257 -f /etc/threeport/db-create/db.sql",
 			},
 			"volumeMounts": []interface{}{
-				//- name: db-load
-				//  mountPath: "/etc/threeport/db-load"
 				map[string]interface{}{
 					"name":      "db-create",
 					"mountPath": "/etc/threeport/db-create",
+				},
+				map[string]interface{}{
+					"name":      "db-root-cert",
+					"mountPath": "/etc/threeport/db-certs",
 				},
 			},
 		},
@@ -178,6 +230,10 @@ NATS_PORT=4222
 				map[string]interface{}{
 					"name":      "db-config",
 					"mountPath": "/etc/threeport/",
+				},
+				map[string]interface{}{
+					"name":      "db-threeport-cert",
+					"mountPath": "/etc/threeport/db-certs",
 				},
 			},
 		},
@@ -256,6 +312,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAPITLS(
 		serverCertificate, serverPrivateKey, err := auth.GenerateCertificate(
 			authConfig.CAConfig,
 			&authConfig.CAPrivateKey,
+			"localhost",
 			serverAltName,
 		)
 		if err != nil {
@@ -297,7 +354,11 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 		// secrets
 		if authConfig != nil {
 
-			certificate, privateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+			certificate, privateKey, err := auth.GenerateCertificate(
+				authConfig.CAConfig,
+				&authConfig.CAPrivateKey,
+				"localhost",
+			)
 			if err != nil {
 				return fmt.Errorf("failed to generate client certificate and private key for workload controller: %w", err)
 			}
@@ -396,7 +457,11 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 	// if auth is enabled on API, generate client cert and key and store in
 	// secrets
 	if authConfig != nil {
-		agentCertificate, agentPrivateKey, err := auth.GenerateCertificate(authConfig.CAConfig, &authConfig.CAPrivateKey)
+		agentCertificate, agentPrivateKey, err := auth.GenerateCertificate(
+			authConfig.CAConfig,
+			&authConfig.CAPrivateKey,
+			"localhost",
+		)
 		if err != nil {
 			return fmt.Errorf("failed to generate client certificate and private key for threeport agent: %w", err)
 		}
@@ -1376,9 +1441,22 @@ func (cpi *ControlPlaneInstaller) getDelveArgs(name string) []string {
 	return args
 }
 
+// asdf
 // getAPIVolumes returns volumes and volume mounts for the API server.
 func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{}, error) {
 	vols := []interface{}{
+		map[string]interface{}{
+			"name": "db-root-cert",
+			"secret": map[string]interface{}{
+				"secretName": dbRootCertSecretName,
+			},
+		},
+		map[string]interface{}{
+			"name": "db-threeport-cert",
+			"secret": map[string]interface{}{
+				"secretName": dbThreeportCertSecretName,
+			},
+		},
 		map[string]interface{}{
 			"name": "db-config",
 			"secret": map[string]interface{}{
@@ -1403,6 +1481,10 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 		map[string]interface{}{
 			"name":      "db-config",
 			"mountPath": "/etc/threeport/",
+		},
+		map[string]interface{}{
+			"name":      "db-threeport-cert",
+			"mountPath": "/etc/threeport/db-certs",
 		},
 	}
 
