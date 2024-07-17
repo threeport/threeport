@@ -103,10 +103,12 @@ func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKe
 
 }
 
-// GenerateCertificate generates a certificate and private key for the current Threeport instance.
+// GenerateCertificate generates a certificate and private key with a given
+// common name from a CA cert and key.
 func GenerateCertificate(
 	caConfig *x509.Certificate,
 	caPrivateKey *rsa.PrivateKey,
+	commonName string,
 	altNames ...string,
 ) (certificate string, privateKey string, err error) {
 	// generate a random identifier for use as a serial number
@@ -132,7 +134,7 @@ func GenerateCertificate(
 		DNSNames:     dnsNames,
 		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
 		Subject: pkix.Name{
-			CommonName:   "localhost",
+			CommonName:   commonName,
 			Organization: []string{"Threeport"},
 			Country:      []string{"US"},
 			Locality:     []string{"Tampa"},

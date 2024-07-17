@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/util/homedir"
 
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -62,6 +63,13 @@ var DebugCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// generate new DB client credentials
+		dbCreds, err := auth.GenerateDbCreds()
+		if err != nil {
+			cli.Error("failed to generated DB client credentials", err)
+			os.Exit(1)
+		}
+
 		// update deployments
 		for _, component := range debugComponents {
 			switch component.Name {
@@ -69,6 +77,7 @@ var DebugCmd = &cobra.Command{
 				if err := cpi.UpdateThreeportAPIDeployment(
 					dynamicKubeClient,
 					&mapper,
+					dbCreds,
 				); err != nil {
 					cli.Error("failed to apply threeport rest api", err)
 					os.Exit(1)

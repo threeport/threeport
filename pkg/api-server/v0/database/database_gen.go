@@ -8,6 +8,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	v1 "github.com/threeport/threeport/pkg/api/v1"
 	log "github.com/threeport/threeport/pkg/log/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
 	postgres "gorm.io/driver/postgres"
 	gorm "gorm.io/gorm"
@@ -18,6 +19,17 @@ import (
 	"time"
 )
 
+const (
+	// Threeport database connection values
+	ThreeportDatabaseUser     = "threeport" // used by Threeport API
+	ThreeportDatabaseRootUser = "root"      // used by db-init container
+	ThreeportDatabaseName     = "threeport_api"
+	ThreeportDatabaseHost     = "crdb"
+	ThreeportDatabasePort     = "26257"
+	ThreeportDatabaseSslMode  = "verify-full"
+	ThreeportApiDbCertsDir    = "/etc/threeport/db-certs"
+)
+
 // ZapLogger is a custom GORM logger that forwards log messages to a Zap logger.
 type ZapLogger struct {
 	Logger *zap.Logger
@@ -25,15 +37,10 @@ type ZapLogger struct {
 
 // Init initializes the API database.
 func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
-	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=UTC",
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_NAME"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_SSL_MODE"),
-	)
+	dsn, err := GetDsn()
+	if err != nil {
+		return nil, fmt.Errorf("failed to populate DB DSN from environment: %w", err)
+	}
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: &ZapLogger{Logger: logger},
@@ -49,6 +56,42 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 	return db, nil
 }
 
+// GetDsn returns the data source name string or an error if one of the required
+// env vars is not set.
+func GetDsn() (string, error) {
+	var dbEnvErrors util.MultiError
+
+	requiredDbEnvVars := map[string]string{
+		"DB_HOST":     "",
+		"DB_NAME":     "",
+		"DB_PORT":     "",
+		"DB_SSL_MODE": "",
+		"DB_USER":     "",
+	}
+
+	for env, _ := range requiredDbEnvVars {
+		val, ok := os.LookupEnv(env)
+		if !ok {
+			dbEnvErrors.AppendError(fmt.Errorf("missing required environment variable: %s", env))
+			requiredDbEnvVars[env] = ""
+		} else {
+			requiredDbEnvVars[env] = val
+		}
+	}
+
+	dsn := fmt.Sprintf(
+		"host=%s port=%s user=%s dbname=%s sslmode=%s sslrootcert=%s/ca.crt sslcert=%[6]s/client.threeport.crt sslkey=%[6]s/client.threeport.key TimeZone=UTC",
+		requiredDbEnvVars["DB_HOST"],
+		requiredDbEnvVars["DB_PORT"],
+		requiredDbEnvVars["DB_USER"],
+		requiredDbEnvVars["DB_NAME"],
+		requiredDbEnvVars["DB_SSL_MODE"],
+		ThreeportApiDbCertsDir,
+	)
+
+	return dsn, dbEnvErrors.Error()
+}
+
 // LogMode overrides the standard GORM logger's LogMode method to set the logger mode.
 func (zl *ZapLogger) LogMode(level logger.LogLevel) logger.Interface {
 	return zl
@@ -57,9 +100,26 @@ func (zl *ZapLogger) LogMode(level logger.LogLevel) logger.Interface {
 // Info overrides the standard GORM logger's Info method to forward log messages
 // to the zap logger.
 func (zl *ZapLogger) Info(ctx context.Context, msg string, data ...interface{}) {
-	fields := make([]zap.Field, 0, len(data))
+	fields := make([]zap.Field, 0, len(data)/2) // len(data)/2 because pairs of key-value
+
 	for i := 0; i < len(data); i += 2 {
-		fields = append(fields, zap.Any(data[i].(string), data[i+1]))
+		if i+1 >= len(data) {
+			// if there's no matching pair, log a warning or handle the error appropriately
+			zl.Logger.Warn("Odd number of arguments passed to Info method", zap.Any("data", data))
+			break
+		}
+
+		if reflect.TypeOf(data[i]).Kind() == reflect.Ptr {
+			data[i] = fmt.Sprintf("%+v", data[i])
+		}
+
+		key, ok := data[i].(string)
+		if !ok {
+			zl.Logger.Warn("Key is not a string", zap.Any("key", data[i]))
+			continue
+		}
+
+		fields = append(fields, zap.Any(key, data[i+1]))
 	}
 	zl.Logger.Info(msg, fields...)
 }
@@ -67,9 +127,26 @@ func (zl *ZapLogger) Info(ctx context.Context, msg string, data ...interface{}) 
 // Warn overrides the standard GORM logger's Warn method to forward log messages
 // to the zap logger.
 func (zl *ZapLogger) Warn(ctx context.Context, msg string, data ...interface{}) {
-	fields := make([]zap.Field, 0, len(data))
+	fields := make([]zap.Field, 0, len(data)/2) // len(data)/2 because pairs of key-value
+
 	for i := 0; i < len(data); i += 2 {
-		fields = append(fields, zap.Any(data[i].(string), data[i+1]))
+		if i+1 >= len(data) {
+			// if there's no matching pair, log a warning or handle the error appropriately
+			zl.Logger.Warn("Odd number of arguments passed to Warn method", zap.Any("data", data))
+			break
+		}
+
+		if reflect.TypeOf(data[i]).Kind() == reflect.Ptr {
+			data[i] = fmt.Sprintf("%+v", data[i])
+		}
+
+		key, ok := data[i].(string)
+		if !ok {
+			zl.Logger.Warn("Key is not a string", zap.Any("key", data[i]))
+			continue
+		}
+
+		fields = append(fields, zap.Any(key, data[i+1]))
 	}
 	zl.Logger.Warn(msg, fields...)
 }
@@ -77,12 +154,26 @@ func (zl *ZapLogger) Warn(ctx context.Context, msg string, data ...interface{}) 
 // Error overrides the standard GORM logger's Error method to forward log messages
 // to the zap logger.
 func (zl *ZapLogger) Error(ctx context.Context, msg string, data ...interface{}) {
-	fields := make([]zap.Field, 0, len(data))
+	fields := make([]zap.Field, 0, len(data)/2) // len(data)/2 because pairs of key-value
+
 	for i := 0; i < len(data); i += 2 {
+		if i+1 >= len(data) {
+			// if there's no matching pair, log a warning or handle the error appropriately
+			zl.Logger.Warn("Odd number of arguments passed to Error method", zap.Any("data", data))
+			break
+		}
+
 		if reflect.TypeOf(data[i]).Kind() == reflect.Ptr {
 			data[i] = fmt.Sprintf("%+v", data[i])
 		}
-		fields = append(fields, zap.Any(data[i].(string), data[i+1]))
+
+		key, ok := data[i].(string)
+		if !ok {
+			zl.Logger.Warn("Key is not a string", zap.Any("key", data[i]))
+			continue
+		}
+
+		fields = append(fields, zap.Any(key, data[i+1]))
 	}
 	zl.Logger.Error(msg, fields...)
 }
