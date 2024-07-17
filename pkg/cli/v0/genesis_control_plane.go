@@ -592,12 +592,19 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	uninstaller.dynamicKubeClient = &dynamicKubeClient
 	uninstaller.mapper = mapper
 
+	// generate new DB client credentials
+	dbCreds, err := auth.GenerateDbCreds()
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to generated DB client credentials", err)
+	}
+
 	// install the threeport control plane dependencies
 	if err := cpi.InstallThreeportControlPlaneDependencies(
 		dynamicKubeClient,
 		mapper,
 		cpi.Opts.InfraProvider,
 		encryptionKey,
+		dbCreds,
 	); err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport control plane dependencies", err)
 	}
@@ -616,6 +623,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(
 			authConfig.CAConfig,
 			&authConfig.CAPrivateKey,
+			"localhost",
 		)
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to generate client certificate and private key", err)
@@ -659,6 +667,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,
 		mapper,
+		dbCreds,
 	); err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport API server", err)
 	}

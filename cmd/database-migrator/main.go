@@ -13,6 +13,7 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
+
 	_ "github.com/threeport/threeport/cmd/database-migrator/migrations"
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
@@ -48,46 +49,19 @@ func main() {
 
 	dir := "."
 
-	db_host := database.DB_HOST
-	db_user := database.DB_USER
-	db_name := database.DB_NAME
-	db_port := database.DB_PORT
-	db_ssl_mode := database.DB_SSL_MODE
-	db_password := database.DB_PASSWORD
-
 	// env vars for database and nats connection
 	if envFile != "" {
 		if err := godotenv.Load(envFile); err != nil {
 			cli.Error("failed to load environment variables.", err)
 			os.Exit(1)
 		}
-
-		if dbhost, ok := os.LookupEnv("DB_HOST"); ok {
-			db_host = dbhost
-		}
-
-		if dbuser, ok := os.LookupEnv("DB_USER"); ok {
-			db_user = dbuser
-		}
-
-		if dbpw, ok := os.LookupEnv("DB_PASSWORD"); ok {
-			db_password = dbpw
-		}
-
-		if dbname, ok := os.LookupEnv("DB_NAME"); ok {
-			db_name = dbname
-		}
-
-		if dbport, ok := os.LookupEnv("DB_PORT"); ok {
-			db_port = dbport
-		}
-
-		if sslmode, ok := os.LookupEnv("DB_SSL_MODE"); ok {
-			db_ssl_mode = sslmode
-		}
 	}
 
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=UTC", db_host, db_port, db_user, db_password, db_name, db_ssl_mode)
+	dsn, err := database.GetDsn()
+	if err != nil {
+		cli.Error("failed to populate DB DSN from environment", err)
+		os.Exit(1)
+	}
 
 	db, err := goose.OpenDBWithDriver("postgres", dsn)
 	if err != nil {

@@ -305,6 +305,7 @@ func v0ControlPlaneInstanceCreated(
 		clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(
 			authConfig.CAConfig,
 			&authConfig.CAPrivateKey,
+			"localhost",
 		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to generate client certificate and private key: %w", err)
@@ -343,12 +344,19 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to generate encryption key: %w", err)
 	}
 
+	// generate new DB client credentials
+	dbCreds, err := auth.GenerateDbCreds()
+	if err != nil {
+		return 0, fmt.Errorf("failed to generated DB client credentials: %w", err)
+	}
+
 	// install the threeport control plane dependencies
 	if err := cpi.InstallThreeportControlPlaneDependencies(
 		dynamicKubeClient,
 		mapper,
 		*kubernetesRuntimeDefinition.InfraProvider,
 		encryptionKey,
+		dbCreds,
 	); err != nil {
 		return 0, fmt.Errorf("failed to install threeport control plane dependencies")
 	}
@@ -357,6 +365,7 @@ func v0ControlPlaneInstanceCreated(
 	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,
 		mapper,
+		dbCreds,
 	); err != nil {
 		return 0, fmt.Errorf("failed to install threeport API server: %w", err)
 	}
