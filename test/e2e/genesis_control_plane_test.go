@@ -219,17 +219,6 @@ func createLocalRegistry() error {
 	}
 
 	return nil
-
-	//command := "./local-registry.sh"
-	//args := []string{"create"}
-
-	//cmd := exec.Command(command, args...)
-	//output, err := cmd.CombinedOutput()
-	//if err != nil {
-	//	return fmt.Errorf("failed to create local container registry with output %s: %w", output, err)
-	//}
-
-	//return nil
 }
 
 // buildContainerImages builds all the images for the Threeport control plane.
@@ -371,15 +360,4 @@ func removeLocalRegistry() error {
 	}
 
 	return nil
-
-	//command := "./local-registry.sh"
-	//args := []string{"delete"}
-
-	//cmd := exec.Command(command, args...)
-	//output, err := cmd.CombinedOutput()
-	//if err != nil {
-	//	return fmt.Errorf("failed to create local container registry with output %s: %w", output, err)
-	//}
-
-	//return nil
 }

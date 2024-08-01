@@ -3,9 +3,11 @@ package tptdev
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -18,8 +20,9 @@ import (
 )
 
 const (
-	registryName = "local-registry"
-	registryPort = "5001"
+	registryImage = "registry:2"
+	registryName  = "local-registry"
+	registryPort  = "5001"
 )
 
 // CreateLocalRegistry starts a Docker container to serve as a local container
@@ -39,8 +42,21 @@ func CreateLocalRegistry() error {
 		return nil
 	}
 
+	// pull image if it doesn't exist locally
+	_, _, err = cli.ImageInspectWithRaw(ctx, registryImage)
+	if err != nil {
+		// image does not exist, pull it
+		reader, err := cli.ImagePull(ctx, registryImage, types.ImagePullOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to pull registry image: %w", err)
+		}
+		defer reader.Close()
+		// read the output of the pull process
+		io.Copy(os.Stdout, reader)
+	}
+
 	config := &container.Config{
-		Image: "registry:2",
+		Image: registryImage,
 		ExposedPorts: nat.PortSet{
 			"5000/tcp": struct{}{},
 		},
@@ -64,7 +80,11 @@ func CreateLocalRegistry() error {
 		return fmt.Errorf("failed to create registry container: %w", err)
 	}
 
-	return cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
+	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("failed to start registry container: %w", err)
+	}
+
+	return nil
 }
 
 // ConnectLocalRegistry connects a local Docker container registry to a kind cluster.
