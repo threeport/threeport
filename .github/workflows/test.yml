@@ -204,7 +204,7 @@ jobs:
       run: bin/tptctl up --control-plane-image-tag ${{ github.sha }} -n dev-0
 
     - name: Run tests
-      run: make tests
+      run: go test -v ./test/integration -count=1
 
   clean:
     if: ${{ always() }}
