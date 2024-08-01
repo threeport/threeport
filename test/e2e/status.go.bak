@@ -1,0 +1,93 @@
+package e2e_test
+
+import (
+	"fmt"
+
+	v0 "github.com/threeport/threeport/pkg/api/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
+)
+
+func checkDeploymentStatus(
+	//workloadInstanceName string,
+	workloadInstance *v0.WorkloadInstance,
+	deploymentName string,
+) error {
+	//// get the workload instance ID
+	//command := filepath.Join(threeportPath, "bin", "tptctl")
+	//cmdArgs := []string{
+	//	"describe",
+	//	"workload-instance",
+	//	"--name",
+	//	workloadInstanceName,
+	//	"--output",
+	//	"json",
+	//}
+	//cmd := exec.Command(command, cmdArgs...)
+	//output, err := cmd.CombinedOutput()
+	//if err != nil {
+	//	return fmt.Errorf(
+	//		"failed to execute tptctl command to describe workload instance %s with output %s: %w",
+	//		workloadInstanceName,
+	//		output,
+	//		err,
+	//	)
+	//}
+
+	//var workloadInstDescr WorkloadInstDescription
+	//if err := json.Unmarshal(output, &workloadInstDescr); err != nil {
+	//	return fmt.Errorf("failed to unmarshal json for workload instance description: %w", err)
+	//}
+
+	//// get the Threeport-managed namespace for the deployment
+	//command := "kubectl"
+	//cmdArgs := []string{
+	//	"get",
+	//	"namespace",
+	//	"-l",
+	//	fmt.Sprintf("control-plane.threeport.io/workload-instance=\"%s\"", workloadInstDescr.Id),
+	//	"-oyaml",
+	//}
+	//cmd := exec.Command(command, cmdArgs...)
+	//output, err := cmd.CombinedOutput()
+
+	//var namespaceList corev1.NamespaceList
+	//scheme := runtime.NewScheme()
+	//decoder := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme, scheme)
+	//if err := runtime.DecodeInto(decoder, output, &namespaceList); err != nil {
+	//	return fmt.Errorf("failed to decode yaml data for namespace", err)
+	//}
+
+	//if len(namespaceList.Items) == 0 {
+	//	return fmt.Errorf("no namespace found with label 'control-plane.threeport.io/workload-instance=\"%s\"", workloadInstDescr.Id)
+	//} else if len(namespaceList.Items) > 1 {
+	//	return fmt.Errorf("more than one namespace found with label 'control-plane.threeport.io/workload-instance=\"%s\"", workloadInstDescr.Id)
+	//}
+
+	//namespaceName := namespaceList.Items[0].Name
+
+	if err := util.Retry(
+		30,
+		10,
+		func() error {
+			namespaceName, err := getNamespaceByWorkloadInstanceId(*workloadInstance.ID)
+			if err != nil {
+				return fmt.Errorf("failed to get namespace for workload instance with ID %d: %w", workloadInstance.ID, err)
+			}
+
+			deployment, err := getDeploymentByName(deploymentName, namespaceName)
+			if err != nil {
+				return fmt.Errorf("failed to get deployment: %w", err)
+			}
+
+			if deployment.Status.ReadyReplicas < 1 {
+				return fmt.Errorf("deployment %s has zero ready replicas", deployment.Name)
+			}
+
+			return nil
+		},
+	); err != nil {
+		return fmt.Errorf("failed to verify deployment status as ready: %w", err)
+	}
+
+	return nil
+}
