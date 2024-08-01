@@ -116,6 +116,10 @@ type Options struct {
 
 	// Skip teardown of control plane components if an error is encountered.
 	SkipTeardown bool
+
+	// Create and connect local container registry for local control plane
+	// clusters.
+	LocalRegistry bool
 }
 
 type ControlPlaneInstaller struct {

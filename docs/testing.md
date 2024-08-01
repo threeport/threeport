@@ -1,24 +1,59 @@
 # Testing
 
-Tests are run in CI and must pass before merging PRs to main.
-
-## Unit Tests
-
-TODO
+Tests are run in CI and must pass before merging PRs to feature branches.
 
 ## End-To-End
 
-As a distributed system, theeport relies heavily on automated e2e testing.  It
-is essential to maintaining stability in the control plane.
+The end-to-end tests use `tptctl` to deploy workloads and verify their results.
 
-In order to run tests, you'll need a dev environment with the default control plane
-name which is used with:
+The end-to-end tests will build `tptctl` and `tptdev`, create a local container
+registry, build and push all control plane images to that local registry, and
+provision and new genesis control plane using the newly built images.
+
+It will then run the test suite.  Afterwards, it will tear down the control
+plane and local registry.
 
 ```bash
-make dev-up
+mage e2eLocal
 ```
 
-With a dev environment up, run all tests with:
+The e2e tests create and use a Threeport config located at `/tmp/e2e-threeport-config.yaml`
+
+## Integration
+
+The integration tests verify internal integrations, such as client library
+functionality.
+
+The end-to-end tests require an existing control plane.  You can either
+provision on with `tptdev` or use the control plane used by e2e tests.
+
+### Using tptdev
+
+```bash
+./bin/tptdev up
+mage integration
 ```
-make tests
+
+### Using e2e
+
+The following mage target and arguments will spin up a local kind cluster and
+local container registry, then run e2e tests.  The final `false` argument does
+not clean up the kind cluster and registry.
+
+```bash
+mage e2e kind local false
 ```
+
+You can now use this control plane for integration tests.
+
+```bash
+export THREEPORT_CONFIG=/tmp/e2e-threeport-config.yaml
+mage integration
+```
+
+You can then clean up the kind cluster and local registry:
+
+```bash
+mage e2eClean
+```
+

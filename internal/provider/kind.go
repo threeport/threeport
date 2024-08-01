@@ -54,7 +54,15 @@ func (i *KubernetesRuntimeInfraKind) Create() (*kube.KubeConnectionInfo, error) 
 		i.RuntimeInstanceName,
 		cluster.CreateWithKubeconfigPath(i.KubeconfigPath),
 		cluster.CreateWithWaitForReady(time.Duration(1000000000*60*5)), // 5 minutes
-		cluster.CreateWithV1Alpha4Config(getKindConfig(i.AuthEnabled, i.DevEnvironment, i.ThreeportPath, i.NumWorkerNodes, i.PortForwards)),
+		cluster.CreateWithV1Alpha4Config(
+			getKindConfig(
+				i.AuthEnabled,
+				i.DevEnvironment,
+				i.ThreeportPath,
+				i.NumWorkerNodes,
+				i.PortForwards,
+			),
+		),
 	); err != nil {
 		return &kube.KubeConnectionInfo{}, fmt.Errorf("failed to create new kind cluster: %w", err)
 	}
@@ -83,8 +91,19 @@ func (i *KubernetesRuntimeInfraKind) Delete() error {
 }
 
 // getKindConfig returns a kind config for a threeport Kubernetes runtime.
-func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWorkerNodes int, portForwards map[int32]int32) *v1alpha4.Cluster {
-	clusterConfig := v1alpha4.Cluster{}
+func getKindConfig(
+	authEnabled,
+	devEnvironment bool,
+	threeportPath string,
+	numWorkerNodes int,
+	portForwards map[int32]int32,
+) *v1alpha4.Cluster {
+	clusterConfig := v1alpha4.Cluster{
+		ContainerdConfigPatches: []string{
+			`[plugins."io.containerd.grpc.v1.cri".registry]
+			   config_path = "/etc/containerd/certs.d"`,
+		},
+	}
 
 	var controlPlaneNode v1alpha4.Node
 	var workerNodes []v1alpha4.Node
@@ -125,7 +144,13 @@ func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWo
 }
 
 // kindControlPlaneNode returns a control plane node
-func kindControlPlaneNode(authEnabled bool, threeportPath, goPath, goCache string, portForwards map[int32]int32) *v1alpha4.Node {
+func kindControlPlaneNode(
+	authEnabled bool,
+	threeportPath string,
+	goPath string,
+	goCache string,
+	portForwards map[int32]int32,
+) *v1alpha4.Node {
 	extraPortMappings := getPortMapping(authEnabled, portForwards)
 	controlPlaneNode := v1alpha4.Node{
 		Role:  v1alpha4.ControlPlaneRole,
