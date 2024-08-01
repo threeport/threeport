@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -21,8 +21,6 @@ import (
 	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
-	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
-	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -45,6 +43,7 @@ type kubeResource struct {
 }
 
 // TestWorkloadE2E tests that workload creation and deletgion works as expected.
+// func TestWorkloadE2E(t *testing.T) {
 func TestWorkloadE2E(t *testing.T) {
 	assert := assert.New(t)
 	testWorkloads := testResources()
@@ -75,47 +74,74 @@ func TestWorkloadE2E(t *testing.T) {
 			YAMLDocument: util.Ptr(""),
 		}
 
-		// determine if the API is serving HTTPS or HTTP
-		var authEnabled bool
-		var respCodeErr error
-		var resp *http.Response
-		// check HTTPS
-		if err := util.Retry(10, 1, func() error {
-			var err error
-			resp, err = http.Get(fmt.Sprintf("http://localhost:%d/version", 443))
-			// if we get an error, check HTTP
-			if err != nil {
-				resp, err = http.Get(fmt.Sprintf("http://localhost:%d/version", 80))
-				if err != nil {
-					return err
-				}
-			}
-			return nil
-		}); err != nil {
-			assert.Nil(err, "should not get an error when calling threeport API version endpoint")
-		}
-		switch resp.StatusCode {
-		case 400:
-			authEnabled = true
-			t.Log("auth enabled")
-		case 200:
-			authEnabled = false
-			t.Log("auth not enabled")
-		default:
-			respCodeErr = fmt.Errorf("unexpected response from API (not 200 or 400): %d", resp.StatusCode)
-		}
-		assert.Nil(respCodeErr, "should not get an get an unexpected response from API version endpoint")
-
-		threeportAPIEndpoint := threeport.GetLocalThreeportAPIEndpoint(authEnabled)
-
 		// initialize config so we can pull credentials from it
 		cli.InitConfig("")
 
 		// get threeport config and configure http client for calls to threeport API
 		threeportConfig, _, err := config.GetThreeportConfig("")
-		assert.Nil(err, "should have no error getting threeport config")
-		apiClient, err := threeportConfig.GetHTTPClient(tptdev.DefaultInstanceName)
-		assert.Nil(err, "should have no error creating http client")
+		require.Nil(t, err, "should have no error getting threeport config")
+		apiClient, err := threeportConfig.GetHTTPClient(threeportConfig.CurrentControlPlane)
+		require.Nil(t, err, "should have no error creating http client")
+
+		// get Threeport API endpoint
+		controlPlaneConfig, err := threeportConfig.GetControlPlaneConfig(threeportConfig.CurrentControlPlane)
+		require.Nil(t, err, "should not get an error looking up Threeport API endpoint")
+		threeportAPIEndpoint := controlPlaneConfig.APIServer
+
+		//////////////////////////////////////////////////////////////////////////
+		//testResp, err := apiClient.Get("https://localhost/version")
+		//if err != nil {
+		//	panic(err)
+		//}
+		//body, err := ioutil.ReadAll(testResp.Body)
+		//if err != nil {
+		//	panic(err)
+		//}
+		//fmt.Println("################################################")
+		//fmt.Println(string(body))
+
+		//// determine if the API is serving HTTPS or HTTP
+		//var authEnabled bool
+		//var respCodeErr error
+		//var resp *http.Response
+		//// check HTTPS
+		//if err := util.Retry(10, 1, func() error {
+		//	var err error
+		//	resp, err = http.Get("https://localhost/version")
+		//	// if we get an error, check HTTP
+		//	if err != nil {
+		//		resp, err = http.Get(fmt.Sprintf("http://localhost:%d/version", 80))
+		//		if err != nil {
+		//			return err
+		//		}
+		//	}
+		//	return nil
+		//}); err != nil {
+		//	assert.Nil(err, "should not get an error when calling threeport API version endpoint")
+		//}
+		//switch resp.StatusCode {
+		//case 400:
+		//	authEnabled = true
+		//	t.Log("auth enabled")
+		//case 200:
+		//	authEnabled = false
+		//	t.Log("auth not enabled")
+		//default:
+		//	respCodeErr = fmt.Errorf("unexpected response from API (not 200 or 400): %d", resp.StatusCode)
+		//}
+		//assert.Nil(respCodeErr, "should not get an get an unexpected response from API version endpoint")
+
+		//threeportAPIEndpoint := threeport.GetLocalThreeportAPIEndpoint(authEnabled)
+		//////////////////////////////////////////////////////////////////////////
+
+		//// initialize config so we can pull credentials from it
+		//cli.InitConfig("")
+
+		//// get threeport config and configure http client for calls to threeport API
+		//threeportConfig, _, err := config.GetThreeportConfig("")
+		//require.Nil(t, err, "should have no error getting threeport config")
+		//apiClient, err := threeportConfig.GetHTTPClient(tptdev.DefaultInstanceName)
+		//require.Nil(t, err, "should have no error creating http client")
 
 		// configure domain name definition object
 		domainNameDefinition := &v0.DomainNameDefinition{
@@ -379,8 +405,9 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error getting kubernetes runtime instance")
 		assert.NotNil(kubernetesRuntimeInstance, "should have a kubernetes runtime instance returned")
 
-		encryptionKey, err := threeportConfig.GetEncryptionKey(tptdev.DefaultInstanceName)
-		assert.Nil(err, "should have no error getting encryption key")
+		//encryptionKey, err := threeportConfig.GetEncryptionKey(tptdev.DefaultInstanceName)
+		encryptionKey, err := threeportConfig.GetEncryptionKey(threeportConfig.CurrentControlPlane)
+		require.Nil(t, err, "should have no error getting encryption key")
 
 		// create a client to connect to kube API
 		dynamicKubeClient, mapper, err := kube.GetClient(
@@ -618,19 +645,53 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.Nil(err, "should have no error deleting workload definition")
 
 		// give the API server time to process deletion
-		time.Sleep(time.Second * 3)
+		//time.Sleep(time.Second * 3)
 
 		// make sure the workload definition is gone
-		workloadDefs, err := client.GetWorkloadDefinitions(
-			apiClient,
-			threeportAPIEndpoint,
-		)
-		assert.Nil(err, "should have no errors geting all workload definitions")
-		if assert.NotNil(workloadDefs, "should have an array of workload definitions returned") {
-			for _, wd := range *workloadDefs {
-				assert.NotEqual(wd.ID, deletedWorkloadDef.ID, "should not get back deleted workload definition when retrieving all workload definitions")
+		if err := util.Retry(10, 3, func() error {
+			//var err error
+			//resp, err = http.Get("https://localhost/version")
+			//// if we get an error, check HTTP
+			//if err != nil {
+			//	resp, err = http.Get(fmt.Sprintf("http://localhost:%d/version", 80))
+			//	if err != nil {
+			//		return err
+			//	}
+			//}
+			//return nil
+			workloadDefs, err := client.GetWorkloadDefinitions(
+				apiClient,
+				threeportAPIEndpoint,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to get workload definitions: %w", err)
 			}
+			for _, wd := range *workloadDefs {
+				if wd.ID == deletedWorkloadDef.ID {
+					return fmt.Errorf("deleted workload definition with ID %d still returned from Threeport API", wd.ID)
+				}
+			}
+
+			return nil
+		}); err != nil {
+			assert.Nil(err, "should not get back deleted workload definition when retrieving all workload definitions")
 		}
+
+		//}); err != nil {
+		//	assert.Nil(err, "should not get an error when calling threeport API version endpoint")
+		//}
+
+		//// make sure the workload definition is gone
+		//workloadDefs, err := client.GetWorkloadDefinitions(
+		//	apiClient,
+		//	threeportAPIEndpoint,
+		//)
+		//assert.Nil(err, "should have no errors geting all workload definitions")
+		//if assert.NotNil(workloadDefs, "should have an array of workload definitions returned") {
+		//	for _, wd := range *workloadDefs {
+		//		assert.NotEqual(wd.ID, deletedWorkloadDef.ID, "should not get back deleted workload definition when retrieving all workload definitions")
+		//	}
+		//}
 	}
 }
 
