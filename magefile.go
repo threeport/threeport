@@ -242,25 +242,25 @@ func E2eClean() error {
 	return nil
 }
 
-// Builds database migrator
+// InstallSdk builds SDK binary and installs in GOPATH.
+func InstallSdk() error {
+	goPath := os.Getenv("GOPATH")
+	outputPath := filepath.Join(goPath, "bin", "threeport-sdk")
 
-// BuildDbMigrator builds database migrator
-func BuildDbMigrator() error {
-
-	buildDbCmd := exec.Command(
+	sdkCmd := exec.Command(
 		"go",
 		"build",
 		"-o",
-		"bin/database-migrator",
-		"cmd/database-migrator/main.go",
+		outputPath,
+		"cmd/sdk/main.go",
 	)
 
-	output, err := buildDbCmd.CombinedOutput()
+	output, err := sdkCmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("build failed for database migrator with output: '%s': %w", output, err)
+		return fmt.Errorf("build failed for sdk binary with output: '%s': %w", output, err)
 	}
 
-	fmt.Println("database migrator built and available at bin/database-migrator")
+	fmt.Println("sdk binary built and available at $GOPATH/bin/threeport-sdk")
 
 	return nil
 }
@@ -301,9 +301,8 @@ func CleanLocalRegistry() error {
 	return nil
 }
 
-// BuildTptdev builds tptdev binary
+// BuildTptdev builds tptdev binary.
 func BuildTptdev() error {
-
 	buildTptdevCmd := exec.Command(
 		"go",
 		"build",
@@ -321,8 +320,11 @@ func BuildTptdev() error {
 	return nil
 }
 
-// InstallTptdev installs tptdev binary
+// InstallTptdev installs tptdev binary at /usr/local/bin/.
 func InstallTptdev() error {
+	if err := BuildTptdev(); err != nil {
+		return fmt.Errorf("failed to build tptdev: %w", err)
+	}
 
 	installTptdevCmd := exec.Command(
 		"sudo",
@@ -340,9 +342,8 @@ func InstallTptdev() error {
 	return nil
 }
 
-// BuildTptctl builds tptctl binary
+// BuildTptctl builds tptctl binary.
 func BuildTptctl() error {
-
 	buildTptctlCmd := exec.Command(
 		"go",
 		"build",
@@ -360,8 +361,11 @@ func BuildTptctl() error {
 	return nil
 }
 
-// InstallTptctl installs tptctl binary
+// InstallTptctl installs tptctl binary at /usr/local/bin/.
 func InstallTptctl() error {
+	if err := BuildTptctl(); err != nil {
+		return fmt.Errorf("failed to build tptctl: %w", err)
+	}
 
 	installTptctlCmd := exec.Command(
 		"sudo",
@@ -379,9 +383,9 @@ func InstallTptctl() error {
 	return nil
 }
 
-// Generate runs code generation
+// Generate runs code generation.  It runs threeport-sdk and generates API
+// swagger docs.
 func Generate() error {
-
 	err := GenerateCode()
 	if err != nil {
 		return fmt.Errorf("code generation failed: %w", err)
@@ -397,7 +401,7 @@ func Generate() error {
 	return nil
 }
 
-// GenerateCode generates code
+// GenerateCode generates code with threeport-sdk.
 func GenerateCode() error {
 
 	generateCode := exec.Command(
@@ -416,32 +420,33 @@ func GenerateCode() error {
 	return nil
 }
 
-// GenerateDocs generates swagger docs
+// GenerateDocs generates API swagger docs.
 func GenerateDocs() error {
-
+	docsDestination := "pkg/api-server/v0/docs"
 	generateSwaggerDocs := exec.Command(
 		"swag",
 		"init",
 		"--dir",
-		"cmd/rest-api,pkg/api-server/v0,pkg/api-server/v1",
+		"cmd/rest-api,pkg/api-server/v0,pkg/api-server/v0",
 		"--parseDependency",
 		"--generalInfo",
 		"main_gen.go",
-		"--output", "pkg/api-server/v0/docs",
+		"--output",
+		docsDestination,
 	)
+
 	output, err := generateSwaggerDocs.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("swagger docs generation failed with output: '%s': %w", output, err)
 	}
 
-	fmt.Println("swagger docs generated successfully and is available at pkg/api-server/v0/docs")
+	fmt.Printf("API swagger docs generated successfully in %s\n", docsDestination)
 
 	return nil
 }
 
-// AutomatedTests runs automated tests
+// AutomatedTests runs automated tests.
 func AutomatedTests() error {
-
 	runTests := exec.Command(
 		"go",
 		"test",
@@ -449,6 +454,7 @@ func AutomatedTests() error {
 		"./...",
 		"-count=1",
 	)
+
 	output, err := runTests.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("test runs failed to run: '%s': %w", output, err)
@@ -459,12 +465,13 @@ func AutomatedTests() error {
 	return nil
 }
 
-// TestCommits checks to make sure commit messages follow conventional commits format
+// TestCommits checks to make sure commit messages follow conventional commits
+// format.
 func TestCommits() error {
-
 	testCommits := exec.Command(
 		"test/scripts/commit-check-latest.sh",
 	)
+
 	output, err := testCommits.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to run commit check: '%s': %w", output, err)
@@ -475,13 +482,14 @@ func TestCommits() error {
 	return nil
 }
 
-// DevUp runs a local development environment
+// DevUp runs a local development environment.
 func DevUp() error {
 	devUp := exec.Command(
 		"./bin/tptdev",
 		"up",
 		"--auth-enabled=false",
 	)
+
 	output, err := devUp.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to create local dev environment: '%s': %w", output, err)
@@ -492,7 +500,7 @@ func DevUp() error {
 	return nil
 }
 
-// DevDown deletes the local development environment
+// DevDown deletes the local development environment.
 func DevDown() error {
 	devDown := exec.Command(
 		"./bin/tptdev",
