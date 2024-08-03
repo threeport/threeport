@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -165,6 +166,30 @@ func E2e(
 		return fmt.Errorf("failed to run e2e tests: %w", err)
 	}
 
+return nil
+}
+
+// Builds sdk binary and installs in GOPATH
+
+func BuildSDK() error {
+	goPath := os.Getenv("GOPATH")
+	outputPath := filepath.Join(goPath, "bin", "threeport-sdk")
+
+	sdkCmd := exec.Command(
+		"go",
+		"build",
+		"-o",
+		outputPath,
+		"cmd/sdk/main.go",
+	)
+
+	output, err := sdkCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("build failed for sdk binary with output: '%s': %w", output, err)
+	}
+
+	fmt.Println("sdk binary built and available at bin/threeport-sdk")
+
 	return nil
 }
 
@@ -192,8 +217,32 @@ func E2eClean() error {
 		return err
 	}
 
+return nil
+}
+
+// Builds database migrator
+
+func BuildDbMigrator() error {
+
+	buildDbCmd := exec.Command(
+		"go",
+		"build",
+		"-o",
+		"bin/database-migrator",
+		"cmd/database-migrator/main.go",
+	)
+
+	output, err := buildDbCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("build failed for database migrator with output: '%s': %w", output, err)
+	}
+
+	fmt.Println("database migrator built and available at cmd/database-migrator")
+
+
 	return nil
 }
+
 
 // Integration runs integration tests against an existing Threeport control
 // plane.
@@ -227,6 +276,89 @@ func CleanLocalRegistry() error {
 	if err := tptdev.DeleteLocalRegistry(); err != nil {
 		return fmt.Errorf("failed to remove local container registry: %w", err)
 	}
+
+return nil 
+}
+
+// Builds tptdev binary
+
+func BuildTptdev() error {
+
+	buildTptdevCmd := exec.Command(
+		"go",
+		"build",
+		"-o",
+		"bin/tptdev",
+		"cmd/tptdev/main.go",
+	)
+	output, err := buildTptdevCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("build failed for tptdev with output: '%s': %w", output, err)
+	}
+
+	fmt.Println("tptdev built and available at cmd/tptdev")
+
+	return nil
+}
+
+// Installs tptdev binary
+
+func InstallTptdev() error {
+
+	installTptdevCmd := exec.Command(
+		"sudo",
+		"cp",
+		"./bin/tptdev",
+		"/usr/local/bin/tptdev",
+	)
+	output, err := installTptdevCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("install failed for tptdev with output: '%s': %w", output, err)
+	}
+
+	fmt.Println("tptdev installed and available at /usr/local/bin/tptdev")
+
+	return nil
+}
+
+// Builds tptctl binary
+
+func BuildTptctl() error {
+
+	buildTptctlCmd := exec.Command(
+		"go",
+		"build",
+		"-o",
+		"bin/tptctl",
+		"cmd/tptctl/main.go",
+	)
+	output, err := buildTptctlCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("build failed for tptctl binary with output: '%s': %w", output, err)
+	}
+
+	fmt.Println("tptctl binary built and available at cmd/tptctl")
+
+	return nil
+}
+
+// Installs tptctl binary
+
+func InstallTptctl() error {
+
+	installTptctlCmd := exec.Command(
+		"sudo",
+		"cp",
+		"./bin/tptctl",
+		"/usr/local/bin/tptctl",
+	)
+	output, err := installTptctlCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("install failed for tptctl binary with output: '%s': %w", output, err)
+	}
+
+	fmt.Println("tptctl binary installed and available at/usr/local/bin/tptctl")
+
 
 	return nil
 }
