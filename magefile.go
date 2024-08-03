@@ -172,7 +172,6 @@ func E2e(
 // BuildSDK builds SDK binary and installs in GOPATH
 func BuildSDK() error {
 	goPath := os.Getenv("GOPATH")
-
 	outputPath := filepath.Join(goPath, "bin", "threeport-sdk")
 
 	sdkCmd := exec.Command(
@@ -182,6 +181,7 @@ func BuildSDK() error {
 		outputPath,
 		"cmd/sdk/main.go",
 	)
+
 	output, err := sdkCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("build failed for sdk binary with output: '%s': %w", output, err)
