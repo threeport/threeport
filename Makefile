@@ -5,32 +5,6 @@ help:
 	@echo "Commands :"
 	@grep -E '[a-zA-Z\.\-]+:.*?@ .*$$' $(MAKEFILE_LIST)| tr -d '#' | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-19s\033[0m - %s\n", $$1, $$2}'
 
-## builds
-
-#install-sdk: @ Build sdk binary and install in GOPATH
-install-sdk:
-	go build -o $(GOPATH)/bin/threeport-sdk cmd/sdk/main.go
-
-#build-database-migrator: @ Build database migrator
-build-database-migrator:
-	go build -o bin/database-migrator cmd/database-migrator/main.go
-
-#build-tptdev: @ Build tptdev binary
-build-tptdev:
-	go build -o bin/tptdev cmd/tptdev/main.go
-
-#install-tptdev: @ Install tptctl binary
-install-tptdev: build-tptdev
-	sudo cp ./bin/tptdev /usr/local/bin/tptdev
-
-#build-tptctl: @ Build tptctl binary
-build-tptctl:
-	go build -o bin/tptctl cmd/tptctl/main.go
-
-#install-tptctl: @ Install tptctl binary
-install-tptctl: build-tptctl
-	sudo cp ./bin/tptctl /usr/local/bin/tptctl
-
 ## code generation
 
 #generate: @ Run code generation
