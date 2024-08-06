@@ -80,8 +80,7 @@ func BuildImage(
 	return nil
 }
 
-// Builds sdk binary and installs in GOPATH
-
+// BuildSDK builds SDK binary and installs in GOPATH
 func BuildSDK() error {
 	goPath := os.Getenv("GOPATH")
 	outputPath := filepath.Join(goPath, "bin", "threeport-sdk")
@@ -104,8 +103,7 @@ func BuildSDK() error {
 	return nil
 }
 
-// Builds database migrator
-
+// BuildDbMigrator builds database migrator
 func BuildDbMigrator() error {
 
 	buildDbCmd := exec.Command(
@@ -126,8 +124,7 @@ func BuildDbMigrator() error {
 	return nil
 }
 
-// Builds tptdev binary
-
+// BuildTptdev builds tptdev binary
 func BuildTptdev() error {
 
 	buildTptdevCmd := exec.Command(
@@ -147,8 +144,7 @@ func BuildTptdev() error {
 	return nil
 }
 
-// Installs tptdev binary
-
+// InstallTptdev installs tptdev binary
 func InstallTptdev() error {
 
 	installTptdevCmd := exec.Command(
@@ -167,8 +163,7 @@ func InstallTptdev() error {
 	return nil
 }
 
-// Builds tptctl binary
-
+// BuildTptctl builds tptctl binary
 func BuildTptctl() error {
 
 	buildTptctlCmd := exec.Command(
@@ -188,8 +183,7 @@ func BuildTptctl() error {
 	return nil
 }
 
-// Installs tptctl binary
-
+// InstallTptctl installs tptctl binary
 func InstallTptctl() error {
 
 	installTptctlCmd := exec.Command(
