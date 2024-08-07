@@ -42,7 +42,7 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(
-		&cliArgs.CfgFile, "threeport-config", "", "Path to config file (default is $HOME/.config/threeport/config.yaml).",
+		&cliArgs.CfgFile, "threeport-config", "", "Path to config file (default is $HOME/.config/threeport/config.yaml). Can also be set with environment variable THREEPORT_CONFIG",
 	)
 	rootCmd.PersistentFlags().StringVar(
 		&cliArgs.ProviderConfigDir, "provider-config", "", "Path to infra provider config directory (default is $HOME/.config/threeport/).",

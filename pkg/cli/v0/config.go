@@ -12,6 +12,8 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
+const ThreeportConfigEnvKey = "THREEPORT_CONFIG"
+
 // InitConfig sets up the threeport config for a CLI.
 func InitConfig(cfgFile string) {
 	// determine user home dir
@@ -19,6 +21,14 @@ func InitConfig(cfgFile string) {
 	if err != nil {
 		Error("failed to determine user home directory", err)
 		os.Exit(1)
+	}
+
+	// check environment variable if cfgFile not set with flag
+	if cfgFile == "" {
+		envConfig, exists := os.LookupEnv(ThreeportConfigEnvKey)
+		if exists {
+			cfgFile = envConfig
+		}
 	}
 
 	// set default threeport config path if not set by user

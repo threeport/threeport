@@ -35,6 +35,7 @@ import (
 	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -67,6 +68,7 @@ type GenesisControlPlaneCLIArgs struct {
 	SkipTeardown          bool
 	ControlPlaneOnly      bool
 	KindInfraPortForward  []string
+	LocalRegistry         bool
 }
 
 // Uninstaller contains the necessary information to uninstall a control plane
@@ -170,6 +172,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.ControlPlaneOnly = a.ControlPlaneOnly
 	cpi.Opts.RestApiEksLoadBalancer = true
 	cpi.Opts.SkipTeardown = a.SkipTeardown
+	cpi.Opts.LocalRegistry = a.LocalRegistry
 
 	return cpi, nil
 }
@@ -211,6 +214,13 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 	threeportConfig.ControlPlanes = []config.ControlPlane{}
 	threeportControlPlaneConfig := &config.ControlPlane{}
+
+	// create local registry if requested
+	if cpi.Opts.LocalRegistry {
+		if err := tptdev.CreateLocalRegistry(); err != nil {
+			return fmt.Errorf("failed to create local container registry: %w", err)
+		}
+	}
 
 	// create threeport config for new instance
 	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
@@ -304,6 +314,15 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
 			if err != nil {
 				return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
+			}
+		}
+
+		// connect local registry if requested
+		if cpi.Opts.LocalRegistry {
+			if err := tptdev.ConnectLocalRegistry(
+				provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			); err != nil {
+				return uninstaller.cleanOnCreateError("failed to connect local container registry to Threeport control plane cluster", err)
 			}
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:

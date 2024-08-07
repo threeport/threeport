@@ -1,65 +1,62 @@
 # Development Environments
 
-## Local Control Plane
+## New Dev Environment
 
-This will create a threeport control plane locally using `tptdev`.  It will stand
-up a kind cluster and install the threeport control plane with mounts to your
-local filesystem.  Code changes you make locally will be live-reloaded.
+The following instructions allow you to stand up a local Threeport control plane
+built from the code you have locally.
 
-This is good for:
-* immediately testing changes
-* running e2e tests
-
-To stand up a local control plane:
+Create a local container registry.  This allows you to build new container images
+and use them without having to wait for pushes to - and pulls from - a remote
+registry.
 
 ```bash
-make dev-up
+mage createLocalRegistry
 ```
 
-The drawback here is that if you are running tests you cannot make any code
-updates without invoking rebuilds of all components.  For example, a long-running
-infrastructure change in a cloud provider will be interrupted.
+Build contianer images for each of the control plane components and push them to
+the local container registry.
 
-## Local Static Control Plane
+```bash
+make build-tptdev
+./bin/tptdev build -r localhost:5001 -t dev --push
+```
 
-The following steps describe how to stand up a local control plane that will
-allow you to make other code changes without invoking live-reloads.
+Install a local control plane using images pulled from the local registry.
 
-This is good for:
-* making changes while running a long-running test
-* pre-release testing
+```bash
+./bin/tptdev up -r localhost:5001 -t dev --local-registry
+```
 
-In order to stand up a local threeport control plane using the code you have
-locally without live-reloads, follow these steps:
+## Update Dev Environment
 
-1. Set environment variables to declare image registry and tags for the control
-   plane images.  The [direnv](https://direnv.net/) tool is useful here.  For
-   example, I use my dockerhub account `lander2k2` and the tag `test`.  My
-   `.envrc` file looks as follows:
+If you need to update the image for a control plane component after making code
+changes, do the following.
 
-   ```
-   export REST_API_IMG=lander2k2/threeport-rest-api:test
-   export WORKLOAD_CONTROLLER_IMG=lander2k2/threeport-workload-controller:test
-   export KUBERNETES_RUNTIME_CONTROLLER_IMG=lander2k2/threeport-kubernetes-runtime-controller:test
-   export AWS_CONTROLLER_IMG=lander2k2/threeport-aws-controller:test
-   export GATEWAY_CONTROLLER_IMG=lander2k2/threeport-gateway-controller:test
-   export AGENT_IMG=lander2k2/threeport-agent:test
-   ```
+Build a new container image and load it into the development kind cluster.  The
+following example is for the workload controller.
 
-   Note: the image name, e.g. `threeport-rest-api` must match the image names
-   declared as constants in `internal/threeport/components.go`.
+```bash
+./bin/tptdev build -r localhost:5001 -t dev --load --names workload-controller
+```
 
-1. Build all control plane images in parallel:
+Then delete the pod for the controller.  When it restarts, it will use the new
+image.
 
-   ```bash
-   make -j control-plane-images
-   ```
+```bash
+kubectl delete po [workload controller pod name]
+```
 
-1. Use `tptctl` to start a local control plane using your registry and tag.  For
-   example:
+## Remove a Dev Environment
 
-   ```bash
-   make build-tptctl
-   tptctl up -n dev-0 -p kind -i lander2k2 -t test
-   ```
+Spin down the control plane cluster.
+
+```bash
+./bin/tptdev down
+```
+
+Stop and remove the registry container.
+
+```bash
+mage cleanLocalRegistry
+```
 

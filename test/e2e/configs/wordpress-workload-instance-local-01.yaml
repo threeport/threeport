@@ -1,0 +1,4 @@
+WorkloadInstance:
+  Name: wordpress-inst-01
+  WorkloadDefinition:
+    Name: wordpress-def

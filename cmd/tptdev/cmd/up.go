@@ -4,6 +4,7 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"errors"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -18,7 +19,6 @@ var upCmd = &cobra.Command{
 	Short: "Spin up a new threeport development environment",
 	Long:  `Spin up a new threeport development environment.`,
 	Run: func(cmd *cobra.Command, args []string) {
-
 		// update cli args based on env vars
 		cliArgs.GetControlPlaneEnvVars()
 
@@ -32,6 +32,10 @@ var upCmd = &cobra.Command{
 		err = cli.CreateGenesisControlPlane(cpi)
 		if err != nil {
 			cli.Error("failed to create threeport control plane", err)
+			if errors.Is(cli.ErrThreeportConfigAlreadyExists, err) {
+				cli.Info("if you wish to overwrite the existing config use --force-overwrite-config flag")
+				cli.Warning("you will lose the ability to connect to the existing threeport control planes if they are still running")
+			}
 			os.Exit(1)
 		}
 	},
@@ -62,7 +66,7 @@ func init() {
 	)
 	rootCmd.PersistentFlags().StringVar(
 		&cliArgs.CfgFile,
-		"threeport-config", "", "Path to config file (default is $HOME/.config/threeport/config.yaml).",
+		"threeport-config", "", "Path to config file (default is $HOME/.config/threeport/config.yaml). Can also be set with environment variable THREEPORT_CONFIG",
 	)
 	rootCmd.PersistentFlags().StringVar(
 		&cliArgs.ProviderConfigDir,
@@ -95,6 +99,10 @@ func init() {
 	upCmd.Flags().BoolVar(
 		&cliArgs.SkipTeardown,
 		"skip-teardown", false, "Skip the teardown of control plane components if an error is encountered.",
+	)
+	upCmd.Flags().BoolVar(
+		&cliArgs.LocalRegistry,
+		"local-registry", false, "Connects a local container registry to Threeport control plane cluster.  Only applicable with provider 'kind'.",
 	)
 	cobra.OnInitialize(func() {
 		cli.InitConfig(cliArgs.CfgFile)
