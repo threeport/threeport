@@ -80,8 +80,8 @@ func BuildImage(
 	return nil
 }
 
-// BuildSDK builds SDK binary and installs in GOPATH
-func BuildSDK() error {
+// InstallSdk builds SDK binary and installs in GOPATH
+func InstallSdk() error {
 	goPath := os.Getenv("GOPATH")
 	outputPath := filepath.Join(goPath, "bin", "threeport-sdk")
 
@@ -98,7 +98,7 @@ func BuildSDK() error {
 		return fmt.Errorf("build failed for sdk binary with output: '%s': %w", output, err)
 	}
 
-	fmt.Println("sdk binary built and available at bin/threeport-sdk")
+	fmt.Println("sdk binary built and available at $GOPATH/bin/threeport-sdk")
 
 	return nil
 }
@@ -119,7 +119,7 @@ func BuildDbMigrator() error {
 		return fmt.Errorf("build failed for database migrator with output: '%s': %w", output, err)
 	}
 
-	fmt.Println("database migrator built and available at cmd/database-migrator")
+	fmt.Println("database migrator built and available at bin/database-migrator")
 
 	return nil
 }
@@ -139,7 +139,7 @@ func BuildTptdev() error {
 		return fmt.Errorf("build failed for tptdev with output: '%s': %w", output, err)
 	}
 
-	fmt.Println("tptdev built and available at cmd/tptdev")
+	fmt.Println("tptdev built and available at bin/tptdev")
 
 	return nil
 }
@@ -178,7 +178,7 @@ func BuildTptctl() error {
 		return fmt.Errorf("build failed for tptctl binary with output: '%s': %w", output, err)
 	}
 
-	fmt.Println("tptctl binary built and available at cmd/tptctl")
+	fmt.Println("tptctl binary built and available at bin/tptctl")
 
 	return nil
 }
@@ -197,7 +197,7 @@ func InstallTptctl() error {
 		return fmt.Errorf("install failed for tptctl binary with output: '%s': %w", output, err)
 	}
 
-	fmt.Println("tptctl binary installed and available at/usr/local/bin/tptctl")
+	fmt.Println("tptctl binary installed and available at /usr/local/bin/tptctl")
 
 	return nil
 }
