@@ -187,7 +187,7 @@ func BuildSDK() error {
 		return fmt.Errorf("build failed for sdk binary with output: '%s': %w", output, err)
 	}
 
-	fmt.Println("sdk binary built and available at bin/threeport-sdk")
+	fmt.Println("sdk binary built and available at $GOPATH/bin/threeport-sdk")
 
 	return nil
 }
