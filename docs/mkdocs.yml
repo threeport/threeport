@@ -1,0 +1,104 @@
+site_name: Threeport
+site_author: Threeport developers
+site_description: Documentation for Threeport application orchestrator
+repo_url: https://github.com/threeport/threeport
+repo_name: threeport/threeport
+edit_uri: blob/main/docs/
+
+nav:
+  - Intro: 'index.md'
+  - Getting Started: 'getting-started.md'
+  - FAQ: 'faq.md'
+  - Contact: 'contact.md'
+  #- Managed Threeport: 'managed-threeport.md'
+  - Concepts:
+    - 'Application Orchestration': 'concepts/application-orchestration.md'
+    - 'Orchestration Abstractions': 'concepts/orchestration-abstractions.md'
+    - 'Comparisons': 'concepts/comparisons.md'
+    - 'Definitions & Instances': 'concepts/definitions-instances.md'
+    - 'Extensions': 'concepts/extensions.md'
+  - Install:
+    - 'Threeport CLI': 'install/install-tptctl.md'
+    - 'Local Threeport': 'install/install-threeport-local.md'
+    - 'Remote Threeport': 'install/install-threeport-aws.md'
+  - Threeport Objects:
+    - Kubernetes Runtimes:
+      - 'Introduction': 'kubernetes-runtime/kubernetes-intro.md'
+      - 'Remote Kubernetes Runtime': 'kubernetes-runtime/remote-kubernetes-runtime.md'
+    - Workloads:
+      - 'Introduction': 'workloads/workload-intro.md'
+      - 'Local Workload': 'workloads/deploy-workload-local.md'
+      - 'Remote Workload': 'workloads/deploy-workload-aws.md'
+      - 'Namespace Management': 'workloads/namespaces.md'
+    - Helm Workloads:
+      - 'Introduction': 'helm-workloads/helm-intro.md'
+      - 'Local Helm Workload': 'helm-workloads/deploy-helm-local.md'
+    - AWS:
+      - 'Introduction': 'aws/aws-intro.md'
+      - 'IAM Permissions': 'aws/aws-iam.md'
+      - 'Basic AWS Setup': 'aws/basic-aws-setup.md'
+      - 'Advanced AWS Setup': 'aws/advanced-aws-setup.md'
+    - Terraform:
+      - 'Introduction': 'terraform/terraform-intro.md'
+      - 'AWS RDS Database': 'terraform/rds-database.md'
+    - Gateways:
+      - 'Introduction': 'gateways/gateway-intro.md'
+    - Secrets:
+      - 'Introduction': 'secrets/secrets-intro.md'
+    - Observability:
+      - 'Introduction': 'observability/observability-intro.md'
+      - 'Local Observability': 'observability/deploy-observability-local.md'
+    - Control Planes:
+      - 'Introduction': 'control-planes/control-plane-intro.md'
+  - SDK:
+    - 'Introduction': 'sdk/sdk-intro.md'
+    #- 'Workload Abstraction': 'sdk/workload-abstraction.md'
+    #- 'Config Tool Abstraction': 'sdk/config-abstraction.md'
+    #- 'Advanced Application Abstraction': 'sdk/advanced-app-abstraction.md'
+  - Architecture:
+    - 'Overview': 'architecture/overview.md'
+    - 'Control Plane': 'architecture/control-plane.md'
+    - 'Threeport Controllers': 'architecture/threeport-controllers.md'
+    - 'Kubernetes Federation': 'architecture/kubernetes-federation.md'
+
+theme:
+  name: material
+  favicon: img/favicon.ico
+  logo: img/threeport-logo.png
+  features:
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+    - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/threeport/threeport
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.details
+  - pymdownx.highlight:
+      linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - toc:
+      permalink: true
+
+copyright: Copyright &copy; 2022-2024 Threeport.io
+

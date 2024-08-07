@@ -12,7 +12,7 @@ deeper logging and metrics data.
 
 ## See Also
 
-* [threeport-agent README](../cmd/agent/README.md)
+* [threeport-agent README](../../cmd/agent/README.md)
 
 ## Interface with Kubernetes
 
@@ -58,5 +58,5 @@ Deployment.  Events related to the derived Repliaset and Pods is also reported.
 Everything is sent on channels to a Notifer that is responsible for sending
 updates to the Threeport API.
 
-![threeport-agent internals](../../docs/img/ThreeportAgentInternals.png)
+![threeport-agent internals](img/ThreeportAgentInternals.png)
 
