@@ -24,7 +24,14 @@ Set Up Your Environment: Follow the instructions in our
 Pick an Issue: Start with an open issue. Feel free to ask questions in the issue
 thread if you need clarification.
 
-Create a Branch: Create a new branch in your fork for your contribution.
+Create a Branch: Create a new branch in your fork for your contribution.  Create
+the new branch from the latest feature branch.  The feature branches are named
+according to the next release version.  For example, if the current latest release of Threeport
+is `v0.5.*`, the feature branch will be called `0.6`.  All changes are made to
+the feature branch and merged into `main` at release time.  If a bug fix needs
+to be applied to both the feature branch and the latest release, the bug fix
+commit must be cherry-picked onto main for a bug fix release as covered in the
+[release docs](release.md#bug-fixes).
 
 Commit Your Changes: Make your changes in your branch and commit them. Write
 clear, concise commit messages that explain your changes.
@@ -36,7 +43,7 @@ Follow the Style Guide: Ensure your code adheres to the project's [style
 guide](style-guide.md).  Run any linters or formatting tools the project uses.
 
 Update Documentation: If your changes require it, update the [User
-Documentation](https://github.com/threeport/user-docs) or the [Developer
+Documentation](../) or the [Developer
 Documentation](README.md).
 
 Run Tests: Before submitting your changes, run the end-to-end tests to
