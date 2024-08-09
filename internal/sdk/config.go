@@ -13,6 +13,10 @@ import (
 // SdkConfig contains all the configuration options available to a user
 // of the SDK.
 type SdkConfig struct {
+	// The name of the extension to be used as a prefix for names for
+	// distinction
+	ExtensionName string `yaml:"ExtensionName"`
+
 	// ApiNamespace is the globally unique namespace for objects managed by this
 	// API.  It prevents naming collisions between extension objects using in a
 	// single Threeport control plane.  We recommend using a domain name you own

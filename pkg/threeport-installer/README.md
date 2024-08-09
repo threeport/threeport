@@ -1,6 +1,6 @@
-# pkg/threeport
+# pkg/threeport-installer
 
-This package is used to install and manage components of the threeport control
+This package is used to install and manage components of the Threeport control
 plane.
 
 This package is versioned to maintain compatibility for projects importing it
