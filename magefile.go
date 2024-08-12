@@ -141,7 +141,6 @@ func BuildImage(
 	return nil
 }
 
-<<<<<<< HEAD
 
 // E2e calls ginkgo to run the e2e tests suite.
 func E2e(
@@ -175,10 +174,11 @@ return nil
 
 // BuildSDK builds SDK binary and installs in GOPATH
 func BuildSDK() error {
-=======
+return nil
+}
+
 // InstallSdk builds SDK binary and installs in GOPATH
 func InstallSdk() error {
->>>>>>> 9292372 (fix: fix mage functions)
 	goPath := os.Getenv("GOPATH")
 	outputPath := filepath.Join(goPath, "bin", "threeport-sdk")
 
