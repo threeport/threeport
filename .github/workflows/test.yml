@@ -9,183 +9,7 @@ on:
       - reopened
 
 jobs:
-  build-threeport-api:
-    runs-on: ubuntu-22.04
-    steps:
-
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Build threeport API
-      uses: macbre/push-to-ghcr@master
-      with:
-        image_name: threeport/threeport-rest-api
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/rest-api/image/Dockerfile
-        image_tag: ${{ github.sha }}
-
-  build-threeport-database-migrator:
-    runs-on: ubuntu-22.04
-    steps:
-
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Build threeport API
-      uses: macbre/push-to-ghcr@master
-      with:
-        image_name: threeport/threeport-database-migrator
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/database-migrator/image/Dockerfile
-        image_tag: ${{ github.sha }}
-
-  build-workload-controller:
-    runs-on: ubuntu-22.04
-    steps:
-
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Build workload-controller
-      uses: macbre/push-to-ghcr@master
-      with:
-        image_name: threeport/threeport-workload-controller
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/workload-controller/image/Dockerfile
-        image_tag: ${{ github.sha }}
-
-  build-kubernetes-runtime-controller:
-    runs-on: ubuntu-22.04
-    steps:
-
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Build kubernetes-runtime-controller
-      uses: macbre/push-to-ghcr@master
-      with:
-        image_name: threeport/threeport-kubernetes-runtime-controller
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/kubernetes-runtime-controller/image/Dockerfile
-        image_tag: ${{ github.sha }}
-
-  build-aws-controller:
-    runs-on: ubuntu-22.04
-    steps:
-
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Build aws-controller
-      uses: macbre/push-to-ghcr@master
-      with:
-        image_name: threeport/threeport-aws-controller
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/aws-controller/image/Dockerfile
-        image_tag: ${{ github.sha }}
-
-  build-gateway-controller:
-    runs-on: ubuntu-22.04
-    steps:
-
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Build gateway-controller
-      uses: macbre/push-to-ghcr@master
-      with:
-        image_name: threeport/threeport-gateway-controller
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/gateway-controller/image/Dockerfile
-        image_tag: ${{ github.sha }}
-
-  build-observability-controller:
-    runs-on: ubuntu-22.04
-    steps:
-
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Build observability-controller
-      uses: macbre/push-to-ghcr@master
-      with:
-        image_name: threeport/threeport-observability-controller
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/observability-controller/image/Dockerfile
-        image_tag: ${{ github.sha }}
-
-  build-control-plane-controller:
-    runs-on: ubuntu-22.04
-    steps:
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Build control-plane-controller
-      uses: macbre/push-to-ghcr@master
-      with:
-        image_name: threeport/threeport-control-plane-controller
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/control-plane-controller/image/Dockerfile
-        image_tag: ${{ github.sha }}
-
-  build-helm-workload-controller:
-    runs-on: ubuntu-22.04
-    steps:
-
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Build helm-workload-controller
-      uses: macbre/push-to-ghcr@master
-      with:
-        image_name: threeport/threeport-helm-workload-controller
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/helm-workload-controller/image/Dockerfile
-        image_tag: ${{ github.sha }}
-
-  build-secret-controller:
-    runs-on: ubuntu-22.04
-    steps:
-
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Build secret-controller
-      uses: macbre/push-to-ghcr@master
-      with:
-        image_name: threeport/threeport-secret-controller
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/secret-controller/image/Dockerfile
-        image_tag: ${{ github.sha }}
-
-  build-threeport-agent:
-    runs-on: ubuntu-22.04
-    steps:
-
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Build threeport-agent
-      uses: macbre/push-to-ghcr@master
-      with:
-        image_name: threeport/threeport-agent
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        dockerfile: cmd/agent/image/Dockerfile
-        image_tag: ${{ github.sha }}
-
   test:
-    needs:
-      - build-threeport-api
-      - build-threeport-database-migrator
-      - build-workload-controller
-      - build-kubernetes-runtime-controller
-      - build-aws-controller
-      - build-gateway-controller
-      - build-observability-controller
-      - build-control-plane-controller
-      - build-helm-workload-controller
-      - build-secret-controller
-      - build-threeport-agent
     runs-on: ubuntu-22.04
     steps:
 
@@ -197,123 +21,338 @@ jobs:
       with:
         go-version: '1.22'
 
+    - name: Install mage
+      run: go install github.com/magefile/mage@latest
+
+    - name: Create local container registry
+      run: mage createLocalRegistry
+
+    - name: Build control plane component binaries
+      run: mage buildAll
+
+    - name: Build agent binary
+      run: mage buildAgent
+
+    - name: Build and push control plane component images
+      run: mage buildAllImages
+
+    - name: Build and push agent image
+      run: magebuildAgentImage
+
     - name: Build tptctl
       run: make build-tptctl
 
     - name: Create test control plane
-      run: bin/tptctl up --control-plane-image-tag ${{ github.sha }} -n dev-0
+      run: bin/tptctl up -r localhost:5001 -t dev -n dev-0 --local-registry
 
     - name: Run tests
       run: go test -v ./test/integration -count=1
 
-  clean:
-    if: ${{ always() }}
-    needs:
-      - build-threeport-api
-      - build-threeport-database-migrator
-      - build-workload-controller
-      - build-kubernetes-runtime-controller
-      - build-aws-controller
-      - build-gateway-controller
-      - build-observability-controller
-      - build-control-plane-controller
-      - build-helm-workload-controller
-      - build-secret-controller
-      - test
-    runs-on: ubuntu-latest
-    steps:
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GH_ACCESS_TOKEN }}
+  #build-threeport-api:
+  #  runs-on: ubuntu-22.04
+  #  steps:
 
-    - name: Delete threeport API image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-rest-api
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
+  #  - name: Check out code
+  #    uses: actions/checkout@v4
 
-    - name: Delete threeport database migrator image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-database-migrator
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
+  #  - name: Build threeport API
+  #    uses: macbre/push-to-ghcr@master
+  #    with:
+  #      image_name: threeport/threeport-rest-api
+  #      github_token: ${{ secrets.GITHUB_TOKEN }}
+  #      dockerfile: cmd/rest-api/image/Dockerfile
+  #      image_tag: ${{ github.sha }}
 
-    - name: Delete workload controller image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-workload-controller
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
+  #build-threeport-database-migrator:
+  #  runs-on: ubuntu-22.04
+  #  steps:
 
-    - name: Delete kubernetes runtime controller image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-kubernetes-runtime-controller
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
+  #  - name: Check out code
+  #    uses: actions/checkout@v4
 
-    - name: Delete aws controller image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-aws-controller
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
+  #  - name: Build threeport API
+  #    uses: macbre/push-to-ghcr@master
+  #    with:
+  #      image_name: threeport/threeport-database-migrator
+  #      github_token: ${{ secrets.GITHUB_TOKEN }}
+  #      dockerfile: cmd/database-migrator/image/Dockerfile
+  #      image_tag: ${{ github.sha }}
 
-    - name: Delete gateway controller image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-gateway-controller
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
+  #build-workload-controller:
+  #  runs-on: ubuntu-22.04
+  #  steps:
 
-    - name: Delete observability controller image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-observability-controller
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
+  #  - name: Check out code
+  #    uses: actions/checkout@v4
 
-    - name: Delete control plane controller image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-control-plane-controller
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
+  #  - name: Build workload-controller
+  #    uses: macbre/push-to-ghcr@master
+  #    with:
+  #      image_name: threeport/threeport-workload-controller
+  #      github_token: ${{ secrets.GITHUB_TOKEN }}
+  #      dockerfile: cmd/workload-controller/image/Dockerfile
+  #      image_tag: ${{ github.sha }}
 
-    - name: Delete helm workload controller image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-helm-workload-controller
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
+  #build-kubernetes-runtime-controller:
+  #  runs-on: ubuntu-22.04
+  #  steps:
 
-    - name: Delete secret controller image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-secret-controller
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
+  #  - name: Check out code
+  #    uses: actions/checkout@v4
 
-    - name: Delete threeport agent image
-      uses: bots-house/ghcr-delete-image-action@v1.1.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: threeport-agent
-        token: ${{ secrets.PACKAGES_PAT }}
-        tag: ${{ github.sha }}
+  #  - name: Build kubernetes-runtime-controller
+  #    uses: macbre/push-to-ghcr@master
+  #    with:
+  #      image_name: threeport/threeport-kubernetes-runtime-controller
+  #      github_token: ${{ secrets.GITHUB_TOKEN }}
+  #      dockerfile: cmd/kubernetes-runtime-controller/image/Dockerfile
+  #      image_tag: ${{ github.sha }}
+
+  #build-aws-controller:
+  #  runs-on: ubuntu-22.04
+  #  steps:
+
+  #  - name: Check out code
+  #    uses: actions/checkout@v4
+
+  #  - name: Build aws-controller
+  #    uses: macbre/push-to-ghcr@master
+  #    with:
+  #      image_name: threeport/threeport-aws-controller
+  #      github_token: ${{ secrets.GITHUB_TOKEN }}
+  #      dockerfile: cmd/aws-controller/image/Dockerfile
+  #      image_tag: ${{ github.sha }}
+
+  #build-gateway-controller:
+  #  runs-on: ubuntu-22.04
+  #  steps:
+
+  #  - name: Check out code
+  #    uses: actions/checkout@v4
+
+  #  - name: Build gateway-controller
+  #    uses: macbre/push-to-ghcr@master
+  #    with:
+  #      image_name: threeport/threeport-gateway-controller
+  #      github_token: ${{ secrets.GITHUB_TOKEN }}
+  #      dockerfile: cmd/gateway-controller/image/Dockerfile
+  #      image_tag: ${{ github.sha }}
+
+  #build-observability-controller:
+  #  runs-on: ubuntu-22.04
+  #  steps:
+
+  #  - name: Check out code
+  #    uses: actions/checkout@v4
+
+  #  - name: Build observability-controller
+  #    uses: macbre/push-to-ghcr@master
+  #    with:
+  #      image_name: threeport/threeport-observability-controller
+  #      github_token: ${{ secrets.GITHUB_TOKEN }}
+  #      dockerfile: cmd/observability-controller/image/Dockerfile
+  #      image_tag: ${{ github.sha }}
+
+  #build-control-plane-controller:
+  #  runs-on: ubuntu-22.04
+  #  steps:
+  #  - name: Check out code
+  #    uses: actions/checkout@v4
+
+  #  - name: Build control-plane-controller
+  #    uses: macbre/push-to-ghcr@master
+  #    with:
+  #      image_name: threeport/threeport-control-plane-controller
+  #      github_token: ${{ secrets.GITHUB_TOKEN }}
+  #      dockerfile: cmd/control-plane-controller/image/Dockerfile
+  #      image_tag: ${{ github.sha }}
+
+  #build-helm-workload-controller:
+  #  runs-on: ubuntu-22.04
+  #  steps:
+
+  #  - name: Check out code
+  #    uses: actions/checkout@v4
+
+  #  - name: Build helm-workload-controller
+  #    uses: macbre/push-to-ghcr@master
+  #    with:
+  #      image_name: threeport/threeport-helm-workload-controller
+  #      github_token: ${{ secrets.GITHUB_TOKEN }}
+  #      dockerfile: cmd/helm-workload-controller/image/Dockerfile
+  #      image_tag: ${{ github.sha }}
+
+  #build-secret-controller:
+  #  runs-on: ubuntu-22.04
+  #  steps:
+
+  #  - name: Check out code
+  #    uses: actions/checkout@v4
+
+  #  - name: Build secret-controller
+  #    uses: macbre/push-to-ghcr@master
+  #    with:
+  #      image_name: threeport/threeport-secret-controller
+  #      github_token: ${{ secrets.GITHUB_TOKEN }}
+  #      dockerfile: cmd/secret-controller/image/Dockerfile
+  #      image_tag: ${{ github.sha }}
+
+  #build-threeport-agent:
+  #  runs-on: ubuntu-22.04
+  #  steps:
+
+  #  - name: Check out code
+  #    uses: actions/checkout@v4
+
+  #  - name: Build threeport-agent
+  #    uses: macbre/push-to-ghcr@master
+  #    with:
+  #      image_name: threeport/threeport-agent
+  #      github_token: ${{ secrets.GITHUB_TOKEN }}
+  #      dockerfile: cmd/agent/image/Dockerfile
+  #      image_tag: ${{ github.sha }}
+
+  #test:
+  #  needs:
+  #    - build-threeport-api
+  #    - build-threeport-database-migrator
+  #    - build-workload-controller
+  #    - build-kubernetes-runtime-controller
+  #    - build-aws-controller
+  #    - build-gateway-controller
+  #    - build-observability-controller
+  #    - build-control-plane-controller
+  #    - build-helm-workload-controller
+  #    - build-secret-controller
+  #    - build-threeport-agent
+  #  runs-on: ubuntu-22.04
+  #  steps:
+
+  #  - name: Check out code
+  #    uses: actions/checkout@v4
+
+  #  - name: Set up Go
+  #    uses: actions/setup-go@v5
+  #    with:
+  #      go-version: '1.22'
+
+  #  - name: Build tptctl
+  #    run: make build-tptctl
+
+  #  - name: Create test control plane
+  #    run: bin/tptctl up --control-plane-image-tag ${{ github.sha }} -n dev-0
+
+  #  - name: Run tests
+  #    run: go test -v ./test/integration -count=1
+
+  #clean:
+  #  if: ${{ always() }}
+  #  needs:
+  #    - build-threeport-api
+  #    - build-threeport-database-migrator
+  #    - build-workload-controller
+  #    - build-kubernetes-runtime-controller
+  #    - build-aws-controller
+  #    - build-gateway-controller
+  #    - build-observability-controller
+  #    - build-control-plane-controller
+  #    - build-helm-workload-controller
+  #    - build-secret-controller
+  #    - test
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #  - name: Login to GitHub Container Registry
+  #    uses: docker/login-action@v3
+  #    with:
+  #      registry: ghcr.io
+  #      username: ${{ github.repository_owner }}
+  #      password: ${{ secrets.GH_ACCESS_TOKEN }}
+
+  #  - name: Delete threeport API image
+  #    uses: bots-house/ghcr-delete-image-action@v1.1.0
+  #    with:
+  #      owner: ${{ github.repository_owner }}
+  #      name: threeport-rest-api
+  #      token: ${{ secrets.PACKAGES_PAT }}
+  #      tag: ${{ github.sha }}
+
+  #  - name: Delete threeport database migrator image
+  #    uses: bots-house/ghcr-delete-image-action@v1.1.0
+  #    with:
+  #      owner: ${{ github.repository_owner }}
+  #      name: threeport-database-migrator
+  #      token: ${{ secrets.PACKAGES_PAT }}
+  #      tag: ${{ github.sha }}
+
+  #  - name: Delete workload controller image
+  #    uses: bots-house/ghcr-delete-image-action@v1.1.0
+  #    with:
+  #      owner: ${{ github.repository_owner }}
+  #      name: threeport-workload-controller
+  #      token: ${{ secrets.PACKAGES_PAT }}
+  #      tag: ${{ github.sha }}
+
+  #  - name: Delete kubernetes runtime controller image
+  #    uses: bots-house/ghcr-delete-image-action@v1.1.0
+  #    with:
+  #      owner: ${{ github.repository_owner }}
+  #      name: threeport-kubernetes-runtime-controller
+  #      token: ${{ secrets.PACKAGES_PAT }}
+  #      tag: ${{ github.sha }}
+
+  #  - name: Delete aws controller image
+  #    uses: bots-house/ghcr-delete-image-action@v1.1.0
+  #    with:
+  #      owner: ${{ github.repository_owner }}
+  #      name: threeport-aws-controller
+  #      token: ${{ secrets.PACKAGES_PAT }}
+  #      tag: ${{ github.sha }}
+
+  #  - name: Delete gateway controller image
+  #    uses: bots-house/ghcr-delete-image-action@v1.1.0
+  #    with:
+  #      owner: ${{ github.repository_owner }}
+  #      name: threeport-gateway-controller
+  #      token: ${{ secrets.PACKAGES_PAT }}
+  #      tag: ${{ github.sha }}
+
+  #  - name: Delete observability controller image
+  #    uses: bots-house/ghcr-delete-image-action@v1.1.0
+  #    with:
+  #      owner: ${{ github.repository_owner }}
+  #      name: threeport-observability-controller
+  #      token: ${{ secrets.PACKAGES_PAT }}
+  #      tag: ${{ github.sha }}
+
+  #  - name: Delete control plane controller image
+  #    uses: bots-house/ghcr-delete-image-action@v1.1.0
+  #    with:
+  #      owner: ${{ github.repository_owner }}
+  #      name: threeport-control-plane-controller
+  #      token: ${{ secrets.PACKAGES_PAT }}
+  #      tag: ${{ github.sha }}
+
+  #  - name: Delete helm workload controller image
+  #    uses: bots-house/ghcr-delete-image-action@v1.1.0
+  #    with:
+  #      owner: ${{ github.repository_owner }}
+  #      name: threeport-helm-workload-controller
+  #      token: ${{ secrets.PACKAGES_PAT }}
+  #      tag: ${{ github.sha }}
+
+  #  - name: Delete secret controller image
+  #    uses: bots-house/ghcr-delete-image-action@v1.1.0
+  #    with:
+  #      owner: ${{ github.repository_owner }}
+  #      name: threeport-secret-controller
+  #      token: ${{ secrets.PACKAGES_PAT }}
+  #      tag: ${{ github.sha }}
+
+  #  - name: Delete threeport agent image
+  #    uses: bots-house/ghcr-delete-image-action@v1.1.0
+  #    with:
+  #      owner: ${{ github.repository_owner }}
+  #      name: threeport-agent
+  #      token: ${{ secrets.PACKAGES_PAT }}
+  #      tag: ${{ github.sha }}
 

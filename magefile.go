@@ -32,6 +32,22 @@ func BuildAgent() error {
 	return nil
 }
 
+// BuildAgentImage builds and pushes the REST API image.
+func BuildAgentImage() error {
+	if err := DevImage(
+		"agent",
+		"localhost:5001",
+		"threeport-agent",
+		"dev",
+		true,
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build and push rest-api image: %w", err)
+	}
+
+	return nil
+}
+
 // BuildImage builds a container image for a Threeport control plane component
 // for the given architecture.
 func BuildImage(
