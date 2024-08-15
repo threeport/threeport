@@ -314,28 +314,3 @@ func DevImage(
 
 	return nil
 }
-
-// Docs generates the API server documentation that is served by the API
-func Docs() error {
-	docsDestination := "pkg/api-server/v0/docs"
-	swagCmd := exec.Command(
-		"swag",
-		"init",
-		"--dir",
-		"cmd/rest-api,pkg/api,pkg/api-server/v0",
-		"--parseDependency",
-		"--generalInfo",
-		"main_gen.go",
-		"--output",
-		docsDestination,
-	)
-
-	output, err := swagCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("API docs generation failed with output '%s': %w", output, err)
-	}
-
-	fmt.Printf("API docs generated in %s\n", docsDestination)
-
-	return nil
-}
