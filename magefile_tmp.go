@@ -288,7 +288,7 @@ func DevImage(
 		"-t",
 		image,
 		"-f",
-		fmt.Sprintf("cmd/%s/image/Dockerfile-goreleaser", component),
+		fmt.Sprintf("cmd/%s/image/Dockerfile-alpine", component),
 		rootDir,
 	)
 
