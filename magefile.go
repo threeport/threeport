@@ -12,7 +12,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// BuildAgent builds the binary for the workload-controller.
+// BuildAgent builds the binary for the agent.
 func BuildAgent() error {
 	buildCmd := exec.Command(
 		"go",
@@ -32,7 +32,7 @@ func BuildAgent() error {
 	return nil
 }
 
-// BuildAgentImage builds and pushes the REST API image.
+// BuildAgentImage builds and pushes the agent image.
 func BuildAgentImage() error {
 	if err := DevImage(
 		"agent",
@@ -43,6 +43,42 @@ func BuildAgentImage() error {
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build and push rest-api image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildDatabaseMigrator builds the binary for the database-migrator.
+func BuildDatabaseMigrator() error {
+	buildCmd := exec.Command(
+		"go",
+		"build",
+		"-o",
+		"bin/database-migrator",
+		"cmd/database-migrator/main.go",
+	)
+
+	output, err := buildCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("build failed for database-migrator with output '%s': %w", output, err)
+	}
+
+	fmt.Println("database-migrator binary built and available at bin/agent")
+
+	return nil
+}
+
+// BuildDatabaseMigratorImage builds and pushes the database-migrator image.
+func BuildDatabaseMigratorImage() error {
+	if err := DevImage(
+		"database-migrator",
+		"localhost:5001",
+		"threeport-database-migrator",
+		"dev",
+		true,
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build and push database-migrator image: %w", err)
 	}
 
 	return nil
