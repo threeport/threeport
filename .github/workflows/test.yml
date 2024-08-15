@@ -37,7 +37,7 @@ jobs:
       run: mage buildAllImages
 
     - name: Build and push agent image
-      run: magebuildAgentImage
+      run: mage buildAgentImage
 
     - name: Build tptctl
       run: make build-tptctl
