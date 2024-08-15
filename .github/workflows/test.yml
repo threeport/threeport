@@ -33,11 +33,17 @@ jobs:
     - name: Build agent binary
       run: mage buildAgent
 
+    - name: Build DB migrator binary
+      run: mage buildDatabaseMigrator
+
     - name: Build and push control plane component images
       run: mage buildAllImages
 
     - name: Build and push agent image
       run: mage buildAgentImage
+
+    - name: Build DB migrator image
+      run: mage buildDatabaseMigratorImage
 
     - name: Build tptctl
       run: make build-tptctl
