@@ -51,5 +51,5 @@ the Threeport project.
 ## Reporting
 
 Please report incidents in violation of this code of conduct by emailing one
-or more of the [project maintainers](../MAINTAINERS.md).
+or more of the [project maintainers](../../MAINTAINERS.md).
 
