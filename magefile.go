@@ -12,22 +12,78 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// BuildAgent builds the binary for the workload-controller.
+// BuildAgent builds the binary for the agent.
 func BuildAgent() error {
-	buildCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/agent",
-		"cmd/agent/main.go",
-	)
-
-	output, err := buildCmd.CombinedOutput()
+	workingDir, arch, err := GetBuildVals()
 	if err != nil {
-		return fmt.Errorf("build failed for agent with output '%s': %w", output, err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	fmt.Println("agent binary built and available at bin/agent")
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"agent",
+		"cmd/agent/main.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build agent binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/agent")
+
+	return nil
+}
+
+// BuildAgentImage builds and pushes the agent image.
+func BuildAgentImage() error {
+	if err := DevImage(
+		"agent",
+		"localhost:5001",
+		"threeport-agent",
+		"dev",
+		true,
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build and push rest-api image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildDatabaseMigrator builds the binary for the database-migrator.
+func BuildDatabaseMigrator() error {
+	workingDir, arch, err := GetBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"database-migrator",
+		"cmd/database-migrator/main.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build database-migrator binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/database-migrator")
+
+	return nil
+}
+
+// BuildDatabaseMigratorImage builds and pushes the database-migrator image.
+func BuildDatabaseMigratorImage() error {
+	if err := DevImage(
+		"database-migrator",
+		"localhost:5001",
+		"threeport-database-migrator",
+		"dev",
+		true,
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build and push database-migrator image: %w", err)
+	}
 
 	return nil
 }

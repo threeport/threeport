@@ -102,7 +102,7 @@ archives:
     files:
       - README.md
     wrap_in_directory: true
-    strip_parent_binary_folder: true
+    strip_binary_directory: true
     allow_different_binary_count: true
 checksum:
   name_template: 'checksums.txt'
