@@ -2,6 +2,7 @@
 
 User docs for Threeport.
 
+<<<<<<< HEAD
 ## Live Updates
 
 The live docs site is updated when either of the following things are done:
@@ -31,6 +32,26 @@ View the site at [http://127.0.0.1:8000](http://127.0.0.1:8000/)
 
 ## Release
 
+=======
+## Local Development
+
+Prerequisistes:
+
+* [python 3](https://docs.python-guide.org/starting/installation/)
+* [mkdocs](https://www.mkdocs.org/getting-started/#installation)
+* [mkdocs-material theme](https://squidfunk.github.io/mkdocs-material/getting-started/#installation)
+
+Run the server locally:
+
+```bash
+mkdocs serve
+```
+
+View the site at [http://127.0.0.1:8000](http://127.0.0.1:8000/)
+
+## Release
+
+>>>>>>> 7a4fd81 (docs: move user docs into core threeport repo (#323))
 Changes will be deployed to live [documentation
 site](https://threeport.io/) when PRs are merged to main.
 
