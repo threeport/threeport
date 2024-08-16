@@ -14,20 +14,22 @@ import (
 
 // BuildAgent builds the binary for the agent.
 func BuildAgent() error {
-	buildCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/agent",
-		"cmd/agent/main.go",
-	)
-
-	output, err := buildCmd.CombinedOutput()
+	workingDir, arch, err := GetBuildVals()
 	if err != nil {
-		return fmt.Errorf("build failed for agent with output '%s': %w", output, err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	fmt.Println("agent binary built and available at bin/agent")
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"agent",
+		"cmd/agent/main.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build agent binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/agent")
 
 	return nil
 }
@@ -50,20 +52,22 @@ func BuildAgentImage() error {
 
 // BuildDatabaseMigrator builds the binary for the database-migrator.
 func BuildDatabaseMigrator() error {
-	buildCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/database-migrator",
-		"cmd/database-migrator/main.go",
-	)
-
-	output, err := buildCmd.CombinedOutput()
+	workingDir, arch, err := GetBuildVals()
 	if err != nil {
-		return fmt.Errorf("build failed for database-migrator with output '%s': %w", output, err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	fmt.Println("database-migrator binary built and available at bin/agent")
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"database-migrator",
+		"cmd/database-migrator/main.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build database-migrator binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/database-migrator")
 
 	return nil
 }
