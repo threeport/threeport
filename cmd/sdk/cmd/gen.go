@@ -34,7 +34,7 @@ deployed.
 After running this command add the functionality to your controllers in
 'internal/[API object group name]/'.
 
-See the Threeport SDK docs for more information: https://docs.threeport.io/sdk/sdk-intro/
+See the Threeport SDK docs for more information: https://threeport.io/sdk/sdk-intro/
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// get SDK config

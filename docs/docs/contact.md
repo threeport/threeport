@@ -14,5 +14,5 @@ If you would like to contribute to Threeport:
   start work.
 
 For general help or questions, hit us up on
-[Discord](https://docs.threeport.io/)
+[Discord](https://discord.com/invite/Fwr2sc9Dfp)
 

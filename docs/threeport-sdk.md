@@ -42,7 +42,7 @@ to core Threeport.  Any changes that need to be made to generated source code
 > extension development since the SDK is also used for that purpose.
 
 For complete documentation on Threeport SDK usage, see the [Threeport
-documentation](https://docs.threeport.io/).
+documentation](https://threeport.io/).
 
 ## Threeport SDK Development
 

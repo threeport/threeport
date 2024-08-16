@@ -34,9 +34,9 @@ deployments using battle-tested designs and best practices so you can trust that
 your software will run reliably.  This frees you to concentrate on develivering
 value to your users.
 
-User documentation can be found on our [user docs site](https://docs.threeport.io/).
+User documentation can be found on our [user docs site](https://threeport.io/).
 
-Developer documentation can be found [here](docs/README.md).
+Developer documentation can be found [here](docs/dev/README.md).
 
 ## Note
 
