@@ -477,7 +477,7 @@ func DevImage(
 		return fmt.Errorf("failed to get working directory for image build: %w", err)
 	}
 
-	image := fmt.Sprintf("%s/threeport-%s:%s", imageRepo, imageName, imageTag)
+	image := fmt.Sprintf("%s/%s:%s", imageRepo, imageName, imageTag)
 
 	dockerBuildCmd := exec.Command(
 		"docker",

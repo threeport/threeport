@@ -215,7 +215,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		),
 		Line(),
 
-		Id("image").Op(":=").Qual("fmt", "Sprintf").Call(Lit("%s/threeport-%s:%s"), Id("imageRepo"), Id("imageName"), Id("imageTag")),
+		Id("image").Op(":=").Qual("fmt", "Sprintf").Call(Lit("%s/%s:%s"), Id("imageRepo"), Id("imageName"), Id("imageTag")),
 		Line(),
 
 		Id("dockerBuildCmd").Op(":=").Qual("os/exec", "Command").Call(

@@ -11,7 +11,10 @@ import (
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 )
 
-const dbCredsSecretName = "db-certs"
+const (
+	dbCredsSecretName = "db-certs"
+	natsServiceName   = "nats-js"
+)
 
 // CreateThreeportControlPlaneNamespace creates the threeport control plane
 // namespace in a Kubernetes cluster.
@@ -167,7 +170,7 @@ store_dir: /data
 			"apiVersion": "v1",
 			"kind":       "Service",
 			"metadata": map[string]interface{}{
-				"name":      "nats-js",
+				"name":      natsServiceName,
 				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":     "nats",

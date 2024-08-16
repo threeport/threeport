@@ -130,7 +130,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 		return fmt.Errorf("failed to create DB threeport user certs secret: %w", err)
 	}
 
-	var dbCreateSecret = &unstructured.Unstructured{
+	var dbCreateConfig = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
 			"kind":       "ConfigMap",
@@ -147,8 +147,8 @@ GRANT ALL ON DATABASE threeport_api TO threeport;
 		},
 	}
 
-	if err := cpi.CreateOrUpdateKubeResource(dbCreateSecret, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create DB initialization secret: %w", err)
+	if err := cpi.CreateOrUpdateKubeResource(dbCreateConfig, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create DB initialization config map: %w", err)
 	}
 
 	var apiSecret = &unstructured.Unstructured{
@@ -160,19 +160,22 @@ GRANT ALL ON DATABASE threeport_api TO threeport;
 				"namespace": cpi.Opts.Namespace,
 			},
 			"stringData": map[string]interface{}{
-				"env": fmt.Sprintf(`DB_HOST=%s
+				"env": fmt.Sprintf(`DB_HOST=%s.%s.svc.cluster.local
 DB_USER=%s
 DB_NAME=%s
 DB_PORT=%s
 DB_SSL_MODE=%s
-NATS_HOST=nats-js
+NATS_HOST=%s.%s.svc.cluster.local
 NATS_PORT=4222
 `,
 					database.ThreeportDatabaseHost,
+					cpi.Opts.Namespace,
 					database.ThreeportDatabaseUser,
 					database.ThreeportDatabaseName,
 					database.ThreeportDatabasePort,
-					database.ThreeportDatabaseSslMode),
+					database.ThreeportDatabaseSslMode,
+					natsServiceName,
+					cpi.Opts.Namespace),
 			},
 		},
 	}
@@ -1441,7 +1444,6 @@ func (cpi *ControlPlaneInstaller) getDelveArgs(name string) []string {
 	return args
 }
 
-// asdf
 // getAPIVolumes returns volumes and volume mounts for the API server.
 func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{}, error) {
 	vols := []interface{}{
@@ -1467,12 +1469,6 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 			"name": "db-create",
 			"configMap": map[string]interface{}{
 				"name": "db-create",
-			},
-		},
-		map[string]interface{}{
-			"name": "db-load",
-			"configMap": map[string]interface{}{
-				"name": "db-load",
 			},
 		},
 	}
@@ -1792,7 +1788,7 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 			"type": "Opaque",
 			"stringData": map[string]interface{}{
 				"API_SERVER":            cpi.Opts.RestApiInfo.ServiceResourceName,
-				"MSG_BROKER_HOST":       "nats-js",
+				"MSG_BROKER_HOST":       fmt.Sprintf("%s.%s.svc.cluster.local", natsServiceName, cpi.Opts.Namespace),
 				"MSG_BROKER_PORT":       "4222",
 				"AWS_ROLE_SESSION_NAME": util.AwsResourceManagerRoleSessionName,
 			},
