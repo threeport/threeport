@@ -30,7 +30,7 @@ with their field attributes.
 After you have added those field attributes, run 'threeport-sdk gen' to generate
 the source code scaffolding and boilerplate for the project.
 
-See the Threeport SDK docs for more information: https://docs.threeport.io/sdk/sdk-intro/
+See the Threeport SDK docs for more information: https://threeport.io/sdk/sdk-intro/
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// get sdk config
