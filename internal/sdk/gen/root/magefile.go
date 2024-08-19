@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	. "github.com/dave/jennifer/jen"
-	"github.com/iancoleman/strcase"
 
 	"github.com/threeport/threeport/internal/sdk"
 	"github.com/threeport/threeport/internal/sdk/gen"
@@ -21,6 +20,8 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	f.PackageComment("+build mage")
 
+	f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
+
 	// capture function names for each component
 	buildApiFuncName := "BuildApi"
 	buildFuncNames := []string{buildApiFuncName}
@@ -28,60 +29,71 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	buildApiImageFuncName := "BuildApiImage"
 	buildImageFuncNames := []string{buildApiImageFuncName}
 
-	devImageFuncName := "DevImage"
+	buildValsFuncName := "getBuildVals"
 
 	// binary build function for API
 	f.Comment(fmt.Sprintf("%s builds the REST API binary.", buildApiFuncName))
 	f.Func().Id(buildApiFuncName).Params().Error().Block(
-		Id("buildCmd").Op(":=").Qual("os/exec", "Command").Call(
-			Line().Lit("go"),
-			Line().Lit("build"),
-			Line().Lit("-o"),
-			Line().Lit("bin/rest-api"),
-			Line().Lit("cmd/rest-api/main_gen.go"),
-			Line(),
-		),
-		Line(),
-
-		List(Id("output"), Err()).Op(":=").Id("buildCmd").Dot("CombinedOutput").Call(),
+		List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
 		If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(
-				Lit("build failed for API with output '%s': %w"), Id("output"), Err(),
-			)),
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Err()),
 		),
 		Line(),
 
-		Qual("fmt", "Println").Call(Lit("API binary built and available at bin/rest-api")),
-		Line(),
-
-		Return(Nil()),
-	)
-	f.Line()
-
-	// image build and push function for API
-	imageName := "threeport-rest-api"
-	if gen.Extension {
-		imageName = fmt.Sprintf("%s-%s", strcase.ToSnake(sdkConfig.ExtensionName), imageName)
-	}
-	f.Comment(fmt.Sprintf("%s builds and pushes the REST API image.", buildApiImageFuncName))
-	f.Func().Id(buildApiImageFuncName).Params().Error().Block(
-		If(Err().Op(":=").Id(devImageFuncName).Call(
+		If(Err().Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/util/v0",
+			"BuildBinary",
+		).Call(
+			Line().Id("workingDir"),
+			Line().Id("arch"),
 			Line().Lit("rest-api"),
-			Line().Lit("localhost:5001"),
-			Line().Lit(imageName),
-			Line().Lit("dev"),
-			Line().Lit(true),
+			Line().Lit("cmd/rest-api/main_gen.go"),
 			Line().Lit(false),
 			Line(),
 		).Op(";").Err().Op("!=").Nil()).Block(
 			Return().Qual("fmt", "Errorf").Call(
-				Lit("failed to build and push rest-api image: %w"),
+				Lit("failed to build rest-api binary: %w"),
 				Err(),
 			),
 		),
 		Line(),
 
+		Qual("fmt", "Println").Call(Lit("binary built and available at bin/rest-api")),
+		Line(),
+
 		Return().Nil(),
+	)
+	f.Line()
+
+	// image build and push function for API
+	f.Comment(fmt.Sprintf("%s builds and pushes a development REST API image.", buildApiImageFuncName))
+	f.Func().Id("BuildApiImage").Params().Parens(Error()).Block(
+		List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
+		If(Err().Op("!=").Nil()).Block(
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Err())),
+		),
+		Line(),
+
+		If(Err().Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/util/v0",
+			"BuildImage",
+		).Call(
+			Line().Id("workingDir"),
+			Line().Lit("cmd/rest-api/image/Dockerfile-alpine"),
+			Line().Id("arch"),
+			Line().Lit("localhost:5001"),
+			Line().Lit("threeport-rest-api"),
+			Line().Lit("dev"),
+			Line().True(),
+			Line().False(),
+			Line().Lit(""),
+			Line(),
+		), Err().Op("!=").Nil()).Block(
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to build and push rest-api image: %w"), Err())),
+		),
+		Line(),
+
+		Return(Nil()),
 	)
 	f.Line()
 
@@ -137,20 +149,34 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				objGroup.ControllerName,
 			))
 			f.Func().Id(buildImageFuncName).Params().Error().Block(
-				If(Err().Op(":=").Id(devImageFuncName).Call(
-					Line().Lit(objGroup.ControllerName),
+				List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
+				If(Err().Op("!=").Nil()).Block(
+					Return(Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Err())),
+				),
+				Line(),
+
+				If(Err().Op(":=").Qual(
+					"github.com/threeport/threeport/pkg/util/v0",
+					"BuildImage",
+				).Call(
+					Line().Id("workingDir"),
+					Line().Lit(fmt.Sprintf("cmd/%s/image/Dockerfile-alpine", objGroup.ControllerName)),
+					Line().Id("arch"),
 					Line().Lit("localhost:5001"),
 					Line().Lit(fmt.Sprintf("threeport-%s", objGroup.ControllerName)),
 					Line().Lit("dev"),
-					Line().Lit(true),
-					Line().Lit(false),
+					Line().True(),
+					Line().False(),
+					Line().Lit(""),
 					Line(),
-				).Op(";").Err().Op("!=").Nil()).Block(
-					Return().Qual("fmt", "Errorf").Call(
-						Lit("failed to build and push %s image: %w"),
-						Lit(objGroup.ControllerName),
+				), Err().Op("!=").Nil()).Block(
+					Return(Qual("fmt", "Errorf").Call(
+						Lit(fmt.Sprintf(
+							"failed to build and push %s image: %%w",
+							objGroup.ControllerName,
+						)),
 						Err(),
-					),
+					)),
 				),
 				Line(),
 
@@ -195,80 +221,6 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Return().Nil()
 	})
 
-	// build and optionally push and/or load images
-	f.Comment(fmt.Sprintf("%s builds and pushes a container image using the alpine", devImageFuncName))
-	f.Comment("Dockerfile.")
-	f.Func().Id(devImageFuncName).Params(
-		Line().Id("component").String(),
-		Line().Id("imageRepo").String(),
-		Line().Id("imageName").String(),
-		Line().Id("imageTag").String(),
-		Line().Id("pushImage").Bool(),
-		Line().Id("loadImage").Bool(),
-		Line(),
-	).Params(
-		Error(),
-	).Block(
-		List(Id("rootDir"), Id("err")).Op(":=").Qual("os", "Getwd").Call(),
-		If(Id("err").Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory for image build: %w"), Id("err"))),
-		),
-		Line(),
-
-		Id("image").Op(":=").Qual("fmt", "Sprintf").Call(Lit("%s/%s:%s"), Id("imageRepo"), Id("imageName"), Id("imageTag")),
-		Line(),
-
-		Id("dockerBuildCmd").Op(":=").Qual("os/exec", "Command").Call(
-			Line().Lit("docker"),
-			Line().Lit("buildx"),
-			Line().Lit("build"),
-			Line().Lit("--load"),
-			Line().Qual("fmt", "Sprintf").Call(
-				Lit("--platform=linux/%s"),
-				Qual("runtime", "GOARCH"),
-			),
-			Line().Lit("-t"),
-			Line().Id("image"),
-			Line().Lit("-f"),
-			Line().Qual("fmt", "Sprintf").Call(Lit("cmd/%s/image/Dockerfile-alpine"), Id("component")),
-			Line().Id("rootDir"),
-			Line(),
-		),
-		Line(),
-
-		List(Id("output"), Id("err")).Op(":=").Id("dockerBuildCmd").Dot("CombinedOutput").Call(),
-		If(Id("err").Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("image build failed for %s with output '%s': %w"), Id("component"), Id("output"), Id("err"))),
-		),
-		Line(),
-
-		Qual("fmt", "Printf").Call(Lit("%s image built\n"), Id("image")),
-		Line(),
-
-		If(Id("pushImage")).Block(
-			Id("dockerPushCmd").Op(":=").Qual("os/exec", "Command").Call(
-				Lit("docker"),
-				Lit("push"),
-				Id("image"),
-			),
-			Line(),
-
-			List(Id("output"), Id("err")).Op("=").Id("dockerPushCmd").Dot("CombinedOutput").Call(),
-			If(Id("err").Op("!=").Nil()).Block(
-				Return(Qual("fmt", "Errorf").Call(Lit("image push for %s failed with output '%s': %w"), Id("component"), Id("output"), Id("err"))),
-			),
-			Line(),
-
-			Qual("fmt", "Printf").Call(Lit("%s image pushed\n"), Id("image")),
-		),
-		Line(),
-
-		Comment("TODO: load image if loadImage=true"),
-		Line(),
-
-		Return().Nil(),
-	)
-
 	// API docs generation
 	f.Comment("Docs generates the API server documentation that is served by the API")
 	f.Func().Id("Docs").Params().Error().Block(
@@ -297,6 +249,26 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Line(),
 
 		Return(Nil()),
+	)
+	f.Line()
+
+	// build vals utility function
+	f.Comment("getBuildVals returns the working directory and arch for builds.")
+	f.Func().Id("getBuildVals").Params().Params(
+		String(),
+		String(),
+		Error(),
+	).Block(
+		List(Id("workingDir"), Err()).Op(":=").Qual("os", "Getwd").Call(),
+		If(Err().Op("!=").Nil()).Block(
+			Return(Lit(""), Lit(""), Qual("fmt", "Errorf").Call(Lit("failed to get working directory: %w"), Err())),
+		),
+		Line(),
+
+		Id("arch").Op(":=").Qual("runtime", "GOARCH"),
+		Line(),
+
+		Return(Id("workingDir"), Id("arch"), Nil()),
 	)
 
 	// write code to file

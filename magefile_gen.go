@@ -7,6 +7,7 @@ package main
 
 import (
 	"fmt"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/exec"
 	"runtime"
@@ -14,33 +15,43 @@ import (
 
 // BuildApi builds the REST API binary.
 func BuildApi() error {
-	buildCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/rest-api",
-		"cmd/rest-api/main_gen.go",
-	)
-
-	output, err := buildCmd.CombinedOutput()
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("build failed for API with output '%s': %w", output, err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	fmt.Println("API binary built and available at bin/rest-api")
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"rest-api",
+		"cmd/rest-api/main_gen.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build rest-api binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/rest-api")
 
 	return nil
 }
 
-// BuildApiImage builds and pushes the REST API image.
+// BuildApiImage builds and pushes a development REST API image.
 func BuildApiImage() error {
-	if err := DevImage(
-		"rest-api",
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		"cmd/rest-api/image/Dockerfile-alpine",
+		arch,
 		"localhost:5001",
 		"threeport-rest-api",
 		"dev",
 		true,
 		false,
+		"",
 	); err != nil {
 		return fmt.Errorf("failed to build and push rest-api image: %w", err)
 	}
@@ -70,15 +81,23 @@ func BuildSecretController() error {
 
 // BuildSecretControllerImage builds and pushes the container image for the secret-controller.
 func BuildSecretControllerImage() error {
-	if err := DevImage(
-		"secret-controller",
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		"cmd/secret-controller/image/Dockerfile-alpine",
+		arch,
 		"localhost:5001",
 		"threeport-secret-controller",
 		"dev",
 		true,
 		false,
+		"",
 	); err != nil {
-		return fmt.Errorf("failed to build and push %s image: %w", "secret-controller", err)
+		return fmt.Errorf("failed to build and push secret-controller image: %w", err)
 	}
 
 	return nil
@@ -106,15 +125,23 @@ func BuildAwsController() error {
 
 // BuildAwsControllerImage builds and pushes the container image for the aws-controller.
 func BuildAwsControllerImage() error {
-	if err := DevImage(
-		"aws-controller",
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		"cmd/aws-controller/image/Dockerfile-alpine",
+		arch,
 		"localhost:5001",
 		"threeport-aws-controller",
 		"dev",
 		true,
 		false,
+		"",
 	); err != nil {
-		return fmt.Errorf("failed to build and push %s image: %w", "aws-controller", err)
+		return fmt.Errorf("failed to build and push aws-controller image: %w", err)
 	}
 
 	return nil
@@ -142,15 +169,23 @@ func BuildControlPlaneController() error {
 
 // BuildControlPlaneControllerImage builds and pushes the container image for the control-plane-controller.
 func BuildControlPlaneControllerImage() error {
-	if err := DevImage(
-		"control-plane-controller",
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		"cmd/control-plane-controller/image/Dockerfile-alpine",
+		arch,
 		"localhost:5001",
 		"threeport-control-plane-controller",
 		"dev",
 		true,
 		false,
+		"",
 	); err != nil {
-		return fmt.Errorf("failed to build and push %s image: %w", "control-plane-controller", err)
+		return fmt.Errorf("failed to build and push control-plane-controller image: %w", err)
 	}
 
 	return nil
@@ -178,15 +213,23 @@ func BuildGatewayController() error {
 
 // BuildGatewayControllerImage builds and pushes the container image for the gateway-controller.
 func BuildGatewayControllerImage() error {
-	if err := DevImage(
-		"gateway-controller",
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		"cmd/gateway-controller/image/Dockerfile-alpine",
+		arch,
 		"localhost:5001",
 		"threeport-gateway-controller",
 		"dev",
 		true,
 		false,
+		"",
 	); err != nil {
-		return fmt.Errorf("failed to build and push %s image: %w", "gateway-controller", err)
+		return fmt.Errorf("failed to build and push gateway-controller image: %w", err)
 	}
 
 	return nil
@@ -214,15 +257,23 @@ func BuildHelmWorkloadController() error {
 
 // BuildHelmWorkloadControllerImage builds and pushes the container image for the helm-workload-controller.
 func BuildHelmWorkloadControllerImage() error {
-	if err := DevImage(
-		"helm-workload-controller",
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		"cmd/helm-workload-controller/image/Dockerfile-alpine",
+		arch,
 		"localhost:5001",
 		"threeport-helm-workload-controller",
 		"dev",
 		true,
 		false,
+		"",
 	); err != nil {
-		return fmt.Errorf("failed to build and push %s image: %w", "helm-workload-controller", err)
+		return fmt.Errorf("failed to build and push helm-workload-controller image: %w", err)
 	}
 
 	return nil
@@ -250,15 +301,23 @@ func BuildKubernetesRuntimeController() error {
 
 // BuildKubernetesRuntimeControllerImage builds and pushes the container image for the kubernetes-runtime-controller.
 func BuildKubernetesRuntimeControllerImage() error {
-	if err := DevImage(
-		"kubernetes-runtime-controller",
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		"cmd/kubernetes-runtime-controller/image/Dockerfile-alpine",
+		arch,
 		"localhost:5001",
 		"threeport-kubernetes-runtime-controller",
 		"dev",
 		true,
 		false,
+		"",
 	); err != nil {
-		return fmt.Errorf("failed to build and push %s image: %w", "kubernetes-runtime-controller", err)
+		return fmt.Errorf("failed to build and push kubernetes-runtime-controller image: %w", err)
 	}
 
 	return nil
@@ -286,15 +345,23 @@ func BuildObservabilityController() error {
 
 // BuildObservabilityControllerImage builds and pushes the container image for the observability-controller.
 func BuildObservabilityControllerImage() error {
-	if err := DevImage(
-		"observability-controller",
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		"cmd/observability-controller/image/Dockerfile-alpine",
+		arch,
 		"localhost:5001",
 		"threeport-observability-controller",
 		"dev",
 		true,
 		false,
+		"",
 	); err != nil {
-		return fmt.Errorf("failed to build and push %s image: %w", "observability-controller", err)
+		return fmt.Errorf("failed to build and push observability-controller image: %w", err)
 	}
 
 	return nil
@@ -322,15 +389,23 @@ func BuildTerraformController() error {
 
 // BuildTerraformControllerImage builds and pushes the container image for the terraform-controller.
 func BuildTerraformControllerImage() error {
-	if err := DevImage(
-		"terraform-controller",
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		"cmd/terraform-controller/image/Dockerfile-alpine",
+		arch,
 		"localhost:5001",
 		"threeport-terraform-controller",
 		"dev",
 		true,
 		false,
+		"",
 	); err != nil {
-		return fmt.Errorf("failed to build and push %s image: %w", "terraform-controller", err)
+		return fmt.Errorf("failed to build and push terraform-controller image: %w", err)
 	}
 
 	return nil
@@ -358,15 +433,23 @@ func BuildWorkloadController() error {
 
 // BuildWorkloadControllerImage builds and pushes the container image for the workload-controller.
 func BuildWorkloadControllerImage() error {
-	if err := DevImage(
-		"workload-controller",
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		"cmd/workload-controller/image/Dockerfile-alpine",
+		arch,
 		"localhost:5001",
 		"threeport-workload-controller",
 		"dev",
 		true,
 		false,
+		"",
 	); err != nil {
-		return fmt.Errorf("failed to build and push %s image: %w", "workload-controller", err)
+		return fmt.Errorf("failed to build and push workload-controller image: %w", err)
 	}
 
 	return nil
@@ -462,59 +545,6 @@ func BuildAllImages() error {
 	return nil
 }
 
-// DevImage builds and pushes a container image using the alpine
-// Dockerfile.
-func DevImage(
-	component string,
-	imageRepo string,
-	imageName string,
-	imageTag string,
-	pushImage bool,
-	loadImage bool,
-) error {
-	rootDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory for image build: %w", err)
-	}
-
-	image := fmt.Sprintf("%s/%s:%s", imageRepo, imageName, imageTag)
-
-	dockerBuildCmd := exec.Command(
-		"docker",
-		"buildx",
-		"build",
-		"--load",
-		fmt.Sprintf("--platform=linux/%s", runtime.GOARCH),
-		"-t",
-		image,
-		"-f",
-		fmt.Sprintf("cmd/%s/image/Dockerfile-alpine", component),
-		rootDir,
-	)
-
-	output, err := dockerBuildCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("image build failed for %s with output '%s': %w", component, output, err)
-	}
-
-	fmt.Printf("%s image built\n", image)
-
-	if pushImage {
-		dockerPushCmd := exec.Command("docker", "push", image)
-
-		output, err = dockerPushCmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("image push for %s failed with output '%s': %w", component, output, err)
-		}
-
-		fmt.Printf("%s image pushed\n", image)
-	}
-
-	// TODO: load image if loadImage=true
-
-	return nil
-}
-
 // Docs generates the API server documentation that is served by the API
 func Docs() error {
 	docsDestination := "pkg/api-server/v0/docs"
@@ -538,4 +568,16 @@ func Docs() error {
 	fmt.Printf("API docs generated in %s\n", docsDestination)
 
 	return nil
+}
+
+// getBuildVals returns the working directory and arch for builds.
+func getBuildVals() (string, string, error) {
+	workingDir, err := os.Getwd()
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	arch := runtime.GOARCH
+
+	return workingDir, arch, nil
 }
