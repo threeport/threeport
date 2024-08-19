@@ -61,20 +61,22 @@ func BuildApiImage() error {
 
 // BuildSecretController builds the binary for the secret-controller.
 func BuildSecretController() error {
-	buildCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/secret-controller",
-		"cmd/secret-controller/main_gen.go",
-	)
-
-	output, err := buildCmd.CombinedOutput()
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("build failed for secret-controller with output '%s': %w", output, err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	fmt.Println("secret-controller binary built and available at bin/secret-controller")
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"secret-controller",
+		"cmd/secret-controller/main_gen.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build secret-controller binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/secret-controller")
 
 	return nil
 }
@@ -105,20 +107,22 @@ func BuildSecretControllerImage() error {
 
 // BuildAwsController builds the binary for the aws-controller.
 func BuildAwsController() error {
-	buildCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/aws-controller",
-		"cmd/aws-controller/main_gen.go",
-	)
-
-	output, err := buildCmd.CombinedOutput()
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("build failed for aws-controller with output '%s': %w", output, err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	fmt.Println("aws-controller binary built and available at bin/aws-controller")
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"aws-controller",
+		"cmd/aws-controller/main_gen.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build aws-controller binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/aws-controller")
 
 	return nil
 }
@@ -149,20 +153,22 @@ func BuildAwsControllerImage() error {
 
 // BuildControlPlaneController builds the binary for the control-plane-controller.
 func BuildControlPlaneController() error {
-	buildCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/control-plane-controller",
-		"cmd/control-plane-controller/main_gen.go",
-	)
-
-	output, err := buildCmd.CombinedOutput()
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("build failed for control-plane-controller with output '%s': %w", output, err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	fmt.Println("control-plane-controller binary built and available at bin/control-plane-controller")
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"control-plane-controller",
+		"cmd/control-plane-controller/main_gen.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build control-plane-controller binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/control-plane-controller")
 
 	return nil
 }
@@ -193,20 +199,22 @@ func BuildControlPlaneControllerImage() error {
 
 // BuildGatewayController builds the binary for the gateway-controller.
 func BuildGatewayController() error {
-	buildCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/gateway-controller",
-		"cmd/gateway-controller/main_gen.go",
-	)
-
-	output, err := buildCmd.CombinedOutput()
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("build failed for gateway-controller with output '%s': %w", output, err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	fmt.Println("gateway-controller binary built and available at bin/gateway-controller")
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"gateway-controller",
+		"cmd/gateway-controller/main_gen.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build gateway-controller binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/gateway-controller")
 
 	return nil
 }
@@ -237,20 +245,22 @@ func BuildGatewayControllerImage() error {
 
 // BuildHelmWorkloadController builds the binary for the helm-workload-controller.
 func BuildHelmWorkloadController() error {
-	buildCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/helm-workload-controller",
-		"cmd/helm-workload-controller/main_gen.go",
-	)
-
-	output, err := buildCmd.CombinedOutput()
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("build failed for helm-workload-controller with output '%s': %w", output, err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	fmt.Println("helm-workload-controller binary built and available at bin/helm-workload-controller")
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"helm-workload-controller",
+		"cmd/helm-workload-controller/main_gen.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build helm-workload-controller binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/helm-workload-controller")
 
 	return nil
 }
@@ -281,20 +291,22 @@ func BuildHelmWorkloadControllerImage() error {
 
 // BuildKubernetesRuntimeController builds the binary for the kubernetes-runtime-controller.
 func BuildKubernetesRuntimeController() error {
-	buildCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/kubernetes-runtime-controller",
-		"cmd/kubernetes-runtime-controller/main_gen.go",
-	)
-
-	output, err := buildCmd.CombinedOutput()
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("build failed for kubernetes-runtime-controller with output '%s': %w", output, err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	fmt.Println("kubernetes-runtime-controller binary built and available at bin/kubernetes-runtime-controller")
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"kubernetes-runtime-controller",
+		"cmd/kubernetes-runtime-controller/main_gen.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build kubernetes-runtime-controller binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/kubernetes-runtime-controller")
 
 	return nil
 }
@@ -325,20 +337,22 @@ func BuildKubernetesRuntimeControllerImage() error {
 
 // BuildObservabilityController builds the binary for the observability-controller.
 func BuildObservabilityController() error {
-	buildCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/observability-controller",
-		"cmd/observability-controller/main_gen.go",
-	)
-
-	output, err := buildCmd.CombinedOutput()
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("build failed for observability-controller with output '%s': %w", output, err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	fmt.Println("observability-controller binary built and available at bin/observability-controller")
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"observability-controller",
+		"cmd/observability-controller/main_gen.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build observability-controller binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/observability-controller")
 
 	return nil
 }
@@ -369,20 +383,22 @@ func BuildObservabilityControllerImage() error {
 
 // BuildTerraformController builds the binary for the terraform-controller.
 func BuildTerraformController() error {
-	buildCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/terraform-controller",
-		"cmd/terraform-controller/main_gen.go",
-	)
-
-	output, err := buildCmd.CombinedOutput()
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("build failed for terraform-controller with output '%s': %w", output, err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	fmt.Println("terraform-controller binary built and available at bin/terraform-controller")
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"terraform-controller",
+		"cmd/terraform-controller/main_gen.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build terraform-controller binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/terraform-controller")
 
 	return nil
 }
@@ -413,20 +429,22 @@ func BuildTerraformControllerImage() error {
 
 // BuildWorkloadController builds the binary for the workload-controller.
 func BuildWorkloadController() error {
-	buildCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/workload-controller",
-		"cmd/workload-controller/main_gen.go",
-	)
-
-	output, err := buildCmd.CombinedOutput()
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("build failed for workload-controller with output '%s': %w", output, err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	fmt.Println("workload-controller binary built and available at bin/workload-controller")
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"workload-controller",
+		"cmd/workload-controller/main_gen.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build workload-controller binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/workload-controller")
 
 	return nil
 }
@@ -540,6 +558,30 @@ func BuildAllImages() error {
 
 	if err := BuildWorkloadControllerImage(); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	return nil
+}
+
+// LoadImage builds and loads an image to the provided kind cluster.
+func LoadImage(kindClusterName string, component string) error {
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		fmt.Sprintf("cmd/%s/image/Dockerfile-alpine", component),
+		arch,
+		"localhost:5001",
+		fmt.Sprintf("threeport-%s", component),
+		"dev",
+		false,
+		true,
+		kindClusterName,
+	); err != nil {
+		return fmt.Errorf("failed to build and load image: %w", err)
 	}
 
 	return nil

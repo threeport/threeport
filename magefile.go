@@ -35,7 +35,7 @@ func BuildAgent() error {
 	return nil
 }
 
-// // BuildAgentImage builds and pushes the agent image.
+// BuildAgentImage builds and pushes the agent image.
 func BuildAgentImage() error {
 	workingDir, arch, err := getBuildVals()
 	if err != nil {

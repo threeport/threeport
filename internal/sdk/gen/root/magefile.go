@@ -110,32 +110,36 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				objGroup.ControllerName,
 			))
 			f.Func().Id(buildFuncName).Params().Error().Block(
-				Id("buildCmd").Op(":=").Qual("os/exec", "Command").Call(
-					Line().Lit("go"),
-					Line().Lit("build"),
-					Line().Lit("-o"),
-					Line().Lit(fmt.Sprintf("bin/%s", objGroup.ControllerName)),
-					Line().Lit(fmt.Sprintf("cmd/%s/main_gen.go", objGroup.ControllerName)),
-					Line(),
-				),
-				Line(),
-
-				List(Id("output"), Err()).Op(":=").Id("buildCmd").Dot("CombinedOutput").Call(),
+				List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
 				If(Err().Op("!=").Nil()).Block(
-					Return(Qual("fmt", "Errorf").Call(Lit(fmt.Sprintf(
-						"build failed for %s with output '%%s': %%w",
-						objGroup.ControllerName,
-					)), Id("output"), Err())),
+					Return().Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Err()),
 				),
 				Line(),
 
-				Qual("fmt", "Println").Call(Lit(fmt.Sprintf(
-					"%[1]s binary built and available at bin/%[1]s",
-					objGroup.ControllerName,
-				))),
+				If(Err().Op(":=").Qual(
+					"github.com/threeport/threeport/pkg/util/v0",
+					"BuildBinary",
+				).Call(
+					Line().Id("workingDir"),
+					Line().Id("arch"),
+					Line().Lit(objGroup.ControllerName),
+					Line().Lit(fmt.Sprintf("cmd/%s/main_gen.go", objGroup.ControllerName)),
+					Line().Lit(false),
+					Line(),
+				).Op(";").Err().Op("!=").Nil()).Block(
+					Return().Qual("fmt", "Errorf").Call(
+						Lit(fmt.Sprintf("failed to build %s binary: %%w", objGroup.ControllerName)),
+						Err(),
+					),
+				),
 				Line(),
 
-				Return(Nil()),
+				Qual("fmt", "Println").Call(Lit(
+					fmt.Sprintf("binary built and available at bin/%s", objGroup.ControllerName),
+				)),
+				Line(),
+
+				Return().Nil(),
 			)
 			f.Line()
 
@@ -220,6 +224,41 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 		g.Return().Nil()
 	})
+
+	// image loads to kind clusters
+	f.Comment("LoadImage builds and loads an image to the provided kind cluster.")
+	f.Func().Id("LoadImage").Params(
+		Id("kindClusterName").String(),
+		Id("component").String(),
+	).Error().Block(
+		List(Id("workingDir"), Id("arch"), Id("err")).Op(":=").Id("getBuildVals").Call(),
+		If(Id("err").Op("!=").Nil()).Block(
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Id("err"))),
+		),
+		Line(),
+
+		If(Err().Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/util/v0",
+			"BuildImage",
+		).Call(
+			Line().Id("workingDir"),
+			Line().Qual("fmt", "Sprintf").Call(Lit("cmd/%s/image/Dockerfile-alpine"), Id("component")),
+			Line().Id("arch"),
+			Line().Lit("localhost:5001"),
+			Line().Qual("fmt", "Sprintf").Call(Lit("threeport-%s"), Id("component")),
+			Line().Lit("dev"),
+			Line().False(),
+			Line().True(),
+			Line().Id("kindClusterName"),
+			Line(),
+		).Op(";").Err().Op("!=").Nil()).Block(
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to build and load image: %w"), Id("err"))),
+		),
+		Line(),
+
+		Return(Nil()),
+	)
+	f.Line()
 
 	// API docs generation
 	f.Comment("Docs generates the API server documentation that is served by the API")
