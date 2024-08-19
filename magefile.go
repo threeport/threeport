@@ -141,7 +141,6 @@ func BuildImage(
 	return nil
 }
 
-
 // E2e calls ginkgo to run the e2e tests suite.
 func E2e(
 	provider string,
@@ -167,14 +166,30 @@ func E2e(
 		return fmt.Errorf("failed to run e2e tests: %w", err)
 	}
 
-return nil
+	return nil
 }
-
-// Builds sdk binary and installs in GOPATH
 
 // BuildSDK builds SDK binary and installs in GOPATH
 func BuildSDK() error {
-return nil
+	goPath := os.Getenv("GOPATH")
+
+	outputPath := filepath.Join(goPath, "bin", "threeport-sdk")
+
+	sdkCmd := exec.Command(
+		"go",
+		"build",
+		"-o",
+		outputPath,
+		"cmd/sdk/main.go",
+	)
+	output, err := sdkCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("build failed for sdk binary with output: '%s': %w", output, err)
+	}
+
+	fmt.Println("sdk binary built and available at bin/threeport-sdk")
+
+	return nil
 }
 
 // InstallSdk builds SDK binary and installs in GOPATH
@@ -224,7 +239,7 @@ func E2eClean() error {
 		return err
 	}
 
-return nil
+	return nil
 }
 
 // Builds database migrator
@@ -247,10 +262,8 @@ func BuildDbMigrator() error {
 
 	fmt.Println("database migrator built and available at bin/database-migrator")
 
-
 	return nil
 }
-
 
 // Integration runs integration tests against an existing Threeport control
 // plane.
@@ -285,10 +298,8 @@ func CleanLocalRegistry() error {
 		return fmt.Errorf("failed to remove local container registry: %w", err)
 	}
 
-return nil 
+	return nil
 }
-
-// Builds tptdev binary
 
 // BuildTptdev builds tptdev binary
 func BuildTptdev() error {
@@ -365,6 +376,560 @@ func InstallTptctl() error {
 
 	fmt.Println("tptctl binary installed and available at /usr/local/bin/tptctl")
 
+	return nil
+}
+
+// Generate runs code generation
+func Generate() error {
+
+	err := GenerateCode()
+	if err != nil {
+		return fmt.Errorf("code generation failed: %w", err)
+	}
+
+	err = GenerateDocs()
+	if err != nil {
+		return fmt.Errorf("docs generation failed: %w", err)
+	}
+
+	fmt.Println("code generated successfully")
 
 	return nil
 }
+
+// GenerateCode generates code
+func GenerateCode() error {
+
+	generateCode := exec.Command(
+		"threeport-sdk",
+		"gen",
+		"-c",
+		"sdk-config.yaml",
+	)
+	output, err := generateCode.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("code generation failed with output: '%s': %w", output, err)
+	}
+
+	fmt.Println("code generated successfully")
+
+	return nil
+}
+
+// GenerateDocs generates swagger docs
+func GenerateDocs() error {
+
+	generateSwaggerDocs := exec.Command(
+		"swag",
+		"init",
+		"--dir",
+		"cmd/rest-api,pkg/api-server/v0,pkg/api-server/v1",
+		"--parseDependency",
+		"--generalInfo",
+		"main_gen.go",
+		"--output", "pkg/api-server/v0/docs",
+	)
+	output, err := generateSwaggerDocs.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("swagger docs generation failed with output: '%s': %w", output, err)
+	}
+
+	fmt.Println("swagger docs generated successfully and is available at pkg/api-server/v0/docs")
+
+	return nil
+}
+
+// AutomatedTests runs automated tests
+func AutomatedTests() error {
+
+	runTests := exec.Command(
+		"go",
+		"test",
+		"-v",
+		"./...",
+		"-count=1",
+	)
+	output, err := runTests.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("test runs failed to run: '%s': %w", output, err)
+	}
+
+	fmt.Println("tests ran successfully")
+
+	return nil
+}
+
+// TestCommits checks to make sure commit messages follow conventional commits format
+func TestCommits() error {
+
+	testCommits := exec.Command(
+		"test/scripts/commit-check-latest.sh",
+	)
+	output, err := testCommits.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to run commit check: '%s': %w", output, err)
+	}
+
+	fmt.Println("commit check ran successfully")
+
+	return nil
+}
+
+// DevUp runs a local development environment
+func DevUp() error {
+	devUp := exec.Command(
+		"./bin/tptdev",
+		"up",
+		"--auth-enabled=false",
+	)
+	output, err := devUp.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to create local dev environment: '%s': %w", output, err)
+	}
+
+	fmt.Println("local dev environment ran successfully")
+
+	return nil
+}
+
+// DevDown deletes the local development environment
+func DevDown() error {
+	devDown := exec.Command(
+		"./bin/tptdev",
+		"down",
+	)
+	output, err := devDown.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to delete local dev environment: '%s': %w", output, err)
+	}
+
+	fmt.Println("local dev environment successfully deleted")
+
+	return nil
+}
+
+// // DevLogsAPI follows the log output from the local dev API
+// func DevLogsAPI() error {
+// 	devlogsAPI := exec.Command(
+// 		"kubectl",
+// 		"logs",
+// 		"deploy/threeport-api-server",
+// 		"-n",
+// 		"threeport-control-plane",
+// 	)
+// 	output, err := devlogsAPI.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to create API dev logs: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("API dev logs successfully created")
+
+// 	return nil
+// }
+
+// // DevLogsWRK follows the log output from the local dev workload controller
+// func DevLogsWRK() error {
+// 	devlogsWRK := exec.Command(
+// 		"kubectl",
+// 		"logs",
+// 		"deploy/threeport-workload-controller",
+// 		"-n",
+// 		"threeport-control-plane",
+// 		"-f",
+// 	)
+// 	output, err := devlogsWRK.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to create local dev workload controller logs: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("local dev workload controller logs successfully created")
+
+// 	return nil
+// }
+
+// // DevLogsGW follows the log output from the local dev gateway controller
+// func DevLogsGW() error {
+// 	devlogsGW := exec.Command(
+// 		"kubectl",
+// 		"logs",
+// 		"deploy/threeport-gateway-controller",
+// 		"-n",
+// 		"threeport-control-plane",
+// 		"-f",
+// 	)
+// 	output, err := devlogsGW.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to create local dev gateway controller logs: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("local dev gateway controller logs successfully created")
+
+// 	return nil
+// }
+
+// // DevLogsKR follows the log output from the local dev kubernetes runtime controller
+// func DevLogsKR() error {
+// 	devlogsKR := exec.Command(
+// 		"kubectl",
+// 		"logs",
+// 		"deploy/threeport-kubernetes-runtime-controller",
+// 		"-n",
+// 		"threeport-control-plane",
+// 		"-f",
+// 	)
+// 	output, err := devlogsKR.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to create local dev kubernetes runtime controller logs: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("local dev kubernetes runtime controller logs successfully created")
+
+// 	return nil
+// }
+
+// // DevLogsAWS follows the log output from the local dev aws controller
+// func DevLogsAWS() error {
+// 	devlogsAWS := exec.Command(
+// 		"kubectl",
+// 		"logs",
+// 		"deploy/threeport-aws-controller",
+// 		"-n",
+// 		"threeport-control-plane",
+// 		"-f",
+// 	)
+// 	output, err := devlogsAWS.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to create local dev AWS controller logs: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("local dev aws controller logs successfully created")
+
+// 	return nil
+// }
+
+// // DevLogsCP follows the log output from the local dev control plane controller
+// func DevLogsCP() error {
+// 	devlogsCP := exec.Command(
+// 		"kubectl",
+// 		"logs",
+// 		"deploy/threeport-control-plane-controller",
+// 		"-n",
+// 		"threeport-control-plane",
+// 		"-f",
+// 	)
+// 	output, err := devlogsCP.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to create local dev control pane controller logs: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("local dev control pane controller logs successfully created")
+
+// 	return nil
+// }
+
+// DevLogsAgent follows the log output from the local dev agent
+// func DevLogsAgent() error {
+// 	devlogsAgent := exec.Command(
+// 		"kubectl",
+// 		"logs",
+// 		"deploy/threeport-agent",
+// 		"-n",
+// 		"threeport-control-plane",
+// 		"-f",
+// 		"-c",
+// 		"manager",
+// 	)
+// 	output, err := devlogsAgent.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to create local dev agent logs: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("local dev agent logs successfully created")
+
+// 	return nil
+// }
+
+// DevForwardAPI forwards local port 1323 to the local dev API
+func DevForwardAPI() error {
+	devforwardAPI := exec.Command(
+		"kubectl",
+		"port-forward",
+		"-n",
+		"threeport-control-plane",
+		"service/threeport-api-server",
+		"1323:80",
+	)
+	output, err := devforwardAPI.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to forward local port 1323 to local dev API: '%s': %w", output, err)
+	}
+
+	fmt.Println("local port 1323 forwarded to local dev API successfully")
+
+	return nil
+}
+
+// DevForwardCrdb forwards local port 26257 to local dev cockroach database
+func DevForwardCrdb() error {
+	devforwardCrdb := exec.Command(
+		"kubectl",
+		"port-forward",
+		"-n",
+		"threeport-control-plane",
+		"service/crdb",
+		"26257",
+	)
+	output, err := devforwardCrdb.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to forward local port 26257 to local dev cockroach database: '%s': %w", output, err)
+	}
+
+	fmt.Println("local port 26257 forwarded to local dev API successfully")
+
+	return nil
+}
+
+// DevForwardNats forwards local port 33993 to the local dev API nats server
+func DevForwardNats() error {
+	devforwardNats := exec.Command(
+		"kubectl",
+		"port-forward",
+		"-n",
+		"threeport-control-plane",
+		"service/nats-js",
+		"4222:4222",
+	)
+	output, err := devforwardNats.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to forward local port 33993 to local dev API nats server: '%s': %w", output, err)
+	}
+
+	fmt.Println("local port 33993 forwarded to local dev API nats server successfully")
+
+	return nil
+}
+
+// // DevPurgeStreams purges all nats streams
+// func DevPurgeStreams() error {
+// 	devpurgeStreams := exec.Command(
+// 		"nats",
+// 		"stream",
+// 		"ls",
+// 		"--names",
+// 		"|",
+// 		"xargs",
+// 		"-I",
+// 		"{}",
+// 		"nats",
+// 		"stream",
+// 		"purge",
+// 		"{}",
+// 		"--force",
+// 	)
+
+// 	output, err := devpurgeStreams.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to purge all nats streams: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("all nats streams successfully purged")
+
+// 	return nil
+// }
+
+// // DevUninstallHelm uninstalls all helm releases
+// func DevUninstallHelm() error {
+// 	devuninstallHelm := exec.Command(
+// 		"helm",
+// 		"ls",
+// 		"-A",
+// 		"--short",
+// 		"|",
+// 		"xargs",
+// 		"-I",
+// 		"{}",
+// 		"helm",
+// 		"uninstall",
+// 		"--namespace",
+// 		"threeport-control-plane",
+// 		"{}",
+// 	)
+
+// 	output, err := devuninstallHelm.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to uninstall all helm releases: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("all helm releases successfully uninstalled")
+
+// 	return nil
+// }
+
+// // DevDebugAPI starts debugging session for API
+// func DevDebugAPI() error {
+// 	devdebugAPI := exec.Command(
+// 		"dlv",
+// 		"debug",
+// 		"cmd/rest-api/main.go",
+// 		"--",
+// 		"-env-file",
+// 		"hack/env",
+// 		"-auto-migrate",
+// 		"-verbose",
+// 	)
+
+// 	output, err := devdebugAPI.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to start debugging session for API: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("debugging session for API successfully started")
+
+// 	return nil
+// }
+
+// // DevDebugWRK starts debugging session for workload-controller
+// func DevDebugWRK() error {
+// 	devdebugWRK := exec.Command(
+// 		"dlv",
+// 		"debug",
+// 		"cmd/workload-controller/main_gen.go",
+// 		"--",
+// 		"-auth-enabled=false",
+// 		"-api-server=localhost:1323",
+// 		"-msg-broker-host=localhost",
+// 		"-msg-broker-port=4222",
+// 	)
+
+// 	output, err := devdebugWRK.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to start debugging session for workload-controller: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("debugging session for workload-controller successfully started")
+
+// 	return nil
+// }
+
+// // DevDebugGateway starts debugging session for gateway controller
+// func DevDebugGateway() error {
+// 	devdebugGateway := exec.Command(
+// 		"dlv",
+// 		"debug",
+// 		"--build-flags",
+// 		"cmd/gateway-controller/main_gen.go",
+// 		"--",
+// 		"-auth-enabled=false",
+// 		"-api-server=localhost:1323",
+// 		"-msg-broker-host=localhost",
+// 		"-msg-broker-port=4222",
+// 	)
+
+// 	output, err := devdebugGateway.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to start debugging session for gateway controller: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("debugging session for gateway controller successfully started")
+
+// 	return nil
+// }
+
+// // DevResetCrdb resets the dev cockroach database
+// func DevResetCrdb() error {
+// 	devresetCrdb := exec.Command(
+// 		"kubectl", "exec", "-it", "-n", "threeport-control-plane", "crdb-0", "--",
+// 		"cockroach", "sql", "--host", "localhost", "--insecure", "--database", "threeport_api",
+// 		"--execute",
+// 		`TRUNCATE attached_object_references,
+// 		workload_events,
+// 		helm_workload_definitions,
+// 		helm_workload_instances,
+// 		workload_definitions,
+// 		workload_resource_definitions,
+// 		workload_instances,
+// 		workload_resource_instances,
+// 		gateway_http_ports,
+// 		gateway_tcp_ports,
+// 		gateway_instances,
+// 		gateway_definitions,
+// 		domain_name_definitions,
+// 		domain_name_instances,
+// 		metrics_instances,
+// 		metrics_definitions,
+// 		logging_instances,
+// 		logging_definitions,
+// 		observability_dashboard_instances,
+// 		observability_dashboard_definitions,
+// 		observability_stack_instances,
+// 		observability_stack_definitions,
+// 		secret_instances,
+// 		secret_definitions;
+// 		set sql_safe_updates = false;
+// 		update kubernetes_runtime_instances set gateway_controller_instance_id = NULL;
+// 		update kubernetes_runtime_instances set dns_controller_instance_id = NULL;
+// 		update kubernetes_runtime_instances set secrets_controller_instance_id = NULL;
+// 		set sql_safe_updates = true;
+// 		DELETE FROM control_plane_definitions WHERE name != 'dev-0';
+// 		DELETE FROM control_plane_instances WHERE name != 'dev-0';
+// 		DELETE FROM control_plane_components WHERE name != 'dev-0';`,
+// 	)
+
+// 	output, err := devresetCrdb.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to reset dev cockroach database: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("dev cockroach database successfully reset")
+
+// 	return nil
+// }
+
+// // DevQueryCrdb opens a terminal connection to the dev cockroach database #TODO: move to kubectl exec command that uses `cockroach` binary in contianer
+// func DevQueryCrdb() error {
+// 	devqueryCrdb := exec.Command(
+// 		"kubectl",
+// 		"exec",
+// 		"-it",
+// 		"-n",
+// 		"threeport-control-plane",
+// 		"crdb-0",
+// 		"--",
+// 		"cockroach",
+// 		"sql",
+// 		"--host",
+// 		"localhost",
+// 		"--insecure",
+// 		"--database",
+// 		"threeport_api",
+// 	)
+
+// 	output, err := devqueryCrdb.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to open a terminal connection to the dev cockroach database: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("successfully opened a terminal connection to the dev cockroach database")
+
+// 	return nil
+// }
+
+// // DevSubNats subscribe to all messages from nats server locally   #TODO: move to kubectl exec command that uses `nats` binary in contianer
+// func DevSubNats() error {
+// 	devsubNats := exec.Command(
+// 		"nats",
+// 		"sub",
+// 		"-s",
+// 		"nats://127.0.0.1:4222",
+// 		" \">\" ",
+// 	)
+
+// 	output, err := devsubNats.CombinedOutput()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to subscribe to all messages from nats server locally: '%s': %w", output, err)
+// 	}
+
+// 	fmt.Println("successfully subscribed to all messages from nats server locally")
+
+// 	return nil
+// }
