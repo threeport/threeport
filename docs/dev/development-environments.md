@@ -17,7 +17,7 @@ Build contianer images for each of the control plane components and push them to
 the local container registry.
 
 ```bash
-make build-tptdev
+mage buildTptdev
 ./bin/tptdev build -r localhost:5001 -t dev --push
 ```
 
