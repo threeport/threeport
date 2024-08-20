@@ -570,12 +570,14 @@ func LoadImage(kindClusterName string, component string) error {
 		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
+	imageName := fmt.Sprintf("threeport-%s", component)
+
 	if err := util.BuildImage(
 		workingDir,
 		fmt.Sprintf("cmd/%s/image/Dockerfile-alpine", component),
 		arch,
 		"localhost:5001",
-		fmt.Sprintf("threeport-%s", component),
+		imageName,
 		"dev",
 		false,
 		true,

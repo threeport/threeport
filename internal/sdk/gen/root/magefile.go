@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	. "github.com/dave/jennifer/jen"
+	"github.com/iancoleman/strcase"
 
 	"github.com/threeport/threeport/internal/sdk"
 	"github.com/threeport/threeport/internal/sdk/gen"
@@ -66,6 +67,13 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Line()
 
 	// image build and push function for API
+	imageName := "threeport-rest-api"
+	if gen.Extension {
+		imageName = fmt.Sprintf(
+			"threeport-%s-rest-api",
+			strcase.ToSnake(sdkConfig.ExtensionName),
+		)
+	}
 	f.Comment(fmt.Sprintf("%s builds and pushes a development REST API image.", buildApiImageFuncName))
 	f.Func().Id("BuildApiImage").Params().Parens(Error()).Block(
 		List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
@@ -82,7 +90,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().Lit("cmd/rest-api/image/Dockerfile-alpine"),
 			Line().Id("arch"),
 			Line().Lit("localhost:5001"),
-			Line().Lit("threeport-rest-api"),
+			Line().Lit(imageName),
 			Line().Lit("dev"),
 			Line().True(),
 			Line().False(),
@@ -230,14 +238,26 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Func().Id("LoadImage").Params(
 		Id("kindClusterName").String(),
 		Id("component").String(),
-	).Error().Block(
-		List(Id("workingDir"), Id("arch"), Id("err")).Op(":=").Id("getBuildVals").Call(),
-		If(Id("err").Op("!=").Nil()).Block(
+	).Error().BlockFunc(func(g *Group) {
+		g.List(Id("workingDir"), Id("arch"), Id("err")).Op(":=").Id("getBuildVals").Call()
+		g.If(Id("err").Op("!=").Nil()).Block(
 			Return(Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Id("err"))),
-		),
-		Line(),
+		)
+		g.Line()
 
-		If(Err().Op(":=").Qual(
+		g.Id("imageName").Op(":=").Qual("fmt", "Sprintf").Call(Lit("threeport-%s"), Id("component"))
+		if gen.Extension {
+			g.If(Id("component").Op("==").Lit("rest-api")).Block(
+				Id("imageName").Op("=").Qual("fmt", "Sprintf").Call(
+					Lit("threeport-%s-%s"),
+					Lit(strcase.ToSnake(sdkConfig.ExtensionName)),
+					Id("component"),
+				),
+			)
+		}
+		g.Line()
+
+		g.If(Err().Op(":=").Qual(
 			"github.com/threeport/threeport/pkg/util/v0",
 			"BuildImage",
 		).Call(
@@ -245,7 +265,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().Qual("fmt", "Sprintf").Call(Lit("cmd/%s/image/Dockerfile-alpine"), Id("component")),
 			Line().Id("arch"),
 			Line().Lit("localhost:5001"),
-			Line().Qual("fmt", "Sprintf").Call(Lit("threeport-%s"), Id("component")),
+			Line().Id("imageName"),
 			Line().Lit("dev"),
 			Line().False(),
 			Line().True(),
@@ -253,11 +273,11 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line(),
 		).Op(";").Err().Op("!=").Nil()).Block(
 			Return(Qual("fmt", "Errorf").Call(Lit("failed to build and load image: %w"), Id("err"))),
-		),
-		Line(),
+		)
+		g.Line()
 
-		Return(Nil()),
-	)
+		g.Return(Nil())
+	})
 	f.Line()
 
 	// API docs generation
