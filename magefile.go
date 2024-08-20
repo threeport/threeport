@@ -169,52 +169,6 @@ func E2e(
 	return nil
 }
 
-// BuildSDK builds SDK binary and installs in GOPATH
-func BuildSDK() error {
-	goPath := os.Getenv("GOPATH")
-	outputPath := filepath.Join(goPath, "bin", "threeport-sdk")
-
-	sdkCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		outputPath,
-		"cmd/sdk/main.go",
-	)
-
-	output, err := sdkCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("build failed for sdk binary with output: '%s': %w", output, err)
-	}
-
-	fmt.Println("sdk binary built and available at $GOPATH/bin/threeport-sdk")
-
-	return nil
-}
-
-// InstallSdk builds SDK binary and installs in GOPATH
-func InstallSdk() error {
-	goPath := os.Getenv("GOPATH")
-	outputPath := filepath.Join(goPath, "bin", "threeport-sdk")
-
-	sdkCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		outputPath,
-		"cmd/sdk/main.go",
-	)
-
-	output, err := sdkCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("build failed for sdk binary with output: '%s': %w", output, err)
-	}
-
-	fmt.Println("sdk binary built and available at $GOPATH/bin/threeport-sdk")
-
-	return nil
-}
-
 // E2eLocal is a wrapper for E2e that uses kind, a local image repo in a docker
 // container and cleans up at completion.
 func E2eLocal() error {
