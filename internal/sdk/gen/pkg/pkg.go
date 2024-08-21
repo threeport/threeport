@@ -9,6 +9,7 @@ import (
 	apiserver "github.com/threeport/threeport/internal/sdk/gen/pkg/api-server"
 	"github.com/threeport/threeport/internal/sdk/gen/pkg/client"
 	"github.com/threeport/threeport/internal/sdk/gen/pkg/config"
+	"github.com/threeport/threeport/internal/sdk/gen/pkg/installer"
 )
 
 // GenPkg generates source code for pkg packages.
@@ -86,6 +87,15 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	if generator.Extension {
 		if err := config.GenConfig(generator); err != nil {
 			return fmt.Errorf("failed to generate config package: %w", err)
+		}
+	}
+
+	//////////////////////////// pkg/installer /////////////////////////////////
+	// install extension API and controller and register with an existing
+	// Threeport control plane
+	if generator.Extension {
+		if err := installer.GenInstaller(generator, sdkConfig); err != nil {
+			return fmt.Errorf("failed to generate installer package: %w", err)
 		}
 	}
 
