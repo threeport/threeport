@@ -441,6 +441,7 @@ func DevUp() error {
 	devUp := exec.Command(
 		"./bin/tptdev",
 		"up",
+		"--force-overwrite-config",
 		"--auth-enabled=false",
 	)
 
