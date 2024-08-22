@@ -217,8 +217,6 @@ func PushDockerImage(tag string) error {
 	if parts[0] == "localhost:5001" {
 		isLocal = true
 	}
-	fmt.Println("###########")
-	fmt.Println(isLocal)
 
 	// configure docker auth if credentials are present
 	switch {
@@ -227,7 +225,6 @@ func PushDockerImage(tag string) error {
 		authConfigBytes, _ := json.Marshal(authConfig)
 		authConfigEncoded := base64.URLEncoding.EncodeToString(authConfigBytes)
 		imagePushOptions.RegistryAuth = authConfigEncoded
-		break
 	case isDockerConfigPresent &&
 		dockerUsername == "" &&
 		dockerPassword == "":
@@ -281,7 +278,6 @@ func PushDockerImage(tag string) error {
 		authConfigBytes, _ := json.Marshal(authConfig)
 		authConfigEncoded := base64.URLEncoding.EncodeToString(authConfigBytes)
 		imagePushOptions.RegistryAuth = authConfigEncoded
-
 	}
 
 	// authenticate and push image
