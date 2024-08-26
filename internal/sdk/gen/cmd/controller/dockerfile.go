@@ -11,7 +11,7 @@ import (
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 )
 
-// GenControllerDockerfiles generates each controller's Dockerfile.
+// GenControllerDockerfiles generates each controller's Dockerfiles.
 func GenControllerDockerfiles(gen *gen.Generator) error {
 	for _, objGroup := range gen.ApiObjectGroups {
 		if len(objGroup.ReconciledObjects) > 0 {

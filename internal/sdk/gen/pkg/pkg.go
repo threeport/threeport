@@ -54,7 +54,7 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	// add database initialization and GORM logger methods
-	if err := apiserver.GenDatabaseInit(generator); err != nil {
+	if err := apiserver.GenDatabaseInit(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate database initialization: %w", err)
 	}
 
