@@ -7,6 +7,11 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"time"
+
 	validator "github.com/go-playground/validator/v10"
 	godotenv "github.com/joho/godotenv"
 	echo "github.com/labstack/echo/v4"
@@ -25,9 +30,7 @@ import (
 	versions_v1 "github.com/threeport/threeport/pkg/api-server/v1/versions"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	zap "go.uber.org/zap"
-	"net/http"
-	"os"
-	"path/filepath"
+	gorm "gorm.io/gorm"
 )
 
 // @title Threeport RESTful API
@@ -104,36 +107,69 @@ func main() {
 	}
 
 	// database connection
-	db, err := database.Init(autoMigrate, &logger)
-	if err != nil {
-		e.Logger.Fatalf("failed to initialize database: %v", err)
+	dbAttemptsMax := 25
+	dbWaitDurationSeconds := 20
+	dbAttempts := 0
+	gormDb := &gorm.DB{}
+	var dbConnectErr error
+	for dbAttempts < dbAttemptsMax {
+		db, err := database.Init(autoMigrate, &logger)
+		if err == nil {
+			gormDb = db
+			break
+		} else {
+			dbConnectErr = err
+		}
+		dbAttempts++
+		time.Sleep(time.Second * time.Duration(dbWaitDurationSeconds))
+	}
+
+	if gormDb == nil {
+		e.Logger.Fatalf("timed out trying to connect to database %v", dbConnectErr)
 	}
 
 	// nats connection
-	natsConn := fmt.Sprintf(
+	natsConnString := fmt.Sprintf(
 		"nats://%s:%s@%s:%s",
 		os.Getenv("NATS_USER"),
 		os.Getenv("NATS_PASSWORD"),
 		os.Getenv("NATS_HOST"),
 		os.Getenv("NATS_PORT"),
 	)
-	nc, err := natsgo.Connect(natsConn)
-	if err != nil {
-		e.Logger.Fatalf("failed to establish nats connection: %v", err)
+
+	natsAttemptsMax := 5
+	natsWaitDurationSeconds := 20
+	natsAttempts := 0
+	natsConn := &natsgo.Conn{}
+	var natsConnErr error
+	for natsAttempts < natsAttemptsMax {
+		nc, err := natsgo.Connect(natsConnString)
+		if err == nil {
+			natsConn = nc
+			break
+		} else {
+			natsConnErr = err
+		}
+		natsAttempts++
+		time.Sleep(time.Second * time.Duration(natsWaitDurationSeconds))
 	}
-	defer nc.Close()
+	if natsConn == nil {
+		e.Logger.Fatalf("timed out trying to establish nats connection: %v", natsConnErr)
+	}
+
+	defer natsConn.Close()
 
 	// jetstream context
-	js, err := util.InitJetStream(nc)
+	js, err := util.InitJetStream(natsConn)
 	if err != nil {
 		e.Logger.Fatalf("failed to initialize nats jet stream: %v", err)
 	}
 
 	// handlers
 	// v0
-	h_v0 := handlers_v0.New(db, nc, *js)
+	h_v0 := handlers_v0.New(gormDb, natsConn, *js)
 	// v1
-	h_v1 := handlers_v1.New(db, nc, *js)
+	h_v1 := handlers_v1.New(gormDb, natsConn, *js)
 
 	// routes
 	routes_v0.SwaggerRoutes(e)
