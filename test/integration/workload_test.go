@@ -534,6 +534,7 @@ func TestWorkloadE2E(t *testing.T) {
 		deletedAttempts := 0
 		deletedAttemptsMax := 10
 		deletedCheckDurationSeconds = 1
+		deleteSuccess := false
 		for deletedAttempts < deletedAttemptsMax {
 			_, err = client.DeleteGatewayDefinition(
 				apiClient,
@@ -548,12 +549,36 @@ func TestWorkloadE2E(t *testing.T) {
 				time.Sleep(time.Second * time.Duration(deletedCheckDurationSeconds))
 				continue
 			}
+			deleteSuccess = true
 			break
 		}
-		assert.Nil(err, "should have no error deleting gateway definition")
+		assert.True(deleteSuccess, "should be able to delete gateway definition")
+
+		// wait for gateway def deletion reconciliation to complete
+		reconcileAttempts := 0
+		reconcileAttemptsMax := 20
+		reconcileCheckDurationSeconds := 1
+		deleteSuccess = false
+		for reconcileAttempts < reconcileAttemptsMax {
+			gatewayDefs, err := client.GetGatewayDefinitions(
+				apiClient,
+				threeportAPIEndpoint,
+			)
+			assert.Nil(err, "should get no error list gateway definitions")
+
+			if len(*gatewayDefs) > 0 {
+				reconcileAttempts++
+				time.Sleep(time.Second * time.Duration(reconcileCheckDurationSeconds))
+				continue
+			}
+			deleteSuccess = true
+			break
+		}
+		assert.True(deleteSuccess, "gateway definition deletion reconciliation should be complete")
 
 		// delete domain name definition
 		deletedAttempts = 0
+		deleteSuccess = false
 		for deletedAttempts < deletedAttemptsMax {
 			_, err = client.DeleteDomainNameDefinition(
 				apiClient,
@@ -568,9 +593,10 @@ func TestWorkloadE2E(t *testing.T) {
 				time.Sleep(time.Duration(deletedCheckDurationSeconds * 1000000000))
 				continue
 			}
+			deleteSuccess = true
 			break
 		}
-		assert.Nil(err, "should have no error deleting domain name definition")
+		assert.True(deleteSuccess, "should be able to delete domain name definition")
 
 		// delete secret definition
 		_, err = client.DeleteSecretDefinition(
