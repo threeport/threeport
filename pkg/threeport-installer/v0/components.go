@@ -23,6 +23,8 @@ import (
 )
 
 const (
+	DbInitFilename            = "db.sql"
+	DbInitLocation            = "/etc/threeport/db-create"
 	dbRootCertSecretName      = "db-root-cert"
 	dbThreeportCertSecretName = "db-threeport-cert"
 )
@@ -203,17 +205,20 @@ NATS_PORT=4222
 	initContainers := []interface{}{
 		map[string]interface{}{
 			"name":            "db-init",
-			"image":           fmt.Sprintf("cockroachdb/cockroach:%s", DatabaseImageTag),
+			"image":           dbMigratorImage,
 			"imagePullPolicy": "IfNotPresent",
 			"command": []interface{}{
-				"bash",
-				"-c",
-				"cockroach sql --certs-dir=/etc/threeport/db-certs --host crdb --port 26257 -f /etc/threeport/db-create/db.sql",
+				fmt.Sprintf("/%s", cpi.Opts.DatabaseMigratorInfo.BinaryName),
 			},
+			"args": []interface{}{"-env-file=/etc/threeport/env", "initialize"},
 			"volumeMounts": []interface{}{
 				map[string]interface{}{
 					"name":      "db-create",
 					"mountPath": "/etc/threeport/db-create",
+				},
+				map[string]interface{}{
+					"name":      "db-config",
+					"mountPath": "/etc/threeport/",
 				},
 				map[string]interface{}{
 					"name":      "db-root-cert",

@@ -685,7 +685,7 @@ func (d *DomainNameDefinitionValues) Delete(apiClient *http.Client, apiEndpoint 
 	// check if domain name definition exists
 	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Name)
 	if err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("failed to find domain name definition with name %s: %w", d.Name, err)
 	}
 
 	deletedDomainNameDefinition, err := client.DeleteDomainNameDefinition(apiClient, apiEndpoint, *existingDomainNameDefinition.ID)

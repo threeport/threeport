@@ -37,7 +37,7 @@ type ZapLogger struct {
 
 // Init initializes the API database.
 func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
-	dsn, err := GetDsn()
+	dsn, err := GetDsn(false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to populate DB DSN from environment: %w", err)
 	}
@@ -57,8 +57,9 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 }
 
 // GetDsn returns the data source name string or an error if one of the required
-// env vars is not set.
-func GetDsn() (string, error) {
+// env vars is not set.  If the root user is requested the DSN will include the
+// root user and reference the root user's SSL cert creds.
+func GetDsn(rootDbUser bool) (string, error) {
 	var dbEnvErrors util.MultiError
 
 	requiredDbEnvVars := map[string]string{
@@ -79,11 +80,16 @@ func GetDsn() (string, error) {
 		}
 	}
 
+	dbUser := requiredDbEnvVars["DB_USER"]
+	if rootDbUser {
+		dbUser = "root"
+	}
+
 	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s dbname=%s sslmode=%s sslrootcert=%s/ca.crt sslcert=%[6]s/client.threeport.crt sslkey=%[6]s/client.threeport.key TimeZone=UTC",
+		"host=%s port=%s user=%s dbname=%s sslmode=%s sslrootcert=%s/ca.crt sslcert=%[6]s/client.%[3]s.crt sslkey=%[6]s/client.%[3]s.key TimeZone=UTC",
 		requiredDbEnvVars["DB_HOST"],
 		requiredDbEnvVars["DB_PORT"],
-		requiredDbEnvVars["DB_USER"],
+		dbUser,
 		requiredDbEnvVars["DB_NAME"],
 		requiredDbEnvVars["DB_SSL_MODE"],
 		ThreeportApiDbCertsDir,

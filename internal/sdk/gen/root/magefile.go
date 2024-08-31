@@ -25,10 +25,12 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// capture function names for each component
 	buildApiFuncName := "BuildApi"
-	buildFuncNames := []string{buildApiFuncName}
+	buildDbMigratorFuncName := "BuildDbMigrator"
+	buildFuncNames := []string{buildApiFuncName, buildDbMigratorFuncName}
 
 	buildApiImageFuncName := "BuildApiImage"
-	buildImageFuncNames := []string{buildApiImageFuncName}
+	buildDbMigratorImageFuncName := "BuildDbMigratorImage"
+	buildImageFuncNames := []string{buildApiImageFuncName, buildDbMigratorImageFuncName}
 
 	buildValsFuncName := "getBuildVals"
 
@@ -67,15 +69,15 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Line()
 
 	// image build and push function for API
-	imageName := "threeport-rest-api"
+	apiImageName := "threeport-rest-api"
 	if gen.Extension {
-		imageName = fmt.Sprintf(
+		apiImageName = fmt.Sprintf(
 			"threeport-%s-rest-api",
 			strcase.ToSnake(sdkConfig.ExtensionName),
 		)
 	}
 	f.Comment(fmt.Sprintf("%s builds and pushes a development REST API image.", buildApiImageFuncName))
-	f.Func().Id("BuildApiImage").Params().Parens(Error()).Block(
+	f.Func().Id(buildApiImageFuncName).Params().Parens(Error()).Block(
 		List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
 		If(Err().Op("!=").Nil()).Block(
 			Return(Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Err())),
@@ -90,7 +92,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().Lit("cmd/rest-api/image/Dockerfile-alpine"),
 			Line().Id("arch"),
 			Line().Lit("localhost:5001"),
-			Line().Lit(imageName),
+			Line().Lit(apiImageName),
 			Line().Lit("dev"),
 			Line().True(),
 			Line().False(),
@@ -98,6 +100,79 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line(),
 		), Err().Op("!=").Nil()).Block(
 			Return(Qual("fmt", "Errorf").Call(Lit("failed to build and push rest-api image: %w"), Err())),
+		),
+		Line(),
+
+		Return(Nil()),
+	)
+	f.Line()
+
+	// binary build function for database migrator
+	f.Comment(fmt.Sprintf("%s builds the database migrator binary.", buildDbMigratorFuncName))
+	f.Func().Id(buildDbMigratorFuncName).Params().Error().Block(
+		List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
+		If(Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Err()),
+		),
+		Line(),
+
+		If(Err().Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/util/v0",
+			"BuildBinary",
+		).Call(
+			Line().Id("workingDir"),
+			Line().Id("arch"),
+			Line().Lit("database-migrator"),
+			Line().Lit("cmd/database-migrator/main_gen.go"),
+			Line().Lit(false),
+			Line(),
+		).Op(";").Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(
+				Lit("failed to build database-migrator binary: %w"),
+				Err(),
+			),
+		),
+		Line(),
+
+		Qual("fmt", "Println").Call(Lit("binary built and available at bin/database-migrator")),
+		Line(),
+
+		Return().Nil(),
+	)
+	f.Line()
+
+	// image build and push function for database migrator
+	dbMigratorImageName := "threeport-database-migrator"
+	if gen.Extension {
+		dbMigratorImageName = fmt.Sprintf(
+			"threeport-%s-database-migrator",
+			strcase.ToSnake(sdkConfig.ExtensionName),
+		)
+	}
+	f.Comment(fmt.Sprintf("%s builds and pushes a development database migrator image.", buildDbMigratorImageFuncName))
+	f.Func().Id(buildDbMigratorImageFuncName).Params().Parens(Error()).Block(
+		List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
+		If(Err().Op("!=").Nil()).Block(
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Err())),
+		),
+		Line(),
+
+		If(Err().Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/util/v0",
+			"BuildImage",
+		).Call(
+			Line().Id("workingDir"),
+			Line().Lit("cmd/database-migrator/image/Dockerfile-alpine"),
+			Line().Id("arch"),
+			Line().Lit("localhost:5001"),
+			Line().Lit(dbMigratorImageName),
+			Line().Lit("dev"),
+			Line().True(),
+			Line().False(),
+			Line().Lit(""),
+			Line(),
+		), Err().Op("!=").Nil()).Block(
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to build and push database-migrator image: %w"), Err())),
 		),
 		Line(),
 

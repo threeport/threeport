@@ -59,6 +59,52 @@ func BuildApiImage() error {
 	return nil
 }
 
+// BuildDbMigrator builds the database migrator binary.
+func BuildDbMigrator() error {
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"database-migrator",
+		"cmd/database-migrator/main_gen.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build database-migrator binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/database-migrator")
+
+	return nil
+}
+
+// BuildDbMigratorImage builds and pushes a development database migrator image.
+func BuildDbMigratorImage() error {
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		"cmd/database-migrator/image/Dockerfile-alpine",
+		arch,
+		"localhost:5001",
+		"threeport-database-migrator",
+		"dev",
+		true,
+		false,
+		"",
+	); err != nil {
+		return fmt.Errorf("failed to build and push database-migrator image: %w", err)
+	}
+
+	return nil
+}
+
 // BuildSecretController builds the binary for the secret-controller.
 func BuildSecretController() error {
 	workingDir, arch, err := getBuildVals()
@@ -479,6 +525,10 @@ func BuildAll() error {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
+	if err := BuildDbMigrator(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
 	if err := BuildSecretController(); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
@@ -521,6 +571,10 @@ func BuildAll() error {
 // BuildAllImages builds and pushes images for all components.
 func BuildAllImages() error {
 	if err := BuildApiImage(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	if err := BuildDbMigratorImage(); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 

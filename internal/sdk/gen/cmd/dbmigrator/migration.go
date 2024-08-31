@@ -79,20 +79,38 @@ func GenDbMigratorMigration(gen *gen.Generator) error {
 	)
 	f.Line()
 
-	f.Func().Id(fmt.Sprintf("dbInterfaces%s", migrationVersion)).Params().Index().Interface().Block(
-		Return(Index().Interface().Values(
-			Line().Op("&").Qual(
-				"github.com/threeport/wordpress-controller/pkg/api/v0",
-				"WordpressDefinition",
-			).Values(),
-			Line().Op("&").Qual(
-				"github.com/threeport/wordpress-controller/pkg/api/v0",
-				"WordpressInstance",
-			).Values(),
-			Line(),
-		)),
+	f.Func().Id(fmt.Sprintf("dbInterfaces%s", migrationVersion)).Parens(Empty()).Params(
+		Index().Interface(),
+	).Block(
+		Return().Index().Interface().BlockFunc(func(g *Group) {
+			for _, version := range gen.GlobalVersionConfig.Versions {
+				for _, name := range version.DatabaseInitNames {
+					g.List(
+						Op("&").Qual(
+							fmt.Sprintf(
+								"%s/pkg/api/%s", gen.ModulePath, version.VersionName,
+							),
+							name,
+						).Values().Op(","),
+					)
+				}
+			}
+		}),
 	)
 	f.Line()
+
+	//// write code to file
+	//genFilepath := filepath.Join(
+	//	"cmd",
+	//	"database-migrator",
+	//	"migrations",
+	//	fmt.Sprintf("%s_init_gen.go", migrationVersion),
+	//)
+	//_, err := util.WriteCodeToFile(f, genFilepath, true)
+	//if err != nil {
+	//	return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+	//}
+	//cli.Info(fmt.Sprintf("source code for initial database migration written to %s", genFilepath))
 
 	// write code to file
 	genFilepath := filepath.Join(
@@ -101,11 +119,15 @@ func GenDbMigratorMigration(gen *gen.Generator) error {
 		"migrations",
 		fmt.Sprintf("%s_init_gen.go", migrationVersion),
 	)
-	_, err := util.WriteCodeToFile(f, genFilepath, true)
+	fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
 	if err != nil {
 		return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
 	}
-	cli.Info(fmt.Sprintf("source code for initial database migration written to %s", genFilepath))
+	if fileWritten {
+		cli.Info(fmt.Sprintf("source code for database migration written to %s", genFilepath))
+	} else {
+		cli.Info(fmt.Sprintf("source code for database migration already exists at %s - not overwritten", genFilepath))
+	}
 
 	return nil
 }

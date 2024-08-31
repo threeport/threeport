@@ -70,7 +70,7 @@ func BuildDatabaseMigrator() error {
 		workingDir,
 		arch,
 		"database-migrator",
-		"cmd/database-migrator/main.go",
+		"cmd/database-migrator/main_gen.go",
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build database-migrator binary: %w", err)
