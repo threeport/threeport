@@ -8,7 +8,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
-// v0WorkloadInstanceCreated performs reconciliation when a v0 workload definition
+// v0WorkloadInstanceCreated performs reconciliation when a v0 WorkloadInstance
 // has been created.
 func v0WorkloadInstanceCreated(
 	r *controller.Reconciler,
@@ -18,7 +18,7 @@ func v0WorkloadInstanceCreated(
 	return 0, nil
 }
 
-// v0WorkloadInstanceUpdated performs reconciliation when a v0 workload definition
+// v0WorkloadInstanceUpdated performs reconciliation when a v0 WorkloadInstance
 // has been updated.
 func v0WorkloadInstanceUpdated(
 	r *controller.Reconciler,
@@ -28,7 +28,7 @@ func v0WorkloadInstanceUpdated(
 	return 0, nil
 }
 
-// v0WorkloadInstanceDeleted performs reconciliation when a v0 workload definition
+// v0WorkloadInstanceDeleted performs reconciliation when a v0 WorkloadInstance
 // has been deleted.
 func v0WorkloadInstanceDeleted(
 	r *controller.Reconciler,

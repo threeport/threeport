@@ -30,7 +30,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// v0ControlPlaneInstanceCreated performs reconciliation when a v0 workload definition
+// v0ControlPlaneInstanceCreated performs reconciliation when a v0 ControlPlaneInstance
 // has been created.
 func v0ControlPlaneInstanceCreated(
 	r *controller.Reconciler,
@@ -72,7 +72,7 @@ func v0ControlPlaneInstanceCreated(
 		*controlPlaneInstance.ControlPlaneDefinitionID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
+		return 0, fmt.Errorf("failed to get control plane definition by ID: %w", err)
 	}
 	if controlPlaneDefinition.Reconciled != nil && !*controlPlaneDefinition.Reconciled {
 		return 0, errors.New("controlplane definition not reconciled")
@@ -686,7 +686,7 @@ func v0ControlPlaneInstanceCreated(
 	return 0, nil
 }
 
-// v0ControlPlaneInstanceUpdated performs reconciliation when a v0 workload definition
+// v0ControlPlaneInstanceUpdated performs reconciliation when a v0 ControlPlaneInstance
 // has been updated.
 func v0ControlPlaneInstanceUpdated(
 	r *controller.Reconciler,
@@ -696,7 +696,7 @@ func v0ControlPlaneInstanceUpdated(
 	return 0, nil
 }
 
-// v0ControlPlaneInstanceDeleted performs reconciliation when a v0 workload definition
+// v0ControlPlaneInstanceDeleted performs reconciliation when a v0 ControlPlaneInstance
 // has been deleted.
 func v0ControlPlaneInstanceDeleted(
 	r *controller.Reconciler,

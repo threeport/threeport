@@ -41,7 +41,7 @@ type requiredAwsObjectStorageBucketInstanceObjects struct {
 	AwsEksKubernetesRuntimeInstance  v0.AwsEksKubernetesRuntimeInstance
 }
 
-// v0AwsObjectStorageBucketInstanceCreated performs reconciliation when a v0 workload definition
+// v0AwsObjectStorageBucketInstanceCreated performs reconciliation when a v0 AwsObjectStorageBucketInstance
 // has been created.
 func v0AwsObjectStorageBucketInstanceCreated(
 	r *controller.Reconciler,
@@ -276,7 +276,7 @@ func v0AwsObjectStorageBucketInstanceCreated(
 	return 0, nil
 }
 
-// v0AwsObjectStorageBucketInstanceUpdated performs reconciliation when a v0 workload definition
+// v0AwsObjectStorageBucketInstanceUpdated performs reconciliation when a v0 AwsObjectStorageBucketInstance
 // has been updated.
 func v0AwsObjectStorageBucketInstanceUpdated(
 	r *controller.Reconciler,
@@ -286,7 +286,7 @@ func v0AwsObjectStorageBucketInstanceUpdated(
 	return 0, nil
 }
 
-// v0AwsObjectStorageBucketInstanceDeleted performs reconciliation when a v0 workload definition
+// v0AwsObjectStorageBucketInstanceDeleted performs reconciliation when a v0 AwsObjectStorageBucketInstance
 // has been deleted.
 func v0AwsObjectStorageBucketInstanceDeleted(
 	r *controller.Reconciler,

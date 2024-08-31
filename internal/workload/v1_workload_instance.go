@@ -25,7 +25,7 @@ import (
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
-// v1WorkloadInstanceCreated performs reconciliation when a v1 workload definition
+// v1WorkloadInstanceCreated performs reconciliation when a v1 WorkloadInstance
 // has been created.
 func v1WorkloadInstanceCreated(
 	r *controller.Reconciler,
@@ -240,7 +240,7 @@ func v1WorkloadInstanceCreated(
 	return 0, nil
 }
 
-// v1WorkloadInstanceUpdated performs reconciliation when a v1 workload definition
+// v1WorkloadInstanceUpdated performs reconciliation when a v1 WorkloadInstance
 // has been updated.
 func v1WorkloadInstanceUpdated(
 	r *controller.Reconciler,
@@ -382,7 +382,7 @@ func v1WorkloadInstanceUpdated(
 	return 0, nil
 }
 
-// v1WorkloadInstanceDeleted performs reconciliation when a v1 workload definition
+// v1WorkloadInstanceDeleted performs reconciliation when a v1 WorkloadInstance
 // has been deleted.
 func v1WorkloadInstanceDeleted(
 	r *controller.Reconciler,

@@ -31,7 +31,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// v0AwsRelationalDatabaseInstanceCreated performs reconciliation when a v0 workload definition
+// v0AwsRelationalDatabaseInstanceCreated performs reconciliation when a v0 AwsRelationalDatabaseInstance
 // has been created.
 func v0AwsRelationalDatabaseInstanceCreated(
 	r *controller.Reconciler,
@@ -263,7 +263,7 @@ func v0AwsRelationalDatabaseInstanceCreated(
 	return 0, nil
 }
 
-// v0AwsRelationalDatabaseInstanceUpdated performs reconciliation when a v0 workload definition
+// v0AwsRelationalDatabaseInstanceUpdated performs reconciliation when a v0 AwsRelationalDatabaseInstance
 // has been updated.
 func v0AwsRelationalDatabaseInstanceUpdated(
 	r *controller.Reconciler,
@@ -273,7 +273,7 @@ func v0AwsRelationalDatabaseInstanceUpdated(
 	return 0, nil
 }
 
-// v0AwsRelationalDatabaseInstanceDeleted performs reconciliation when a v0 workload definition
+// v0AwsRelationalDatabaseInstanceDeleted performs reconciliation when a v0 AwsRelationalDatabaseInstance
 // has been deleted.
 func v0AwsRelationalDatabaseInstanceDeleted(
 	r *controller.Reconciler,

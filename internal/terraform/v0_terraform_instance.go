@@ -18,7 +18,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// v0TerraformInstanceCreated performs reconciliation when a v0 workload definition
+// v0TerraformInstanceCreated performs reconciliation when a v0 TerraformInstance
 // has been created.
 func v0TerraformInstanceCreated(
 	r *controller.Reconciler,
@@ -70,7 +70,7 @@ func v0TerraformInstanceCreated(
 	return 0, nil
 }
 
-// v0TerraformInstanceUpdated performs reconciliation when a v0 workload definition
+// v0TerraformInstanceUpdated performs reconciliation when a v0 TerraformInstance
 // has been updated.
 func v0TerraformInstanceUpdated(
 	r *controller.Reconciler,
@@ -80,7 +80,7 @@ func v0TerraformInstanceUpdated(
 	return 0, nil
 }
 
-// v0TerraformInstanceDeleted performs reconciliation when a v0 workload definition
+// v0TerraformInstanceDeleted performs reconciliation when a v0 TerraformInstance
 // has been deleted.
 func v0TerraformInstanceDeleted(
 	r *controller.Reconciler,

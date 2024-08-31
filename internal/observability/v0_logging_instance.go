@@ -14,7 +14,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// v0LoggingInstanceCreated performs reconciliation when a v0 workload definition
+// v0LoggingInstanceCreated performs reconciliation when a v0 LoggingInstance
 // has been created.
 func v0LoggingInstanceCreated(
 	r *controller.Reconciler,
@@ -82,7 +82,7 @@ func v0LoggingInstanceCreated(
 	return 0, nil
 }
 
-// v0LoggingInstanceUpdated performs reconciliation when a v0 workload definition
+// v0LoggingInstanceUpdated performs reconciliation when a v0 LoggingInstance
 // has been updated.
 func v0LoggingInstanceUpdated(
 	r *controller.Reconciler,
@@ -92,7 +92,7 @@ func v0LoggingInstanceUpdated(
 	return 0, nil
 }
 
-// v0LoggingInstanceDeleted performs reconciliation when a v0 workload definition
+// v0LoggingInstanceDeleted performs reconciliation when a v0 LoggingInstance
 // has been deleted.
 func v0LoggingInstanceDeleted(
 	r *controller.Reconciler,

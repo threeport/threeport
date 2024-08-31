@@ -44,9 +44,10 @@ func GenReconcilerOperations(gen *gen.Generator) error {
 				returnTypes := List(Int64(), Error())
 
 				f.Comment(fmt.Sprintf(
-					"%s performs reconciliation when a %s workload definition",
+					"%s performs reconciliation when a %s %s",
 					createdFuncName,
 					version,
+					obj.Name,
 				))
 				f.Comment("has been created.")
 				f.Func().Id(createdFuncName).Params(
@@ -59,9 +60,10 @@ func GenReconcilerOperations(gen *gen.Generator) error {
 				)
 
 				f.Comment(fmt.Sprintf(
-					"%s performs reconciliation when a %s workload definition",
+					"%s performs reconciliation when a %s %s",
 					updatedFuncName,
 					version,
+					obj.Name,
 				))
 				f.Comment("has been updated.")
 				f.Func().Id(updatedFuncName).Params(
@@ -74,9 +76,10 @@ func GenReconcilerOperations(gen *gen.Generator) error {
 				)
 
 				f.Comment(fmt.Sprintf(
-					"%s performs reconciliation when a %s workload definition",
+					"%s performs reconciliation when a %s %s",
 					deletedFuncName,
 					version,
+					obj.Name,
 				))
 				f.Comment("has been deleted.")
 				f.Func().Id(deletedFuncName).Params(

@@ -20,7 +20,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// v0DomainNameInstanceCreated performs reconciliation when a v0 workload definition
+// v0DomainNameInstanceCreated performs reconciliation when a v0 DomainNameInstance
 // has been created.
 func v0DomainNameInstanceCreated(
 	r *controller.Reconciler,
@@ -49,7 +49,7 @@ func v0DomainNameInstanceCreated(
 	return 0, nil
 }
 
-// v0DomainNameInstanceUpdated performs reconciliation when a v0 workload definition
+// v0DomainNameInstanceUpdated performs reconciliation when a v0 DomainNameInstance
 // has been updated.
 func v0DomainNameInstanceUpdated(
 	r *controller.Reconciler,
@@ -65,7 +65,7 @@ func v0DomainNameInstanceUpdated(
 	return 0, nil
 }
 
-// v0DomainNameInstanceDeleted performs reconciliation when a v0 workload definition
+// v0DomainNameInstanceDeleted performs reconciliation when a v0 DomainNameInstance
 // has been deleted.
 func v0DomainNameInstanceDeleted(
 	r *controller.Reconciler,

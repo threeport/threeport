@@ -25,7 +25,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// v0GatewayInstanceCreated performs reconciliation when a v0 workload definition
+// v0GatewayInstanceCreated performs reconciliation when a v0 GatewayInstance
 // has been created.
 func v0GatewayInstanceCreated(
 	r *controller.Reconciler,
@@ -93,7 +93,7 @@ func v0GatewayInstanceCreated(
 	return 0, nil
 }
 
-// v0GatewayInstanceUpdated performs reconciliation when a v0 workload definition
+// v0GatewayInstanceUpdated performs reconciliation when a v0 GatewayInstance
 // has been updated.
 func v0GatewayInstanceUpdated(
 	r *controller.Reconciler,
@@ -178,7 +178,7 @@ func v0GatewayInstanceUpdated(
 	return 0, nil
 }
 
-// v0GatewayInstanceDeleted performs reconciliation when a v0 workload definition
+// v0GatewayInstanceDeleted performs reconciliation when a v0 GatewayInstance
 // has been deleted.
 func v0GatewayInstanceDeleted(
 	r *controller.Reconciler,
