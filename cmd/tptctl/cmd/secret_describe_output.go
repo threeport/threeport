@@ -4,14 +4,15 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
-	"net/http"
 )
 
-// outputDescribeSecretDefinitionCmd produces the plain description
+// outputDescribev0SecretDefinitionCmd produces the plain description
 // output for the 'tptctl describe secret-definition' command
-func outputDescribeSecretDefinitionCmd(
+func outputDescribev0SecretDefinitionCmd(
 	secretDefinition *v0.SecretDefinition,
 	secretDefinitionConfig *config.SecretDefinitionConfig,
 	apiClient *http.Client,
@@ -34,9 +35,9 @@ func outputDescribeSecretDefinitionCmd(
 	return nil
 }
 
-// outputDescribeSecretInstanceCmd produces the plain description
+// outputDescribev0SecretInstanceCmd produces the plain description
 // output for the 'tptctl describe secret-instance' command
-func outputDescribeSecretInstanceCmd(
+func outputDescribev0SecretInstanceCmd(
 	secretInstance *v0.SecretInstance,
 	secretInstanceConfig *config.SecretInstanceConfig,
 	apiClient *http.Client,

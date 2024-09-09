@@ -40,9 +40,9 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 	Long: `Configure AWS account permissions. This creates an account in the Threeport API
 	and the configures the respective customer-managed AWS account.`,
 	SilenceUsage: true,
-	PreRun:       commandPreRunFunc,
+	PreRun:       CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
-		apiClient, _, apiEndpoint, requestedControlPlane := getClientContext(cmd)
+		apiClient, _, apiEndpoint, requestedControlPlane := GetClientContext(cmd)
 
 		// load AWS configuration
 		awsConf, err := aws_config.LoadAWSConfig(

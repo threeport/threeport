@@ -6,8 +6,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
+	"path/filepath"
+	"plugin"
 
 	"github.com/spf13/cobra"
 
@@ -27,12 +30,28 @@ software delivery using Threeport.  Threeport manages the infrastructure,
 runtime environments, managed service dependencies, installed support services,
 as well as all components of your application.
 
+Plugins: tptctl plugins are installed at ~/.threeport/plugins.  If you install a
+tptctl plugin in an alternative location, set the THREEPORT_PLUGIN_DIR environment
+variable with the alternative install directory.
+
 Visit https://threeport.io for more information.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	// load plugins
+	pluginDir, ok := os.LookupEnv("THREEPORT_PLUGIN_DIR")
+	if !ok {
+		p, err := config.DefaultPluginDir()
+		if err != nil {
+			cli.Error("failed to determine default tptctl plugin directory", err)
+			os.Exit(1)
+		}
+		pluginDir = p
+	}
+	loadPlugins(pluginDir)
+
 	err := rootCmd.Execute()
 	if err != nil {
 		cli.Error("", err)
@@ -42,10 +61,10 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(
-		&cliArgs.CfgFile, "threeport-config", "", "Path to config file (default is $HOME/.config/threeport/config.yaml). Can also be set with environment variable THREEPORT_CONFIG",
+		&cliArgs.CfgFile, "threeport-config", "", "Path to config file (default is $HOME/.threeport/config.yaml). Can also be set with environment variable THREEPORT_CONFIG",
 	)
 	rootCmd.PersistentFlags().StringVar(
-		&cliArgs.ProviderConfigDir, "provider-config", "", "Path to infra provider config directory (default is $HOME/.config/threeport/).",
+		&cliArgs.ProviderConfigDir, "provider-config", "", "Path to infra provider config directory (default is $HOME/.threeport/).",
 	)
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	cobra.OnInitialize(func() {
@@ -55,6 +74,13 @@ func init() {
 }
 
 func commandPreRunFunc(cmd *cobra.Command, args []string) {
+	if err := initializeCommandContext(cmd); err != nil {
+		cli.Error("could not initialize command in pre run:", err)
+		os.Exit(1)
+	}
+}
+
+func CommandPreRunFunc(cmd *cobra.Command, args []string) {
 	if err := initializeCommandContext(cmd); err != nil {
 		cli.Error("could not initialize command in pre run:", err)
 		os.Exit(1)
@@ -122,4 +148,94 @@ func getClientContext(cmd *cobra.Command) (*http.Client, *config.ThreeportConfig
 	}
 
 	return apiClient, threeportConfig, apiEndpoint, requestedControlPlane
+}
+
+func GetClientContext(cmd *cobra.Command) (*http.Client, *config.ThreeportConfig, string, string) {
+	var apiClient *http.Client
+	var threeportConfig *config.ThreeportConfig
+	var apiEndpoint string
+	var requestedControlPlane string
+
+	contextApiClient := cmd.Context().Value("apiClient")
+	if contextApiClient != nil {
+		if client, ok := contextApiClient.(*http.Client); ok {
+			apiClient = client
+		}
+	}
+
+	contextThreeportConfig := cmd.Context().Value("config")
+	if contextThreeportConfig != nil {
+		if config, ok := contextThreeportConfig.(*config.ThreeportConfig); ok {
+			threeportConfig = config
+		}
+	}
+
+	contextApiEndpoint := cmd.Context().Value("apiEndpoint")
+	if contextApiEndpoint != nil {
+		if client, ok := contextApiEndpoint.(string); ok {
+			apiEndpoint = client
+		}
+	}
+
+	contextControlPlane := cmd.Context().Value("requestedControlPlane")
+	if contextControlPlane != nil {
+		if controlPlane, ok := contextControlPlane.(string); ok {
+			requestedControlPlane = controlPlane
+		}
+	}
+
+	return apiClient, threeportConfig, apiEndpoint, requestedControlPlane
+}
+
+// loadPlugins loads all tptctl plugins in the plugin dir.
+func loadPlugins(pluginDir string) {
+	// check if plugin dir exists
+	if _, err := os.Stat(pluginDir); err != nil {
+		if os.IsNotExist(err) {
+			// plugin dir does not exist - assume no plugins installed
+			cli.Warning("no plugins installed")
+			return
+		} else {
+			cli.Error("failed to check for plugin directory", err)
+			os.Exit(1)
+		}
+	}
+
+	// walk through the plugin directory to collect plugin files
+	var pluginFiles []string
+	err := filepath.WalkDir(pluginDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			// if there is an error walking the directory, just skip it
+			return nil
+		}
+		if !d.IsDir() {
+			pluginFiles = append(pluginFiles, path)
+		}
+		return nil
+	})
+	if err != nil {
+		cli.Error("failed to collect plugin files", err)
+		os.Exit(1)
+	}
+
+	// load each plugin
+	for _, file := range pluginFiles {
+		if filepath.Ext(file) == ".so" {
+			cli.Info(fmt.Sprintf("loading plugin %s", file))
+			p, err := plugin.Open(file)
+			if err != nil {
+				cli.Warning(fmt.Sprintf("failed to load plugin %s: %v", file, err))
+				continue
+			}
+
+			cmdFunc, err := p.Lookup("Register")
+			if err != nil {
+				cli.Warning(fmt.Sprintf("failed to find Register function in plugin %s: %v", file, err))
+				continue
+			}
+
+			registerFunc := cmdFunc.(func(*cobra.Command))
+			registerFunc(rootCmd)
+		}
+	}
 }

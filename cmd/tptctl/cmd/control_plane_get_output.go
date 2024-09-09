@@ -82,9 +82,9 @@ func outputGetControlPlanesCmd(
 	return nil
 }
 
-// outputGetControlPlaneDefinitionsCmd produces the tabular output for the
+// outputGetv0ControlPlaneDefinitionsCmd produces the tabular output for the
 // 'tptctl get control-plane-definitions' command.
-func outputGetControlPlaneDefinitionsCmd(
+func outputGetv0ControlPlaneDefinitionsCmd(
 	controlPlaneDefinitions *[]v0.ControlPlaneDefinition,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -104,9 +104,9 @@ func outputGetControlPlaneDefinitionsCmd(
 	return nil
 }
 
-// outputGetControlPlaneInstancesCmd produces the tabular output for the
+// outputGetv0ControlPlaneInstancesCmd produces the tabular output for the
 // 'tptctl get control-plane-instances' command.
-func outputGetControlPlaneInstancesCmd(
+func outputGetv0ControlPlaneInstancesCmd(
 	controlPlaneInstances *[]v0.ControlPlaneInstance,
 	apiClient *http.Client,
 	apiEndpoint string,

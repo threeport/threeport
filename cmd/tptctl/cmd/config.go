@@ -10,8 +10,9 @@ import (
 // ConfigCmd represents the config command
 var ConfigCmd = &cobra.Command{
 	Use:   "config",
-	Short: "Manage your local Threeport config",
-	Long: `Manage your local Threeport config.
+	Short: "Manage Threeport configurations",
+	Long: `Manage Threeport configurations, including the Threeport config used by
+tptctl as well as cloud provider accounts.
 
 The tptctl command line tool uses a Threeport config file to store connection and
 configuration information for one or more installations of Threeport.  By default

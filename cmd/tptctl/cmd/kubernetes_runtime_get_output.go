@@ -56,9 +56,9 @@ func outputGetKubernetesRuntimesCmd(
 	return nil
 }
 
-// outputGetKubernetesRuntimeDefinitionsCmd produces the tabular output for the
+// outputGetv0KubernetesRuntimeDefinitionsCmd produces the tabular output for the
 // 'tptctl get kubernetes-runtime-definitions' command.
-func outputGetKubernetesRuntimeDefinitionsCmd(
+func outputGetv0KubernetesRuntimeDefinitionsCmd(
 	kubernetesRuntimeDefinitions *[]v0.KubernetesRuntimeDefinition,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -92,9 +92,9 @@ func outputGetKubernetesRuntimeDefinitionsCmd(
 	return nil
 }
 
-// outputGetKubernetesRuntimeInstancesCmd produces the tabular output for the
+// outputGetv0KubernetesRuntimeInstancesCmd produces the tabular output for the
 // 'tptctl get kubernetes-runtime-instances' command.
-func outputGetKubernetesRuntimeInstancesCmd(
+func outputGetv0KubernetesRuntimeInstancesCmd(
 	kubernetesRuntimeInstances *[]v0.KubernetesRuntimeInstance,
 	apiClient *http.Client,
 	apiEndpoint string,

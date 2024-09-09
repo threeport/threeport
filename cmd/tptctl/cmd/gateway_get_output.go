@@ -55,9 +55,9 @@ func outputGetGatewaysCmd(
 	return nil
 }
 
-// outputGetGatewayDefinitionsCmd produces the tabular output for the
+// outputGetv0GatewayDefinitionsCmd produces the tabular output for the
 // 'tptctl get gateway-definitions' command.
-func outputGetGatewayDefinitionsCmd(
+func outputGetv0GatewayDefinitionsCmd(
 	gatewayDefinitions *[]v0.GatewayDefinition,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -93,9 +93,9 @@ func outputGetGatewayDefinitionsCmd(
 	return nil
 }
 
-// outputGetGatewayInstancesCmd produces the tabular output for the
+// outputGetv0GatewayInstancesCmd produces the tabular output for the
 // 'tptctl get gateway-instances' command.
-func outputGetGatewayInstancesCmd(
+func outputGetv0GatewayInstancesCmd(
 	gatewayInstances *[]v0.GatewayInstance,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -214,9 +214,9 @@ func outputGetDomainNamesCmd(
 	return nil
 }
 
-// outputGetDomainNameDefinitionsCmd produces the tabular output for the
+// outputGetv0DomainNameDefinitionsCmd produces the tabular output for the
 // 'tptctl get domain-name-definitions' command.
-func outputGetDomainNameDefinitionsCmd(
+func outputGetv0DomainNameDefinitionsCmd(
 	domainNameDefinitions *[]v0.DomainNameDefinition,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -236,9 +236,9 @@ func outputGetDomainNameDefinitionsCmd(
 	return nil
 }
 
-// outputGetDomainNameInstancesCmd produces the tabular output for the
+// outputGetv0DomainNameInstancesCmd produces the tabular output for the
 // 'tptctl get domain-name-instances' command.
-func outputGetDomainNameInstancesCmd(
+func outputGetv0DomainNameInstancesCmd(
 	domainNameInstances *[]v0.DomainNameInstance,
 	apiClient *http.Client,
 	apiEndpoint string,

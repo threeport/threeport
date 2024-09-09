@@ -41,9 +41,9 @@ func outputGetSecretsCmd(
 	return nil
 }
 
-// outputGetSecretDefinitionsCmd produces the tabular output for the
+// outputGetv0SecretDefinitionsCmd produces the tabular output for the
 // 'tptctl get secret-definitions' command.
-func outputGetSecretDefinitionsCmd(
+func outputGetv0SecretDefinitionsCmd(
 	secretDefinitions *[]v0.SecretDefinition,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -62,9 +62,9 @@ func outputGetSecretDefinitionsCmd(
 	return nil
 }
 
-// outputGetSecretInstancesCmd produces the tabular output for the
+// outputGetv0SecretInstancesCmd produces the tabular output for the
 // 'tptctl get secret-instances' command.
-func outputGetSecretInstancesCmd(
+func outputGetv0SecretInstancesCmd(
 	secretInstances *[]v0.SecretInstance,
 	apiClient *http.Client,
 	apiEndpoint string,

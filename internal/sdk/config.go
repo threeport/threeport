@@ -101,6 +101,8 @@ type ApiObject struct {
 	//   object definition.
 	// * `threeport-sdk create` will not add a foreign key reference back to the
 	//   definition.
+	// * `threeport-sdk gen` will not created the tptctl commands to manage
+	// defined instance abstractions.
 	DefinedInstance *bool `yaml:"DefinedInstance"`
 
 	// Indicate whether the object will need a controller
@@ -265,4 +267,28 @@ func IsOfDefinedInstance(
 	}
 
 	return false, "", ""
+}
+
+// ObjectFromGroup returns the SDK config's API object when given the object
+// group and name of the object.
+func ApiObjectFromGroup(
+	objectName string,
+	objectGroup *ApiObjectGroup,
+) (*ApiObject, error) {
+	var objectsFound []ApiObject
+	for _, obj := range objectGroup.Objects {
+		if *obj.Name == objectName {
+			objectsFound = append(objectsFound, *obj)
+		}
+	}
+
+	if len(objectsFound) > 1 {
+		return nil, fmt.Errorf("multiple objects with name %s in object group", objectName)
+	}
+
+	if len(objectsFound) == 0 {
+		return nil, fmt.Errorf("no objects with name %s found in object group", objectName)
+	}
+
+	return &objectsFound[0], nil
 }

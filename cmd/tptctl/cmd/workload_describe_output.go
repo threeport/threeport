@@ -16,9 +16,9 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// outputDescribeWorkloadDefinitionCmd produces the plain description
+// outputDescribev0WorkloadDefinitionCmd produces the plain description
 // output for the 'tptctl describe workload-definition' command
-func outputDescribeWorkloadDefinitionCmd(
+func outputDescribev0WorkloadDefinitionCmd(
 	workloadDefinition *v0.WorkloadDefinition,
 	workloadDefinitionConfig *config.WorkloadDefinitionConfig,
 	apiClient *http.Client,
@@ -55,9 +55,66 @@ func outputDescribeWorkloadDefinitionCmd(
 	return nil
 }
 
-// outputDescribeWorkloadInstanceCmd produces the plain description
+// outputDescribev0WorkloadInstanceCmd produces the plain description
 // output for the 'tptctl describe workload-instance' command
-func outputDescribeWorkloadInstanceCmd(
+func outputDescribev0WorkloadInstanceCmd(
+	workloadInstance *v0.WorkloadInstance,
+	workloadInstanceConfig *config.WorkloadInstanceConfig,
+	apiClient *http.Client,
+	apiEndpoint string,
+) error {
+	// describe workload instance
+	workloadStatus, err := workloadInstanceConfig.WorkloadInstance.Describe(
+		apiClient,
+		apiEndpoint,
+	)
+	if err != nil {
+		cli.Error("failed to describe workload instance", err)
+		os.Exit(1)
+	}
+
+	// output describe details
+	fmt.Printf(
+		"* WorkloadInstance Name: %s\n",
+		workloadInstanceConfig.WorkloadInstance.Name,
+	)
+	fmt.Printf(
+		"* Created: %s\n",
+		*workloadInstance.CreatedAt,
+	)
+	fmt.Printf(
+		"* Last Modified: %s\n",
+		*workloadInstance.UpdatedAt,
+	)
+	fmt.Printf(
+		"* Workload Status: %s\n",
+		workloadStatus.Status,
+	)
+	if workloadStatus.Reason != "" {
+		fmt.Printf(
+			"* Workload Status Reason: %s\n",
+			workloadStatus.Reason,
+		)
+	}
+	if len(workloadStatus.Events) > 0 && workloadStatus.Status != status.WorkloadInstanceStatusHealthy {
+		cli.Warning("Failed & Warning Events:")
+		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
+		fmt.Fprintln(writer, "TYPE\t REASON\t MESSAGE\t AGE")
+		for _, event := range workloadStatus.Events {
+			fmt.Fprintln(
+				writer, *event.Type, "\t", *event.Reason, "\t", *event.Message, "\t",
+				util.GetAge(event.Timestamp),
+			)
+		}
+		writer.Flush()
+	}
+
+	return nil
+}
+
+// outputDescribev1WorkloadInstanceCmd produces the plain description
+// output for the 'tptctl describe workload-instance' command
+func outputDescribev1WorkloadInstanceCmd(
 	workloadInstance *v1.WorkloadInstance,
 	workloadInstanceConfig *config.WorkloadInstanceConfig,
 	apiClient *http.Client,

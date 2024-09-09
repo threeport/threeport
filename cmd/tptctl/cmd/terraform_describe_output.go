@@ -10,9 +10,9 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-// outputDescribeTerraformDefinitionCmd produces the plain description
+// outputDescribev0TerraformDefinitionCmd produces the plain description
 // output for the 'tptctl describe terraform-definition' command
-func outputDescribeTerraformDefinitionCmd(
+func outputDescribev0TerraformDefinitionCmd(
 	terraformDefinition *v0.TerraformDefinition,
 	terraformDefinitionConfig *config.TerraformDefinitionConfig,
 	apiClient *http.Client,
@@ -49,9 +49,9 @@ func outputDescribeTerraformDefinitionCmd(
 	return nil
 }
 
-// outputDescribeTerraformInstanceCmd produces the plain description
+// outputDescribev0TerraformInstanceCmd produces the plain description
 // output for the 'tptctl describe terraform-instance' command
-func outputDescribeTerraformInstanceCmd(
+func outputDescribev0TerraformInstanceCmd(
 	terraformInstance *v0.TerraformInstance,
 	terraformInstanceConfig *config.TerraformInstanceConfig,
 	apiClient *http.Client,

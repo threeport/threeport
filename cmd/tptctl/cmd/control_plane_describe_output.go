@@ -10,9 +10,9 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-// outputDescribeControlPlaneDefinitionCmd produces the plain description
+// outputDescribev0ControlPlaneDefinitionCmd produces the plain description
 // output for the 'tptctl describe control-plane-definition' command
-func outputDescribeControlPlaneDefinitionCmd(
+func outputDescribev0ControlPlaneDefinitionCmd(
 	controlPlaneDefinition *v0.ControlPlaneDefinition,
 	controlPlaneDefinitionConfig *config.ControlPlaneDefinitionConfig,
 	apiClient *http.Client,
@@ -35,9 +35,9 @@ func outputDescribeControlPlaneDefinitionCmd(
 	return nil
 }
 
-// outputDescribeControlPlaneInstanceCmd produces the plain description
+// outputDescribev0ControlPlaneInstanceCmd produces the plain description
 // output for the 'tptctl describe control-plane-instance' command
-func outputDescribeControlPlaneInstanceCmd(
+func outputDescribev0ControlPlaneInstanceCmd(
 	controlPlaneInstance *v0.ControlPlaneInstance,
 	controlPlaneInstanceConfig *config.ControlPlaneInstanceConfig,
 	apiClient *http.Client,

@@ -15,9 +15,9 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// outputDescribeHelmWorkloadDefinitionCmd produces the plain description
+// outputDescribev0HelmWorkloadDefinitionCmd produces the plain description
 // output for the 'tptctl describe helm-workload-definition' command
-func outputDescribeHelmWorkloadDefinitionCmd(
+func outputDescribev0HelmWorkloadDefinitionCmd(
 	helmWorkloadDefinition *v0.HelmWorkloadDefinition,
 	helmWorkloadDefinitionConfig *config.HelmWorkloadDefinitionConfig,
 	apiClient *http.Client,
@@ -54,9 +54,9 @@ func outputDescribeHelmWorkloadDefinitionCmd(
 	return nil
 }
 
-// outputDescribeHelmWorkloadInstanceCmd produces the plain description
+// outputDescribev0HelmWorkloadInstanceCmd produces the plain description
 // output for the 'tptctl describe helm-workload-instance' command
-func outputDescribeHelmWorkloadInstanceCmd(
+func outputDescribev0HelmWorkloadInstanceCmd(
 	helmWorkloadInstance *v0.HelmWorkloadInstance,
 	helmWorkloadInstanceConfig *config.HelmWorkloadInstanceConfig,
 	apiClient *http.Client,

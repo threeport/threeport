@@ -355,6 +355,48 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	})
 	f.Line()
 
+	// extension plugin build
+	if gen.Extension {
+		f.Comment("BuildPlugin compiles the extension's tptctl plugin")
+		f.Func().Id("BuildPlugin").Params().Error().Block(
+			Id("buildCmd").Op(":=").Qual("os/exec", "Command").Call(
+				Line().Lit("go"),
+				Line().Lit("build"),
+				Line().Lit("-o"),
+				Line().Lit(fmt.Sprintf(
+					"bin/%s.so",
+					strcase.ToKebab(sdkConfig.ExtensionName),
+				)),
+				Line().Lit("-buildmode=plugin"),
+				Line().Lit(fmt.Sprintf(
+					"cmd/%s/main_gen.go",
+					strcase.ToSnake(sdkConfig.ExtensionName),
+				)),
+				Line(),
+			),
+			Line(),
+
+			Id("output").Op(",").Id("err").Op(":=").Id("buildCmd").Dot("CombinedOutput").Call(),
+			If(Id("err").Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(
+					Lit("build failed for tptctl plugin with output '%s': %w"),
+					Id("output"),
+					Id("err"),
+				)),
+			),
+			Line(),
+
+			Qual("fmt", "Println").Call(Lit(fmt.Sprintf(
+				"tptctl plugin built and available at bin/%s",
+				strcase.ToKebab(sdkConfig.ExtensionName),
+			))),
+			Line(),
+
+			Return(Nil()),
+		)
+		f.Line()
+	}
+
 	// API docs generation
 	f.Comment("Docs generates the API server documentation that is served by the API")
 	f.Func().Id("Docs").Params().Error().Block(

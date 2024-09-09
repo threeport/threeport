@@ -279,24 +279,23 @@ func BuildTptctl() error {
 	return nil
 }
 
-// InstallTptctl installs tptctl binary at /usr/local/bin/.
-func InstallTptctl() error {
+// InstallTptctl installs tptctl binary at the provided path.
+func InstallTptctl(path string) error {
 	if err := BuildTptctl(); err != nil {
 		return fmt.Errorf("failed to build tptctl: %w", err)
 	}
 
 	installTptctlCmd := exec.Command(
-		"sudo",
 		"cp",
 		"./bin/tptctl",
-		"/usr/local/bin/tptctl",
+		path,
 	)
 	output, err := installTptctlCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("install failed for tptctl binary with output: '%s': %w", output, err)
 	}
 
-	fmt.Println("tptctl binary installed and available at /usr/local/bin/tptctl")
+	fmt.Printf("tptctl binary installed and available at %s\n", path)
 
 	return nil
 }

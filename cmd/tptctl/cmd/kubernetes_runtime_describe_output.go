@@ -10,9 +10,9 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-// outputDescribeKubernetesRuntimeDefinitionCmd produces the plain description
+// outputDescribev0KubernetesRuntimeDefinitionCmd produces the plain description
 // output for the 'tptctl describe kubernetes-runtime-definition' command
-func outputDescribeKubernetesRuntimeDefinitionCmd(
+func outputDescribev0KubernetesRuntimeDefinitionCmd(
 	kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition,
 	kubernetesRuntimeDefinitionConfig *config.KubernetesRuntimeDefinitionConfig,
 	apiClient *http.Client,
@@ -52,9 +52,9 @@ func outputDescribeKubernetesRuntimeDefinitionCmd(
 	return nil
 }
 
-// outputDescribeKubernetesRuntimeInstanceCmd produces the plain description
+// outputDescribev0KubernetesRuntimeInstanceCmd produces the plain description
 // output for the 'tptctl describe kubernetes-runtime-instance' command
-func outputDescribeKubernetesRuntimeInstanceCmd(
+func outputDescribev0KubernetesRuntimeInstanceCmd(
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	kubernetesRuntimeInstanceConfig *config.KubernetesRuntimeInstanceConfig,
 	apiClient *http.Client,

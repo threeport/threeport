@@ -42,9 +42,7 @@ func GenHandlers(gen *gen.Generator) error {
 			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/api-server/lib/v0",
 				tpApiServerLibAlias,
-				//"apiserver_lib",
 				extApiServerLibAlias,
-				//"tpapiserver_lib",
 				gen.Extension,
 			))
 			f.ImportAlias(util.SetImportAlias(
@@ -345,7 +343,7 @@ func GenHandlers(gen *gen.Generator) error {
 				}
 
 				instanceCheck := false
-				if apiObject.DefinedInstance {
+				if apiObject.DefinedInstanceDefinition {
 					instanceCheck = true
 				}
 				deleteObjectChecks := &Statement{}

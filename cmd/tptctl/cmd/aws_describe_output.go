@@ -12,9 +12,9 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-// outputDescribeAwsAccountCmd produces the plain description
+// outputDescribev0AwsAccountCmd produces the plain description
 // output for the 'tptctl describe aws-account' command
-func outputDescribeAwsAccountCmd(
+func outputDescribev0AwsAccountCmd(
 	awsAccount *v0.AwsAccount,
 	awsAccountConfig *config.AwsAccountConfig,
 	apiClient *http.Client,
@@ -63,9 +63,9 @@ func outputDescribeAwsAccountCmd(
 	return nil
 }
 
-// outputDescribeAwsEksKubernetesRuntimeDefinitionCmd produces the plain description
+// outputDescribev0AwsEksKubernetesRuntimeDefinitionCmd produces the plain description
 // output for the 'tptctl describe aws-eks-kubernetes-runtime-definition' command
-func outputDescribeAwsEksKubernetesRuntimeDefinitionCmd(
+func outputDescribev0AwsEksKubernetesRuntimeDefinitionCmd(
 	awsEksKubernetesRuntimeDefinition *v0.AwsEksKubernetesRuntimeDefinition,
 	awsEksKubernetesRuntimeDefinitionConfig *config.AwsEksKubernetesRuntimeDefinitionConfig,
 	apiClient *http.Client,
@@ -109,9 +109,9 @@ func outputDescribeAwsEksKubernetesRuntimeDefinitionCmd(
 	return nil
 }
 
-// outputDescribeAwsEksKubernetesRuntimeInstanceCmd produces the plain description
+// outputDescribev0AwsEksKubernetesRuntimeInstanceCmd produces the plain description
 // output for the 'tptctl describe aws-eks-kubernetes-runtime-instance' command
-func outputDescribeAwsEksKubernetesRuntimeInstanceCmd(
+func outputDescribev0AwsEksKubernetesRuntimeInstanceCmd(
 	awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
 	awsEksKubernetesRuntimeInstanceConfig *config.AwsEksKubernetesRuntimeInstanceConfig,
 	apiClient *http.Client,
@@ -151,9 +151,9 @@ func outputDescribeAwsEksKubernetesRuntimeInstanceCmd(
 	return nil
 }
 
-// outputDescribeAwsRelationalDatabaseDefinitionCmd produces the plain description
+// outputDescribev0AwsRelationalDatabaseDefinitionCmd produces the plain description
 // output for the 'tptctl describe aws-relational-database-definition' command
-func outputDescribeAwsRelationalDatabaseDefinitionCmd(
+func outputDescribev0AwsRelationalDatabaseDefinitionCmd(
 	awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition,
 	awsRelationalDatabaseDefinitionConfig *config.AwsRelationalDatabaseDefinitionConfig,
 	apiClient *http.Client,
@@ -176,9 +176,9 @@ func outputDescribeAwsRelationalDatabaseDefinitionCmd(
 	return nil
 }
 
-// outputDescribeAwsRelationalDatabaseInstanceCmd produces the plain description
+// outputDescribev0AwsRelationalDatabaseInstanceCmd produces the plain description
 // output for the 'tptctl describe aws-relational-database-instance' command
-func outputDescribeAwsRelationalDatabaseInstanceCmd(
+func outputDescribev0AwsRelationalDatabaseInstanceCmd(
 	awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance,
 	awsRelationalDatabaseInstanceConfig *config.AwsRelationalDatabaseInstanceConfig,
 	apiClient *http.Client,
@@ -201,9 +201,9 @@ func outputDescribeAwsRelationalDatabaseInstanceCmd(
 	return nil
 }
 
-// outputDescribeAwsObjectStorageBucketDefinitionCmd produces the plain description
+// outputDescribev0AwsObjectStorageBucketDefinitionCmd produces the plain description
 // output for the 'tptctl describe aws-object-storage-bucket-definition' command
-func outputDescribeAwsObjectStorageBucketDefinitionCmd(
+func outputDescribev0AwsObjectStorageBucketDefinitionCmd(
 	awsObjectStorageBucketDefinition *v0.AwsObjectStorageBucketDefinition,
 	awsObjectStorageBucketDefinitionConfig *config.AwsObjectStorageBucketDefinitionConfig,
 	apiClient *http.Client,
@@ -243,9 +243,9 @@ func outputDescribeAwsObjectStorageBucketDefinitionCmd(
 	return nil
 }
 
-// outputDescribeAwsObjectStorageBucketInstanceCmd produces the plain description
+// outputDescribev0AwsObjectStorageBucketInstanceCmd produces the plain description
 // output for the 'tptctl describe aws-object-storage-bucket-instance' command
-func outputDescribeAwsObjectStorageBucketInstanceCmd(
+func outputDescribev0AwsObjectStorageBucketInstanceCmd(
 	awsObjectStorageBucketInstance *v0.AwsObjectStorageBucketInstance,
 	awsObjectStorageBucketInstanceConfig *config.AwsObjectStorageBucketInstanceConfig,
 	apiClient *http.Client,
