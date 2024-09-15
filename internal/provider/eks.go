@@ -507,8 +507,22 @@ func GetResourceManagerRoleName(clusterName string) string {
 }
 
 // GetResourceManagerRoleArn returns the ARN for the runtime manager role.
-func GetResourceManagerRoleArn(clusterName, accountId string) string {
-	return fmt.Sprintf("arn:aws:iam::%s:role/%s", accountId, GetResourceManagerRoleName(clusterName))
+func GetResourceManagerRoleArn(
+	clusterName string,
+	callerIdentity *sts.GetCallerIdentityOutput,
+) string {
+	return fmt.Sprintf(
+		"arn:%s:iam::%s:role/%s",
+		GetAwsPartition(callerIdentity),
+		*callerIdentity.Account,
+		GetResourceManagerRoleName(clusterName),
+	)
+}
+
+// GetAwsPartition returns the AWS partition for given caller identity.
+func GetAwsPartition(callerIdentity *sts.GetCallerIdentityOutput) string {
+	partition := strings.Split(*callerIdentity.Arn, ":")
+	return partition[1]
 }
 
 // GetCallerIdentity returns the caller identity for the AWS account.
