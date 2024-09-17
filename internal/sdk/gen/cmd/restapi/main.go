@@ -316,34 +316,71 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Line(),
 
 		Comment("database connection"),
-		List(Id("db"), Err()).Op(":=").Qual(
-			fmt.Sprintf("%s/pkg/api-server/v0/database", gen.ModulePath),
-			"Init",
-		).Call(Id("autoMigrate"), Op("&").Id("logger")),
-		If(Err().Op("!=").Nil()).Block(
-			Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("failed to initialize database: %v"), Err()),
-		),
-		Line(),
 
-		Comment("nats connection"),
-		Id("natsConn").Op(":=").Qual("fmt", "Sprintf").Call(
-			Line().Lit("nats://%s:%s@%s:%s"),
-			Line().Qual("os", "Getenv").Call(Lit("NATS_USER")),
-			Line().Qual("os", "Getenv").Call(Lit("NATS_PASSWORD")),
-			Line().Qual("os", "Getenv").Call(Lit("NATS_HOST")),
-			Line().Qual("os", "Getenv").Call(Lit("NATS_PORT")),
-			Line(),
-		),
-		List(Id("nc"), Err()).Op(":=").Qual(
-			"github.com/nats-io/nats.go",
-			"Connect",
-		).Call(Id("natsConn")),
-		If(Err().Op("!=").Nil()).Block(
-			Id("e").Dot("Logger").Dot("Fatalf").Call(
-				Lit("failed to establish nats connection: %v"), Err(),
+		// Declare dbAttemptsMax, dbWaitDurationSeconds, dbAttempts, gormDb, dbConnectErr
+		Id("dbAttemptsMax").Op(":=").Lit(25),
+		Id("dbWaitDurationSeconds").Op(":=").Lit(20),
+		Id("dbAttempts").Op(":=").Lit(0),
+		Id("gormDb").Op(":=").Op("&").Qual("gorm", "DB").Values(),
+		Var().Id("dbConnectErr").Error(),
+
+		// For loop for DB connection attempts
+		For(Id("dbAttempts").Op("<").Id("dbAttemptsMax")).Block(
+			List(Id("db"), Id("err")).Op(":=").Qual("database", "Init").Call(Id("autoMigrate"), Op("&").Id("logger")),
+			If(Id("err").Op("==").Nil()).Block(
+				Id("gormDb").Op("=").Id("db"),
+				Break(),
+			).Else().Block(
+				Id("dbConnectErr").Op("=").Id("err"),
 			),
+			Id("dbAttempts").Op("++"),
+			Qual("time", "Sleep").Call(Qual("time", "Second").Op("*").Qual("time", "Duration").Call(Id("dbWaitDurationSeconds"))),
 		),
-		Defer().Id("nc").Dot("Close").Call(),
+
+		// Check if gormDb is nil
+		If(Id("gormDb").Op("==").Nil()).Block(
+			Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("timed out trying to connect to database %v"), Id("dbConnectErr")),
+		),
+
+		Line(), // Newline for separation
+
+		// NATS connection
+		Comment("nats connection"),
+		Id("natsConnString").Op(":=").Qual("fmt", "Sprintf").Call(
+			Lit("nats://%s:%s@%s:%s"),
+			Qual("os", "Getenv").Call(Lit("NATS_USER")),
+			Qual("os", "Getenv").Call(Lit("NATS_PASSWORD")),
+			Qual("os", "Getenv").Call(Lit("NATS_HOST")),
+			Qual("os", "Getenv").Call(Lit("NATS_PORT")),
+		),
+
+		// Declare natsAttemptsMax, natsWaitDurationSeconds, natsAttempts, natsConn, natsConnErr
+		Id("natsAttemptsMax").Op(":=").Lit(5),
+		Id("natsWaitDurationSeconds").Op(":=").Lit(20),
+		Id("natsAttempts").Op(":=").Lit(0),
+		Id("natsConn").Op(":=").Op("&").Qual("github.com/nats-io/nats.go", "Conn").Values(),
+		Var().Id("natsConnErr").Error(),
+
+		// For loop for NATS connection attempts
+		For(Id("natsAttempts").Op("<").Id("natsAttemptsMax")).Block(
+			List(Id("nc"), Id("err")).Op(":=").Qual("github.com/nats-io/nats.go", "Connect").Call(Id("natsConnString")),
+			If(Id("err").Op("==").Nil()).Block(
+				Id("natsConn").Op("=").Id("nc"),
+				Break(),
+			).Else().Block(
+				Id("natsConnErr").Op("=").Id("err"),
+			),
+			Id("natsAttempts").Op("++"),
+			Qual("time", "Sleep").Call(Qual("time", "Second").Op("*").Qual("time", "Duration").Call(Id("natsWaitDurationSeconds"))),
+		),
+
+		// Check if natsConn is nil
+		If(Id("natsConn").Op("==").Nil()).Block(
+			Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("timed out trying to establish nats connection: %v"), Id("natsConnErr")),
+		),
+
+		// Defer close
+		Defer().Id("natsConn").Dot("Close").Call(),
 		Line(),
 
 		Comment("jetstream context"),

@@ -5,8 +5,10 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	database "database"
 	"flag"
 	"fmt"
+	gorm "gorm"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,7 +22,6 @@ import (
 	util "github.com/threeport/threeport/cmd/rest-api/util"
 	version "github.com/threeport/threeport/internal/version"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
-	database "github.com/threeport/threeport/pkg/api-server/v0/database"
 	_ "github.com/threeport/threeport/pkg/api-server/v0/docs"
 	handlers_v0 "github.com/threeport/threeport/pkg/api-server/v0/handlers"
 	routes_v0 "github.com/threeport/threeport/pkg/api-server/v0/routes"
@@ -30,7 +31,6 @@ import (
 	versions_v1 "github.com/threeport/threeport/pkg/api-server/v1/versions"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	zap "go.uber.org/zap"
-	gorm "gorm.io/gorm"
 )
 
 // @title Threeport RESTful API
@@ -123,20 +123,12 @@ func main() {
 		dbAttempts++
 		time.Sleep(time.Second * time.Duration(dbWaitDurationSeconds))
 	}
-
 	if gormDb == nil {
 		e.Logger.Fatalf("timed out trying to connect to database %v", dbConnectErr)
 	}
 
 	// nats connection
-	natsConnString := fmt.Sprintf(
-		"nats://%s:%s@%s:%s",
-		os.Getenv("NATS_USER"),
-		os.Getenv("NATS_PASSWORD"),
-		os.Getenv("NATS_HOST"),
-		os.Getenv("NATS_PORT"),
-	)
-
+	natsConnString := fmt.Sprintf("nats://%s:%s@%s:%s", os.Getenv("NATS_USER"), os.Getenv("NATS_PASSWORD"), os.Getenv("NATS_HOST"), os.Getenv("NATS_PORT"))
 	natsAttemptsMax := 5
 	natsWaitDurationSeconds := 20
 	natsAttempts := 0
@@ -156,20 +148,19 @@ func main() {
 	if natsConn == nil {
 		e.Logger.Fatalf("timed out trying to establish nats connection: %v", natsConnErr)
 	}
-
 	defer natsConn.Close()
 
 	// jetstream context
-	js, err := util.InitJetStream(natsConn)
+	js, err := util.InitJetStream(nc)
 	if err != nil {
 		e.Logger.Fatalf("failed to initialize nats jet stream: %v", err)
 	}
 
 	// handlers
 	// v0
-	h_v0 := handlers_v0.New(gormDb, natsConn, *js)
+	h_v0 := handlers_v0.New(db, nc, *js)
 	// v1
-	h_v1 := handlers_v1.New(gormDb, natsConn, *js)
+	h_v1 := handlers_v1.New(db, nc, *js)
 
 	// routes
 	routes_v0.SwaggerRoutes(e)

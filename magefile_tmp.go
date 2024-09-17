@@ -10,229 +10,227 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // BuildApi builds the REST API binary.
-func BuildApi() error {
-	workingDir, arch, err := GetBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
+// func BuildApi() error {
+// 	workingDir, arch, err := GetBuildVals()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get build values: %w", err)
+// 	}
 
-	if err := util.BuildBinary(
-		workingDir,
-		arch,
-		"rest-api",
-		"cmd/rest-api/main_gen.go",
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to build rest-api binary: %w", err)
-	}
+// 	if err := util.BuildBinary(
+// 		workingDir,
+// 		arch,
+// 		"rest-api",
+// 		"cmd/rest-api/main_gen.go",
+// 		false,
+// 	); err != nil {
+// 		return fmt.Errorf("failed to build rest-api binary: %w", err)
+// 	}
 
-	fmt.Println("binary built and available at bin/rest-api")
+// 	fmt.Println("binary built and available at bin/rest-api")
 
-	return nil
-}
+// 	return nil
+// }
 
 // BuildSecretController builds the binary for the secret-controller.
-func BuildSecretController() error {
-	workingDir, arch, err := GetBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
+// func BuildSecretController() error {
+// 	workingDir, arch, err := GetBuildVals()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get build values: %w", err)
+// 	}
 
-	if err := util.BuildBinary(
-		workingDir,
-		arch,
-		"secret-controller",
-		"cmd/secret-controller/main_gen.go",
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to build secret-controller binary: %w", err)
-	}
+// 	if err := util.BuildBinary(
+// 		workingDir,
+// 		arch,
+// 		"secret-controller",
+// 		"cmd/secret-controller/main_gen.go",
+// 		false,
+// 	); err != nil {
+// 		return fmt.Errorf("failed to build secret-controller binary: %w", err)
+// 	}
 
-	fmt.Println("binary built and available at bin/secret-controller")
+// 	fmt.Println("binary built and available at bin/secret-controller")
 
-	return nil
-}
+// 	return nil
+// }
 
-// BuildAwsController builds the binary for the aws-controller.
-func BuildAwsController() error {
-	workingDir, arch, err := GetBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
+// // BuildAwsController builds the binary for the aws-controller.
+// func BuildAwsController() error {
+// 	workingDir, arch, err := GetBuildVals()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get build values: %w", err)
+// 	}
 
-	if err := util.BuildBinary(
-		workingDir,
-		arch,
-		"aws-controller",
-		"cmd/aws-controller/main_gen.go",
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to build aws-controller binary: %w", err)
-	}
+// 	if err := util.BuildBinary(
+// 		workingDir,
+// 		arch,
+// 		"aws-controller",
+// 		"cmd/aws-controller/main_gen.go",
+// 		false,
+// 	); err != nil {
+// 		return fmt.Errorf("failed to build aws-controller binary: %w", err)
+// 	}
 
-	fmt.Println("binary built and available at bin/aws-controller")
+// 	fmt.Println("binary built and available at bin/aws-controller")
 
-	return nil
-}
+// 	return nil
+// }
 
-// BuildControlPlaneController builds the binary for the control-plane-controller.
-func BuildControlPlaneController() error {
-	workingDir, arch, err := GetBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
+// // BuildControlPlaneController builds the binary for the control-plane-controller.
+// func BuildControlPlaneController() error {
+// 	workingDir, arch, err := GetBuildVals()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get build values: %w", err)
+// 	}
 
-	if err := util.BuildBinary(
-		workingDir,
-		arch,
-		"control-plane-controller",
-		"cmd/control-plane-controller/main_gen.go",
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to build control-plane-controller binary: %w", err)
-	}
+// 	if err := util.BuildBinary(
+// 		workingDir,
+// 		arch,
+// 		"control-plane-controller",
+// 		"cmd/control-plane-controller/main_gen.go",
+// 		false,
+// 	); err != nil {
+// 		return fmt.Errorf("failed to build control-plane-controller binary: %w", err)
+// 	}
 
-	fmt.Println("binary built and available at bin/control-plane-controller")
+// 	fmt.Println("binary built and available at bin/control-plane-controller")
 
-	return nil
-}
+// 	return nil
+// }
 
-// BuildGatewayController builds the binary for the gateway-controller.
-func BuildGatewayController() error {
-	workingDir, arch, err := GetBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
+// // BuildGatewayController builds the binary for the gateway-controller.
+// func BuildGatewayController() error {
+// 	workingDir, arch, err := GetBuildVals()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get build values: %w", err)
+// 	}
 
-	if err := util.BuildBinary(
-		workingDir,
-		arch,
-		"gateway-controller",
-		"cmd/gateway-controller/main_gen.go",
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to build gateway-controller binary: %w", err)
-	}
+// 	if err := util.BuildBinary(
+// 		workingDir,
+// 		arch,
+// 		"gateway-controller",
+// 		"cmd/gateway-controller/main_gen.go",
+// 		false,
+// 	); err != nil {
+// 		return fmt.Errorf("failed to build gateway-controller binary: %w", err)
+// 	}
 
-	fmt.Println("binary built and available at bin/gateway-controller")
+// 	fmt.Println("binary built and available at bin/gateway-controller")
 
-	return nil
-}
+// 	return nil
+// }
 
-// BuildHelmWorkloadController builds the binary for the helm-workload-controller.
-func BuildHelmWorkloadController() error {
-	workingDir, arch, err := GetBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
+// // BuildHelmWorkloadController builds the binary for the helm-workload-controller.
+// func BuildHelmWorkloadController() error {
+// 	workingDir, arch, err := GetBuildVals()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get build values: %w", err)
+// 	}
 
-	if err := util.BuildBinary(
-		workingDir,
-		arch,
-		"helm-workload-controller",
-		"cmd/helm-workload-controller/main_gen.go",
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to build helm-workload-controller binary: %w", err)
-	}
+// 	if err := util.BuildBinary(
+// 		workingDir,
+// 		arch,
+// 		"helm-workload-controller",
+// 		"cmd/helm-workload-controller/main_gen.go",
+// 		false,
+// 	); err != nil {
+// 		return fmt.Errorf("failed to build helm-workload-controller binary: %w", err)
+// 	}
 
-	fmt.Println("binary built and available at bin/helm-workload-controller")
+// 	fmt.Println("binary built and available at bin/helm-workload-controller")
 
-	return nil
-}
+// 	return nil
+// }
 
-// BuildKubernetesRuntimeController builds the binary for the kubernetes-runtime-controller.
-func BuildKubernetesRuntimeController() error {
-	workingDir, arch, err := GetBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
+// // BuildKubernetesRuntimeController builds the binary for the kubernetes-runtime-controller.
+// func BuildKubernetesRuntimeController() error {
+// 	workingDir, arch, err := GetBuildVals()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get build values: %w", err)
+// 	}
 
-	if err := util.BuildBinary(
-		workingDir,
-		arch,
-		"kubernetes-runtime-controller",
-		"cmd/kubernetes-runtime-controller/main_gen.go",
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to build kubernetes-runtime-controller binary: %w", err)
-	}
+// 	if err := util.BuildBinary(
+// 		workingDir,
+// 		arch,
+// 		"kubernetes-runtime-controller",
+// 		"cmd/kubernetes-runtime-controller/main_gen.go",
+// 		false,
+// 	); err != nil {
+// 		return fmt.Errorf("failed to build kubernetes-runtime-controller binary: %w", err)
+// 	}
 
-	fmt.Println("binary built and available at bin/kubernetes-runtime-controller")
+// 	fmt.Println("binary built and available at bin/kubernetes-runtime-controller")
 
-	return nil
-}
+// 	return nil
+// }
 
-// BuildObservabilityController builds the binary for the observability-controller.
-func BuildObservabilityController() error {
-	workingDir, arch, err := GetBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
+// // BuildObservabilityController builds the binary for the observability-controller.
+// func BuildObservabilityController() error {
+// 	workingDir, arch, err := GetBuildVals()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get build values: %w", err)
+// 	}
 
-	if err := util.BuildBinary(
-		workingDir,
-		arch,
-		"observability-controller",
-		"cmd/observability-controller/main_gen.go",
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to build observability-controller binary: %w", err)
-	}
+// 	if err := util.BuildBinary(
+// 		workingDir,
+// 		arch,
+// 		"observability-controller",
+// 		"cmd/observability-controller/main_gen.go",
+// 		false,
+// 	); err != nil {
+// 		return fmt.Errorf("failed to build observability-controller binary: %w", err)
+// 	}
 
-	fmt.Println("binary built and available at bin/observability-controller")
+// 	fmt.Println("binary built and available at bin/observability-controller")
 
-	return nil
-}
+// 	return nil
+// }
 
-// BuildTerraformController builds the binary for the terraform-controller.
-func BuildTerraformController() error {
-	workingDir, arch, err := GetBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
+// // BuildTerraformController builds the binary for the terraform-controller.
+// func BuildTerraformController() error {
+// 	workingDir, arch, err := GetBuildVals()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get build values: %w", err)
+// 	}
 
-	if err := util.BuildBinary(
-		workingDir,
-		arch,
-		"terraform-controller",
-		"cmd/terraform-controller/main_gen.go",
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to build terraform-controller binary: %w", err)
-	}
+// 	if err := util.BuildBinary(
+// 		workingDir,
+// 		arch,
+// 		"terraform-controller",
+// 		"cmd/terraform-controller/main_gen.go",
+// 		false,
+// 	); err != nil {
+// 		return fmt.Errorf("failed to build terraform-controller binary: %w", err)
+// 	}
 
-	fmt.Println("binary built and available at bin/terraform-controller")
+// 	fmt.Println("binary built and available at bin/terraform-controller")
 
-	return nil
-}
+// 	return nil
+// }
 
-// BuildWorkloadController builds the binary for the workload-controller.
-func BuildWorkloadController() error {
-	workingDir, arch, err := GetBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
+// // BuildWorkloadController builds the binary for the workload-controller.
+// func BuildWorkloadController() error {
+// 	workingDir, arch, err := GetBuildVals()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get build values: %w", err)
+// 	}
 
-	if err := util.BuildBinary(
-		workingDir,
-		arch,
-		"workload-controller",
-		"cmd/workload-controller/main_gen.go",
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to build workload-controller binary: %w", err)
-	}
+// 	if err := util.BuildBinary(
+// 		workingDir,
+// 		arch,
+// 		"workload-controller",
+// 		"cmd/workload-controller/main_gen.go",
+// 		false,
+// 	); err != nil {
+// 		return fmt.Errorf("failed to build workload-controller binary: %w", err)
+// 	}
 
-	fmt.Println("binary built and available at bin/workload-controller")
+// 	fmt.Println("binary built and available at bin/workload-controller")
 
-	return nil
-}
+// 	return nil
+// }
 
 // BuildApiImage builds and pushes the REST API image.
 func BuildApiImage() error {
