@@ -8,10 +8,10 @@ import (
 	"fmt"
 	ghodss_yaml "github.com/ghodss/yaml"
 	cobra "github.com/spf13/cobra"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
+	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	yaml "gopkg.in/yaml.v2"
@@ -80,7 +80,10 @@ func init() {
 	)
 }
 
-var createAwsAccountConfigPath string
+var (
+	createAwsAccountConfigPath string
+	createAwsAccountVersion    string
+)
 
 // CreateAwsAccountCmd represents the aws-account command
 var CreateAwsAccountCmd = &cobra.Command{
@@ -90,27 +93,34 @@ var CreateAwsAccountCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load aws account config
+		// read aws account config
 		configContent, err := os.ReadFile(createAwsAccountConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var awsAccountConfig config.AwsAccountConfig
-		if err := yaml.UnmarshalStrict(configContent, &awsAccountConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create aws account based on version
+		switch createAwsAccountVersion {
+		case "v0":
+			var awsAccountConfig config_v0.AwsAccountConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsAccountConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create aws account
+			awsAccount := awsAccountConfig.AwsAccount
+			createdAwsAccount, err := awsAccount.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create aws account", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws account %s created", *createdAwsAccount.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create aws account
-		awsAccount := awsAccountConfig.AwsAccount
-		createdAwsAccount, err := awsAccount.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create aws account", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("aws account %s created", *createdAwsAccount.Name))
 	},
 	Short:        "Create a new aws account",
 	SilenceUsage: true,
@@ -129,11 +139,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateAwsAccountCmd.Flags().StringVarP(
+		&createAwsAccountVersion,
+		"version", "v", "v0", "Version of aws accounts object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteAwsAccountConfigPath string
 	deleteAwsAccountName       string
+	deleteAwsAccountVersion    string
 )
 
 // DeleteAwsAccountCmd represents the aws-account command
@@ -154,35 +169,42 @@ var DeleteAwsAccountCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var awsAccountConfig config.AwsAccountConfig
-		if deleteAwsAccountConfigPath != "" {
-			// load aws account config
-			configContent, err := os.ReadFile(deleteAwsAccountConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete aws account based on version
+		switch deleteAwsAccountVersion {
+		case "v0":
+			var awsAccountConfig config_v0.AwsAccountConfig
+			if deleteAwsAccountConfigPath != "" {
+				// load aws account config
+				configContent, err := os.ReadFile(deleteAwsAccountConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsAccountConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsAccountConfig = config_v0.AwsAccountConfig{
+					AwsAccount: config_v0.AwsAccountValues{
+						Name: deleteAwsAccountName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &awsAccountConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsAccountConfig = config.AwsAccountConfig{
-				AwsAccount: config.AwsAccountValues{
-					Name: deleteAwsAccountName,
-				},
-			}
-		}
 
-		// delete aws account
-		awsAccount := awsAccountConfig.AwsAccount
-		deletedAwsAccount, err := awsAccount.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete aws account", err)
+			// delete aws account
+			awsAccount := awsAccountConfig.AwsAccount
+			deletedAwsAccount, err := awsAccount.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete aws account", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws account %s deleted", *deletedAwsAccount.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("aws account %s deleted", *deletedAwsAccount.Name))
 	},
 	Short:        "Delete an existing aws account",
 	SilenceUsage: true,
@@ -203,6 +225,10 @@ func init() {
 	DeleteAwsAccountCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteAwsAccountCmd.Flags().StringVarP(
+		&deleteAwsAccountVersion,
+		"version", "v", "v0", "Version of aws accounts object to delete. One of: [v0]",
 	)
 }
 
@@ -240,30 +266,31 @@ var DescribeAwsAccountCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load aws account config by name or config file
-		var awsAccountConfig config.AwsAccountConfig
-		if describeAwsAccountConfigPath != "" {
-			configContent, err := os.ReadFile(describeAwsAccountConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &awsAccountConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsAccountConfig = config.AwsAccountConfig{
-				AwsAccount: config.AwsAccountValues{
-					Name: describeAwsAccountName,
-				},
-			}
-		}
-
 		// get aws account
 		var awsAccount interface{}
 		switch describeAwsAccountVersion {
 		case "v0":
+			// load aws account config by name or config file
+			var awsAccountConfig config_v0.AwsAccountConfig
+			if describeAwsAccountConfigPath != "" {
+				configContent, err := os.ReadFile(describeAwsAccountConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsAccountConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsAccountConfig = config_v0.AwsAccountConfig{
+					AwsAccount: config_v0.AwsAccountValues{
+						Name: describeAwsAccountName,
+					},
+				}
+			}
+
+			// get aws account object by name
 			obj, err := client_v0.GetAwsAccountByName(
 				apiClient,
 				apiEndpoint,
@@ -274,6 +301,19 @@ var DescribeAwsAccountCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			awsAccount = obj
+
+			// return plain output if requested
+			if describeAwsAccountOutput == "plain" {
+				if err := outputDescribev0AwsAccountCmd(
+					awsAccount.(*api_v0.AwsAccount),
+					&awsAccountConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe aws account", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -297,7 +337,7 @@ var DescribeAwsAccountCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -321,21 +361,8 @@ var DescribeAwsAccountCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeAwsAccountOutput {
-		case "plain":
-			switch describeAwsAccountVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0AwsAccountCmd(
-					awsAccount.(*v0.AwsAccount),
-					&awsAccountConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe aws account", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedAwsAccount := encryption.RedactEncryptedValues(awsAccount)
@@ -464,7 +491,10 @@ func init() {
 	)
 }
 
-var createAwsEksKubernetesRuntimeDefinitionConfigPath string
+var (
+	createAwsEksKubernetesRuntimeDefinitionConfigPath string
+	createAwsEksKubernetesRuntimeDefinitionVersion    string
+)
 
 // CreateAwsEksKubernetesRuntimeDefinitionCmd represents the aws-eks-kubernetes-runtime-definition command
 var CreateAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
@@ -474,27 +504,34 @@ var CreateAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load aws eks kubernetes runtime definition config
+		// read aws eks kubernetes runtime definition config
 		configContent, err := os.ReadFile(createAwsEksKubernetesRuntimeDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var awsEksKubernetesRuntimeDefinitionConfig config.AwsEksKubernetesRuntimeDefinitionConfig
-		if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeDefinitionConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create aws eks kubernetes runtime definition based on version
+		switch createAwsEksKubernetesRuntimeDefinitionVersion {
+		case "v0":
+			var awsEksKubernetesRuntimeDefinitionConfig config_v0.AwsEksKubernetesRuntimeDefinitionConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create aws eks kubernetes runtime definition
+			awsEksKubernetesRuntimeDefinition := awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition
+			createdAwsEksKubernetesRuntimeDefinition, err := awsEksKubernetesRuntimeDefinition.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create aws eks kubernetes runtime definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws eks kubernetes runtime definition %s created", *createdAwsEksKubernetesRuntimeDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create aws eks kubernetes runtime definition
-		awsEksKubernetesRuntimeDefinition := awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition
-		createdAwsEksKubernetesRuntimeDefinition, err := awsEksKubernetesRuntimeDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create aws eks kubernetes runtime definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("aws eks kubernetes runtime definition %s created", *createdAwsEksKubernetesRuntimeDefinition.Name))
 	},
 	Short:        "Create a new aws eks kubernetes runtime definition",
 	SilenceUsage: true,
@@ -513,11 +550,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateAwsEksKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
+		&createAwsEksKubernetesRuntimeDefinitionVersion,
+		"version", "v", "v0", "Version of aws eks kubernetes runtime definitions object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteAwsEksKubernetesRuntimeDefinitionConfigPath string
 	deleteAwsEksKubernetesRuntimeDefinitionName       string
+	deleteAwsEksKubernetesRuntimeDefinitionVersion    string
 )
 
 // DeleteAwsEksKubernetesRuntimeDefinitionCmd represents the aws-eks-kubernetes-runtime-definition command
@@ -538,35 +580,42 @@ var DeleteAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var awsEksKubernetesRuntimeDefinitionConfig config.AwsEksKubernetesRuntimeDefinitionConfig
-		if deleteAwsEksKubernetesRuntimeDefinitionConfigPath != "" {
-			// load aws eks kubernetes runtime definition config
-			configContent, err := os.ReadFile(deleteAwsEksKubernetesRuntimeDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete aws eks kubernetes runtime definition based on version
+		switch deleteAwsEksKubernetesRuntimeDefinitionVersion {
+		case "v0":
+			var awsEksKubernetesRuntimeDefinitionConfig config_v0.AwsEksKubernetesRuntimeDefinitionConfig
+			if deleteAwsEksKubernetesRuntimeDefinitionConfigPath != "" {
+				// load aws eks kubernetes runtime definition config
+				configContent, err := os.ReadFile(deleteAwsEksKubernetesRuntimeDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsEksKubernetesRuntimeDefinitionConfig = config_v0.AwsEksKubernetesRuntimeDefinitionConfig{
+					AwsEksKubernetesRuntimeDefinition: config_v0.AwsEksKubernetesRuntimeDefinitionValues{
+						Name: deleteAwsEksKubernetesRuntimeDefinitionName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsEksKubernetesRuntimeDefinitionConfig = config.AwsEksKubernetesRuntimeDefinitionConfig{
-				AwsEksKubernetesRuntimeDefinition: config.AwsEksKubernetesRuntimeDefinitionValues{
-					Name: deleteAwsEksKubernetesRuntimeDefinitionName,
-				},
-			}
-		}
 
-		// delete aws eks kubernetes runtime definition
-		awsEksKubernetesRuntimeDefinition := awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition
-		deletedAwsEksKubernetesRuntimeDefinition, err := awsEksKubernetesRuntimeDefinition.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete aws eks kubernetes runtime definition", err)
+			// delete aws eks kubernetes runtime definition
+			awsEksKubernetesRuntimeDefinition := awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition
+			deletedAwsEksKubernetesRuntimeDefinition, err := awsEksKubernetesRuntimeDefinition.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete aws eks kubernetes runtime definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws eks kubernetes runtime definition %s deleted", *deletedAwsEksKubernetesRuntimeDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("aws eks kubernetes runtime definition %s deleted", *deletedAwsEksKubernetesRuntimeDefinition.Name))
 	},
 	Short:        "Delete an existing aws eks kubernetes runtime definition",
 	SilenceUsage: true,
@@ -587,6 +636,10 @@ func init() {
 	DeleteAwsEksKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteAwsEksKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
+		&deleteAwsEksKubernetesRuntimeDefinitionVersion,
+		"version", "v", "v0", "Version of aws eks kubernetes runtime definitions object to delete. One of: [v0]",
 	)
 }
 
@@ -624,30 +677,31 @@ var DescribeAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load aws eks kubernetes runtime definition config by name or config file
-		var awsEksKubernetesRuntimeDefinitionConfig config.AwsEksKubernetesRuntimeDefinitionConfig
-		if describeAwsEksKubernetesRuntimeDefinitionConfigPath != "" {
-			configContent, err := os.ReadFile(describeAwsEksKubernetesRuntimeDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsEksKubernetesRuntimeDefinitionConfig = config.AwsEksKubernetesRuntimeDefinitionConfig{
-				AwsEksKubernetesRuntimeDefinition: config.AwsEksKubernetesRuntimeDefinitionValues{
-					Name: describeAwsEksKubernetesRuntimeDefinitionName,
-				},
-			}
-		}
-
 		// get aws eks kubernetes runtime definition
 		var awsEksKubernetesRuntimeDefinition interface{}
 		switch describeAwsEksKubernetesRuntimeDefinitionVersion {
 		case "v0":
+			// load aws eks kubernetes runtime definition config by name or config file
+			var awsEksKubernetesRuntimeDefinitionConfig config_v0.AwsEksKubernetesRuntimeDefinitionConfig
+			if describeAwsEksKubernetesRuntimeDefinitionConfigPath != "" {
+				configContent, err := os.ReadFile(describeAwsEksKubernetesRuntimeDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsEksKubernetesRuntimeDefinitionConfig = config_v0.AwsEksKubernetesRuntimeDefinitionConfig{
+					AwsEksKubernetesRuntimeDefinition: config_v0.AwsEksKubernetesRuntimeDefinitionValues{
+						Name: describeAwsEksKubernetesRuntimeDefinitionName,
+					},
+				}
+			}
+
+			// get aws eks kubernetes runtime definition object by name
 			obj, err := client_v0.GetAwsEksKubernetesRuntimeDefinitionByName(
 				apiClient,
 				apiEndpoint,
@@ -658,6 +712,19 @@ var DescribeAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			awsEksKubernetesRuntimeDefinition = obj
+
+			// return plain output if requested
+			if describeAwsEksKubernetesRuntimeDefinitionOutput == "plain" {
+				if err := outputDescribev0AwsEksKubernetesRuntimeDefinitionCmd(
+					awsEksKubernetesRuntimeDefinition.(*api_v0.AwsEksKubernetesRuntimeDefinition),
+					&awsEksKubernetesRuntimeDefinitionConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe aws eks kubernetes runtime definition", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -681,7 +748,7 @@ var DescribeAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -705,21 +772,8 @@ var DescribeAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeAwsEksKubernetesRuntimeDefinitionOutput {
-		case "plain":
-			switch describeAwsEksKubernetesRuntimeDefinitionVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0AwsEksKubernetesRuntimeDefinitionCmd(
-					awsEksKubernetesRuntimeDefinition.(*v0.AwsEksKubernetesRuntimeDefinition),
-					&awsEksKubernetesRuntimeDefinitionConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe aws eks kubernetes runtime definition", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedAwsEksKubernetesRuntimeDefinition := encryption.RedactEncryptedValues(awsEksKubernetesRuntimeDefinition)
@@ -836,7 +890,10 @@ func init() {
 	)
 }
 
-var createAwsEksKubernetesRuntimeConfigPath string
+var (
+	createAwsEksKubernetesRuntimeConfigPath string
+	createAwsEksKubernetesRuntimeVersion    string
+)
 
 // CreateAwsEksKubernetesRuntimeCmd represents the aws-eks-kubernetes-runtime command
 var CreateAwsEksKubernetesRuntimeCmd = &cobra.Command{
@@ -846,32 +903,40 @@ var CreateAwsEksKubernetesRuntimeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load aws eks kubernetes runtime config
+		// read aws eks kubernetes runtime config
 		configContent, err := os.ReadFile(createAwsEksKubernetesRuntimeConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var awsEksKubernetesRuntimeConfig config.AwsEksKubernetesRuntimeConfig
-		if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// create aws eks kubernetes runtime based on version
+		switch createAwsEksKubernetesRuntimeVersion {
+		case "v0":
+			var awsEksKubernetesRuntimeConfig config_v0.AwsEksKubernetesRuntimeConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create aws eks kubernetes runtime
+			awsEksKubernetesRuntime := awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime
+			createdAwsEksKubernetesRuntimeDefinition, createdAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntime.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				cli.Error("failed to create aws eks kubernetes runtime", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("aws eks kubernetes runtime definition %s created", *createdAwsEksKubernetesRuntimeDefinition.Name))
+			cli.Info(fmt.Sprintf("aws eks kubernetes runtime instance %s created", *createdAwsEksKubernetesRuntimeInstance.Name))
+			cli.Complete(fmt.Sprintf("aws eks kubernetes runtime %s created", awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create aws eks kubernetes runtime
-		awsEksKubernetesRuntime := awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime
-		createdAwsEksKubernetesRuntimeDefinition, createdAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntime.Create(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to create aws eks kubernetes runtime", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("aws eks kubernetes runtime definition %s created", *createdAwsEksKubernetesRuntimeDefinition.Name))
-		cli.Info(fmt.Sprintf("aws eks kubernetes runtime instance %s created", *createdAwsEksKubernetesRuntimeInstance.Name))
-		cli.Complete(fmt.Sprintf("aws eks kubernetes runtime %s created", awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime.Name))
 	},
 	Short:        "Create a new aws eks kubernetes runtime",
 	SilenceUsage: true,
@@ -890,11 +955,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateAwsEksKubernetesRuntimeCmd.Flags().StringVarP(
+		&createAwsEksKubernetesRuntimeVersion,
+		"version", "v", "v0", "Version of aws eks kubernetes runtimes object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteAwsEksKubernetesRuntimeConfigPath string
 	deleteAwsEksKubernetesRuntimeName       string
+	deleteAwsEksKubernetesRuntimeVersion    string
 )
 
 // DeleteAwsEksKubernetesRuntimeCmd represents the aws-eks-kubernetes-runtime command
@@ -910,29 +980,37 @@ var DeleteAwsEksKubernetesRuntimeCmd = &cobra.Command{
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
-		var awsEksKubernetesRuntimeConfig config.AwsEksKubernetesRuntimeConfig
-		// load aws eks kubernetes runtime config
+		// read aws eks kubernetes runtime config
 		configContent, err := os.ReadFile(deleteAwsEksKubernetesRuntimeConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// delete aws eks kubernetes runtime based on version
+		switch deleteAwsEksKubernetesRuntimeVersion {
+		case "v0":
+			var awsEksKubernetesRuntimeConfig config_v0.AwsEksKubernetesRuntimeConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// delete aws eks kubernetes runtime
+			awsEksKubernetesRuntime := awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime
+			_, _, err = awsEksKubernetesRuntime.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete aws eks kubernetes runtime", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("aws eks kubernetes runtime definition %s deleted", awsEksKubernetesRuntime.Name))
+			cli.Info(fmt.Sprintf("aws eks kubernetes runtime instance %s deleted", awsEksKubernetesRuntime.Name))
+			cli.Complete(fmt.Sprintf("aws eks kubernetes runtime %s deleted", awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// delete aws eks kubernetes runtime
-		awsEksKubernetesRuntime := awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime
-		_, _, err = awsEksKubernetesRuntime.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete aws eks kubernetes runtime", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("aws eks kubernetes runtime definition %s deleted", awsEksKubernetesRuntime.Name))
-		cli.Info(fmt.Sprintf("aws eks kubernetes runtime instance %s deleted", awsEksKubernetesRuntime.Name))
-		cli.Complete(fmt.Sprintf("aws eks kubernetes runtime %s deleted", awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime.Name))
 	},
 	Short:        "Delete an existing aws eks kubernetes runtime",
 	SilenceUsage: true,
@@ -949,6 +1027,10 @@ func init() {
 	DeleteAwsEksKubernetesRuntimeCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteAwsEksKubernetesRuntimeCmd.Flags().StringVarP(
+		&deleteAwsEksKubernetesRuntimeVersion,
+		"version", "v", "v0", "Version of aws eks kubernetes runtimes object to delete. One of: [v0]",
 	)
 }
 
@@ -1014,7 +1096,10 @@ func init() {
 	)
 }
 
-var createAwsEksKubernetesRuntimeInstanceConfigPath string
+var (
+	createAwsEksKubernetesRuntimeInstanceConfigPath string
+	createAwsEksKubernetesRuntimeInstanceVersion    string
+)
 
 // CreateAwsEksKubernetesRuntimeInstanceCmd represents the aws-eks-kubernetes-runtime-instance command
 var CreateAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
@@ -1024,27 +1109,34 @@ var CreateAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load aws eks kubernetes runtime instance config
+		// read aws eks kubernetes runtime instance config
 		configContent, err := os.ReadFile(createAwsEksKubernetesRuntimeInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var awsEksKubernetesRuntimeInstanceConfig config.AwsEksKubernetesRuntimeInstanceConfig
-		if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeInstanceConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create aws eks kubernetes runtime instance based on version
+		switch createAwsEksKubernetesRuntimeInstanceVersion {
+		case "v0":
+			var awsEksKubernetesRuntimeInstanceConfig config_v0.AwsEksKubernetesRuntimeInstanceConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create aws eks kubernetes runtime instance
+			awsEksKubernetesRuntimeInstance := awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance
+			createdAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstance.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create aws eks kubernetes runtime instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws eks kubernetes runtime instance %s created", *createdAwsEksKubernetesRuntimeInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create aws eks kubernetes runtime instance
-		awsEksKubernetesRuntimeInstance := awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance
-		createdAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create aws eks kubernetes runtime instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("aws eks kubernetes runtime instance %s created", *createdAwsEksKubernetesRuntimeInstance.Name))
 	},
 	Short:        "Create a new aws eks kubernetes runtime instance",
 	SilenceUsage: true,
@@ -1063,11 +1155,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateAwsEksKubernetesRuntimeInstanceCmd.Flags().StringVarP(
+		&createAwsEksKubernetesRuntimeInstanceVersion,
+		"version", "v", "v0", "Version of aws eks kubernetes runtime instances object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteAwsEksKubernetesRuntimeInstanceConfigPath string
 	deleteAwsEksKubernetesRuntimeInstanceName       string
+	deleteAwsEksKubernetesRuntimeInstanceVersion    string
 )
 
 // DeleteAwsEksKubernetesRuntimeInstanceCmd represents the aws-eks-kubernetes-runtime-instance command
@@ -1088,35 +1185,42 @@ var DeleteAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var awsEksKubernetesRuntimeInstanceConfig config.AwsEksKubernetesRuntimeInstanceConfig
-		if deleteAwsEksKubernetesRuntimeInstanceConfigPath != "" {
-			// load aws eks kubernetes runtime instance config
-			configContent, err := os.ReadFile(deleteAwsEksKubernetesRuntimeInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete aws eks kubernetes runtime instance based on version
+		switch deleteAwsEksKubernetesRuntimeInstanceVersion {
+		case "v0":
+			var awsEksKubernetesRuntimeInstanceConfig config_v0.AwsEksKubernetesRuntimeInstanceConfig
+			if deleteAwsEksKubernetesRuntimeInstanceConfigPath != "" {
+				// load aws eks kubernetes runtime instance config
+				configContent, err := os.ReadFile(deleteAwsEksKubernetesRuntimeInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsEksKubernetesRuntimeInstanceConfig = config_v0.AwsEksKubernetesRuntimeInstanceConfig{
+					AwsEksKubernetesRuntimeInstance: config_v0.AwsEksKubernetesRuntimeInstanceValues{
+						Name: deleteAwsEksKubernetesRuntimeInstanceName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsEksKubernetesRuntimeInstanceConfig = config.AwsEksKubernetesRuntimeInstanceConfig{
-				AwsEksKubernetesRuntimeInstance: config.AwsEksKubernetesRuntimeInstanceValues{
-					Name: deleteAwsEksKubernetesRuntimeInstanceName,
-				},
-			}
-		}
 
-		// delete aws eks kubernetes runtime instance
-		awsEksKubernetesRuntimeInstance := awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance
-		deletedAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstance.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete aws eks kubernetes runtime instance", err)
+			// delete aws eks kubernetes runtime instance
+			awsEksKubernetesRuntimeInstance := awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance
+			deletedAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstance.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete aws eks kubernetes runtime instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws eks kubernetes runtime instance %s deleted", *deletedAwsEksKubernetesRuntimeInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("aws eks kubernetes runtime instance %s deleted", *deletedAwsEksKubernetesRuntimeInstance.Name))
 	},
 	Short:        "Delete an existing aws eks kubernetes runtime instance",
 	SilenceUsage: true,
@@ -1137,6 +1241,10 @@ func init() {
 	DeleteAwsEksKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteAwsEksKubernetesRuntimeInstanceCmd.Flags().StringVarP(
+		&deleteAwsEksKubernetesRuntimeInstanceVersion,
+		"version", "v", "v0", "Version of aws eks kubernetes runtime instances object to delete. One of: [v0]",
 	)
 }
 
@@ -1174,30 +1282,31 @@ var DescribeAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load aws eks kubernetes runtime instance config by name or config file
-		var awsEksKubernetesRuntimeInstanceConfig config.AwsEksKubernetesRuntimeInstanceConfig
-		if describeAwsEksKubernetesRuntimeInstanceConfigPath != "" {
-			configContent, err := os.ReadFile(describeAwsEksKubernetesRuntimeInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsEksKubernetesRuntimeInstanceConfig = config.AwsEksKubernetesRuntimeInstanceConfig{
-				AwsEksKubernetesRuntimeInstance: config.AwsEksKubernetesRuntimeInstanceValues{
-					Name: describeAwsEksKubernetesRuntimeInstanceName,
-				},
-			}
-		}
-
 		// get aws eks kubernetes runtime instance
 		var awsEksKubernetesRuntimeInstance interface{}
 		switch describeAwsEksKubernetesRuntimeInstanceVersion {
 		case "v0":
+			// load aws eks kubernetes runtime instance config by name or config file
+			var awsEksKubernetesRuntimeInstanceConfig config_v0.AwsEksKubernetesRuntimeInstanceConfig
+			if describeAwsEksKubernetesRuntimeInstanceConfigPath != "" {
+				configContent, err := os.ReadFile(describeAwsEksKubernetesRuntimeInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsEksKubernetesRuntimeInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsEksKubernetesRuntimeInstanceConfig = config_v0.AwsEksKubernetesRuntimeInstanceConfig{
+					AwsEksKubernetesRuntimeInstance: config_v0.AwsEksKubernetesRuntimeInstanceValues{
+						Name: describeAwsEksKubernetesRuntimeInstanceName,
+					},
+				}
+			}
+
+			// get aws eks kubernetes runtime instance object by name
 			obj, err := client_v0.GetAwsEksKubernetesRuntimeInstanceByName(
 				apiClient,
 				apiEndpoint,
@@ -1208,6 +1317,19 @@ var DescribeAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			awsEksKubernetesRuntimeInstance = obj
+
+			// return plain output if requested
+			if describeAwsEksKubernetesRuntimeInstanceOutput == "plain" {
+				if err := outputDescribev0AwsEksKubernetesRuntimeInstanceCmd(
+					awsEksKubernetesRuntimeInstance.(*api_v0.AwsEksKubernetesRuntimeInstance),
+					&awsEksKubernetesRuntimeInstanceConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe aws eks kubernetes runtime instance", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -1231,7 +1353,7 @@ var DescribeAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -1255,21 +1377,8 @@ var DescribeAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeAwsEksKubernetesRuntimeInstanceOutput {
-		case "plain":
-			switch describeAwsEksKubernetesRuntimeInstanceVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0AwsEksKubernetesRuntimeInstanceCmd(
-					awsEksKubernetesRuntimeInstance.(*v0.AwsEksKubernetesRuntimeInstance),
-					&awsEksKubernetesRuntimeInstanceConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe aws eks kubernetes runtime instance", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedAwsEksKubernetesRuntimeInstance := encryption.RedactEncryptedValues(awsEksKubernetesRuntimeInstance)
@@ -1398,7 +1507,10 @@ func init() {
 	)
 }
 
-var createAwsObjectStorageBucketDefinitionConfigPath string
+var (
+	createAwsObjectStorageBucketDefinitionConfigPath string
+	createAwsObjectStorageBucketDefinitionVersion    string
+)
 
 // CreateAwsObjectStorageBucketDefinitionCmd represents the aws-object-storage-bucket-definition command
 var CreateAwsObjectStorageBucketDefinitionCmd = &cobra.Command{
@@ -1408,27 +1520,34 @@ var CreateAwsObjectStorageBucketDefinitionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load aws object storage bucket definition config
+		// read aws object storage bucket definition config
 		configContent, err := os.ReadFile(createAwsObjectStorageBucketDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var awsObjectStorageBucketDefinitionConfig config.AwsObjectStorageBucketDefinitionConfig
-		if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketDefinitionConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create aws object storage bucket definition based on version
+		switch createAwsObjectStorageBucketDefinitionVersion {
+		case "v0":
+			var awsObjectStorageBucketDefinitionConfig config_v0.AwsObjectStorageBucketDefinitionConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create aws object storage bucket definition
+			awsObjectStorageBucketDefinition := awsObjectStorageBucketDefinitionConfig.AwsObjectStorageBucketDefinition
+			createdAwsObjectStorageBucketDefinition, err := awsObjectStorageBucketDefinition.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create aws object storage bucket definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws object storage bucket definition %s created", *createdAwsObjectStorageBucketDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create aws object storage bucket definition
-		awsObjectStorageBucketDefinition := awsObjectStorageBucketDefinitionConfig.AwsObjectStorageBucketDefinition
-		createdAwsObjectStorageBucketDefinition, err := awsObjectStorageBucketDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create aws object storage bucket definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("aws object storage bucket definition %s created", *createdAwsObjectStorageBucketDefinition.Name))
 	},
 	Short:        "Create a new aws object storage bucket definition",
 	SilenceUsage: true,
@@ -1447,11 +1566,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateAwsObjectStorageBucketDefinitionCmd.Flags().StringVarP(
+		&createAwsObjectStorageBucketDefinitionVersion,
+		"version", "v", "v0", "Version of aws object storage bucket definitions object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteAwsObjectStorageBucketDefinitionConfigPath string
 	deleteAwsObjectStorageBucketDefinitionName       string
+	deleteAwsObjectStorageBucketDefinitionVersion    string
 )
 
 // DeleteAwsObjectStorageBucketDefinitionCmd represents the aws-object-storage-bucket-definition command
@@ -1472,35 +1596,42 @@ var DeleteAwsObjectStorageBucketDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var awsObjectStorageBucketDefinitionConfig config.AwsObjectStorageBucketDefinitionConfig
-		if deleteAwsObjectStorageBucketDefinitionConfigPath != "" {
-			// load aws object storage bucket definition config
-			configContent, err := os.ReadFile(deleteAwsObjectStorageBucketDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete aws object storage bucket definition based on version
+		switch deleteAwsObjectStorageBucketDefinitionVersion {
+		case "v0":
+			var awsObjectStorageBucketDefinitionConfig config_v0.AwsObjectStorageBucketDefinitionConfig
+			if deleteAwsObjectStorageBucketDefinitionConfigPath != "" {
+				// load aws object storage bucket definition config
+				configContent, err := os.ReadFile(deleteAwsObjectStorageBucketDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsObjectStorageBucketDefinitionConfig = config_v0.AwsObjectStorageBucketDefinitionConfig{
+					AwsObjectStorageBucketDefinition: config_v0.AwsObjectStorageBucketDefinitionValues{
+						Name: deleteAwsObjectStorageBucketDefinitionName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsObjectStorageBucketDefinitionConfig = config.AwsObjectStorageBucketDefinitionConfig{
-				AwsObjectStorageBucketDefinition: config.AwsObjectStorageBucketDefinitionValues{
-					Name: deleteAwsObjectStorageBucketDefinitionName,
-				},
-			}
-		}
 
-		// delete aws object storage bucket definition
-		awsObjectStorageBucketDefinition := awsObjectStorageBucketDefinitionConfig.AwsObjectStorageBucketDefinition
-		deletedAwsObjectStorageBucketDefinition, err := awsObjectStorageBucketDefinition.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete aws object storage bucket definition", err)
+			// delete aws object storage bucket definition
+			awsObjectStorageBucketDefinition := awsObjectStorageBucketDefinitionConfig.AwsObjectStorageBucketDefinition
+			deletedAwsObjectStorageBucketDefinition, err := awsObjectStorageBucketDefinition.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete aws object storage bucket definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws object storage bucket definition %s deleted", *deletedAwsObjectStorageBucketDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("aws object storage bucket definition %s deleted", *deletedAwsObjectStorageBucketDefinition.Name))
 	},
 	Short:        "Delete an existing aws object storage bucket definition",
 	SilenceUsage: true,
@@ -1521,6 +1652,10 @@ func init() {
 	DeleteAwsObjectStorageBucketDefinitionCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteAwsObjectStorageBucketDefinitionCmd.Flags().StringVarP(
+		&deleteAwsObjectStorageBucketDefinitionVersion,
+		"version", "v", "v0", "Version of aws object storage bucket definitions object to delete. One of: [v0]",
 	)
 }
 
@@ -1558,30 +1693,31 @@ var DescribeAwsObjectStorageBucketDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load aws object storage bucket definition config by name or config file
-		var awsObjectStorageBucketDefinitionConfig config.AwsObjectStorageBucketDefinitionConfig
-		if describeAwsObjectStorageBucketDefinitionConfigPath != "" {
-			configContent, err := os.ReadFile(describeAwsObjectStorageBucketDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsObjectStorageBucketDefinitionConfig = config.AwsObjectStorageBucketDefinitionConfig{
-				AwsObjectStorageBucketDefinition: config.AwsObjectStorageBucketDefinitionValues{
-					Name: describeAwsObjectStorageBucketDefinitionName,
-				},
-			}
-		}
-
 		// get aws object storage bucket definition
 		var awsObjectStorageBucketDefinition interface{}
 		switch describeAwsObjectStorageBucketDefinitionVersion {
 		case "v0":
+			// load aws object storage bucket definition config by name or config file
+			var awsObjectStorageBucketDefinitionConfig config_v0.AwsObjectStorageBucketDefinitionConfig
+			if describeAwsObjectStorageBucketDefinitionConfigPath != "" {
+				configContent, err := os.ReadFile(describeAwsObjectStorageBucketDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsObjectStorageBucketDefinitionConfig = config_v0.AwsObjectStorageBucketDefinitionConfig{
+					AwsObjectStorageBucketDefinition: config_v0.AwsObjectStorageBucketDefinitionValues{
+						Name: describeAwsObjectStorageBucketDefinitionName,
+					},
+				}
+			}
+
+			// get aws object storage bucket definition object by name
 			obj, err := client_v0.GetAwsObjectStorageBucketDefinitionByName(
 				apiClient,
 				apiEndpoint,
@@ -1592,6 +1728,19 @@ var DescribeAwsObjectStorageBucketDefinitionCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			awsObjectStorageBucketDefinition = obj
+
+			// return plain output if requested
+			if describeAwsObjectStorageBucketDefinitionOutput == "plain" {
+				if err := outputDescribev0AwsObjectStorageBucketDefinitionCmd(
+					awsObjectStorageBucketDefinition.(*api_v0.AwsObjectStorageBucketDefinition),
+					&awsObjectStorageBucketDefinitionConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe aws object storage bucket definition", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -1615,7 +1764,7 @@ var DescribeAwsObjectStorageBucketDefinitionCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -1639,21 +1788,8 @@ var DescribeAwsObjectStorageBucketDefinitionCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeAwsObjectStorageBucketDefinitionOutput {
-		case "plain":
-			switch describeAwsObjectStorageBucketDefinitionVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0AwsObjectStorageBucketDefinitionCmd(
-					awsObjectStorageBucketDefinition.(*v0.AwsObjectStorageBucketDefinition),
-					&awsObjectStorageBucketDefinitionConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe aws object storage bucket definition", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedAwsObjectStorageBucketDefinition := encryption.RedactEncryptedValues(awsObjectStorageBucketDefinition)
@@ -1770,7 +1906,10 @@ func init() {
 	)
 }
 
-var createAwsObjectStorageBucketConfigPath string
+var (
+	createAwsObjectStorageBucketConfigPath string
+	createAwsObjectStorageBucketVersion    string
+)
 
 // CreateAwsObjectStorageBucketCmd represents the aws-object-storage-bucket command
 var CreateAwsObjectStorageBucketCmd = &cobra.Command{
@@ -1780,32 +1919,40 @@ var CreateAwsObjectStorageBucketCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load aws object storage bucket config
+		// read aws object storage bucket config
 		configContent, err := os.ReadFile(createAwsObjectStorageBucketConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var awsObjectStorageBucketConfig config.AwsObjectStorageBucketConfig
-		if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// create aws object storage bucket based on version
+		switch createAwsObjectStorageBucketVersion {
+		case "v0":
+			var awsObjectStorageBucketConfig config_v0.AwsObjectStorageBucketConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create aws object storage bucket
+			awsObjectStorageBucket := awsObjectStorageBucketConfig.AwsObjectStorageBucket
+			createdAwsObjectStorageBucketDefinition, createdAwsObjectStorageBucketInstance, err := awsObjectStorageBucket.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				cli.Error("failed to create aws object storage bucket", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("aws object storage bucket definition %s created", *createdAwsObjectStorageBucketDefinition.Name))
+			cli.Info(fmt.Sprintf("aws object storage bucket instance %s created", *createdAwsObjectStorageBucketInstance.Name))
+			cli.Complete(fmt.Sprintf("aws object storage bucket %s created", awsObjectStorageBucketConfig.AwsObjectStorageBucket.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create aws object storage bucket
-		awsObjectStorageBucket := awsObjectStorageBucketConfig.AwsObjectStorageBucket
-		createdAwsObjectStorageBucketDefinition, createdAwsObjectStorageBucketInstance, err := awsObjectStorageBucket.Create(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to create aws object storage bucket", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("aws object storage bucket definition %s created", *createdAwsObjectStorageBucketDefinition.Name))
-		cli.Info(fmt.Sprintf("aws object storage bucket instance %s created", *createdAwsObjectStorageBucketInstance.Name))
-		cli.Complete(fmt.Sprintf("aws object storage bucket %s created", awsObjectStorageBucketConfig.AwsObjectStorageBucket.Name))
 	},
 	Short:        "Create a new aws object storage bucket",
 	SilenceUsage: true,
@@ -1824,11 +1971,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateAwsObjectStorageBucketCmd.Flags().StringVarP(
+		&createAwsObjectStorageBucketVersion,
+		"version", "v", "v0", "Version of aws object storage buckets object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteAwsObjectStorageBucketConfigPath string
 	deleteAwsObjectStorageBucketName       string
+	deleteAwsObjectStorageBucketVersion    string
 )
 
 // DeleteAwsObjectStorageBucketCmd represents the aws-object-storage-bucket command
@@ -1844,29 +1996,37 @@ var DeleteAwsObjectStorageBucketCmd = &cobra.Command{
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
-		var awsObjectStorageBucketConfig config.AwsObjectStorageBucketConfig
-		// load aws object storage bucket config
+		// read aws object storage bucket config
 		configContent, err := os.ReadFile(deleteAwsObjectStorageBucketConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// delete aws object storage bucket based on version
+		switch deleteAwsObjectStorageBucketVersion {
+		case "v0":
+			var awsObjectStorageBucketConfig config_v0.AwsObjectStorageBucketConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// delete aws object storage bucket
+			awsObjectStorageBucket := awsObjectStorageBucketConfig.AwsObjectStorageBucket
+			_, _, err = awsObjectStorageBucket.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete aws object storage bucket", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("aws object storage bucket definition %s deleted", awsObjectStorageBucket.Name))
+			cli.Info(fmt.Sprintf("aws object storage bucket instance %s deleted", awsObjectStorageBucket.Name))
+			cli.Complete(fmt.Sprintf("aws object storage bucket %s deleted", awsObjectStorageBucketConfig.AwsObjectStorageBucket.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// delete aws object storage bucket
-		awsObjectStorageBucket := awsObjectStorageBucketConfig.AwsObjectStorageBucket
-		_, _, err = awsObjectStorageBucket.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete aws object storage bucket", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("aws object storage bucket definition %s deleted", awsObjectStorageBucket.Name))
-		cli.Info(fmt.Sprintf("aws object storage bucket instance %s deleted", awsObjectStorageBucket.Name))
-		cli.Complete(fmt.Sprintf("aws object storage bucket %s deleted", awsObjectStorageBucketConfig.AwsObjectStorageBucket.Name))
 	},
 	Short:        "Delete an existing aws object storage bucket",
 	SilenceUsage: true,
@@ -1883,6 +2043,10 @@ func init() {
 	DeleteAwsObjectStorageBucketCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteAwsObjectStorageBucketCmd.Flags().StringVarP(
+		&deleteAwsObjectStorageBucketVersion,
+		"version", "v", "v0", "Version of aws object storage buckets object to delete. One of: [v0]",
 	)
 }
 
@@ -1948,7 +2112,10 @@ func init() {
 	)
 }
 
-var createAwsObjectStorageBucketInstanceConfigPath string
+var (
+	createAwsObjectStorageBucketInstanceConfigPath string
+	createAwsObjectStorageBucketInstanceVersion    string
+)
 
 // CreateAwsObjectStorageBucketInstanceCmd represents the aws-object-storage-bucket-instance command
 var CreateAwsObjectStorageBucketInstanceCmd = &cobra.Command{
@@ -1958,27 +2125,34 @@ var CreateAwsObjectStorageBucketInstanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load aws object storage bucket instance config
+		// read aws object storage bucket instance config
 		configContent, err := os.ReadFile(createAwsObjectStorageBucketInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var awsObjectStorageBucketInstanceConfig config.AwsObjectStorageBucketInstanceConfig
-		if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketInstanceConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create aws object storage bucket instance based on version
+		switch createAwsObjectStorageBucketInstanceVersion {
+		case "v0":
+			var awsObjectStorageBucketInstanceConfig config_v0.AwsObjectStorageBucketInstanceConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create aws object storage bucket instance
+			awsObjectStorageBucketInstance := awsObjectStorageBucketInstanceConfig.AwsObjectStorageBucketInstance
+			createdAwsObjectStorageBucketInstance, err := awsObjectStorageBucketInstance.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create aws object storage bucket instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws object storage bucket instance %s created", *createdAwsObjectStorageBucketInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create aws object storage bucket instance
-		awsObjectStorageBucketInstance := awsObjectStorageBucketInstanceConfig.AwsObjectStorageBucketInstance
-		createdAwsObjectStorageBucketInstance, err := awsObjectStorageBucketInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create aws object storage bucket instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("aws object storage bucket instance %s created", *createdAwsObjectStorageBucketInstance.Name))
 	},
 	Short:        "Create a new aws object storage bucket instance",
 	SilenceUsage: true,
@@ -1997,11 +2171,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateAwsObjectStorageBucketInstanceCmd.Flags().StringVarP(
+		&createAwsObjectStorageBucketInstanceVersion,
+		"version", "v", "v0", "Version of aws object storage bucket instances object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteAwsObjectStorageBucketInstanceConfigPath string
 	deleteAwsObjectStorageBucketInstanceName       string
+	deleteAwsObjectStorageBucketInstanceVersion    string
 )
 
 // DeleteAwsObjectStorageBucketInstanceCmd represents the aws-object-storage-bucket-instance command
@@ -2022,35 +2201,42 @@ var DeleteAwsObjectStorageBucketInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var awsObjectStorageBucketInstanceConfig config.AwsObjectStorageBucketInstanceConfig
-		if deleteAwsObjectStorageBucketInstanceConfigPath != "" {
-			// load aws object storage bucket instance config
-			configContent, err := os.ReadFile(deleteAwsObjectStorageBucketInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete aws object storage bucket instance based on version
+		switch deleteAwsObjectStorageBucketInstanceVersion {
+		case "v0":
+			var awsObjectStorageBucketInstanceConfig config_v0.AwsObjectStorageBucketInstanceConfig
+			if deleteAwsObjectStorageBucketInstanceConfigPath != "" {
+				// load aws object storage bucket instance config
+				configContent, err := os.ReadFile(deleteAwsObjectStorageBucketInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsObjectStorageBucketInstanceConfig = config_v0.AwsObjectStorageBucketInstanceConfig{
+					AwsObjectStorageBucketInstance: config_v0.AwsObjectStorageBucketInstanceValues{
+						Name: deleteAwsObjectStorageBucketInstanceName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsObjectStorageBucketInstanceConfig = config.AwsObjectStorageBucketInstanceConfig{
-				AwsObjectStorageBucketInstance: config.AwsObjectStorageBucketInstanceValues{
-					Name: deleteAwsObjectStorageBucketInstanceName,
-				},
-			}
-		}
 
-		// delete aws object storage bucket instance
-		awsObjectStorageBucketInstance := awsObjectStorageBucketInstanceConfig.AwsObjectStorageBucketInstance
-		deletedAwsObjectStorageBucketInstance, err := awsObjectStorageBucketInstance.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete aws object storage bucket instance", err)
+			// delete aws object storage bucket instance
+			awsObjectStorageBucketInstance := awsObjectStorageBucketInstanceConfig.AwsObjectStorageBucketInstance
+			deletedAwsObjectStorageBucketInstance, err := awsObjectStorageBucketInstance.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete aws object storage bucket instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws object storage bucket instance %s deleted", *deletedAwsObjectStorageBucketInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("aws object storage bucket instance %s deleted", *deletedAwsObjectStorageBucketInstance.Name))
 	},
 	Short:        "Delete an existing aws object storage bucket instance",
 	SilenceUsage: true,
@@ -2071,6 +2257,10 @@ func init() {
 	DeleteAwsObjectStorageBucketInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteAwsObjectStorageBucketInstanceCmd.Flags().StringVarP(
+		&deleteAwsObjectStorageBucketInstanceVersion,
+		"version", "v", "v0", "Version of aws object storage bucket instances object to delete. One of: [v0]",
 	)
 }
 
@@ -2108,30 +2298,31 @@ var DescribeAwsObjectStorageBucketInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load aws object storage bucket instance config by name or config file
-		var awsObjectStorageBucketInstanceConfig config.AwsObjectStorageBucketInstanceConfig
-		if describeAwsObjectStorageBucketInstanceConfigPath != "" {
-			configContent, err := os.ReadFile(describeAwsObjectStorageBucketInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsObjectStorageBucketInstanceConfig = config.AwsObjectStorageBucketInstanceConfig{
-				AwsObjectStorageBucketInstance: config.AwsObjectStorageBucketInstanceValues{
-					Name: describeAwsObjectStorageBucketInstanceName,
-				},
-			}
-		}
-
 		// get aws object storage bucket instance
 		var awsObjectStorageBucketInstance interface{}
 		switch describeAwsObjectStorageBucketInstanceVersion {
 		case "v0":
+			// load aws object storage bucket instance config by name or config file
+			var awsObjectStorageBucketInstanceConfig config_v0.AwsObjectStorageBucketInstanceConfig
+			if describeAwsObjectStorageBucketInstanceConfigPath != "" {
+				configContent, err := os.ReadFile(describeAwsObjectStorageBucketInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsObjectStorageBucketInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsObjectStorageBucketInstanceConfig = config_v0.AwsObjectStorageBucketInstanceConfig{
+					AwsObjectStorageBucketInstance: config_v0.AwsObjectStorageBucketInstanceValues{
+						Name: describeAwsObjectStorageBucketInstanceName,
+					},
+				}
+			}
+
+			// get aws object storage bucket instance object by name
 			obj, err := client_v0.GetAwsObjectStorageBucketInstanceByName(
 				apiClient,
 				apiEndpoint,
@@ -2142,6 +2333,19 @@ var DescribeAwsObjectStorageBucketInstanceCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			awsObjectStorageBucketInstance = obj
+
+			// return plain output if requested
+			if describeAwsObjectStorageBucketInstanceOutput == "plain" {
+				if err := outputDescribev0AwsObjectStorageBucketInstanceCmd(
+					awsObjectStorageBucketInstance.(*api_v0.AwsObjectStorageBucketInstance),
+					&awsObjectStorageBucketInstanceConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe aws object storage bucket instance", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -2165,7 +2369,7 @@ var DescribeAwsObjectStorageBucketInstanceCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -2189,21 +2393,8 @@ var DescribeAwsObjectStorageBucketInstanceCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeAwsObjectStorageBucketInstanceOutput {
-		case "plain":
-			switch describeAwsObjectStorageBucketInstanceVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0AwsObjectStorageBucketInstanceCmd(
-					awsObjectStorageBucketInstance.(*v0.AwsObjectStorageBucketInstance),
-					&awsObjectStorageBucketInstanceConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe aws object storage bucket instance", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedAwsObjectStorageBucketInstance := encryption.RedactEncryptedValues(awsObjectStorageBucketInstance)
@@ -2332,7 +2523,10 @@ func init() {
 	)
 }
 
-var createAwsRelationalDatabaseDefinitionConfigPath string
+var (
+	createAwsRelationalDatabaseDefinitionConfigPath string
+	createAwsRelationalDatabaseDefinitionVersion    string
+)
 
 // CreateAwsRelationalDatabaseDefinitionCmd represents the aws-relational-database-definition command
 var CreateAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
@@ -2342,27 +2536,34 @@ var CreateAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load aws relational database definition config
+		// read aws relational database definition config
 		configContent, err := os.ReadFile(createAwsRelationalDatabaseDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var awsRelationalDatabaseDefinitionConfig config.AwsRelationalDatabaseDefinitionConfig
-		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create aws relational database definition based on version
+		switch createAwsRelationalDatabaseDefinitionVersion {
+		case "v0":
+			var awsRelationalDatabaseDefinitionConfig config_v0.AwsRelationalDatabaseDefinitionConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create aws relational database definition
+			awsRelationalDatabaseDefinition := awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition
+			createdAwsRelationalDatabaseDefinition, err := awsRelationalDatabaseDefinition.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create aws relational database definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws relational database definition %s created", *createdAwsRelationalDatabaseDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create aws relational database definition
-		awsRelationalDatabaseDefinition := awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition
-		createdAwsRelationalDatabaseDefinition, err := awsRelationalDatabaseDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create aws relational database definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("aws relational database definition %s created", *createdAwsRelationalDatabaseDefinition.Name))
 	},
 	Short:        "Create a new aws relational database definition",
 	SilenceUsage: true,
@@ -2381,11 +2582,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
+		&createAwsRelationalDatabaseDefinitionVersion,
+		"version", "v", "v0", "Version of aws relational database definitions object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteAwsRelationalDatabaseDefinitionConfigPath string
 	deleteAwsRelationalDatabaseDefinitionName       string
+	deleteAwsRelationalDatabaseDefinitionVersion    string
 )
 
 // DeleteAwsRelationalDatabaseDefinitionCmd represents the aws-relational-database-definition command
@@ -2406,35 +2612,42 @@ var DeleteAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var awsRelationalDatabaseDefinitionConfig config.AwsRelationalDatabaseDefinitionConfig
-		if deleteAwsRelationalDatabaseDefinitionConfigPath != "" {
-			// load aws relational database definition config
-			configContent, err := os.ReadFile(deleteAwsRelationalDatabaseDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete aws relational database definition based on version
+		switch deleteAwsRelationalDatabaseDefinitionVersion {
+		case "v0":
+			var awsRelationalDatabaseDefinitionConfig config_v0.AwsRelationalDatabaseDefinitionConfig
+			if deleteAwsRelationalDatabaseDefinitionConfigPath != "" {
+				// load aws relational database definition config
+				configContent, err := os.ReadFile(deleteAwsRelationalDatabaseDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsRelationalDatabaseDefinitionConfig = config_v0.AwsRelationalDatabaseDefinitionConfig{
+					AwsRelationalDatabaseDefinition: config_v0.AwsRelationalDatabaseDefinitionValues{
+						Name: deleteAwsRelationalDatabaseDefinitionName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsRelationalDatabaseDefinitionConfig = config.AwsRelationalDatabaseDefinitionConfig{
-				AwsRelationalDatabaseDefinition: config.AwsRelationalDatabaseDefinitionValues{
-					Name: deleteAwsRelationalDatabaseDefinitionName,
-				},
-			}
-		}
 
-		// delete aws relational database definition
-		awsRelationalDatabaseDefinition := awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition
-		deletedAwsRelationalDatabaseDefinition, err := awsRelationalDatabaseDefinition.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete aws relational database definition", err)
+			// delete aws relational database definition
+			awsRelationalDatabaseDefinition := awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition
+			deletedAwsRelationalDatabaseDefinition, err := awsRelationalDatabaseDefinition.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete aws relational database definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws relational database definition %s deleted", *deletedAwsRelationalDatabaseDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("aws relational database definition %s deleted", *deletedAwsRelationalDatabaseDefinition.Name))
 	},
 	Short:        "Delete an existing aws relational database definition",
 	SilenceUsage: true,
@@ -2455,6 +2668,10 @@ func init() {
 	DeleteAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteAwsRelationalDatabaseDefinitionCmd.Flags().StringVarP(
+		&deleteAwsRelationalDatabaseDefinitionVersion,
+		"version", "v", "v0", "Version of aws relational database definitions object to delete. One of: [v0]",
 	)
 }
 
@@ -2492,30 +2709,31 @@ var DescribeAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load aws relational database definition config by name or config file
-		var awsRelationalDatabaseDefinitionConfig config.AwsRelationalDatabaseDefinitionConfig
-		if describeAwsRelationalDatabaseDefinitionConfigPath != "" {
-			configContent, err := os.ReadFile(describeAwsRelationalDatabaseDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsRelationalDatabaseDefinitionConfig = config.AwsRelationalDatabaseDefinitionConfig{
-				AwsRelationalDatabaseDefinition: config.AwsRelationalDatabaseDefinitionValues{
-					Name: describeAwsRelationalDatabaseDefinitionName,
-				},
-			}
-		}
-
 		// get aws relational database definition
 		var awsRelationalDatabaseDefinition interface{}
 		switch describeAwsRelationalDatabaseDefinitionVersion {
 		case "v0":
+			// load aws relational database definition config by name or config file
+			var awsRelationalDatabaseDefinitionConfig config_v0.AwsRelationalDatabaseDefinitionConfig
+			if describeAwsRelationalDatabaseDefinitionConfigPath != "" {
+				configContent, err := os.ReadFile(describeAwsRelationalDatabaseDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsRelationalDatabaseDefinitionConfig = config_v0.AwsRelationalDatabaseDefinitionConfig{
+					AwsRelationalDatabaseDefinition: config_v0.AwsRelationalDatabaseDefinitionValues{
+						Name: describeAwsRelationalDatabaseDefinitionName,
+					},
+				}
+			}
+
+			// get aws relational database definition object by name
 			obj, err := client_v0.GetAwsRelationalDatabaseDefinitionByName(
 				apiClient,
 				apiEndpoint,
@@ -2526,6 +2744,19 @@ var DescribeAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			awsRelationalDatabaseDefinition = obj
+
+			// return plain output if requested
+			if describeAwsRelationalDatabaseDefinitionOutput == "plain" {
+				if err := outputDescribev0AwsRelationalDatabaseDefinitionCmd(
+					awsRelationalDatabaseDefinition.(*api_v0.AwsRelationalDatabaseDefinition),
+					&awsRelationalDatabaseDefinitionConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe aws relational database definition", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -2549,7 +2780,7 @@ var DescribeAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -2573,21 +2804,8 @@ var DescribeAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeAwsRelationalDatabaseDefinitionOutput {
-		case "plain":
-			switch describeAwsRelationalDatabaseDefinitionVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0AwsRelationalDatabaseDefinitionCmd(
-					awsRelationalDatabaseDefinition.(*v0.AwsRelationalDatabaseDefinition),
-					&awsRelationalDatabaseDefinitionConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe aws relational database definition", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedAwsRelationalDatabaseDefinition := encryption.RedactEncryptedValues(awsRelationalDatabaseDefinition)
@@ -2704,7 +2922,10 @@ func init() {
 	)
 }
 
-var createAwsRelationalDatabaseConfigPath string
+var (
+	createAwsRelationalDatabaseConfigPath string
+	createAwsRelationalDatabaseVersion    string
+)
 
 // CreateAwsRelationalDatabaseCmd represents the aws-relational-database command
 var CreateAwsRelationalDatabaseCmd = &cobra.Command{
@@ -2714,32 +2935,40 @@ var CreateAwsRelationalDatabaseCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load aws relational database config
+		// read aws relational database config
 		configContent, err := os.ReadFile(createAwsRelationalDatabaseConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var awsRelationalDatabaseConfig config.AwsRelationalDatabaseConfig
-		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// create aws relational database based on version
+		switch createAwsRelationalDatabaseVersion {
+		case "v0":
+			var awsRelationalDatabaseConfig config_v0.AwsRelationalDatabaseConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create aws relational database
+			awsRelationalDatabase := awsRelationalDatabaseConfig.AwsRelationalDatabase
+			createdAwsRelationalDatabaseDefinition, createdAwsRelationalDatabaseInstance, err := awsRelationalDatabase.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				cli.Error("failed to create aws relational database", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("aws relational database definition %s created", *createdAwsRelationalDatabaseDefinition.Name))
+			cli.Info(fmt.Sprintf("aws relational database instance %s created", *createdAwsRelationalDatabaseInstance.Name))
+			cli.Complete(fmt.Sprintf("aws relational database %s created", awsRelationalDatabaseConfig.AwsRelationalDatabase.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create aws relational database
-		awsRelationalDatabase := awsRelationalDatabaseConfig.AwsRelationalDatabase
-		createdAwsRelationalDatabaseDefinition, createdAwsRelationalDatabaseInstance, err := awsRelationalDatabase.Create(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to create aws relational database", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("aws relational database definition %s created", *createdAwsRelationalDatabaseDefinition.Name))
-		cli.Info(fmt.Sprintf("aws relational database instance %s created", *createdAwsRelationalDatabaseInstance.Name))
-		cli.Complete(fmt.Sprintf("aws relational database %s created", awsRelationalDatabaseConfig.AwsRelationalDatabase.Name))
 	},
 	Short:        "Create a new aws relational database",
 	SilenceUsage: true,
@@ -2758,11 +2987,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateAwsRelationalDatabaseCmd.Flags().StringVarP(
+		&createAwsRelationalDatabaseVersion,
+		"version", "v", "v0", "Version of aws relational databases object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteAwsRelationalDatabaseConfigPath string
 	deleteAwsRelationalDatabaseName       string
+	deleteAwsRelationalDatabaseVersion    string
 )
 
 // DeleteAwsRelationalDatabaseCmd represents the aws-relational-database command
@@ -2778,29 +3012,37 @@ var DeleteAwsRelationalDatabaseCmd = &cobra.Command{
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
-		var awsRelationalDatabaseConfig config.AwsRelationalDatabaseConfig
-		// load aws relational database config
+		// read aws relational database config
 		configContent, err := os.ReadFile(deleteAwsRelationalDatabaseConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// delete aws relational database based on version
+		switch deleteAwsRelationalDatabaseVersion {
+		case "v0":
+			var awsRelationalDatabaseConfig config_v0.AwsRelationalDatabaseConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// delete aws relational database
+			awsRelationalDatabase := awsRelationalDatabaseConfig.AwsRelationalDatabase
+			_, _, err = awsRelationalDatabase.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete aws relational database", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("aws relational database definition %s deleted", awsRelationalDatabase.Name))
+			cli.Info(fmt.Sprintf("aws relational database instance %s deleted", awsRelationalDatabase.Name))
+			cli.Complete(fmt.Sprintf("aws relational database %s deleted", awsRelationalDatabaseConfig.AwsRelationalDatabase.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// delete aws relational database
-		awsRelationalDatabase := awsRelationalDatabaseConfig.AwsRelationalDatabase
-		_, _, err = awsRelationalDatabase.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete aws relational database", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("aws relational database definition %s deleted", awsRelationalDatabase.Name))
-		cli.Info(fmt.Sprintf("aws relational database instance %s deleted", awsRelationalDatabase.Name))
-		cli.Complete(fmt.Sprintf("aws relational database %s deleted", awsRelationalDatabaseConfig.AwsRelationalDatabase.Name))
 	},
 	Short:        "Delete an existing aws relational database",
 	SilenceUsage: true,
@@ -2817,6 +3059,10 @@ func init() {
 	DeleteAwsRelationalDatabaseCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteAwsRelationalDatabaseCmd.Flags().StringVarP(
+		&deleteAwsRelationalDatabaseVersion,
+		"version", "v", "v0", "Version of aws relational databases object to delete. One of: [v0]",
 	)
 }
 
@@ -2882,7 +3128,10 @@ func init() {
 	)
 }
 
-var createAwsRelationalDatabaseInstanceConfigPath string
+var (
+	createAwsRelationalDatabaseInstanceConfigPath string
+	createAwsRelationalDatabaseInstanceVersion    string
+)
 
 // CreateAwsRelationalDatabaseInstanceCmd represents the aws-relational-database-instance command
 var CreateAwsRelationalDatabaseInstanceCmd = &cobra.Command{
@@ -2892,27 +3141,34 @@ var CreateAwsRelationalDatabaseInstanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load aws relational database instance config
+		// read aws relational database instance config
 		configContent, err := os.ReadFile(createAwsRelationalDatabaseInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var awsRelationalDatabaseInstanceConfig config.AwsRelationalDatabaseInstanceConfig
-		if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseInstanceConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create aws relational database instance based on version
+		switch createAwsRelationalDatabaseInstanceVersion {
+		case "v0":
+			var awsRelationalDatabaseInstanceConfig config_v0.AwsRelationalDatabaseInstanceConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create aws relational database instance
+			awsRelationalDatabaseInstance := awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance
+			createdAwsRelationalDatabaseInstance, err := awsRelationalDatabaseInstance.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create aws relational database instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws relational database instance %s created", *createdAwsRelationalDatabaseInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create aws relational database instance
-		awsRelationalDatabaseInstance := awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance
-		createdAwsRelationalDatabaseInstance, err := awsRelationalDatabaseInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create aws relational database instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("aws relational database instance %s created", *createdAwsRelationalDatabaseInstance.Name))
 	},
 	Short:        "Create a new aws relational database instance",
 	SilenceUsage: true,
@@ -2931,11 +3187,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
+		&createAwsRelationalDatabaseInstanceVersion,
+		"version", "v", "v0", "Version of aws relational database instances object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteAwsRelationalDatabaseInstanceConfigPath string
 	deleteAwsRelationalDatabaseInstanceName       string
+	deleteAwsRelationalDatabaseInstanceVersion    string
 )
 
 // DeleteAwsRelationalDatabaseInstanceCmd represents the aws-relational-database-instance command
@@ -2956,35 +3217,42 @@ var DeleteAwsRelationalDatabaseInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var awsRelationalDatabaseInstanceConfig config.AwsRelationalDatabaseInstanceConfig
-		if deleteAwsRelationalDatabaseInstanceConfigPath != "" {
-			// load aws relational database instance config
-			configContent, err := os.ReadFile(deleteAwsRelationalDatabaseInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete aws relational database instance based on version
+		switch deleteAwsRelationalDatabaseInstanceVersion {
+		case "v0":
+			var awsRelationalDatabaseInstanceConfig config_v0.AwsRelationalDatabaseInstanceConfig
+			if deleteAwsRelationalDatabaseInstanceConfigPath != "" {
+				// load aws relational database instance config
+				configContent, err := os.ReadFile(deleteAwsRelationalDatabaseInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsRelationalDatabaseInstanceConfig = config_v0.AwsRelationalDatabaseInstanceConfig{
+					AwsRelationalDatabaseInstance: config_v0.AwsRelationalDatabaseInstanceValues{
+						Name: deleteAwsRelationalDatabaseInstanceName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsRelationalDatabaseInstanceConfig = config.AwsRelationalDatabaseInstanceConfig{
-				AwsRelationalDatabaseInstance: config.AwsRelationalDatabaseInstanceValues{
-					Name: deleteAwsRelationalDatabaseInstanceName,
-				},
-			}
-		}
 
-		// delete aws relational database instance
-		awsRelationalDatabaseInstance := awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance
-		deletedAwsRelationalDatabaseInstance, err := awsRelationalDatabaseInstance.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete aws relational database instance", err)
+			// delete aws relational database instance
+			awsRelationalDatabaseInstance := awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance
+			deletedAwsRelationalDatabaseInstance, err := awsRelationalDatabaseInstance.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete aws relational database instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("aws relational database instance %s deleted", *deletedAwsRelationalDatabaseInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("aws relational database instance %s deleted", *deletedAwsRelationalDatabaseInstance.Name))
 	},
 	Short:        "Delete an existing aws relational database instance",
 	SilenceUsage: true,
@@ -3005,6 +3273,10 @@ func init() {
 	DeleteAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteAwsRelationalDatabaseInstanceCmd.Flags().StringVarP(
+		&deleteAwsRelationalDatabaseInstanceVersion,
+		"version", "v", "v0", "Version of aws relational database instances object to delete. One of: [v0]",
 	)
 }
 
@@ -3042,30 +3314,31 @@ var DescribeAwsRelationalDatabaseInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load aws relational database instance config by name or config file
-		var awsRelationalDatabaseInstanceConfig config.AwsRelationalDatabaseInstanceConfig
-		if describeAwsRelationalDatabaseInstanceConfigPath != "" {
-			configContent, err := os.ReadFile(describeAwsRelationalDatabaseInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			awsRelationalDatabaseInstanceConfig = config.AwsRelationalDatabaseInstanceConfig{
-				AwsRelationalDatabaseInstance: config.AwsRelationalDatabaseInstanceValues{
-					Name: describeAwsRelationalDatabaseInstanceName,
-				},
-			}
-		}
-
 		// get aws relational database instance
 		var awsRelationalDatabaseInstance interface{}
 		switch describeAwsRelationalDatabaseInstanceVersion {
 		case "v0":
+			// load aws relational database instance config by name or config file
+			var awsRelationalDatabaseInstanceConfig config_v0.AwsRelationalDatabaseInstanceConfig
+			if describeAwsRelationalDatabaseInstanceConfigPath != "" {
+				configContent, err := os.ReadFile(describeAwsRelationalDatabaseInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &awsRelationalDatabaseInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				awsRelationalDatabaseInstanceConfig = config_v0.AwsRelationalDatabaseInstanceConfig{
+					AwsRelationalDatabaseInstance: config_v0.AwsRelationalDatabaseInstanceValues{
+						Name: describeAwsRelationalDatabaseInstanceName,
+					},
+				}
+			}
+
+			// get aws relational database instance object by name
 			obj, err := client_v0.GetAwsRelationalDatabaseInstanceByName(
 				apiClient,
 				apiEndpoint,
@@ -3076,6 +3349,19 @@ var DescribeAwsRelationalDatabaseInstanceCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			awsRelationalDatabaseInstance = obj
+
+			// return plain output if requested
+			if describeAwsRelationalDatabaseInstanceOutput == "plain" {
+				if err := outputDescribev0AwsRelationalDatabaseInstanceCmd(
+					awsRelationalDatabaseInstance.(*api_v0.AwsRelationalDatabaseInstance),
+					&awsRelationalDatabaseInstanceConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe aws relational database instance", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -3099,7 +3385,7 @@ var DescribeAwsRelationalDatabaseInstanceCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -3123,21 +3409,8 @@ var DescribeAwsRelationalDatabaseInstanceCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeAwsRelationalDatabaseInstanceOutput {
-		case "plain":
-			switch describeAwsRelationalDatabaseInstanceVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0AwsRelationalDatabaseInstanceCmd(
-					awsRelationalDatabaseInstance.(*v0.AwsRelationalDatabaseInstance),
-					&awsRelationalDatabaseInstanceConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe aws relational database instance", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedAwsRelationalDatabaseInstance := encryption.RedactEncryptedValues(awsRelationalDatabaseInstance)

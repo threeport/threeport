@@ -8,12 +8,10 @@ import (
 	"fmt"
 	ghodss_yaml "github.com/ghodss/yaml"
 	cobra "github.com/spf13/cobra"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
-	config "github.com/threeport/threeport/pkg/config/v0"
+	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	yaml "gopkg.in/yaml.v2"
@@ -82,7 +80,10 @@ func init() {
 	)
 }
 
-var createWorkloadDefinitionConfigPath string
+var (
+	createWorkloadDefinitionConfigPath string
+	createWorkloadDefinitionVersion    string
+)
 
 // CreateWorkloadDefinitionCmd represents the workload-definition command
 var CreateWorkloadDefinitionCmd = &cobra.Command{
@@ -92,28 +93,35 @@ var CreateWorkloadDefinitionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load workload definition config
+		// read workload definition config
 		configContent, err := os.ReadFile(createWorkloadDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var workloadDefinitionConfig config.WorkloadDefinitionConfig
-		if err := yaml.UnmarshalStrict(configContent, &workloadDefinitionConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create workload definition based on version
+		switch createWorkloadDefinitionVersion {
+		case "v0":
+			var workloadDefinitionConfig config_v0.WorkloadDefinitionConfig
+			if err := yaml.UnmarshalStrict(configContent, &workloadDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create workload definition
+			workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
+			workloadDefinition.WorkloadConfigPath = createWorkloadDefinitionConfigPath
+			createdWorkloadDefinition, err := workloadDefinition.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create workload definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("workload definition %s created", *createdWorkloadDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create workload definition
-		workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
-		workloadDefinition.WorkloadConfigPath = createWorkloadDefinitionConfigPath
-		createdWorkloadDefinition, err := workloadDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create workload definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("workload definition %s created", *createdWorkloadDefinition.Name))
 	},
 	Short:        "Create a new workload definition",
 	SilenceUsage: true,
@@ -132,11 +140,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateWorkloadDefinitionCmd.Flags().StringVarP(
+		&createWorkloadDefinitionVersion,
+		"version", "v", "v0", "Version of workload definitions object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteWorkloadDefinitionConfigPath string
 	deleteWorkloadDefinitionName       string
+	deleteWorkloadDefinitionVersion    string
 )
 
 // DeleteWorkloadDefinitionCmd represents the workload-definition command
@@ -157,36 +170,43 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var workloadDefinitionConfig config.WorkloadDefinitionConfig
-		if deleteWorkloadDefinitionConfigPath != "" {
-			// load workload definition config
-			configContent, err := os.ReadFile(deleteWorkloadDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete workload definition based on version
+		switch deleteWorkloadDefinitionVersion {
+		case "v0":
+			var workloadDefinitionConfig config_v0.WorkloadDefinitionConfig
+			if deleteWorkloadDefinitionConfigPath != "" {
+				// load workload definition config
+				configContent, err := os.ReadFile(deleteWorkloadDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &workloadDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				workloadDefinitionConfig = config_v0.WorkloadDefinitionConfig{
+					WorkloadDefinition: config_v0.WorkloadDefinitionValues{
+						Name: deleteWorkloadDefinitionName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &workloadDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			workloadDefinitionConfig = config.WorkloadDefinitionConfig{
-				WorkloadDefinition: config.WorkloadDefinitionValues{
-					Name: deleteWorkloadDefinitionName,
-				},
-			}
-		}
 
-		// delete workload definition
-		workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
-		workloadDefinition.WorkloadConfigPath = deleteWorkloadDefinitionConfigPath
-		deletedWorkloadDefinition, err := workloadDefinition.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete workload definition", err)
+			// delete workload definition
+			workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
+			workloadDefinition.WorkloadConfigPath = deleteWorkloadDefinitionConfigPath
+			deletedWorkloadDefinition, err := workloadDefinition.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete workload definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("workload definition %s deleted", *deletedWorkloadDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("workload definition %s deleted", *deletedWorkloadDefinition.Name))
 	},
 	Short:        "Delete an existing workload definition",
 	SilenceUsage: true,
@@ -207,6 +227,10 @@ func init() {
 	DeleteWorkloadDefinitionCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteWorkloadDefinitionCmd.Flags().StringVarP(
+		&deleteWorkloadDefinitionVersion,
+		"version", "v", "v0", "Version of workload definitions object to delete. One of: [v0]",
 	)
 }
 
@@ -244,30 +268,31 @@ var DescribeWorkloadDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load workload definition config by name or config file
-		var workloadDefinitionConfig config.WorkloadDefinitionConfig
-		if describeWorkloadDefinitionConfigPath != "" {
-			configContent, err := os.ReadFile(describeWorkloadDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &workloadDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			workloadDefinitionConfig = config.WorkloadDefinitionConfig{
-				WorkloadDefinition: config.WorkloadDefinitionValues{
-					Name: describeWorkloadDefinitionName,
-				},
-			}
-		}
-
 		// get workload definition
 		var workloadDefinition interface{}
 		switch describeWorkloadDefinitionVersion {
 		case "v0":
+			// load workload definition config by name or config file
+			var workloadDefinitionConfig config_v0.WorkloadDefinitionConfig
+			if describeWorkloadDefinitionConfigPath != "" {
+				configContent, err := os.ReadFile(describeWorkloadDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &workloadDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				workloadDefinitionConfig = config_v0.WorkloadDefinitionConfig{
+					WorkloadDefinition: config_v0.WorkloadDefinitionValues{
+						Name: describeWorkloadDefinitionName,
+					},
+				}
+			}
+
+			// get workload definition object by name
 			obj, err := client_v0.GetWorkloadDefinitionByName(
 				apiClient,
 				apiEndpoint,
@@ -278,6 +303,19 @@ var DescribeWorkloadDefinitionCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			workloadDefinition = obj
+
+			// return plain output if requested
+			if describeWorkloadDefinitionOutput == "plain" {
+				if err := outputDescribev0WorkloadDefinitionCmd(
+					workloadDefinition.(*api_v0.WorkloadDefinition),
+					&workloadDefinitionConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe workload definition", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -301,7 +339,7 @@ var DescribeWorkloadDefinitionCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -325,21 +363,8 @@ var DescribeWorkloadDefinitionCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeWorkloadDefinitionOutput {
-		case "plain":
-			switch describeWorkloadDefinitionVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0WorkloadDefinitionCmd(
-					workloadDefinition.(*v0.WorkloadDefinition),
-					&workloadDefinitionConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe workload definition", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedWorkloadDefinition := encryption.RedactEncryptedValues(workloadDefinition)
@@ -425,14 +450,8 @@ var GetWorkloadsCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		v1workloadInstances, err := client_v1.GetWorkloadInstances(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to retrieve workload instances", err)
-			os.Exit(1)
-		}
-
 		// write the output
-		if len(*v0workloadInstances) == 0 && len(*v1workloadInstances) == 0 {
+		if len(*v0workloadInstances) == 0 {
 			cli.Info(fmt.Sprintf(
 				"No workload instances currently managed by %s threeport control plane",
 				requestedControlPlane,
@@ -441,7 +460,6 @@ var GetWorkloadsCmd = &cobra.Command{
 		}
 		if err := outputGetWorkloadsCmd(
 			v0workloadInstances,
-			v1workloadInstances,
 			apiClient,
 			apiEndpoint,
 		); err != nil {
@@ -463,7 +481,10 @@ func init() {
 	)
 }
 
-var createWorkloadConfigPath string
+var (
+	createWorkloadConfigPath string
+	createWorkloadVersion    string
+)
 
 // CreateWorkloadCmd represents the workload command
 var CreateWorkloadCmd = &cobra.Command{
@@ -473,33 +494,41 @@ var CreateWorkloadCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load workload config
+		// read workload config
 		configContent, err := os.ReadFile(createWorkloadConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var workloadConfig config.WorkloadConfig
-		if err := yaml.UnmarshalStrict(configContent, &workloadConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// create workload based on version
+		switch createWorkloadVersion {
+		case "v0":
+			var workloadConfig config_v0.WorkloadConfig
+			if err := yaml.UnmarshalStrict(configContent, &workloadConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create workload
+			workload := workloadConfig.Workload
+			workload.WorkloadConfigPath = createWorkloadConfigPath
+			createdWorkloadDefinition, createdWorkloadInstance, err := workload.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				cli.Error("failed to create workload", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("workload definition %s created", *createdWorkloadDefinition.Name))
+			cli.Info(fmt.Sprintf("workload instance %s created", *createdWorkloadInstance.Name))
+			cli.Complete(fmt.Sprintf("workload %s created", workloadConfig.Workload.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create workload
-		workload := workloadConfig.Workload
-		workload.WorkloadConfigPath = createWorkloadConfigPath
-		createdWorkloadDefinition, createdWorkloadInstance, err := workload.Create(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to create workload", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("workload definition %s created", *createdWorkloadDefinition.Name))
-		cli.Info(fmt.Sprintf("workload instance %s created", *createdWorkloadInstance.Name))
-		cli.Complete(fmt.Sprintf("workload %s created", workloadConfig.Workload.Name))
 	},
 	Short:        "Create a new workload",
 	SilenceUsage: true,
@@ -518,11 +547,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateWorkloadCmd.Flags().StringVarP(
+		&createWorkloadVersion,
+		"version", "v", "v1", "Version of workloads object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteWorkloadConfigPath string
 	deleteWorkloadName       string
+	deleteWorkloadVersion    string
 )
 
 // DeleteWorkloadCmd represents the workload command
@@ -538,29 +572,37 @@ var DeleteWorkloadCmd = &cobra.Command{
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
-		var workloadConfig config.WorkloadConfig
-		// load workload config
+		// read workload config
 		configContent, err := os.ReadFile(deleteWorkloadConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		if err := yaml.UnmarshalStrict(configContent, &workloadConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// delete workload based on version
+		switch deleteWorkloadVersion {
+		case "v0":
+			var workloadConfig config_v0.WorkloadConfig
+			if err := yaml.UnmarshalStrict(configContent, &workloadConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// delete workload
+			workload := workloadConfig.Workload
+			_, _, err = workload.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete workload", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("workload definition %s deleted", workload.Name))
+			cli.Info(fmt.Sprintf("workload instance %s deleted", workload.Name))
+			cli.Complete(fmt.Sprintf("workload %s deleted", workloadConfig.Workload.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// delete workload
-		workload := workloadConfig.Workload
-		_, _, err = workload.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete workload", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("workload definition %s deleted", workload.Name))
-		cli.Info(fmt.Sprintf("workload instance %s deleted", workload.Name))
-		cli.Complete(fmt.Sprintf("workload %s deleted", workloadConfig.Workload.Name))
 	},
 	Short:        "Delete an existing workload",
 	SilenceUsage: true,
@@ -577,6 +619,10 @@ func init() {
 	DeleteWorkloadCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteWorkloadCmd.Flags().StringVarP(
+		&deleteWorkloadVersion,
+		"version", "v", "v1", "Version of workloads object to delete. One of: [v0]",
 	)
 }
 
@@ -619,30 +665,6 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 				cli.Error("failed to produce output", err)
 				os.Exit(0)
 			}
-		case "v1":
-			// get workload instances
-			workloadInstances, err := client_v1.GetWorkloadInstances(apiClient, apiEndpoint)
-			if err != nil {
-				cli.Error("failed to retrieve workload instances", err)
-				os.Exit(1)
-			}
-
-			// write the output
-			if len(*workloadInstances) == 0 {
-				cli.Info(fmt.Sprintf(
-					"No workload instances currently managed by %s threeport control plane",
-					requestedControlPlane,
-				))
-				os.Exit(0)
-			}
-			if err := outputGetv1WorkloadInstancesCmd(
-				workloadInstances,
-				apiClient,
-				apiEndpoint,
-			); err != nil {
-				cli.Error("failed to produce output", err)
-				os.Exit(0)
-			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -662,11 +684,14 @@ func init() {
 	)
 	GetWorkloadInstancesCmd.Flags().StringVarP(
 		&getWorkloadInstanceVersion,
-		"version", "v", "v1", "Version of workload instances object to retrieve. One of: [v0 v1]",
+		"version", "v", "v1", "Version of workload instances object to retrieve. One of: [v0]",
 	)
 }
 
-var createWorkloadInstanceConfigPath string
+var (
+	createWorkloadInstanceConfigPath string
+	createWorkloadInstanceVersion    string
+)
 
 // CreateWorkloadInstanceCmd represents the workload-instance command
 var CreateWorkloadInstanceCmd = &cobra.Command{
@@ -676,27 +701,34 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load workload instance config
+		// read workload instance config
 		configContent, err := os.ReadFile(createWorkloadInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var workloadInstanceConfig config.WorkloadInstanceConfig
-		if err := yaml.UnmarshalStrict(configContent, &workloadInstanceConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create workload instance based on version
+		switch createWorkloadInstanceVersion {
+		case "v0":
+			var workloadInstanceConfig config_v0.WorkloadInstanceConfig
+			if err := yaml.UnmarshalStrict(configContent, &workloadInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create workload instance
+			workloadInstance := workloadInstanceConfig.WorkloadInstance
+			createdWorkloadInstance, err := workloadInstance.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create workload instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("workload instance %s created", *createdWorkloadInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create workload instance
-		workloadInstance := workloadInstanceConfig.WorkloadInstance
-		createdWorkloadInstance, err := workloadInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create workload instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("workload instance %s created", *createdWorkloadInstance.Name))
 	},
 	Short:        "Create a new workload instance",
 	SilenceUsage: true,
@@ -715,11 +747,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateWorkloadInstanceCmd.Flags().StringVarP(
+		&createWorkloadInstanceVersion,
+		"version", "v", "v1", "Version of workload instances object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteWorkloadInstanceConfigPath string
 	deleteWorkloadInstanceName       string
+	deleteWorkloadInstanceVersion    string
 )
 
 // DeleteWorkloadInstanceCmd represents the workload-instance command
@@ -740,35 +777,42 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var workloadInstanceConfig config.WorkloadInstanceConfig
-		if deleteWorkloadInstanceConfigPath != "" {
-			// load workload instance config
-			configContent, err := os.ReadFile(deleteWorkloadInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete workload instance based on version
+		switch deleteWorkloadInstanceVersion {
+		case "v0":
+			var workloadInstanceConfig config_v0.WorkloadInstanceConfig
+			if deleteWorkloadInstanceConfigPath != "" {
+				// load workload instance config
+				configContent, err := os.ReadFile(deleteWorkloadInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &workloadInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				workloadInstanceConfig = config_v0.WorkloadInstanceConfig{
+					WorkloadInstance: config_v0.WorkloadInstanceValues{
+						Name: deleteWorkloadInstanceName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &workloadInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			workloadInstanceConfig = config.WorkloadInstanceConfig{
-				WorkloadInstance: config.WorkloadInstanceValues{
-					Name: deleteWorkloadInstanceName,
-				},
-			}
-		}
 
-		// delete workload instance
-		workloadInstance := workloadInstanceConfig.WorkloadInstance
-		deletedWorkloadInstance, err := workloadInstance.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete workload instance", err)
+			// delete workload instance
+			workloadInstance := workloadInstanceConfig.WorkloadInstance
+			deletedWorkloadInstance, err := workloadInstance.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete workload instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("workload instance %s deleted", *deletedWorkloadInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("workload instance %s deleted", *deletedWorkloadInstance.Name))
 	},
 	Short:        "Delete an existing workload instance",
 	SilenceUsage: true,
@@ -789,6 +833,10 @@ func init() {
 	DeleteWorkloadInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteWorkloadInstanceCmd.Flags().StringVarP(
+		&deleteWorkloadInstanceVersion,
+		"version", "v", "v1", "Version of workload instances object to delete. One of: [v0]",
 	)
 }
 
@@ -826,30 +874,31 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load workload instance config by name or config file
-		var workloadInstanceConfig config.WorkloadInstanceConfig
-		if describeWorkloadInstanceConfigPath != "" {
-			configContent, err := os.ReadFile(describeWorkloadInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &workloadInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			workloadInstanceConfig = config.WorkloadInstanceConfig{
-				WorkloadInstance: config.WorkloadInstanceValues{
-					Name: describeWorkloadInstanceName,
-				},
-			}
-		}
-
 		// get workload instance
 		var workloadInstance interface{}
 		switch describeWorkloadInstanceVersion {
 		case "v0":
+			// load workload instance config by name or config file
+			var workloadInstanceConfig config_v0.WorkloadInstanceConfig
+			if describeWorkloadInstanceConfigPath != "" {
+				configContent, err := os.ReadFile(describeWorkloadInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &workloadInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				workloadInstanceConfig = config_v0.WorkloadInstanceConfig{
+					WorkloadInstance: config_v0.WorkloadInstanceValues{
+						Name: describeWorkloadInstanceName,
+					},
+				}
+			}
+
+			// get workload instance object by name
 			obj, err := client_v0.GetWorkloadInstanceByName(
 				apiClient,
 				apiEndpoint,
@@ -860,17 +909,19 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			workloadInstance = obj
-		case "v1":
-			obj, err := client_v1.GetWorkloadInstanceByName(
-				apiClient,
-				apiEndpoint,
-				workloadInstanceConfig.WorkloadInstance.Name,
-			)
-			if err != nil {
-				cli.Error("failed to retrieve workload instance details", err)
-				os.Exit(1)
+
+			// return plain output if requested
+			if describeWorkloadInstanceOutput == "plain" {
+				if err := outputDescribev0WorkloadInstanceCmd(
+					workloadInstance.(*api_v0.WorkloadInstance),
+					&workloadInstanceConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe workload instance", err)
+					os.Exit(1)
+				}
 			}
-			workloadInstance = obj
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -894,7 +945,7 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -918,32 +969,8 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeWorkloadInstanceOutput {
-		case "plain":
-			switch describeWorkloadInstanceVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0WorkloadInstanceCmd(
-					workloadInstance.(*v0.WorkloadInstance),
-					&workloadInstanceConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe workload instance", err)
-					os.Exit(1)
-				}
-			case "v1":
-				// produce plain object description output
-				if err := outputDescribev1WorkloadInstanceCmd(
-					workloadInstance.(*v1.WorkloadInstance),
-					&workloadInstanceConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe workload instance", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedWorkloadInstance := encryption.RedactEncryptedValues(workloadInstance)
@@ -1006,6 +1033,6 @@ func init() {
 	)
 	DescribeWorkloadInstanceCmd.Flags().StringVarP(
 		&describeWorkloadInstanceVersion,
-		"version", "v", "v1", "Version of workload instances object to describe. One of: [v0 v1]",
+		"version", "v", "v1", "Version of workload instances object to describe. One of: [v0]",
 	)
 }

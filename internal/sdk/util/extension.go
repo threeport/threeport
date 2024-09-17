@@ -22,11 +22,11 @@ func SetImportAlias(
 // QualifiedOrLocal produces a jen statement that is either an identifier or a
 // qualified identifier based on whether the project is an extension
 func QualifiedOrLocal(
-	s *jen.Statement,
 	extension bool,
 	packagePath string,
 	identifier string,
 ) *jen.Statement {
+	s := &jen.Statement{}
 	if extension {
 		s.Qual(
 			packagePath,

@@ -8,10 +8,10 @@ import (
 	"fmt"
 	ghodss_yaml "github.com/ghodss/yaml"
 	cobra "github.com/spf13/cobra"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
+	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	yaml "gopkg.in/yaml.v2"
@@ -80,7 +80,10 @@ func init() {
 	)
 }
 
-var createDomainNameDefinitionConfigPath string
+var (
+	createDomainNameDefinitionConfigPath string
+	createDomainNameDefinitionVersion    string
+)
 
 // CreateDomainNameDefinitionCmd represents the domain-name-definition command
 var CreateDomainNameDefinitionCmd = &cobra.Command{
@@ -90,27 +93,34 @@ var CreateDomainNameDefinitionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load domain name definition config
+		// read domain name definition config
 		configContent, err := os.ReadFile(createDomainNameDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var domainNameDefinitionConfig config.DomainNameDefinitionConfig
-		if err := yaml.UnmarshalStrict(configContent, &domainNameDefinitionConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create domain name definition based on version
+		switch createDomainNameDefinitionVersion {
+		case "v0":
+			var domainNameDefinitionConfig config_v0.DomainNameDefinitionConfig
+			if err := yaml.UnmarshalStrict(configContent, &domainNameDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create domain name definition
+			domainNameDefinition := domainNameDefinitionConfig.DomainNameDefinition
+			createdDomainNameDefinition, err := domainNameDefinition.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create domain name definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("domain name definition %s created", *createdDomainNameDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create domain name definition
-		domainNameDefinition := domainNameDefinitionConfig.DomainNameDefinition
-		createdDomainNameDefinition, err := domainNameDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create domain name definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("domain name definition %s created", *createdDomainNameDefinition.Name))
 	},
 	Short:        "Create a new domain name definition",
 	SilenceUsage: true,
@@ -129,11 +139,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateDomainNameDefinitionCmd.Flags().StringVarP(
+		&createDomainNameDefinitionVersion,
+		"version", "v", "v0", "Version of domain name definitions object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteDomainNameDefinitionConfigPath string
 	deleteDomainNameDefinitionName       string
+	deleteDomainNameDefinitionVersion    string
 )
 
 // DeleteDomainNameDefinitionCmd represents the domain-name-definition command
@@ -154,35 +169,42 @@ var DeleteDomainNameDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var domainNameDefinitionConfig config.DomainNameDefinitionConfig
-		if deleteDomainNameDefinitionConfigPath != "" {
-			// load domain name definition config
-			configContent, err := os.ReadFile(deleteDomainNameDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete domain name definition based on version
+		switch deleteDomainNameDefinitionVersion {
+		case "v0":
+			var domainNameDefinitionConfig config_v0.DomainNameDefinitionConfig
+			if deleteDomainNameDefinitionConfigPath != "" {
+				// load domain name definition config
+				configContent, err := os.ReadFile(deleteDomainNameDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &domainNameDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				domainNameDefinitionConfig = config_v0.DomainNameDefinitionConfig{
+					DomainNameDefinition: config_v0.DomainNameDefinitionValues{
+						Name: deleteDomainNameDefinitionName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &domainNameDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			domainNameDefinitionConfig = config.DomainNameDefinitionConfig{
-				DomainNameDefinition: config.DomainNameDefinitionValues{
-					Name: deleteDomainNameDefinitionName,
-				},
-			}
-		}
 
-		// delete domain name definition
-		domainNameDefinition := domainNameDefinitionConfig.DomainNameDefinition
-		deletedDomainNameDefinition, err := domainNameDefinition.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete domain name definition", err)
+			// delete domain name definition
+			domainNameDefinition := domainNameDefinitionConfig.DomainNameDefinition
+			deletedDomainNameDefinition, err := domainNameDefinition.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete domain name definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("domain name definition %s deleted", *deletedDomainNameDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("domain name definition %s deleted", *deletedDomainNameDefinition.Name))
 	},
 	Short:        "Delete an existing domain name definition",
 	SilenceUsage: true,
@@ -203,6 +225,10 @@ func init() {
 	DeleteDomainNameDefinitionCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteDomainNameDefinitionCmd.Flags().StringVarP(
+		&deleteDomainNameDefinitionVersion,
+		"version", "v", "v0", "Version of domain name definitions object to delete. One of: [v0]",
 	)
 }
 
@@ -240,30 +266,31 @@ var DescribeDomainNameDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load domain name definition config by name or config file
-		var domainNameDefinitionConfig config.DomainNameDefinitionConfig
-		if describeDomainNameDefinitionConfigPath != "" {
-			configContent, err := os.ReadFile(describeDomainNameDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &domainNameDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			domainNameDefinitionConfig = config.DomainNameDefinitionConfig{
-				DomainNameDefinition: config.DomainNameDefinitionValues{
-					Name: describeDomainNameDefinitionName,
-				},
-			}
-		}
-
 		// get domain name definition
 		var domainNameDefinition interface{}
 		switch describeDomainNameDefinitionVersion {
 		case "v0":
+			// load domain name definition config by name or config file
+			var domainNameDefinitionConfig config_v0.DomainNameDefinitionConfig
+			if describeDomainNameDefinitionConfigPath != "" {
+				configContent, err := os.ReadFile(describeDomainNameDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &domainNameDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				domainNameDefinitionConfig = config_v0.DomainNameDefinitionConfig{
+					DomainNameDefinition: config_v0.DomainNameDefinitionValues{
+						Name: describeDomainNameDefinitionName,
+					},
+				}
+			}
+
+			// get domain name definition object by name
 			obj, err := client_v0.GetDomainNameDefinitionByName(
 				apiClient,
 				apiEndpoint,
@@ -274,6 +301,19 @@ var DescribeDomainNameDefinitionCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			domainNameDefinition = obj
+
+			// return plain output if requested
+			if describeDomainNameDefinitionOutput == "plain" {
+				if err := outputDescribev0DomainNameDefinitionCmd(
+					domainNameDefinition.(*api_v0.DomainNameDefinition),
+					&domainNameDefinitionConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe domain name definition", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -297,7 +337,7 @@ var DescribeDomainNameDefinitionCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -321,21 +361,8 @@ var DescribeDomainNameDefinitionCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeDomainNameDefinitionOutput {
-		case "plain":
-			switch describeDomainNameDefinitionVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0DomainNameDefinitionCmd(
-					domainNameDefinition.(*v0.DomainNameDefinition),
-					&domainNameDefinitionConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe domain name definition", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedDomainNameDefinition := encryption.RedactEncryptedValues(domainNameDefinition)
@@ -452,7 +479,10 @@ func init() {
 	)
 }
 
-var createDomainNameConfigPath string
+var (
+	createDomainNameConfigPath string
+	createDomainNameVersion    string
+)
 
 // CreateDomainNameCmd represents the domain-name command
 var CreateDomainNameCmd = &cobra.Command{
@@ -462,32 +492,40 @@ var CreateDomainNameCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load domain name config
+		// read domain name config
 		configContent, err := os.ReadFile(createDomainNameConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var domainNameConfig config.DomainNameConfig
-		if err := yaml.UnmarshalStrict(configContent, &domainNameConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// create domain name based on version
+		switch createDomainNameVersion {
+		case "v0":
+			var domainNameConfig config_v0.DomainNameConfig
+			if err := yaml.UnmarshalStrict(configContent, &domainNameConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create domain name
+			domainName := domainNameConfig.DomainName
+			createdDomainNameDefinition, createdDomainNameInstance, err := domainName.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				cli.Error("failed to create domain name", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("domain name definition %s created", *createdDomainNameDefinition.Name))
+			cli.Info(fmt.Sprintf("domain name instance %s created", *createdDomainNameInstance.Name))
+			cli.Complete(fmt.Sprintf("domain name %s created", domainNameConfig.DomainName.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create domain name
-		domainName := domainNameConfig.DomainName
-		createdDomainNameDefinition, createdDomainNameInstance, err := domainName.Create(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to create domain name", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("domain name definition %s created", *createdDomainNameDefinition.Name))
-		cli.Info(fmt.Sprintf("domain name instance %s created", *createdDomainNameInstance.Name))
-		cli.Complete(fmt.Sprintf("domain name %s created", domainNameConfig.DomainName.Name))
 	},
 	Short:        "Create a new domain name",
 	SilenceUsage: true,
@@ -506,11 +544,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateDomainNameCmd.Flags().StringVarP(
+		&createDomainNameVersion,
+		"version", "v", "v0", "Version of domain names object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteDomainNameConfigPath string
 	deleteDomainNameName       string
+	deleteDomainNameVersion    string
 )
 
 // DeleteDomainNameCmd represents the domain-name command
@@ -526,29 +569,37 @@ var DeleteDomainNameCmd = &cobra.Command{
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
-		var domainNameConfig config.DomainNameConfig
-		// load domain name config
+		// read domain name config
 		configContent, err := os.ReadFile(deleteDomainNameConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		if err := yaml.UnmarshalStrict(configContent, &domainNameConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// delete domain name based on version
+		switch deleteDomainNameVersion {
+		case "v0":
+			var domainNameConfig config_v0.DomainNameConfig
+			if err := yaml.UnmarshalStrict(configContent, &domainNameConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// delete domain name
+			domainName := domainNameConfig.DomainName
+			_, _, err = domainName.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete domain name", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("domain name definition %s deleted", domainName.Name))
+			cli.Info(fmt.Sprintf("domain name instance %s deleted", domainName.Name))
+			cli.Complete(fmt.Sprintf("domain name %s deleted", domainNameConfig.DomainName.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// delete domain name
-		domainName := domainNameConfig.DomainName
-		_, _, err = domainName.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete domain name", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("domain name definition %s deleted", domainName.Name))
-		cli.Info(fmt.Sprintf("domain name instance %s deleted", domainName.Name))
-		cli.Complete(fmt.Sprintf("domain name %s deleted", domainNameConfig.DomainName.Name))
 	},
 	Short:        "Delete an existing domain name",
 	SilenceUsage: true,
@@ -565,6 +616,10 @@ func init() {
 	DeleteDomainNameCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteDomainNameCmd.Flags().StringVarP(
+		&deleteDomainNameVersion,
+		"version", "v", "v0", "Version of domain names object to delete. One of: [v0]",
 	)
 }
 
@@ -630,7 +685,10 @@ func init() {
 	)
 }
 
-var createDomainNameInstanceConfigPath string
+var (
+	createDomainNameInstanceConfigPath string
+	createDomainNameInstanceVersion    string
+)
 
 // CreateDomainNameInstanceCmd represents the domain-name-instance command
 var CreateDomainNameInstanceCmd = &cobra.Command{
@@ -640,27 +698,34 @@ var CreateDomainNameInstanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load domain name instance config
+		// read domain name instance config
 		configContent, err := os.ReadFile(createDomainNameInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var domainNameInstanceConfig config.DomainNameInstanceConfig
-		if err := yaml.UnmarshalStrict(configContent, &domainNameInstanceConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create domain name instance based on version
+		switch createDomainNameInstanceVersion {
+		case "v0":
+			var domainNameInstanceConfig config_v0.DomainNameInstanceConfig
+			if err := yaml.UnmarshalStrict(configContent, &domainNameInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create domain name instance
+			domainNameInstance := domainNameInstanceConfig.DomainNameInstance
+			createdDomainNameInstance, err := domainNameInstance.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create domain name instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("domain name instance %s created", *createdDomainNameInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create domain name instance
-		domainNameInstance := domainNameInstanceConfig.DomainNameInstance
-		createdDomainNameInstance, err := domainNameInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create domain name instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("domain name instance %s created", *createdDomainNameInstance.Name))
 	},
 	Short:        "Create a new domain name instance",
 	SilenceUsage: true,
@@ -679,11 +744,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateDomainNameInstanceCmd.Flags().StringVarP(
+		&createDomainNameInstanceVersion,
+		"version", "v", "v0", "Version of domain name instances object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteDomainNameInstanceConfigPath string
 	deleteDomainNameInstanceName       string
+	deleteDomainNameInstanceVersion    string
 )
 
 // DeleteDomainNameInstanceCmd represents the domain-name-instance command
@@ -704,35 +774,42 @@ var DeleteDomainNameInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var domainNameInstanceConfig config.DomainNameInstanceConfig
-		if deleteDomainNameInstanceConfigPath != "" {
-			// load domain name instance config
-			configContent, err := os.ReadFile(deleteDomainNameInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete domain name instance based on version
+		switch deleteDomainNameInstanceVersion {
+		case "v0":
+			var domainNameInstanceConfig config_v0.DomainNameInstanceConfig
+			if deleteDomainNameInstanceConfigPath != "" {
+				// load domain name instance config
+				configContent, err := os.ReadFile(deleteDomainNameInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &domainNameInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				domainNameInstanceConfig = config_v0.DomainNameInstanceConfig{
+					DomainNameInstance: config_v0.DomainNameInstanceValues{
+						Name: deleteDomainNameInstanceName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &domainNameInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			domainNameInstanceConfig = config.DomainNameInstanceConfig{
-				DomainNameInstance: config.DomainNameInstanceValues{
-					Name: deleteDomainNameInstanceName,
-				},
-			}
-		}
 
-		// delete domain name instance
-		domainNameInstance := domainNameInstanceConfig.DomainNameInstance
-		deletedDomainNameInstance, err := domainNameInstance.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete domain name instance", err)
+			// delete domain name instance
+			domainNameInstance := domainNameInstanceConfig.DomainNameInstance
+			deletedDomainNameInstance, err := domainNameInstance.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete domain name instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("domain name instance %s deleted", *deletedDomainNameInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("domain name instance %s deleted", *deletedDomainNameInstance.Name))
 	},
 	Short:        "Delete an existing domain name instance",
 	SilenceUsage: true,
@@ -753,6 +830,10 @@ func init() {
 	DeleteDomainNameInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteDomainNameInstanceCmd.Flags().StringVarP(
+		&deleteDomainNameInstanceVersion,
+		"version", "v", "v0", "Version of domain name instances object to delete. One of: [v0]",
 	)
 }
 
@@ -790,30 +871,31 @@ var DescribeDomainNameInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load domain name instance config by name or config file
-		var domainNameInstanceConfig config.DomainNameInstanceConfig
-		if describeDomainNameInstanceConfigPath != "" {
-			configContent, err := os.ReadFile(describeDomainNameInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &domainNameInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			domainNameInstanceConfig = config.DomainNameInstanceConfig{
-				DomainNameInstance: config.DomainNameInstanceValues{
-					Name: describeDomainNameInstanceName,
-				},
-			}
-		}
-
 		// get domain name instance
 		var domainNameInstance interface{}
 		switch describeDomainNameInstanceVersion {
 		case "v0":
+			// load domain name instance config by name or config file
+			var domainNameInstanceConfig config_v0.DomainNameInstanceConfig
+			if describeDomainNameInstanceConfigPath != "" {
+				configContent, err := os.ReadFile(describeDomainNameInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &domainNameInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				domainNameInstanceConfig = config_v0.DomainNameInstanceConfig{
+					DomainNameInstance: config_v0.DomainNameInstanceValues{
+						Name: describeDomainNameInstanceName,
+					},
+				}
+			}
+
+			// get domain name instance object by name
 			obj, err := client_v0.GetDomainNameInstanceByName(
 				apiClient,
 				apiEndpoint,
@@ -824,6 +906,19 @@ var DescribeDomainNameInstanceCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			domainNameInstance = obj
+
+			// return plain output if requested
+			if describeDomainNameInstanceOutput == "plain" {
+				if err := outputDescribev0DomainNameInstanceCmd(
+					domainNameInstance.(*api_v0.DomainNameInstance),
+					&domainNameInstanceConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe domain name instance", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -847,7 +942,7 @@ var DescribeDomainNameInstanceCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -871,21 +966,8 @@ var DescribeDomainNameInstanceCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeDomainNameInstanceOutput {
-		case "plain":
-			switch describeDomainNameInstanceVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0DomainNameInstanceCmd(
-					domainNameInstance.(*v0.DomainNameInstance),
-					&domainNameInstanceConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe domain name instance", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedDomainNameInstance := encryption.RedactEncryptedValues(domainNameInstance)
@@ -1014,7 +1096,10 @@ func init() {
 	)
 }
 
-var createGatewayDefinitionConfigPath string
+var (
+	createGatewayDefinitionConfigPath string
+	createGatewayDefinitionVersion    string
+)
 
 // CreateGatewayDefinitionCmd represents the gateway-definition command
 var CreateGatewayDefinitionCmd = &cobra.Command{
@@ -1024,27 +1109,34 @@ var CreateGatewayDefinitionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load gateway definition config
+		// read gateway definition config
 		configContent, err := os.ReadFile(createGatewayDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var gatewayDefinitionConfig config.GatewayDefinitionConfig
-		if err := yaml.UnmarshalStrict(configContent, &gatewayDefinitionConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create gateway definition based on version
+		switch createGatewayDefinitionVersion {
+		case "v0":
+			var gatewayDefinitionConfig config_v0.GatewayDefinitionConfig
+			if err := yaml.UnmarshalStrict(configContent, &gatewayDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create gateway definition
+			gatewayDefinition := gatewayDefinitionConfig.GatewayDefinition
+			createdGatewayDefinition, err := gatewayDefinition.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create gateway definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("gateway definition %s created", *createdGatewayDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create gateway definition
-		gatewayDefinition := gatewayDefinitionConfig.GatewayDefinition
-		createdGatewayDefinition, err := gatewayDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create gateway definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("gateway definition %s created", *createdGatewayDefinition.Name))
 	},
 	Short:        "Create a new gateway definition",
 	SilenceUsage: true,
@@ -1063,11 +1155,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateGatewayDefinitionCmd.Flags().StringVarP(
+		&createGatewayDefinitionVersion,
+		"version", "v", "v0", "Version of gateway definitions object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteGatewayDefinitionConfigPath string
 	deleteGatewayDefinitionName       string
+	deleteGatewayDefinitionVersion    string
 )
 
 // DeleteGatewayDefinitionCmd represents the gateway-definition command
@@ -1088,35 +1185,42 @@ var DeleteGatewayDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var gatewayDefinitionConfig config.GatewayDefinitionConfig
-		if deleteGatewayDefinitionConfigPath != "" {
-			// load gateway definition config
-			configContent, err := os.ReadFile(deleteGatewayDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete gateway definition based on version
+		switch deleteGatewayDefinitionVersion {
+		case "v0":
+			var gatewayDefinitionConfig config_v0.GatewayDefinitionConfig
+			if deleteGatewayDefinitionConfigPath != "" {
+				// load gateway definition config
+				configContent, err := os.ReadFile(deleteGatewayDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &gatewayDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				gatewayDefinitionConfig = config_v0.GatewayDefinitionConfig{
+					GatewayDefinition: config_v0.GatewayDefinitionValues{
+						Name: deleteGatewayDefinitionName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &gatewayDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			gatewayDefinitionConfig = config.GatewayDefinitionConfig{
-				GatewayDefinition: config.GatewayDefinitionValues{
-					Name: deleteGatewayDefinitionName,
-				},
-			}
-		}
 
-		// delete gateway definition
-		gatewayDefinition := gatewayDefinitionConfig.GatewayDefinition
-		deletedGatewayDefinition, err := gatewayDefinition.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete gateway definition", err)
+			// delete gateway definition
+			gatewayDefinition := gatewayDefinitionConfig.GatewayDefinition
+			deletedGatewayDefinition, err := gatewayDefinition.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete gateway definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("gateway definition %s deleted", *deletedGatewayDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("gateway definition %s deleted", *deletedGatewayDefinition.Name))
 	},
 	Short:        "Delete an existing gateway definition",
 	SilenceUsage: true,
@@ -1137,6 +1241,10 @@ func init() {
 	DeleteGatewayDefinitionCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteGatewayDefinitionCmd.Flags().StringVarP(
+		&deleteGatewayDefinitionVersion,
+		"version", "v", "v0", "Version of gateway definitions object to delete. One of: [v0]",
 	)
 }
 
@@ -1174,30 +1282,31 @@ var DescribeGatewayDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load gateway definition config by name or config file
-		var gatewayDefinitionConfig config.GatewayDefinitionConfig
-		if describeGatewayDefinitionConfigPath != "" {
-			configContent, err := os.ReadFile(describeGatewayDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &gatewayDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			gatewayDefinitionConfig = config.GatewayDefinitionConfig{
-				GatewayDefinition: config.GatewayDefinitionValues{
-					Name: describeGatewayDefinitionName,
-				},
-			}
-		}
-
 		// get gateway definition
 		var gatewayDefinition interface{}
 		switch describeGatewayDefinitionVersion {
 		case "v0":
+			// load gateway definition config by name or config file
+			var gatewayDefinitionConfig config_v0.GatewayDefinitionConfig
+			if describeGatewayDefinitionConfigPath != "" {
+				configContent, err := os.ReadFile(describeGatewayDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &gatewayDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				gatewayDefinitionConfig = config_v0.GatewayDefinitionConfig{
+					GatewayDefinition: config_v0.GatewayDefinitionValues{
+						Name: describeGatewayDefinitionName,
+					},
+				}
+			}
+
+			// get gateway definition object by name
 			obj, err := client_v0.GetGatewayDefinitionByName(
 				apiClient,
 				apiEndpoint,
@@ -1208,6 +1317,19 @@ var DescribeGatewayDefinitionCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			gatewayDefinition = obj
+
+			// return plain output if requested
+			if describeGatewayDefinitionOutput == "plain" {
+				if err := outputDescribev0GatewayDefinitionCmd(
+					gatewayDefinition.(*api_v0.GatewayDefinition),
+					&gatewayDefinitionConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe gateway definition", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -1231,7 +1353,7 @@ var DescribeGatewayDefinitionCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -1255,21 +1377,8 @@ var DescribeGatewayDefinitionCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeGatewayDefinitionOutput {
-		case "plain":
-			switch describeGatewayDefinitionVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0GatewayDefinitionCmd(
-					gatewayDefinition.(*v0.GatewayDefinition),
-					&gatewayDefinitionConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe gateway definition", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedGatewayDefinition := encryption.RedactEncryptedValues(gatewayDefinition)
@@ -1386,7 +1495,10 @@ func init() {
 	)
 }
 
-var createGatewayConfigPath string
+var (
+	createGatewayConfigPath string
+	createGatewayVersion    string
+)
 
 // CreateGatewayCmd represents the gateway command
 var CreateGatewayCmd = &cobra.Command{
@@ -1396,32 +1508,40 @@ var CreateGatewayCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load gateway config
+		// read gateway config
 		configContent, err := os.ReadFile(createGatewayConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var gatewayConfig config.GatewayConfig
-		if err := yaml.UnmarshalStrict(configContent, &gatewayConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// create gateway based on version
+		switch createGatewayVersion {
+		case "v0":
+			var gatewayConfig config_v0.GatewayConfig
+			if err := yaml.UnmarshalStrict(configContent, &gatewayConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create gateway
+			gateway := gatewayConfig.Gateway
+			createdGatewayDefinition, createdGatewayInstance, err := gateway.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				cli.Error("failed to create gateway", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("gateway definition %s created", *createdGatewayDefinition.Name))
+			cli.Info(fmt.Sprintf("gateway instance %s created", *createdGatewayInstance.Name))
+			cli.Complete(fmt.Sprintf("gateway %s created", gatewayConfig.Gateway.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create gateway
-		gateway := gatewayConfig.Gateway
-		createdGatewayDefinition, createdGatewayInstance, err := gateway.Create(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to create gateway", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("gateway definition %s created", *createdGatewayDefinition.Name))
-		cli.Info(fmt.Sprintf("gateway instance %s created", *createdGatewayInstance.Name))
-		cli.Complete(fmt.Sprintf("gateway %s created", gatewayConfig.Gateway.Name))
 	},
 	Short:        "Create a new gateway",
 	SilenceUsage: true,
@@ -1440,11 +1560,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateGatewayCmd.Flags().StringVarP(
+		&createGatewayVersion,
+		"version", "v", "v0", "Version of gateways object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteGatewayConfigPath string
 	deleteGatewayName       string
+	deleteGatewayVersion    string
 )
 
 // DeleteGatewayCmd represents the gateway command
@@ -1460,29 +1585,37 @@ var DeleteGatewayCmd = &cobra.Command{
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
-		var gatewayConfig config.GatewayConfig
-		// load gateway config
+		// read gateway config
 		configContent, err := os.ReadFile(deleteGatewayConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		if err := yaml.UnmarshalStrict(configContent, &gatewayConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// delete gateway based on version
+		switch deleteGatewayVersion {
+		case "v0":
+			var gatewayConfig config_v0.GatewayConfig
+			if err := yaml.UnmarshalStrict(configContent, &gatewayConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// delete gateway
+			gateway := gatewayConfig.Gateway
+			_, _, err = gateway.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete gateway", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("gateway definition %s deleted", gateway.Name))
+			cli.Info(fmt.Sprintf("gateway instance %s deleted", gateway.Name))
+			cli.Complete(fmt.Sprintf("gateway %s deleted", gatewayConfig.Gateway.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// delete gateway
-		gateway := gatewayConfig.Gateway
-		_, _, err = gateway.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete gateway", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("gateway definition %s deleted", gateway.Name))
-		cli.Info(fmt.Sprintf("gateway instance %s deleted", gateway.Name))
-		cli.Complete(fmt.Sprintf("gateway %s deleted", gatewayConfig.Gateway.Name))
 	},
 	Short:        "Delete an existing gateway",
 	SilenceUsage: true,
@@ -1499,6 +1632,10 @@ func init() {
 	DeleteGatewayCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteGatewayCmd.Flags().StringVarP(
+		&deleteGatewayVersion,
+		"version", "v", "v0", "Version of gateways object to delete. One of: [v0]",
 	)
 }
 
@@ -1564,7 +1701,10 @@ func init() {
 	)
 }
 
-var createGatewayInstanceConfigPath string
+var (
+	createGatewayInstanceConfigPath string
+	createGatewayInstanceVersion    string
+)
 
 // CreateGatewayInstanceCmd represents the gateway-instance command
 var CreateGatewayInstanceCmd = &cobra.Command{
@@ -1574,27 +1714,34 @@ var CreateGatewayInstanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load gateway instance config
+		// read gateway instance config
 		configContent, err := os.ReadFile(createGatewayInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var gatewayInstanceConfig config.GatewayInstanceConfig
-		if err := yaml.UnmarshalStrict(configContent, &gatewayInstanceConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create gateway instance based on version
+		switch createGatewayInstanceVersion {
+		case "v0":
+			var gatewayInstanceConfig config_v0.GatewayInstanceConfig
+			if err := yaml.UnmarshalStrict(configContent, &gatewayInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create gateway instance
+			gatewayInstance := gatewayInstanceConfig.GatewayInstance
+			createdGatewayInstance, err := gatewayInstance.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create gateway instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("gateway instance %s created", *createdGatewayInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create gateway instance
-		gatewayInstance := gatewayInstanceConfig.GatewayInstance
-		createdGatewayInstance, err := gatewayInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create gateway instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("gateway instance %s created", *createdGatewayInstance.Name))
 	},
 	Short:        "Create a new gateway instance",
 	SilenceUsage: true,
@@ -1613,11 +1760,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateGatewayInstanceCmd.Flags().StringVarP(
+		&createGatewayInstanceVersion,
+		"version", "v", "v0", "Version of gateway instances object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteGatewayInstanceConfigPath string
 	deleteGatewayInstanceName       string
+	deleteGatewayInstanceVersion    string
 )
 
 // DeleteGatewayInstanceCmd represents the gateway-instance command
@@ -1638,35 +1790,42 @@ var DeleteGatewayInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var gatewayInstanceConfig config.GatewayInstanceConfig
-		if deleteGatewayInstanceConfigPath != "" {
-			// load gateway instance config
-			configContent, err := os.ReadFile(deleteGatewayInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete gateway instance based on version
+		switch deleteGatewayInstanceVersion {
+		case "v0":
+			var gatewayInstanceConfig config_v0.GatewayInstanceConfig
+			if deleteGatewayInstanceConfigPath != "" {
+				// load gateway instance config
+				configContent, err := os.ReadFile(deleteGatewayInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &gatewayInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				gatewayInstanceConfig = config_v0.GatewayInstanceConfig{
+					GatewayInstance: config_v0.GatewayInstanceValues{
+						Name: deleteGatewayInstanceName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &gatewayInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			gatewayInstanceConfig = config.GatewayInstanceConfig{
-				GatewayInstance: config.GatewayInstanceValues{
-					Name: deleteGatewayInstanceName,
-				},
-			}
-		}
 
-		// delete gateway instance
-		gatewayInstance := gatewayInstanceConfig.GatewayInstance
-		deletedGatewayInstance, err := gatewayInstance.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete gateway instance", err)
+			// delete gateway instance
+			gatewayInstance := gatewayInstanceConfig.GatewayInstance
+			deletedGatewayInstance, err := gatewayInstance.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete gateway instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("gateway instance %s deleted", *deletedGatewayInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("gateway instance %s deleted", *deletedGatewayInstance.Name))
 	},
 	Short:        "Delete an existing gateway instance",
 	SilenceUsage: true,
@@ -1687,6 +1846,10 @@ func init() {
 	DeleteGatewayInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteGatewayInstanceCmd.Flags().StringVarP(
+		&deleteGatewayInstanceVersion,
+		"version", "v", "v0", "Version of gateway instances object to delete. One of: [v0]",
 	)
 }
 
@@ -1724,30 +1887,31 @@ var DescribeGatewayInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load gateway instance config by name or config file
-		var gatewayInstanceConfig config.GatewayInstanceConfig
-		if describeGatewayInstanceConfigPath != "" {
-			configContent, err := os.ReadFile(describeGatewayInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &gatewayInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			gatewayInstanceConfig = config.GatewayInstanceConfig{
-				GatewayInstance: config.GatewayInstanceValues{
-					Name: describeGatewayInstanceName,
-				},
-			}
-		}
-
 		// get gateway instance
 		var gatewayInstance interface{}
 		switch describeGatewayInstanceVersion {
 		case "v0":
+			// load gateway instance config by name or config file
+			var gatewayInstanceConfig config_v0.GatewayInstanceConfig
+			if describeGatewayInstanceConfigPath != "" {
+				configContent, err := os.ReadFile(describeGatewayInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &gatewayInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				gatewayInstanceConfig = config_v0.GatewayInstanceConfig{
+					GatewayInstance: config_v0.GatewayInstanceValues{
+						Name: describeGatewayInstanceName,
+					},
+				}
+			}
+
+			// get gateway instance object by name
 			obj, err := client_v0.GetGatewayInstanceByName(
 				apiClient,
 				apiEndpoint,
@@ -1758,6 +1922,19 @@ var DescribeGatewayInstanceCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			gatewayInstance = obj
+
+			// return plain output if requested
+			if describeGatewayInstanceOutput == "plain" {
+				if err := outputDescribev0GatewayInstanceCmd(
+					gatewayInstance.(*api_v0.GatewayInstance),
+					&gatewayInstanceConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe gateway instance", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -1781,7 +1958,7 @@ var DescribeGatewayInstanceCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -1805,21 +1982,8 @@ var DescribeGatewayInstanceCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeGatewayInstanceOutput {
-		case "plain":
-			switch describeGatewayInstanceVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0GatewayInstanceCmd(
-					gatewayInstance.(*v0.GatewayInstance),
-					&gatewayInstanceConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe gateway instance", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedGatewayInstance := encryption.RedactEncryptedValues(gatewayInstance)

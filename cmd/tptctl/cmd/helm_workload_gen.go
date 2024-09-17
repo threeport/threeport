@@ -8,10 +8,10 @@ import (
 	"fmt"
 	ghodss_yaml "github.com/ghodss/yaml"
 	cobra "github.com/spf13/cobra"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
+	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	yaml "gopkg.in/yaml.v2"
@@ -80,7 +80,10 @@ func init() {
 	)
 }
 
-var createHelmWorkloadDefinitionConfigPath string
+var (
+	createHelmWorkloadDefinitionConfigPath string
+	createHelmWorkloadDefinitionVersion    string
+)
 
 // CreateHelmWorkloadDefinitionCmd represents the helm-workload-definition command
 var CreateHelmWorkloadDefinitionCmd = &cobra.Command{
@@ -90,28 +93,35 @@ var CreateHelmWorkloadDefinitionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load helm workload definition config
+		// read helm workload definition config
 		configContent, err := os.ReadFile(createHelmWorkloadDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var helmWorkloadDefinitionConfig config.HelmWorkloadDefinitionConfig
-		if err := yaml.UnmarshalStrict(configContent, &helmWorkloadDefinitionConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create helm workload definition based on version
+		switch createHelmWorkloadDefinitionVersion {
+		case "v0":
+			var helmWorkloadDefinitionConfig config_v0.HelmWorkloadDefinitionConfig
+			if err := yaml.UnmarshalStrict(configContent, &helmWorkloadDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create helm workload definition
+			helmWorkloadDefinition := helmWorkloadDefinitionConfig.HelmWorkloadDefinition
+			helmWorkloadDefinition.HelmWorkloadConfigPath = createHelmWorkloadDefinitionConfigPath
+			createdHelmWorkloadDefinition, err := helmWorkloadDefinition.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create helm workload definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("helm workload definition %s created", *createdHelmWorkloadDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create helm workload definition
-		helmWorkloadDefinition := helmWorkloadDefinitionConfig.HelmWorkloadDefinition
-		helmWorkloadDefinition.HelmWorkloadConfigPath = createHelmWorkloadDefinitionConfigPath
-		createdHelmWorkloadDefinition, err := helmWorkloadDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create helm workload definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("helm workload definition %s created", *createdHelmWorkloadDefinition.Name))
 	},
 	Short:        "Create a new helm workload definition",
 	SilenceUsage: true,
@@ -130,11 +140,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateHelmWorkloadDefinitionCmd.Flags().StringVarP(
+		&createHelmWorkloadDefinitionVersion,
+		"version", "v", "v0", "Version of helm workload definitions object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteHelmWorkloadDefinitionConfigPath string
 	deleteHelmWorkloadDefinitionName       string
+	deleteHelmWorkloadDefinitionVersion    string
 )
 
 // DeleteHelmWorkloadDefinitionCmd represents the helm-workload-definition command
@@ -155,36 +170,43 @@ var DeleteHelmWorkloadDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var helmWorkloadDefinitionConfig config.HelmWorkloadDefinitionConfig
-		if deleteHelmWorkloadDefinitionConfigPath != "" {
-			// load helm workload definition config
-			configContent, err := os.ReadFile(deleteHelmWorkloadDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete helm workload definition based on version
+		switch deleteHelmWorkloadDefinitionVersion {
+		case "v0":
+			var helmWorkloadDefinitionConfig config_v0.HelmWorkloadDefinitionConfig
+			if deleteHelmWorkloadDefinitionConfigPath != "" {
+				// load helm workload definition config
+				configContent, err := os.ReadFile(deleteHelmWorkloadDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &helmWorkloadDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				helmWorkloadDefinitionConfig = config_v0.HelmWorkloadDefinitionConfig{
+					HelmWorkloadDefinition: config_v0.HelmWorkloadDefinitionValues{
+						Name: deleteHelmWorkloadDefinitionName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &helmWorkloadDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			helmWorkloadDefinitionConfig = config.HelmWorkloadDefinitionConfig{
-				HelmWorkloadDefinition: config.HelmWorkloadDefinitionValues{
-					Name: deleteHelmWorkloadDefinitionName,
-				},
-			}
-		}
 
-		// delete helm workload definition
-		helmWorkloadDefinition := helmWorkloadDefinitionConfig.HelmWorkloadDefinition
-		helmWorkloadDefinition.HelmWorkloadConfigPath = deleteHelmWorkloadDefinitionConfigPath
-		deletedHelmWorkloadDefinition, err := helmWorkloadDefinition.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete helm workload definition", err)
+			// delete helm workload definition
+			helmWorkloadDefinition := helmWorkloadDefinitionConfig.HelmWorkloadDefinition
+			helmWorkloadDefinition.HelmWorkloadConfigPath = deleteHelmWorkloadDefinitionConfigPath
+			deletedHelmWorkloadDefinition, err := helmWorkloadDefinition.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete helm workload definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("helm workload definition %s deleted", *deletedHelmWorkloadDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("helm workload definition %s deleted", *deletedHelmWorkloadDefinition.Name))
 	},
 	Short:        "Delete an existing helm workload definition",
 	SilenceUsage: true,
@@ -205,6 +227,10 @@ func init() {
 	DeleteHelmWorkloadDefinitionCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteHelmWorkloadDefinitionCmd.Flags().StringVarP(
+		&deleteHelmWorkloadDefinitionVersion,
+		"version", "v", "v0", "Version of helm workload definitions object to delete. One of: [v0]",
 	)
 }
 
@@ -242,30 +268,31 @@ var DescribeHelmWorkloadDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load helm workload definition config by name or config file
-		var helmWorkloadDefinitionConfig config.HelmWorkloadDefinitionConfig
-		if describeHelmWorkloadDefinitionConfigPath != "" {
-			configContent, err := os.ReadFile(describeHelmWorkloadDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &helmWorkloadDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			helmWorkloadDefinitionConfig = config.HelmWorkloadDefinitionConfig{
-				HelmWorkloadDefinition: config.HelmWorkloadDefinitionValues{
-					Name: describeHelmWorkloadDefinitionName,
-				},
-			}
-		}
-
 		// get helm workload definition
 		var helmWorkloadDefinition interface{}
 		switch describeHelmWorkloadDefinitionVersion {
 		case "v0":
+			// load helm workload definition config by name or config file
+			var helmWorkloadDefinitionConfig config_v0.HelmWorkloadDefinitionConfig
+			if describeHelmWorkloadDefinitionConfigPath != "" {
+				configContent, err := os.ReadFile(describeHelmWorkloadDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &helmWorkloadDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				helmWorkloadDefinitionConfig = config_v0.HelmWorkloadDefinitionConfig{
+					HelmWorkloadDefinition: config_v0.HelmWorkloadDefinitionValues{
+						Name: describeHelmWorkloadDefinitionName,
+					},
+				}
+			}
+
+			// get helm workload definition object by name
 			obj, err := client_v0.GetHelmWorkloadDefinitionByName(
 				apiClient,
 				apiEndpoint,
@@ -276,6 +303,19 @@ var DescribeHelmWorkloadDefinitionCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			helmWorkloadDefinition = obj
+
+			// return plain output if requested
+			if describeHelmWorkloadDefinitionOutput == "plain" {
+				if err := outputDescribev0HelmWorkloadDefinitionCmd(
+					helmWorkloadDefinition.(*api_v0.HelmWorkloadDefinition),
+					&helmWorkloadDefinitionConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe helm workload definition", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -299,7 +339,7 @@ var DescribeHelmWorkloadDefinitionCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -323,21 +363,8 @@ var DescribeHelmWorkloadDefinitionCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeHelmWorkloadDefinitionOutput {
-		case "plain":
-			switch describeHelmWorkloadDefinitionVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0HelmWorkloadDefinitionCmd(
-					helmWorkloadDefinition.(*v0.HelmWorkloadDefinition),
-					&helmWorkloadDefinitionConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe helm workload definition", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedHelmWorkloadDefinition := encryption.RedactEncryptedValues(helmWorkloadDefinition)
@@ -454,7 +481,10 @@ func init() {
 	)
 }
 
-var createHelmWorkloadConfigPath string
+var (
+	createHelmWorkloadConfigPath string
+	createHelmWorkloadVersion    string
+)
 
 // CreateHelmWorkloadCmd represents the helm-workload command
 var CreateHelmWorkloadCmd = &cobra.Command{
@@ -464,33 +494,41 @@ var CreateHelmWorkloadCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load helm workload config
+		// read helm workload config
 		configContent, err := os.ReadFile(createHelmWorkloadConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var helmWorkloadConfig config.HelmWorkloadConfig
-		if err := yaml.UnmarshalStrict(configContent, &helmWorkloadConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// create helm workload based on version
+		switch createHelmWorkloadVersion {
+		case "v0":
+			var helmWorkloadConfig config_v0.HelmWorkloadConfig
+			if err := yaml.UnmarshalStrict(configContent, &helmWorkloadConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create helm workload
+			helmWorkload := helmWorkloadConfig.HelmWorkload
+			helmWorkload.HelmWorkloadConfigPath = createHelmWorkloadConfigPath
+			createdHelmWorkloadDefinition, createdHelmWorkloadInstance, err := helmWorkload.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				cli.Error("failed to create helm workload", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("helm workload definition %s created", *createdHelmWorkloadDefinition.Name))
+			cli.Info(fmt.Sprintf("helm workload instance %s created", *createdHelmWorkloadInstance.Name))
+			cli.Complete(fmt.Sprintf("helm workload %s created", helmWorkloadConfig.HelmWorkload.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create helm workload
-		helmWorkload := helmWorkloadConfig.HelmWorkload
-		helmWorkload.HelmWorkloadConfigPath = createHelmWorkloadConfigPath
-		createdHelmWorkloadDefinition, createdHelmWorkloadInstance, err := helmWorkload.Create(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to create helm workload", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("helm workload definition %s created", *createdHelmWorkloadDefinition.Name))
-		cli.Info(fmt.Sprintf("helm workload instance %s created", *createdHelmWorkloadInstance.Name))
-		cli.Complete(fmt.Sprintf("helm workload %s created", helmWorkloadConfig.HelmWorkload.Name))
 	},
 	Short:        "Create a new helm workload",
 	SilenceUsage: true,
@@ -509,11 +547,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateHelmWorkloadCmd.Flags().StringVarP(
+		&createHelmWorkloadVersion,
+		"version", "v", "v0", "Version of helm workloads object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteHelmWorkloadConfigPath string
 	deleteHelmWorkloadName       string
+	deleteHelmWorkloadVersion    string
 )
 
 // DeleteHelmWorkloadCmd represents the helm-workload command
@@ -529,30 +572,38 @@ var DeleteHelmWorkloadCmd = &cobra.Command{
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
-		var helmWorkloadConfig config.HelmWorkloadConfig
-		// load helm workload config
+		// read helm workload config
 		configContent, err := os.ReadFile(deleteHelmWorkloadConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		if err := yaml.UnmarshalStrict(configContent, &helmWorkloadConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// delete helm workload based on version
+		switch deleteHelmWorkloadVersion {
+		case "v0":
+			var helmWorkloadConfig config_v0.HelmWorkloadConfig
+			if err := yaml.UnmarshalStrict(configContent, &helmWorkloadConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// delete helm workload
+			helmWorkload := helmWorkloadConfig.HelmWorkload
+			helmWorkload.HelmWorkloadConfigPath = deleteHelmWorkloadConfigPath
+			_, _, err = helmWorkload.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete helm workload", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("helm workload definition %s deleted", helmWorkload.Name))
+			cli.Info(fmt.Sprintf("helm workload instance %s deleted", helmWorkload.Name))
+			cli.Complete(fmt.Sprintf("helm workload %s deleted", helmWorkloadConfig.HelmWorkload.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// delete helm workload
-		helmWorkload := helmWorkloadConfig.HelmWorkload
-		helmWorkload.HelmWorkloadConfigPath = deleteHelmWorkloadConfigPath
-		_, _, err = helmWorkload.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete helm workload", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("helm workload definition %s deleted", helmWorkload.Name))
-		cli.Info(fmt.Sprintf("helm workload instance %s deleted", helmWorkload.Name))
-		cli.Complete(fmt.Sprintf("helm workload %s deleted", helmWorkloadConfig.HelmWorkload.Name))
 	},
 	Short:        "Delete an existing helm workload",
 	SilenceUsage: true,
@@ -569,6 +620,10 @@ func init() {
 	DeleteHelmWorkloadCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteHelmWorkloadCmd.Flags().StringVarP(
+		&deleteHelmWorkloadVersion,
+		"version", "v", "v0", "Version of helm workloads object to delete. One of: [v0]",
 	)
 }
 
@@ -634,7 +689,10 @@ func init() {
 	)
 }
 
-var createHelmWorkloadInstanceConfigPath string
+var (
+	createHelmWorkloadInstanceConfigPath string
+	createHelmWorkloadInstanceVersion    string
+)
 
 // CreateHelmWorkloadInstanceCmd represents the helm-workload-instance command
 var CreateHelmWorkloadInstanceCmd = &cobra.Command{
@@ -644,28 +702,35 @@ var CreateHelmWorkloadInstanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load helm workload instance config
+		// read helm workload instance config
 		configContent, err := os.ReadFile(createHelmWorkloadInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var helmWorkloadInstanceConfig config.HelmWorkloadInstanceConfig
-		if err := yaml.UnmarshalStrict(configContent, &helmWorkloadInstanceConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create helm workload instance based on version
+		switch createHelmWorkloadInstanceVersion {
+		case "v0":
+			var helmWorkloadInstanceConfig config_v0.HelmWorkloadInstanceConfig
+			if err := yaml.UnmarshalStrict(configContent, &helmWorkloadInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create helm workload instance
+			helmWorkloadInstance := helmWorkloadInstanceConfig.HelmWorkloadInstance
+			helmWorkloadInstance.HelmWorkloadConfigPath = createHelmWorkloadInstanceConfigPath
+			createdHelmWorkloadInstance, err := helmWorkloadInstance.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create helm workload instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("helm workload instance %s created", *createdHelmWorkloadInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create helm workload instance
-		helmWorkloadInstance := helmWorkloadInstanceConfig.HelmWorkloadInstance
-		helmWorkloadInstance.HelmWorkloadConfigPath = createHelmWorkloadInstanceConfigPath
-		createdHelmWorkloadInstance, err := helmWorkloadInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create helm workload instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("helm workload instance %s created", *createdHelmWorkloadInstance.Name))
 	},
 	Short:        "Create a new helm workload instance",
 	SilenceUsage: true,
@@ -684,11 +749,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateHelmWorkloadInstanceCmd.Flags().StringVarP(
+		&createHelmWorkloadInstanceVersion,
+		"version", "v", "v0", "Version of helm workload instances object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteHelmWorkloadInstanceConfigPath string
 	deleteHelmWorkloadInstanceName       string
+	deleteHelmWorkloadInstanceVersion    string
 )
 
 // DeleteHelmWorkloadInstanceCmd represents the helm-workload-instance command
@@ -709,36 +779,43 @@ var DeleteHelmWorkloadInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var helmWorkloadInstanceConfig config.HelmWorkloadInstanceConfig
-		if deleteHelmWorkloadInstanceConfigPath != "" {
-			// load helm workload instance config
-			configContent, err := os.ReadFile(deleteHelmWorkloadInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete helm workload instance based on version
+		switch deleteHelmWorkloadInstanceVersion {
+		case "v0":
+			var helmWorkloadInstanceConfig config_v0.HelmWorkloadInstanceConfig
+			if deleteHelmWorkloadInstanceConfigPath != "" {
+				// load helm workload instance config
+				configContent, err := os.ReadFile(deleteHelmWorkloadInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &helmWorkloadInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				helmWorkloadInstanceConfig = config_v0.HelmWorkloadInstanceConfig{
+					HelmWorkloadInstance: config_v0.HelmWorkloadInstanceValues{
+						Name: deleteHelmWorkloadInstanceName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &helmWorkloadInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			helmWorkloadInstanceConfig = config.HelmWorkloadInstanceConfig{
-				HelmWorkloadInstance: config.HelmWorkloadInstanceValues{
-					Name: deleteHelmWorkloadInstanceName,
-				},
-			}
-		}
 
-		// delete helm workload instance
-		helmWorkloadInstance := helmWorkloadInstanceConfig.HelmWorkloadInstance
-		helmWorkloadInstance.HelmWorkloadConfigPath = deleteHelmWorkloadInstanceConfigPath
-		deletedHelmWorkloadInstance, err := helmWorkloadInstance.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete helm workload instance", err)
+			// delete helm workload instance
+			helmWorkloadInstance := helmWorkloadInstanceConfig.HelmWorkloadInstance
+			helmWorkloadInstance.HelmWorkloadConfigPath = deleteHelmWorkloadInstanceConfigPath
+			deletedHelmWorkloadInstance, err := helmWorkloadInstance.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete helm workload instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("helm workload instance %s deleted", *deletedHelmWorkloadInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("helm workload instance %s deleted", *deletedHelmWorkloadInstance.Name))
 	},
 	Short:        "Delete an existing helm workload instance",
 	SilenceUsage: true,
@@ -759,6 +836,10 @@ func init() {
 	DeleteHelmWorkloadInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteHelmWorkloadInstanceCmd.Flags().StringVarP(
+		&deleteHelmWorkloadInstanceVersion,
+		"version", "v", "v0", "Version of helm workload instances object to delete. One of: [v0]",
 	)
 }
 
@@ -796,30 +877,31 @@ var DescribeHelmWorkloadInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load helm workload instance config by name or config file
-		var helmWorkloadInstanceConfig config.HelmWorkloadInstanceConfig
-		if describeHelmWorkloadInstanceConfigPath != "" {
-			configContent, err := os.ReadFile(describeHelmWorkloadInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &helmWorkloadInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			helmWorkloadInstanceConfig = config.HelmWorkloadInstanceConfig{
-				HelmWorkloadInstance: config.HelmWorkloadInstanceValues{
-					Name: describeHelmWorkloadInstanceName,
-				},
-			}
-		}
-
 		// get helm workload instance
 		var helmWorkloadInstance interface{}
 		switch describeHelmWorkloadInstanceVersion {
 		case "v0":
+			// load helm workload instance config by name or config file
+			var helmWorkloadInstanceConfig config_v0.HelmWorkloadInstanceConfig
+			if describeHelmWorkloadInstanceConfigPath != "" {
+				configContent, err := os.ReadFile(describeHelmWorkloadInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &helmWorkloadInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				helmWorkloadInstanceConfig = config_v0.HelmWorkloadInstanceConfig{
+					HelmWorkloadInstance: config_v0.HelmWorkloadInstanceValues{
+						Name: describeHelmWorkloadInstanceName,
+					},
+				}
+			}
+
+			// get helm workload instance object by name
 			obj, err := client_v0.GetHelmWorkloadInstanceByName(
 				apiClient,
 				apiEndpoint,
@@ -830,6 +912,19 @@ var DescribeHelmWorkloadInstanceCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			helmWorkloadInstance = obj
+
+			// return plain output if requested
+			if describeHelmWorkloadInstanceOutput == "plain" {
+				if err := outputDescribev0HelmWorkloadInstanceCmd(
+					helmWorkloadInstance.(*api_v0.HelmWorkloadInstance),
+					&helmWorkloadInstanceConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe helm workload instance", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -853,7 +948,7 @@ var DescribeHelmWorkloadInstanceCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -877,21 +972,8 @@ var DescribeHelmWorkloadInstanceCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeHelmWorkloadInstanceOutput {
-		case "plain":
-			switch describeHelmWorkloadInstanceVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0HelmWorkloadInstanceCmd(
-					helmWorkloadInstance.(*v0.HelmWorkloadInstance),
-					&helmWorkloadInstanceConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe helm workload instance", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedHelmWorkloadInstance := encryption.RedactEncryptedValues(helmWorkloadInstance)

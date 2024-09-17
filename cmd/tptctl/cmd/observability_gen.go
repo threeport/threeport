@@ -8,10 +8,10 @@ import (
 	"fmt"
 	ghodss_yaml "github.com/ghodss/yaml"
 	cobra "github.com/spf13/cobra"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
+	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	yaml "gopkg.in/yaml.v2"
@@ -80,7 +80,10 @@ func init() {
 	)
 }
 
-var createObservabilityStackDefinitionConfigPath string
+var (
+	createObservabilityStackDefinitionConfigPath string
+	createObservabilityStackDefinitionVersion    string
+)
 
 // CreateObservabilityStackDefinitionCmd represents the observability-stack-definition command
 var CreateObservabilityStackDefinitionCmd = &cobra.Command{
@@ -90,28 +93,35 @@ var CreateObservabilityStackDefinitionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load observability stack definition config
+		// read observability stack definition config
 		configContent, err := os.ReadFile(createObservabilityStackDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var observabilityStackDefinitionConfig config.ObservabilityStackDefinitionConfig
-		if err := yaml.UnmarshalStrict(configContent, &observabilityStackDefinitionConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create observability stack definition based on version
+		switch createObservabilityStackDefinitionVersion {
+		case "v0":
+			var observabilityStackDefinitionConfig config_v0.ObservabilityStackDefinitionConfig
+			if err := yaml.UnmarshalStrict(configContent, &observabilityStackDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create observability stack definition
+			observabilityStackDefinition := observabilityStackDefinitionConfig.ObservabilityStackDefinition
+			observabilityStackDefinition.ObservabilityConfigPath = createObservabilityStackDefinitionConfigPath
+			createdObservabilityStackDefinition, err := observabilityStackDefinition.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create observability stack definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("observability stack definition %s created", *createdObservabilityStackDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create observability stack definition
-		observabilityStackDefinition := observabilityStackDefinitionConfig.ObservabilityStackDefinition
-		observabilityStackDefinition.ObservabilityConfigPath = createObservabilityStackDefinitionConfigPath
-		createdObservabilityStackDefinition, err := observabilityStackDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create observability stack definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("observability stack definition %s created", *createdObservabilityStackDefinition.Name))
 	},
 	Short:        "Create a new observability stack definition",
 	SilenceUsage: true,
@@ -130,11 +140,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateObservabilityStackDefinitionCmd.Flags().StringVarP(
+		&createObservabilityStackDefinitionVersion,
+		"version", "v", "v0", "Version of observability stack definitions object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteObservabilityStackDefinitionConfigPath string
 	deleteObservabilityStackDefinitionName       string
+	deleteObservabilityStackDefinitionVersion    string
 )
 
 // DeleteObservabilityStackDefinitionCmd represents the observability-stack-definition command
@@ -155,36 +170,43 @@ var DeleteObservabilityStackDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var observabilityStackDefinitionConfig config.ObservabilityStackDefinitionConfig
-		if deleteObservabilityStackDefinitionConfigPath != "" {
-			// load observability stack definition config
-			configContent, err := os.ReadFile(deleteObservabilityStackDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete observability stack definition based on version
+		switch deleteObservabilityStackDefinitionVersion {
+		case "v0":
+			var observabilityStackDefinitionConfig config_v0.ObservabilityStackDefinitionConfig
+			if deleteObservabilityStackDefinitionConfigPath != "" {
+				// load observability stack definition config
+				configContent, err := os.ReadFile(deleteObservabilityStackDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &observabilityStackDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				observabilityStackDefinitionConfig = config_v0.ObservabilityStackDefinitionConfig{
+					ObservabilityStackDefinition: config_v0.ObservabilityStackDefinitionValues{
+						Name: deleteObservabilityStackDefinitionName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &observabilityStackDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			observabilityStackDefinitionConfig = config.ObservabilityStackDefinitionConfig{
-				ObservabilityStackDefinition: config.ObservabilityStackDefinitionValues{
-					Name: deleteObservabilityStackDefinitionName,
-				},
-			}
-		}
 
-		// delete observability stack definition
-		observabilityStackDefinition := observabilityStackDefinitionConfig.ObservabilityStackDefinition
-		observabilityStackDefinition.ObservabilityConfigPath = deleteObservabilityStackDefinitionConfigPath
-		deletedObservabilityStackDefinition, err := observabilityStackDefinition.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete observability stack definition", err)
+			// delete observability stack definition
+			observabilityStackDefinition := observabilityStackDefinitionConfig.ObservabilityStackDefinition
+			observabilityStackDefinition.ObservabilityConfigPath = deleteObservabilityStackDefinitionConfigPath
+			deletedObservabilityStackDefinition, err := observabilityStackDefinition.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete observability stack definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("observability stack definition %s deleted", *deletedObservabilityStackDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("observability stack definition %s deleted", *deletedObservabilityStackDefinition.Name))
 	},
 	Short:        "Delete an existing observability stack definition",
 	SilenceUsage: true,
@@ -205,6 +227,10 @@ func init() {
 	DeleteObservabilityStackDefinitionCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteObservabilityStackDefinitionCmd.Flags().StringVarP(
+		&deleteObservabilityStackDefinitionVersion,
+		"version", "v", "v0", "Version of observability stack definitions object to delete. One of: [v0]",
 	)
 }
 
@@ -242,30 +268,31 @@ var DescribeObservabilityStackDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load observability stack definition config by name or config file
-		var observabilityStackDefinitionConfig config.ObservabilityStackDefinitionConfig
-		if describeObservabilityStackDefinitionConfigPath != "" {
-			configContent, err := os.ReadFile(describeObservabilityStackDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &observabilityStackDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			observabilityStackDefinitionConfig = config.ObservabilityStackDefinitionConfig{
-				ObservabilityStackDefinition: config.ObservabilityStackDefinitionValues{
-					Name: describeObservabilityStackDefinitionName,
-				},
-			}
-		}
-
 		// get observability stack definition
 		var observabilityStackDefinition interface{}
 		switch describeObservabilityStackDefinitionVersion {
 		case "v0":
+			// load observability stack definition config by name or config file
+			var observabilityStackDefinitionConfig config_v0.ObservabilityStackDefinitionConfig
+			if describeObservabilityStackDefinitionConfigPath != "" {
+				configContent, err := os.ReadFile(describeObservabilityStackDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &observabilityStackDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				observabilityStackDefinitionConfig = config_v0.ObservabilityStackDefinitionConfig{
+					ObservabilityStackDefinition: config_v0.ObservabilityStackDefinitionValues{
+						Name: describeObservabilityStackDefinitionName,
+					},
+				}
+			}
+
+			// get observability stack definition object by name
 			obj, err := client_v0.GetObservabilityStackDefinitionByName(
 				apiClient,
 				apiEndpoint,
@@ -276,6 +303,19 @@ var DescribeObservabilityStackDefinitionCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			observabilityStackDefinition = obj
+
+			// return plain output if requested
+			if describeObservabilityStackDefinitionOutput == "plain" {
+				if err := outputDescribev0ObservabilityStackDefinitionCmd(
+					observabilityStackDefinition.(*api_v0.ObservabilityStackDefinition),
+					&observabilityStackDefinitionConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe observability stack definition", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -299,7 +339,7 @@ var DescribeObservabilityStackDefinitionCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -323,21 +363,8 @@ var DescribeObservabilityStackDefinitionCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeObservabilityStackDefinitionOutput {
-		case "plain":
-			switch describeObservabilityStackDefinitionVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0ObservabilityStackDefinitionCmd(
-					observabilityStackDefinition.(*v0.ObservabilityStackDefinition),
-					&observabilityStackDefinitionConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe observability stack definition", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedObservabilityStackDefinition := encryption.RedactEncryptedValues(observabilityStackDefinition)
@@ -454,7 +481,10 @@ func init() {
 	)
 }
 
-var createObservabilityStackConfigPath string
+var (
+	createObservabilityStackConfigPath string
+	createObservabilityStackVersion    string
+)
 
 // CreateObservabilityStackCmd represents the observability-stack command
 var CreateObservabilityStackCmd = &cobra.Command{
@@ -464,33 +494,41 @@ var CreateObservabilityStackCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load observability stack config
+		// read observability stack config
 		configContent, err := os.ReadFile(createObservabilityStackConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var observabilityStackConfig config.ObservabilityStackConfig
-		if err := yaml.UnmarshalStrict(configContent, &observabilityStackConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// create observability stack based on version
+		switch createObservabilityStackVersion {
+		case "v0":
+			var observabilityStackConfig config_v0.ObservabilityStackConfig
+			if err := yaml.UnmarshalStrict(configContent, &observabilityStackConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create observability stack
+			observabilityStack := observabilityStackConfig.ObservabilityStack
+			observabilityStack.ObservabilityConfigPath = createObservabilityStackConfigPath
+			createdObservabilityStackDefinition, createdObservabilityStackInstance, err := observabilityStack.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				cli.Error("failed to create observability stack", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("observability stack definition %s created", *createdObservabilityStackDefinition.Name))
+			cli.Info(fmt.Sprintf("observability stack instance %s created", *createdObservabilityStackInstance.Name))
+			cli.Complete(fmt.Sprintf("observability stack %s created", observabilityStackConfig.ObservabilityStack.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create observability stack
-		observabilityStack := observabilityStackConfig.ObservabilityStack
-		observabilityStack.ObservabilityConfigPath = createObservabilityStackConfigPath
-		createdObservabilityStackDefinition, createdObservabilityStackInstance, err := observabilityStack.Create(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to create observability stack", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("observability stack definition %s created", *createdObservabilityStackDefinition.Name))
-		cli.Info(fmt.Sprintf("observability stack instance %s created", *createdObservabilityStackInstance.Name))
-		cli.Complete(fmt.Sprintf("observability stack %s created", observabilityStackConfig.ObservabilityStack.Name))
 	},
 	Short:        "Create a new observability stack",
 	SilenceUsage: true,
@@ -509,11 +547,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateObservabilityStackCmd.Flags().StringVarP(
+		&createObservabilityStackVersion,
+		"version", "v", "v0", "Version of observability stacks object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteObservabilityStackConfigPath string
 	deleteObservabilityStackName       string
+	deleteObservabilityStackVersion    string
 )
 
 // DeleteObservabilityStackCmd represents the observability-stack command
@@ -529,30 +572,38 @@ var DeleteObservabilityStackCmd = &cobra.Command{
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
-		var observabilityStackConfig config.ObservabilityStackConfig
-		// load observability stack config
+		// read observability stack config
 		configContent, err := os.ReadFile(deleteObservabilityStackConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		if err := yaml.UnmarshalStrict(configContent, &observabilityStackConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// delete observability stack based on version
+		switch deleteObservabilityStackVersion {
+		case "v0":
+			var observabilityStackConfig config_v0.ObservabilityStackConfig
+			if err := yaml.UnmarshalStrict(configContent, &observabilityStackConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// delete observability stack
+			observabilityStack := observabilityStackConfig.ObservabilityStack
+			observabilityStack.ObservabilityConfigPath = deleteObservabilityStackConfigPath
+			_, _, err = observabilityStack.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete observability stack", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("observability stack definition %s deleted", observabilityStack.Name))
+			cli.Info(fmt.Sprintf("observability stack instance %s deleted", observabilityStack.Name))
+			cli.Complete(fmt.Sprintf("observability stack %s deleted", observabilityStackConfig.ObservabilityStack.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// delete observability stack
-		observabilityStack := observabilityStackConfig.ObservabilityStack
-		observabilityStack.ObservabilityConfigPath = deleteObservabilityStackConfigPath
-		_, _, err = observabilityStack.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete observability stack", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("observability stack definition %s deleted", observabilityStack.Name))
-		cli.Info(fmt.Sprintf("observability stack instance %s deleted", observabilityStack.Name))
-		cli.Complete(fmt.Sprintf("observability stack %s deleted", observabilityStackConfig.ObservabilityStack.Name))
 	},
 	Short:        "Delete an existing observability stack",
 	SilenceUsage: true,
@@ -569,6 +620,10 @@ func init() {
 	DeleteObservabilityStackCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteObservabilityStackCmd.Flags().StringVarP(
+		&deleteObservabilityStackVersion,
+		"version", "v", "v0", "Version of observability stacks object to delete. One of: [v0]",
 	)
 }
 
@@ -634,7 +689,10 @@ func init() {
 	)
 }
 
-var createObservabilityStackInstanceConfigPath string
+var (
+	createObservabilityStackInstanceConfigPath string
+	createObservabilityStackInstanceVersion    string
+)
 
 // CreateObservabilityStackInstanceCmd represents the observability-stack-instance command
 var CreateObservabilityStackInstanceCmd = &cobra.Command{
@@ -644,28 +702,35 @@ var CreateObservabilityStackInstanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load observability stack instance config
+		// read observability stack instance config
 		configContent, err := os.ReadFile(createObservabilityStackInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var observabilityStackInstanceConfig config.ObservabilityStackInstanceConfig
-		if err := yaml.UnmarshalStrict(configContent, &observabilityStackInstanceConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create observability stack instance based on version
+		switch createObservabilityStackInstanceVersion {
+		case "v0":
+			var observabilityStackInstanceConfig config_v0.ObservabilityStackInstanceConfig
+			if err := yaml.UnmarshalStrict(configContent, &observabilityStackInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create observability stack instance
+			observabilityStackInstance := observabilityStackInstanceConfig.ObservabilityStackInstance
+			observabilityStackInstance.ObservabilityConfigPath = createObservabilityStackInstanceConfigPath
+			createdObservabilityStackInstance, err := observabilityStackInstance.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create observability stack instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("observability stack instance %s created", *createdObservabilityStackInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create observability stack instance
-		observabilityStackInstance := observabilityStackInstanceConfig.ObservabilityStackInstance
-		observabilityStackInstance.ObservabilityConfigPath = createObservabilityStackInstanceConfigPath
-		createdObservabilityStackInstance, err := observabilityStackInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create observability stack instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("observability stack instance %s created", *createdObservabilityStackInstance.Name))
 	},
 	Short:        "Create a new observability stack instance",
 	SilenceUsage: true,
@@ -684,11 +749,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateObservabilityStackInstanceCmd.Flags().StringVarP(
+		&createObservabilityStackInstanceVersion,
+		"version", "v", "v0", "Version of observability stack instances object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteObservabilityStackInstanceConfigPath string
 	deleteObservabilityStackInstanceName       string
+	deleteObservabilityStackInstanceVersion    string
 )
 
 // DeleteObservabilityStackInstanceCmd represents the observability-stack-instance command
@@ -709,36 +779,43 @@ var DeleteObservabilityStackInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var observabilityStackInstanceConfig config.ObservabilityStackInstanceConfig
-		if deleteObservabilityStackInstanceConfigPath != "" {
-			// load observability stack instance config
-			configContent, err := os.ReadFile(deleteObservabilityStackInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete observability stack instance based on version
+		switch deleteObservabilityStackInstanceVersion {
+		case "v0":
+			var observabilityStackInstanceConfig config_v0.ObservabilityStackInstanceConfig
+			if deleteObservabilityStackInstanceConfigPath != "" {
+				// load observability stack instance config
+				configContent, err := os.ReadFile(deleteObservabilityStackInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &observabilityStackInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				observabilityStackInstanceConfig = config_v0.ObservabilityStackInstanceConfig{
+					ObservabilityStackInstance: config_v0.ObservabilityStackInstanceValues{
+						Name: deleteObservabilityStackInstanceName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &observabilityStackInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			observabilityStackInstanceConfig = config.ObservabilityStackInstanceConfig{
-				ObservabilityStackInstance: config.ObservabilityStackInstanceValues{
-					Name: deleteObservabilityStackInstanceName,
-				},
-			}
-		}
 
-		// delete observability stack instance
-		observabilityStackInstance := observabilityStackInstanceConfig.ObservabilityStackInstance
-		observabilityStackInstance.ObservabilityConfigPath = deleteObservabilityStackInstanceConfigPath
-		deletedObservabilityStackInstance, err := observabilityStackInstance.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete observability stack instance", err)
+			// delete observability stack instance
+			observabilityStackInstance := observabilityStackInstanceConfig.ObservabilityStackInstance
+			observabilityStackInstance.ObservabilityConfigPath = deleteObservabilityStackInstanceConfigPath
+			deletedObservabilityStackInstance, err := observabilityStackInstance.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete observability stack instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("observability stack instance %s deleted", *deletedObservabilityStackInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("observability stack instance %s deleted", *deletedObservabilityStackInstance.Name))
 	},
 	Short:        "Delete an existing observability stack instance",
 	SilenceUsage: true,
@@ -759,6 +836,10 @@ func init() {
 	DeleteObservabilityStackInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteObservabilityStackInstanceCmd.Flags().StringVarP(
+		&deleteObservabilityStackInstanceVersion,
+		"version", "v", "v0", "Version of observability stack instances object to delete. One of: [v0]",
 	)
 }
 
@@ -796,30 +877,31 @@ var DescribeObservabilityStackInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load observability stack instance config by name or config file
-		var observabilityStackInstanceConfig config.ObservabilityStackInstanceConfig
-		if describeObservabilityStackInstanceConfigPath != "" {
-			configContent, err := os.ReadFile(describeObservabilityStackInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &observabilityStackInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			observabilityStackInstanceConfig = config.ObservabilityStackInstanceConfig{
-				ObservabilityStackInstance: config.ObservabilityStackInstanceValues{
-					Name: describeObservabilityStackInstanceName,
-				},
-			}
-		}
-
 		// get observability stack instance
 		var observabilityStackInstance interface{}
 		switch describeObservabilityStackInstanceVersion {
 		case "v0":
+			// load observability stack instance config by name or config file
+			var observabilityStackInstanceConfig config_v0.ObservabilityStackInstanceConfig
+			if describeObservabilityStackInstanceConfigPath != "" {
+				configContent, err := os.ReadFile(describeObservabilityStackInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &observabilityStackInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				observabilityStackInstanceConfig = config_v0.ObservabilityStackInstanceConfig{
+					ObservabilityStackInstance: config_v0.ObservabilityStackInstanceValues{
+						Name: describeObservabilityStackInstanceName,
+					},
+				}
+			}
+
+			// get observability stack instance object by name
 			obj, err := client_v0.GetObservabilityStackInstanceByName(
 				apiClient,
 				apiEndpoint,
@@ -830,6 +912,19 @@ var DescribeObservabilityStackInstanceCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			observabilityStackInstance = obj
+
+			// return plain output if requested
+			if describeObservabilityStackInstanceOutput == "plain" {
+				if err := outputDescribev0ObservabilityStackInstanceCmd(
+					observabilityStackInstance.(*api_v0.ObservabilityStackInstance),
+					&observabilityStackInstanceConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe observability stack instance", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -853,7 +948,7 @@ var DescribeObservabilityStackInstanceCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -877,21 +972,8 @@ var DescribeObservabilityStackInstanceCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeObservabilityStackInstanceOutput {
-		case "plain":
-			switch describeObservabilityStackInstanceVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0ObservabilityStackInstanceCmd(
-					observabilityStackInstance.(*v0.ObservabilityStackInstance),
-					&observabilityStackInstanceConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe observability stack instance", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedObservabilityStackInstance := encryption.RedactEncryptedValues(observabilityStackInstance)

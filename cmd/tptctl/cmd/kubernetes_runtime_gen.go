@@ -8,10 +8,10 @@ import (
 	"fmt"
 	ghodss_yaml "github.com/ghodss/yaml"
 	cobra "github.com/spf13/cobra"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
+	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	yaml "gopkg.in/yaml.v2"
@@ -80,7 +80,10 @@ func init() {
 	)
 }
 
-var createKubernetesRuntimeDefinitionConfigPath string
+var (
+	createKubernetesRuntimeDefinitionConfigPath string
+	createKubernetesRuntimeDefinitionVersion    string
+)
 
 // CreateKubernetesRuntimeDefinitionCmd represents the kubernetes-runtime-definition command
 var CreateKubernetesRuntimeDefinitionCmd = &cobra.Command{
@@ -90,27 +93,34 @@ var CreateKubernetesRuntimeDefinitionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load kubernetes runtime definition config
+		// read kubernetes runtime definition config
 		configContent, err := os.ReadFile(createKubernetesRuntimeDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var kubernetesRuntimeDefinitionConfig config.KubernetesRuntimeDefinitionConfig
-		if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeDefinitionConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create kubernetes runtime definition based on version
+		switch createKubernetesRuntimeDefinitionVersion {
+		case "v0":
+			var kubernetesRuntimeDefinitionConfig config_v0.KubernetesRuntimeDefinitionConfig
+			if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create kubernetes runtime definition
+			kubernetesRuntimeDefinition := kubernetesRuntimeDefinitionConfig.KubernetesRuntimeDefinition
+			createdKubernetesRuntimeDefinition, err := kubernetesRuntimeDefinition.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create kubernetes runtime definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("kubernetes runtime definition %s created", *createdKubernetesRuntimeDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create kubernetes runtime definition
-		kubernetesRuntimeDefinition := kubernetesRuntimeDefinitionConfig.KubernetesRuntimeDefinition
-		createdKubernetesRuntimeDefinition, err := kubernetesRuntimeDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create kubernetes runtime definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("kubernetes runtime definition %s created", *createdKubernetesRuntimeDefinition.Name))
 	},
 	Short:        "Create a new kubernetes runtime definition",
 	SilenceUsage: true,
@@ -129,11 +139,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
+		&createKubernetesRuntimeDefinitionVersion,
+		"version", "v", "v0", "Version of kubernetes runtime definitions object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteKubernetesRuntimeDefinitionConfigPath string
 	deleteKubernetesRuntimeDefinitionName       string
+	deleteKubernetesRuntimeDefinitionVersion    string
 )
 
 // DeleteKubernetesRuntimeDefinitionCmd represents the kubernetes-runtime-definition command
@@ -154,35 +169,42 @@ var DeleteKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var kubernetesRuntimeDefinitionConfig config.KubernetesRuntimeDefinitionConfig
-		if deleteKubernetesRuntimeDefinitionConfigPath != "" {
-			// load kubernetes runtime definition config
-			configContent, err := os.ReadFile(deleteKubernetesRuntimeDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete kubernetes runtime definition based on version
+		switch deleteKubernetesRuntimeDefinitionVersion {
+		case "v0":
+			var kubernetesRuntimeDefinitionConfig config_v0.KubernetesRuntimeDefinitionConfig
+			if deleteKubernetesRuntimeDefinitionConfigPath != "" {
+				// load kubernetes runtime definition config
+				configContent, err := os.ReadFile(deleteKubernetesRuntimeDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				kubernetesRuntimeDefinitionConfig = config_v0.KubernetesRuntimeDefinitionConfig{
+					KubernetesRuntimeDefinition: config_v0.KubernetesRuntimeDefinitionValues{
+						Name: deleteKubernetesRuntimeDefinitionName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			kubernetesRuntimeDefinitionConfig = config.KubernetesRuntimeDefinitionConfig{
-				KubernetesRuntimeDefinition: config.KubernetesRuntimeDefinitionValues{
-					Name: deleteKubernetesRuntimeDefinitionName,
-				},
-			}
-		}
 
-		// delete kubernetes runtime definition
-		kubernetesRuntimeDefinition := kubernetesRuntimeDefinitionConfig.KubernetesRuntimeDefinition
-		deletedKubernetesRuntimeDefinition, err := kubernetesRuntimeDefinition.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete kubernetes runtime definition", err)
+			// delete kubernetes runtime definition
+			kubernetesRuntimeDefinition := kubernetesRuntimeDefinitionConfig.KubernetesRuntimeDefinition
+			deletedKubernetesRuntimeDefinition, err := kubernetesRuntimeDefinition.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete kubernetes runtime definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("kubernetes runtime definition %s deleted", *deletedKubernetesRuntimeDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("kubernetes runtime definition %s deleted", *deletedKubernetesRuntimeDefinition.Name))
 	},
 	Short:        "Delete an existing kubernetes runtime definition",
 	SilenceUsage: true,
@@ -203,6 +225,10 @@ func init() {
 	DeleteKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteKubernetesRuntimeDefinitionCmd.Flags().StringVarP(
+		&deleteKubernetesRuntimeDefinitionVersion,
+		"version", "v", "v0", "Version of kubernetes runtime definitions object to delete. One of: [v0]",
 	)
 }
 
@@ -240,30 +266,31 @@ var DescribeKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load kubernetes runtime definition config by name or config file
-		var kubernetesRuntimeDefinitionConfig config.KubernetesRuntimeDefinitionConfig
-		if describeKubernetesRuntimeDefinitionConfigPath != "" {
-			configContent, err := os.ReadFile(describeKubernetesRuntimeDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			kubernetesRuntimeDefinitionConfig = config.KubernetesRuntimeDefinitionConfig{
-				KubernetesRuntimeDefinition: config.KubernetesRuntimeDefinitionValues{
-					Name: describeKubernetesRuntimeDefinitionName,
-				},
-			}
-		}
-
 		// get kubernetes runtime definition
 		var kubernetesRuntimeDefinition interface{}
 		switch describeKubernetesRuntimeDefinitionVersion {
 		case "v0":
+			// load kubernetes runtime definition config by name or config file
+			var kubernetesRuntimeDefinitionConfig config_v0.KubernetesRuntimeDefinitionConfig
+			if describeKubernetesRuntimeDefinitionConfigPath != "" {
+				configContent, err := os.ReadFile(describeKubernetesRuntimeDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				kubernetesRuntimeDefinitionConfig = config_v0.KubernetesRuntimeDefinitionConfig{
+					KubernetesRuntimeDefinition: config_v0.KubernetesRuntimeDefinitionValues{
+						Name: describeKubernetesRuntimeDefinitionName,
+					},
+				}
+			}
+
+			// get kubernetes runtime definition object by name
 			obj, err := client_v0.GetKubernetesRuntimeDefinitionByName(
 				apiClient,
 				apiEndpoint,
@@ -274,6 +301,19 @@ var DescribeKubernetesRuntimeDefinitionCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			kubernetesRuntimeDefinition = obj
+
+			// return plain output if requested
+			if describeKubernetesRuntimeDefinitionOutput == "plain" {
+				if err := outputDescribev0KubernetesRuntimeDefinitionCmd(
+					kubernetesRuntimeDefinition.(*api_v0.KubernetesRuntimeDefinition),
+					&kubernetesRuntimeDefinitionConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe kubernetes runtime definition", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -297,7 +337,7 @@ var DescribeKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -321,21 +361,8 @@ var DescribeKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeKubernetesRuntimeDefinitionOutput {
-		case "plain":
-			switch describeKubernetesRuntimeDefinitionVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0KubernetesRuntimeDefinitionCmd(
-					kubernetesRuntimeDefinition.(*v0.KubernetesRuntimeDefinition),
-					&kubernetesRuntimeDefinitionConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe kubernetes runtime definition", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedKubernetesRuntimeDefinition := encryption.RedactEncryptedValues(kubernetesRuntimeDefinition)
@@ -452,7 +479,10 @@ func init() {
 	)
 }
 
-var createKubernetesRuntimeConfigPath string
+var (
+	createKubernetesRuntimeConfigPath string
+	createKubernetesRuntimeVersion    string
+)
 
 // CreateKubernetesRuntimeCmd represents the kubernetes-runtime command
 var CreateKubernetesRuntimeCmd = &cobra.Command{
@@ -462,32 +492,40 @@ var CreateKubernetesRuntimeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load kubernetes runtime config
+		// read kubernetes runtime config
 		configContent, err := os.ReadFile(createKubernetesRuntimeConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var kubernetesRuntimeConfig config.KubernetesRuntimeConfig
-		if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// create kubernetes runtime based on version
+		switch createKubernetesRuntimeVersion {
+		case "v0":
+			var kubernetesRuntimeConfig config_v0.KubernetesRuntimeConfig
+			if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create kubernetes runtime
+			kubernetesRuntime := kubernetesRuntimeConfig.KubernetesRuntime
+			createdKubernetesRuntimeDefinition, createdKubernetesRuntimeInstance, err := kubernetesRuntime.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				cli.Error("failed to create kubernetes runtime", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("kubernetes runtime definition %s created", *createdKubernetesRuntimeDefinition.Name))
+			cli.Info(fmt.Sprintf("kubernetes runtime instance %s created", *createdKubernetesRuntimeInstance.Name))
+			cli.Complete(fmt.Sprintf("kubernetes runtime %s created", kubernetesRuntimeConfig.KubernetesRuntime.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create kubernetes runtime
-		kubernetesRuntime := kubernetesRuntimeConfig.KubernetesRuntime
-		createdKubernetesRuntimeDefinition, createdKubernetesRuntimeInstance, err := kubernetesRuntime.Create(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to create kubernetes runtime", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("kubernetes runtime definition %s created", *createdKubernetesRuntimeDefinition.Name))
-		cli.Info(fmt.Sprintf("kubernetes runtime instance %s created", *createdKubernetesRuntimeInstance.Name))
-		cli.Complete(fmt.Sprintf("kubernetes runtime %s created", kubernetesRuntimeConfig.KubernetesRuntime.Name))
 	},
 	Short:        "Create a new kubernetes runtime",
 	SilenceUsage: true,
@@ -506,11 +544,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateKubernetesRuntimeCmd.Flags().StringVarP(
+		&createKubernetesRuntimeVersion,
+		"version", "v", "v0", "Version of kubernetes runtimes object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteKubernetesRuntimeConfigPath string
 	deleteKubernetesRuntimeName       string
+	deleteKubernetesRuntimeVersion    string
 )
 
 // DeleteKubernetesRuntimeCmd represents the kubernetes-runtime command
@@ -526,29 +569,37 @@ var DeleteKubernetesRuntimeCmd = &cobra.Command{
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
-		var kubernetesRuntimeConfig config.KubernetesRuntimeConfig
-		// load kubernetes runtime config
+		// read kubernetes runtime config
 		configContent, err := os.ReadFile(deleteKubernetesRuntimeConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// delete kubernetes runtime based on version
+		switch deleteKubernetesRuntimeVersion {
+		case "v0":
+			var kubernetesRuntimeConfig config_v0.KubernetesRuntimeConfig
+			if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// delete kubernetes runtime
+			kubernetesRuntime := kubernetesRuntimeConfig.KubernetesRuntime
+			_, _, err = kubernetesRuntime.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete kubernetes runtime", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("kubernetes runtime definition %s deleted", kubernetesRuntime.Name))
+			cli.Info(fmt.Sprintf("kubernetes runtime instance %s deleted", kubernetesRuntime.Name))
+			cli.Complete(fmt.Sprintf("kubernetes runtime %s deleted", kubernetesRuntimeConfig.KubernetesRuntime.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// delete kubernetes runtime
-		kubernetesRuntime := kubernetesRuntimeConfig.KubernetesRuntime
-		_, _, err = kubernetesRuntime.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete kubernetes runtime", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("kubernetes runtime definition %s deleted", kubernetesRuntime.Name))
-		cli.Info(fmt.Sprintf("kubernetes runtime instance %s deleted", kubernetesRuntime.Name))
-		cli.Complete(fmt.Sprintf("kubernetes runtime %s deleted", kubernetesRuntimeConfig.KubernetesRuntime.Name))
 	},
 	Short:        "Delete an existing kubernetes runtime",
 	SilenceUsage: true,
@@ -565,6 +616,10 @@ func init() {
 	DeleteKubernetesRuntimeCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteKubernetesRuntimeCmd.Flags().StringVarP(
+		&deleteKubernetesRuntimeVersion,
+		"version", "v", "v0", "Version of kubernetes runtimes object to delete. One of: [v0]",
 	)
 }
 
@@ -630,7 +685,10 @@ func init() {
 	)
 }
 
-var createKubernetesRuntimeInstanceConfigPath string
+var (
+	createKubernetesRuntimeInstanceConfigPath string
+	createKubernetesRuntimeInstanceVersion    string
+)
 
 // CreateKubernetesRuntimeInstanceCmd represents the kubernetes-runtime-instance command
 var CreateKubernetesRuntimeInstanceCmd = &cobra.Command{
@@ -640,27 +698,34 @@ var CreateKubernetesRuntimeInstanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load kubernetes runtime instance config
+		// read kubernetes runtime instance config
 		configContent, err := os.ReadFile(createKubernetesRuntimeInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var kubernetesRuntimeInstanceConfig config.KubernetesRuntimeInstanceConfig
-		if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeInstanceConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create kubernetes runtime instance based on version
+		switch createKubernetesRuntimeInstanceVersion {
+		case "v0":
+			var kubernetesRuntimeInstanceConfig config_v0.KubernetesRuntimeInstanceConfig
+			if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create kubernetes runtime instance
+			kubernetesRuntimeInstance := kubernetesRuntimeInstanceConfig.KubernetesRuntimeInstance
+			createdKubernetesRuntimeInstance, err := kubernetesRuntimeInstance.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create kubernetes runtime instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("kubernetes runtime instance %s created", *createdKubernetesRuntimeInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create kubernetes runtime instance
-		kubernetesRuntimeInstance := kubernetesRuntimeInstanceConfig.KubernetesRuntimeInstance
-		createdKubernetesRuntimeInstance, err := kubernetesRuntimeInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create kubernetes runtime instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("kubernetes runtime instance %s created", *createdKubernetesRuntimeInstance.Name))
 	},
 	Short:        "Create a new kubernetes runtime instance",
 	SilenceUsage: true,
@@ -679,11 +744,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateKubernetesRuntimeInstanceCmd.Flags().StringVarP(
+		&createKubernetesRuntimeInstanceVersion,
+		"version", "v", "v0", "Version of kubernetes runtime instances object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteKubernetesRuntimeInstanceConfigPath string
 	deleteKubernetesRuntimeInstanceName       string
+	deleteKubernetesRuntimeInstanceVersion    string
 )
 
 // DeleteKubernetesRuntimeInstanceCmd represents the kubernetes-runtime-instance command
@@ -704,35 +774,42 @@ var DeleteKubernetesRuntimeInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var kubernetesRuntimeInstanceConfig config.KubernetesRuntimeInstanceConfig
-		if deleteKubernetesRuntimeInstanceConfigPath != "" {
-			// load kubernetes runtime instance config
-			configContent, err := os.ReadFile(deleteKubernetesRuntimeInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete kubernetes runtime instance based on version
+		switch deleteKubernetesRuntimeInstanceVersion {
+		case "v0":
+			var kubernetesRuntimeInstanceConfig config_v0.KubernetesRuntimeInstanceConfig
+			if deleteKubernetesRuntimeInstanceConfigPath != "" {
+				// load kubernetes runtime instance config
+				configContent, err := os.ReadFile(deleteKubernetesRuntimeInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				kubernetesRuntimeInstanceConfig = config_v0.KubernetesRuntimeInstanceConfig{
+					KubernetesRuntimeInstance: config_v0.KubernetesRuntimeInstanceValues{
+						Name: deleteKubernetesRuntimeInstanceName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			kubernetesRuntimeInstanceConfig = config.KubernetesRuntimeInstanceConfig{
-				KubernetesRuntimeInstance: config.KubernetesRuntimeInstanceValues{
-					Name: deleteKubernetesRuntimeInstanceName,
-				},
-			}
-		}
 
-		// delete kubernetes runtime instance
-		kubernetesRuntimeInstance := kubernetesRuntimeInstanceConfig.KubernetesRuntimeInstance
-		deletedKubernetesRuntimeInstance, err := kubernetesRuntimeInstance.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete kubernetes runtime instance", err)
+			// delete kubernetes runtime instance
+			kubernetesRuntimeInstance := kubernetesRuntimeInstanceConfig.KubernetesRuntimeInstance
+			deletedKubernetesRuntimeInstance, err := kubernetesRuntimeInstance.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete kubernetes runtime instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("kubernetes runtime instance %s deleted", *deletedKubernetesRuntimeInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("kubernetes runtime instance %s deleted", *deletedKubernetesRuntimeInstance.Name))
 	},
 	Short:        "Delete an existing kubernetes runtime instance",
 	SilenceUsage: true,
@@ -753,6 +830,10 @@ func init() {
 	DeleteKubernetesRuntimeInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteKubernetesRuntimeInstanceCmd.Flags().StringVarP(
+		&deleteKubernetesRuntimeInstanceVersion,
+		"version", "v", "v0", "Version of kubernetes runtime instances object to delete. One of: [v0]",
 	)
 }
 
@@ -790,30 +871,31 @@ var DescribeKubernetesRuntimeInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load kubernetes runtime instance config by name or config file
-		var kubernetesRuntimeInstanceConfig config.KubernetesRuntimeInstanceConfig
-		if describeKubernetesRuntimeInstanceConfigPath != "" {
-			configContent, err := os.ReadFile(describeKubernetesRuntimeInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			kubernetesRuntimeInstanceConfig = config.KubernetesRuntimeInstanceConfig{
-				KubernetesRuntimeInstance: config.KubernetesRuntimeInstanceValues{
-					Name: describeKubernetesRuntimeInstanceName,
-				},
-			}
-		}
-
 		// get kubernetes runtime instance
 		var kubernetesRuntimeInstance interface{}
 		switch describeKubernetesRuntimeInstanceVersion {
 		case "v0":
+			// load kubernetes runtime instance config by name or config file
+			var kubernetesRuntimeInstanceConfig config_v0.KubernetesRuntimeInstanceConfig
+			if describeKubernetesRuntimeInstanceConfigPath != "" {
+				configContent, err := os.ReadFile(describeKubernetesRuntimeInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &kubernetesRuntimeInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				kubernetesRuntimeInstanceConfig = config_v0.KubernetesRuntimeInstanceConfig{
+					KubernetesRuntimeInstance: config_v0.KubernetesRuntimeInstanceValues{
+						Name: describeKubernetesRuntimeInstanceName,
+					},
+				}
+			}
+
+			// get kubernetes runtime instance object by name
 			obj, err := client_v0.GetKubernetesRuntimeInstanceByName(
 				apiClient,
 				apiEndpoint,
@@ -824,6 +906,19 @@ var DescribeKubernetesRuntimeInstanceCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			kubernetesRuntimeInstance = obj
+
+			// return plain output if requested
+			if describeKubernetesRuntimeInstanceOutput == "plain" {
+				if err := outputDescribev0KubernetesRuntimeInstanceCmd(
+					kubernetesRuntimeInstance.(*api_v0.KubernetesRuntimeInstance),
+					&kubernetesRuntimeInstanceConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe kubernetes runtime instance", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -847,7 +942,7 @@ var DescribeKubernetesRuntimeInstanceCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -871,21 +966,8 @@ var DescribeKubernetesRuntimeInstanceCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeKubernetesRuntimeInstanceOutput {
-		case "plain":
-			switch describeKubernetesRuntimeInstanceVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0KubernetesRuntimeInstanceCmd(
-					kubernetesRuntimeInstance.(*v0.KubernetesRuntimeInstance),
-					&kubernetesRuntimeInstanceConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe kubernetes runtime instance", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedKubernetesRuntimeInstance := encryption.RedactEncryptedValues(kubernetesRuntimeInstance)

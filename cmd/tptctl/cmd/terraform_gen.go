@@ -8,10 +8,10 @@ import (
 	"fmt"
 	ghodss_yaml "github.com/ghodss/yaml"
 	cobra "github.com/spf13/cobra"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
+	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	yaml "gopkg.in/yaml.v2"
@@ -80,7 +80,10 @@ func init() {
 	)
 }
 
-var createTerraformDefinitionConfigPath string
+var (
+	createTerraformDefinitionConfigPath string
+	createTerraformDefinitionVersion    string
+)
 
 // CreateTerraformDefinitionCmd represents the terraform-definition command
 var CreateTerraformDefinitionCmd = &cobra.Command{
@@ -90,28 +93,35 @@ var CreateTerraformDefinitionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load terraform definition config
+		// read terraform definition config
 		configContent, err := os.ReadFile(createTerraformDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var terraformDefinitionConfig config.TerraformDefinitionConfig
-		if err := yaml.UnmarshalStrict(configContent, &terraformDefinitionConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create terraform definition based on version
+		switch createTerraformDefinitionVersion {
+		case "v0":
+			var terraformDefinitionConfig config_v0.TerraformDefinitionConfig
+			if err := yaml.UnmarshalStrict(configContent, &terraformDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create terraform definition
+			terraformDefinition := terraformDefinitionConfig.TerraformDefinition
+			terraformDefinition.TerraformConfigPath = createTerraformDefinitionConfigPath
+			createdTerraformDefinition, err := terraformDefinition.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create terraform definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("terraform definition %s created", *createdTerraformDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create terraform definition
-		terraformDefinition := terraformDefinitionConfig.TerraformDefinition
-		terraformDefinition.TerraformConfigPath = createTerraformDefinitionConfigPath
-		createdTerraformDefinition, err := terraformDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create terraform definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("terraform definition %s created", *createdTerraformDefinition.Name))
 	},
 	Short:        "Create a new terraform definition",
 	SilenceUsage: true,
@@ -130,11 +140,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateTerraformDefinitionCmd.Flags().StringVarP(
+		&createTerraformDefinitionVersion,
+		"version", "v", "v0", "Version of terraform definitions object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteTerraformDefinitionConfigPath string
 	deleteTerraformDefinitionName       string
+	deleteTerraformDefinitionVersion    string
 )
 
 // DeleteTerraformDefinitionCmd represents the terraform-definition command
@@ -155,36 +170,43 @@ var DeleteTerraformDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var terraformDefinitionConfig config.TerraformDefinitionConfig
-		if deleteTerraformDefinitionConfigPath != "" {
-			// load terraform definition config
-			configContent, err := os.ReadFile(deleteTerraformDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete terraform definition based on version
+		switch deleteTerraformDefinitionVersion {
+		case "v0":
+			var terraformDefinitionConfig config_v0.TerraformDefinitionConfig
+			if deleteTerraformDefinitionConfigPath != "" {
+				// load terraform definition config
+				configContent, err := os.ReadFile(deleteTerraformDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &terraformDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				terraformDefinitionConfig = config_v0.TerraformDefinitionConfig{
+					TerraformDefinition: config_v0.TerraformDefinitionValues{
+						Name: deleteTerraformDefinitionName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &terraformDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			terraformDefinitionConfig = config.TerraformDefinitionConfig{
-				TerraformDefinition: config.TerraformDefinitionValues{
-					Name: deleteTerraformDefinitionName,
-				},
-			}
-		}
 
-		// delete terraform definition
-		terraformDefinition := terraformDefinitionConfig.TerraformDefinition
-		terraformDefinition.TerraformConfigPath = deleteTerraformDefinitionConfigPath
-		deletedTerraformDefinition, err := terraformDefinition.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete terraform definition", err)
+			// delete terraform definition
+			terraformDefinition := terraformDefinitionConfig.TerraformDefinition
+			terraformDefinition.TerraformConfigPath = deleteTerraformDefinitionConfigPath
+			deletedTerraformDefinition, err := terraformDefinition.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete terraform definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("terraform definition %s deleted", *deletedTerraformDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("terraform definition %s deleted", *deletedTerraformDefinition.Name))
 	},
 	Short:        "Delete an existing terraform definition",
 	SilenceUsage: true,
@@ -205,6 +227,10 @@ func init() {
 	DeleteTerraformDefinitionCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteTerraformDefinitionCmd.Flags().StringVarP(
+		&deleteTerraformDefinitionVersion,
+		"version", "v", "v0", "Version of terraform definitions object to delete. One of: [v0]",
 	)
 }
 
@@ -242,30 +268,31 @@ var DescribeTerraformDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load terraform definition config by name or config file
-		var terraformDefinitionConfig config.TerraformDefinitionConfig
-		if describeTerraformDefinitionConfigPath != "" {
-			configContent, err := os.ReadFile(describeTerraformDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &terraformDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			terraformDefinitionConfig = config.TerraformDefinitionConfig{
-				TerraformDefinition: config.TerraformDefinitionValues{
-					Name: describeTerraformDefinitionName,
-				},
-			}
-		}
-
 		// get terraform definition
 		var terraformDefinition interface{}
 		switch describeTerraformDefinitionVersion {
 		case "v0":
+			// load terraform definition config by name or config file
+			var terraformDefinitionConfig config_v0.TerraformDefinitionConfig
+			if describeTerraformDefinitionConfigPath != "" {
+				configContent, err := os.ReadFile(describeTerraformDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &terraformDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				terraformDefinitionConfig = config_v0.TerraformDefinitionConfig{
+					TerraformDefinition: config_v0.TerraformDefinitionValues{
+						Name: describeTerraformDefinitionName,
+					},
+				}
+			}
+
+			// get terraform definition object by name
 			obj, err := client_v0.GetTerraformDefinitionByName(
 				apiClient,
 				apiEndpoint,
@@ -276,6 +303,19 @@ var DescribeTerraformDefinitionCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			terraformDefinition = obj
+
+			// return plain output if requested
+			if describeTerraformDefinitionOutput == "plain" {
+				if err := outputDescribev0TerraformDefinitionCmd(
+					terraformDefinition.(*api_v0.TerraformDefinition),
+					&terraformDefinitionConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe terraform definition", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -299,7 +339,7 @@ var DescribeTerraformDefinitionCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -323,21 +363,8 @@ var DescribeTerraformDefinitionCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeTerraformDefinitionOutput {
-		case "plain":
-			switch describeTerraformDefinitionVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0TerraformDefinitionCmd(
-					terraformDefinition.(*v0.TerraformDefinition),
-					&terraformDefinitionConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe terraform definition", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedTerraformDefinition := encryption.RedactEncryptedValues(terraformDefinition)
@@ -454,7 +481,10 @@ func init() {
 	)
 }
 
-var createTerraformConfigPath string
+var (
+	createTerraformConfigPath string
+	createTerraformVersion    string
+)
 
 // CreateTerraformCmd represents the terraform command
 var CreateTerraformCmd = &cobra.Command{
@@ -464,33 +494,41 @@ var CreateTerraformCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load terraform config
+		// read terraform config
 		configContent, err := os.ReadFile(createTerraformConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var terraformConfig config.TerraformConfig
-		if err := yaml.UnmarshalStrict(configContent, &terraformConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// create terraform based on version
+		switch createTerraformVersion {
+		case "v0":
+			var terraformConfig config_v0.TerraformConfig
+			if err := yaml.UnmarshalStrict(configContent, &terraformConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create terraform
+			terraform := terraformConfig.Terraform
+			terraform.TerraformConfigPath = createTerraformConfigPath
+			createdTerraformDefinition, createdTerraformInstance, err := terraform.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				cli.Error("failed to create terraform", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("terraform definition %s created", *createdTerraformDefinition.Name))
+			cli.Info(fmt.Sprintf("terraform instance %s created", *createdTerraformInstance.Name))
+			cli.Complete(fmt.Sprintf("terraform %s created", terraformConfig.Terraform.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create terraform
-		terraform := terraformConfig.Terraform
-		terraform.TerraformConfigPath = createTerraformConfigPath
-		createdTerraformDefinition, createdTerraformInstance, err := terraform.Create(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to create terraform", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("terraform definition %s created", *createdTerraformDefinition.Name))
-		cli.Info(fmt.Sprintf("terraform instance %s created", *createdTerraformInstance.Name))
-		cli.Complete(fmt.Sprintf("terraform %s created", terraformConfig.Terraform.Name))
 	},
 	Short:        "Create a new terraform",
 	SilenceUsage: true,
@@ -509,11 +547,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateTerraformCmd.Flags().StringVarP(
+		&createTerraformVersion,
+		"version", "v", "v0", "Version of terraforms object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteTerraformConfigPath string
 	deleteTerraformName       string
+	deleteTerraformVersion    string
 )
 
 // DeleteTerraformCmd represents the terraform command
@@ -529,30 +572,38 @@ var DeleteTerraformCmd = &cobra.Command{
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
-		var terraformConfig config.TerraformConfig
-		// load terraform config
+		// read terraform config
 		configContent, err := os.ReadFile(deleteTerraformConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		if err := yaml.UnmarshalStrict(configContent, &terraformConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// delete terraform based on version
+		switch deleteTerraformVersion {
+		case "v0":
+			var terraformConfig config_v0.TerraformConfig
+			if err := yaml.UnmarshalStrict(configContent, &terraformConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// delete terraform
+			terraform := terraformConfig.Terraform
+			terraform.TerraformConfigPath = deleteTerraformConfigPath
+			_, _, err = terraform.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete terraform", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("terraform definition %s deleted", terraform.Name))
+			cli.Info(fmt.Sprintf("terraform instance %s deleted", terraform.Name))
+			cli.Complete(fmt.Sprintf("terraform %s deleted", terraformConfig.Terraform.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// delete terraform
-		terraform := terraformConfig.Terraform
-		terraform.TerraformConfigPath = deleteTerraformConfigPath
-		_, _, err = terraform.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete terraform", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("terraform definition %s deleted", terraform.Name))
-		cli.Info(fmt.Sprintf("terraform instance %s deleted", terraform.Name))
-		cli.Complete(fmt.Sprintf("terraform %s deleted", terraformConfig.Terraform.Name))
 	},
 	Short:        "Delete an existing terraform",
 	SilenceUsage: true,
@@ -569,6 +620,10 @@ func init() {
 	DeleteTerraformCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteTerraformCmd.Flags().StringVarP(
+		&deleteTerraformVersion,
+		"version", "v", "v0", "Version of terraforms object to delete. One of: [v0]",
 	)
 }
 
@@ -634,7 +689,10 @@ func init() {
 	)
 }
 
-var createTerraformInstanceConfigPath string
+var (
+	createTerraformInstanceConfigPath string
+	createTerraformInstanceVersion    string
+)
 
 // CreateTerraformInstanceCmd represents the terraform-instance command
 var CreateTerraformInstanceCmd = &cobra.Command{
@@ -644,28 +702,35 @@ var CreateTerraformInstanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load terraform instance config
+		// read terraform instance config
 		configContent, err := os.ReadFile(createTerraformInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var terraformInstanceConfig config.TerraformInstanceConfig
-		if err := yaml.UnmarshalStrict(configContent, &terraformInstanceConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create terraform instance based on version
+		switch createTerraformInstanceVersion {
+		case "v0":
+			var terraformInstanceConfig config_v0.TerraformInstanceConfig
+			if err := yaml.UnmarshalStrict(configContent, &terraformInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create terraform instance
+			terraformInstance := terraformInstanceConfig.TerraformInstance
+			terraformInstance.TerraformConfigPath = createTerraformInstanceConfigPath
+			createdTerraformInstance, err := terraformInstance.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create terraform instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("terraform instance %s created", *createdTerraformInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create terraform instance
-		terraformInstance := terraformInstanceConfig.TerraformInstance
-		terraformInstance.TerraformConfigPath = createTerraformInstanceConfigPath
-		createdTerraformInstance, err := terraformInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create terraform instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("terraform instance %s created", *createdTerraformInstance.Name))
 	},
 	Short:        "Create a new terraform instance",
 	SilenceUsage: true,
@@ -684,11 +749,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateTerraformInstanceCmd.Flags().StringVarP(
+		&createTerraformInstanceVersion,
+		"version", "v", "v0", "Version of terraform instances object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteTerraformInstanceConfigPath string
 	deleteTerraformInstanceName       string
+	deleteTerraformInstanceVersion    string
 )
 
 // DeleteTerraformInstanceCmd represents the terraform-instance command
@@ -709,36 +779,43 @@ var DeleteTerraformInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var terraformInstanceConfig config.TerraformInstanceConfig
-		if deleteTerraformInstanceConfigPath != "" {
-			// load terraform instance config
-			configContent, err := os.ReadFile(deleteTerraformInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete terraform instance based on version
+		switch deleteTerraformInstanceVersion {
+		case "v0":
+			var terraformInstanceConfig config_v0.TerraformInstanceConfig
+			if deleteTerraformInstanceConfigPath != "" {
+				// load terraform instance config
+				configContent, err := os.ReadFile(deleteTerraformInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &terraformInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				terraformInstanceConfig = config_v0.TerraformInstanceConfig{
+					TerraformInstance: config_v0.TerraformInstanceValues{
+						Name: deleteTerraformInstanceName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &terraformInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			terraformInstanceConfig = config.TerraformInstanceConfig{
-				TerraformInstance: config.TerraformInstanceValues{
-					Name: deleteTerraformInstanceName,
-				},
-			}
-		}
 
-		// delete terraform instance
-		terraformInstance := terraformInstanceConfig.TerraformInstance
-		terraformInstance.TerraformConfigPath = deleteTerraformInstanceConfigPath
-		deletedTerraformInstance, err := terraformInstance.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete terraform instance", err)
+			// delete terraform instance
+			terraformInstance := terraformInstanceConfig.TerraformInstance
+			terraformInstance.TerraformConfigPath = deleteTerraformInstanceConfigPath
+			deletedTerraformInstance, err := terraformInstance.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete terraform instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("terraform instance %s deleted", *deletedTerraformInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("terraform instance %s deleted", *deletedTerraformInstance.Name))
 	},
 	Short:        "Delete an existing terraform instance",
 	SilenceUsage: true,
@@ -759,6 +836,10 @@ func init() {
 	DeleteTerraformInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteTerraformInstanceCmd.Flags().StringVarP(
+		&deleteTerraformInstanceVersion,
+		"version", "v", "v0", "Version of terraform instances object to delete. One of: [v0]",
 	)
 }
 
@@ -796,30 +877,31 @@ var DescribeTerraformInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load terraform instance config by name or config file
-		var terraformInstanceConfig config.TerraformInstanceConfig
-		if describeTerraformInstanceConfigPath != "" {
-			configContent, err := os.ReadFile(describeTerraformInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &terraformInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			terraformInstanceConfig = config.TerraformInstanceConfig{
-				TerraformInstance: config.TerraformInstanceValues{
-					Name: describeTerraformInstanceName,
-				},
-			}
-		}
-
 		// get terraform instance
 		var terraformInstance interface{}
 		switch describeTerraformInstanceVersion {
 		case "v0":
+			// load terraform instance config by name or config file
+			var terraformInstanceConfig config_v0.TerraformInstanceConfig
+			if describeTerraformInstanceConfigPath != "" {
+				configContent, err := os.ReadFile(describeTerraformInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &terraformInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				terraformInstanceConfig = config_v0.TerraformInstanceConfig{
+					TerraformInstance: config_v0.TerraformInstanceValues{
+						Name: describeTerraformInstanceName,
+					},
+				}
+			}
+
+			// get terraform instance object by name
 			obj, err := client_v0.GetTerraformInstanceByName(
 				apiClient,
 				apiEndpoint,
@@ -830,6 +912,19 @@ var DescribeTerraformInstanceCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			terraformInstance = obj
+
+			// return plain output if requested
+			if describeTerraformInstanceOutput == "plain" {
+				if err := outputDescribev0TerraformInstanceCmd(
+					terraformInstance.(*api_v0.TerraformInstance),
+					&terraformInstanceConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe terraform instance", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -853,7 +948,7 @@ var DescribeTerraformInstanceCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -877,21 +972,8 @@ var DescribeTerraformInstanceCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeTerraformInstanceOutput {
-		case "plain":
-			switch describeTerraformInstanceVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0TerraformInstanceCmd(
-					terraformInstance.(*v0.TerraformInstance),
-					&terraformInstanceConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe terraform instance", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedTerraformInstance := encryption.RedactEncryptedValues(terraformInstance)

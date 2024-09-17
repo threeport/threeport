@@ -8,10 +8,10 @@ import (
 	"fmt"
 	ghodss_yaml "github.com/ghodss/yaml"
 	cobra "github.com/spf13/cobra"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
+	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	yaml "gopkg.in/yaml.v2"
@@ -80,7 +80,10 @@ func init() {
 	)
 }
 
-var createControlPlaneDefinitionConfigPath string
+var (
+	createControlPlaneDefinitionConfigPath string
+	createControlPlaneDefinitionVersion    string
+)
 
 // CreateControlPlaneDefinitionCmd represents the control-plane-definition command
 var CreateControlPlaneDefinitionCmd = &cobra.Command{
@@ -90,27 +93,34 @@ var CreateControlPlaneDefinitionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load control plane definition config
+		// read control plane definition config
 		configContent, err := os.ReadFile(createControlPlaneDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var controlPlaneDefinitionConfig config.ControlPlaneDefinitionConfig
-		if err := yaml.UnmarshalStrict(configContent, &controlPlaneDefinitionConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create control plane definition based on version
+		switch createControlPlaneDefinitionVersion {
+		case "v0":
+			var controlPlaneDefinitionConfig config_v0.ControlPlaneDefinitionConfig
+			if err := yaml.UnmarshalStrict(configContent, &controlPlaneDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create control plane definition
+			controlPlaneDefinition := controlPlaneDefinitionConfig.ControlPlaneDefinition
+			createdControlPlaneDefinition, err := controlPlaneDefinition.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create control plane definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("control plane definition %s created", *createdControlPlaneDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create control plane definition
-		controlPlaneDefinition := controlPlaneDefinitionConfig.ControlPlaneDefinition
-		createdControlPlaneDefinition, err := controlPlaneDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create control plane definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("control plane definition %s created", *createdControlPlaneDefinition.Name))
 	},
 	Short:        "Create a new control plane definition",
 	SilenceUsage: true,
@@ -129,11 +139,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateControlPlaneDefinitionCmd.Flags().StringVarP(
+		&createControlPlaneDefinitionVersion,
+		"version", "v", "v0", "Version of control plane definitions object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteControlPlaneDefinitionConfigPath string
 	deleteControlPlaneDefinitionName       string
+	deleteControlPlaneDefinitionVersion    string
 )
 
 // DeleteControlPlaneDefinitionCmd represents the control-plane-definition command
@@ -154,35 +169,42 @@ var DeleteControlPlaneDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var controlPlaneDefinitionConfig config.ControlPlaneDefinitionConfig
-		if deleteControlPlaneDefinitionConfigPath != "" {
-			// load control plane definition config
-			configContent, err := os.ReadFile(deleteControlPlaneDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete control plane definition based on version
+		switch deleteControlPlaneDefinitionVersion {
+		case "v0":
+			var controlPlaneDefinitionConfig config_v0.ControlPlaneDefinitionConfig
+			if deleteControlPlaneDefinitionConfigPath != "" {
+				// load control plane definition config
+				configContent, err := os.ReadFile(deleteControlPlaneDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &controlPlaneDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				controlPlaneDefinitionConfig = config_v0.ControlPlaneDefinitionConfig{
+					ControlPlaneDefinition: config_v0.ControlPlaneDefinitionValues{
+						Name: deleteControlPlaneDefinitionName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &controlPlaneDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			controlPlaneDefinitionConfig = config.ControlPlaneDefinitionConfig{
-				ControlPlaneDefinition: config.ControlPlaneDefinitionValues{
-					Name: deleteControlPlaneDefinitionName,
-				},
-			}
-		}
 
-		// delete control plane definition
-		controlPlaneDefinition := controlPlaneDefinitionConfig.ControlPlaneDefinition
-		deletedControlPlaneDefinition, err := controlPlaneDefinition.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete control plane definition", err)
+			// delete control plane definition
+			controlPlaneDefinition := controlPlaneDefinitionConfig.ControlPlaneDefinition
+			deletedControlPlaneDefinition, err := controlPlaneDefinition.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete control plane definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("control plane definition %s deleted", *deletedControlPlaneDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("control plane definition %s deleted", *deletedControlPlaneDefinition.Name))
 	},
 	Short:        "Delete an existing control plane definition",
 	SilenceUsage: true,
@@ -203,6 +225,10 @@ func init() {
 	DeleteControlPlaneDefinitionCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteControlPlaneDefinitionCmd.Flags().StringVarP(
+		&deleteControlPlaneDefinitionVersion,
+		"version", "v", "v0", "Version of control plane definitions object to delete. One of: [v0]",
 	)
 }
 
@@ -240,30 +266,31 @@ var DescribeControlPlaneDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load control plane definition config by name or config file
-		var controlPlaneDefinitionConfig config.ControlPlaneDefinitionConfig
-		if describeControlPlaneDefinitionConfigPath != "" {
-			configContent, err := os.ReadFile(describeControlPlaneDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &controlPlaneDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			controlPlaneDefinitionConfig = config.ControlPlaneDefinitionConfig{
-				ControlPlaneDefinition: config.ControlPlaneDefinitionValues{
-					Name: describeControlPlaneDefinitionName,
-				},
-			}
-		}
-
 		// get control plane definition
 		var controlPlaneDefinition interface{}
 		switch describeControlPlaneDefinitionVersion {
 		case "v0":
+			// load control plane definition config by name or config file
+			var controlPlaneDefinitionConfig config_v0.ControlPlaneDefinitionConfig
+			if describeControlPlaneDefinitionConfigPath != "" {
+				configContent, err := os.ReadFile(describeControlPlaneDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &controlPlaneDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				controlPlaneDefinitionConfig = config_v0.ControlPlaneDefinitionConfig{
+					ControlPlaneDefinition: config_v0.ControlPlaneDefinitionValues{
+						Name: describeControlPlaneDefinitionName,
+					},
+				}
+			}
+
+			// get control plane definition object by name
 			obj, err := client_v0.GetControlPlaneDefinitionByName(
 				apiClient,
 				apiEndpoint,
@@ -274,6 +301,19 @@ var DescribeControlPlaneDefinitionCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			controlPlaneDefinition = obj
+
+			// return plain output if requested
+			if describeControlPlaneDefinitionOutput == "plain" {
+				if err := outputDescribev0ControlPlaneDefinitionCmd(
+					controlPlaneDefinition.(*api_v0.ControlPlaneDefinition),
+					&controlPlaneDefinitionConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe control plane definition", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -297,7 +337,7 @@ var DescribeControlPlaneDefinitionCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -321,21 +361,8 @@ var DescribeControlPlaneDefinitionCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeControlPlaneDefinitionOutput {
-		case "plain":
-			switch describeControlPlaneDefinitionVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0ControlPlaneDefinitionCmd(
-					controlPlaneDefinition.(*v0.ControlPlaneDefinition),
-					&controlPlaneDefinitionConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe control plane definition", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedControlPlaneDefinition := encryption.RedactEncryptedValues(controlPlaneDefinition)
@@ -452,7 +479,10 @@ func init() {
 	)
 }
 
-var createControlPlaneConfigPath string
+var (
+	createControlPlaneConfigPath string
+	createControlPlaneVersion    string
+)
 
 // CreateControlPlaneCmd represents the control-plane command
 var CreateControlPlaneCmd = &cobra.Command{
@@ -462,32 +492,40 @@ var CreateControlPlaneCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load control plane config
+		// read control plane config
 		configContent, err := os.ReadFile(createControlPlaneConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var controlPlaneConfig config.ControlPlaneConfig
-		if err := yaml.UnmarshalStrict(configContent, &controlPlaneConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// create control plane based on version
+		switch createControlPlaneVersion {
+		case "v0":
+			var controlPlaneConfig config_v0.ControlPlaneConfig
+			if err := yaml.UnmarshalStrict(configContent, &controlPlaneConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create control plane
+			controlPlane := controlPlaneConfig.ControlPlane
+			createdControlPlaneDefinition, createdControlPlaneInstance, err := controlPlane.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				cli.Error("failed to create control plane", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("control plane definition %s created", *createdControlPlaneDefinition.Name))
+			cli.Info(fmt.Sprintf("control plane instance %s created", *createdControlPlaneInstance.Name))
+			cli.Complete(fmt.Sprintf("control plane %s created", controlPlaneConfig.ControlPlane.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create control plane
-		controlPlane := controlPlaneConfig.ControlPlane
-		createdControlPlaneDefinition, createdControlPlaneInstance, err := controlPlane.Create(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to create control plane", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("control plane definition %s created", *createdControlPlaneDefinition.Name))
-		cli.Info(fmt.Sprintf("control plane instance %s created", *createdControlPlaneInstance.Name))
-		cli.Complete(fmt.Sprintf("control plane %s created", controlPlaneConfig.ControlPlane.Name))
 	},
 	Short:        "Create a new control plane",
 	SilenceUsage: true,
@@ -506,11 +544,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateControlPlaneCmd.Flags().StringVarP(
+		&createControlPlaneVersion,
+		"version", "v", "v0", "Version of control planes object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteControlPlaneConfigPath string
 	deleteControlPlaneName       string
+	deleteControlPlaneVersion    string
 )
 
 // DeleteControlPlaneCmd represents the control-plane command
@@ -526,29 +569,37 @@ var DeleteControlPlaneCmd = &cobra.Command{
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
-		var controlPlaneConfig config.ControlPlaneConfig
-		// load control plane config
+		// read control plane config
 		configContent, err := os.ReadFile(deleteControlPlaneConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		if err := yaml.UnmarshalStrict(configContent, &controlPlaneConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// delete control plane based on version
+		switch deleteControlPlaneVersion {
+		case "v0":
+			var controlPlaneConfig config_v0.ControlPlaneConfig
+			if err := yaml.UnmarshalStrict(configContent, &controlPlaneConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// delete control plane
+			controlPlane := controlPlaneConfig.ControlPlane
+			_, _, err = controlPlane.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete control plane", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("control plane definition %s deleted", controlPlane.Name))
+			cli.Info(fmt.Sprintf("control plane instance %s deleted", controlPlane.Name))
+			cli.Complete(fmt.Sprintf("control plane %s deleted", controlPlaneConfig.ControlPlane.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// delete control plane
-		controlPlane := controlPlaneConfig.ControlPlane
-		_, _, err = controlPlane.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete control plane", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("control plane definition %s deleted", controlPlane.Name))
-		cli.Info(fmt.Sprintf("control plane instance %s deleted", controlPlane.Name))
-		cli.Complete(fmt.Sprintf("control plane %s deleted", controlPlaneConfig.ControlPlane.Name))
 	},
 	Short:        "Delete an existing control plane",
 	SilenceUsage: true,
@@ -565,6 +616,10 @@ func init() {
 	DeleteControlPlaneCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteControlPlaneCmd.Flags().StringVarP(
+		&deleteControlPlaneVersion,
+		"version", "v", "v0", "Version of control planes object to delete. One of: [v0]",
 	)
 }
 
@@ -630,7 +685,10 @@ func init() {
 	)
 }
 
-var createControlPlaneInstanceConfigPath string
+var (
+	createControlPlaneInstanceConfigPath string
+	createControlPlaneInstanceVersion    string
+)
 
 // CreateControlPlaneInstanceCmd represents the control-plane-instance command
 var CreateControlPlaneInstanceCmd = &cobra.Command{
@@ -640,27 +698,34 @@ var CreateControlPlaneInstanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load control plane instance config
+		// read control plane instance config
 		configContent, err := os.ReadFile(createControlPlaneInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var controlPlaneInstanceConfig config.ControlPlaneInstanceConfig
-		if err := yaml.UnmarshalStrict(configContent, &controlPlaneInstanceConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create control plane instance based on version
+		switch createControlPlaneInstanceVersion {
+		case "v0":
+			var controlPlaneInstanceConfig config_v0.ControlPlaneInstanceConfig
+			if err := yaml.UnmarshalStrict(configContent, &controlPlaneInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create control plane instance
+			controlPlaneInstance := controlPlaneInstanceConfig.ControlPlaneInstance
+			createdControlPlaneInstance, err := controlPlaneInstance.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create control plane instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("control plane instance %s created", *createdControlPlaneInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create control plane instance
-		controlPlaneInstance := controlPlaneInstanceConfig.ControlPlaneInstance
-		createdControlPlaneInstance, err := controlPlaneInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create control plane instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("control plane instance %s created", *createdControlPlaneInstance.Name))
 	},
 	Short:        "Create a new control plane instance",
 	SilenceUsage: true,
@@ -679,11 +744,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateControlPlaneInstanceCmd.Flags().StringVarP(
+		&createControlPlaneInstanceVersion,
+		"version", "v", "v0", "Version of control plane instances object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteControlPlaneInstanceConfigPath string
 	deleteControlPlaneInstanceName       string
+	deleteControlPlaneInstanceVersion    string
 )
 
 // DeleteControlPlaneInstanceCmd represents the control-plane-instance command
@@ -704,35 +774,42 @@ var DeleteControlPlaneInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var controlPlaneInstanceConfig config.ControlPlaneInstanceConfig
-		if deleteControlPlaneInstanceConfigPath != "" {
-			// load control plane instance config
-			configContent, err := os.ReadFile(deleteControlPlaneInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete control plane instance based on version
+		switch deleteControlPlaneInstanceVersion {
+		case "v0":
+			var controlPlaneInstanceConfig config_v0.ControlPlaneInstanceConfig
+			if deleteControlPlaneInstanceConfigPath != "" {
+				// load control plane instance config
+				configContent, err := os.ReadFile(deleteControlPlaneInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &controlPlaneInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				controlPlaneInstanceConfig = config_v0.ControlPlaneInstanceConfig{
+					ControlPlaneInstance: config_v0.ControlPlaneInstanceValues{
+						Name: deleteControlPlaneInstanceName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &controlPlaneInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			controlPlaneInstanceConfig = config.ControlPlaneInstanceConfig{
-				ControlPlaneInstance: config.ControlPlaneInstanceValues{
-					Name: deleteControlPlaneInstanceName,
-				},
-			}
-		}
 
-		// delete control plane instance
-		controlPlaneInstance := controlPlaneInstanceConfig.ControlPlaneInstance
-		deletedControlPlaneInstance, err := controlPlaneInstance.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete control plane instance", err)
+			// delete control plane instance
+			controlPlaneInstance := controlPlaneInstanceConfig.ControlPlaneInstance
+			deletedControlPlaneInstance, err := controlPlaneInstance.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete control plane instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("control plane instance %s deleted", *deletedControlPlaneInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("control plane instance %s deleted", *deletedControlPlaneInstance.Name))
 	},
 	Short:        "Delete an existing control plane instance",
 	SilenceUsage: true,
@@ -753,6 +830,10 @@ func init() {
 	DeleteControlPlaneInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteControlPlaneInstanceCmd.Flags().StringVarP(
+		&deleteControlPlaneInstanceVersion,
+		"version", "v", "v0", "Version of control plane instances object to delete. One of: [v0]",
 	)
 }
 
@@ -790,30 +871,31 @@ var DescribeControlPlaneInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load control plane instance config by name or config file
-		var controlPlaneInstanceConfig config.ControlPlaneInstanceConfig
-		if describeControlPlaneInstanceConfigPath != "" {
-			configContent, err := os.ReadFile(describeControlPlaneInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &controlPlaneInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			controlPlaneInstanceConfig = config.ControlPlaneInstanceConfig{
-				ControlPlaneInstance: config.ControlPlaneInstanceValues{
-					Name: describeControlPlaneInstanceName,
-				},
-			}
-		}
-
 		// get control plane instance
 		var controlPlaneInstance interface{}
 		switch describeControlPlaneInstanceVersion {
 		case "v0":
+			// load control plane instance config by name or config file
+			var controlPlaneInstanceConfig config_v0.ControlPlaneInstanceConfig
+			if describeControlPlaneInstanceConfigPath != "" {
+				configContent, err := os.ReadFile(describeControlPlaneInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &controlPlaneInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				controlPlaneInstanceConfig = config_v0.ControlPlaneInstanceConfig{
+					ControlPlaneInstance: config_v0.ControlPlaneInstanceValues{
+						Name: describeControlPlaneInstanceName,
+					},
+				}
+			}
+
+			// get control plane instance object by name
 			obj, err := client_v0.GetControlPlaneInstanceByName(
 				apiClient,
 				apiEndpoint,
@@ -824,6 +906,19 @@ var DescribeControlPlaneInstanceCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			controlPlaneInstance = obj
+
+			// return plain output if requested
+			if describeControlPlaneInstanceOutput == "plain" {
+				if err := outputDescribev0ControlPlaneInstanceCmd(
+					controlPlaneInstance.(*api_v0.ControlPlaneInstance),
+					&controlPlaneInstanceConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe control plane instance", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -847,7 +942,7 @@ var DescribeControlPlaneInstanceCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -871,21 +966,8 @@ var DescribeControlPlaneInstanceCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeControlPlaneInstanceOutput {
-		case "plain":
-			switch describeControlPlaneInstanceVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0ControlPlaneInstanceCmd(
-					controlPlaneInstance.(*v0.ControlPlaneInstance),
-					&controlPlaneInstanceConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe control plane instance", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedControlPlaneInstance := encryption.RedactEncryptedValues(controlPlaneInstance)

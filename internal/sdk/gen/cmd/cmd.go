@@ -5,11 +5,10 @@ import (
 
 	"github.com/threeport/threeport/internal/sdk"
 	"github.com/threeport/threeport/internal/sdk/gen"
+	"github.com/threeport/threeport/internal/sdk/gen/cmd/cli"
 	"github.com/threeport/threeport/internal/sdk/gen/cmd/controller"
 	"github.com/threeport/threeport/internal/sdk/gen/cmd/dbmigrator"
-	"github.com/threeport/threeport/internal/sdk/gen/cmd/plugin"
 	"github.com/threeport/threeport/internal/sdk/gen/cmd/restapi"
-	"github.com/threeport/threeport/internal/sdk/gen/cmd/tptctl"
 )
 
 // GenCmd generates source code for cmd packages.
@@ -64,32 +63,37 @@ func GenCmd(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		return fmt.Errorf("failed to generate controller Dockerfiles: %w", err)
 	}
 
-	// generate tptctl commands
-	if !generator.Extension {
-		if err := tptctl.GenTptctlCommands(generator); err != nil {
-			return fmt.Errorf("failed to generate tptctl commands: %w", err)
-		}
-	}
-
-	// generate extension plugin main package
+	// generate extension tptctl plugin main package
 	if generator.Extension {
-		if err := plugin.GenPluginMain(generator, sdkConfig); err != nil {
+		if err := cli.GenPluginMain(generator, sdkConfig); err != nil {
 			return fmt.Errorf("failed to generate extension plugin main package: %w", err)
 		}
 	}
 
-	// generate extension plugin plugin root command
+	// generate extension tptctl plugin plugin root command
 	if generator.Extension {
-		if err := plugin.GenPluginRootCmd(generator, sdkConfig); err != nil {
+		if err := cli.GenPluginRootCmd(generator, sdkConfig); err != nil {
 			return fmt.Errorf("failed to generate extension plugin root command: %w", err)
 		}
 	}
 
-	// generate extension plugin install command
+	// generate extension tptctl plugin install command
 	if generator.Extension {
-		if err := plugin.GenPluginInstallCmd(generator, sdkConfig); err != nil {
+		if err := cli.GenPluginInstallCmd(generator, sdkConfig); err != nil {
 			return fmt.Errorf("failed to generate extension plugin install command: %w", err)
 		}
+	}
+
+	// generate extension tptctl plugin CRUD commands
+	if generator.Extension {
+		if err := cli.GenPluginCrudCmds(generator, sdkConfig); err != nil {
+			return fmt.Errorf("failed to generate extension plugin CRUD commands: %w", err)
+		}
+	}
+
+	// generate standard commands for tptctl and extension plugins
+	if err := cli.GenCliCommands(generator, sdkConfig); err != nil {
+		return fmt.Errorf("failed to generate tptctl commands: %w", err)
 	}
 
 	return nil

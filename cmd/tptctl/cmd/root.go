@@ -73,13 +73,6 @@ func init() {
 	})
 }
 
-func commandPreRunFunc(cmd *cobra.Command, args []string) {
-	if err := initializeCommandContext(cmd); err != nil {
-		cli.Error("could not initialize command in pre run:", err)
-		os.Exit(1)
-	}
-}
-
 func CommandPreRunFunc(cmd *cobra.Command, args []string) {
 	if err := initializeCommandContext(cmd); err != nil {
 		cli.Error("could not initialize command in pre run:", err)
@@ -111,43 +104,6 @@ func initializeCommandContext(cmd *cobra.Command) error {
 	cmd.SetContext(ctx)
 
 	return nil
-}
-
-func getClientContext(cmd *cobra.Command) (*http.Client, *config.ThreeportConfig, string, string) {
-	var apiClient *http.Client
-	var threeportConfig *config.ThreeportConfig
-	var apiEndpoint string
-	var requestedControlPlane string
-
-	contextApiClient := cmd.Context().Value("apiClient")
-	if contextApiClient != nil {
-		if client, ok := contextApiClient.(*http.Client); ok {
-			apiClient = client
-		}
-	}
-
-	contextThreeportConfig := cmd.Context().Value("config")
-	if contextThreeportConfig != nil {
-		if config, ok := contextThreeportConfig.(*config.ThreeportConfig); ok {
-			threeportConfig = config
-		}
-	}
-
-	contextApiEndpoint := cmd.Context().Value("apiEndpoint")
-	if contextApiEndpoint != nil {
-		if client, ok := contextApiEndpoint.(string); ok {
-			apiEndpoint = client
-		}
-	}
-
-	contextControlPlane := cmd.Context().Value("requestedControlPlane")
-	if contextControlPlane != nil {
-		if controlPlane, ok := contextControlPlane.(string); ok {
-			requestedControlPlane = controlPlane
-		}
-	}
-
-	return apiClient, threeportConfig, apiEndpoint, requestedControlPlane
 }
 
 func GetClientContext(cmd *cobra.Command) (*http.Client, *config.ThreeportConfig, string, string) {
@@ -234,8 +190,8 @@ func loadPlugins(pluginDir string) {
 				continue
 			}
 
-			registerFunc := cmdFunc.(func(*cobra.Command))
-			registerFunc(rootCmd)
+			registerFunc := cmdFunc.(func(*cobra.Command, *cli.GenesisControlPlaneCLIArgs))
+			registerFunc(rootCmd, cliArgs)
 		}
 	}
 }

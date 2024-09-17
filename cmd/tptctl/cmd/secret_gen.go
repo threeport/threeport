@@ -8,10 +8,10 @@ import (
 	"fmt"
 	ghodss_yaml "github.com/ghodss/yaml"
 	cobra "github.com/spf13/cobra"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
+	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	yaml "gopkg.in/yaml.v2"
@@ -80,7 +80,10 @@ func init() {
 	)
 }
 
-var createSecretDefinitionConfigPath string
+var (
+	createSecretDefinitionConfigPath string
+	createSecretDefinitionVersion    string
+)
 
 // CreateSecretDefinitionCmd represents the secret-definition command
 var CreateSecretDefinitionCmd = &cobra.Command{
@@ -90,28 +93,35 @@ var CreateSecretDefinitionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load secret definition config
+		// read secret definition config
 		configContent, err := os.ReadFile(createSecretDefinitionConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var secretDefinitionConfig config.SecretDefinitionConfig
-		if err := yaml.UnmarshalStrict(configContent, &secretDefinitionConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create secret definition based on version
+		switch createSecretDefinitionVersion {
+		case "v0":
+			var secretDefinitionConfig config_v0.SecretDefinitionConfig
+			if err := yaml.UnmarshalStrict(configContent, &secretDefinitionConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create secret definition
+			secretDefinition := secretDefinitionConfig.SecretDefinition
+			secretDefinition.SecretConfigPath = createSecretDefinitionConfigPath
+			createdSecretDefinition, err := secretDefinition.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create secret definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("secret definition %s created", *createdSecretDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create secret definition
-		secretDefinition := secretDefinitionConfig.SecretDefinition
-		secretDefinition.SecretConfigPath = createSecretDefinitionConfigPath
-		createdSecretDefinition, err := secretDefinition.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create secret definition", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("secret definition %s created", *createdSecretDefinition.Name))
 	},
 	Short:        "Create a new secret definition",
 	SilenceUsage: true,
@@ -130,11 +140,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateSecretDefinitionCmd.Flags().StringVarP(
+		&createSecretDefinitionVersion,
+		"version", "v", "v0", "Version of secret definitions object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteSecretDefinitionConfigPath string
 	deleteSecretDefinitionName       string
+	deleteSecretDefinitionVersion    string
 )
 
 // DeleteSecretDefinitionCmd represents the secret-definition command
@@ -155,36 +170,43 @@ var DeleteSecretDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var secretDefinitionConfig config.SecretDefinitionConfig
-		if deleteSecretDefinitionConfigPath != "" {
-			// load secret definition config
-			configContent, err := os.ReadFile(deleteSecretDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete secret definition based on version
+		switch deleteSecretDefinitionVersion {
+		case "v0":
+			var secretDefinitionConfig config_v0.SecretDefinitionConfig
+			if deleteSecretDefinitionConfigPath != "" {
+				// load secret definition config
+				configContent, err := os.ReadFile(deleteSecretDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &secretDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				secretDefinitionConfig = config_v0.SecretDefinitionConfig{
+					SecretDefinition: config_v0.SecretDefinitionValues{
+						Name: deleteSecretDefinitionName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &secretDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			secretDefinitionConfig = config.SecretDefinitionConfig{
-				SecretDefinition: config.SecretDefinitionValues{
-					Name: deleteSecretDefinitionName,
-				},
-			}
-		}
 
-		// delete secret definition
-		secretDefinition := secretDefinitionConfig.SecretDefinition
-		secretDefinition.SecretConfigPath = deleteSecretDefinitionConfigPath
-		deletedSecretDefinition, err := secretDefinition.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete secret definition", err)
+			// delete secret definition
+			secretDefinition := secretDefinitionConfig.SecretDefinition
+			secretDefinition.SecretConfigPath = deleteSecretDefinitionConfigPath
+			deletedSecretDefinition, err := secretDefinition.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete secret definition", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("secret definition %s deleted", *deletedSecretDefinition.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("secret definition %s deleted", *deletedSecretDefinition.Name))
 	},
 	Short:        "Delete an existing secret definition",
 	SilenceUsage: true,
@@ -205,6 +227,10 @@ func init() {
 	DeleteSecretDefinitionCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteSecretDefinitionCmd.Flags().StringVarP(
+		&deleteSecretDefinitionVersion,
+		"version", "v", "v0", "Version of secret definitions object to delete. One of: [v0]",
 	)
 }
 
@@ -242,30 +268,31 @@ var DescribeSecretDefinitionCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load secret definition config by name or config file
-		var secretDefinitionConfig config.SecretDefinitionConfig
-		if describeSecretDefinitionConfigPath != "" {
-			configContent, err := os.ReadFile(describeSecretDefinitionConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &secretDefinitionConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			secretDefinitionConfig = config.SecretDefinitionConfig{
-				SecretDefinition: config.SecretDefinitionValues{
-					Name: describeSecretDefinitionName,
-				},
-			}
-		}
-
 		// get secret definition
 		var secretDefinition interface{}
 		switch describeSecretDefinitionVersion {
 		case "v0":
+			// load secret definition config by name or config file
+			var secretDefinitionConfig config_v0.SecretDefinitionConfig
+			if describeSecretDefinitionConfigPath != "" {
+				configContent, err := os.ReadFile(describeSecretDefinitionConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &secretDefinitionConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				secretDefinitionConfig = config_v0.SecretDefinitionConfig{
+					SecretDefinition: config_v0.SecretDefinitionValues{
+						Name: describeSecretDefinitionName,
+					},
+				}
+			}
+
+			// get secret definition object by name
 			obj, err := client_v0.GetSecretDefinitionByName(
 				apiClient,
 				apiEndpoint,
@@ -276,6 +303,19 @@ var DescribeSecretDefinitionCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			secretDefinition = obj
+
+			// return plain output if requested
+			if describeSecretDefinitionOutput == "plain" {
+				if err := outputDescribev0SecretDefinitionCmd(
+					secretDefinition.(*api_v0.SecretDefinition),
+					&secretDefinitionConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe secret definition", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -299,7 +339,7 @@ var DescribeSecretDefinitionCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -323,21 +363,8 @@ var DescribeSecretDefinitionCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeSecretDefinitionOutput {
-		case "plain":
-			switch describeSecretDefinitionVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0SecretDefinitionCmd(
-					secretDefinition.(*v0.SecretDefinition),
-					&secretDefinitionConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe secret definition", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedSecretDefinition := encryption.RedactEncryptedValues(secretDefinition)
@@ -454,7 +481,10 @@ func init() {
 	)
 }
 
-var createSecretConfigPath string
+var (
+	createSecretConfigPath string
+	createSecretVersion    string
+)
 
 // CreateSecretCmd represents the secret command
 var CreateSecretCmd = &cobra.Command{
@@ -464,33 +494,41 @@ var CreateSecretCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load secret config
+		// read secret config
 		configContent, err := os.ReadFile(createSecretConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var secretConfig config.SecretConfig
-		if err := yaml.UnmarshalStrict(configContent, &secretConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// create secret based on version
+		switch createSecretVersion {
+		case "v0":
+			var secretConfig config_v0.SecretConfig
+			if err := yaml.UnmarshalStrict(configContent, &secretConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create secret
+			secret := secretConfig.Secret
+			secret.SecretConfigPath = createSecretConfigPath
+			createdSecretDefinition, createdSecretInstance, err := secret.Create(
+				apiClient,
+				apiEndpoint,
+			)
+			if err != nil {
+				cli.Error("failed to create secret", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("secret definition %s created", *createdSecretDefinition.Name))
+			cli.Info(fmt.Sprintf("secret instance %s created", *createdSecretInstance.Name))
+			cli.Complete(fmt.Sprintf("secret %s created", secretConfig.Secret.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create secret
-		secret := secretConfig.Secret
-		secret.SecretConfigPath = createSecretConfigPath
-		createdSecretDefinition, createdSecretInstance, err := secret.Create(
-			apiClient,
-			apiEndpoint,
-		)
-		if err != nil {
-			cli.Error("failed to create secret", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("secret definition %s created", *createdSecretDefinition.Name))
-		cli.Info(fmt.Sprintf("secret instance %s created", *createdSecretInstance.Name))
-		cli.Complete(fmt.Sprintf("secret %s created", secretConfig.Secret.Name))
 	},
 	Short:        "Create a new secret",
 	SilenceUsage: true,
@@ -509,11 +547,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateSecretCmd.Flags().StringVarP(
+		&createSecretVersion,
+		"version", "v", "v0", "Version of secrets object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteSecretConfigPath string
 	deleteSecretName       string
+	deleteSecretVersion    string
 )
 
 // DeleteSecretCmd represents the secret command
@@ -529,30 +572,38 @@ var DeleteSecretCmd = &cobra.Command{
 			cli.Error("flag validation failed", errors.New("config file path is required"))
 		}
 
-		var secretConfig config.SecretConfig
-		// load secret config
+		// read secret config
 		configContent, err := os.ReadFile(deleteSecretConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		if err := yaml.UnmarshalStrict(configContent, &secretConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+
+		// delete secret based on version
+		switch deleteSecretVersion {
+		case "v0":
+			var secretConfig config_v0.SecretConfig
+			if err := yaml.UnmarshalStrict(configContent, &secretConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// delete secret
+			secret := secretConfig.Secret
+			secret.SecretConfigPath = deleteSecretConfigPath
+			_, _, err = secret.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete secret", err)
+				os.Exit(1)
+			}
+
+			cli.Info(fmt.Sprintf("secret definition %s deleted", secret.Name))
+			cli.Info(fmt.Sprintf("secret instance %s deleted", secret.Name))
+			cli.Complete(fmt.Sprintf("secret %s deleted", secretConfig.Secret.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// delete secret
-		secret := secretConfig.Secret
-		secret.SecretConfigPath = deleteSecretConfigPath
-		_, _, err = secret.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete secret", err)
-			os.Exit(1)
-		}
-
-		cli.Info(fmt.Sprintf("secret definition %s deleted", secret.Name))
-		cli.Info(fmt.Sprintf("secret instance %s deleted", secret.Name))
-		cli.Complete(fmt.Sprintf("secret %s deleted", secretConfig.Secret.Name))
 	},
 	Short:        "Delete an existing secret",
 	SilenceUsage: true,
@@ -569,6 +620,10 @@ func init() {
 	DeleteSecretCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteSecretCmd.Flags().StringVarP(
+		&deleteSecretVersion,
+		"version", "v", "v0", "Version of secrets object to delete. One of: [v0]",
 	)
 }
 
@@ -634,7 +689,10 @@ func init() {
 	)
 }
 
-var createSecretInstanceConfigPath string
+var (
+	createSecretInstanceConfigPath string
+	createSecretInstanceVersion    string
+)
 
 // CreateSecretInstanceCmd represents the secret-instance command
 var CreateSecretInstanceCmd = &cobra.Command{
@@ -644,28 +702,35 @@ var CreateSecretInstanceCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// load secret instance config
+		// read secret instance config
 		configContent, err := os.ReadFile(createSecretInstanceConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		var secretInstanceConfig config.SecretInstanceConfig
-		if err := yaml.UnmarshalStrict(configContent, &secretInstanceConfig); err != nil {
-			cli.Error("failed to unmarshal config file yaml content", err)
+		// create secret instance based on version
+		switch createSecretInstanceVersion {
+		case "v0":
+			var secretInstanceConfig config_v0.SecretInstanceConfig
+			if err := yaml.UnmarshalStrict(configContent, &secretInstanceConfig); err != nil {
+				cli.Error("failed to unmarshal config file yaml content", err)
+				os.Exit(1)
+			}
+
+			// create secret instance
+			secretInstance := secretInstanceConfig.SecretInstance
+			secretInstance.SecretConfigPath = createSecretInstanceConfigPath
+			createdSecretInstance, err := secretInstance.Create(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to create secret instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("secret instance %s created", *createdSecretInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		// create secret instance
-		secretInstance := secretInstanceConfig.SecretInstance
-		secretInstance.SecretConfigPath = createSecretInstanceConfigPath
-		createdSecretInstance, err := secretInstance.Create(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to create secret instance", err)
-			os.Exit(1)
-		}
-
-		cli.Complete(fmt.Sprintf("secret instance %s created", *createdSecretInstance.Name))
 	},
 	Short:        "Create a new secret instance",
 	SilenceUsage: true,
@@ -684,11 +749,16 @@ func init() {
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
+	CreateSecretInstanceCmd.Flags().StringVarP(
+		&createSecretInstanceVersion,
+		"version", "v", "v0", "Version of secret instances object to create. One of: [v0]",
+	)
 }
 
 var (
 	deleteSecretInstanceConfigPath string
 	deleteSecretInstanceName       string
+	deleteSecretInstanceVersion    string
 )
 
 // DeleteSecretInstanceCmd represents the secret-instance command
@@ -709,36 +779,43 @@ var DeleteSecretInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		var secretInstanceConfig config.SecretInstanceConfig
-		if deleteSecretInstanceConfigPath != "" {
-			// load secret instance config
-			configContent, err := os.ReadFile(deleteSecretInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
+		// delete secret instance based on version
+		switch deleteSecretInstanceVersion {
+		case "v0":
+			var secretInstanceConfig config_v0.SecretInstanceConfig
+			if deleteSecretInstanceConfigPath != "" {
+				// load secret instance config
+				configContent, err := os.ReadFile(deleteSecretInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &secretInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				secretInstanceConfig = config_v0.SecretInstanceConfig{
+					SecretInstance: config_v0.SecretInstanceValues{
+						Name: deleteSecretInstanceName,
+					},
+				}
 			}
-			if err := yaml.UnmarshalStrict(configContent, &secretInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			secretInstanceConfig = config.SecretInstanceConfig{
-				SecretInstance: config.SecretInstanceValues{
-					Name: deleteSecretInstanceName,
-				},
-			}
-		}
 
-		// delete secret instance
-		secretInstance := secretInstanceConfig.SecretInstance
-		secretInstance.SecretConfigPath = deleteSecretInstanceConfigPath
-		deletedSecretInstance, err := secretInstance.Delete(apiClient, apiEndpoint)
-		if err != nil {
-			cli.Error("failed to delete secret instance", err)
+			// delete secret instance
+			secretInstance := secretInstanceConfig.SecretInstance
+			secretInstance.SecretConfigPath = deleteSecretInstanceConfigPath
+			deletedSecretInstance, err := secretInstance.Delete(apiClient, apiEndpoint)
+			if err != nil {
+				cli.Error("failed to delete secret instance", err)
+				os.Exit(1)
+			}
+
+			cli.Complete(fmt.Sprintf("secret instance %s deleted", *deletedSecretInstance.Name))
+		default:
+			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
-
-		cli.Complete(fmt.Sprintf("secret instance %s deleted", *deletedSecretInstance.Name))
 	},
 	Short:        "Delete an existing secret instance",
 	SilenceUsage: true,
@@ -759,6 +836,10 @@ func init() {
 	DeleteSecretInstanceCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	DeleteSecretInstanceCmd.Flags().StringVarP(
+		&deleteSecretInstanceVersion,
+		"version", "v", "v0", "Version of secret instances object to delete. One of: [v0]",
 	)
 }
 
@@ -796,30 +877,31 @@ var DescribeSecretInstanceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// load secret instance config by name or config file
-		var secretInstanceConfig config.SecretInstanceConfig
-		if describeSecretInstanceConfigPath != "" {
-			configContent, err := os.ReadFile(describeSecretInstanceConfigPath)
-			if err != nil {
-				cli.Error("failed to read config file", err)
-				os.Exit(1)
-			}
-			if err := yaml.UnmarshalStrict(configContent, &secretInstanceConfig); err != nil {
-				cli.Error("failed to unmarshal config file yaml content", err)
-				os.Exit(1)
-			}
-		} else {
-			secretInstanceConfig = config.SecretInstanceConfig{
-				SecretInstance: config.SecretInstanceValues{
-					Name: describeSecretInstanceName,
-				},
-			}
-		}
-
 		// get secret instance
 		var secretInstance interface{}
 		switch describeSecretInstanceVersion {
 		case "v0":
+			// load secret instance config by name or config file
+			var secretInstanceConfig config_v0.SecretInstanceConfig
+			if describeSecretInstanceConfigPath != "" {
+				configContent, err := os.ReadFile(describeSecretInstanceConfigPath)
+				if err != nil {
+					cli.Error("failed to read config file", err)
+					os.Exit(1)
+				}
+				if err := yaml.UnmarshalStrict(configContent, &secretInstanceConfig); err != nil {
+					cli.Error("failed to unmarshal config file yaml content", err)
+					os.Exit(1)
+				}
+			} else {
+				secretInstanceConfig = config_v0.SecretInstanceConfig{
+					SecretInstance: config_v0.SecretInstanceValues{
+						Name: describeSecretInstanceName,
+					},
+				}
+			}
+
+			// get secret instance object by name
 			obj, err := client_v0.GetSecretInstanceByName(
 				apiClient,
 				apiEndpoint,
@@ -830,6 +912,19 @@ var DescribeSecretInstanceCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			secretInstance = obj
+
+			// return plain output if requested
+			if describeSecretInstanceOutput == "plain" {
+				if err := outputDescribev0SecretInstanceCmd(
+					secretInstance.(*api_v0.SecretInstance),
+					&secretInstanceConfig,
+					apiClient,
+					apiEndpoint,
+				); err != nil {
+					cli.Error("failed to describe secret instance", err)
+					os.Exit(1)
+				}
+			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -853,7 +948,7 @@ var DescribeSecretInstanceCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -877,21 +972,8 @@ var DescribeSecretInstanceCmd = &cobra.Command{
 			}
 		}
 
+		// produce json or yaml output if requested
 		switch describeSecretInstanceOutput {
-		case "plain":
-			switch describeSecretInstanceVersion {
-			case "v0":
-				// produce plain object description output
-				if err := outputDescribev0SecretInstanceCmd(
-					secretInstance.(*v0.SecretInstance),
-					&secretInstanceConfig,
-					apiClient,
-					apiEndpoint,
-				); err != nil {
-					cli.Error("failed to describe secret instance", err)
-					os.Exit(1)
-				}
-			}
 		case "json":
 			// redact encrypted values
 			redactedSecretInstance := encryption.RedactEncryptedValues(secretInstance)

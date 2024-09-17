@@ -82,7 +82,7 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	////////////////////////////// pkg/config //////////////////////////////////
-	// TODO: remove generate.Extension if statement to apply to core threeport
+	// TODO: remove generator.Extension if-statement to apply to core threeport
 	// as well.  Complete codegen for config package.
 	if generator.Extension {
 		if err := config.GenConfig(generator); err != nil {
