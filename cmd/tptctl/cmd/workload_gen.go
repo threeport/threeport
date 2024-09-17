@@ -549,7 +549,7 @@ func init() {
 	)
 	CreateWorkloadCmd.Flags().StringVarP(
 		&createWorkloadVersion,
-		"version", "v", "v1", "Version of workloads object to create. One of: [v0]",
+		"version", "v", "v0", "Version of workloads object to create. One of: [v0]",
 	)
 }
 
@@ -622,7 +622,7 @@ func init() {
 	)
 	DeleteWorkloadCmd.Flags().StringVarP(
 		&deleteWorkloadVersion,
-		"version", "v", "v1", "Version of workloads object to delete. One of: [v0]",
+		"version", "v", "v0", "Version of workloads object to delete. One of: [v0]",
 	)
 }
 
@@ -684,7 +684,7 @@ func init() {
 	)
 	GetWorkloadInstancesCmd.Flags().StringVarP(
 		&getWorkloadInstanceVersion,
-		"version", "v", "v1", "Version of workload instances object to retrieve. One of: [v0]",
+		"version", "v", "v0", "Version of workload instances object to retrieve. One of: [v0]",
 	)
 }
 
@@ -749,7 +749,7 @@ func init() {
 	)
 	CreateWorkloadInstanceCmd.Flags().StringVarP(
 		&createWorkloadInstanceVersion,
-		"version", "v", "v1", "Version of workload instances object to create. One of: [v0]",
+		"version", "v", "v0", "Version of workload instances object to create. One of: [v0]",
 	)
 }
 
@@ -836,7 +836,7 @@ func init() {
 	)
 	DeleteWorkloadInstanceCmd.Flags().StringVarP(
 		&deleteWorkloadInstanceVersion,
-		"version", "v", "v1", "Version of workload instances object to delete. One of: [v0]",
+		"version", "v", "v0", "Version of workload instances object to delete. One of: [v0]",
 	)
 }
 
@@ -1033,6 +1033,6 @@ func init() {
 	)
 	DescribeWorkloadInstanceCmd.Flags().StringVarP(
 		&describeWorkloadInstanceVersion,
-		"version", "v", "v1", "Version of workload instances object to describe. One of: [v0]",
+		"version", "v", "v0", "Version of workload instances object to describe. One of: [v0]",
 	)
 }
