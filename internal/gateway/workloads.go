@@ -3,7 +3,7 @@ package gateway
 import (
 	"fmt"
 
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
@@ -15,7 +15,7 @@ func confirmWorkloadInstanceReconciled(
 ) (bool, error) {
 
 	// get workload instance id
-	workloadInstance, err := client_v1.GetWorkloadInstanceByID(r.APIClient, r.APIServer, instanceID)
+	workloadInstance, err := client.GetWorkloadInstanceByID(r.APIClient, r.APIServer, instanceID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get workload instance by workload instance ID: %w", err)
 	}

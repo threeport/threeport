@@ -6,7 +6,7 @@ import (
 	"errors"
 	echo "github.com/labstack/echo/v4"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
-	api_v1 "github.com/threeport/threeport/pkg/api/v1"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	gorm "gorm.io/gorm"
 	"net/http"
 )
@@ -22,22 +22,22 @@ import (
 // @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
 // @Router /attached-object-references/versions [GET]
 func (h Handler) GetAttachedObjectReferenceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v1.ObjectTypeAttachedObjectReference)])
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAttachedObjectReference)])
 }
 
 // @Summary adds a new attached object reference.
 // @Description Add a new attached object reference to the Threeport database.
-// @ID add-v1-attachedObjectReference
+// @ID add-v0-attachedObjectReference
 // @Accept json
 // @Produce json
-// @Param attachedObjectReference body api_v1.AttachedObjectReference true "AttachedObjectReference object"
+// @Param attachedObjectReference body api_v0.AttachedObjectReference true "AttachedObjectReference object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v1/attached-object-references [POST]
+// @Router /v0/attached-object-references [POST]
 func (h Handler) AddAttachedObjectReference(c echo.Context) error {
-	objectType := api_v1.ObjectTypeAttachedObjectReference
-	var attachedObjectReference api_v1.AttachedObjectReference
+	objectType := api_v0.ObjectTypeAttachedObjectReference
+	var attachedObjectReference api_v0.AttachedObjectReference
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, attachedObjectReference); err != nil {
@@ -68,32 +68,32 @@ func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 
 // @Summary gets all attached object references.
 // @Description Get all attached object references from the Threeport database.
-// @ID get-v1-attachedObjectReferences
+// @ID get-v0-attachedObjectReferences
 // @Accept json
 // @Produce json
 // @Param name query string false "attached object reference search by name"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v1/attached-object-references [GET]
+// @Router /v0/attached-object-references [GET]
 func (h Handler) GetAttachedObjectReferences(c echo.Context) error {
-	objectType := api_v1.ObjectTypeAttachedObjectReference
+	objectType := api_v0.ObjectTypeAttachedObjectReference
 	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
 	if err != nil {
 		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
 	}
 
-	var filter api_v1.AttachedObjectReference
+	var filter api_v0.AttachedObjectReference
 	if err := c.Bind(&filter); err != nil {
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
-	if result := h.DB.Model(&api_v1.AttachedObjectReference{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&api_v0.AttachedObjectReference{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	records := &[]api_v1.AttachedObjectReference{}
+	records := &[]api_v0.AttachedObjectReference{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
@@ -108,18 +108,18 @@ func (h Handler) GetAttachedObjectReferences(c echo.Context) error {
 
 // @Summary gets a attached object reference.
 // @Description Get a particular attached object reference from the database.
-// @ID get-v1-attachedObjectReference
+// @ID get-v0-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v1/attached-object-references/{id} [GET]
+// @Router /v0/attached-object-references/{id} [GET]
 func (h Handler) GetAttachedObjectReference(c echo.Context) error {
-	objectType := api_v1.ObjectTypeAttachedObjectReference
+	objectType := api_v0.ObjectTypeAttachedObjectReference
 	attachedObjectReferenceID := c.Param("id")
-	var attachedObjectReference api_v1.AttachedObjectReference
+	var attachedObjectReference api_v0.AttachedObjectReference
 	if result := h.DB.First(&attachedObjectReference, attachedObjectReferenceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
@@ -141,20 +141,20 @@ func (h Handler) GetAttachedObjectReference(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-v1-attachedObjectReference
+// @ID update-v0-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param attachedObjectReference body api_v1.AttachedObjectReference true "AttachedObjectReference object"
+// @Param attachedObjectReference body api_v0.AttachedObjectReference true "AttachedObjectReference object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v1/attached-object-references/{id} [PATCH]
+// @Router /v0/attached-object-references/{id} [PATCH]
 func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
-	objectType := api_v1.ObjectTypeAttachedObjectReference
+	objectType := api_v0.ObjectTypeAttachedObjectReference
 	attachedObjectReferenceID := c.Param("id")
-	var existingAttachedObjectReference api_v1.AttachedObjectReference
+	var existingAttachedObjectReference api_v0.AttachedObjectReference
 	if result := h.DB.First(&existingAttachedObjectReference, attachedObjectReferenceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
@@ -168,7 +168,7 @@ func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedAttachedObjectReference api_v1.AttachedObjectReference
+	var updatedAttachedObjectReference api_v0.AttachedObjectReference
 	if err := c.Bind(&updatedAttachedObjectReference); err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -193,20 +193,20 @@ func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-v1-attachedObjectReference
+// @ID replace-v0-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param attachedObjectReference body api_v1.AttachedObjectReference true "AttachedObjectReference object"
+// @Param attachedObjectReference body api_v0.AttachedObjectReference true "AttachedObjectReference object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v1/attached-object-references/{id} [PUT]
+// @Router /v0/attached-object-references/{id} [PUT]
 func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
-	objectType := api_v1.ObjectTypeAttachedObjectReference
+	objectType := api_v0.ObjectTypeAttachedObjectReference
 	attachedObjectReferenceID := c.Param("id")
-	var existingAttachedObjectReference api_v1.AttachedObjectReference
+	var existingAttachedObjectReference api_v0.AttachedObjectReference
 	if result := h.DB.First(&existingAttachedObjectReference, attachedObjectReferenceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
@@ -220,7 +220,7 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 	}
 
 	// bind payload
-	var updatedAttachedObjectReference api_v1.AttachedObjectReference
+	var updatedAttachedObjectReference api_v0.AttachedObjectReference
 	if err := c.Bind(&updatedAttachedObjectReference); err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -254,7 +254,7 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 
 // @Summary deletes a attached object reference.
 // @Description Delete a attached object reference by ID from the database.
-// @ID delete-v1-attachedObjectReference
+// @ID delete-v0-attachedObjectReference
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -262,11 +262,11 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v1/attached-object-references/{id} [DELETE]
+// @Router /v0/attached-object-references/{id} [DELETE]
 func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
-	objectType := api_v1.ObjectTypeAttachedObjectReference
+	objectType := api_v0.ObjectTypeAttachedObjectReference
 	attachedObjectReferenceID := c.Param("id")
-	var attachedObjectReference api_v1.AttachedObjectReference
+	var attachedObjectReference api_v0.AttachedObjectReference
 	if result := h.DB.First(&attachedObjectReference, attachedObjectReferenceID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)

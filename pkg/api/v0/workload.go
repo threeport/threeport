@@ -59,20 +59,43 @@ type WorkloadInstance struct {
 	// All events generated for the workload instance that aren't related to a
 	// particular workload resource instance.
 	Events []*WorkloadEvent `json:"Events,omitempty" query:"events" validate:"optional"`
-
-	// The threeport objects that are deployed to support the workload instance.
-	AttachedObjectReferences []*AttachedObjectReference `json:"AttachedObjectReferences,omitempty" query:"attachedobjectreferences" validate:"optional,association"`
 }
 
-// AttachedObjectReference is a reference to an attached object.
-type AttachedObjectReference struct {
-	Common   `swaggerignore:"true" mapstructure:",squash"`
-	ObjectID *uint   `json:"ObjectID,omitempty" query:"objectid" gorm:"not null" validate:"optional"`
-	Type     *string `json:"Type,omitempty" query:"type" gorm:"not null" validate:"optional"`
+//// WorkloadInstance is a deployed instance of a workload.
+//type WorkloadInstance struct {
+//	Common         `swaggerignore:"true" mapstructure:",squash"`
+//	Instance       `mapstructure:",squash"`
+//	Reconciliation `mapstructure:",squash"`
+//
+//	// The kubernetes runtime to which the workload is deployed.
+//	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
+//
+//	// The definition used to configure the workload instance.
+//	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" gorm:"not null" validate:"required"`
+//
+//	// The associated workload resource definitions that are derived.
+//	WorkloadResourceInstances []*WorkloadResourceInstance `json:"WorkloadResourceInstances,omitempty" validate:"optional,association"`
+//
+//	// The latest status of a workload instance.
+//	Status *string `json:"Status,omitempty" query:"status" validate:"optional"`
+//
+//	// All events generated for the workload instance that aren't related to a
+//	// particular workload resource instance.
+//	Events []*WorkloadEvent `json:"Events,omitempty" query:"events" validate:"optional"`
+//
+//	// The threeport objects that are deployed to support the workload instance.
+//	AttachedObjectReferences []*AttachedObjectReference `json:"AttachedObjectReferences,omitempty" query:"attachedobjectreferences" validate:"optional,association"`
+//}
 
-	// The workload definition this resource belongs to.
-	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
-}
+//// AttachedObjectReference is a reference to an attached object.
+//type AttachedObjectReference struct {
+//	Common   `swaggerignore:"true" mapstructure:",squash"`
+//	ObjectID *uint   `json:"ObjectID,omitempty" query:"objectid" gorm:"not null" validate:"optional"`
+//	Type     *string `json:"Type,omitempty" query:"type" gorm:"not null" validate:"optional"`
+//
+//	// The workload definition this resource belongs to.
+//	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required"`
+//}
 
 // WorkloadResourceInstance is a Kubernetes resource instance.
 type WorkloadResourceInstance struct {

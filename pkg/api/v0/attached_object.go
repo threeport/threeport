@@ -1,10 +1,8 @@
-package v1
-
-import v0 "github.com/threeport/threeport/pkg/api/v0"
+package v0
 
 // AttachedObjectReference is a reference to an attached object.
 type AttachedObjectReference struct {
-	v0.Common `swaggerignore:"true" mapstructure:",squash"`
+	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The object type of the base object.
 	ObjectType *string `json:"ObjectType,omitempty" query:"objecttype" gorm:"not null" validate:"required"`

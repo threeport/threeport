@@ -8,18 +8,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// AttachedObjectReferenceRoutes sets up all routes for the AttachedObjectReference handlers.
-func AttachedObjectReferenceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/attached-object-references/versions", h.GetAttachedObjectReferenceVersions)
-
-	e.POST(v0.PathAttachedObjectReferences, h.AddAttachedObjectReference)
-	e.GET(v0.PathAttachedObjectReferences, h.GetAttachedObjectReferences)
-	e.GET(v0.PathAttachedObjectReferences+"/:id", h.GetAttachedObjectReference)
-	e.PATCH(v0.PathAttachedObjectReferences+"/:id", h.UpdateAttachedObjectReference)
-	e.PUT(v0.PathAttachedObjectReferences+"/:id", h.ReplaceAttachedObjectReference)
-	e.DELETE(v0.PathAttachedObjectReferences+"/:id", h.DeleteAttachedObjectReference)
-}
-
 // WorkloadDefinitionRoutes sets up all routes for the WorkloadDefinition handlers.
 func WorkloadDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.GET("/workload-definitions/versions", h.GetWorkloadDefinitionVersions)

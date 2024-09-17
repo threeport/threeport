@@ -1,4 +1,4 @@
-package v1
+package v0
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	v1 "github.com/threeport/threeport/pkg/api/v1"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
 
@@ -18,7 +18,7 @@ func GetAttachedObjectReferenceByAttachedObjectID(
 	apiAddr string,
 	id uint,
 ) (
-	*v1.AttachedObjectReference,
+	*v0.AttachedObjectReference,
 	error,
 ) {
 	attachedObjectReferences, err := GetAttachedObjectReferencesByAttachedObjectID(apiClient, apiAddr, id)
@@ -39,14 +39,14 @@ func GetAttachedObjectReferencesByAttachedObjectID(
 	apiAddr string,
 	id uint,
 ) (
-	*[]v1.AttachedObjectReference,
+	*[]v0.AttachedObjectReference,
 	error,
 ) {
-	var attachedObjectReferences []v1.AttachedObjectReference
+	var attachedObjectReferences []v0.AttachedObjectReference
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?attachedobjectid=%d", apiAddr, v1.PathAttachedObjectReferences, id),
+		fmt.Sprintf("%s%s?attachedobjectid=%d", apiAddr, v0.PathAttachedObjectReferences, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -77,14 +77,14 @@ func GetAttachedObjectReferencesByObjectID(
 	apiAddr string,
 	id uint,
 ) (
-	*[]v1.AttachedObjectReference,
+	*[]v0.AttachedObjectReference,
 	error,
 ) {
-	var attachedObjectReferences []v1.AttachedObjectReference
+	var attachedObjectReferences []v0.AttachedObjectReference
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?objectid=%d", apiAddr, v1.PathAttachedObjectReferences, id),
+		fmt.Sprintf("%s%s?objectid=%d", apiAddr, v0.PathAttachedObjectReferences, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -132,7 +132,7 @@ func EnsureAttachedObjectReferenceExists(
 	}
 
 	// create attached object reference
-	workloadInstanceAttachedObjectReference := &v1.AttachedObjectReference{
+	workloadInstanceAttachedObjectReference := &v0.AttachedObjectReference{
 		ObjectID:           objectID,
 		ObjectType:         &objectType,
 		AttachedObjectType: &attachedObjectType,

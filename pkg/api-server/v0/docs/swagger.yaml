@@ -1,44 +1,5 @@
 basePath: /
 definitions:
-  github_com_threeport_threeport_pkg_api_v1.Event:
-    properties:
-      AttachedObjectReferenceID:
-        description: |-
-          AttachedObjectReferenceID is a reference to an attached object.
-          A foreign key is configured via db migration in cmd/database-migrator/migrations/000010_add_events_foreign_key.go
-        type: integer
-      Count:
-        description: The number of times this event has occurred.
-        type: integer
-      EventTime:
-        description: Time when this Event was first observed.
-        type: string
-      LastObservedTime:
-        description: The time at which the most recent occurrence of this event was
-          recorded.
-        type: string
-      Note:
-        description: A human-readable description of the status of this operation.
-        type: string
-      Reason:
-        description: A short, machine understandable string that gives the reason
-          for the event being generated.
-        type: string
-      ReportingController:
-        description: Name of the controller that emitted this Event.
-        type: string
-      Type:
-        description: Type of this event (Normal, Warning), new types could be added
-          in the future.
-        type: string
-    required:
-    - Count
-    - EventTime
-    - LastObservedTime
-    - Reason
-    - ReportingController
-    - Type
-    type: object
   v0.ApiObjectVersions:
     properties:
       API:
@@ -55,15 +16,23 @@ definitions:
     type: object
   v0.AttachedObjectReference:
     properties:
-      ObjectID:
+      AttachedObjectID:
+        description: The object ID of the attached object.
         type: integer
-      Type:
+      AttachedObjectType:
+        description: The object type of the attached object.
         type: string
-      WorkloadInstanceID:
-        description: The workload definition this resource belongs to.
+      ObjectID:
+        description: The object ID of the base object.
         type: integer
+      ObjectType:
+        description: The object type of the base object.
+        type: string
     required:
-    - WorkloadInstanceID
+    - AttachedObjectID
+    - AttachedObjectType
+    - ObjectID
+    - ObjectType
     type: object
   v0.AwsAccount:
     properties:
@@ -836,6 +805,43 @@ definitions:
     - WorkloadInstanceID
     type: object
   v0.Event:
+    properties:
+      AttachedObjectReferenceID:
+        description: |-
+          AttachedObjectReferenceID is a reference to an attached object.
+          A foreign key is configured via db migration in cmd/database-migrator/migrations/000010_add_events_foreign_key.go
+        type: integer
+      Count:
+        description: The number of times this event has occurred.
+        type: integer
+      EventTime:
+        description: Time when this Event was first observed.
+        type: string
+      LastObservedTime:
+        description: The time at which the most recent occurrence of this event was
+          recorded.
+        type: string
+      Note:
+        description: A human-readable description of the status of this operation.
+        type: string
+      Reason:
+        description: A short, machine understandable string that gives the reason
+          for the event being generated.
+        type: string
+      ReportingController:
+        description: Name of the controller that emitted this Event.
+        type: string
+      Type:
+        description: Type of this event (Normal, Warning), new types could be added
+          in the future.
+        type: string
+    required:
+    - Count
+    - EventTime
+    - LastObservedTime
+    - Reason
+    - ReportingController
+    - Type
     type: object
   v0.GatewayDefinition:
     properties:
@@ -2587,12 +2593,6 @@ definitions:
     type: object
   v0.WorkloadInstance:
     properties:
-      AttachedObjectReferences:
-        description: The threeport objects that are deployed to support the workload
-          instance.
-        items:
-          $ref: '#/definitions/v0.AttachedObjectReference'
-        type: array
       CreationAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -2714,94 +2714,6 @@ definitions:
     required:
     - JSONDefinition
     - WorkloadInstanceID
-    type: object
-  v1.AttachedObjectReference:
-    properties:
-      AttachedObjectID:
-        description: The object ID of the attached object.
-        type: integer
-      AttachedObjectType:
-        description: The object type of the attached object.
-        type: string
-      ObjectID:
-        description: The object ID of the base object.
-        type: integer
-      ObjectType:
-        description: The object type of the base object.
-        type: string
-    required:
-    - AttachedObjectID
-    - AttachedObjectType
-    - ObjectID
-    - ObjectType
-    type: object
-  v1.WorkloadInstance:
-    properties:
-      CreationAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun so that subsequent reconciliation attempts can
-          act accordingly.
-        type: string
-      CreationConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      CreationFailed:
-        description: Gets set to true if creation process fails.
-        type: boolean
-      DeletionAcknowledged:
-        description: |-
-          Used by controllers to acknowledge deletion and indicate that deletion
-          reconciliation has begun so that subsequent reconciliation attempts can
-          act accordingly.
-        type: string
-      DeletionConfirmed:
-        description: Used by controllers to confirm deletion of an object.
-        type: string
-      DeletionScheduled:
-        description: |-
-          Used to inform reconcilers that an object is being deleted so they may
-          complete delete reconciliation before actually deleting the object from the database.
-        type: string
-      Events:
-        description: |-
-          All events generated for the workload instance that aren't related to a
-          particular workload resource instance.
-        items:
-          $ref: '#/definitions/v0.WorkloadEvent'
-        type: array
-      InterruptReconciliation:
-        description: |-
-          InterruptReconciliation is used by the controller to indicated that future
-          reconcilation should be interrupted.  Useful in cases where there is a
-          situation where future reconciliation could be descructive such as
-          spinning up more infrastructure when there is a unresolved problem.
-        type: boolean
-      KubernetesRuntimeInstanceID:
-        description: The kubernetes runtime to which the workload is deployed.
-        type: integer
-      Name:
-        description: An arbitrary name the instance
-        type: string
-      Reconciled:
-        description: Indicates if object is considered to be reconciled by the object's
-          controller.
-        type: boolean
-      Status:
-        description: The latest status of a workload instance.
-        type: string
-      WorkloadDefinitionID:
-        description: The definition used to configure the workload instance.
-        type: integer
-      WorkloadResourceInstances:
-        description: The associated workload resource definitions that are derived.
-        items:
-          $ref: '#/definitions/v0.WorkloadResourceInstance'
-        type: array
-    required:
-    - KubernetesRuntimeInstanceID
-    - Name
-    - WorkloadDefinitionID
     type: object
 info:
   contact:
@@ -5767,6 +5679,33 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new event.
+  /v0/events-join-attached-object-references:
+    get:
+      consumes:
+      - application/json
+      description: Get all events joined with attached object references
+      operationId: get-v0-events-join-attached-object-references
+      parameters:
+      - description: events joined with attached object references search by objectId
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all events joined with attached object references.
   /v0/events/{id}:
     delete:
       consumes:
@@ -11951,631 +11890,6 @@ paths:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing workload resource instance by replacing the entire
         object.
-  /v1/attached-object-references:
-    get:
-      consumes:
-      - application/json
-      description: Get all attached object references from the Threeport database.
-      operationId: get-v1-attachedObjectReferences
-      parameters:
-      - description: attached object reference search by name
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all attached object references.
-    post:
-      consumes:
-      - application/json
-      description: Add a new attached object reference to the Threeport database.
-      operationId: add-v1-attachedObjectReference
-      parameters:
-      - description: AttachedObjectReference object
-        in: body
-        name: attachedObjectReference
-        required: true
-        schema:
-          $ref: '#/definitions/v1.AttachedObjectReference'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new attached object reference.
-  /v1/attached-object-references/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a attached object reference by ID from the database.
-      operationId: delete-v1-attachedObjectReference
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: deletes a attached object reference.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular attached object reference from the database.
-      operationId: get-v1-attachedObjectReference
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a attached object reference.
-    patch:
-      consumes:
-      - application/json
-      description: |-
-        Update a attached object reference in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating attached object reference objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-v1-attachedObjectReference
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: AttachedObjectReference object
-        in: body
-        name: attachedObjectReference
-        required: true
-        schema:
-          $ref: '#/definitions/v1.AttachedObjectReference'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates specific fields for an existing attached object reference.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Replace a attached object reference in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating attached object reference objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-v1-attachedObjectReference
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: AttachedObjectReference object
-        in: body
-        name: attachedObjectReference
-        required: true
-        schema:
-          $ref: '#/definitions/v1.AttachedObjectReference'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates an existing attached object reference by replacing the entire
-        object.
-  /v1/events:
-    get:
-      consumes:
-      - application/json
-      description: Get all events from the Threeport database.
-      operationId: get-v1-events
-      parameters:
-      - description: event search by name
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all events.
-    post:
-      consumes:
-      - application/json
-      description: Add a new event to the Threeport database.
-      operationId: add-v1-event
-      parameters:
-      - description: Event object
-        in: body
-        name: event
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_threeport_threeport_pkg_api_v1.Event'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new event.
-  /v1/events-join-attached-object-references:
-    get:
-      consumes:
-      - application/json
-      description: Get all events joined with attached object references
-      operationId: get-v1-events-join-attached-object-references
-      parameters:
-      - description: events joined with attached object references search by objectId
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all events joined with attached object references.
-  /v1/events/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a event by ID from the database.
-      operationId: delete-v1-event
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: deletes a event.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular event from the database.
-      operationId: get-v1-event
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a event.
-    patch:
-      consumes:
-      - application/json
-      description: |-
-        Update a event in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating event objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-v1-event
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Event object
-        in: body
-        name: event
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_threeport_threeport_pkg_api_v1.Event'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates specific fields for an existing event.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Replace a event in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating event objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-v1-event
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Event object
-        in: body
-        name: event
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_threeport_threeport_pkg_api_v1.Event'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates an existing event by replacing the entire object.
-  /v1/workload-instances:
-    get:
-      consumes:
-      - application/json
-      description: Get all workload instances from the Threeport database.
-      operationId: get-v1-workloadInstances
-      parameters:
-      - description: workload instance search by name
-        in: query
-        name: name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets all workload instances.
-    post:
-      consumes:
-      - application/json
-      description: Add a new workload instance to the Threeport database.
-      operationId: add-v1-workloadInstance
-      parameters:
-      - description: WorkloadInstance object
-        in: body
-        name: workloadInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v1.WorkloadInstance'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: adds a new workload instance.
-  /v1/workload-instances/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a workload instance by ID from the database.
-      operationId: delete-v1-workloadInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: deletes a workload instance.
-    get:
-      consumes:
-      - application/json
-      description: Get a particular workload instance from the database.
-      operationId: get-v1-workloadInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: gets a workload instance.
-    patch:
-      consumes:
-      - application/json
-      description: |-
-        Update a workload instance in the database.  Provide one or more fields to update.
-        Note: This API endpint is for updating workload instance objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: update-v1-workloadInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: WorkloadInstance object
-        in: body
-        name: workloadInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v1.WorkloadInstance'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates specific fields for an existing workload instance.
-    put:
-      consumes:
-      - application/json
-      description: |-
-        Replace a workload instance in the database.  All required fields must be provided.
-        If any optional fields are not provided, they will be null post-update.
-        Note: This API endpint is for updating workload instance objects only.
-        Request bodies that include related objects will be accepted, however
-        the related objects will not be changed.  Call the patch or put method for
-        each particular existing object to change them.
-      operationId: replace-v1-workloadInstance
-      parameters:
-      - description: ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: WorkloadInstance object
-        in: body
-        name: workloadInstance
-        required: true
-        schema:
-          $ref: '#/definitions/v1.WorkloadInstance'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v0.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v0.Response'
-      summary: updates an existing workload instance by replacing the entire object.
   /workload-definitions/versions:
     get:
       description: Get the supported API versions for workload definitions.

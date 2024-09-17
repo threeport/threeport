@@ -1,7 +1,7 @@
 package v0
 
 import (
-	"github.com/threeport/threeport/pkg/api/v1"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // ErrWithEvent is a non-recoverable error
@@ -10,7 +10,7 @@ type ErrWithEvent struct {
 	Message string
 
 	// Event is the event that caused the error
-	Event v1.Event
+	Event v0.Event
 }
 
 // Error returns the error message

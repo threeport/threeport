@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
@@ -256,9 +255,6 @@ func GetDbInterfaces() []interface{} {
 		&v0.WorkloadInstance{},
 		&v0.WorkloadResourceDefinition{},
 		&v0.WorkloadResourceInstance{},
-		&v1.AttachedObjectReference{},
-		&v1.Event{},
-		&v1.WorkloadInstance{},
 	}
 }
 

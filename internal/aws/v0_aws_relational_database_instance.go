@@ -23,9 +23,7 @@ import (
 	"github.com/threeport/threeport/internal/aws/mapping"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -45,10 +43,10 @@ func v0AwsRelationalDatabaseInstanceCreated(
 	)
 
 	// ensure attached object reference exists
-	err := client_v1.EnsureAttachedObjectReferenceExists(
+	err := client.EnsureAttachedObjectReferenceExists(
 		r.APIClient,
 		r.APIServer,
-		util.TypeName(v1.WorkloadInstance{}),
+		util.TypeName(v0.WorkloadInstance{}),
 		awsRelationalDatabaseInstance.WorkloadInstanceID,
 		util.TypeName(*awsRelationalDatabaseInstance),
 		awsRelationalDatabaseInstance.ID,
@@ -251,7 +249,7 @@ func v0AwsRelationalDatabaseInstanceCreated(
 	// trigger reconciliation of the workload instance
 	workloadInstanceReconciled := false
 	workloadInstance.Reconciled = &workloadInstanceReconciled
-	_, err = client_v1.UpdateWorkloadInstance(
+	_, err = client.UpdateWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		workloadInstance,
@@ -460,7 +458,7 @@ func getRequiredRdsObjects(
 ) (
 	*v0.AwsRelationalDatabaseDefinition,
 	*v0.AwsAccount,
-	*v1.WorkloadInstance,
+	*v0.WorkloadInstance,
 	*v0.AwsEksKubernetesRuntimeInstance,
 	error,
 ) {
@@ -480,7 +478,7 @@ func getRequiredRdsObjects(
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
 	}
-	workloadInstance, err := client_v1.GetWorkloadInstanceByID(
+	workloadInstance, err := client.GetWorkloadInstanceByID(
 		r.APIClient,
 		r.APIServer,
 		*awsRelationalDatabaseInstance.WorkloadInstanceID,

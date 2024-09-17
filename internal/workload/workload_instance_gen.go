@@ -7,10 +7,8 @@ import (
 	"fmt"
 	tpapi_lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
-	api_v1 "github.com/threeport/threeport/pkg/api/v1"
 	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -74,8 +72,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 			switch notif.ObjectVersion {
 			case "v0":
 				workloadInstance = &api_v0.WorkloadInstance{}
-			case "v1":
-				workloadInstance = &api_v1.WorkloadInstance{}
 			default:
 				log.Error(errors.New("received unrecognized version of workload instance object"), "")
 				r.RequeueRaw(msg)
@@ -135,14 +131,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				)
 				latestWorkloadInstance = latestObject
 				getLatestErr = err
-			case "v1":
-				latestObject, err := client_v1.GetWorkloadInstanceByID(
-					r.APIClient,
-					r.APIServer,
-					workloadInstance.GetId(),
-				)
-				latestWorkloadInstance = latestObject
-				getLatestErr = err
 			default:
 				getLatestErr = errors.New("received unrecognized version of workload instance object")
 			}
@@ -178,14 +166,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					)
 					customRequeueDelay = requeueDelay
 					operationErr = err
-				case "v1":
-					requeueDelay, err := v1WorkloadInstanceCreated(
-						r,
-						workloadInstance.(*api_v1.WorkloadInstance),
-						&log,
-					)
-					customRequeueDelay = requeueDelay
-					operationErr = err
 				default:
 					operationErr = errors.New("unrecognized version of workload instance encountered for creation")
 				}
@@ -193,7 +173,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					errorMsg := "failed to reconcile created workload instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&api_v1.Event{
+						&api_v0.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr(event.ReasonFailedCreate),
 							Type:   util.Ptr(event.TypeNormal),
@@ -234,14 +214,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					)
 					customRequeueDelay = requeueDelay
 					operationErr = err
-				case "v1":
-					requeueDelay, err := v1WorkloadInstanceUpdated(
-						r,
-						workloadInstance.(*api_v1.WorkloadInstance),
-						&log,
-					)
-					customRequeueDelay = requeueDelay
-					operationErr = err
 				default:
 					operationErr = errors.New("unrecognized version of workload instance encountered for creation")
 				}
@@ -249,7 +221,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					errorMsg := "failed to reconcile created workload instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&api_v1.Event{
+						&api_v0.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr(event.ReasonFailedUpdate),
 							Type:   util.Ptr(event.TypeNormal),
@@ -290,14 +262,6 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					)
 					customRequeueDelay = requeueDelay
 					operationErr = err
-				case "v1":
-					requeueDelay, err := v1WorkloadInstanceDeleted(
-						r,
-						workloadInstance.(*api_v1.WorkloadInstance),
-						&log,
-					)
-					customRequeueDelay = requeueDelay
-					operationErr = err
 				default:
 					operationErr = errors.New("unrecognized version of workload instance encountered for creation")
 				}
@@ -305,7 +269,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					errorMsg := "failed to reconcile created workload instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&api_v1.Event{
+						&api_v0.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr(event.ReasonFailedDelete),
 							Type:   util.Ptr(event.TypeNormal),
@@ -412,7 +376,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 				strings.ToLower(string(notif.Operation)),
 			)
 			if err := r.EventsRecorder.RecordEvent(
-				&api_v1.Event{
+				&api_v0.Event{
 					Note:   util.Ptr(successMsg),
 					Reason: util.Ptr(event.GetSuccessReasonForOperation(notif.Operation)),
 					Type:   util.Ptr(event.TypeNormal),

@@ -14,11 +14,9 @@ import (
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -261,14 +259,14 @@ func TestWorkloadE2E(t *testing.T) {
 
 		// create workload instance
 		workloadInstName := fmt.Sprintf("%s-0", testWorkload.Name)
-		workloadInst := v1.WorkloadInstance{
+		workloadInst := v0.WorkloadInstance{
 			Instance: v0.Instance{
 				Name: &workloadInstName,
 			},
 			KubernetesRuntimeInstanceID: testKubernetesRuntimeInst.ID,
 			WorkloadDefinitionID:        createdWorkloadDef.ID,
 		}
-		createdWorkloadInst, err := client_v1.CreateWorkloadInstance(
+		createdWorkloadInst, err := client.CreateWorkloadInstance(
 			apiClient,
 			threeportAPIEndpoint,
 			&workloadInst,
@@ -277,7 +275,7 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.NotNil(createdWorkloadInst, "should have a workload instance returned")
 
 		// create a duplicate workload instance
-		duplicateWorkloadInst := v1.WorkloadInstance{
+		duplicateWorkloadInst := v0.WorkloadInstance{
 			Instance: v0.Instance{
 				Name: &workloadInstName,
 			},
@@ -285,7 +283,7 @@ func TestWorkloadE2E(t *testing.T) {
 			WorkloadDefinitionID:        createdWorkloadDef.ID,
 		}
 
-		_, err = client_v1.CreateWorkloadInstance(
+		_, err = client.CreateWorkloadInstance(
 			apiClient,
 			threeportAPIEndpoint,
 			&duplicateWorkloadInst,
@@ -454,7 +452,7 @@ func TestWorkloadE2E(t *testing.T) {
 		assert.NotNil(err, "should have an error returned when trying to delete workload definition with workload instance still in place")
 
 		// delete workload instance
-		deletedWorkloadInst, err := client_v1.DeleteWorkloadInstance(
+		deletedWorkloadInst, err := client.DeleteWorkloadInstance(
 			apiClient,
 			threeportAPIEndpoint,
 			*createdWorkloadInst.ID,

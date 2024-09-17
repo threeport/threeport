@@ -13,7 +13,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -843,7 +842,7 @@ func (r *AwsRelationalDatabaseInstanceValues) Create(apiClient *http.Client, api
 	}
 
 	// get workload instance by name
-	workloadInstance, err := client_v1.GetWorkloadInstanceByName(
+	workloadInstance, err := client.GetWorkloadInstanceByName(
 		apiClient,
 		apiEndpoint,
 		r.WorkloadInstance.Name,
@@ -1085,7 +1084,7 @@ func (o *AwsObjectStorageBucketInstanceValues) Create(apiClient *http.Client, ap
 	}
 
 	// get workload instance by name
-	workloadInstance, err := client_v1.GetWorkloadInstanceByName(
+	workloadInstance, err := client.GetWorkloadInstanceByName(
 		apiClient,
 		apiEndpoint,
 		o.WorkloadInstance.Name,

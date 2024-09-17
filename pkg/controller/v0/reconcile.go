@@ -10,8 +10,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+
 	apilib "github.com/threeport/threeport/pkg/api/lib/v0"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 // ReconcilerConfig contains values needed to start new reconcilers in
@@ -81,8 +82,8 @@ type Reconciler struct {
 
 // Recorder is an interface for recording events.
 type Recorder interface {
-	RecordEvent(*v1.Event, uint, string, string) error
-	HandleEventOverride(*v1.Event, uint, string, string, error, *logr.Logger)
+	RecordEvent(*v0.Event, uint, string, string) error
+	HandleEventOverride(*v0.Event, uint, string, string, error, *logr.Logger)
 }
 
 // PullMessage checks the queue for a message and returns it if there was a
