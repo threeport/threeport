@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 
 	. "github.com/dave/jennifer/jen"
-	"github.com/iancoleman/strcase"
 
 	"github.com/threeport/threeport/internal/sdk"
 	"github.com/threeport/threeport/internal/sdk/gen"
@@ -25,15 +24,7 @@ func GenDatabaseInit(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		f.ImportAlias("github.com/threeport/threeport/pkg/api-server/v0/database", "tp_database")
 	}
 
-	if gen.Extension {
-		f.Const().Id(fmt.Sprintf(
-			"Threeport%sDatabaseName",
-			strcase.ToCamel(sdkConfig.ExtensionName),
-		)).Op("=").Lit(fmt.Sprintf(
-			"threeport_%s_api",
-			strcase.ToSnake(sdkConfig.ExtensionName),
-		))
-	} else {
+	if !gen.Extension {
 		f.Const().Defs(
 			Comment("Threeport database connection values"),
 			Id("ThreeportDatabaseUser").Op("=").Lit("threeport").Comment("used by Threeport API"),

@@ -84,40 +84,6 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Func().Params(
 		Id("i").Op("*").Id("Installer"),
 	).Id(installFuncName).Params().Error().BlockFunc(func(g *Group) {
-
-		g.Comment("get NATS service name from cluster")
-		g.Id("gvr").Op(":=").Qual(
-			"k8s.io/apimachinery/pkg/runtime/schema",
-			"GroupVersionResource",
-		).Values(Dict{
-			Id("Group"):    Lit(""),
-			Id("Version"):  Lit("v1"),
-			Id("Resource"): Lit("services"),
-		})
-		g.List(Id("services"), Err()).Op(":=").Id("i").Dot("KubeClient").Dot("Resource").Call(
-			Id("gvr"),
-		).Dot("Namespace").Call(
-			Id("i").Dot("ThreeportNamespace"),
-		).Dot("List").Call(
-			Qual("context", "TODO").Call(),
-			Qual("k8s.io/apimachinery/pkg/apis/meta/v1", "ListOptions").Values(Dict{
-				Line().Id("LabelSelector"): Id("natsLabelSelector"),
-			}).Op(",").Line(),
-		)
-		g.If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to retrieve NATS service name: %w"), Err())),
-		)
-		g.If(Len(Id("services").Dot("Items")).Op("!=").Lit(1)).Block(
-			Return(Qual("fmt", "Errorf").Call(
-				Line().Lit("expected one NATS service with label '%s' but found %d"),
-				Line().Id("natsLabelSelector"),
-				Line().Len(Id("services").Dot("Items")),
-				Line(),
-			)),
-		)
-		g.Id("natsServiceName").Op(":=").Id("services").Dot("Items").Index(Lit(0)).Dot("GetName").Call()
-		g.Line()
-
 		g.Comment("create namespace")
 		g.Var().Id("namespace").Op("=").Op("&").Qual(
 			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
@@ -158,6 +124,7 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			"db-threeport-cert",
 			"encryption-key",
 			"controller-config",
+			"db-config",
 		}
 		for _, secretName := range copySecrets {
 			g.If(Err().Op(":=").Id("copySecret").Call(
@@ -175,77 +142,6 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			)
 			g.Line()
 		}
-		g.Line()
-
-		g.Comment("create secret for database connection")
-		g.Var().Id("apiSecret").Op("=").Op("&").Qual(
-			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
-			"Unstructured",
-		).Values(Dict{
-			Line().Id("Object"): Map(String()).Interface().Values(Dict{
-				Lit("apiVersion"): Lit("v1"),
-				Lit("kind"):       Lit("Secret"),
-				Lit("metadata"): Map(String()).Interface().Values(Dict{
-					Lit("name"):      Lit("db-config"),
-					Lit("namespace"): Id("i").Dot("ExtensionNamespace"),
-				}),
-				Lit("stringData"): Map(String()).Interface().Values(Dict{
-					Line().Lit("env"): Qual("fmt", "Sprintf").Call(
-						Line().Lit(`DB_HOST=%s.%s.svc.cluster.local
-DB_USER=%s
-DB_NAME=%s
-DB_PORT=%s
-DB_SSL_MODE=%s
-NATS_HOST=%s.%s.svc.cluster.local
-NATS_PORT=4222
-`),
-						Line().Qual(
-							"github.com/threeport/threeport/pkg/api-server/v0/database",
-							"ThreeportDatabaseHost",
-						),
-						Line().Id("i").Dot("ThreeportNamespace"),
-						Line().Qual(
-							"github.com/threeport/threeport/pkg/api-server/v0/database",
-							"ThreeportDatabaseUser",
-						),
-						Line().Qual(
-							fmt.Sprintf(
-								"%s/pkg/api-server/v0/database",
-								gen.ModulePath,
-							),
-							fmt.Sprintf(
-								"Threeport%sDatabaseName",
-								extensionNameCamel,
-							),
-						),
-						Line().Qual(
-							"github.com/threeport/threeport/pkg/api-server/v0/database",
-							"ThreeportDatabasePort",
-						),
-						Line().Qual(
-							"github.com/threeport/threeport/pkg/api-server/v0/database",
-							"ThreeportDatabaseSslMode",
-						),
-						Line().Id("natsServiceName"),
-						Line().Id("i").Dot("ThreeportNamespace"),
-						Line(),
-					).Op(",").Line(),
-				}),
-			}).Op(",").Line(),
-		})
-		g.If(List(Id("_"), Err()).Op(":=").Qual(
-			"github.com/threeport/threeport/pkg/kube/v0",
-			"CreateOrUpdateResource",
-		).Call(
-			Id("apiSecret"),
-			Id("i").Dot("KubeClient"),
-			Op("*").Id("i").Dot("KubeRestMapper"),
-		), Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(
-				Lit("failed to create/update API server secret for DB connection: %w"),
-				Err(),
-			)),
-		)
 		g.Line()
 
 		extensionDbName := fmt.Sprintf("threeport_%s_api", extensionNameSnake)
