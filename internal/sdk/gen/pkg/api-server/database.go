@@ -346,32 +346,6 @@ func GenDatabaseInit(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
-	// create the database object interfaces only for core threeport -
-	// extensions have these handled differently in the migrations.
-	// TODO: convert core threeport to use the same system as extensions
-	if !gen.Extension {
-		f.Comment("Return all database init object interfaces.")
-		f.Func().Id("GetDbInterfaces").Parens(Empty()).Params(
-			Index().Interface(),
-		).Block(
-			Return().Index().Interface().BlockFunc(func(g *Group) {
-				for _, version := range gen.GlobalVersionConfig.Versions {
-					for _, name := range version.DatabaseInitNames {
-						g.List(
-							Op("&").Qual(
-								fmt.Sprintf(
-									"%s/pkg/api/%s", gen.ModulePath, version.VersionName,
-								),
-								name,
-							).Values().Op(","),
-						)
-					}
-				}
-			}),
-		)
-		f.Line()
-	}
-
 	f.Comment("suppressSensitive supresses messages containing sesitive strings.")
 	f.Func().Id("suppressSensitive").Params(
 		Id("msg").String(),

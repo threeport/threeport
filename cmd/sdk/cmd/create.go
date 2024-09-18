@@ -47,7 +47,7 @@ See the Threeport SDK docs for more information: https://threeport.io/sdk/sdk-in
 		}
 
 		// create API object source code scaffolding
-		if err = create.CreateAPIObjects(sdkConfig, extension); err != nil {
+		if err = create.CreateApiObjects(sdkConfig, extension); err != nil {
 			cli.Error("failed to create API objects", err)
 			os.Exit(1)
 		}

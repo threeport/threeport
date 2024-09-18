@@ -5,7 +5,6 @@ package database
 import (
 	"context"
 	"fmt"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
@@ -204,58 +203,6 @@ func (zl *ZapLogger) Trace(ctx context.Context, begin time.Time, fc func() (stri
 
 	// log the message using the logger
 	logger.Debug("gorm query")
-}
-
-// Return all database init object interfaces.
-func GetDbInterfaces() []interface{} {
-	return []interface{}{
-		&v0.AttachedObjectReference{},
-		&v0.AwsAccount{},
-		&v0.AwsEksKubernetesRuntimeDefinition{},
-		&v0.AwsEksKubernetesRuntimeInstance{},
-		&v0.AwsObjectStorageBucketDefinition{},
-		&v0.AwsObjectStorageBucketInstance{},
-		&v0.AwsRelationalDatabaseDefinition{},
-		&v0.AwsRelationalDatabaseInstance{},
-		&v0.ControlPlaneComponent{},
-		&v0.KubernetesRuntimeDefinition{},
-		&v0.KubernetesRuntimeInstance{},
-		&v0.Definition{},
-		&v0.DomainNameDefinition{},
-		&v0.DomainNameInstance{},
-		&v0.Event{},
-		&v0.GatewayDefinition{},
-		&v0.GatewayHttpPort{},
-		&v0.GatewayInstance{},
-		&v0.GatewayTcpPort{},
-		&v0.HelmWorkloadDefinition{},
-		&v0.HelmWorkloadInstance{},
-		&v0.Instance{},
-		&v0.ControlPlaneDefinition{},
-		&v0.ControlPlaneInstance{},
-		&v0.LogBackend{},
-		&v0.LogStorageDefinition{},
-		&v0.LogStorageInstance{},
-		&v0.LoggingDefinition{},
-		&v0.LoggingInstance{},
-		&v0.MetricsDefinition{},
-		&v0.MetricsInstance{},
-		&v0.ObservabilityDashboardDefinition{},
-		&v0.ObservabilityDashboardInstance{},
-		&v0.ObservabilityStackDefinition{},
-		&v0.ObservabilityStackInstance{},
-		&v0.Profile{},
-		&v0.SecretDefinition{},
-		&v0.SecretInstance{},
-		&v0.TerraformDefinition{},
-		&v0.TerraformInstance{},
-		&v0.Tier{},
-		&v0.WorkloadDefinition{},
-		&v0.WorkloadEvent{},
-		&v0.WorkloadInstance{},
-		&v0.WorkloadResourceDefinition{},
-		&v0.WorkloadResourceInstance{},
-	}
 }
 
 // suppressSensitive supresses messages containing sesitive strings.

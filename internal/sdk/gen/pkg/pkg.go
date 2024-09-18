@@ -20,6 +20,11 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		return fmt.Errorf("failed to generate API object methods: %w", err)
 	}
 
+	// generate methods that set objects' DB table names
+	if err := api.GenTableNames(generator, sdkConfig); err != nil {
+		return fmt.Errorf("failed to generate APi object table name methods: %w", err)
+	}
+
 	//////////////////////////// pkg/api-server ////////////////////////////////
 	// generate API server routes
 	if err := apiserver.GenRoutes(generator); err != nil {
