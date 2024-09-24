@@ -10,7 +10,7 @@ import (
 
 // WorkloadDefinitionRoutes sets up all routes for the WorkloadDefinition handlers.
 func WorkloadDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/workload-definitions/versions", h.GetWorkloadDefinitionVersions)
+	e.GET(v0.PathWorkloadDefinitionVersions, h.GetWorkloadDefinitionVersions)
 
 	e.POST(v0.PathWorkloadDefinitions, h.AddWorkloadDefinition)
 	e.GET(v0.PathWorkloadDefinitions, h.GetWorkloadDefinitions)
@@ -22,7 +22,7 @@ func WorkloadDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // WorkloadEventRoutes sets up all routes for the WorkloadEvent handlers.
 func WorkloadEventRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/workload-events/versions", h.GetWorkloadEventVersions)
+	e.GET(v0.PathWorkloadEventVersions, h.GetWorkloadEventVersions)
 
 	e.POST(v0.PathWorkloadEvents, h.AddWorkloadEvent)
 	e.GET(v0.PathWorkloadEvents, h.GetWorkloadEvents)
@@ -34,7 +34,7 @@ func WorkloadEventRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // WorkloadInstanceRoutes sets up all routes for the WorkloadInstance handlers.
 func WorkloadInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/workload-instances/versions", h.GetWorkloadInstanceVersions)
+	e.GET(v0.PathWorkloadInstanceVersions, h.GetWorkloadInstanceVersions)
 
 	e.POST(v0.PathWorkloadInstances, h.AddWorkloadInstance)
 	e.GET(v0.PathWorkloadInstances, h.GetWorkloadInstances)
@@ -46,7 +46,7 @@ func WorkloadInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // WorkloadResourceDefinitionRoutes sets up all routes for the WorkloadResourceDefinition handlers.
 func WorkloadResourceDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/workload-resource-definitions/versions", h.GetWorkloadResourceDefinitionVersions)
+	e.GET(v0.PathWorkloadResourceDefinitionVersions, h.GetWorkloadResourceDefinitionVersions)
 
 	e.POST(v0.PathWorkloadResourceDefinitions, h.AddWorkloadResourceDefinition)
 	e.GET(v0.PathWorkloadResourceDefinitions, h.GetWorkloadResourceDefinitions)
@@ -58,7 +58,7 @@ func WorkloadResourceDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // WorkloadResourceInstanceRoutes sets up all routes for the WorkloadResourceInstance handlers.
 func WorkloadResourceInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/workload-resource-instances/versions", h.GetWorkloadResourceInstanceVersions)
+	e.GET(v0.PathWorkloadResourceInstanceVersions, h.GetWorkloadResourceInstanceVersions)
 
 	e.POST(v0.PathWorkloadResourceInstances, h.AddWorkloadResourceInstance)
 	e.GET(v0.PathWorkloadResourceInstances, h.GetWorkloadResourceInstances)

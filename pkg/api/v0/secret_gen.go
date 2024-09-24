@@ -13,8 +13,10 @@ const (
 	ObjectTypeSecretDefinition string = "SecretDefinition"
 	ObjectTypeSecretInstance   string = "SecretInstance"
 
-	PathSecretDefinitions = "/v0/secret-definitions"
-	PathSecretInstances   = "/v0/secret-instances"
+	PathSecretDefinitionVersions = "/secret-definitions/versions"
+	PathSecretDefinitions        = "/v0/secret-definitions"
+	PathSecretInstanceVersions   = "/secret-instances/versions"
+	PathSecretInstances          = "/v0/secret-instances"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the

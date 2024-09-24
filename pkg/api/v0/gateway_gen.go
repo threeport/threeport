@@ -17,12 +17,18 @@ const (
 	ObjectTypeGatewayInstance      string = "GatewayInstance"
 	ObjectTypeGatewayTcpPort       string = "GatewayTcpPort"
 
-	PathDomainNameDefinitions = "/v0/domain-name-definitions"
-	PathDomainNameInstances   = "/v0/domain-name-instances"
-	PathGatewayDefinitions    = "/v0/gateway-definitions"
-	PathGatewayHttpPorts      = "/v0/gateway-http-ports"
-	PathGatewayInstances      = "/v0/gateway-instances"
-	PathGatewayTcpPorts       = "/v0/gateway-tcp-ports"
+	PathDomainNameDefinitionVersions = "/domain-name-definitions/versions"
+	PathDomainNameDefinitions        = "/v0/domain-name-definitions"
+	PathDomainNameInstanceVersions   = "/domain-name-instances/versions"
+	PathDomainNameInstances          = "/v0/domain-name-instances"
+	PathGatewayDefinitionVersions    = "/gateway-definitions/versions"
+	PathGatewayDefinitions           = "/v0/gateway-definitions"
+	PathGatewayHttpPortVersions      = "/gateway-http-ports/versions"
+	PathGatewayHttpPorts             = "/v0/gateway-http-ports"
+	PathGatewayInstanceVersions      = "/gateway-instances/versions"
+	PathGatewayInstances             = "/v0/gateway-instances"
+	PathGatewayTcpPortVersions       = "/gateway-tcp-ports/versions"
+	PathGatewayTcpPorts              = "/v0/gateway-tcp-ports"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the

@@ -20,7 +20,7 @@ func GetSecretDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.SecretD
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathSecretDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -50,7 +50,7 @@ func GetSecretDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathSecretDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -80,7 +80,7 @@ func GetSecretDefinitionsByQueryString(apiClient *http.Client, apiAddr string, q
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathSecretDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -110,7 +110,7 @@ func GetSecretDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathSecretDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -151,7 +151,7 @@ func CreateSecretDefinition(apiClient *http.Client, apiAddr string, secretDefini
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathSecretDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonSecretDefinition),
 		map[string]string{},
@@ -193,7 +193,7 @@ func UpdateSecretDefinition(apiClient *http.Client, apiAddr string, secretDefini
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-definitions/%d", apiAddr, secretDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathSecretDefinitions, secretDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonSecretDefinition),
 		map[string]string{},
@@ -224,7 +224,7 @@ func DeleteSecretDefinition(apiClient *http.Client, apiAddr string, id uint) (*v
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathSecretDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -255,7 +255,7 @@ func GetSecretInstances(apiClient *http.Client, apiAddr string) (*[]v0.SecretIns
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathSecretInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -285,7 +285,7 @@ func GetSecretInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathSecretInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -315,7 +315,7 @@ func GetSecretInstancesByQueryString(apiClient *http.Client, apiAddr string, que
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathSecretInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -345,7 +345,7 @@ func GetSecretInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathSecretInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -386,7 +386,7 @@ func CreateSecretInstance(apiClient *http.Client, apiAddr string, secretInstance
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathSecretInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonSecretInstance),
 		map[string]string{},
@@ -428,7 +428,7 @@ func UpdateSecretInstance(apiClient *http.Client, apiAddr string, secretInstance
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-instances/%d", apiAddr, secretInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathSecretInstances, secretInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonSecretInstance),
 		map[string]string{},
@@ -459,7 +459,7 @@ func DeleteSecretInstance(apiClient *http.Client, apiAddr string, id uint) (*v0.
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/secret-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathSecretInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},

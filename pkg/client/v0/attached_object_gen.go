@@ -20,7 +20,7 @@ func GetAttachedObjectReferences(apiClient *http.Client, apiAddr string) (*[]v0.
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAttachedObjectReferences),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -50,7 +50,7 @@ func GetAttachedObjectReferenceByID(apiClient *http.Client, apiAddr string, id u
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAttachedObjectReferences, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -80,7 +80,7 @@ func GetAttachedObjectReferencesByQueryString(apiClient *http.Client, apiAddr st
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathAttachedObjectReferences, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -110,7 +110,7 @@ func GetAttachedObjectReferenceByName(apiClient *http.Client, apiAddr, name stri
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAttachedObjectReferences, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -151,7 +151,7 @@ func CreateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAttachedObjectReferences),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAttachedObjectReference),
 		map[string]string{},
@@ -193,7 +193,7 @@ func UpdateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references/%d", apiAddr, attachedObjectReferenceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAttachedObjectReferences, attachedObjectReferenceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAttachedObjectReference),
 		map[string]string{},
@@ -224,7 +224,7 @@ func DeleteAttachedObjectReference(apiClient *http.Client, apiAddr string, id ui
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAttachedObjectReferences, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},

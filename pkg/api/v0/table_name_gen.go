@@ -82,6 +82,16 @@ func (Event) TableName() string {
 	return "v0_events"
 }
 
+// TableName sets the name of the table for the ExtensionApi objects in the database.
+func (ExtensionApi) TableName() string {
+	return "v0_extension_apis"
+}
+
+// TableName sets the name of the table for the ExtensionApiRoute objects in the database.
+func (ExtensionApiRoute) TableName() string {
+	return "v0_extension_api_routes"
+}
+
 // TableName sets the name of the table for the GatewayDefinition objects in the database.
 func (GatewayDefinition) TableName() string {
 	return "v0_gateway_definitions"

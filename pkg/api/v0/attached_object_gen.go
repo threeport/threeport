@@ -11,7 +11,8 @@ import (
 const (
 	ObjectTypeAttachedObjectReference string = "AttachedObjectReference"
 
-	PathAttachedObjectReferences = "/v0/attached-object-references"
+	PathAttachedObjectReferenceVersions = "/attached-object-references/versions"
+	PathAttachedObjectReferences        = "/v0/attached-object-references"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the

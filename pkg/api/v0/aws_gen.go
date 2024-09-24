@@ -18,13 +18,20 @@ const (
 	ObjectTypeAwsRelationalDatabaseDefinition   string = "AwsRelationalDatabaseDefinition"
 	ObjectTypeAwsRelationalDatabaseInstance     string = "AwsRelationalDatabaseInstance"
 
-	PathAwsAccounts                        = "/v0/aws-accounts"
-	PathAwsEksKubernetesRuntimeDefinitions = "/v0/aws-eks-kubernetes-runtime-definitions"
-	PathAwsEksKubernetesRuntimeInstances   = "/v0/aws-eks-kubernetes-runtime-instances"
-	PathAwsObjectStorageBucketDefinitions  = "/v0/aws-object-storage-bucket-definitions"
-	PathAwsObjectStorageBucketInstances    = "/v0/aws-object-storage-bucket-instances"
-	PathAwsRelationalDatabaseDefinitions   = "/v0/aws-relational-database-definitions"
-	PathAwsRelationalDatabaseInstances     = "/v0/aws-relational-database-instances"
+	PathAwsAccountVersions                        = "/aws-accounts/versions"
+	PathAwsAccounts                               = "/v0/aws-accounts"
+	PathAwsEksKubernetesRuntimeDefinitionVersions = "/aws-eks-kubernetes-runtime-definitions/versions"
+	PathAwsEksKubernetesRuntimeDefinitions        = "/v0/aws-eks-kubernetes-runtime-definitions"
+	PathAwsEksKubernetesRuntimeInstanceVersions   = "/aws-eks-kubernetes-runtime-instances/versions"
+	PathAwsEksKubernetesRuntimeInstances          = "/v0/aws-eks-kubernetes-runtime-instances"
+	PathAwsObjectStorageBucketDefinitionVersions  = "/aws-object-storage-bucket-definitions/versions"
+	PathAwsObjectStorageBucketDefinitions         = "/v0/aws-object-storage-bucket-definitions"
+	PathAwsObjectStorageBucketInstanceVersions    = "/aws-object-storage-bucket-instances/versions"
+	PathAwsObjectStorageBucketInstances           = "/v0/aws-object-storage-bucket-instances"
+	PathAwsRelationalDatabaseDefinitionVersions   = "/aws-relational-database-definitions/versions"
+	PathAwsRelationalDatabaseDefinitions          = "/v0/aws-relational-database-definitions"
+	PathAwsRelationalDatabaseInstanceVersions     = "/aws-relational-database-instances/versions"
+	PathAwsRelationalDatabaseInstances            = "/v0/aws-relational-database-instances"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the

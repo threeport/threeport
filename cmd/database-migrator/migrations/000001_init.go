@@ -63,6 +63,8 @@ func dbInterfaces000001() []interface{} {
 		&v0.DomainNameDefinition{},
 		&v0.DomainNameInstance{},
 		&v0.Event{},
+		&v0.ExtensionApi{},
+		&v0.ExtensionApiRoute{},
 		&v0.GatewayDefinition{},
 		&v0.GatewayHttpPort{},
 		&v0.GatewayInstance{},

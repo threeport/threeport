@@ -20,6 +20,7 @@ import (
 	handlers_v0 "github.com/threeport/threeport/pkg/api-server/v0/handlers"
 	routes_v0 "github.com/threeport/threeport/pkg/api-server/v0/routes"
 	versions_v0 "github.com/threeport/threeport/pkg/api-server/v0/versions"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	zap "go.uber.org/zap"
 	"net/http"
@@ -104,6 +105,11 @@ func main() {
 	db, err := database.Init(autoMigrate, &logger)
 	if err != nil {
 		e.Logger.Fatalf("failed to initialize database: %v", err)
+	}
+
+	// add extension router middleware
+	if err := api_v0.InitExtensionRouter(db, e); err != nil {
+		e.Logger.Fatalf("failed to initialize extension proxy router: %v", err)
 	}
 
 	// nats connection

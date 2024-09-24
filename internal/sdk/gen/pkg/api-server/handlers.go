@@ -9,13 +9,14 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
 
+	"github.com/threeport/threeport/internal/sdk"
 	"github.com/threeport/threeport/internal/sdk/gen"
 	"github.com/threeport/threeport/internal/sdk/util"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 )
 
 // GenHandlers generates all the API object handlers.
-func GenHandlers(gen *gen.Generator) error {
+func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objCollection := range gen.VersionedApiObjectCollections {
 		for _, objGroup := range objCollection.VersionedApiObjectGroups {
 			pluralize := pluralize.NewClient()
@@ -454,9 +455,17 @@ func GenHandlers(gen *gen.Generator) error {
 					"@Success 200 {object} %s.ApiObjectVersions \"OK\"",
 					apiServerLibAlias,
 				))
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/versions [GET]", pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/versions [GET]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/versions [GET]", pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.GetVersionHandlerName).Params(
@@ -509,11 +518,20 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Success 201 {object} v0.Response \"Created\"")
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/%s [POST]",
-					objCollection.Version,
-					pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/%s [POST]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s [POST]",
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.AddHandlerName).Params(
@@ -644,11 +662,20 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Success 200 {object} v0.Response \"OK\"")
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/%s [GET]",
-					objCollection.Version,
-					pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/%s [GET]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s [GET]",
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.GetAllHandlerName).Params(
@@ -786,11 +813,20 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Success 200 {object} v0.Response \"OK\"")
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/%s/{id} [GET]",
-					objCollection.Version,
-					pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/%s/{id} [GET]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/{id} [GET]",
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.GetOneHandlerName).Params(
@@ -904,11 +940,20 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/%s/{id} [PATCH]",
-					objCollection.Version,
-					pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/%s/{id} [PATCH]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/{id} [PATCH]",
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.PatchHandlerName).Params(
@@ -1080,11 +1125,20 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/%s/{id} [PUT]",
-					objCollection.Version,
-					pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/%s/{id} [PUT]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/{id} [PUT]",
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.PutHandlerName).Params(
@@ -1294,11 +1348,20 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 409 {object} v0.Response \"Conflict\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/%s/{id} [DELETE]",
-					objCollection.Version,
-					pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/%s/{id} [DELETE]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/{id} [DELETE]",
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.DeleteHandlerName).Params(

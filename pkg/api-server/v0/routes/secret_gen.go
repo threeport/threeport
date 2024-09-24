@@ -10,7 +10,7 @@ import (
 
 // SecretDefinitionRoutes sets up all routes for the SecretDefinition handlers.
 func SecretDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/secret-definitions/versions", h.GetSecretDefinitionVersions)
+	e.GET(v0.PathSecretDefinitionVersions, h.GetSecretDefinitionVersions)
 
 	e.POST(v0.PathSecretDefinitions, h.AddSecretDefinition, h.AddSecretDefinitionMiddleware()...)
 	e.GET(v0.PathSecretDefinitions, h.GetSecretDefinitions, h.GetSecretDefinitionMiddleware()...)
@@ -22,7 +22,7 @@ func SecretDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // SecretInstanceRoutes sets up all routes for the SecretInstance handlers.
 func SecretInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/secret-instances/versions", h.GetSecretInstanceVersions)
+	e.GET(v0.PathSecretInstanceVersions, h.GetSecretInstanceVersions)
 
 	e.POST(v0.PathSecretInstances, h.AddSecretInstance)
 	e.GET(v0.PathSecretInstances, h.GetSecretInstances)

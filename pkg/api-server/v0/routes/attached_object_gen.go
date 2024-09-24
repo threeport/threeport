@@ -10,7 +10,7 @@ import (
 
 // AttachedObjectReferenceRoutes sets up all routes for the AttachedObjectReference handlers.
 func AttachedObjectReferenceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/attached-object-references/versions", h.GetAttachedObjectReferenceVersions)
+	e.GET(v0.PathAttachedObjectReferenceVersions, h.GetAttachedObjectReferenceVersions)
 
 	e.POST(v0.PathAttachedObjectReferences, h.AddAttachedObjectReference)
 	e.GET(v0.PathAttachedObjectReferences, h.GetAttachedObjectReferences)

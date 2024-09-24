@@ -16,6 +16,8 @@ func AddVersions() {
 	AddDomainNameDefinitionVersions()
 	AddDomainNameInstanceVersions()
 	AddEventVersions()
+	AddExtensionApiVersions()
+	AddExtensionApiRouteVersions()
 	AddGatewayDefinitionVersions()
 	AddGatewayHttpPortVersions()
 	AddGatewayInstanceVersions()

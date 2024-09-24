@@ -16,7 +16,7 @@ import (
 func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	////////////////////////////// pkg/api /////////////////////////////////////
 	// generate API object constants and methods
-	if err := api.GenApiObjectMethods(generator); err != nil {
+	if err := api.GenApiObjectMethods(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate API object methods: %w", err)
 	}
 
@@ -27,7 +27,7 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	//////////////////////////// pkg/api-server ////////////////////////////////
 	// generate API server routes
-	if err := apiserver.GenRoutes(generator); err != nil {
+	if err := apiserver.GenRoutes(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate API server routes: %w", err)
 	}
 
@@ -42,7 +42,7 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	// generate API server handlers
-	if err := apiserver.GenHandlers(generator); err != nil {
+	if err := apiserver.GenHandlers(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate API server handlers for API objects: %w", err)
 	}
 

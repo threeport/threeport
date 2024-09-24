@@ -20,6 +20,8 @@ var (
 	DomainNameDefinitionTaggedFields              = make(map[string]*apiserver_lib.FieldsByTag)
 	DomainNameInstanceTaggedFields                = make(map[string]*apiserver_lib.FieldsByTag)
 	EventTaggedFields                             = make(map[string]*apiserver_lib.FieldsByTag)
+	ExtensionApiTaggedFields                      = make(map[string]*apiserver_lib.FieldsByTag)
+	ExtensionApiRouteTaggedFields                 = make(map[string]*apiserver_lib.FieldsByTag)
 	GatewayDefinitionTaggedFields                 = make(map[string]*apiserver_lib.FieldsByTag)
 	GatewayHttpPortTaggedFields                   = make(map[string]*apiserver_lib.FieldsByTag)
 	GatewayInstanceTaggedFields                   = make(map[string]*apiserver_lib.FieldsByTag)

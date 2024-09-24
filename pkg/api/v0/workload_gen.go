@@ -16,11 +16,16 @@ const (
 	ObjectTypeWorkloadResourceDefinition string = "WorkloadResourceDefinition"
 	ObjectTypeWorkloadResourceInstance   string = "WorkloadResourceInstance"
 
-	PathWorkloadDefinitions         = "/v0/workload-definitions"
-	PathWorkloadEvents              = "/v0/workload-events"
-	PathWorkloadInstances           = "/v0/workload-instances"
-	PathWorkloadResourceDefinitions = "/v0/workload-resource-definitions"
-	PathWorkloadResourceInstances   = "/v0/workload-resource-instances"
+	PathWorkloadDefinitionVersions         = "/workload-definitions/versions"
+	PathWorkloadDefinitions                = "/v0/workload-definitions"
+	PathWorkloadEventVersions              = "/workload-events/versions"
+	PathWorkloadEvents                     = "/v0/workload-events"
+	PathWorkloadInstanceVersions           = "/workload-instances/versions"
+	PathWorkloadInstances                  = "/v0/workload-instances"
+	PathWorkloadResourceDefinitionVersions = "/workload-resource-definitions/versions"
+	PathWorkloadResourceDefinitions        = "/v0/workload-resource-definitions"
+	PathWorkloadResourceInstanceVersions   = "/workload-resource-instances/versions"
+	PathWorkloadResourceInstances          = "/v0/workload-resource-instances"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the
