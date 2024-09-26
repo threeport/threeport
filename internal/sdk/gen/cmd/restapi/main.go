@@ -326,7 +326,10 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 		// For loop for DB connection attempts
 		For(Id("dbAttempts").Op("<").Id("dbAttemptsMax")).Block(
-			List(Id("db"), Id("err")).Op(":=").Qual("database", "Init").Call(Id("autoMigrate"), Op("&").Id("logger")),
+			List(Id("db"), Id("err")).Op(":=").Qual(
+			    "github.com/threeport/threeport/pkg/api-server/v0/database",
+			    "Init",
+			).Call(Id("autoMigrate"), Op("&").Id("logger")),
 			If(Id("err").Op("==").Nil()).Block(
 				Id("gormDb").Op("=").Id("db"),
 				Break(),
