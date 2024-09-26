@@ -321,7 +321,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("dbAttemptsMax").Op(":=").Lit(25),
 		Id("dbWaitDurationSeconds").Op(":=").Lit(20),
 		Id("dbAttempts").Op(":=").Lit(0),
-		Id("gormDb").Op(":=").Op("&").Qual("gorm", "DB").Values(),
+		Id("gormDb").Op(":=").Op("&").Qual("gorm.io/gorm", "DB").Values(),
 		Var().Id("dbConnectErr").Error(),
 
 		// For loop for DB connection attempts
