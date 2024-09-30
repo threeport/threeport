@@ -383,7 +383,7 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 	}
 
 	// get kubernetes runtime instance API object
-	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+	kubernetesRuntimeInstance, err := SetKubernetesRuntimeInstanceForConfig(
 		g.KubernetesRuntimeInstance,
 		apiClient,
 		apiEndpoint,
@@ -706,7 +706,7 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 	}
 
 	// get kubernetes runtime instance API object
-	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+	kubernetesRuntimeInstance, err := SetKubernetesRuntimeInstanceForConfig(
 		d.KubernetesRuntimeInstance,
 		apiClient,
 		apiEndpoint,

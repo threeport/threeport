@@ -308,7 +308,7 @@ func (kri *KubernetesRuntimeInstanceValues) Delete(apiClient *http.Client, apiEn
 // getKubernetesRuntimeInstanceForConfig takes the config values for a
 // kubernetes runtime instance and returns the API object for a kubernetes
 // runtime instance.
-func setKubernetesRuntimeInstanceForConfig(
+func SetKubernetesRuntimeInstanceForConfig(
 	runtimeInstanceVals *KubernetesRuntimeInstanceValues,
 	apiClient *http.Client,
 	apiEndpoint string,

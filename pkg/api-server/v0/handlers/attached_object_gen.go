@@ -40,7 +40,7 @@ func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 	var attachedObjectReference api_v0.AttachedObjectReference
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, attachedObjectReference); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, attachedObjectReference); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -163,7 +163,7 @@ func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAttachedObjectReference); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAttachedObjectReference); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -215,7 +215,7 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAttachedObjectReference); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAttachedObjectReference); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 

@@ -4,11 +4,12 @@ package handlers
 
 import (
 	"errors"
+	"net/http"
+
 	echo "github.com/labstack/echo/v4"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	gorm "gorm.io/gorm"
-	"net/http"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -40,7 +41,7 @@ func (h Handler) AddExtensionApi(c echo.Context) error {
 	var extensionApi api_v0.ExtensionApi
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, extensionApi); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, extensionApi); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -178,7 +179,7 @@ func (h Handler) UpdateExtensionApi(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingExtensionApi); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingExtensionApi); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -230,7 +231,7 @@ func (h Handler) ReplaceExtensionApi(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingExtensionApi); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingExtensionApi); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -331,7 +332,7 @@ func (h Handler) AddExtensionApiRoute(c echo.Context) error {
 	var extensionApiRoute api_v0.ExtensionApiRoute
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, extensionApiRoute); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, extensionApiRoute); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -454,7 +455,7 @@ func (h Handler) UpdateExtensionApiRoute(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingExtensionApiRoute); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingExtensionApiRoute); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -506,7 +507,7 @@ func (h Handler) ReplaceExtensionApiRoute(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingExtensionApiRoute); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingExtensionApiRoute); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 

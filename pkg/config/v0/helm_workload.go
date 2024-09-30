@@ -302,7 +302,7 @@ func (h *HelmWorkloadInstanceValues) Create(
 	}
 
 	// get kubernetes runtime instance API object
-	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+	kubernetesRuntimeInstance, err := SetKubernetesRuntimeInstanceForConfig(
 		h.KubernetesRuntimeInstance,
 		apiClient,
 		apiEndpoint,

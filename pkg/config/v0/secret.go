@@ -260,7 +260,7 @@ func (s *SecretInstanceValues) Create(
 	}
 
 	// get kubernetes runtime instance
-	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+	kubernetesRuntimeInstance, err := SetKubernetesRuntimeInstanceForConfig(
 		s.KubernetesRuntimeInstance,
 		apiClient,
 		apiEndpoint,

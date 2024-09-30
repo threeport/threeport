@@ -44,7 +44,7 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 	var domainNameDefinition api_v0.DomainNameDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, domainNameDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, domainNameDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -182,7 +182,7 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingDomainNameDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingDomainNameDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -234,7 +234,7 @@ func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingDomainNameDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingDomainNameDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -341,7 +341,7 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 	var domainNameInstance api_v0.DomainNameInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, domainNameInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, domainNameInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -492,7 +492,7 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingDomainNameInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingDomainNameInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -557,7 +557,7 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingDomainNameInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingDomainNameInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -695,7 +695,7 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 	var gatewayDefinition api_v0.GatewayDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, gatewayDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, gatewayDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -846,7 +846,7 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingGatewayDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGatewayDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -911,7 +911,7 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingGatewayDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGatewayDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1055,7 +1055,7 @@ func (h Handler) AddGatewayHttpPort(c echo.Context) error {
 	var gatewayHttpPort api_v0.GatewayHttpPort
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, gatewayHttpPort); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, gatewayHttpPort); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1178,7 +1178,7 @@ func (h Handler) UpdateGatewayHttpPort(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingGatewayHttpPort); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGatewayHttpPort); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1230,7 +1230,7 @@ func (h Handler) ReplaceGatewayHttpPort(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingGatewayHttpPort); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGatewayHttpPort); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1331,7 +1331,7 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 	var gatewayInstance api_v0.GatewayInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, gatewayInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, gatewayInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1482,7 +1482,7 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingGatewayInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGatewayInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1547,7 +1547,7 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingGatewayInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGatewayInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1685,7 +1685,7 @@ func (h Handler) AddGatewayTcpPort(c echo.Context) error {
 	var gatewayTcpPort api_v0.GatewayTcpPort
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, gatewayTcpPort); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, gatewayTcpPort); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1808,7 +1808,7 @@ func (h Handler) UpdateGatewayTcpPort(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingGatewayTcpPort); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGatewayTcpPort); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1860,7 +1860,7 @@ func (h Handler) ReplaceGatewayTcpPort(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingGatewayTcpPort); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGatewayTcpPort); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 

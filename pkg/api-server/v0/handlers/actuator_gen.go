@@ -40,7 +40,7 @@ func (h Handler) AddProfile(c echo.Context) error {
 	var profile api_v0.Profile
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, profile); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, profile); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -178,7 +178,7 @@ func (h Handler) UpdateProfile(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingProfile); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingProfile); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -230,7 +230,7 @@ func (h Handler) ReplaceProfile(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingProfile); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingProfile); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -331,7 +331,7 @@ func (h Handler) AddTier(c echo.Context) error {
 	var tier api_v0.Tier
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, tier); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, tier); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -469,7 +469,7 @@ func (h Handler) UpdateTier(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingTier); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingTier); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -521,7 +521,7 @@ func (h Handler) ReplaceTier(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingTier); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingTier); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 

@@ -57,7 +57,7 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 		var secretDefinition v0.SecretDefinition
 
 		// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-		if id, err := apiserver_lib.PayloadCheck(c, false, objectType, secretDefinition); err != nil {
+		if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, secretDefinition); err != nil {
 			return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 		}
 

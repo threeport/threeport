@@ -184,7 +184,7 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 	}
 
 	// get kubernetes runtime instance API object
-	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+	kubernetesRuntimeInstance, err := SetKubernetesRuntimeInstanceForConfig(
 		wi.KubernetesRuntimeInstance,
 		apiClient,
 		apiEndpoint,

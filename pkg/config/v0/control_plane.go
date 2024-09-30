@@ -208,7 +208,7 @@ func (ci *ControlPlaneInstanceValues) Create(apiClient *http.Client, apiEndpoint
 	}
 
 	// get kubernetes runtime instance API object
-	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+	kubernetesRuntimeInstance, err := SetKubernetesRuntimeInstanceForConfig(
 		ci.KubernetesRuntimeInstance,
 		apiClient,
 		apiEndpoint,
