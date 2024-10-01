@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/labstack/echo/v4"
@@ -13,12 +14,11 @@ import (
 // ExtensionRouter contains the route paths that are mapped to their handler
 // functions.
 type ExtensionRouter struct {
-	routes map[string]echo.HandlerFunc
-	mu     sync.RWMutex
+	routes sync.Map
 }
 
 var ExtRouter = ExtensionRouter{
-	routes: make(map[string]echo.HandlerFunc),
+	routes: sync.Map{},
 }
 
 // InitExtensionRouter initializes an extension router.  It first queries the
@@ -57,33 +57,55 @@ func InitExtensionRouter(
 	return nil
 }
 
-// AddRoute safely adds a new route to the dynamic route map
+// AddRoute adds a new route to the dynamic route map
 func (e *ExtensionRouter) AddRoute(path string, handler echo.HandlerFunc) {
-	e.mu.Lock()
-	e.routes[path] = handler
-	e.mu.Unlock()
+	e.routes.Store(path, handler)
 }
 
-// RemoveRoute safely removes a route from the dynamic route map
+// RemoveRoute removes a route from the dynamic route map
 func (e *ExtensionRouter) RemoveRoute(path string) {
-	e.mu.Lock()
-	delete(e.routes, path)
-	e.mu.Unlock()
+	e.routes.Delete(path)
 }
 
-// ServeExtensionRoutes checks if a dynamic route exists, and if not, it lets Echo continue processing
+// ServeExtensionRoutes checks if a dynamic route exists.  If it does, it
+// returns the handler function for that route.  If not, it pases it on to the
+// next handler func to continue normal request processing.
 func (e *ExtensionRouter) ServeExtensionRoutes(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		e.mu.RLock()
-		handler, exists := e.routes[c.Request().URL.Path]
-		e.mu.RUnlock()
+		requestPath := c.Request().URL.Path
 
-		// proxy to the extension API if found
-		if exists {
-			return handler(c)
+		var matchedHandler echo.HandlerFunc
+		e.routes.Range(func(route, handler interface{}) bool {
+			if matchRoute(route.(string), requestPath) {
+				matchedHandler = handler.(echo.HandlerFunc)
+				return false // stop iterating if we find a match
+			}
+			return true // continue iteration
+		})
+
+		if matchedHandler != nil {
+			return matchedHandler(c)
 		}
 
-		// if no proxy path found, pass onto the next route handler
 		return next(c)
 	}
+}
+
+// matchRoute matches a registered route path to the path from an API request.
+// If a registered path matches the beginning of a request path it returns true
+// as a match and ignores anything else on the request path, such as an object
+// ID.
+func matchRoute(registeredPath, requestedPath string) bool {
+	registeredPathParsed := strings.Split(registeredPath, "/")
+	requestedPathParsed := strings.Split(requestedPath, "/")
+
+	elementCount := 0
+	for elementCount < len(registeredPathParsed) {
+		if registeredPathParsed[elementCount] != requestedPathParsed[elementCount] {
+			return false
+		}
+		elementCount++
+	}
+
+	return true
 }
