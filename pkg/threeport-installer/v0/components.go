@@ -1792,7 +1792,7 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 			},
 			"type": "Opaque",
 			"stringData": map[string]interface{}{
-				"API_SERVER":            cpi.Opts.RestApiInfo.ServiceResourceName,
+				"API_SERVER":            fmt.Sprintf("%s.%s.svc.cluster.local", cpi.Opts.RestApiInfo.ServiceResourceName, cpi.Opts.Namespace),
 				"MSG_BROKER_HOST":       fmt.Sprintf("%s.%s.svc.cluster.local", natsServiceName, cpi.Opts.Namespace),
 				"MSG_BROKER_PORT":       "4222",
 				"AWS_ROLE_SESSION_NAME": util.AwsResourceManagerRoleSessionName,
