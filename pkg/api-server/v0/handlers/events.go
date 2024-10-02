@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"errors"
+
 	echo "github.com/labstack/echo/v4"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -33,13 +35,13 @@ func (h Handler) GetEventsJoinAttachedObjectReferences(c echo.Context) error {
 	records := &[]v0.Event{}
 	objectId := c.QueryParam("objectid")
 	if objectId == "" {
-		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, &params, errors.New("must provide object ID"), objectType)
 	}
 
 	if result := h.DB.Joins(
-		"INNER JOIN attached_object_references ON events.attached_object_reference_id = attached_object_references.id",
+		"INNER JOIN v0_attached_object_references ON v0_events.attached_object_reference_id = v0_attached_object_references.id",
 	).Where(
-		"attached_object_references.object_id = ?", objectId,
+		"v0_attached_object_references.object_id = ?", objectId,
 	).Where(&filter).Find(records); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
