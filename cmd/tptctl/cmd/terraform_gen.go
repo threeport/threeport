@@ -110,7 +110,7 @@ var CreateTerraformDefinitionCmd = &cobra.Command{
 
 			// create terraform definition
 			terraformDefinition := terraformDefinitionConfig.TerraformDefinition
-			terraformDefinition.TerraformConfigPath = createTerraformDefinitionConfigPath
+			terraformDefinition.TerraformConfigPath = &createTerraformDefinitionConfigPath
 			createdTerraformDefinition, err := terraformDefinition.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create terraform definition", err)
@@ -188,14 +188,14 @@ var DeleteTerraformDefinitionCmd = &cobra.Command{
 			} else {
 				terraformDefinitionConfig = config_v0.TerraformDefinitionConfig{
 					TerraformDefinition: config_v0.TerraformDefinitionValues{
-						Name: deleteTerraformDefinitionName,
+						Name: &deleteTerraformDefinitionName,
 					},
 				}
 			}
 
 			// delete terraform definition
 			terraformDefinition := terraformDefinitionConfig.TerraformDefinition
-			terraformDefinition.TerraformConfigPath = deleteTerraformDefinitionConfigPath
+			terraformDefinition.TerraformConfigPath = &deleteTerraformDefinitionConfigPath
 			deletedTerraformDefinition, err := terraformDefinition.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete terraform definition", err)
@@ -287,7 +287,7 @@ var DescribeTerraformDefinitionCmd = &cobra.Command{
 			} else {
 				terraformDefinitionConfig = config_v0.TerraformDefinitionConfig{
 					TerraformDefinition: config_v0.TerraformDefinitionValues{
-						Name: describeTerraformDefinitionName,
+						Name: &describeTerraformDefinitionName,
 					},
 				}
 			}
@@ -296,7 +296,7 @@ var DescribeTerraformDefinitionCmd = &cobra.Command{
 			obj, err := client_v0.GetTerraformDefinitionByName(
 				apiClient,
 				apiEndpoint,
-				terraformDefinitionConfig.TerraformDefinition.Name,
+				*terraformDefinitionConfig.TerraformDefinition.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve terraform definition details", err)
@@ -512,7 +512,7 @@ var CreateTerraformCmd = &cobra.Command{
 
 			// create terraform
 			terraform := terraformConfig.Terraform
-			terraform.TerraformConfigPath = createTerraformConfigPath
+			terraform.TerraformConfigPath = &createTerraformConfigPath
 			createdTerraformDefinition, createdTerraformInstance, err := terraform.Create(
 				apiClient,
 				apiEndpoint,
@@ -524,7 +524,7 @@ var CreateTerraformCmd = &cobra.Command{
 
 			cli.Info(fmt.Sprintf("terraform definition %s created", *createdTerraformDefinition.Name))
 			cli.Info(fmt.Sprintf("terraform instance %s created", *createdTerraformInstance.Name))
-			cli.Complete(fmt.Sprintf("terraform %s created", terraformConfig.Terraform.Name))
+			cli.Complete(fmt.Sprintf("terraform %s created", *terraformConfig.Terraform.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -590,16 +590,16 @@ var DeleteTerraformCmd = &cobra.Command{
 
 			// delete terraform
 			terraform := terraformConfig.Terraform
-			terraform.TerraformConfigPath = deleteTerraformConfigPath
+			terraform.TerraformConfigPath = &deleteTerraformConfigPath
 			_, _, err = terraform.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete terraform", err)
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("terraform definition %s deleted", terraform.Name))
-			cli.Info(fmt.Sprintf("terraform instance %s deleted", terraform.Name))
-			cli.Complete(fmt.Sprintf("terraform %s deleted", terraformConfig.Terraform.Name))
+			cli.Info(fmt.Sprintf("terraform definition %s deleted", *terraform.Name))
+			cli.Info(fmt.Sprintf("terraform instance %s deleted", *terraform.Name))
+			cli.Complete(fmt.Sprintf("terraform %s deleted", *terraformConfig.Terraform.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -719,7 +719,7 @@ var CreateTerraformInstanceCmd = &cobra.Command{
 
 			// create terraform instance
 			terraformInstance := terraformInstanceConfig.TerraformInstance
-			terraformInstance.TerraformConfigPath = createTerraformInstanceConfigPath
+			terraformInstance.TerraformConfigPath = &createTerraformInstanceConfigPath
 			createdTerraformInstance, err := terraformInstance.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create terraform instance", err)
@@ -797,14 +797,14 @@ var DeleteTerraformInstanceCmd = &cobra.Command{
 			} else {
 				terraformInstanceConfig = config_v0.TerraformInstanceConfig{
 					TerraformInstance: config_v0.TerraformInstanceValues{
-						Name: deleteTerraformInstanceName,
+						Name: &deleteTerraformInstanceName,
 					},
 				}
 			}
 
 			// delete terraform instance
 			terraformInstance := terraformInstanceConfig.TerraformInstance
-			terraformInstance.TerraformConfigPath = deleteTerraformInstanceConfigPath
+			terraformInstance.TerraformConfigPath = &deleteTerraformInstanceConfigPath
 			deletedTerraformInstance, err := terraformInstance.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete terraform instance", err)
@@ -896,7 +896,7 @@ var DescribeTerraformInstanceCmd = &cobra.Command{
 			} else {
 				terraformInstanceConfig = config_v0.TerraformInstanceConfig{
 					TerraformInstance: config_v0.TerraformInstanceValues{
-						Name: describeTerraformInstanceName,
+						Name: &describeTerraformInstanceName,
 					},
 				}
 			}
@@ -905,7 +905,7 @@ var DescribeTerraformInstanceCmd = &cobra.Command{
 			obj, err := client_v0.GetTerraformInstanceByName(
 				apiClient,
 				apiEndpoint,
-				terraformInstanceConfig.TerraformInstance.Name,
+				*terraformInstanceConfig.TerraformInstance.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve terraform instance details", err)

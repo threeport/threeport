@@ -23,16 +23,16 @@ type AwsAccountConfig struct {
 
 // AwsAccountValues contains the attributes needed to manage an AWS account.
 type AwsAccountValues struct {
-	Name             string `yaml:"Name"`
-	AccountID        string `yaml:"AccountID"`
-	DefaultAccount   bool   `yaml:"DefaultAccount"`
-	DefaultRegion    string `yaml:"DefaultRegion"`
-	AccessKeyID      string `yaml:"AccessKeyID"`
-	SecretAccessKey  string `yaml:"SecretAccessKey"`
-	RoleArn          string `yaml:"RoleArn"`
-	LocalConfig      string `yaml:"LocalConfig"`
-	LocalCredentials string `yaml:"LocalCredentials"`
-	LocalProfile     string `yaml:"LocalProfile"`
+	Name             *string `yaml:"Name"`
+	AccountID        *string `yaml:"AccountID"`
+	DefaultAccount   *bool   `yaml:"DefaultAccount"`
+	DefaultRegion    *string `yaml:"DefaultRegion"`
+	AccessKeyID      *string `yaml:"AccessKeyID"`
+	SecretAccessKey  *string `yaml:"SecretAccessKey"`
+	RoleArn          *string `yaml:"RoleArn"`
+	LocalConfig      *string `yaml:"LocalConfig"`
+	LocalCredentials *string `yaml:"LocalCredentials"`
+	LocalProfile     *string `yaml:"LocalProfile"`
 }
 
 // AwsEksKubernetesRuntimeConfig contains the config for an AWS EKS
@@ -45,14 +45,14 @@ type AwsEksKubernetesRuntimeConfig struct {
 // AwsEksKubernetesRuntimeValues contains the attributes needed to
 // manage an AWS EKS kubernetes runtime definition and instance.
 type AwsEksKubernetesRuntimeValues struct {
-	Name                         string `yaml:"Name"`
-	AwsAccountName               string `yaml:"AwsAccountName"`
-	ZoneCount                    int    `yaml:"ZoneCount"`
-	DefaultNodeGroupInstanceType string `yaml:"DefaultNodeGroupInstanceType"`
-	DefaultNodeGroupInitialSize  int    `yaml:"DefaultNodeGroupInitialSize"`
-	DefaultNodeGroupMinimumSize  int    `yaml:"DefaultNodeGroupMinimumSize"`
-	DefaultNodeGroupMaximumSize  int    `yaml:"DefaultNodeGroupMaximumSize"`
-	Region                       string `yaml:"Region"`
+	Name                         *string `yaml:"Name"`
+	AwsAccountName               *string `yaml:"AwsAccountName"`
+	ZoneCount                    *int    `yaml:"ZoneCount"`
+	DefaultNodeGroupInstanceType *string `yaml:"DefaultNodeGroupInstanceType"`
+	DefaultNodeGroupInitialSize  *int    `yaml:"DefaultNodeGroupInitialSize"`
+	DefaultNodeGroupMinimumSize  *int    `yaml:"DefaultNodeGroupMinimumSize"`
+	DefaultNodeGroupMaximumSize  *int    `yaml:"DefaultNodeGroupMaximumSize"`
+	Region                       *string `yaml:"Region"`
 }
 
 // AwsEksKubernetesRuntimeDefinitionConfig contains the config for an AWS EKS
@@ -64,13 +64,13 @@ type AwsEksKubernetesRuntimeDefinitionConfig struct {
 // AwsEksKubernetesRuntimeDefinitionValues contains the attributes needed to
 // manage an AWS EKS kubernetes runtime definition.
 type AwsEksKubernetesRuntimeDefinitionValues struct {
-	Name                         string `yaml:"Name"`
-	AwsAccountName               string `yaml:"AwsAccountName"`
-	ZoneCount                    int    `yaml:"ZoneCount"`
-	DefaultNodeGroupInstanceType string `yaml:"DefaultNodeGroupInstanceType"`
-	DefaultNodeGroupInitialSize  int    `yaml:"DefaultNodeGroupInitialSize"`
-	DefaultNodeGroupMinimumSize  int    `yaml:"DefaultNodeGroupMinimumSize"`
-	DefaultNodeGroupMaximumSize  int    `yaml:"DefaultNodeGroupMaximumSize"`
+	Name                         *string `yaml:"Name"`
+	AwsAccountName               *string `yaml:"AwsAccountName"`
+	ZoneCount                    *int    `yaml:"ZoneCount"`
+	DefaultNodeGroupInstanceType *string `yaml:"DefaultNodeGroupInstanceType"`
+	DefaultNodeGroupInitialSize  *int    `yaml:"DefaultNodeGroupInitialSize"`
+	DefaultNodeGroupMinimumSize  *int    `yaml:"DefaultNodeGroupMinimumSize"`
+	DefaultNodeGroupMaximumSize  *int    `yaml:"DefaultNodeGroupMaximumSize"`
 }
 
 // AwsEksKubernetesRuntimeInstanceConfig contains the config for an AWS EKS
@@ -82,9 +82,9 @@ type AwsEksKubernetesRuntimeInstanceConfig struct {
 // AwsEksKubernetesRuntimeInstanceValues contains the attributes needed to
 // manage an AWS EKS kubernetes runtime instance.
 type AwsEksKubernetesRuntimeInstanceValues struct {
-	Name                              string                                  `yaml:"Name"`
-	Region                            string                                  `yaml:"Region"`
-	AwsEksKubernetesRuntimeDefinition AwsEksKubernetesRuntimeDefinitionValues `yaml:"AwsEksKubernetesRuntimeDefinition"`
+	Name                              *string                                  `yaml:"Name"`
+	Region                            *string                                  `yaml:"Region"`
+	AwsEksKubernetesRuntimeDefinition *AwsEksKubernetesRuntimeDefinitionValues `yaml:"AwsEksKubernetesRuntimeDefinition"`
 }
 
 // AwsRelationalDatabaseConfig contains the config for an AWS relational
@@ -93,19 +93,19 @@ type AwsRelationalDatabaseConfig struct {
 	AwsRelationalDatabase AwsRelationalDatabaseValues `yaml:"AwsRelationalDatabase"`
 }
 
-// AwsRelationalDatabaseConfig contains the config for an abstraction of an RDS
-// instance and definition.
+// AwsRelationalDatabaseValues contains the attributes needed to
+// configure an AWS RDS instance.
 type AwsRelationalDatabaseValues struct {
-	Name               string                  `yaml:"Name"`
-	AwsAccountName     string                  `yaml:"AwsAccountName"`
-	Engine             string                  `yaml:"Engine"`
-	EngineVersion      string                  `yaml:"EngineVersion"`
-	DatabaseName       string                  `yaml:"DatabaseName"`
-	DatabasePort       int                     `yaml:"DatabasePort"`
-	BackupDays         int                     `yaml:"BackupDays"`
-	MachineSize        string                  `yaml:"MachineSize"`
-	StorageGb          int                     `yaml:"StorageGb"`
-	WorkloadSecretName string                  `yaml:"WorkloadSecretName"`
+	Name               *string                 `yaml:"Name"`
+	AwsAccountName     *string                 `yaml:"AwsAccountName"`
+	Engine             *string                 `yaml:"Engine"`
+	EngineVersion      *string                 `yaml:"EngineVersion"`
+	DatabaseName       *string                 `yaml:"DatabaseName"`
+	DatabasePort       *int                    `yaml:"DatabasePort"`
+	BackupDays         *int                    `yaml:"BackupDays"`
+	MachineSize        *string                 `yaml:"MachineSize"`
+	StorageGb          *int                    `yaml:"StorageGb"`
+	WorkloadSecretName *string                 `yaml:"WorkloadSecretName"`
 	WorkloadInstance   *WorkloadInstanceValues `yaml:"WorkloadInstance"`
 }
 
@@ -118,16 +118,16 @@ type AwsRelationalDatabaseDefinitionConfig struct {
 // AwsRelationalDatabaseDefinitionValues contains the attributes needed to
 // configure an AWS RDS instance.
 type AwsRelationalDatabaseDefinitionValues struct {
-	Name               string `yaml:"Name"`
-	AwsAccountName     string `yaml:"AwsAccountName"`
-	Engine             string `yaml:"Engine"`
-	EngineVersion      string `yaml:"EngineVersion"`
-	DatabaseName       string `yaml:"DatabaseName"`
-	DatabasePort       int    `yaml:"DatabasePort"`
-	BackupDays         int    `yaml:"BackupDays"`
-	MachineSize        string `yaml:"MachineSize"`
-	StorageGb          int    `yaml:"StorageGb"`
-	WorkloadSecretName string `yaml:"WorkloadSecretName"`
+	Name               *string `yaml:"Name"`
+	AwsAccountName     *string `yaml:"AwsAccountName"`
+	Engine             *string `yaml:"Engine"`
+	EngineVersion      *string `yaml:"EngineVersion"`
+	DatabaseName       *string `yaml:"DatabaseName"`
+	DatabasePort       *int    `yaml:"DatabasePort"`
+	BackupDays         *int    `yaml:"BackupDays"`
+	MachineSize        *string `yaml:"MachineSize"`
+	StorageGb          *int    `yaml:"StorageGb"`
+	WorkloadSecretName *string `yaml:"WorkloadSecretName"`
 }
 
 // AwsRelationalDatabaseInstanceConfig contains the config for an AWS relational
@@ -139,9 +139,9 @@ type AwsRelationalDatabaseInstanceConfig struct {
 // AwsRelationalDatabaseInstanceValues contains the attributes needed to
 // create an AWS RDS instance.
 type AwsRelationalDatabaseInstanceValues struct {
-	Name                            string                                `yaml:"Name"`
-	AwsRelationalDatabaseDefinition AwsRelationalDatabaseDefinitionValues `yaml:"AwsRelationalDatabaseDefinition"`
-	WorkloadInstance                WorkloadInstanceValues                `yaml:"WorkloadInstance"`
+	Name                            *string                                `yaml:"Name"`
+	AwsRelationalDatabaseDefinition *AwsRelationalDatabaseDefinitionValues `yaml:"AwsRelationalDatabaseDefinition"`
+	WorkloadInstance                *WorkloadInstanceValues                `yaml:"WorkloadInstance"`
 }
 
 // AwsObjectStorageBucketConfig contains the config for an AWS object storage
@@ -150,14 +150,14 @@ type AwsObjectStorageBucketConfig struct {
 	AwsObjectStorageBucket AwsObjectStorageBucketValues `yaml:"AwsObjectStorageBucket"`
 }
 
-// AwsObjectStorageBucketConfig contains the config for an abstraction of an S3
-// bucket instance and definition.
+// AwsObjectStorageBucketValues contains the attributes needed to
+// configure an AWS S3 bucket.
 type AwsObjectStorageBucketValues struct {
-	Name                       string                  `yaml:"Name"`
-	AwsAccountName             string                  `yaml:"AwsAccountName"`
-	PublicReadAccess           bool                    `yaml:"PublicReadAccess"`
-	WorkloadServiceAccountName string                  `yaml:"WorkloadServiceAccountName"`
-	WorkloadBucketEnvVar       string                  `yaml:"WorkloadBucketEnvVar"`
+	Name                       *string                 `yaml:"Name"`
+	AwsAccountName             *string                 `yaml:"AwsAccountName"`
+	PublicReadAccess           *bool                   `yaml:"PublicReadAccess"`
+	WorkloadServiceAccountName *string                 `yaml:"WorkloadServiceAccountName"`
+	WorkloadBucketEnvVar       *string                 `yaml:"WorkloadBucketEnvVar"`
 	WorkloadInstance           *WorkloadInstanceValues `yaml:"WorkloadInstance"`
 }
 
@@ -170,11 +170,11 @@ type AwsObjectStorageBucketDefinitionConfig struct {
 // AwsObjectStorageBucketDefinitionValues contains the attributes needed to
 // configure an AWS S3 bucket.
 type AwsObjectStorageBucketDefinitionValues struct {
-	Name                       string `yaml:"Name"`
-	AwsAccountName             string `yaml:"AwsAccountName"`
-	PublicReadAccess           bool   `yaml:"PublicReadAccess"`
-	WorkloadServiceAccountName string `yaml:"WorkloadServiceAccountName"`
-	WorkloadBucketEnvVar       string `yaml:"WorkloadBucketEnvVar"`
+	Name                       *string `yaml:"Name"`
+	AwsAccountName             *string `yaml:"AwsAccountName"`
+	PublicReadAccess           *bool   `yaml:"PublicReadAccess"`
+	WorkloadServiceAccountName *string `yaml:"WorkloadServiceAccountName"`
+	WorkloadBucketEnvVar       *string `yaml:"WorkloadBucketEnvVar"`
 }
 
 // AwsObjectStorageBucketInstanceConfig contains the config for an AWS S3 bucket
@@ -186,15 +186,15 @@ type AwsObjectStorageBucketInstanceConfig struct {
 // AwsObjectStorageBucketInstanceValues contains the attributes needed to
 // create an AWS S3 instance.
 type AwsObjectStorageBucketInstanceValues struct {
-	Name                             string                                 `yaml:"Name"`
-	AwsObjectStorageBucketDefinition AwsObjectStorageBucketDefinitionValues `yaml:"AwsObjectStorageBucketDefinition"`
-	WorkloadInstance                 WorkloadInstanceValues                 `yaml:"WorkloadInstance"`
+	Name                             *string                                 `yaml:"Name"`
+	AwsObjectStorageBucketDefinition *AwsObjectStorageBucketDefinitionValues `yaml:"AwsObjectStorageBucketDefinition"`
+	WorkloadInstance                 *WorkloadInstanceValues                 `yaml:"WorkloadInstance"`
 }
 
 // Create creates an AWS account in the Threeport API.
 func (a *AwsAccountValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsAccount, error) {
 	// validate required fields
-	if a.Name == "" || a.AccountID == "" {
+	if a.Name == nil || a.AccountID == nil {
 		return nil, errors.New("missing required field/s in config - required fields: Name, AccountID")
 	}
 
@@ -207,10 +207,10 @@ LocalConfig, LocalCredentials and LocalProfile
 `
 	localConfig := false
 	explicitConfig := false
-	if a.LocalConfig != "" && a.LocalCredentials != "" && a.LocalProfile != "" {
+	if a.LocalConfig != nil && a.LocalCredentials != nil && a.LocalProfile != nil {
 		localConfig = true
 	}
-	if a.DefaultRegion != "" && a.AccessKeyID != "" && a.SecretAccessKey != "" {
+	if a.DefaultRegion != nil && a.AccessKeyID != nil && a.SecretAccessKey != nil {
 		explicitConfig = true
 	}
 	switch {
@@ -223,65 +223,64 @@ LocalConfig, LocalCredentials and LocalProfile
 	}
 
 	// validate that no other default AWS account exists
-	if a.DefaultAccount {
+	if a.DefaultAccount != nil && *a.DefaultAccount {
 		existingAccounts, err := client.GetAwsAccounts(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve existing AWS accounts to check default accounts: %w", err)
 		}
 		for _, existing := range *existingAccounts {
-			if *existing.DefaultAccount {
+			if existing.DefaultAccount != nil && *existing.DefaultAccount {
 				msg := fmt.Sprintf("cannot designate new account as default account - %s is already the default account", *existing.Name)
 				return nil, errors.New(msg)
 			}
 		}
 	}
 
-	// establish default region from explicit declaration in config or AWS
-	// config file
+	// establish default region from explicit declaration in config or AWS config file
 	var region string
-	if a.DefaultRegion == "" {
-		awsConfig, err := ini.Load(a.LocalConfig)
+	if a.DefaultRegion == nil {
+		awsConfig, err := ini.Load(*a.LocalConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load aws config: %w", err)
 		}
-		if awsConfig.Section(a.LocalProfile).HasKey("region") {
-			region = awsConfig.Section(a.LocalProfile).Key("region").String()
+		if awsConfig.Section(*a.LocalProfile).HasKey("region") {
+			region = awsConfig.Section(*a.LocalProfile).Key("region").String()
 		} else {
 			return nil, errors.New(
-				fmt.Sprintf("profile %s not found in aws config %s", a.LocalProfile, a.LocalConfig),
+				fmt.Sprintf("profile %s not found in aws config %s", *a.LocalProfile, *a.LocalConfig),
 			)
 		}
 	} else {
-		region = a.DefaultRegion
+		region = *a.DefaultRegion
 	}
 
 	// retrieve access key ID and secret access key if needed
 	var accessKeyID string
 	var secretAccessKey string
-	if a.AccessKeyID == "" && a.SecretAccessKey == "" {
-		awsCredentials, err := ini.Load(a.LocalCredentials)
+	if a.AccessKeyID == nil && a.SecretAccessKey == nil {
+		awsCredentials, err := ini.Load(*a.LocalCredentials)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load aws credentials: %w", err)
 		}
-		if awsCredentials.Section(a.LocalProfile).HasKey("aws_access_key_id") &&
-			awsCredentials.Section(a.LocalProfile).HasKey("aws_secret_access_key") {
-			accessKeyID = awsCredentials.Section(a.LocalProfile).Key("aws_access_key_id").String()
-			secretAccessKey = awsCredentials.Section(a.LocalProfile).Key("aws_secret_access_key").String()
+		if awsCredentials.Section(*a.LocalProfile).HasKey("aws_access_key_id") &&
+			awsCredentials.Section(*a.LocalProfile).HasKey("aws_secret_access_key") {
+			accessKeyID = awsCredentials.Section(*a.LocalProfile).Key("aws_access_key_id").String()
+			secretAccessKey = awsCredentials.Section(*a.LocalProfile).Key("aws_secret_access_key").String()
 		}
 	} else {
-		accessKeyID = a.AccessKeyID
-		secretAccessKey = a.SecretAccessKey
+		accessKeyID = *a.AccessKeyID
+		secretAccessKey = *a.SecretAccessKey
 	}
 
 	// construct AWS account object
 	awsAccount := v0.AwsAccount{
-		Name:            &a.Name,
-		DefaultAccount:  &a.DefaultAccount,
+		Name:            a.Name,
+		DefaultAccount:  a.DefaultAccount,
 		DefaultRegion:   &region,
-		AccountID:       &a.AccountID,
+		AccountID:       a.AccountID,
 		AccessKeyID:     &accessKeyID,
 		SecretAccessKey: &secretAccessKey,
-		RoleArn:         &a.RoleArn,
+		RoleArn:         a.RoleArn,
 	}
 
 	// create AWS account
@@ -295,10 +294,15 @@ LocalConfig, LocalCredentials and LocalProfile
 
 // Describe returns details related to an AWS account.
 func (a *AwsAccountValues) Describe(apiClient *http.Client, apiEndpoint string) (*status.AwsAccountStatusDetail, error) {
+	// validate
+	if a.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get AWS account by name
-	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, a.Name)
+	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, *a.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS Account with name %s: %w", a.Name, err)
+		return nil, fmt.Errorf("failed to find AWS Account with name %s: %w", *a.Name, err)
 	}
 
 	// get AWS account status
@@ -308,18 +312,23 @@ func (a *AwsAccountValues) Describe(apiClient *http.Client, apiEndpoint string) 
 		*awsAccount.ID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status for AWS account with name %s: %w", a.Name, err)
+		return nil, fmt.Errorf("failed to get status for AWS account with name %s: %w", *a.Name, err)
 	}
 
 	return statusDetail, nil
 }
 
-// Delete deletes a AWS account from the Threeport API.
+// Delete deletes an AWS account from the Threeport API.
 func (a *AwsAccountValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsAccount, error) {
+	//validate
+	if a.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get AWS account by name
-	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, a.Name)
+	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, *a.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", a.Name, err)
+		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", *a.Name, err)
 	}
 
 	// delete AWS account
@@ -347,7 +356,7 @@ func (w *AwsEksKubernetesRuntimeValues) Create(
 	if err := operations.Create(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to execute create operations for AWS EKS kubernetes runtime defined instance with name %s: %w",
-			w.Name,
+			*w.Name,
 			err,
 		)
 	}
@@ -369,7 +378,7 @@ func (w *AwsEksKubernetesRuntimeValues) Delete(
 	if err := operations.Delete(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to execute delete operations for AWS EKS kubernetes runtime defined instance %s: %w",
-			w.Name,
+			*w.Name,
 			err,
 		)
 	}
@@ -377,26 +386,26 @@ func (w *AwsEksKubernetesRuntimeValues) Delete(
 	return nil, nil, nil
 }
 
-// Create creates an AWS EKS kubernetes runtime definition in the threeport API.
+// Create creates a AWS EKS kubernetes runtime definition in the Threeport API.
 func (e *AwsEksKubernetesRuntimeDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
 	// validate required fields
-	if e.Name == "" || e.AwsAccountName == "" || e.ZoneCount == 0 ||
-		e.DefaultNodeGroupInstanceType == "" || e.DefaultNodeGroupInitialSize == 0 ||
-		e.DefaultNodeGroupMinimumSize == 0 || e.DefaultNodeGroupMaximumSize == 0 {
+	if e.Name == nil || e.AwsAccountName == nil || e.ZoneCount == nil ||
+		e.DefaultNodeGroupInstanceType == nil || e.DefaultNodeGroupInitialSize == nil ||
+		e.DefaultNodeGroupMinimumSize == nil || e.DefaultNodeGroupMaximumSize == nil {
 		return nil, errors.New("missing required field/s in config - required fields: Name, AwsAccountName, ZoneCount, DefaultNodeGroupInstanceType, DefaultNodeGroupInitialSize, DefaultNodeGroupMinimumSize, DefaultNodeGroupMaximumSize")
 	}
 
 	// look up AWS account by name
-	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, e.AwsAccountName)
+	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, *e.AwsAccountName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", e.Name, err)
+		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", *e.AwsAccountName, err)
 	}
 
 	// construct kubernetes runtime definition
 	infraProvider := v0.KubernetesRuntimeInfraProviderEKS
 	kubernetesRuntimeDefinition := v0.KubernetesRuntimeDefinition{
 		Definition: v0.Definition{
-			Name: &e.Name,
+			Name: e.Name,
 		},
 		Reconciliation: v0.Reconciliation{
 			Reconciled: util.Ptr(true),
@@ -414,14 +423,14 @@ func (e *AwsEksKubernetesRuntimeDefinitionValues) Create(apiClient *http.Client,
 	// construct AWS EKS kubernetes runtime definition object
 	awsEksKubernetesRuntimeDefinition := v0.AwsEksKubernetesRuntimeDefinition{
 		Definition: v0.Definition{
-			Name: &e.Name,
+			Name: e.Name,
 		},
 		AwsAccountID:                  awsAccount.ID,
-		ZoneCount:                     &e.ZoneCount,
-		DefaultNodeGroupInstanceType:  &e.DefaultNodeGroupInstanceType,
-		DefaultNodeGroupInitialSize:   &e.DefaultNodeGroupInitialSize,
-		DefaultNodeGroupMinimumSize:   &e.DefaultNodeGroupMinimumSize,
-		DefaultNodeGroupMaximumSize:   &e.DefaultNodeGroupMaximumSize,
+		ZoneCount:                     e.ZoneCount,
+		DefaultNodeGroupInstanceType:  e.DefaultNodeGroupInstanceType,
+		DefaultNodeGroupInitialSize:   e.DefaultNodeGroupInitialSize,
+		DefaultNodeGroupMinimumSize:   e.DefaultNodeGroupMinimumSize,
+		DefaultNodeGroupMaximumSize:   e.DefaultNodeGroupMaximumSize,
 		KubernetesRuntimeDefinitionID: createdKubernetesRuntimeDefinition.ID,
 	}
 
@@ -439,14 +448,19 @@ func (e *AwsEksKubernetesRuntimeDefinitionValues) Describe(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*status.AwsEksKubernetesRuntimeDefinitionStatusDetail, error) {
+	// validate
+	if e.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get AWS EKS kubernetes runtime definition by name
 	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		e.Name,
+		*e.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime definition with name %s: %w", e.Name, err)
+		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime definition with name %s: %w", *e.Name, err)
 	}
 
 	// get AWS EKS kubernetes runtime definition status
@@ -456,7 +470,7 @@ func (e *AwsEksKubernetesRuntimeDefinitionValues) Describe(
 		awsEksKubernetesRuntimeDefinition,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status for AWS EKS kubernetes runtime definition with name %s: %w", e.Name, err)
+		return nil, fmt.Errorf("failed to get status for AWS EKS kubernetes runtime definition with name %s: %w", *e.Name, err)
 	}
 
 	return statusDetail, nil
@@ -464,10 +478,15 @@ func (e *AwsEksKubernetesRuntimeDefinitionValues) Describe(
 
 // Delete deletes an AWS EKS kubernetes definition from the Threeport API.
 func (e *AwsEksKubernetesRuntimeDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+	// validate
+	if e.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get AWS EKS kubernetes definition by name
-	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, e.Name)
+	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *e.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS EKS kubernetes definition with name %s: %w", e.Name, err)
+		return nil, fmt.Errorf("failed to find AWS EKS kubernetes definition with name %s: %w", *e.Name, err)
 	}
 
 	// delete associated kubernetes runtime definition
@@ -492,20 +511,20 @@ func (e *AwsEksKubernetesRuntimeDefinitionValues) Delete(apiClient *http.Client,
 // Create creates an AWS EKS kubernetes runtime instance in the threeport API.
 func (e *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
 	// validate required fields
-	if e.Name == "" || e.AwsEksKubernetesRuntimeDefinition.Name == "" {
-		return nil, errors.New("missing required field/s in config - required fields: Name, AwsEksKubernetesRuntimeDefinitionName")
+	if e.Name == nil || e.AwsEksKubernetesRuntimeDefinition.Name == nil {
+		return nil, errors.New("missing required field/s in config - required fields: Name, AwsEksKubernetesRuntimeDefinition.Name")
 	}
 
 	// look up AWS EKS kubernetes runtime definition by name
-	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, e.AwsEksKubernetesRuntimeDefinition.Name)
+	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *e.AwsEksKubernetesRuntimeDefinition.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime definition with name %s: %w", e.AwsEksKubernetesRuntimeDefinition.Name, err)
+		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime definition with name %s: %w", *e.AwsEksKubernetesRuntimeDefinition.Name, err)
 	}
 
 	// get location for provider AWS region
-	location, err := mapping.GetLocationForAwsRegion(e.Region)
+	location, err := mapping.GetLocationForAwsRegion(*e.Region)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get Threeport location for AWS region %s: %w", e.Region, err)
+		return nil, fmt.Errorf("failed to get Threeport location for AWS region %s: %w", *e.Region, err)
 	}
 
 	// construct kubernetes runtime instance object
@@ -513,7 +532,7 @@ func (e *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Client, a
 	defaultRuntime := false
 	kubernetesRuntimeInstance := v0.KubernetesRuntimeInstance{
 		Instance: v0.Instance{
-			Name: &e.Name,
+			Name: e.Name,
 		},
 		Reconciliation: v0.Reconciliation{
 			Reconciled: util.Ptr(true),
@@ -533,9 +552,9 @@ func (e *AwsEksKubernetesRuntimeInstanceValues) Create(apiClient *http.Client, a
 	// construct AWS EKS kubernetes runtime instance object
 	awsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
 		Instance: v0.Instance{
-			Name: &e.Name,
+			Name: e.Name,
 		},
-		Region:                              &e.Region,
+		Region:                              e.Region,
 		KubernetesRuntimeInstanceID:         createdKubernetesRuntimeInstance.ID,
 		AwsEksKubernetesRuntimeDefinitionID: awsEksKubernetesRuntimeDefinition.ID,
 	}
@@ -554,14 +573,19 @@ func (e *AwsEksKubernetesRuntimeInstanceValues) Describe(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*status.AwsEksKubernetesRuntimeInstanceStatusDetail, error) {
+	// validate
+	if e.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get AWS EKS kubernetes runtime instance by name
 	awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByName(
 		apiClient,
 		apiEndpoint,
-		e.Name,
+		*e.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime instance with name %s: %w", e.Name, err)
+		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime instance with name %s: %w", *e.Name, err)
 	}
 
 	// get AWS EKS kubernetes runtime instance status
@@ -571,7 +595,7 @@ func (e *AwsEksKubernetesRuntimeInstanceValues) Describe(
 		awsEksKubernetesRuntimeInstance,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status for AWS EKS kubernetes runtime instance with name %s: %w", e.Name, err)
+		return nil, fmt.Errorf("failed to get status for AWS EKS kubernetes runtime instance with name %s: %w", *e.Name, err)
 	}
 
 	return statusDetail, nil
@@ -579,10 +603,15 @@ func (e *AwsEksKubernetesRuntimeInstanceValues) Describe(
 
 // Delete deletes an AWS EKS kubernetes runtime instance from the Threeport API.
 func (e *AwsEksKubernetesRuntimeInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	// validate
+	if e.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get AWS EKS kubernetes runtime instance by name
-	awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, e.Name)
+	awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *e.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime instance with name %s: %w", e.Name, err)
+		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime instance with name %s: %w", *e.Name, err)
 	}
 
 	// delete AWS EKS kubernetes runtime instance
@@ -624,7 +653,7 @@ func (e *AwsEksKubernetesRuntimeInstanceValues) Delete(apiClient *http.Client, a
 	if err == nil {
 		// update kubernetes runtime instance to set the deletion confirmed
 		// timestamp - this will allow deletion of the k8s runtime object without
-		// triggering unecessary reconciliation
+		// triggering unnecessary reconciliation
 		now := time.Now().UTC()
 		kubernetesRuntimeInstance.DeletionConfirmed = &now
 		_, err = client.UpdateKubernetesRuntimeInstance(
@@ -665,6 +694,11 @@ func (e *AwsEksKubernetesRuntimeInstanceValues) Delete(apiClient *http.Client, a
 // Create creates an AWS relational database definition and instance in the
 // threeport API.
 func (r *AwsRelationalDatabaseValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseDefinition, *v0.AwsRelationalDatabaseInstance, error) {
+	// validate
+	if r.Name == nil {
+		return nil, nil, errors.New("missing required field: Name")
+	}
+
 	// create the relational database definition
 	awsRelationalDatabaseDefinition := AwsRelationalDatabaseDefinitionValues{
 		Name:               r.Name,
@@ -686,10 +720,10 @@ func (r *AwsRelationalDatabaseValues) Create(apiClient *http.Client, apiEndpoint
 	// create the relational database instance
 	awsRelationalDatabaseInstance := AwsRelationalDatabaseInstanceValues{
 		Name: r.Name,
-		AwsRelationalDatabaseDefinition: AwsRelationalDatabaseDefinitionValues{
+		AwsRelationalDatabaseDefinition: &AwsRelationalDatabaseDefinitionValues{
 			Name: r.Name,
 		},
-		WorkloadInstance: *r.WorkloadInstance,
+		WorkloadInstance: r.WorkloadInstance,
 	}
 	createdAwsRelationalDatabaseInstance, err := awsRelationalDatabaseInstance.Create(apiClient, apiEndpoint)
 	if err != nil {
@@ -699,20 +733,25 @@ func (r *AwsRelationalDatabaseValues) Create(apiClient *http.Client, apiEndpoint
 	return createdAwsRelationalDatabaseDefinition, createdAwsRelationalDatabaseInstance, nil
 }
 
-// Delete deletes an AWS EKS relational database definition and instance from
-// the threeport API.
+// Delete deletes an AWS relational database definition and instance from
+// the Threeport API.
 func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseDefinition, *v0.AwsRelationalDatabaseInstance, error) {
+	// validate
+	if r.Name == nil {
+		return nil, nil, errors.New("missing required field: Name")
+	}
+
 	// get AWS relational database definition by name
-	awsRelationalDatabaseDefinition, err := client.GetAwsRelationalDatabaseDefinitionByName(apiClient, apiEndpoint, r.Name)
+	awsRelationalDatabaseDefinition, err := client.GetAwsRelationalDatabaseDefinitionByName(apiClient, apiEndpoint, *r.Name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find AWS relational database definition by name %s: %w", r.Name, err)
+		return nil, nil, fmt.Errorf("failed to find AWS relational database definition by name %s: %w", *r.Name, err)
 	}
 
 	// get AWS relational database instance by name
-	awsRelationalDatabaseInstName := r.Name
+	awsRelationalDatabaseInstName := *r.Name
 	awsRelationalDatabaseInstance, err := client.GetAwsRelationalDatabaseInstanceByName(apiClient, apiEndpoint, awsRelationalDatabaseInstName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find AWS relational database instance by name %s: %w", r.Name, err)
+		return nil, nil, fmt.Errorf("failed to find AWS relational database instance by name %s: %w", *r.Name, err)
 	}
 
 	// ensure the AWS relational database definition has no more than one
@@ -771,30 +810,30 @@ func (r *AwsRelationalDatabaseValues) Delete(apiClient *http.Client, apiEndpoint
 // Create creates an AWS relational database definition in the threeport API.
 func (r *AwsRelationalDatabaseDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseDefinition, error) {
 	// validate required fields
-	if r.Name == "" || r.Engine == "" || r.EngineVersion == "" || r.DatabaseName == "" ||
-		r.DatabasePort == 0 || r.MachineSize == "" || r.StorageGb == 0 ||
-		r.WorkloadSecretName == "" || r.AwsAccountName == "" {
+	if r.Name == nil || r.Engine == nil || r.EngineVersion == nil || r.DatabaseName == nil ||
+		r.DatabasePort == nil || r.MachineSize == nil || r.StorageGb == nil ||
+		r.WorkloadSecretName == nil || r.AwsAccountName == nil {
 		return nil, errors.New("missing required field/s in config - required fields: Name, Engine, EngineVersion, DatabaseName, DatabasePort, MachineSize, StorageGb, WorkloadSecretName, AwsAccountName")
 	}
 
 	// look up AWS account by name
-	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, r.AwsAccountName)
+	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, *r.AwsAccountName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", r.Name, err)
+		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", *r.AwsAccountName, err)
 	}
 
 	// construct AWS relational database definition object
 	awsRelationalDatabaseDefinition := v0.AwsRelationalDatabaseDefinition{
 		Definition: v0.Definition{
-			Name: &r.Name,
+			Name: r.Name,
 		},
-		Engine:             &r.Engine,
-		EngineVersion:      &r.EngineVersion,
-		DatabaseName:       &r.DatabaseName,
-		DatabasePort:       &r.DatabasePort,
-		MachineSize:        &r.MachineSize,
-		StorageGb:          &r.StorageGb,
-		WorkloadSecretName: &r.WorkloadSecretName,
+		Engine:             r.Engine,
+		EngineVersion:      r.EngineVersion,
+		DatabaseName:       r.DatabaseName,
+		DatabasePort:       r.DatabasePort,
+		MachineSize:        r.MachineSize,
+		StorageGb:          r.StorageGb,
+		WorkloadSecretName: r.WorkloadSecretName,
 		AwsAccountID:       awsAccount.ID,
 	}
 
@@ -809,10 +848,15 @@ func (r *AwsRelationalDatabaseDefinitionValues) Create(apiClient *http.Client, a
 
 // Delete deletes an AWS relational database definition from the threeport API.
 func (r *AwsRelationalDatabaseDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseDefinition, error) {
+	// validate
+	if r.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get AWS relational database definition by name
-	awsRelationalDatabaseDefinition, err := client.GetAwsRelationalDatabaseDefinitionByName(apiClient, apiEndpoint, r.Name)
+	awsRelationalDatabaseDefinition, err := client.GetAwsRelationalDatabaseDefinitionByName(apiClient, apiEndpoint, *r.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS relational database definition by name %s: %w", r.Name, err)
+		return nil, fmt.Errorf("failed to find AWS relational database definition by name %s: %w", *r.Name, err)
 	}
 
 	// delete AWS relational database definition
@@ -827,7 +871,7 @@ func (r *AwsRelationalDatabaseDefinitionValues) Delete(apiClient *http.Client, a
 // Create creates an AWS relational database instance in the threeport API.
 func (r *AwsRelationalDatabaseInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseInstance, error) {
 	// validate required fields
-	if r.Name == "" || r.AwsRelationalDatabaseDefinition.Name == "" || r.WorkloadInstance.Name == "" {
+	if r.Name == nil || r.AwsRelationalDatabaseDefinition.Name == nil || r.WorkloadInstance.Name == nil {
 		return nil, errors.New("missing required fields in config - required fields: Name, AwsRelationalDatabaseDefinition.Name, WorkloadInstance.Name")
 	}
 
@@ -835,26 +879,26 @@ func (r *AwsRelationalDatabaseInstanceValues) Create(apiClient *http.Client, api
 	awsRelationalDatabaseDefinition, err := client.GetAwsRelationalDatabaseDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		r.AwsRelationalDatabaseDefinition.Name,
+		*r.AwsRelationalDatabaseDefinition.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS relational database definition by name %s: %w", r.AwsRelationalDatabaseDefinition.Name, err)
+		return nil, fmt.Errorf("failed to find AWS relational database definition by name %s: %w", *r.AwsRelationalDatabaseDefinition.Name, err)
 	}
 
 	// get workload instance by name
 	workloadInstance, err := client.GetWorkloadInstanceByName(
 		apiClient,
 		apiEndpoint,
-		r.WorkloadInstance.Name,
+		*r.WorkloadInstance.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed find workload instance by name %s: %w", r.WorkloadInstance.Name, err)
+		return nil, fmt.Errorf("failed find workload instance by name %s: %w", *r.WorkloadInstance.Name, err)
 	}
 
 	// construct AWS relational database instance object
 	awsRelationalDatabaseInstance := v0.AwsRelationalDatabaseInstance{
 		Instance: v0.Instance{
-			Name: &r.Name,
+			Name: r.Name,
 		},
 		AwsRelationalDatabaseDefinitionID: awsRelationalDatabaseDefinition.ID,
 		WorkloadInstanceID:                workloadInstance.ID,
@@ -871,10 +915,15 @@ func (r *AwsRelationalDatabaseInstanceValues) Create(apiClient *http.Client, api
 
 // Delete deletes an AWS relational database instance from the threeport API.
 func (r *AwsRelationalDatabaseInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsRelationalDatabaseInstance, error) {
+	// validate
+	if r.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get AWS relational database instance by name
-	awsRelationalDatabaseInstance, err := client.GetAwsRelationalDatabaseInstanceByName(apiClient, apiEndpoint, r.Name)
+	awsRelationalDatabaseInstance, err := client.GetAwsRelationalDatabaseInstanceByName(apiClient, apiEndpoint, *r.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS relational database instance by name %s: %w", r.Name, err)
+		return nil, fmt.Errorf("failed to find AWS relational database instance by name %s: %w", *r.Name, err)
 	}
 
 	// delete AWS relational database instance
@@ -889,6 +938,11 @@ func (r *AwsRelationalDatabaseInstanceValues) Delete(apiClient *http.Client, api
 // Create creates an AWS object storage bucket definition and instance in the
 // threeport API.
 func (o *AwsObjectStorageBucketValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketDefinition, *v0.AwsObjectStorageBucketInstance, error) {
+	// validate
+	if o.Name == nil {
+		return nil, nil, errors.New("missing required field: Name")
+	}
+
 	// create the object storage bucket definition
 	awsObjectStorageBucketDefinition := AwsObjectStorageBucketDefinitionValues{
 		Name:                       o.Name,
@@ -905,10 +959,10 @@ func (o *AwsObjectStorageBucketValues) Create(apiClient *http.Client, apiEndpoin
 	// create the object storage bucket instance
 	awsObjectStorageBucketInstance := AwsObjectStorageBucketInstanceValues{
 		Name: o.Name,
-		AwsObjectStorageBucketDefinition: AwsObjectStorageBucketDefinitionValues{
+		AwsObjectStorageBucketDefinition: &AwsObjectStorageBucketDefinitionValues{
 			Name: o.Name,
 		},
-		WorkloadInstance: *o.WorkloadInstance,
+		WorkloadInstance: o.WorkloadInstance,
 	}
 	createdAwsObjectStorageBucketInstance, err := awsObjectStorageBucketInstance.Create(apiClient, apiEndpoint)
 	if err != nil {
@@ -918,20 +972,25 @@ func (o *AwsObjectStorageBucketValues) Create(apiClient *http.Client, apiEndpoin
 	return createdAwsObjectStorageBucketDefinition, createdAwsObjectStorageBucketInstance, nil
 }
 
-// Delete deletes an AWS object storage bucket defintiion and instance from the
+// Delete deletes an AWS object storage bucket definition and instance from the
 // threeport API.
 func (o *AwsObjectStorageBucketValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketDefinition, *v0.AwsObjectStorageBucketInstance, error) {
+	// validate
+	if o.Name == nil {
+		return nil, nil, errors.New("missing required field: Name")
+	}
+
 	// get AWS object storage bucket definition by name
-	awsObjectStorageBucketDefinition, err := client.GetAwsObjectStorageBucketDefinitionByName(apiClient, apiEndpoint, o.Name)
+	awsObjectStorageBucketDefinition, err := client.GetAwsObjectStorageBucketDefinitionByName(apiClient, apiEndpoint, *o.Name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find AWS object storage bucket definition by name %s: %w", o.Name, err)
+		return nil, nil, fmt.Errorf("failed to find AWS object storage bucket definition by name %s: %w", *o.Name, err)
 	}
 
 	// get AWS object storage bucket instance by name
-	awsObjectStorageBucketInstName := o.Name
+	awsObjectStorageBucketInstName := *o.Name
 	awsObjectStorageBucketInstance, err := client.GetAwsObjectStorageBucketInstanceByName(apiClient, apiEndpoint, awsObjectStorageBucketInstName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find AWS object storage bucket instance by name %s: %w", o.Name, err)
+		return nil, nil, fmt.Errorf("failed to find AWS object storage bucket instance by name %s: %w", *o.Name, err)
 	}
 
 	// ensure the AWS object storage bucket definition has no more than one
@@ -990,24 +1049,24 @@ func (o *AwsObjectStorageBucketValues) Delete(apiClient *http.Client, apiEndpoin
 // Create creates an AWS object storage bucket definition in the threeport API.
 func (o *AwsObjectStorageBucketDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketDefinition, error) {
 	// validate required fields
-	if o.Name == "" || o.WorkloadServiceAccountName == "" || o.WorkloadBucketEnvVar == "" || o.AwsAccountName == "" {
+	if o.Name == nil || o.WorkloadServiceAccountName == nil || o.WorkloadBucketEnvVar == nil || o.AwsAccountName == nil {
 		return nil, errors.New("missing required field/s in config - required fields: Name, WorkloadServiceAccountName, WorkloadBucketEnvVar, AwsAccountName")
 	}
 
 	// look up AWS account by name
-	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, o.AwsAccountName)
+	awsAccount, err := client.GetAwsAccountByName(apiClient, apiEndpoint, *o.AwsAccountName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", o.Name, err)
+		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", *o.AwsAccountName, err)
 	}
 
 	// construct AWS object storage bucket definition object
 	awsObjectStorageBucketDefinition := v0.AwsObjectStorageBucketDefinition{
 		Definition: v0.Definition{
-			Name: &o.Name,
+			Name: o.Name,
 		},
-		PublicReadAccess:           &o.PublicReadAccess,
-		WorkloadServiceAccountName: &o.WorkloadServiceAccountName,
-		WorkloadBucketEnvVar:       &o.WorkloadBucketEnvVar,
+		PublicReadAccess:           o.PublicReadAccess,
+		WorkloadServiceAccountName: o.WorkloadServiceAccountName,
+		WorkloadBucketEnvVar:       o.WorkloadBucketEnvVar,
 		AwsAccountID:               awsAccount.ID,
 	}
 
@@ -1021,15 +1080,17 @@ func (o *AwsObjectStorageBucketDefinitionValues) Create(apiClient *http.Client, 
 }
 
 // Describe returns details related to an AWS object storage bucket definition.
-func (e *AwsObjectStorageBucketDefinitionValues) Describe(
-	apiClient *http.Client,
-	apiEndpoint string,
-) (*status.AwsObjectStorageBucketDefinitionStatusDetail, error) {
+func (e *AwsObjectStorageBucketDefinitionValues) Describe(apiClient *http.Client, apiEndpoint string) (*status.AwsObjectStorageBucketDefinitionStatusDetail, error) {
+	// validate
+	if e.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get AWS object storage bucket definition by name
 	awsObjectStorageBucketDefinition, err := client.GetAwsObjectStorageBucketDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		e.Name,
+		*e.Name,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime instance with name %s: %w", e.Name, err)
@@ -1048,13 +1109,17 @@ func (e *AwsObjectStorageBucketDefinitionValues) Describe(
 	return statusDetail, nil
 }
 
-// Delete deletes an AWS object storage bucket definition from the threeport
-// API.
+// Delete deletes an AWS object storage bucket definition from the threeport API.
 func (o *AwsObjectStorageBucketDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketDefinition, error) {
+	// validate
+	if o.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get AWS object storage bucket definition by name
-	awsObjectStorageBucketDefinition, err := client.GetAwsObjectStorageBucketDefinitionByName(apiClient, apiEndpoint, o.Name)
+	awsObjectStorageBucketDefinition, err := client.GetAwsObjectStorageBucketDefinitionByName(apiClient, apiEndpoint, *o.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS object storage bucket definition by name %s: %w", o.Name, err)
+		return nil, fmt.Errorf("failed to find AWS object storage bucket definition by name %s: %w", *o.Name, err)
 	}
 
 	// delete AWS object storage bucket definition
@@ -1069,7 +1134,7 @@ func (o *AwsObjectStorageBucketDefinitionValues) Delete(apiClient *http.Client, 
 // Create creates and AWS object storage bucket instance in the threeport API.
 func (o *AwsObjectStorageBucketInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketInstance, error) {
 	// validate required fields
-	if o.Name == "" || o.AwsObjectStorageBucketDefinition.Name == "" || o.WorkloadInstance.Name == "" {
+	if o.Name == nil || o.AwsObjectStorageBucketDefinition.Name == nil || o.WorkloadInstance.Name == nil {
 		return nil, errors.New("missing required fields in config - required fields: Name, AwsObjectStorageBucketDefinition.Name, WorkloadInstance.Name")
 	}
 
@@ -1077,26 +1142,26 @@ func (o *AwsObjectStorageBucketInstanceValues) Create(apiClient *http.Client, ap
 	awsObjectStorageBucketDefinition, err := client.GetAwsObjectStorageBucketDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		o.AwsObjectStorageBucketDefinition.Name,
+		*o.AwsObjectStorageBucketDefinition.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS object storage bucket definition by name %s: %w", o.AwsObjectStorageBucketDefinition.Name, err)
+		return nil, fmt.Errorf("failed to find AWS object storage bucket definition by name %s: %w", *o.AwsObjectStorageBucketDefinition.Name, err)
 	}
 
 	// get workload instance by name
 	workloadInstance, err := client.GetWorkloadInstanceByName(
 		apiClient,
 		apiEndpoint,
-		o.WorkloadInstance.Name,
+		*o.WorkloadInstance.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed find workload instance by name %s: %w", o.WorkloadInstance.Name, err)
+		return nil, fmt.Errorf("failed find workload instance by name %s: %w", *o.WorkloadInstance.Name, err)
 	}
 
 	// construct AWS object storage bucket instance object
 	awsObjectStorageBucketInstance := v0.AwsObjectStorageBucketInstance{
 		Instance: v0.Instance{
-			Name: &o.Name,
+			Name: o.Name,
 		},
 		AwsObjectStorageBucketDefinitionID: awsObjectStorageBucketDefinition.ID,
 		WorkloadInstanceID:                 workloadInstance.ID,
@@ -1113,10 +1178,15 @@ func (o *AwsObjectStorageBucketInstanceValues) Create(apiClient *http.Client, ap
 
 // Delete deletes an AWS object storage bucket instance from the threeport API.
 func (o *AwsObjectStorageBucketInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.AwsObjectStorageBucketInstance, error) {
+	// validate
+	if o.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get AWS object storage bucket instance by name
-	awsObjectStorageBucketInstance, err := client.GetAwsObjectStorageBucketInstanceByName(apiClient, apiEndpoint, o.Name)
+	awsObjectStorageBucketInstance, err := client.GetAwsObjectStorageBucketInstanceByName(apiClient, apiEndpoint, *o.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS object storage bucket instance by name %s: %w", o.Name, err)
+		return nil, fmt.Errorf("failed to find AWS object storage bucket instance by name %s: %w", *o.Name, err)
 	}
 
 	// delete AWS object storage bucket instance
@@ -1160,8 +1230,8 @@ func (e *AwsEksKubernetesRuntimeValues) GetOperations(
 			)
 			if err != nil {
 				return fmt.Errorf(
-					"failed to create AWS EKS kubernetes runtime definitiona with name %s: %w",
-					awsEksKubernetesRuntimeDefinitionValues.Name,
+					"failed to create AWS EKS kubernetes runtime definition with name %s: %w",
+					*awsEksKubernetesRuntimeDefinitionValues.Name,
 					err,
 				)
 			}
@@ -1172,8 +1242,8 @@ func (e *AwsEksKubernetesRuntimeValues) GetOperations(
 			_, err = awsEksKubernetesRuntimeDefinitionValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				return fmt.Errorf(
-					"failed to delete AWS EKS kubernetes runtime definitiona with name %s: %w",
-					awsEksKubernetesRuntimeDefinitionValues.Name,
+					"failed to delete AWS EKS kubernetes runtime definition with name %s: %w",
+					*awsEksKubernetesRuntimeDefinitionValues.Name,
 					err,
 				)
 			}
@@ -1185,7 +1255,7 @@ func (e *AwsEksKubernetesRuntimeValues) GetOperations(
 	awsEksKubernetesRuntimeInstanceValues := AwsEksKubernetesRuntimeInstanceValues{
 		Name:   e.Name,
 		Region: e.Region,
-		AwsEksKubernetesRuntimeDefinition: AwsEksKubernetesRuntimeDefinitionValues{
+		AwsEksKubernetesRuntimeDefinition: &AwsEksKubernetesRuntimeDefinitionValues{
 			Name: e.Name,
 		},
 	}
@@ -1199,7 +1269,7 @@ func (e *AwsEksKubernetesRuntimeValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf(
 					"failed to create AWS EKS kubernetes runtime instance with name %s: %w",
-					awsEksKubernetesRuntimeInstanceValues.Name,
+					*awsEksKubernetesRuntimeInstanceValues.Name,
 					err,
 				)
 			}
@@ -1210,8 +1280,8 @@ func (e *AwsEksKubernetesRuntimeValues) GetOperations(
 			_, err = awsEksKubernetesRuntimeInstanceValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				return fmt.Errorf(
-					"failed to delete AWS EKS kubernetes runtime instance: with name %s: %w",
-					awsEksKubernetesRuntimeInstanceValues.Name,
+					"failed to delete AWS EKS kubernetes runtime instance with name %s: %w",
+					*awsEksKubernetesRuntimeInstanceValues.Name,
 					err,
 				)
 			}

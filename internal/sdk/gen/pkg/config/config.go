@@ -76,7 +76,7 @@ func GenConfig(gen *gen.Generator) error {
 						defInstObjectHuman,
 					))
 					f.Type().Id(defInstValuesObjectName).Struct(
-						Id("Name").String().Tag(map[string]string{"yaml": "Name"}),
+						Id("Name").Op("*").String().Tag(map[string]string{"yaml": "Name"}),
 					)
 					f.Line()
 
@@ -342,7 +342,7 @@ func GenConfig(gen *gen.Generator) error {
 				))
 				f.Comment("config abstraction.")
 				f.Type().Id(valuesObjectName).Struct(
-					Id("Name").String().Tag(map[string]string{"yaml": "Name"}),
+					Id("Name").Op("*").String().Tag(map[string]string{"yaml": "Name"}),
 				)
 				f.Line()
 
@@ -377,7 +377,7 @@ func GenConfig(gen *gen.Generator) error {
 									"Definition",
 								).Values(
 									Dict{
-										Line().Id("Name"): Op("&").Id(methodVar).Dot("Name").Op(",").Line(),
+										Line().Id("Name"): Id(methodVar).Dot("Name").Op(",").Line(),
 									},
 								).Op(",").Line(),
 							})
@@ -388,13 +388,13 @@ func GenConfig(gen *gen.Generator) error {
 									"Instance",
 								).Values(
 									Dict{
-										Line().Id("Name"): Op("&").Id(methodVar).Dot("Name").Op(",").Line(),
+										Line().Id("Name"): Id(methodVar).Dot("Name").Op(",").Line(),
 									},
 								).Op(",").Line(),
 							})
 						default:
 							g.Add(Dict{
-								Line().Id("Name"): Op("&").Id(methodVar).Dot("Name").Op(",").Line(),
+								Line().Id("Name"): Id(methodVar).Dot("Name").Op(",").Line(),
 							})
 						}
 					}),
@@ -444,7 +444,7 @@ func GenConfig(gen *gen.Generator) error {
 					).Call(
 						Line().Id("apiClient"),
 						Line().Id("apiEndpoint"),
-						Line().Id(methodVar).Dot("Name"),
+						Line().Op("*").Id(methodVar).Dot("Name"),
 						Line(),
 					),
 					If(Id("err").Op("!=").Nil()).Block(

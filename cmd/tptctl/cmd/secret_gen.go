@@ -110,7 +110,7 @@ var CreateSecretDefinitionCmd = &cobra.Command{
 
 			// create secret definition
 			secretDefinition := secretDefinitionConfig.SecretDefinition
-			secretDefinition.SecretConfigPath = createSecretDefinitionConfigPath
+			secretDefinition.SecretConfigPath = &createSecretDefinitionConfigPath
 			createdSecretDefinition, err := secretDefinition.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create secret definition", err)
@@ -188,14 +188,14 @@ var DeleteSecretDefinitionCmd = &cobra.Command{
 			} else {
 				secretDefinitionConfig = config_v0.SecretDefinitionConfig{
 					SecretDefinition: config_v0.SecretDefinitionValues{
-						Name: deleteSecretDefinitionName,
+						Name: &deleteSecretDefinitionName,
 					},
 				}
 			}
 
 			// delete secret definition
 			secretDefinition := secretDefinitionConfig.SecretDefinition
-			secretDefinition.SecretConfigPath = deleteSecretDefinitionConfigPath
+			secretDefinition.SecretConfigPath = &deleteSecretDefinitionConfigPath
 			deletedSecretDefinition, err := secretDefinition.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete secret definition", err)
@@ -287,7 +287,7 @@ var DescribeSecretDefinitionCmd = &cobra.Command{
 			} else {
 				secretDefinitionConfig = config_v0.SecretDefinitionConfig{
 					SecretDefinition: config_v0.SecretDefinitionValues{
-						Name: describeSecretDefinitionName,
+						Name: &describeSecretDefinitionName,
 					},
 				}
 			}
@@ -296,7 +296,7 @@ var DescribeSecretDefinitionCmd = &cobra.Command{
 			obj, err := client_v0.GetSecretDefinitionByName(
 				apiClient,
 				apiEndpoint,
-				secretDefinitionConfig.SecretDefinition.Name,
+				*secretDefinitionConfig.SecretDefinition.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve secret definition details", err)
@@ -512,7 +512,7 @@ var CreateSecretCmd = &cobra.Command{
 
 			// create secret
 			secret := secretConfig.Secret
-			secret.SecretConfigPath = createSecretConfigPath
+			secret.SecretConfigPath = &createSecretConfigPath
 			createdSecretDefinition, createdSecretInstance, err := secret.Create(
 				apiClient,
 				apiEndpoint,
@@ -524,7 +524,7 @@ var CreateSecretCmd = &cobra.Command{
 
 			cli.Info(fmt.Sprintf("secret definition %s created", *createdSecretDefinition.Name))
 			cli.Info(fmt.Sprintf("secret instance %s created", *createdSecretInstance.Name))
-			cli.Complete(fmt.Sprintf("secret %s created", secretConfig.Secret.Name))
+			cli.Complete(fmt.Sprintf("secret %s created", *secretConfig.Secret.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -590,16 +590,16 @@ var DeleteSecretCmd = &cobra.Command{
 
 			// delete secret
 			secret := secretConfig.Secret
-			secret.SecretConfigPath = deleteSecretConfigPath
+			secret.SecretConfigPath = &deleteSecretConfigPath
 			_, _, err = secret.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete secret", err)
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("secret definition %s deleted", secret.Name))
-			cli.Info(fmt.Sprintf("secret instance %s deleted", secret.Name))
-			cli.Complete(fmt.Sprintf("secret %s deleted", secretConfig.Secret.Name))
+			cli.Info(fmt.Sprintf("secret definition %s deleted", *secret.Name))
+			cli.Info(fmt.Sprintf("secret instance %s deleted", *secret.Name))
+			cli.Complete(fmt.Sprintf("secret %s deleted", *secretConfig.Secret.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -719,7 +719,7 @@ var CreateSecretInstanceCmd = &cobra.Command{
 
 			// create secret instance
 			secretInstance := secretInstanceConfig.SecretInstance
-			secretInstance.SecretConfigPath = createSecretInstanceConfigPath
+			secretInstance.SecretConfigPath = &createSecretInstanceConfigPath
 			createdSecretInstance, err := secretInstance.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create secret instance", err)
@@ -797,14 +797,14 @@ var DeleteSecretInstanceCmd = &cobra.Command{
 			} else {
 				secretInstanceConfig = config_v0.SecretInstanceConfig{
 					SecretInstance: config_v0.SecretInstanceValues{
-						Name: deleteSecretInstanceName,
+						Name: &deleteSecretInstanceName,
 					},
 				}
 			}
 
 			// delete secret instance
 			secretInstance := secretInstanceConfig.SecretInstance
-			secretInstance.SecretConfigPath = deleteSecretInstanceConfigPath
+			secretInstance.SecretConfigPath = &deleteSecretInstanceConfigPath
 			deletedSecretInstance, err := secretInstance.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete secret instance", err)
@@ -896,7 +896,7 @@ var DescribeSecretInstanceCmd = &cobra.Command{
 			} else {
 				secretInstanceConfig = config_v0.SecretInstanceConfig{
 					SecretInstance: config_v0.SecretInstanceValues{
-						Name: describeSecretInstanceName,
+						Name: &describeSecretInstanceName,
 					},
 				}
 			}
@@ -905,7 +905,7 @@ var DescribeSecretInstanceCmd = &cobra.Command{
 			obj, err := client_v0.GetSecretInstanceByName(
 				apiClient,
 				apiEndpoint,
-				secretInstanceConfig.SecretInstance.Name,
+				*secretInstanceConfig.SecretInstance.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve secret instance details", err)

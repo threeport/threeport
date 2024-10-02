@@ -187,7 +187,7 @@ var DeleteKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			} else {
 				kubernetesRuntimeDefinitionConfig = config_v0.KubernetesRuntimeDefinitionConfig{
 					KubernetesRuntimeDefinition: config_v0.KubernetesRuntimeDefinitionValues{
-						Name: deleteKubernetesRuntimeDefinitionName,
+						Name: &deleteKubernetesRuntimeDefinitionName,
 					},
 				}
 			}
@@ -285,7 +285,7 @@ var DescribeKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			} else {
 				kubernetesRuntimeDefinitionConfig = config_v0.KubernetesRuntimeDefinitionConfig{
 					KubernetesRuntimeDefinition: config_v0.KubernetesRuntimeDefinitionValues{
-						Name: describeKubernetesRuntimeDefinitionName,
+						Name: &describeKubernetesRuntimeDefinitionName,
 					},
 				}
 			}
@@ -294,7 +294,7 @@ var DescribeKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			obj, err := client_v0.GetKubernetesRuntimeDefinitionByName(
 				apiClient,
 				apiEndpoint,
-				kubernetesRuntimeDefinitionConfig.KubernetesRuntimeDefinition.Name,
+				*kubernetesRuntimeDefinitionConfig.KubernetesRuntimeDefinition.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve kubernetes runtime definition details", err)
@@ -521,7 +521,7 @@ var CreateKubernetesRuntimeCmd = &cobra.Command{
 
 			cli.Info(fmt.Sprintf("kubernetes runtime definition %s created", *createdKubernetesRuntimeDefinition.Name))
 			cli.Info(fmt.Sprintf("kubernetes runtime instance %s created", *createdKubernetesRuntimeInstance.Name))
-			cli.Complete(fmt.Sprintf("kubernetes runtime %s created", kubernetesRuntimeConfig.KubernetesRuntime.Name))
+			cli.Complete(fmt.Sprintf("kubernetes runtime %s created", *kubernetesRuntimeConfig.KubernetesRuntime.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -593,9 +593,9 @@ var DeleteKubernetesRuntimeCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("kubernetes runtime definition %s deleted", kubernetesRuntime.Name))
-			cli.Info(fmt.Sprintf("kubernetes runtime instance %s deleted", kubernetesRuntime.Name))
-			cli.Complete(fmt.Sprintf("kubernetes runtime %s deleted", kubernetesRuntimeConfig.KubernetesRuntime.Name))
+			cli.Info(fmt.Sprintf("kubernetes runtime definition %s deleted", *kubernetesRuntime.Name))
+			cli.Info(fmt.Sprintf("kubernetes runtime instance %s deleted", *kubernetesRuntime.Name))
+			cli.Complete(fmt.Sprintf("kubernetes runtime %s deleted", *kubernetesRuntimeConfig.KubernetesRuntime.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -792,7 +792,7 @@ var DeleteKubernetesRuntimeInstanceCmd = &cobra.Command{
 			} else {
 				kubernetesRuntimeInstanceConfig = config_v0.KubernetesRuntimeInstanceConfig{
 					KubernetesRuntimeInstance: config_v0.KubernetesRuntimeInstanceValues{
-						Name: deleteKubernetesRuntimeInstanceName,
+						Name: &deleteKubernetesRuntimeInstanceName,
 					},
 				}
 			}
@@ -890,7 +890,7 @@ var DescribeKubernetesRuntimeInstanceCmd = &cobra.Command{
 			} else {
 				kubernetesRuntimeInstanceConfig = config_v0.KubernetesRuntimeInstanceConfig{
 					KubernetesRuntimeInstance: config_v0.KubernetesRuntimeInstanceValues{
-						Name: describeKubernetesRuntimeInstanceName,
+						Name: &describeKubernetesRuntimeInstanceName,
 					},
 				}
 			}
@@ -899,7 +899,7 @@ var DescribeKubernetesRuntimeInstanceCmd = &cobra.Command{
 			obj, err := client_v0.GetKubernetesRuntimeInstanceByName(
 				apiClient,
 				apiEndpoint,
-				kubernetesRuntimeInstanceConfig.KubernetesRuntimeInstance.Name,
+				*kubernetesRuntimeInstanceConfig.KubernetesRuntimeInstance.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve kubernetes runtime instance details", err)

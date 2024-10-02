@@ -110,7 +110,7 @@ var CreateObservabilityStackDefinitionCmd = &cobra.Command{
 
 			// create observability stack definition
 			observabilityStackDefinition := observabilityStackDefinitionConfig.ObservabilityStackDefinition
-			observabilityStackDefinition.ObservabilityConfigPath = createObservabilityStackDefinitionConfigPath
+			observabilityStackDefinition.ObservabilityConfigPath = &createObservabilityStackDefinitionConfigPath
 			createdObservabilityStackDefinition, err := observabilityStackDefinition.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create observability stack definition", err)
@@ -188,14 +188,14 @@ var DeleteObservabilityStackDefinitionCmd = &cobra.Command{
 			} else {
 				observabilityStackDefinitionConfig = config_v0.ObservabilityStackDefinitionConfig{
 					ObservabilityStackDefinition: config_v0.ObservabilityStackDefinitionValues{
-						Name: deleteObservabilityStackDefinitionName,
+						Name: &deleteObservabilityStackDefinitionName,
 					},
 				}
 			}
 
 			// delete observability stack definition
 			observabilityStackDefinition := observabilityStackDefinitionConfig.ObservabilityStackDefinition
-			observabilityStackDefinition.ObservabilityConfigPath = deleteObservabilityStackDefinitionConfigPath
+			observabilityStackDefinition.ObservabilityConfigPath = &deleteObservabilityStackDefinitionConfigPath
 			deletedObservabilityStackDefinition, err := observabilityStackDefinition.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete observability stack definition", err)
@@ -287,7 +287,7 @@ var DescribeObservabilityStackDefinitionCmd = &cobra.Command{
 			} else {
 				observabilityStackDefinitionConfig = config_v0.ObservabilityStackDefinitionConfig{
 					ObservabilityStackDefinition: config_v0.ObservabilityStackDefinitionValues{
-						Name: describeObservabilityStackDefinitionName,
+						Name: &describeObservabilityStackDefinitionName,
 					},
 				}
 			}
@@ -296,7 +296,7 @@ var DescribeObservabilityStackDefinitionCmd = &cobra.Command{
 			obj, err := client_v0.GetObservabilityStackDefinitionByName(
 				apiClient,
 				apiEndpoint,
-				observabilityStackDefinitionConfig.ObservabilityStackDefinition.Name,
+				*observabilityStackDefinitionConfig.ObservabilityStackDefinition.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve observability stack definition details", err)
@@ -512,7 +512,7 @@ var CreateObservabilityStackCmd = &cobra.Command{
 
 			// create observability stack
 			observabilityStack := observabilityStackConfig.ObservabilityStack
-			observabilityStack.ObservabilityConfigPath = createObservabilityStackConfigPath
+			observabilityStack.ObservabilityConfigPath = &createObservabilityStackConfigPath
 			createdObservabilityStackDefinition, createdObservabilityStackInstance, err := observabilityStack.Create(
 				apiClient,
 				apiEndpoint,
@@ -524,7 +524,7 @@ var CreateObservabilityStackCmd = &cobra.Command{
 
 			cli.Info(fmt.Sprintf("observability stack definition %s created", *createdObservabilityStackDefinition.Name))
 			cli.Info(fmt.Sprintf("observability stack instance %s created", *createdObservabilityStackInstance.Name))
-			cli.Complete(fmt.Sprintf("observability stack %s created", observabilityStackConfig.ObservabilityStack.Name))
+			cli.Complete(fmt.Sprintf("observability stack %s created", *observabilityStackConfig.ObservabilityStack.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -590,16 +590,16 @@ var DeleteObservabilityStackCmd = &cobra.Command{
 
 			// delete observability stack
 			observabilityStack := observabilityStackConfig.ObservabilityStack
-			observabilityStack.ObservabilityConfigPath = deleteObservabilityStackConfigPath
+			observabilityStack.ObservabilityConfigPath = &deleteObservabilityStackConfigPath
 			_, _, err = observabilityStack.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete observability stack", err)
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("observability stack definition %s deleted", observabilityStack.Name))
-			cli.Info(fmt.Sprintf("observability stack instance %s deleted", observabilityStack.Name))
-			cli.Complete(fmt.Sprintf("observability stack %s deleted", observabilityStackConfig.ObservabilityStack.Name))
+			cli.Info(fmt.Sprintf("observability stack definition %s deleted", *observabilityStack.Name))
+			cli.Info(fmt.Sprintf("observability stack instance %s deleted", *observabilityStack.Name))
+			cli.Complete(fmt.Sprintf("observability stack %s deleted", *observabilityStackConfig.ObservabilityStack.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -719,7 +719,7 @@ var CreateObservabilityStackInstanceCmd = &cobra.Command{
 
 			// create observability stack instance
 			observabilityStackInstance := observabilityStackInstanceConfig.ObservabilityStackInstance
-			observabilityStackInstance.ObservabilityConfigPath = createObservabilityStackInstanceConfigPath
+			observabilityStackInstance.ObservabilityConfigPath = &createObservabilityStackInstanceConfigPath
 			createdObservabilityStackInstance, err := observabilityStackInstance.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create observability stack instance", err)
@@ -797,14 +797,14 @@ var DeleteObservabilityStackInstanceCmd = &cobra.Command{
 			} else {
 				observabilityStackInstanceConfig = config_v0.ObservabilityStackInstanceConfig{
 					ObservabilityStackInstance: config_v0.ObservabilityStackInstanceValues{
-						Name: deleteObservabilityStackInstanceName,
+						Name: &deleteObservabilityStackInstanceName,
 					},
 				}
 			}
 
 			// delete observability stack instance
 			observabilityStackInstance := observabilityStackInstanceConfig.ObservabilityStackInstance
-			observabilityStackInstance.ObservabilityConfigPath = deleteObservabilityStackInstanceConfigPath
+			observabilityStackInstance.ObservabilityConfigPath = &deleteObservabilityStackInstanceConfigPath
 			deletedObservabilityStackInstance, err := observabilityStackInstance.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete observability stack instance", err)
@@ -896,7 +896,7 @@ var DescribeObservabilityStackInstanceCmd = &cobra.Command{
 			} else {
 				observabilityStackInstanceConfig = config_v0.ObservabilityStackInstanceConfig{
 					ObservabilityStackInstance: config_v0.ObservabilityStackInstanceValues{
-						Name: describeObservabilityStackInstanceName,
+						Name: &describeObservabilityStackInstanceName,
 					},
 				}
 			}
@@ -905,7 +905,7 @@ var DescribeObservabilityStackInstanceCmd = &cobra.Command{
 			obj, err := client_v0.GetObservabilityStackInstanceByName(
 				apiClient,
 				apiEndpoint,
-				observabilityStackInstanceConfig.ObservabilityStackInstance.Name,
+				*observabilityStackInstanceConfig.ObservabilityStackInstance.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve observability stack instance details", err)

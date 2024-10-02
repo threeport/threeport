@@ -27,9 +27,9 @@ type WorkloadConfig struct {
 // WorkloadValues contains the attributes needed to manage a workload
 // definition and workload instance.
 type WorkloadValues struct {
-	Name                      string                           `yaml:"Name"`
-	YAMLDocument              string                           `yaml:"YAMLDocument"`
-	WorkloadConfigPath        string                           `yaml:"WorkloadConfigPath"`
+	Name                      *string                          `yaml:"Name"`
+	YAMLDocument              *string                          `yaml:"YAMLDocument"`
+	WorkloadConfigPath        *string                          `yaml:"WorkloadConfigPath"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	DomainName                *DomainNameDefinitionValues      `yaml:"DomainName"`
 	Gateway                   *GatewayDefinitionValues         `yaml:"Gateway"`
@@ -46,9 +46,9 @@ type WorkloadDefinitionConfig struct {
 // WorkloadDefinitionValues contains the attributes needed to manage a workload
 // definition.
 type WorkloadDefinitionValues struct {
-	Name               string `yaml:"Name"`
-	YAMLDocument       string `yaml:"YAMLDocument"`
-	WorkloadConfigPath string `yaml:"WorkloadConfigPath"`
+	Name               *string `yaml:"Name"`
+	YAMLDocument       *string `yaml:"YAMLDocument"`
+	WorkloadConfigPath *string `yaml:"WorkloadConfigPath"`
 }
 
 // WorkloadInstanceConfig contains the config for a workload instance.
@@ -59,9 +59,9 @@ type WorkloadInstanceConfig struct {
 // WorkloadInstanceValues contains the attributes needed to manage a workload
 // instance.
 type WorkloadInstanceValues struct {
-	Name                      string                           `yaml:"Name"`
+	Name                      *string                          `yaml:"Name"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	WorkloadDefinition        WorkloadDefinitionValues         `yaml:"WorkloadDefinition"`
+	WorkloadDefinition        *WorkloadDefinitionValues        `yaml:"WorkloadDefinition"`
 }
 
 // Create creates a workload definition and instance in the Threeport API.
@@ -74,7 +74,7 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 	if err := operations.Create(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to execute create operations for workload defined instance with name %s: %w",
-			w.Name,
+			*w.Name,
 			err,
 		)
 	}
@@ -82,9 +82,8 @@ func (w *WorkloadValues) Create(apiClient *http.Client, apiEndpoint string) (*v0
 	return createdWorkloadDefinition, createdWorkloadInstance, nil
 }
 
-// Delete deletes a workload definition, workload instance,
-// domain name definition, domain name instance,
-// gateway definition, and gateway instance from the Threeport API.
+// Delete deletes a workload definition, workload instance, domain name definition,
+// domain name instance, gateway definition, and gateway instance from the Threeport API.
 func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, *v0.WorkloadInstance, error) {
 
 	// get operation
@@ -94,7 +93,7 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 	if err := operations.Delete(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to execute delete operations for workload defined instance with name %s: %w",
-			w.Name,
+			*w.Name,
 			err,
 		)
 	}
@@ -105,26 +104,25 @@ func (w *WorkloadValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0
 // Create creates a workload definition in the Threeport API.
 func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, error) {
 	// validate required fields
-	if wd.Name == "" || wd.YAMLDocument == "" {
+	if wd.Name == nil || wd.YAMLDocument == nil {
 		return nil, errors.New("missing required field/s in config - required fields: Name, YAMLDocument")
 	}
 
-	// build the path to the YAML document relative to the user's working
-	// directory
-	configPath, _ := filepath.Split(wd.WorkloadConfigPath)
-	relativeYamlPath := path.Join(configPath, wd.YAMLDocument)
+	// build the path to the YAML document relative to the user's working directory
+	configPath, _ := filepath.Split(*wd.WorkloadConfigPath)
+	relativeYamlPath := path.Join(configPath, *wd.YAMLDocument)
 
 	// load YAML document
 	definitionContent, err := os.ReadFile(relativeYamlPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read definition YAMLDocument file with name %s: %w", wd.YAMLDocument, err)
+		return nil, fmt.Errorf("failed to read definition YAMLDocument file with name %s: %w", *wd.YAMLDocument, err)
 	}
 	stringContent := string(definitionContent)
 
 	// construct workload definition object
 	workloadDefinition := v0.WorkloadDefinition{
 		Definition: v0.Definition{
-			Name: &wd.Name,
+			Name: wd.Name,
 		},
 		YAMLDocument: &stringContent,
 	}
@@ -140,10 +138,15 @@ func (wd *WorkloadDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 
 // Describe returns details related to a workload definition.
 func (wd *WorkloadDefinitionValues) Describe(apiClient *http.Client, apiEndpoint string) (*status.WorkloadDefinitionStatusDetail, error) {
+	// validate
+	if wd.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get workload definition by name
-	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, wd.Name)
+	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, *wd.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find workload definition with name %s: %w", wd.Name, err)
+		return nil, fmt.Errorf("failed to find workload definition with name %s: %w", *wd.Name, err)
 	}
 
 	// get workload definition status
@@ -153,7 +156,7 @@ func (wd *WorkloadDefinitionValues) Describe(apiClient *http.Client, apiEndpoint
 		*workloadDefinition.ID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status for workload definition with name %s: %w", wd.Name, err)
+		return nil, fmt.Errorf("failed to get status for workload definition with name %s: %w", *wd.Name, err)
 	}
 
 	return statusDetail, nil
@@ -161,10 +164,15 @@ func (wd *WorkloadDefinitionValues) Describe(apiClient *http.Client, apiEndpoint
 
 // Delete deletes a workload definition from the Threeport API.
 func (wd *WorkloadDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadDefinition, error) {
+	// validate
+	if wd.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get workload definition by name
-	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, wd.Name)
+	workloadDefinition, err := client.GetWorkloadDefinitionByName(apiClient, apiEndpoint, *wd.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find workload definition with name %s: %w", wd.Name, err)
+		return nil, fmt.Errorf("failed to find workload definition with name %s: %w", *wd.Name, err)
 	}
 
 	// delete workload definition
@@ -179,7 +187,7 @@ func (wd *WorkloadDefinitionValues) Delete(apiClient *http.Client, apiEndpoint s
 // Create creates a workload instance in the Threeport API.
 func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadInstance, error) {
 	// validate required fields
-	if wi.Name == "" || wi.WorkloadDefinition.Name == "" {
+	if wi.Name == nil || wi.WorkloadDefinition == nil || wi.WorkloadDefinition.Name == nil {
 		return nil, errors.New("missing required field/s in config - required fields: Name, WorkloadDefinition.Name")
 	}
 
@@ -197,10 +205,10 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 	workloadDefinition, err := client.GetWorkloadDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		wi.WorkloadDefinition.Name,
+		*wi.WorkloadDefinition.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload definition by name %s: %w", wi.WorkloadDefinition.Name, err)
+		return nil, fmt.Errorf("failed to get workload definition by name %s: %w", *wi.WorkloadDefinition.Name, err)
 	}
 
 	// check to see if threeport is managing namespace
@@ -245,7 +253,7 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 			// if the workload instance is using a cluster that already has an
 			// instance for this definition, return error
 			if rName == *kubernetesRuntimeInstance.Name {
-				return nil, errors.New("only one workload instance per Kubernetes runtime may be deployed when a Kubernetes namespace is included in the workload definition YAMLDocument\nif you would like to deploy this workload to the same Kubernetes runtime (and continue to manage namespaces) you will need a new workload definition that uses a different namespace")
+				return nil, errors.New("only one workload instance per Kubernetes runtime may be deployed when a Kubernetes namespace is included in the workload definition YAMLDocument\nif you would like to deploy this workload to the same Kubernetes runtime (and continue to manage namespaces), you will need a new workload definition that uses a different namespace")
 			}
 		}
 	}
@@ -253,7 +261,7 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 	// construct workload instance object
 	workloadInstance := v0.WorkloadInstance{
 		Instance: v0.Instance{
-			Name: &wi.Name,
+			Name: wi.Name,
 		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		WorkloadDefinitionID:        workloadDefinition.ID,
@@ -270,10 +278,15 @@ func (wi *WorkloadInstanceValues) Create(apiClient *http.Client, apiEndpoint str
 
 // Describe returns important failure events related to a workload instance.
 func (wi *WorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint string) (*status.WorkloadInstanceStatusDetail, error) {
+	// validate
+	if wi.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get workload instance by name
-	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name)
+	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, *wi.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", wi.Name, err)
+		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *wi.Name, err)
 	}
 
 	// get workload instance status
@@ -285,7 +298,7 @@ func (wi *WorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint s
 		*workloadInstance.Reconciled,
 	)
 	if statusDetail.Error != nil {
-		return nil, fmt.Errorf("failed to get status for workload instance by name %s: %w", wi.Name, statusDetail.Error)
+		return nil, fmt.Errorf("failed to get status for workload instance by name %s: %w", *wi.Name, statusDetail.Error)
 	}
 
 	return statusDetail, nil
@@ -293,10 +306,15 @@ func (wi *WorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint s
 
 // Delete deletes a workload instance from the Threeport API.
 func (wi *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.WorkloadInstance, error) {
+	// validate
+	if wi.Name == nil {
+		return nil, errors.New("missing required field: Name")
+	}
+
 	// get workload instance by name
-	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name)
+	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, *wi.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload instance by name %s: %w", wi.Name, err)
+		return nil, fmt.Errorf("failed to get workload instance by name %s: %w", *wi.Name, err)
 	}
 
 	// delete workload instance
@@ -307,7 +325,7 @@ func (wi *WorkloadInstanceValues) Delete(apiClient *http.Client, apiEndpoint str
 
 	// wait for workload instance to be deleted
 	util.Retry(60, 1, func() error {
-		if _, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, wi.Name); err == nil {
+		if _, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, *wi.Name); err == nil {
 			return errors.New("workload instance not deleted")
 		}
 		return nil
@@ -337,7 +355,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		Create: func() error {
 			workloadDefinition, err := workloadDefinitionValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create workload definition with name %s: %w", w.Name, err)
+				return fmt.Errorf("failed to create workload definition with name %s: %w", *w.Name, err)
 			}
 			createdWorkloadDefinition = *workloadDefinition
 			return nil
@@ -345,7 +363,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		Delete: func() error {
 			_, err = workloadDefinitionValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete workload definition with name %s: %w", w.Name, err)
+				return fmt.Errorf("failed to delete workload definition with name %s: %w", *w.Name, err)
 			}
 			return nil
 		},
@@ -355,7 +373,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 	workloadInstanceValues := WorkloadInstanceValues{
 		Name:                      w.Name,
 		KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
-		WorkloadDefinition: WorkloadDefinitionValues{
+		WorkloadDefinition: &WorkloadDefinitionValues{
 			Name: w.Name,
 		},
 	}
@@ -364,7 +382,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		Create: func() error {
 			workloadInstance, err := workloadInstanceValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create workload instance with name %s: %w", w.Name, err)
+				return fmt.Errorf("failed to create workload instance with name %s: %w", *w.Name, err)
 			}
 			createdWorkloadInstance = *workloadInstance
 			return nil
@@ -372,7 +390,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		Delete: func() error {
 			_, err = workloadInstanceValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete workload instance with name %s: %w", w.Name, err)
+				return fmt.Errorf("failed to delete workload instance with name %s: %w", *w.Name, err)
 			}
 			return nil
 		},
@@ -409,9 +427,9 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		// add domain name instance operation
 		domainNameInstanceValues := DomainNameInstanceValues{
 			Name:                      w.DomainName.Name,
-			DomainNameDefinition:      domainNameDefinitionValues,
+			DomainNameDefinition:      &domainNameDefinitionValues,
 			KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
-			WorkloadInstance:          workloadInstanceValues,
+			WorkloadInstance:          &workloadInstanceValues,
 		}
 		operations.AppendOperation(util.Operation{
 			Name: "domain name instance",
@@ -441,7 +459,7 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 			TcpPorts:             w.Gateway.TcpPorts,
 			ServiceName:          w.Gateway.ServiceName,
 			SubDomain:            w.Gateway.SubDomain,
-			DomainNameDefinition: domainNameDefinitionValues,
+			DomainNameDefinition: &domainNameDefinitionValues,
 		}
 
 		operations.AppendOperation(util.Operation{
@@ -465,9 +483,9 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 		// add gateway instance operation
 		gatewayInstanceValues := GatewayInstanceValues{
 			Name:                      w.Gateway.Name,
-			GatewayDefinition:         gatewayDefinitionValues,
+			GatewayDefinition:         &gatewayDefinitionValues,
 			KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
-			WorkloadInstance:          workloadInstanceValues,
+			WorkloadInstance:          &workloadInstanceValues,
 		}
 		operations.AppendOperation(util.Operation{
 			Name: "gateway instance",

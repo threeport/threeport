@@ -187,7 +187,7 @@ var DeleteAwsAccountCmd = &cobra.Command{
 			} else {
 				awsAccountConfig = config_v0.AwsAccountConfig{
 					AwsAccount: config_v0.AwsAccountValues{
-						Name: deleteAwsAccountName,
+						Name: &deleteAwsAccountName,
 					},
 				}
 			}
@@ -285,7 +285,7 @@ var DescribeAwsAccountCmd = &cobra.Command{
 			} else {
 				awsAccountConfig = config_v0.AwsAccountConfig{
 					AwsAccount: config_v0.AwsAccountValues{
-						Name: describeAwsAccountName,
+						Name: &describeAwsAccountName,
 					},
 				}
 			}
@@ -294,7 +294,7 @@ var DescribeAwsAccountCmd = &cobra.Command{
 			obj, err := client_v0.GetAwsAccountByName(
 				apiClient,
 				apiEndpoint,
-				awsAccountConfig.AwsAccount.Name,
+				*awsAccountConfig.AwsAccount.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve aws account details", err)
@@ -598,7 +598,7 @@ var DeleteAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			} else {
 				awsEksKubernetesRuntimeDefinitionConfig = config_v0.AwsEksKubernetesRuntimeDefinitionConfig{
 					AwsEksKubernetesRuntimeDefinition: config_v0.AwsEksKubernetesRuntimeDefinitionValues{
-						Name: deleteAwsEksKubernetesRuntimeDefinitionName,
+						Name: &deleteAwsEksKubernetesRuntimeDefinitionName,
 					},
 				}
 			}
@@ -696,7 +696,7 @@ var DescribeAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			} else {
 				awsEksKubernetesRuntimeDefinitionConfig = config_v0.AwsEksKubernetesRuntimeDefinitionConfig{
 					AwsEksKubernetesRuntimeDefinition: config_v0.AwsEksKubernetesRuntimeDefinitionValues{
-						Name: describeAwsEksKubernetesRuntimeDefinitionName,
+						Name: &describeAwsEksKubernetesRuntimeDefinitionName,
 					},
 				}
 			}
@@ -705,7 +705,7 @@ var DescribeAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			obj, err := client_v0.GetAwsEksKubernetesRuntimeDefinitionByName(
 				apiClient,
 				apiEndpoint,
-				awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition.Name,
+				*awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve aws eks kubernetes runtime definition details", err)
@@ -932,7 +932,7 @@ var CreateAwsEksKubernetesRuntimeCmd = &cobra.Command{
 
 			cli.Info(fmt.Sprintf("aws eks kubernetes runtime definition %s created", *createdAwsEksKubernetesRuntimeDefinition.Name))
 			cli.Info(fmt.Sprintf("aws eks kubernetes runtime instance %s created", *createdAwsEksKubernetesRuntimeInstance.Name))
-			cli.Complete(fmt.Sprintf("aws eks kubernetes runtime %s created", awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime.Name))
+			cli.Complete(fmt.Sprintf("aws eks kubernetes runtime %s created", *awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -1004,9 +1004,9 @@ var DeleteAwsEksKubernetesRuntimeCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("aws eks kubernetes runtime definition %s deleted", awsEksKubernetesRuntime.Name))
-			cli.Info(fmt.Sprintf("aws eks kubernetes runtime instance %s deleted", awsEksKubernetesRuntime.Name))
-			cli.Complete(fmt.Sprintf("aws eks kubernetes runtime %s deleted", awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime.Name))
+			cli.Info(fmt.Sprintf("aws eks kubernetes runtime definition %s deleted", *awsEksKubernetesRuntime.Name))
+			cli.Info(fmt.Sprintf("aws eks kubernetes runtime instance %s deleted", *awsEksKubernetesRuntime.Name))
+			cli.Complete(fmt.Sprintf("aws eks kubernetes runtime %s deleted", *awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -1203,7 +1203,7 @@ var DeleteAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 			} else {
 				awsEksKubernetesRuntimeInstanceConfig = config_v0.AwsEksKubernetesRuntimeInstanceConfig{
 					AwsEksKubernetesRuntimeInstance: config_v0.AwsEksKubernetesRuntimeInstanceValues{
-						Name: deleteAwsEksKubernetesRuntimeInstanceName,
+						Name: &deleteAwsEksKubernetesRuntimeInstanceName,
 					},
 				}
 			}
@@ -1301,7 +1301,7 @@ var DescribeAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 			} else {
 				awsEksKubernetesRuntimeInstanceConfig = config_v0.AwsEksKubernetesRuntimeInstanceConfig{
 					AwsEksKubernetesRuntimeInstance: config_v0.AwsEksKubernetesRuntimeInstanceValues{
-						Name: describeAwsEksKubernetesRuntimeInstanceName,
+						Name: &describeAwsEksKubernetesRuntimeInstanceName,
 					},
 				}
 			}
@@ -1310,7 +1310,7 @@ var DescribeAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 			obj, err := client_v0.GetAwsEksKubernetesRuntimeInstanceByName(
 				apiClient,
 				apiEndpoint,
-				awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name,
+				*awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve aws eks kubernetes runtime instance details", err)
@@ -1614,7 +1614,7 @@ var DeleteAwsObjectStorageBucketDefinitionCmd = &cobra.Command{
 			} else {
 				awsObjectStorageBucketDefinitionConfig = config_v0.AwsObjectStorageBucketDefinitionConfig{
 					AwsObjectStorageBucketDefinition: config_v0.AwsObjectStorageBucketDefinitionValues{
-						Name: deleteAwsObjectStorageBucketDefinitionName,
+						Name: &deleteAwsObjectStorageBucketDefinitionName,
 					},
 				}
 			}
@@ -1712,7 +1712,7 @@ var DescribeAwsObjectStorageBucketDefinitionCmd = &cobra.Command{
 			} else {
 				awsObjectStorageBucketDefinitionConfig = config_v0.AwsObjectStorageBucketDefinitionConfig{
 					AwsObjectStorageBucketDefinition: config_v0.AwsObjectStorageBucketDefinitionValues{
-						Name: describeAwsObjectStorageBucketDefinitionName,
+						Name: &describeAwsObjectStorageBucketDefinitionName,
 					},
 				}
 			}
@@ -1721,7 +1721,7 @@ var DescribeAwsObjectStorageBucketDefinitionCmd = &cobra.Command{
 			obj, err := client_v0.GetAwsObjectStorageBucketDefinitionByName(
 				apiClient,
 				apiEndpoint,
-				awsObjectStorageBucketDefinitionConfig.AwsObjectStorageBucketDefinition.Name,
+				*awsObjectStorageBucketDefinitionConfig.AwsObjectStorageBucketDefinition.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve aws object storage bucket definition details", err)
@@ -1948,7 +1948,7 @@ var CreateAwsObjectStorageBucketCmd = &cobra.Command{
 
 			cli.Info(fmt.Sprintf("aws object storage bucket definition %s created", *createdAwsObjectStorageBucketDefinition.Name))
 			cli.Info(fmt.Sprintf("aws object storage bucket instance %s created", *createdAwsObjectStorageBucketInstance.Name))
-			cli.Complete(fmt.Sprintf("aws object storage bucket %s created", awsObjectStorageBucketConfig.AwsObjectStorageBucket.Name))
+			cli.Complete(fmt.Sprintf("aws object storage bucket %s created", *awsObjectStorageBucketConfig.AwsObjectStorageBucket.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -2020,9 +2020,9 @@ var DeleteAwsObjectStorageBucketCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("aws object storage bucket definition %s deleted", awsObjectStorageBucket.Name))
-			cli.Info(fmt.Sprintf("aws object storage bucket instance %s deleted", awsObjectStorageBucket.Name))
-			cli.Complete(fmt.Sprintf("aws object storage bucket %s deleted", awsObjectStorageBucketConfig.AwsObjectStorageBucket.Name))
+			cli.Info(fmt.Sprintf("aws object storage bucket definition %s deleted", *awsObjectStorageBucket.Name))
+			cli.Info(fmt.Sprintf("aws object storage bucket instance %s deleted", *awsObjectStorageBucket.Name))
+			cli.Complete(fmt.Sprintf("aws object storage bucket %s deleted", *awsObjectStorageBucketConfig.AwsObjectStorageBucket.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -2219,7 +2219,7 @@ var DeleteAwsObjectStorageBucketInstanceCmd = &cobra.Command{
 			} else {
 				awsObjectStorageBucketInstanceConfig = config_v0.AwsObjectStorageBucketInstanceConfig{
 					AwsObjectStorageBucketInstance: config_v0.AwsObjectStorageBucketInstanceValues{
-						Name: deleteAwsObjectStorageBucketInstanceName,
+						Name: &deleteAwsObjectStorageBucketInstanceName,
 					},
 				}
 			}
@@ -2317,7 +2317,7 @@ var DescribeAwsObjectStorageBucketInstanceCmd = &cobra.Command{
 			} else {
 				awsObjectStorageBucketInstanceConfig = config_v0.AwsObjectStorageBucketInstanceConfig{
 					AwsObjectStorageBucketInstance: config_v0.AwsObjectStorageBucketInstanceValues{
-						Name: describeAwsObjectStorageBucketInstanceName,
+						Name: &describeAwsObjectStorageBucketInstanceName,
 					},
 				}
 			}
@@ -2326,7 +2326,7 @@ var DescribeAwsObjectStorageBucketInstanceCmd = &cobra.Command{
 			obj, err := client_v0.GetAwsObjectStorageBucketInstanceByName(
 				apiClient,
 				apiEndpoint,
-				awsObjectStorageBucketInstanceConfig.AwsObjectStorageBucketInstance.Name,
+				*awsObjectStorageBucketInstanceConfig.AwsObjectStorageBucketInstance.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve aws object storage bucket instance details", err)
@@ -2630,7 +2630,7 @@ var DeleteAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
 			} else {
 				awsRelationalDatabaseDefinitionConfig = config_v0.AwsRelationalDatabaseDefinitionConfig{
 					AwsRelationalDatabaseDefinition: config_v0.AwsRelationalDatabaseDefinitionValues{
-						Name: deleteAwsRelationalDatabaseDefinitionName,
+						Name: &deleteAwsRelationalDatabaseDefinitionName,
 					},
 				}
 			}
@@ -2728,7 +2728,7 @@ var DescribeAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
 			} else {
 				awsRelationalDatabaseDefinitionConfig = config_v0.AwsRelationalDatabaseDefinitionConfig{
 					AwsRelationalDatabaseDefinition: config_v0.AwsRelationalDatabaseDefinitionValues{
-						Name: describeAwsRelationalDatabaseDefinitionName,
+						Name: &describeAwsRelationalDatabaseDefinitionName,
 					},
 				}
 			}
@@ -2737,7 +2737,7 @@ var DescribeAwsRelationalDatabaseDefinitionCmd = &cobra.Command{
 			obj, err := client_v0.GetAwsRelationalDatabaseDefinitionByName(
 				apiClient,
 				apiEndpoint,
-				awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition.Name,
+				*awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve aws relational database definition details", err)
@@ -2964,7 +2964,7 @@ var CreateAwsRelationalDatabaseCmd = &cobra.Command{
 
 			cli.Info(fmt.Sprintf("aws relational database definition %s created", *createdAwsRelationalDatabaseDefinition.Name))
 			cli.Info(fmt.Sprintf("aws relational database instance %s created", *createdAwsRelationalDatabaseInstance.Name))
-			cli.Complete(fmt.Sprintf("aws relational database %s created", awsRelationalDatabaseConfig.AwsRelationalDatabase.Name))
+			cli.Complete(fmt.Sprintf("aws relational database %s created", *awsRelationalDatabaseConfig.AwsRelationalDatabase.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -3036,9 +3036,9 @@ var DeleteAwsRelationalDatabaseCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("aws relational database definition %s deleted", awsRelationalDatabase.Name))
-			cli.Info(fmt.Sprintf("aws relational database instance %s deleted", awsRelationalDatabase.Name))
-			cli.Complete(fmt.Sprintf("aws relational database %s deleted", awsRelationalDatabaseConfig.AwsRelationalDatabase.Name))
+			cli.Info(fmt.Sprintf("aws relational database definition %s deleted", *awsRelationalDatabase.Name))
+			cli.Info(fmt.Sprintf("aws relational database instance %s deleted", *awsRelationalDatabase.Name))
+			cli.Complete(fmt.Sprintf("aws relational database %s deleted", *awsRelationalDatabaseConfig.AwsRelationalDatabase.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -3235,7 +3235,7 @@ var DeleteAwsRelationalDatabaseInstanceCmd = &cobra.Command{
 			} else {
 				awsRelationalDatabaseInstanceConfig = config_v0.AwsRelationalDatabaseInstanceConfig{
 					AwsRelationalDatabaseInstance: config_v0.AwsRelationalDatabaseInstanceValues{
-						Name: deleteAwsRelationalDatabaseInstanceName,
+						Name: &deleteAwsRelationalDatabaseInstanceName,
 					},
 				}
 			}
@@ -3333,7 +3333,7 @@ var DescribeAwsRelationalDatabaseInstanceCmd = &cobra.Command{
 			} else {
 				awsRelationalDatabaseInstanceConfig = config_v0.AwsRelationalDatabaseInstanceConfig{
 					AwsRelationalDatabaseInstance: config_v0.AwsRelationalDatabaseInstanceValues{
-						Name: describeAwsRelationalDatabaseInstanceName,
+						Name: &describeAwsRelationalDatabaseInstanceName,
 					},
 				}
 			}
@@ -3342,7 +3342,7 @@ var DescribeAwsRelationalDatabaseInstanceCmd = &cobra.Command{
 			obj, err := client_v0.GetAwsRelationalDatabaseInstanceByName(
 				apiClient,
 				apiEndpoint,
-				awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance.Name,
+				*awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve aws relational database instance details", err)

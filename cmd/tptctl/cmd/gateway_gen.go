@@ -187,7 +187,7 @@ var DeleteDomainNameDefinitionCmd = &cobra.Command{
 			} else {
 				domainNameDefinitionConfig = config_v0.DomainNameDefinitionConfig{
 					DomainNameDefinition: config_v0.DomainNameDefinitionValues{
-						Name: deleteDomainNameDefinitionName,
+						Name: &deleteDomainNameDefinitionName,
 					},
 				}
 			}
@@ -285,7 +285,7 @@ var DescribeDomainNameDefinitionCmd = &cobra.Command{
 			} else {
 				domainNameDefinitionConfig = config_v0.DomainNameDefinitionConfig{
 					DomainNameDefinition: config_v0.DomainNameDefinitionValues{
-						Name: describeDomainNameDefinitionName,
+						Name: &describeDomainNameDefinitionName,
 					},
 				}
 			}
@@ -294,7 +294,7 @@ var DescribeDomainNameDefinitionCmd = &cobra.Command{
 			obj, err := client_v0.GetDomainNameDefinitionByName(
 				apiClient,
 				apiEndpoint,
-				domainNameDefinitionConfig.DomainNameDefinition.Name,
+				*domainNameDefinitionConfig.DomainNameDefinition.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve domain name definition details", err)
@@ -521,7 +521,7 @@ var CreateDomainNameCmd = &cobra.Command{
 
 			cli.Info(fmt.Sprintf("domain name definition %s created", *createdDomainNameDefinition.Name))
 			cli.Info(fmt.Sprintf("domain name instance %s created", *createdDomainNameInstance.Name))
-			cli.Complete(fmt.Sprintf("domain name %s created", domainNameConfig.DomainName.Name))
+			cli.Complete(fmt.Sprintf("domain name %s created", *domainNameConfig.DomainName.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -593,9 +593,9 @@ var DeleteDomainNameCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("domain name definition %s deleted", domainName.Name))
-			cli.Info(fmt.Sprintf("domain name instance %s deleted", domainName.Name))
-			cli.Complete(fmt.Sprintf("domain name %s deleted", domainNameConfig.DomainName.Name))
+			cli.Info(fmt.Sprintf("domain name definition %s deleted", *domainName.Name))
+			cli.Info(fmt.Sprintf("domain name instance %s deleted", *domainName.Name))
+			cli.Complete(fmt.Sprintf("domain name %s deleted", *domainNameConfig.DomainName.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -792,7 +792,7 @@ var DeleteDomainNameInstanceCmd = &cobra.Command{
 			} else {
 				domainNameInstanceConfig = config_v0.DomainNameInstanceConfig{
 					DomainNameInstance: config_v0.DomainNameInstanceValues{
-						Name: deleteDomainNameInstanceName,
+						Name: &deleteDomainNameInstanceName,
 					},
 				}
 			}
@@ -890,7 +890,7 @@ var DescribeDomainNameInstanceCmd = &cobra.Command{
 			} else {
 				domainNameInstanceConfig = config_v0.DomainNameInstanceConfig{
 					DomainNameInstance: config_v0.DomainNameInstanceValues{
-						Name: describeDomainNameInstanceName,
+						Name: &describeDomainNameInstanceName,
 					},
 				}
 			}
@@ -899,7 +899,7 @@ var DescribeDomainNameInstanceCmd = &cobra.Command{
 			obj, err := client_v0.GetDomainNameInstanceByName(
 				apiClient,
 				apiEndpoint,
-				domainNameInstanceConfig.DomainNameInstance.Name,
+				*domainNameInstanceConfig.DomainNameInstance.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve domain name instance details", err)
@@ -1203,7 +1203,7 @@ var DeleteGatewayDefinitionCmd = &cobra.Command{
 			} else {
 				gatewayDefinitionConfig = config_v0.GatewayDefinitionConfig{
 					GatewayDefinition: config_v0.GatewayDefinitionValues{
-						Name: deleteGatewayDefinitionName,
+						Name: &deleteGatewayDefinitionName,
 					},
 				}
 			}
@@ -1301,7 +1301,7 @@ var DescribeGatewayDefinitionCmd = &cobra.Command{
 			} else {
 				gatewayDefinitionConfig = config_v0.GatewayDefinitionConfig{
 					GatewayDefinition: config_v0.GatewayDefinitionValues{
-						Name: describeGatewayDefinitionName,
+						Name: &describeGatewayDefinitionName,
 					},
 				}
 			}
@@ -1310,7 +1310,7 @@ var DescribeGatewayDefinitionCmd = &cobra.Command{
 			obj, err := client_v0.GetGatewayDefinitionByName(
 				apiClient,
 				apiEndpoint,
-				gatewayDefinitionConfig.GatewayDefinition.Name,
+				*gatewayDefinitionConfig.GatewayDefinition.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve gateway definition details", err)
@@ -1537,7 +1537,7 @@ var CreateGatewayCmd = &cobra.Command{
 
 			cli.Info(fmt.Sprintf("gateway definition %s created", *createdGatewayDefinition.Name))
 			cli.Info(fmt.Sprintf("gateway instance %s created", *createdGatewayInstance.Name))
-			cli.Complete(fmt.Sprintf("gateway %s created", gatewayConfig.Gateway.Name))
+			cli.Complete(fmt.Sprintf("gateway %s created", *gatewayConfig.Gateway.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -1609,9 +1609,9 @@ var DeleteGatewayCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("gateway definition %s deleted", gateway.Name))
-			cli.Info(fmt.Sprintf("gateway instance %s deleted", gateway.Name))
-			cli.Complete(fmt.Sprintf("gateway %s deleted", gatewayConfig.Gateway.Name))
+			cli.Info(fmt.Sprintf("gateway definition %s deleted", *gateway.Name))
+			cli.Info(fmt.Sprintf("gateway instance %s deleted", *gateway.Name))
+			cli.Complete(fmt.Sprintf("gateway %s deleted", *gatewayConfig.Gateway.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -1808,7 +1808,7 @@ var DeleteGatewayInstanceCmd = &cobra.Command{
 			} else {
 				gatewayInstanceConfig = config_v0.GatewayInstanceConfig{
 					GatewayInstance: config_v0.GatewayInstanceValues{
-						Name: deleteGatewayInstanceName,
+						Name: &deleteGatewayInstanceName,
 					},
 				}
 			}
@@ -1906,7 +1906,7 @@ var DescribeGatewayInstanceCmd = &cobra.Command{
 			} else {
 				gatewayInstanceConfig = config_v0.GatewayInstanceConfig{
 					GatewayInstance: config_v0.GatewayInstanceValues{
-						Name: describeGatewayInstanceName,
+						Name: &describeGatewayInstanceName,
 					},
 				}
 			}
@@ -1915,7 +1915,7 @@ var DescribeGatewayInstanceCmd = &cobra.Command{
 			obj, err := client_v0.GetGatewayInstanceByName(
 				apiClient,
 				apiEndpoint,
-				gatewayInstanceConfig.GatewayInstance.Name,
+				*gatewayInstanceConfig.GatewayInstance.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve gateway instance details", err)

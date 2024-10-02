@@ -105,9 +105,10 @@ func BuildDatabaseMigratorImage() error {
 	return nil
 }
 
-// E2e calls ginkgo to run the e2e tests suite.
+// E2e calls ginkgo to run the e2e tests suite.  Takes 2 args: 1. imageRepo -
+// either 'local' or the URL for an external image repo.  2. clean - if true
+// will remove the control plane and infra after completion.
 func E2e(
-	provider string,
 	imageRepo string,
 	clean bool,
 ) error {
@@ -136,7 +137,7 @@ func E2e(
 // E2eLocal is a wrapper for E2e that uses kind, a local image repo in a docker
 // container and cleans up at completion.
 func E2eLocal() error {
-	return E2e("kind", "local", true)
+	return E2e("local", true)
 }
 
 // E2eClean removes the kind cluster and local container registry for e2e

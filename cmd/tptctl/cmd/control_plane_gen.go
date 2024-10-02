@@ -187,7 +187,7 @@ var DeleteControlPlaneDefinitionCmd = &cobra.Command{
 			} else {
 				controlPlaneDefinitionConfig = config_v0.ControlPlaneDefinitionConfig{
 					ControlPlaneDefinition: config_v0.ControlPlaneDefinitionValues{
-						Name: deleteControlPlaneDefinitionName,
+						Name: &deleteControlPlaneDefinitionName,
 					},
 				}
 			}
@@ -285,7 +285,7 @@ var DescribeControlPlaneDefinitionCmd = &cobra.Command{
 			} else {
 				controlPlaneDefinitionConfig = config_v0.ControlPlaneDefinitionConfig{
 					ControlPlaneDefinition: config_v0.ControlPlaneDefinitionValues{
-						Name: describeControlPlaneDefinitionName,
+						Name: &describeControlPlaneDefinitionName,
 					},
 				}
 			}
@@ -294,7 +294,7 @@ var DescribeControlPlaneDefinitionCmd = &cobra.Command{
 			obj, err := client_v0.GetControlPlaneDefinitionByName(
 				apiClient,
 				apiEndpoint,
-				controlPlaneDefinitionConfig.ControlPlaneDefinition.Name,
+				*controlPlaneDefinitionConfig.ControlPlaneDefinition.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve control plane definition details", err)
@@ -521,7 +521,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 
 			cli.Info(fmt.Sprintf("control plane definition %s created", *createdControlPlaneDefinition.Name))
 			cli.Info(fmt.Sprintf("control plane instance %s created", *createdControlPlaneInstance.Name))
-			cli.Complete(fmt.Sprintf("control plane %s created", controlPlaneConfig.ControlPlane.Name))
+			cli.Complete(fmt.Sprintf("control plane %s created", *controlPlaneConfig.ControlPlane.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -593,9 +593,9 @@ var DeleteControlPlaneCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("control plane definition %s deleted", controlPlane.Name))
-			cli.Info(fmt.Sprintf("control plane instance %s deleted", controlPlane.Name))
-			cli.Complete(fmt.Sprintf("control plane %s deleted", controlPlaneConfig.ControlPlane.Name))
+			cli.Info(fmt.Sprintf("control plane definition %s deleted", *controlPlane.Name))
+			cli.Info(fmt.Sprintf("control plane instance %s deleted", *controlPlane.Name))
+			cli.Complete(fmt.Sprintf("control plane %s deleted", *controlPlaneConfig.ControlPlane.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -792,7 +792,7 @@ var DeleteControlPlaneInstanceCmd = &cobra.Command{
 			} else {
 				controlPlaneInstanceConfig = config_v0.ControlPlaneInstanceConfig{
 					ControlPlaneInstance: config_v0.ControlPlaneInstanceValues{
-						Name: deleteControlPlaneInstanceName,
+						Name: &deleteControlPlaneInstanceName,
 					},
 				}
 			}
@@ -890,7 +890,7 @@ var DescribeControlPlaneInstanceCmd = &cobra.Command{
 			} else {
 				controlPlaneInstanceConfig = config_v0.ControlPlaneInstanceConfig{
 					ControlPlaneInstance: config_v0.ControlPlaneInstanceValues{
-						Name: describeControlPlaneInstanceName,
+						Name: &describeControlPlaneInstanceName,
 					},
 				}
 			}
@@ -899,7 +899,7 @@ var DescribeControlPlaneInstanceCmd = &cobra.Command{
 			obj, err := client_v0.GetControlPlaneInstanceByName(
 				apiClient,
 				apiEndpoint,
-				controlPlaneInstanceConfig.ControlPlaneInstance.Name,
+				*controlPlaneInstanceConfig.ControlPlaneInstance.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve control plane instance details", err)

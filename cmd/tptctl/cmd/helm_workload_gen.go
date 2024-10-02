@@ -110,7 +110,7 @@ var CreateHelmWorkloadDefinitionCmd = &cobra.Command{
 
 			// create helm workload definition
 			helmWorkloadDefinition := helmWorkloadDefinitionConfig.HelmWorkloadDefinition
-			helmWorkloadDefinition.HelmWorkloadConfigPath = createHelmWorkloadDefinitionConfigPath
+			helmWorkloadDefinition.HelmWorkloadConfigPath = &createHelmWorkloadDefinitionConfigPath
 			createdHelmWorkloadDefinition, err := helmWorkloadDefinition.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create helm workload definition", err)
@@ -188,14 +188,14 @@ var DeleteHelmWorkloadDefinitionCmd = &cobra.Command{
 			} else {
 				helmWorkloadDefinitionConfig = config_v0.HelmWorkloadDefinitionConfig{
 					HelmWorkloadDefinition: config_v0.HelmWorkloadDefinitionValues{
-						Name: deleteHelmWorkloadDefinitionName,
+						Name: &deleteHelmWorkloadDefinitionName,
 					},
 				}
 			}
 
 			// delete helm workload definition
 			helmWorkloadDefinition := helmWorkloadDefinitionConfig.HelmWorkloadDefinition
-			helmWorkloadDefinition.HelmWorkloadConfigPath = deleteHelmWorkloadDefinitionConfigPath
+			helmWorkloadDefinition.HelmWorkloadConfigPath = &deleteHelmWorkloadDefinitionConfigPath
 			deletedHelmWorkloadDefinition, err := helmWorkloadDefinition.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete helm workload definition", err)
@@ -287,7 +287,7 @@ var DescribeHelmWorkloadDefinitionCmd = &cobra.Command{
 			} else {
 				helmWorkloadDefinitionConfig = config_v0.HelmWorkloadDefinitionConfig{
 					HelmWorkloadDefinition: config_v0.HelmWorkloadDefinitionValues{
-						Name: describeHelmWorkloadDefinitionName,
+						Name: &describeHelmWorkloadDefinitionName,
 					},
 				}
 			}
@@ -296,7 +296,7 @@ var DescribeHelmWorkloadDefinitionCmd = &cobra.Command{
 			obj, err := client_v0.GetHelmWorkloadDefinitionByName(
 				apiClient,
 				apiEndpoint,
-				helmWorkloadDefinitionConfig.HelmWorkloadDefinition.Name,
+				*helmWorkloadDefinitionConfig.HelmWorkloadDefinition.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve helm workload definition details", err)
@@ -512,7 +512,7 @@ var CreateHelmWorkloadCmd = &cobra.Command{
 
 			// create helm workload
 			helmWorkload := helmWorkloadConfig.HelmWorkload
-			helmWorkload.HelmWorkloadConfigPath = createHelmWorkloadConfigPath
+			helmWorkload.HelmWorkloadConfigPath = &createHelmWorkloadConfigPath
 			createdHelmWorkloadDefinition, createdHelmWorkloadInstance, err := helmWorkload.Create(
 				apiClient,
 				apiEndpoint,
@@ -524,7 +524,7 @@ var CreateHelmWorkloadCmd = &cobra.Command{
 
 			cli.Info(fmt.Sprintf("helm workload definition %s created", *createdHelmWorkloadDefinition.Name))
 			cli.Info(fmt.Sprintf("helm workload instance %s created", *createdHelmWorkloadInstance.Name))
-			cli.Complete(fmt.Sprintf("helm workload %s created", helmWorkloadConfig.HelmWorkload.Name))
+			cli.Complete(fmt.Sprintf("helm workload %s created", *helmWorkloadConfig.HelmWorkload.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -590,16 +590,16 @@ var DeleteHelmWorkloadCmd = &cobra.Command{
 
 			// delete helm workload
 			helmWorkload := helmWorkloadConfig.HelmWorkload
-			helmWorkload.HelmWorkloadConfigPath = deleteHelmWorkloadConfigPath
+			helmWorkload.HelmWorkloadConfigPath = &deleteHelmWorkloadConfigPath
 			_, _, err = helmWorkload.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete helm workload", err)
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("helm workload definition %s deleted", helmWorkload.Name))
-			cli.Info(fmt.Sprintf("helm workload instance %s deleted", helmWorkload.Name))
-			cli.Complete(fmt.Sprintf("helm workload %s deleted", helmWorkloadConfig.HelmWorkload.Name))
+			cli.Info(fmt.Sprintf("helm workload definition %s deleted", *helmWorkload.Name))
+			cli.Info(fmt.Sprintf("helm workload instance %s deleted", *helmWorkload.Name))
+			cli.Complete(fmt.Sprintf("helm workload %s deleted", *helmWorkloadConfig.HelmWorkload.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -719,7 +719,7 @@ var CreateHelmWorkloadInstanceCmd = &cobra.Command{
 
 			// create helm workload instance
 			helmWorkloadInstance := helmWorkloadInstanceConfig.HelmWorkloadInstance
-			helmWorkloadInstance.HelmWorkloadConfigPath = createHelmWorkloadInstanceConfigPath
+			helmWorkloadInstance.HelmWorkloadConfigPath = &createHelmWorkloadInstanceConfigPath
 			createdHelmWorkloadInstance, err := helmWorkloadInstance.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create helm workload instance", err)
@@ -797,14 +797,14 @@ var DeleteHelmWorkloadInstanceCmd = &cobra.Command{
 			} else {
 				helmWorkloadInstanceConfig = config_v0.HelmWorkloadInstanceConfig{
 					HelmWorkloadInstance: config_v0.HelmWorkloadInstanceValues{
-						Name: deleteHelmWorkloadInstanceName,
+						Name: &deleteHelmWorkloadInstanceName,
 					},
 				}
 			}
 
 			// delete helm workload instance
 			helmWorkloadInstance := helmWorkloadInstanceConfig.HelmWorkloadInstance
-			helmWorkloadInstance.HelmWorkloadConfigPath = deleteHelmWorkloadInstanceConfigPath
+			helmWorkloadInstance.HelmWorkloadConfigPath = &deleteHelmWorkloadInstanceConfigPath
 			deletedHelmWorkloadInstance, err := helmWorkloadInstance.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete helm workload instance", err)
@@ -896,7 +896,7 @@ var DescribeHelmWorkloadInstanceCmd = &cobra.Command{
 			} else {
 				helmWorkloadInstanceConfig = config_v0.HelmWorkloadInstanceConfig{
 					HelmWorkloadInstance: config_v0.HelmWorkloadInstanceValues{
-						Name: describeHelmWorkloadInstanceName,
+						Name: &describeHelmWorkloadInstanceName,
 					},
 				}
 			}
@@ -905,7 +905,7 @@ var DescribeHelmWorkloadInstanceCmd = &cobra.Command{
 			obj, err := client_v0.GetHelmWorkloadInstanceByName(
 				apiClient,
 				apiEndpoint,
-				helmWorkloadInstanceConfig.HelmWorkloadInstance.Name,
+				*helmWorkloadInstanceConfig.HelmWorkloadInstance.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve helm workload instance details", err)

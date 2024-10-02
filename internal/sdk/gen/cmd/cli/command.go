@@ -302,7 +302,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					// path variable must be set on the config object
 					setConfigPath := &Statement{}
 					if apiObj.TptctlConfigPath || apiObj.DefinedInstanceTptctlConfigPath {
-						setConfigPath.Id(rootObjectVar).Dot(configPathField).Op("=").Id(createConfigPathVar)
+						setConfigPath.Id(rootObjectVar).Dot(configPathField).Op("=").Op("&").Id(createConfigPathVar)
 					}
 
 					commandCode.Var().Defs(
@@ -438,7 +438,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
 											"%s %%s created",
 											rootCmdStrHuman,
-										)), Id(rootObjectConfigVar).Dot(rootObj).Dot("Name"))),
+										)), Op("*").Id(rootObjectConfigVar).Dot(rootObj).Dot("Name"))),
 									)
 									h.Default().Block(
 										Qual(
@@ -504,7 +504,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					// path variable must be set on the config object
 					setConfigPath = &Statement{}
 					if apiObj.TptctlConfigPath {
-						setConfigPath.Id(rootObjectVar).Dot(configPathField).Op("=").Id(deleteConfigPathVar)
+						setConfigPath.Id(rootObjectVar).Dot(configPathField).Op("=").Op("&").Id(deleteConfigPathVar)
 					}
 
 					commandCode.Var().Defs(
@@ -634,21 +634,21 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
 											"%s definition %%s deleted",
 											rootCmdStrHuman,
-										)), Id(rootObjectVar).Dot("Name"))),
+										)), Op("*").Id(rootObjectVar).Dot("Name"))),
 										Qual(
 											"github.com/threeport/threeport/pkg/cli/v0",
 											"Info",
 										).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
 											"%s instance %%s deleted",
 											rootCmdStrHuman,
-										)), Id(rootObjectVar).Dot("Name"))),
+										)), Op("*").Id(rootObjectVar).Dot("Name"))),
 										Qual(
 											"github.com/threeport/threeport/pkg/cli/v0",
 											"Complete",
 										).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
 											"%s %%s deleted",
 											rootCmdStrHuman,
-										)), Id(rootObjectConfigVar).Dot(rootObj).Dot("Name"))),
+										)), Op("*").Id(rootObjectConfigVar).Dot(rootObj).Dot("Name"))),
 									)
 									h.Default().Block(
 										Qual(
@@ -944,7 +944,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				// path variable must be set on the config object
 				setConfigPath := &Statement{}
 				if apiObj.TptctlConfigPath {
-					setConfigPath.Id(objectVar).Dot(configPathField).Op("=").Id(createConfigPathVar)
+					setConfigPath.Id(objectVar).Dot(configPathField).Op("=").Op("&").Id(createConfigPathVar)
 				}
 
 				commandCode.Var().Defs(
@@ -1130,7 +1130,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				// path variable must be set on the config object
 				setConfigPath = &Statement{}
 				if apiObj.TptctlConfigPath {
-					setConfigPath.Id(objectVar).Dot(configPathField).Op("=").Id(deleteConfigPathVar)
+					setConfigPath.Id(objectVar).Dot(configPathField).Op("=").Op("&").Id(deleteConfigPathVar)
 				}
 
 				commandCode.Var().Defs(
@@ -1254,7 +1254,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 												fmt.Sprintf("%s%s", configImportPath, version),
 												objectValuesObj,
 											).Values(Dict{
-												Line().Id("Name"): Id(deleteNameVar).Op(",").Line(),
+												Line().Id("Name"): Op("&").Id(deleteNameVar).Op(",").Line(),
 											}).Op(",").Line(),
 										}),
 									),
@@ -1506,7 +1506,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 												fmt.Sprintf("%s%s", configImportPath, version),
 												objectValuesObj,
 											).Values(Dict{
-												Line().Id("Name"): Id(describeNameVar).Op(",").Line(),
+												Line().Id("Name"): Op("&").Id(describeNameVar).Op(",").Line(),
 											}).Op(",").Line(),
 										}),
 									),
@@ -1518,7 +1518,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									).Call(
 										Line().Id("apiClient"),
 										Line().Id("apiEndpoint"),
-										Line().Id(objectConfigVar).Dot(apiObj.TypeName).Dot("Name"),
+										Line().Op("*").Id(objectConfigVar).Dot(apiObj.TypeName).Dot("Name"),
 										Line(),
 									),
 

@@ -110,7 +110,7 @@ var CreateWorkloadDefinitionCmd = &cobra.Command{
 
 			// create workload definition
 			workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
-			workloadDefinition.WorkloadConfigPath = createWorkloadDefinitionConfigPath
+			workloadDefinition.WorkloadConfigPath = &createWorkloadDefinitionConfigPath
 			createdWorkloadDefinition, err := workloadDefinition.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create workload definition", err)
@@ -188,14 +188,14 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 			} else {
 				workloadDefinitionConfig = config_v0.WorkloadDefinitionConfig{
 					WorkloadDefinition: config_v0.WorkloadDefinitionValues{
-						Name: deleteWorkloadDefinitionName,
+						Name: &deleteWorkloadDefinitionName,
 					},
 				}
 			}
 
 			// delete workload definition
 			workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
-			workloadDefinition.WorkloadConfigPath = deleteWorkloadDefinitionConfigPath
+			workloadDefinition.WorkloadConfigPath = &deleteWorkloadDefinitionConfigPath
 			deletedWorkloadDefinition, err := workloadDefinition.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete workload definition", err)
@@ -287,7 +287,7 @@ var DescribeWorkloadDefinitionCmd = &cobra.Command{
 			} else {
 				workloadDefinitionConfig = config_v0.WorkloadDefinitionConfig{
 					WorkloadDefinition: config_v0.WorkloadDefinitionValues{
-						Name: describeWorkloadDefinitionName,
+						Name: &describeWorkloadDefinitionName,
 					},
 				}
 			}
@@ -296,7 +296,7 @@ var DescribeWorkloadDefinitionCmd = &cobra.Command{
 			obj, err := client_v0.GetWorkloadDefinitionByName(
 				apiClient,
 				apiEndpoint,
-				workloadDefinitionConfig.WorkloadDefinition.Name,
+				*workloadDefinitionConfig.WorkloadDefinition.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve workload definition details", err)
@@ -512,7 +512,7 @@ var CreateWorkloadCmd = &cobra.Command{
 
 			// create workload
 			workload := workloadConfig.Workload
-			workload.WorkloadConfigPath = createWorkloadConfigPath
+			workload.WorkloadConfigPath = &createWorkloadConfigPath
 			createdWorkloadDefinition, createdWorkloadInstance, err := workload.Create(
 				apiClient,
 				apiEndpoint,
@@ -524,7 +524,7 @@ var CreateWorkloadCmd = &cobra.Command{
 
 			cli.Info(fmt.Sprintf("workload definition %s created", *createdWorkloadDefinition.Name))
 			cli.Info(fmt.Sprintf("workload instance %s created", *createdWorkloadInstance.Name))
-			cli.Complete(fmt.Sprintf("workload %s created", workloadConfig.Workload.Name))
+			cli.Complete(fmt.Sprintf("workload %s created", *workloadConfig.Workload.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -596,9 +596,9 @@ var DeleteWorkloadCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("workload definition %s deleted", workload.Name))
-			cli.Info(fmt.Sprintf("workload instance %s deleted", workload.Name))
-			cli.Complete(fmt.Sprintf("workload %s deleted", workloadConfig.Workload.Name))
+			cli.Info(fmt.Sprintf("workload definition %s deleted", *workload.Name))
+			cli.Info(fmt.Sprintf("workload instance %s deleted", *workload.Name))
+			cli.Complete(fmt.Sprintf("workload %s deleted", *workloadConfig.Workload.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -795,7 +795,7 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 			} else {
 				workloadInstanceConfig = config_v0.WorkloadInstanceConfig{
 					WorkloadInstance: config_v0.WorkloadInstanceValues{
-						Name: deleteWorkloadInstanceName,
+						Name: &deleteWorkloadInstanceName,
 					},
 				}
 			}
@@ -893,7 +893,7 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 			} else {
 				workloadInstanceConfig = config_v0.WorkloadInstanceConfig{
 					WorkloadInstance: config_v0.WorkloadInstanceValues{
-						Name: describeWorkloadInstanceName,
+						Name: &describeWorkloadInstanceName,
 					},
 				}
 			}
@@ -902,7 +902,7 @@ var DescribeWorkloadInstanceCmd = &cobra.Command{
 			obj, err := client_v0.GetWorkloadInstanceByName(
 				apiClient,
 				apiEndpoint,
-				workloadInstanceConfig.WorkloadInstance.Name,
+				*workloadInstanceConfig.WorkloadInstance.Name,
 			)
 			if err != nil {
 				cli.Error("failed to retrieve workload instance details", err)
