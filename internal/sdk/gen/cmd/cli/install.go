@@ -28,6 +28,12 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.ImportAlias("github.com/threeport/threeport/pkg/kube/v0", "kube")
 	f.ImportAlias(installerPkg, "installer")
 
+	f.Var().Defs(
+		Id("development").Bool(),
+		Id("controlPlaneImageRepo").String(),
+		Id("controlPlaneImageTag").String(),
+	)
+
 	f.Comment("installCmd represents the install command")
 	f.Var().Id("installCmd").Op("=").Op("&").Qual("github.com/spf13/cobra", "Command").Values(Dict{
 		Id("Use"): Lit("install"),
@@ -114,6 +120,20 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			),
 			Line(),
 
+			// asdf
+			Comment("determine if auth is enabled on control plane"),
+			List(Id("authEnabled"), Err()).Op(":=").Id("threeportConfig").Dot("GetThreeportAuthEnabled").Call(
+				Id("requestedControlPlane"),
+			),
+			If(Err().Op("!=").Nil()).Block(
+				Qual(
+					"github.com/threeport/threeport/pkg/cli/v0",
+					"Error",
+				).Call(Lit("failed to determine if auth is enabled"), Id("err")),
+				Qual("os", "Exit").Call(Lit(1)),
+			),
+			Line(),
+
 			Comment("get Kubernetes client"),
 			Id("dynamicInterface").Op(",").Id("restMapper").Op(",").Id("err").Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/kube/v0",
@@ -136,14 +156,28 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line(),
 
 			Comment("create installer"),
-			Id("installer").Op(":=").Qual(installerPkg, "NewInstaller").Call(
+			Id("inst").Op(":=").Qual(installerPkg, "NewInstaller").Call(
 				Id("dynamicInterface"), Id("restMapper"),
+			),
+			Id("inst").Dot("AuthEnabled").Op("=").Id("authEnabled"),
+			If(Id("development")).Block(
+				Id("inst").Dot("ControlPlaneImageRepo").Op("=").Qual(
+					installerPkg,
+					"DevImageRepo",
+				),
+				Id("inst").Dot("ControlPlaneImageTag").Op("=").Qual(
+					installerPkg,
+					"DevImageTag",
+				),
+			).Else().Block(
+				Id("inst").Dot("ControlPlaneImageRepo").Op("=").Id("controlPlaneImageRepo"),
+				Id("inst").Dot("ControlPlaneImageTag").Op("=").Id("controlPlaneImageTag"),
 			),
 			Line(),
 
 			Comment("install extension"),
 			If(
-				Id("err").Op(":=").Id("installer").Dot(fmt.Sprintf(
+				Id("err").Op(":=").Id("inst").Dot(fmt.Sprintf(
 					"Install%sExtension",
 					strcase.ToCamel(sdkConfig.ExtensionName),
 				)).Call(), Id("err").Op("!=").Nil(),
@@ -154,6 +188,28 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				).Call(
 					Lit(fmt.Sprintf(
 						"failed to install %s extension",
+						sdkConfig.ExtensionName,
+					)), Id("err"),
+				),
+				Qual("os", "Exit").Call(Lit(1)),
+			),
+			Line(),
+
+			Comment("register extension with Threeport API"),
+			If(Err().Op(":=").Id("inst").Dot(fmt.Sprintf(
+				"Register%sExtension",
+				strcase.ToCamel(sdkConfig.ExtensionName),
+			))).Call(
+				Line().Id("apiClient"),
+				Line().Id("apiEndpoint"),
+				Line(),
+			).Op(";").Err().Op("!=").Nil().Block(
+				Qual(
+					"github.com/threeport/threeport/pkg/cli/v0",
+					"Error",
+				).Call(
+					Lit(fmt.Sprintf(
+						"failed to register %s extension with Threeport API",
 						sdkConfig.ExtensionName,
 					)), Id("err"),
 				),
@@ -179,6 +235,42 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			"%sCmd",
 			strcase.ToCamel(sdkConfig.ExtensionName),
 		)).Dot("AddCommand").Call(Id("installCmd")),
+		Line(),
+		Id("installCmd").Dot("Flags").Call().Dot("BoolVarP").Call(
+			Line().Op("&").Id("development"),
+			Line().List(
+				Lit("dev"), Lit("d"), Lit(false), Qual("fmt", "Sprintf").Call(
+					Line().Lit("If true, development image repo (%s) and image tag (%s) will be used"),
+					Line().Qual(installerPkg, "DevImageRepo"),
+					Line().Qual(installerPkg, "DevImageTag"),
+					Line(),
+				),
+			),
+			Line(),
+		),
+		Id("installCmd").Dot("Flags").Call().Dot("StringVarP").Call(
+			Line().Op("&").Id("controlPlaneImageRepo"),
+			Line().List(
+				Lit("control-plane-image-repo"),
+				Lit("r"),
+				Lit(sdkConfig.ImageRepo),
+				Lit("Image repo to pull threeport control plane images from."),
+			),
+			Line(),
+		),
+		Id("installCmd").Dot("Flags").Call().Dot("StringVarP").Call(
+			Line().Op("&").Id("controlPlaneImageTag"),
+			Line().List(
+				Lit("control-plane-image-tag"),
+				Lit("t"),
+				Qual(
+					fmt.Sprintf("%s/internal/version", gen.ModulePath),
+					"GetVersion",
+				).Call(),
+				Lit("Image tag to pull threeport control plane images from."),
+			),
+			Line(),
+		),
 	)
 	f.Line()
 

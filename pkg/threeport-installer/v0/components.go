@@ -25,6 +25,7 @@ import (
 const (
 	DbInitFilename            = "db.sql"
 	DbInitLocation            = "/etc/threeport/db-create"
+	ThreeportApiCaSecret      = "api-ca"
 	dbRootCertSecretName      = "db-root-cert"
 	dbThreeportCertSecretName = "db-threeport-cert"
 )
@@ -327,7 +328,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAPITLS(
 			return fmt.Errorf("failed to generate server certificate and private key: %w", err)
 		}
 
-		var apiCa = cpi.getTLSSecret("api-ca", authConfig.CAPemEncoded, authConfig.CAPrivateKeyPemEncoded)
+		var apiCa = cpi.getTLSSecret(ThreeportApiCaSecret, authConfig.CAPemEncoded, authConfig.CAPrivateKeyPemEncoded)
 		if err := cpi.CreateOrUpdateKubeResource(apiCa, kubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to create API server ca secret: %w", err)
 		}
@@ -1520,7 +1521,7 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 	}
 
 	if cpi.Opts.AuthEnabled {
-		caVol, caVolMount := cpi.getSecretVols("api-ca", "/etc/threeport/ca")
+		caVol, caVolMount := cpi.getSecretVols(ThreeportApiCaSecret, "/etc/threeport/ca")
 		certVol, certVolMount := cpi.getSecretVols("api-cert", "/etc/threeport/cert")
 
 		vols = append(vols, caVol)

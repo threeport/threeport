@@ -10,7 +10,8 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
 
-// GetEventsJoinAttachedObjectReferenceByQueryString retrieves events joined to attached object reference by object ID.
+// GetEventsJoinAttachedObjectReferenceByQueryString retrieves events joined to
+// attached object reference by object ID.
 func GetEventsJoinAttachedObjectReferenceByQueryString(
 	apiClient *http.Client,
 	apiAddr string,

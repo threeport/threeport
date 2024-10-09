@@ -22,8 +22,12 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.PackageComment("+build mage")
 
 	f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
+	f.ImportAlias(
+		fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+		"installer",
+	)
 
-	// capture function names for each component
+	// set function names for each component
 	buildApiFuncName := "BuildApi"
 	buildDbMigratorFuncName := "BuildDbMigrator"
 	buildFuncNames := []string{buildApiFuncName, buildDbMigratorFuncName}
@@ -32,14 +36,16 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	buildDbMigratorImageFuncName := "BuildDbMigratorImage"
 	buildImageFuncNames := []string{buildApiImageFuncName, buildDbMigratorImageFuncName}
 
-	buildValsFuncName := "getBuildVals"
+	buildApiDevImageFuncName := "BuildApiDevImage"
+	buildDbMigratorDevImageFuncName := "BuildDbMigratorDevImage"
+	buildDevImageFuncNames := []string{buildApiDevImageFuncName, buildDbMigratorDevImageFuncName}
 
 	// binary build function for API
 	f.Comment(fmt.Sprintf("%s builds the REST API binary.", buildApiFuncName))
-	f.Func().Id(buildApiFuncName).Params().Error().Block(
-		List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
+	f.Func().Id(buildApiFuncName).Params(Id("arch").String()).Error().Block(
+		List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 		If(Err().Op("!=").Nil()).Block(
-			Return().Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Err()),
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err()),
 		),
 		Line(),
 
@@ -68,6 +74,34 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
+	// dev binary build function for API
+	f.Comment("BuildDevApi builds the REST API binary for the architcture of the machine")
+	f.Comment("where it is built.")
+	f.Func().Id("BuildDevApi").Params().Error().Block(
+		List(Id("_"), Id("arch"), Err()).Op(":=").Id("getBuildVals").Call(),
+		If(Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to get local CPU architecture: %w"), Err()),
+		),
+		Line(),
+		If(Err().Op(":=").Id(buildApiFuncName).Call(Id("arch")).Op(";").Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to build dev rest-api binary: %w"), Err()),
+		),
+		Line(),
+		Return().Nil(),
+	)
+	f.Line()
+
+	// release binary build function for API (amd64 arch)
+	f.Comment("BuildReleaseApi builds the REST API binary for amd64 architecture.")
+	f.Func().Id("BuildReleaseApi").Params().Error().Block(
+		If(Err().Op(":=").Id(buildApiFuncName).Call(Lit("amd64")).Op(";").Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to build release rest-api binary: %w"), Err()),
+		),
+		Line(),
+		Return().Nil(),
+	)
+	f.Line()
+
 	// image build and push function for API
 	apiImageName := "threeport-rest-api"
 	if gen.Extension {
@@ -76,11 +110,16 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			strcase.ToSnake(sdkConfig.ExtensionName),
 		)
 	}
-	f.Comment(fmt.Sprintf("%s builds and pushes a development REST API image.", buildApiImageFuncName))
-	f.Func().Id(buildApiImageFuncName).Params().Parens(Error()).Block(
-		List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
+	f.Comment(fmt.Sprintf("%s builds and pushes a REST API container image.", buildApiImageFuncName))
+	f.Func().Id(buildApiImageFuncName).Params(
+		Line().Id("imageRepo").String(),
+		Line().Id("imageTag").String(),
+		Line().Id("arch").String(),
+		Line(),
+	).Parens(Error()).Block(
+		List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 		If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Err())),
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err())),
 		),
 		Line(),
 
@@ -91,9 +130,9 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().Id("workingDir"),
 			Line().Lit("cmd/rest-api/image/Dockerfile-alpine"),
 			Line().Id("arch"),
-			Line().Lit("localhost:5001"),
+			Line().Id("imageRepo"),
 			Line().Lit(apiImageName),
-			Line().Lit("dev"),
+			Line().Id("imageTag"),
 			Line().True(),
 			Line().False(),
 			Line().Lit(""),
@@ -107,12 +146,69 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
+	// dev image build and push function for API
+	f.Comment(fmt.Sprintf("%s builds and pushes a development REST API container image.", buildApiDevImageFuncName))
+	f.Func().Id(buildApiDevImageFuncName).Params().Error().Block(
+		List(Id("_"), Id("arch"), Err()).Op(":=").Id("getBuildVals").Call(),
+		If(Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to get local CPU architecture: %w"), Err()),
+		),
+		Line(),
+		If(Err().Op(":=").Id(buildApiImageFuncName).Call(
+			Line().Qual(
+				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+				"DevImageRepo",
+			),
+			Line().Qual(
+				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+				"DevImageTag",
+			),
+			Line().Id("arch"),
+			Line(),
+		).Op(";").Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(
+				Lit("failed to build and push dev rest-api image: %w"),
+				Err(),
+			),
+		),
+		Line(),
+
+		Return(Nil()),
+	)
+	f.Line()
+
+	// release image build and push function for API
+	f.Comment("BuildApiReleaseImage builds and pushes a release REST API container image.")
+	f.Func().Id("BuildApiReleaseImage").Params().Error().Block(
+		If(Err().Op(":=").Id(buildApiImageFuncName).Call(
+			Line().Qual(
+				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+				"DevImageRepo",
+			),
+			Line().Qual(
+				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+				"DevImageTag",
+			),
+			Line().Lit("amd64"),
+			Line(),
+		).Op(";").Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(
+				Lit("failed to build and push release rest-api image: %w"),
+				Err(),
+			),
+		),
+		Line(),
+
+		Return(Nil()),
+	)
+	f.Line()
+
 	// binary build function for database migrator
 	f.Comment(fmt.Sprintf("%s builds the database migrator binary.", buildDbMigratorFuncName))
-	f.Func().Id(buildDbMigratorFuncName).Params().Error().Block(
-		List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
+	f.Func().Id(buildDbMigratorFuncName).Params(Id("arch").String()).Error().Block(
+		List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 		If(Err().Op("!=").Nil()).Block(
-			Return().Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Err()),
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err()),
 		),
 		Line(),
 
@@ -141,6 +237,34 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
+	// dev binary build function for database migrator
+	f.Comment("BuildDevDbMigrator builds the database migrator binary for the architcture of the machine")
+	f.Comment("where it is built.")
+	f.Func().Id("BuildDevDbMigrator").Params().Error().Block(
+		List(Id("_"), Id("arch"), Err()).Op(":=").Id("getBuildVals").Call(),
+		If(Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to get local CPU architecture: %w"), Err()),
+		),
+		Line(),
+		If(Err().Op(":=").Id(buildDbMigratorFuncName).Call(Id("arch")).Op(";").Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to build dev database-migrator binary: %w"), Err()),
+		),
+		Line(),
+		Return().Nil(),
+	)
+	f.Line()
+
+	// release binary build function for database migrator (amd64 arch)
+	f.Comment("BuildReleaseDbMigrator builds the database migrator binary for amd64 architecture.")
+	f.Func().Id("BuildReleaseDbMigrator").Params().Error().Block(
+		If(Err().Op(":=").Id(buildDbMigratorFuncName).Call(Lit("amd64")).Op(";").Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to build release database-migrator binary: %w"), Err()),
+		),
+		Line(),
+		Return().Nil(),
+	)
+	f.Line()
+
 	// image build and push function for database migrator
 	dbMigratorImageName := "threeport-database-migrator"
 	if gen.Extension {
@@ -149,11 +273,16 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			strcase.ToSnake(sdkConfig.ExtensionName),
 		)
 	}
-	f.Comment(fmt.Sprintf("%s builds and pushes a development database migrator image.", buildDbMigratorImageFuncName))
-	f.Func().Id(buildDbMigratorImageFuncName).Params().Parens(Error()).Block(
-		List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
+	f.Comment(fmt.Sprintf("%s builds and pushes a database migrator container image.", buildDbMigratorImageFuncName))
+	f.Func().Id(buildDbMigratorImageFuncName).Params(
+		Line().Id("imageRepo").String(),
+		Line().Id("imageTag").String(),
+		Line().Id("arch").String(),
+		Line(),
+	).Parens(Error()).Block(
+		List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 		If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Err())),
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err())),
 		),
 		Line(),
 
@@ -164,15 +293,72 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().Id("workingDir"),
 			Line().Lit("cmd/database-migrator/image/Dockerfile-alpine"),
 			Line().Id("arch"),
-			Line().Lit("localhost:5001"),
+			Line().Id("imageRepo"),
 			Line().Lit(dbMigratorImageName),
-			Line().Lit("dev"),
+			Line().Id("imageTag"),
 			Line().True(),
 			Line().False(),
 			Line().Lit(""),
 			Line(),
 		), Err().Op("!=").Nil()).Block(
 			Return(Qual("fmt", "Errorf").Call(Lit("failed to build and push database-migrator image: %w"), Err())),
+		),
+		Line(),
+
+		Return(Nil()),
+	)
+	f.Line()
+
+	// dev image build and push function for database migrator
+	f.Comment(fmt.Sprintf("%s builds and pushes a development database migrator container image.", buildDbMigratorDevImageFuncName))
+	f.Func().Id(buildDbMigratorDevImageFuncName).Params().Error().Block(
+		List(Id("_"), Id("arch"), Err()).Op(":=").Id("getBuildVals").Call(),
+		If(Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to get local CPU architecture: %w"), Err()),
+		),
+		Line(),
+		If(Err().Op(":=").Id(buildDbMigratorImageFuncName).Call(
+			Line().Qual(
+				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+				"DevImageRepo",
+			),
+			Line().Qual(
+				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+				"DevImageTag",
+			),
+			Line().Id("arch"),
+			Line(),
+		).Op(";").Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(
+				Lit("failed to build and push dev database-migrator image: %w"),
+				Err(),
+			),
+		),
+		Line(),
+
+		Return(Nil()),
+	)
+	f.Line()
+
+	// release image build and push function for database migrator
+	f.Comment("BuildDbMigratorReleaseImage builds and pushes a release database migrator container image.")
+	f.Func().Id("BuildDbMigratorReleaseImage").Params().Error().Block(
+		If(Err().Op(":=").Id(buildDbMigratorImageFuncName).Call(
+			Line().Qual(
+				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+				"DevImageRepo",
+			),
+			Line().Qual(
+				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+				"DevImageTag",
+			),
+			Line().Lit("amd64"),
+			Line(),
+		).Op(";").Err().Op("!=").Nil()).Block(
+			Return().Qual("fmt", "Errorf").Call(
+				Lit("failed to build and push release database-migrator image: %w"),
+				Err(),
+			),
 		),
 		Line(),
 
@@ -192,10 +378,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				buildFuncName,
 				objGroup.ControllerName,
 			))
-			f.Func().Id(buildFuncName).Params().Error().Block(
-				List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
+			f.Func().Id(buildFuncName).Params(Id("arch").String()).Error().Block(
+				List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 				If(Err().Op("!=").Nil()).Block(
-					Return().Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Err()),
+					Return().Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err()),
 				),
 				Line(),
 
@@ -226,6 +412,50 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			)
 			f.Line()
 
+			// dev binary build function
+			buildDevFuncName := fmt.Sprintf("BuildDev%sController", objGroup.ControllerDomain)
+			f.Comment(fmt.Sprintf(
+				"%s builds the %s binary for the architcture of the machine",
+				buildDevFuncName,
+				objGroup.ControllerName,
+			))
+			f.Comment("where it is built.")
+			f.Func().Id(buildDevFuncName).Params().Error().Block(
+				List(Id("_"), Id("arch"), Err()).Op(":=").Id("getBuildVals").Call(),
+				If(Err().Op("!=").Nil()).Block(
+					Return().Qual("fmt", "Errorf").Call(Lit("failed to get local CPU architecture: %w"), Err()),
+				),
+				Line(),
+				If(Err().Op(":=").Id(buildFuncName).Call(Id("arch")).Op(";").Err().Op("!=").Nil()).Block(
+					Return().Qual("fmt", "Errorf").Call(Lit(fmt.Sprintf(
+						"failed to build dev %s binary: %%w",
+						objGroup.ControllerName,
+					)), Err()),
+				),
+				Line(),
+				Return().Nil(),
+			)
+			f.Line()
+
+			// release binary build function (amd64 arch)
+			buildReleaseFuncName := fmt.Sprintf("BuildRelease%sController", objGroup.ControllerDomain)
+			f.Comment(fmt.Sprintf(
+				"%s builds the %s binary for amd64 architecture.",
+				buildReleaseFuncName,
+				objGroup.ControllerName,
+			))
+			f.Func().Id(buildReleaseFuncName).Params().Error().Block(
+				If(Err().Op(":=").Id(buildFuncName).Call(Lit("amd64")).Op(";").Err().Op("!=").Nil()).Block(
+					Return().Qual("fmt", "Errorf").Call(Lit(fmt.Sprintf(
+						"failed to build release %s binary: %%w",
+						objGroup.ControllerName,
+					)), Err()),
+				),
+				Line(),
+				Return().Nil(),
+			)
+			f.Line()
+
 			// image build and push function
 			buildImageFuncName := fmt.Sprintf("Build%sControllerImage", objGroup.ControllerDomain)
 			buildImageFuncNames = append(buildImageFuncNames, buildImageFuncName)
@@ -235,10 +465,15 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				buildImageFuncName,
 				objGroup.ControllerName,
 			))
-			f.Func().Id(buildImageFuncName).Params().Error().Block(
-				List(Id("workingDir"), Id("arch"), Err()).Op(":=").Id(buildValsFuncName).Call(),
+			f.Func().Id(buildImageFuncName).Params(
+				Line().Id("imageRepo").String(),
+				Line().Id("imageTag").String(),
+				Line().Id("arch").String(),
+				Line(),
+			).Error().Block(
+				List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 				If(Err().Op("!=").Nil()).Block(
-					Return(Qual("fmt", "Errorf").Call(Lit("failed to get build values: %w"), Err())),
+					Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err())),
 				),
 				Line(),
 
@@ -249,9 +484,9 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Line().Id("workingDir"),
 					Line().Lit(fmt.Sprintf("cmd/%s/image/Dockerfile-alpine", objGroup.ControllerName)),
 					Line().Id("arch"),
-					Line().Lit("localhost:5001"),
+					Line().Id("imageRepo"),
 					Line().Lit(fmt.Sprintf("threeport-%s", objGroup.ControllerName)),
-					Line().Lit("dev"),
+					Line().Id("imageTag"),
 					Line().True(),
 					Line().False(),
 					Line().Lit(""),
@@ -270,6 +505,81 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Return(Nil()),
 			)
 			f.Line()
+
+			// dev image build and push function for controllers
+			buildDevImageFuncName := fmt.Sprintf("Build%sControllerDevImage", objGroup.ControllerDomain)
+			buildDevImageFuncNames = append(buildDevImageFuncNames, buildDevImageFuncName)
+			f.Comment(fmt.Sprintf(
+				"%s builds and pushes a development %s container image.",
+				buildDevImageFuncName,
+				objGroup.ControllerName,
+			))
+			f.Func().Id(buildDevImageFuncName).Params().Error().Block(
+				List(Id("_"), Id("arch"), Err()).Op(":=").Id("getBuildVals").Call(),
+				If(Err().Op("!=").Nil()).Block(
+					Return().Qual("fmt", "Errorf").Call(Lit("failed to get local CPU architecture: %w"), Err()),
+				),
+				Line(),
+				If(Err().Op(":=").Id(buildImageFuncName).Call(
+					Line().Qual(
+						fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+						"DevImageRepo",
+					),
+					Line().Qual(
+						fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+						"DevImageTag",
+					),
+					Line().Id("arch"),
+					Line(),
+				).Op(";").Err().Op("!=").Nil()).Block(
+					Return().Qual("fmt", "Errorf").Call(
+						Lit(fmt.Sprintf(
+							"failed to build and push dev %s image: %%w",
+							objGroup.ControllerName,
+						)),
+						Err(),
+					),
+				),
+				Line(),
+
+				Return().Nil(),
+			)
+			f.Line()
+
+			// release image build and push function
+			buildReleaseImageFuncName := fmt.Sprintf("Build%sControllerReleaseImage", objGroup.ControllerDomain)
+			f.Comment(fmt.Sprintf(
+				"%s builds and pushes a release %s container image.",
+				buildReleaseImageFuncName,
+				objGroup.ControllerName,
+			))
+			f.Func().Id(buildReleaseImageFuncName).Params().Error().Block(
+				If(Err().Op(":=").Id(buildImageFuncName).Call(
+					Line().Qual(
+						fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+						"DevImageRepo",
+					),
+					Line().Qual(
+						fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+						"DevImageTag",
+					),
+					Line().Lit("amd64"),
+					Line(),
+				).Op(";").Err().Op("!=").Nil()).Block(
+					Return().Qual("fmt", "Errorf").Call(
+						Lit(fmt.Sprintf(
+							"failed to build and push release %s image: %%w",
+							objGroup.ControllerName,
+						)),
+						Err(),
+					),
+				),
+				Line(),
+
+				Return(Nil()),
+			)
+			f.Line()
+
 		}
 	}
 	f.Line()
@@ -277,9 +587,9 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	// build all binaries
 	buildAllFuncName := "BuildAll"
 	f.Comment(fmt.Sprintf("%s builds the binaries for all components.", buildAllFuncName))
-	f.Func().Id(buildAllFuncName).Params().Error().BlockFunc(func(g *Group) {
+	f.Func().Id(buildAllFuncName).Params(Id("arch").String()).Error().BlockFunc(func(g *Group) {
 		for _, funcName := range buildFuncNames {
-			g.If(Err().Op(":=").Id(funcName).Call().Op(";").Err().Op("!=").Nil()).Block(
+			g.If(Err().Op(":=").Id(funcName).Call(Id("arch")).Op(";").Err().Op("!=").Nil()).Block(
 				Return().Qual("fmt", "Errorf").Call(
 					Lit("failed to build binary: %w"),
 					Err(),
@@ -294,8 +604,34 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	// build and push all images
 	buildAllImagesFuncName := "BuildAllImages"
 	f.Comment(fmt.Sprintf("%s builds and pushes images for all components.", buildAllImagesFuncName))
-	f.Func().Id(buildAllImagesFuncName).Params().Error().BlockFunc(func(g *Group) {
+	f.Func().Id(buildAllImagesFuncName).Params(
+		Line().Id("imageRepo").String(),
+		Line().Id("imageTag").String(),
+		Line().Id("arch").String(),
+		Line(),
+	).Error().BlockFunc(func(g *Group) {
 		for _, funcName := range buildImageFuncNames {
+			g.If(Err().Op(":=").Id(funcName).Call(
+				Id("imageRepo"),
+				Id("imageTag"),
+				Id("arch"),
+			).Op(";").Err().Op("!=").Nil()).Block(
+				Return().Qual("fmt", "Errorf").Call(
+					Lit("failed to build and push image: %w"),
+					Err(),
+				),
+			)
+			g.Line()
+		}
+
+		g.Return().Nil()
+	})
+
+	// build and push all dev images
+	buildAllDevImagesFuncName := "BuildAllDevImages"
+	f.Comment(fmt.Sprintf("%s builds and pushes development images for all components.", buildAllDevImagesFuncName))
+	f.Func().Id(buildAllDevImagesFuncName).Params().Error().BlockFunc(func(g *Group) {
+		for _, funcName := range buildDevImageFuncNames {
 			g.If(Err().Op(":=").Id(funcName).Call().Op(";").Err().Op("!=").Nil()).Block(
 				Return().Qual("fmt", "Errorf").Call(
 					Lit("failed to build and push image: %w"),
@@ -308,9 +644,9 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Return().Nil()
 	})
 
-	// image loads to kind clusters
-	f.Comment("LoadImage builds and loads an image to the provided kind cluster.")
-	f.Func().Id("LoadImage").Params(
+	// dev image loads to kind clusters
+	f.Comment("LoadDevImage builds and loads an image to the provided kind cluster.")
+	f.Func().Id("LoadDevImage").Params(
 		Id("kindClusterName").String(),
 		Id("component").String(),
 	).Error().BlockFunc(func(g *Group) {
@@ -339,9 +675,15 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().Id("workingDir"),
 			Line().Qual("fmt", "Sprintf").Call(Lit("cmd/%s/image/Dockerfile-alpine"), Id("component")),
 			Line().Id("arch"),
-			Line().Lit("localhost:5001"),
+			Line().Qual(
+				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+				"DevImageRepo",
+			),
 			Line().Id("imageName"),
-			Line().Lit("dev"),
+			Line().Qual(
+				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+				"DevImageTag",
+			),
 			Line().False(),
 			Line().True(),
 			Line().Id("kindClusterName"),
