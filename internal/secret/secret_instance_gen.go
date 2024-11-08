@@ -218,7 +218,7 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of secret instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created secret instance object"
+					errorMsg := "failed to reconcile updated secret instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func SecretInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of secret instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created secret instance object"
+					errorMsg := "failed to reconcile deleted secret instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

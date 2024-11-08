@@ -218,7 +218,7 @@ func ControlPlaneDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of control plane definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created control plane definition object"
+					errorMsg := "failed to reconcile updated control plane definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func ControlPlaneDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of control plane definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created control plane definition object"
+					errorMsg := "failed to reconcile deleted control plane definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

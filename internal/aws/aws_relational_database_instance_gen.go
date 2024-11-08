@@ -218,7 +218,7 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of aws relational database instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created aws relational database instance object"
+					errorMsg := "failed to reconcile updated aws relational database instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func AwsRelationalDatabaseInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of aws relational database instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created aws relational database instance object"
+					errorMsg := "failed to reconcile deleted aws relational database instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

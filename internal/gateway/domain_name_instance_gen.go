@@ -218,7 +218,7 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of domain name instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created domain name instance object"
+					errorMsg := "failed to reconcile updated domain name instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func DomainNameInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of domain name instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created domain name instance object"
+					errorMsg := "failed to reconcile deleted domain name instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

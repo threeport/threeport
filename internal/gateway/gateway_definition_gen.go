@@ -218,7 +218,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of gateway definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created gateway definition object"
+					errorMsg := "failed to reconcile updated gateway definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of gateway definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created gateway definition object"
+					errorMsg := "failed to reconcile deleted gateway definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

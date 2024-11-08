@@ -218,7 +218,7 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of metrics instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created metrics instance object"
+					errorMsg := "failed to reconcile updated metrics instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of metrics instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created metrics instance object"
+					errorMsg := "failed to reconcile deleted metrics instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

@@ -218,7 +218,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of workload instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created workload instance object"
+					errorMsg := "failed to reconcile updated workload instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func WorkloadInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of workload instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created workload instance object"
+					errorMsg := "failed to reconcile deleted workload instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

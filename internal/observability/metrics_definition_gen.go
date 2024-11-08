@@ -218,7 +218,7 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of metrics definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created metrics definition object"
+					errorMsg := "failed to reconcile updated metrics definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of metrics definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created metrics definition object"
+					errorMsg := "failed to reconcile deleted metrics definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

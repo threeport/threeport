@@ -218,7 +218,7 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of aws object storage bucket instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created aws object storage bucket instance object"
+					errorMsg := "failed to reconcile updated aws object storage bucket instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func AwsObjectStorageBucketInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of aws object storage bucket instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created aws object storage bucket instance object"
+					errorMsg := "failed to reconcile deleted aws object storage bucket instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

@@ -218,7 +218,7 @@ func HelmWorkloadInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of helm workload instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created helm workload instance object"
+					errorMsg := "failed to reconcile updated helm workload instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func HelmWorkloadInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of helm workload instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created helm workload instance object"
+					errorMsg := "failed to reconcile deleted helm workload instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

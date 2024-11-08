@@ -218,7 +218,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of kubernetes runtime instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created kubernetes runtime instance object"
+					errorMsg := "failed to reconcile updated kubernetes runtime instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of kubernetes runtime instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created kubernetes runtime instance object"
+					errorMsg := "failed to reconcile deleted kubernetes runtime instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

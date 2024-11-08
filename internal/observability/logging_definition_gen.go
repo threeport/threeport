@@ -218,7 +218,7 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of logging definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created logging definition object"
+					errorMsg := "failed to reconcile updated logging definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func LoggingDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of logging definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created logging definition object"
+					errorMsg := "failed to reconcile deleted logging definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

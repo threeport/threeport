@@ -564,7 +564,9 @@ func operationCase(
 		})
 		h.If(Id("operationErr").Op("!=").Nil()).Block(
 			Id("errorMsg").Op(":=").Lit(fmt.Sprintf(
-				"failed to reconcile created %s object", strcase.ToDelimited(obj.Name, ' '),
+				"failed to reconcile %s %s object",
+				lowerOpPast,
+				strcase.ToDelimited(obj.Name, ' '),
 			)),
 			Id("log").Dot("Error").Call(
 				Id("operationErr"),

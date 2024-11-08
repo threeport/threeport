@@ -188,7 +188,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of secret definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created secret definition object"
+					errorMsg := "failed to reconcile updated secret definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -236,7 +236,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of secret definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created secret definition object"
+					errorMsg := "failed to reconcile deleted secret definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

@@ -218,7 +218,7 @@ func ObservabilityStackDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of observability stack definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created observability stack definition object"
+					errorMsg := "failed to reconcile updated observability stack definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func ObservabilityStackDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of observability stack definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created observability stack definition object"
+					errorMsg := "failed to reconcile deleted observability stack definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

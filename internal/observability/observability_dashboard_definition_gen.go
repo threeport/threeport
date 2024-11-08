@@ -218,7 +218,7 @@ func ObservabilityDashboardDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of observability dashboard definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created observability dashboard definition object"
+					errorMsg := "failed to reconcile updated observability dashboard definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func ObservabilityDashboardDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of observability dashboard definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created observability dashboard definition object"
+					errorMsg := "failed to reconcile deleted observability dashboard definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

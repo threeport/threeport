@@ -218,7 +218,7 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of terraform definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created terraform definition object"
+					errorMsg := "failed to reconcile updated terraform definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of terraform definition encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created terraform definition object"
+					errorMsg := "failed to reconcile deleted terraform definition object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

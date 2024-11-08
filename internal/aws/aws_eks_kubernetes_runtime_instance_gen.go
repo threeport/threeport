@@ -218,7 +218,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of aws eks kubernetes runtime instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created aws eks kubernetes runtime instance object"
+					errorMsg := "failed to reconcile updated aws eks kubernetes runtime instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of aws eks kubernetes runtime instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created aws eks kubernetes runtime instance object"
+					errorMsg := "failed to reconcile deleted aws eks kubernetes runtime instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{

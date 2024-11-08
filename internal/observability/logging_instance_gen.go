@@ -218,7 +218,7 @@ func LoggingInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of logging instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created logging instance object"
+					errorMsg := "failed to reconcile updated logging instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
@@ -266,7 +266,7 @@ func LoggingInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of logging instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created logging instance object"
+					errorMsg := "failed to reconcile deleted logging instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
