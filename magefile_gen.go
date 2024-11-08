@@ -7,6 +7,8 @@ package main
 
 import (
 	"fmt"
+	version "github.com/threeport/threeport/internal/version"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/exec"
@@ -14,10 +16,10 @@ import (
 )
 
 // BuildApi builds the REST API binary.
-func BuildApi() error {
-	workingDir, arch, err := getBuildVals()
+func BuildApi(arch string) error {
+	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -35,20 +37,48 @@ func BuildApi() error {
 	return nil
 }
 
-// BuildApiImage builds and pushes a development REST API image.
-func BuildApiImage() error {
-	workingDir, arch, err := getBuildVals()
+// BuildDevApi builds the REST API binary for the architcture of the machine
+// where it is built.
+func BuildDevApi() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildApi(arch); err != nil {
+		return fmt.Errorf("failed to build dev rest-api binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildReleaseApi builds the REST API binary for amd64 architecture.
+func BuildReleaseApi() error {
+	if err := BuildApi("amd64"); err != nil {
+		return fmt.Errorf("failed to build release rest-api binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildApiImage builds and pushes a REST API container image.
+func BuildApiImage(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/rest-api/image/Dockerfile-alpine",
 		arch,
-		"localhost:5001",
+		imageRepo,
 		"threeport-rest-api",
-		"dev",
+		imageTag,
 		true,
 		false,
 		"",
@@ -59,11 +89,42 @@ func BuildApiImage() error {
 	return nil
 }
 
-// BuildDbMigrator builds the database migrator binary.
-func BuildDbMigrator() error {
-	workingDir, arch, err := getBuildVals()
+// BuildApiDevImage builds and pushes a development REST API container image.
+func BuildApiDevImage() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildApiImage(
+		installer.DevImageRepo,
+		version.GetVersion(),
+		arch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push dev rest-api image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildApiReleaseImage builds and pushes a release REST API container image.
+func BuildApiReleaseImage() error {
+	if err := BuildApiImage(
+		installer.ThreeportImageRepo,
+		version.GetVersion(),
+		"amd64",
+	); err != nil {
+		return fmt.Errorf("failed to build and push release rest-api image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildDbMigrator builds the database migrator binary.
+func BuildDbMigrator(arch string) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -81,20 +142,48 @@ func BuildDbMigrator() error {
 	return nil
 }
 
-// BuildDbMigratorImage builds and pushes a development database migrator image.
-func BuildDbMigratorImage() error {
-	workingDir, arch, err := getBuildVals()
+// BuildDevDbMigrator builds the database migrator binary for the architcture of the machine
+// where it is built.
+func BuildDevDbMigrator() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildDbMigrator(arch); err != nil {
+		return fmt.Errorf("failed to build dev database-migrator binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildReleaseDbMigrator builds the database migrator binary for amd64 architecture.
+func BuildReleaseDbMigrator() error {
+	if err := BuildDbMigrator("amd64"); err != nil {
+		return fmt.Errorf("failed to build release database-migrator binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildDbMigratorImage builds and pushes a database migrator container image.
+func BuildDbMigratorImage(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/database-migrator/image/Dockerfile-alpine",
 		arch,
-		"localhost:5001",
+		imageRepo,
 		"threeport-database-migrator",
-		"dev",
+		imageTag,
 		true,
 		false,
 		"",
@@ -105,11 +194,42 @@ func BuildDbMigratorImage() error {
 	return nil
 }
 
-// BuildSecretController builds the binary for the secret-controller.
-func BuildSecretController() error {
-	workingDir, arch, err := getBuildVals()
+// BuildDbMigratorDevImage builds and pushes a development database migrator container image.
+func BuildDbMigratorDevImage() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildDbMigratorImage(
+		installer.DevImageRepo,
+		version.GetVersion(),
+		arch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push dev database-migrator image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildDbMigratorReleaseImage builds and pushes a release database migrator container image.
+func BuildDbMigratorReleaseImage() error {
+	if err := BuildDbMigratorImage(
+		installer.ThreeportImageRepo,
+		version.GetVersion(),
+		"amd64",
+	); err != nil {
+		return fmt.Errorf("failed to build and push release database-migrator image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildSecretController builds the binary for the secret-controller.
+func BuildSecretController(arch string) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -127,20 +247,48 @@ func BuildSecretController() error {
 	return nil
 }
 
-// BuildSecretControllerImage builds and pushes the container image for the secret-controller.
-func BuildSecretControllerImage() error {
-	workingDir, arch, err := getBuildVals()
+// BuildDevSecretController builds the secret-controller binary for the architcture of the machine
+// where it is built.
+func BuildDevSecretController() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildSecretController(arch); err != nil {
+		return fmt.Errorf("failed to build dev secret-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildReleaseSecretController builds the secret-controller binary for amd64 architecture.
+func BuildReleaseSecretController() error {
+	if err := BuildSecretController("amd64"); err != nil {
+		return fmt.Errorf("failed to build release secret-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildSecretControllerImage builds and pushes the container image for the secret-controller.
+func BuildSecretControllerImage(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/secret-controller/image/Dockerfile-alpine",
 		arch,
-		"localhost:5001",
+		imageRepo,
 		"threeport-secret-controller",
-		"dev",
+		imageTag,
 		true,
 		false,
 		"",
@@ -151,11 +299,42 @@ func BuildSecretControllerImage() error {
 	return nil
 }
 
-// BuildAwsController builds the binary for the aws-controller.
-func BuildAwsController() error {
-	workingDir, arch, err := getBuildVals()
+// BuildSecretControllerDevImage builds and pushes a development secret-controller container image.
+func BuildSecretControllerDevImage() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildSecretControllerImage(
+		installer.DevImageRepo,
+		version.GetVersion(),
+		arch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push dev secret-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildSecretControllerReleaseImage builds and pushes a release secret-controller container image.
+func BuildSecretControllerReleaseImage() error {
+	if err := BuildSecretControllerImage(
+		installer.ThreeportImageRepo,
+		version.GetVersion(),
+		"amd64",
+	); err != nil {
+		return fmt.Errorf("failed to build and push release secret-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildAwsController builds the binary for the aws-controller.
+func BuildAwsController(arch string) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -173,20 +352,48 @@ func BuildAwsController() error {
 	return nil
 }
 
-// BuildAwsControllerImage builds and pushes the container image for the aws-controller.
-func BuildAwsControllerImage() error {
-	workingDir, arch, err := getBuildVals()
+// BuildDevAwsController builds the aws-controller binary for the architcture of the machine
+// where it is built.
+func BuildDevAwsController() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildAwsController(arch); err != nil {
+		return fmt.Errorf("failed to build dev aws-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildReleaseAwsController builds the aws-controller binary for amd64 architecture.
+func BuildReleaseAwsController() error {
+	if err := BuildAwsController("amd64"); err != nil {
+		return fmt.Errorf("failed to build release aws-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildAwsControllerImage builds and pushes the container image for the aws-controller.
+func BuildAwsControllerImage(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/aws-controller/image/Dockerfile-alpine",
 		arch,
-		"localhost:5001",
+		imageRepo,
 		"threeport-aws-controller",
-		"dev",
+		imageTag,
 		true,
 		false,
 		"",
@@ -197,11 +404,42 @@ func BuildAwsControllerImage() error {
 	return nil
 }
 
-// BuildControlPlaneController builds the binary for the control-plane-controller.
-func BuildControlPlaneController() error {
-	workingDir, arch, err := getBuildVals()
+// BuildAwsControllerDevImage builds and pushes a development aws-controller container image.
+func BuildAwsControllerDevImage() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildAwsControllerImage(
+		installer.DevImageRepo,
+		version.GetVersion(),
+		arch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push dev aws-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildAwsControllerReleaseImage builds and pushes a release aws-controller container image.
+func BuildAwsControllerReleaseImage() error {
+	if err := BuildAwsControllerImage(
+		installer.ThreeportImageRepo,
+		version.GetVersion(),
+		"amd64",
+	); err != nil {
+		return fmt.Errorf("failed to build and push release aws-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildControlPlaneController builds the binary for the control-plane-controller.
+func BuildControlPlaneController(arch string) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -219,20 +457,48 @@ func BuildControlPlaneController() error {
 	return nil
 }
 
-// BuildControlPlaneControllerImage builds and pushes the container image for the control-plane-controller.
-func BuildControlPlaneControllerImage() error {
-	workingDir, arch, err := getBuildVals()
+// BuildDevControlPlaneController builds the control-plane-controller binary for the architcture of the machine
+// where it is built.
+func BuildDevControlPlaneController() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildControlPlaneController(arch); err != nil {
+		return fmt.Errorf("failed to build dev control-plane-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildReleaseControlPlaneController builds the control-plane-controller binary for amd64 architecture.
+func BuildReleaseControlPlaneController() error {
+	if err := BuildControlPlaneController("amd64"); err != nil {
+		return fmt.Errorf("failed to build release control-plane-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildControlPlaneControllerImage builds and pushes the container image for the control-plane-controller.
+func BuildControlPlaneControllerImage(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/control-plane-controller/image/Dockerfile-alpine",
 		arch,
-		"localhost:5001",
+		imageRepo,
 		"threeport-control-plane-controller",
-		"dev",
+		imageTag,
 		true,
 		false,
 		"",
@@ -243,11 +509,42 @@ func BuildControlPlaneControllerImage() error {
 	return nil
 }
 
-// BuildGatewayController builds the binary for the gateway-controller.
-func BuildGatewayController() error {
-	workingDir, arch, err := getBuildVals()
+// BuildControlPlaneControllerDevImage builds and pushes a development control-plane-controller container image.
+func BuildControlPlaneControllerDevImage() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildControlPlaneControllerImage(
+		installer.DevImageRepo,
+		version.GetVersion(),
+		arch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push dev control-plane-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildControlPlaneControllerReleaseImage builds and pushes a release control-plane-controller container image.
+func BuildControlPlaneControllerReleaseImage() error {
+	if err := BuildControlPlaneControllerImage(
+		installer.ThreeportImageRepo,
+		version.GetVersion(),
+		"amd64",
+	); err != nil {
+		return fmt.Errorf("failed to build and push release control-plane-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildGatewayController builds the binary for the gateway-controller.
+func BuildGatewayController(arch string) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -265,20 +562,48 @@ func BuildGatewayController() error {
 	return nil
 }
 
-// BuildGatewayControllerImage builds and pushes the container image for the gateway-controller.
-func BuildGatewayControllerImage() error {
-	workingDir, arch, err := getBuildVals()
+// BuildDevGatewayController builds the gateway-controller binary for the architcture of the machine
+// where it is built.
+func BuildDevGatewayController() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildGatewayController(arch); err != nil {
+		return fmt.Errorf("failed to build dev gateway-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildReleaseGatewayController builds the gateway-controller binary for amd64 architecture.
+func BuildReleaseGatewayController() error {
+	if err := BuildGatewayController("amd64"); err != nil {
+		return fmt.Errorf("failed to build release gateway-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildGatewayControllerImage builds and pushes the container image for the gateway-controller.
+func BuildGatewayControllerImage(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/gateway-controller/image/Dockerfile-alpine",
 		arch,
-		"localhost:5001",
+		imageRepo,
 		"threeport-gateway-controller",
-		"dev",
+		imageTag,
 		true,
 		false,
 		"",
@@ -289,11 +614,42 @@ func BuildGatewayControllerImage() error {
 	return nil
 }
 
-// BuildHelmWorkloadController builds the binary for the helm-workload-controller.
-func BuildHelmWorkloadController() error {
-	workingDir, arch, err := getBuildVals()
+// BuildGatewayControllerDevImage builds and pushes a development gateway-controller container image.
+func BuildGatewayControllerDevImage() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildGatewayControllerImage(
+		installer.DevImageRepo,
+		version.GetVersion(),
+		arch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push dev gateway-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildGatewayControllerReleaseImage builds and pushes a release gateway-controller container image.
+func BuildGatewayControllerReleaseImage() error {
+	if err := BuildGatewayControllerImage(
+		installer.ThreeportImageRepo,
+		version.GetVersion(),
+		"amd64",
+	); err != nil {
+		return fmt.Errorf("failed to build and push release gateway-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildHelmWorkloadController builds the binary for the helm-workload-controller.
+func BuildHelmWorkloadController(arch string) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -311,20 +667,48 @@ func BuildHelmWorkloadController() error {
 	return nil
 }
 
-// BuildHelmWorkloadControllerImage builds and pushes the container image for the helm-workload-controller.
-func BuildHelmWorkloadControllerImage() error {
-	workingDir, arch, err := getBuildVals()
+// BuildDevHelmWorkloadController builds the helm-workload-controller binary for the architcture of the machine
+// where it is built.
+func BuildDevHelmWorkloadController() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildHelmWorkloadController(arch); err != nil {
+		return fmt.Errorf("failed to build dev helm-workload-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildReleaseHelmWorkloadController builds the helm-workload-controller binary for amd64 architecture.
+func BuildReleaseHelmWorkloadController() error {
+	if err := BuildHelmWorkloadController("amd64"); err != nil {
+		return fmt.Errorf("failed to build release helm-workload-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildHelmWorkloadControllerImage builds and pushes the container image for the helm-workload-controller.
+func BuildHelmWorkloadControllerImage(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/helm-workload-controller/image/Dockerfile-alpine",
 		arch,
-		"localhost:5001",
+		imageRepo,
 		"threeport-helm-workload-controller",
-		"dev",
+		imageTag,
 		true,
 		false,
 		"",
@@ -335,11 +719,42 @@ func BuildHelmWorkloadControllerImage() error {
 	return nil
 }
 
-// BuildKubernetesRuntimeController builds the binary for the kubernetes-runtime-controller.
-func BuildKubernetesRuntimeController() error {
-	workingDir, arch, err := getBuildVals()
+// BuildHelmWorkloadControllerDevImage builds and pushes a development helm-workload-controller container image.
+func BuildHelmWorkloadControllerDevImage() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildHelmWorkloadControllerImage(
+		installer.DevImageRepo,
+		version.GetVersion(),
+		arch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push dev helm-workload-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildHelmWorkloadControllerReleaseImage builds and pushes a release helm-workload-controller container image.
+func BuildHelmWorkloadControllerReleaseImage() error {
+	if err := BuildHelmWorkloadControllerImage(
+		installer.ThreeportImageRepo,
+		version.GetVersion(),
+		"amd64",
+	); err != nil {
+		return fmt.Errorf("failed to build and push release helm-workload-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildKubernetesRuntimeController builds the binary for the kubernetes-runtime-controller.
+func BuildKubernetesRuntimeController(arch string) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -357,20 +772,48 @@ func BuildKubernetesRuntimeController() error {
 	return nil
 }
 
-// BuildKubernetesRuntimeControllerImage builds and pushes the container image for the kubernetes-runtime-controller.
-func BuildKubernetesRuntimeControllerImage() error {
-	workingDir, arch, err := getBuildVals()
+// BuildDevKubernetesRuntimeController builds the kubernetes-runtime-controller binary for the architcture of the machine
+// where it is built.
+func BuildDevKubernetesRuntimeController() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildKubernetesRuntimeController(arch); err != nil {
+		return fmt.Errorf("failed to build dev kubernetes-runtime-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildReleaseKubernetesRuntimeController builds the kubernetes-runtime-controller binary for amd64 architecture.
+func BuildReleaseKubernetesRuntimeController() error {
+	if err := BuildKubernetesRuntimeController("amd64"); err != nil {
+		return fmt.Errorf("failed to build release kubernetes-runtime-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildKubernetesRuntimeControllerImage builds and pushes the container image for the kubernetes-runtime-controller.
+func BuildKubernetesRuntimeControllerImage(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/kubernetes-runtime-controller/image/Dockerfile-alpine",
 		arch,
-		"localhost:5001",
+		imageRepo,
 		"threeport-kubernetes-runtime-controller",
-		"dev",
+		imageTag,
 		true,
 		false,
 		"",
@@ -381,11 +824,42 @@ func BuildKubernetesRuntimeControllerImage() error {
 	return nil
 }
 
-// BuildObservabilityController builds the binary for the observability-controller.
-func BuildObservabilityController() error {
-	workingDir, arch, err := getBuildVals()
+// BuildKubernetesRuntimeControllerDevImage builds and pushes a development kubernetes-runtime-controller container image.
+func BuildKubernetesRuntimeControllerDevImage() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildKubernetesRuntimeControllerImage(
+		installer.DevImageRepo,
+		version.GetVersion(),
+		arch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push dev kubernetes-runtime-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildKubernetesRuntimeControllerReleaseImage builds and pushes a release kubernetes-runtime-controller container image.
+func BuildKubernetesRuntimeControllerReleaseImage() error {
+	if err := BuildKubernetesRuntimeControllerImage(
+		installer.ThreeportImageRepo,
+		version.GetVersion(),
+		"amd64",
+	); err != nil {
+		return fmt.Errorf("failed to build and push release kubernetes-runtime-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildObservabilityController builds the binary for the observability-controller.
+func BuildObservabilityController(arch string) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -403,20 +877,48 @@ func BuildObservabilityController() error {
 	return nil
 }
 
-// BuildObservabilityControllerImage builds and pushes the container image for the observability-controller.
-func BuildObservabilityControllerImage() error {
-	workingDir, arch, err := getBuildVals()
+// BuildDevObservabilityController builds the observability-controller binary for the architcture of the machine
+// where it is built.
+func BuildDevObservabilityController() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildObservabilityController(arch); err != nil {
+		return fmt.Errorf("failed to build dev observability-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildReleaseObservabilityController builds the observability-controller binary for amd64 architecture.
+func BuildReleaseObservabilityController() error {
+	if err := BuildObservabilityController("amd64"); err != nil {
+		return fmt.Errorf("failed to build release observability-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildObservabilityControllerImage builds and pushes the container image for the observability-controller.
+func BuildObservabilityControllerImage(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/observability-controller/image/Dockerfile-alpine",
 		arch,
-		"localhost:5001",
+		imageRepo,
 		"threeport-observability-controller",
-		"dev",
+		imageTag,
 		true,
 		false,
 		"",
@@ -427,11 +929,42 @@ func BuildObservabilityControllerImage() error {
 	return nil
 }
 
-// BuildTerraformController builds the binary for the terraform-controller.
-func BuildTerraformController() error {
-	workingDir, arch, err := getBuildVals()
+// BuildObservabilityControllerDevImage builds and pushes a development observability-controller container image.
+func BuildObservabilityControllerDevImage() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildObservabilityControllerImage(
+		installer.DevImageRepo,
+		version.GetVersion(),
+		arch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push dev observability-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildObservabilityControllerReleaseImage builds and pushes a release observability-controller container image.
+func BuildObservabilityControllerReleaseImage() error {
+	if err := BuildObservabilityControllerImage(
+		installer.ThreeportImageRepo,
+		version.GetVersion(),
+		"amd64",
+	); err != nil {
+		return fmt.Errorf("failed to build and push release observability-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildTerraformController builds the binary for the terraform-controller.
+func BuildTerraformController(arch string) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -449,20 +982,48 @@ func BuildTerraformController() error {
 	return nil
 }
 
-// BuildTerraformControllerImage builds and pushes the container image for the terraform-controller.
-func BuildTerraformControllerImage() error {
-	workingDir, arch, err := getBuildVals()
+// BuildDevTerraformController builds the terraform-controller binary for the architcture of the machine
+// where it is built.
+func BuildDevTerraformController() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildTerraformController(arch); err != nil {
+		return fmt.Errorf("failed to build dev terraform-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildReleaseTerraformController builds the terraform-controller binary for amd64 architecture.
+func BuildReleaseTerraformController() error {
+	if err := BuildTerraformController("amd64"); err != nil {
+		return fmt.Errorf("failed to build release terraform-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildTerraformControllerImage builds and pushes the container image for the terraform-controller.
+func BuildTerraformControllerImage(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/terraform-controller/image/Dockerfile-alpine",
 		arch,
-		"localhost:5001",
+		imageRepo,
 		"threeport-terraform-controller",
-		"dev",
+		imageTag,
 		true,
 		false,
 		"",
@@ -473,11 +1034,42 @@ func BuildTerraformControllerImage() error {
 	return nil
 }
 
-// BuildWorkloadController builds the binary for the workload-controller.
-func BuildWorkloadController() error {
-	workingDir, arch, err := getBuildVals()
+// BuildTerraformControllerDevImage builds and pushes a development terraform-controller container image.
+func BuildTerraformControllerDevImage() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildTerraformControllerImage(
+		installer.DevImageRepo,
+		version.GetVersion(),
+		arch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push dev terraform-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildTerraformControllerReleaseImage builds and pushes a release terraform-controller container image.
+func BuildTerraformControllerReleaseImage() error {
+	if err := BuildTerraformControllerImage(
+		installer.ThreeportImageRepo,
+		version.GetVersion(),
+		"amd64",
+	); err != nil {
+		return fmt.Errorf("failed to build and push release terraform-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildWorkloadController builds the binary for the workload-controller.
+func BuildWorkloadController(arch string) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -495,20 +1087,48 @@ func BuildWorkloadController() error {
 	return nil
 }
 
-// BuildWorkloadControllerImage builds and pushes the container image for the workload-controller.
-func BuildWorkloadControllerImage() error {
-	workingDir, arch, err := getBuildVals()
+// BuildDevWorkloadController builds the workload-controller binary for the architcture of the machine
+// where it is built.
+func BuildDevWorkloadController() error {
+	_, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildWorkloadController(arch); err != nil {
+		return fmt.Errorf("failed to build dev workload-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildReleaseWorkloadController builds the workload-controller binary for amd64 architecture.
+func BuildReleaseWorkloadController() error {
+	if err := BuildWorkloadController("amd64"); err != nil {
+		return fmt.Errorf("failed to build release workload-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// BuildWorkloadControllerImage builds and pushes the container image for the workload-controller.
+func BuildWorkloadControllerImage(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
 	}
 
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/workload-controller/image/Dockerfile-alpine",
 		arch,
-		"localhost:5001",
+		imageRepo,
 		"threeport-workload-controller",
-		"dev",
+		imageTag,
 		true,
 		false,
 		"",
@@ -519,49 +1139,80 @@ func BuildWorkloadControllerImage() error {
 	return nil
 }
 
+// BuildWorkloadControllerDevImage builds and pushes a development workload-controller container image.
+func BuildWorkloadControllerDevImage() error {
+	_, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	if err := BuildWorkloadControllerImage(
+		installer.DevImageRepo,
+		version.GetVersion(),
+		arch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push dev workload-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// BuildWorkloadControllerReleaseImage builds and pushes a release workload-controller container image.
+func BuildWorkloadControllerReleaseImage() error {
+	if err := BuildWorkloadControllerImage(
+		installer.ThreeportImageRepo,
+		version.GetVersion(),
+		"amd64",
+	); err != nil {
+		return fmt.Errorf("failed to build and push release workload-controller image: %w", err)
+	}
+
+	return nil
+}
+
 // BuildAll builds the binaries for all components.
-func BuildAll() error {
-	if err := BuildApi(); err != nil {
+func BuildAll(arch string) error {
+	if err := BuildApi(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
-	if err := BuildDbMigrator(); err != nil {
+	if err := BuildDbMigrator(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
-	if err := BuildSecretController(); err != nil {
+	if err := BuildSecretController(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
-	if err := BuildAwsController(); err != nil {
+	if err := BuildAwsController(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
-	if err := BuildControlPlaneController(); err != nil {
+	if err := BuildControlPlaneController(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
-	if err := BuildGatewayController(); err != nil {
+	if err := BuildGatewayController(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
-	if err := BuildHelmWorkloadController(); err != nil {
+	if err := BuildHelmWorkloadController(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
-	if err := BuildKubernetesRuntimeController(); err != nil {
+	if err := BuildKubernetesRuntimeController(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
-	if err := BuildObservabilityController(); err != nil {
+	if err := BuildObservabilityController(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
-	if err := BuildTerraformController(); err != nil {
+	if err := BuildTerraformController(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
-	if err := BuildWorkloadController(); err != nil {
+	if err := BuildWorkloadController(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
@@ -569,56 +1220,109 @@ func BuildAll() error {
 }
 
 // BuildAllImages builds and pushes images for all components.
-func BuildAllImages() error {
-	if err := BuildApiImage(); err != nil {
+func BuildAllImages(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	if err := BuildApiImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
-	if err := BuildDbMigratorImage(); err != nil {
+	if err := BuildDbMigratorImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
-	if err := BuildSecretControllerImage(); err != nil {
+	if err := BuildSecretControllerImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
-	if err := BuildAwsControllerImage(); err != nil {
+	if err := BuildAwsControllerImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
-	if err := BuildControlPlaneControllerImage(); err != nil {
+	if err := BuildControlPlaneControllerImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
-	if err := BuildGatewayControllerImage(); err != nil {
+	if err := BuildGatewayControllerImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
-	if err := BuildHelmWorkloadControllerImage(); err != nil {
+	if err := BuildHelmWorkloadControllerImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
-	if err := BuildKubernetesRuntimeControllerImage(); err != nil {
+	if err := BuildKubernetesRuntimeControllerImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
-	if err := BuildObservabilityControllerImage(); err != nil {
+	if err := BuildObservabilityControllerImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
-	if err := BuildTerraformControllerImage(); err != nil {
+	if err := BuildTerraformControllerImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
-	if err := BuildWorkloadControllerImage(); err != nil {
+	if err := BuildWorkloadControllerImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
 	return nil
 }
 
-// LoadImage builds and loads an image to the provided kind cluster.
-func LoadImage(kindClusterName string, component string) error {
+// BuildAllDevImages builds and pushes development images for all components.
+func BuildAllDevImages() error {
+	if err := BuildApiDevImage(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	if err := BuildDbMigratorDevImage(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	if err := BuildSecretControllerDevImage(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	if err := BuildAwsControllerDevImage(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	if err := BuildControlPlaneControllerDevImage(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	if err := BuildGatewayControllerDevImage(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	if err := BuildHelmWorkloadControllerDevImage(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	if err := BuildKubernetesRuntimeControllerDevImage(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	if err := BuildObservabilityControllerDevImage(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	if err := BuildTerraformControllerDevImage(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	if err := BuildWorkloadControllerDevImage(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	return nil
+}
+
+// LoadDevImage builds and loads an image to the provided kind cluster.
+func LoadDevImage(kindClusterName string, component string) error {
 	workingDir, arch, err := getBuildVals()
 	if err != nil {
 		return fmt.Errorf("failed to get build values: %w", err)
@@ -630,9 +1334,9 @@ func LoadImage(kindClusterName string, component string) error {
 		workingDir,
 		fmt.Sprintf("cmd/%s/image/Dockerfile-alpine", component),
 		arch,
-		"localhost:5001",
+		installer.DevImageRepo,
 		imageName,
-		"dev",
+		version.GetVersion(),
 		false,
 		true,
 		kindClusterName,

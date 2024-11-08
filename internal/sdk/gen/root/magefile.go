@@ -21,11 +21,24 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	f.PackageComment("+build mage")
 
+	// set installer package based for threeport and extensions
+	var installerPkg string
+	if gen.Extension {
+		installerPkg = fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath)
+	} else {
+		installerPkg = fmt.Sprintf("%s/pkg/threeport-installer/v0", gen.ModulePath)
+	}
+
+	// set release image repo constant
+	var releaseImageRepoConst string
+	if gen.Extension {
+		releaseImageRepoConst = "ReleaseImageRepo"
+	} else {
+		releaseImageRepoConst = "ThreeportImageRepo"
+	}
+
 	f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
-	f.ImportAlias(
-		fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
-		"installer",
-	)
+	f.ImportAlias(installerPkg, "installer")
 
 	// set function names for each component
 	buildApiFuncName := "BuildApi"
@@ -156,13 +169,13 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Line(),
 		If(Err().Op(":=").Id(buildApiImageFuncName).Call(
 			Line().Qual(
-				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+				installerPkg,
 				"DevImageRepo",
 			),
 			Line().Qual(
-				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
-				"DevImageTag",
-			),
+				fmt.Sprintf("%s/internal/version", gen.ModulePath),
+				"GetVersion",
+			).Call(),
 			Line().Id("arch"),
 			Line(),
 		).Op(";").Err().Op("!=").Nil()).Block(
@@ -182,13 +195,13 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Func().Id("BuildApiReleaseImage").Params().Error().Block(
 		If(Err().Op(":=").Id(buildApiImageFuncName).Call(
 			Line().Qual(
-				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
-				"DevImageRepo",
+				installerPkg,
+				releaseImageRepoConst,
 			),
 			Line().Qual(
-				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
-				"DevImageTag",
-			),
+				fmt.Sprintf("%s/internal/version", gen.ModulePath),
+				"GetVersion",
+			).Call(),
 			Line().Lit("amd64"),
 			Line(),
 		).Op(";").Err().Op("!=").Nil()).Block(
@@ -319,13 +332,13 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Line(),
 		If(Err().Op(":=").Id(buildDbMigratorImageFuncName).Call(
 			Line().Qual(
-				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+				installerPkg,
 				"DevImageRepo",
 			),
 			Line().Qual(
-				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
-				"DevImageTag",
-			),
+				fmt.Sprintf("%s/internal/version", gen.ModulePath),
+				"GetVersion",
+			).Call(),
 			Line().Id("arch"),
 			Line(),
 		).Op(";").Err().Op("!=").Nil()).Block(
@@ -345,13 +358,13 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Func().Id("BuildDbMigratorReleaseImage").Params().Error().Block(
 		If(Err().Op(":=").Id(buildDbMigratorImageFuncName).Call(
 			Line().Qual(
-				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
-				"DevImageRepo",
+				installerPkg,
+				releaseImageRepoConst,
 			),
 			Line().Qual(
-				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
-				"DevImageTag",
-			),
+				fmt.Sprintf("%s/internal/version", gen.ModulePath),
+				"GetVersion",
+			).Call(),
 			Line().Lit("amd64"),
 			Line(),
 		).Op(";").Err().Op("!=").Nil()).Block(
@@ -522,13 +535,13 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Line(),
 				If(Err().Op(":=").Id(buildImageFuncName).Call(
 					Line().Qual(
-						fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+						installerPkg,
 						"DevImageRepo",
 					),
 					Line().Qual(
-						fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
-						"DevImageTag",
-					),
+						fmt.Sprintf("%s/internal/version", gen.ModulePath),
+						"GetVersion",
+					).Call(),
 					Line().Id("arch"),
 					Line(),
 				).Op(";").Err().Op("!=").Nil()).Block(
@@ -556,13 +569,13 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			f.Func().Id(buildReleaseImageFuncName).Params().Error().Block(
 				If(Err().Op(":=").Id(buildImageFuncName).Call(
 					Line().Qual(
-						fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
-						"DevImageRepo",
+						installerPkg,
+						releaseImageRepoConst,
 					),
 					Line().Qual(
-						fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
-						"DevImageTag",
-					),
+						fmt.Sprintf("%s/internal/version", gen.ModulePath),
+						"GetVersion",
+					).Call(),
 					Line().Lit("amd64"),
 					Line(),
 				).Op(";").Err().Op("!=").Nil()).Block(
@@ -676,14 +689,14 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().Qual("fmt", "Sprintf").Call(Lit("cmd/%s/image/Dockerfile-alpine"), Id("component")),
 			Line().Id("arch"),
 			Line().Qual(
-				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
+				installerPkg,
 				"DevImageRepo",
 			),
 			Line().Id("imageName"),
 			Line().Qual(
-				fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath),
-				"DevImageTag",
-			),
+				fmt.Sprintf("%s/internal/version", gen.ModulePath),
+				"GetVersion",
+			).Call(),
 			Line().False(),
 			Line().True(),
 			Line().Id("kindClusterName"),
@@ -729,7 +742,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line(),
 
 			Qual("fmt", "Println").Call(Lit(fmt.Sprintf(
-				"tptctl plugin built and available at bin/%s",
+				"tptctl plugin built and available at bin/%s.so",
 				strcase.ToKebab(sdkConfig.ExtensionName),
 			))),
 			Line(),

@@ -120,7 +120,6 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			),
 			Line(),
 
-			// asdf
 			Comment("determine if auth is enabled on control plane"),
 			List(Id("authEnabled"), Err()).Op(":=").Id("threeportConfig").Dot("GetThreeportAuthEnabled").Call(
 				Id("requestedControlPlane"),
@@ -165,10 +164,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					installerPkg,
 					"DevImageRepo",
 				),
-				Id("inst").Dot("ControlPlaneImageTag").Op("=").Qual(
-					installerPkg,
-					"DevImageTag",
-				),
+				Id("inst").Dot("ControlPlaneImageTag").Op("=").Id("controlPlaneImageTag"),
 			).Else().Block(
 				Id("inst").Dot("ControlPlaneImageRepo").Op("=").Id("controlPlaneImageRepo"),
 				Id("inst").Dot("ControlPlaneImageTag").Op("=").Id("controlPlaneImageTag"),
@@ -242,7 +238,10 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Lit("dev"), Lit("d"), Lit(false), Qual("fmt", "Sprintf").Call(
 					Line().Lit("If true, development image repo (%s) and image tag (%s) will be used"),
 					Line().Qual(installerPkg, "DevImageRepo"),
-					Line().Qual(installerPkg, "DevImageTag"),
+					Line().Qual(
+						fmt.Sprintf("%s/internal/version", gen.ModulePath),
+						"GetVersion",
+					).Call(),
 					Line(),
 				),
 			),
@@ -253,7 +252,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().List(
 				Lit("control-plane-image-repo"),
 				Lit("r"),
-				Lit(sdkConfig.ImageRepo),
+				Qual(installerPkg, "ReleaseImageRepo"),
 				Lit("Image repo to pull threeport control plane images from."),
 			),
 			Line(),

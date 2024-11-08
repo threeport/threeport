@@ -9,6 +9,9 @@ const (
 	// Official image repo for threeport images
 	ThreeportImageRepo = "ghcr.io/threeport"
 
+	// Development image repo used for local development
+	DevImageRepo = "localhost:5001"
+
 	// Official image names for threeport control plane components
 	ThreeportAPIImage                         = "threeport-rest-api"
 	ThreeportDatabaseMigratorImage            = "threeport-database-migrator"

@@ -12,9 +12,12 @@ import (
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "threeport-sdk",
-	Short: "Develop and maintain Threeport with the SDK",
-	Long: `Develop and maintain Threeport with the SDK.
-	Generate code for threeport projects.`,
+	Short: "Develop and maintain Threeport and extensions to Threeport",
+	Long: `Develop and maintain Threeport and extensions to Threeport.
+
+This command line tool is used to generate source code scaffolding and
+boilerplate for the core Threeport project as well as extensions to
+Threeport which are developed out-of-tree.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
