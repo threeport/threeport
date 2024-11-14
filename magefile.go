@@ -13,102 +13,10 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// BuildAgent builds the binary for the agent.
-func BuildAgent() error {
-	workingDir, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
-
-	if err := util.BuildBinary(
-		workingDir,
-		arch,
-		"agent",
-		"cmd/agent/main.go",
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to build agent binary: %w", err)
-	}
-
-	fmt.Println("binary built and available at bin/agent")
-
-	return nil
-}
-
-// BuildAgentImage builds and pushes the agent image.
-func BuildAgentImage() error {
-	workingDir, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
-
-	if err := util.BuildImage(
-		workingDir,
-		"cmd/agent/image/Dockerfile-alpine",
-		arch,
-		"localhost:5001",
-		"threeport-agent",
-		"dev",
-		true,
-		false,
-		"",
-	); err != nil {
-		return fmt.Errorf("failed to build and push agent image: %w", err)
-	}
-
-	return nil
-}
-
-// BuildDatabaseMigrator builds the binary for the database-migrator.
-func BuildDatabaseMigrator() error {
-	workingDir, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
-
-	if err := util.BuildBinary(
-		workingDir,
-		arch,
-		"database-migrator",
-		"cmd/database-migrator/main_gen.go",
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to build database-migrator binary: %w", err)
-	}
-
-	fmt.Println("binary built and available at bin/database-migrator")
-
-	return nil
-}
-
-// BuildDatabaseMigratorImage builds and pushes the database-migrator image.
-func BuildDatabaseMigratorImage() error {
-	workingDir, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get build values: %w", err)
-	}
-
-	if err := util.BuildImage(
-		workingDir,
-		"cmd/database-migrator/image/Dockerfile-alpine",
-		arch,
-		"localhost:5001",
-		"threeport-database-migrator",
-		"dev",
-		true,
-		false,
-		"",
-	); err != nil {
-		return fmt.Errorf("failed to build and push database-migrator image: %w", err)
-	}
-
-	return nil
-}
-
 // E2e calls ginkgo to run the e2e tests suite.  Takes 2 args: 1. imageRepo -
 // either 'local' or the URL for an external image repo.  2. clean - if true
 // will remove the control plane and infra after completion.
-func E2e(
+func (Test) E2e(
 	imageRepo string,
 	clean bool,
 ) error {
@@ -134,15 +42,16 @@ func E2e(
 	return nil
 }
 
-// E2eLocal is a wrapper for E2e that uses kind, a local image repo in a docker
+// E2eLocal is a wrapper for e2e that uses kind, a local image repo in a docker
 // container and cleans up at completion.
-func E2eLocal() error {
-	return E2e("local", true)
+func (Test) E2eLocal() error {
+	test := Test{}
+	return test.E2e("local", true)
 }
 
 // E2eClean removes the kind cluster and local container registry for e2e
 // testing.
-func E2eClean() error {
+func (Test) E2eClean() error {
 	cmd := "kind"
 	args := []string{
 		"delete",
@@ -154,15 +63,16 @@ func E2eClean() error {
 		return fmt.Errorf("failed to remove e2e test cluster: %w", err)
 	}
 
-	if err := CleanLocalRegistry(); err != nil {
+	dev := Dev{}
+	if err := dev.LocalRegistryDown(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// InstallSdk builds SDK binary and installs in GOPATH.
-func InstallSdk() error {
+// Sdk builds the SDK binary and installs in GOPATH.
+func (Install) Sdk() error {
 	goPath := os.Getenv("GOPATH")
 	outputPath := filepath.Join(goPath, "bin", "threeport-sdk")
 
@@ -186,7 +96,7 @@ func InstallSdk() error {
 
 // Integration runs integration tests against an existing Threeport control
 // plane.
-func Integration() error {
+func (Test) Integration() error {
 	cmd := "go"
 	args := []string{
 		"test",
@@ -201,9 +111,9 @@ func Integration() error {
 	return nil
 }
 
-// CreateLocalRegistry starts a docker container to serve as a local container
+// LocalRegistryUp starts a docker container to serve as a local container
 // registry.
-func CreateLocalRegistry() error {
+func (Dev) LocalRegistryUp() error {
 	if err := tptdev.CreateLocalRegistry(); err != nil {
 		return fmt.Errorf("failed to create local container registry: %w", err)
 	}
@@ -211,8 +121,8 @@ func CreateLocalRegistry() error {
 	return nil
 }
 
-// CleanLocalRegistry stops and removes the local container registry.
-func CleanLocalRegistry() error {
+// LocalRegistryDown stops and removes the local container registry.
+func (Dev) LocalRegistryDown() error {
 	if err := tptdev.DeleteLocalRegistry(); err != nil {
 		return fmt.Errorf("failed to remove local container registry: %w", err)
 	}
@@ -220,8 +130,8 @@ func CleanLocalRegistry() error {
 	return nil
 }
 
-// BuildTptdev builds tptdev binary.
-func BuildTptdev() error {
+// Tptdev builds tptdev binary.
+func (Build) Tptdev() error {
 	buildTptdevCmd := exec.Command(
 		"go",
 		"build",
@@ -239,9 +149,10 @@ func BuildTptdev() error {
 	return nil
 }
 
-// InstallTptdev installs tptdev binary at /usr/local/bin/.
-func InstallTptdev() error {
-	if err := BuildTptdev(); err != nil {
+// Tptdev installs the tptdev binary at /usr/local/bin/.
+func (Install) Tptdev() error {
+	build := Build{}
+	if err := build.Tptdev(); err != nil {
 		return fmt.Errorf("failed to build tptdev: %w", err)
 	}
 
@@ -261,8 +172,8 @@ func InstallTptdev() error {
 	return nil
 }
 
-// BuildTptctl builds tptctl binary.
-func BuildTptctl() error {
+// Tptctl builds tptctl binary.
+func (Build) Tptctl() error {
 	buildTptctlCmd := exec.Command(
 		"go",
 		"build",
@@ -280,9 +191,10 @@ func BuildTptctl() error {
 	return nil
 }
 
-// InstallTptctl installs tptctl binary at the provided path.
-func InstallTptctl(path string) error {
-	if err := BuildTptctl(); err != nil {
+// Tptctl installs the tptctl binary at the provided path.
+func (Install) Tptctl(path string) error {
+	build := Build{}
+	if err := build.Tptctl(); err != nil {
 		return fmt.Errorf("failed to build tptctl: %w", err)
 	}
 
@@ -301,15 +213,16 @@ func InstallTptctl(path string) error {
 	return nil
 }
 
-// Generate runs code generation.  It runs threeport-sdk and generates API
+// Generate runs runs threeport-sdk code generation and generates API
 // swagger docs.
-func Generate() error {
-	err := GenerateCode()
+func (Dev) Generate() error {
+	dev := Dev{}
+	err := dev.GenerateCode()
 	if err != nil {
 		return fmt.Errorf("code generation failed: %w", err)
 	}
 
-	err = GenerateDocs()
+	err = dev.GenerateDocs()
 	if err != nil {
 		return fmt.Errorf("docs generation failed: %w", err)
 	}
@@ -320,8 +233,7 @@ func Generate() error {
 }
 
 // GenerateCode generates code with threeport-sdk.
-func GenerateCode() error {
-
+func (Dev) GenerateCode() error {
 	generateCode := exec.Command(
 		"threeport-sdk",
 		"gen",
@@ -338,8 +250,8 @@ func GenerateCode() error {
 	return nil
 }
 
-// GenerateDocs generates API swagger docs.
-func GenerateDocs() error {
+// GenerateDocs generates the swagger docs served by the API.
+func (Dev) GenerateDocs() error {
 	docsDestination := "pkg/api-server/v0/docs"
 	generateSwaggerDocs := exec.Command(
 		"swag",
@@ -363,29 +275,9 @@ func GenerateDocs() error {
 	return nil
 }
 
-// AutomatedTests runs automated tests.
-func AutomatedTests() error {
-	runTests := exec.Command(
-		"go",
-		"test",
-		"-v",
-		"./...",
-		"-count=1",
-	)
-
-	output, err := runTests.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("test runs failed to run: '%s': %w", output, err)
-	}
-
-	fmt.Println("tests ran successfully")
-
-	return nil
-}
-
-// TestCommits checks to make sure commit messages follow conventional commits
+// Commits checks to make sure commit messages follow conventional commits
 // format.
-func TestCommits() error {
+func (Test) Commits() error {
 	testCommits := exec.Command(
 		"test/scripts/commit-check-latest.sh",
 	)
@@ -400,8 +292,8 @@ func TestCommits() error {
 	return nil
 }
 
-// DevUp runs a local development environment.
-func DevUp() error {
+// Up spins up a local development environment.
+func (Dev) Up() error {
 	devUp := exec.Command(
 		"./bin/tptdev",
 		"up",
@@ -418,8 +310,8 @@ func DevUp() error {
 	return nil
 }
 
-// DevDown deletes the local development environment.
-func DevDown() error {
+// Down removes the local development environment.
+func (Dev) Down() error {
 	devDown := exec.Command(
 		"./bin/tptdev",
 		"down",
@@ -575,8 +467,8 @@ func DevDown() error {
 // 	return nil
 // }
 
-// DevForwardAPI forwards local port 1323 to the local dev API
-func DevForwardAPI() error {
+// ForwardApi forwards local port 1323 to the local dev API.
+func (Dev) ForwardApi() error {
 	devforwardAPI := exec.Command(
 		"kubectl",
 		"port-forward",
@@ -595,8 +487,8 @@ func DevForwardAPI() error {
 	return nil
 }
 
-// DevForwardCrdb forwards local port 26257 to local dev cockroach database
-func DevForwardCrdb() error {
+// ForwardCrdb forwards local port 26257 to local dev cockroach database.
+func (Dev) ForwardCrdb() error {
 	devforwardCrdb := exec.Command(
 		"kubectl",
 		"port-forward",
@@ -615,8 +507,8 @@ func DevForwardCrdb() error {
 	return nil
 }
 
-// DevForwardNats forwards local port 33993 to the local dev API nats server
-func DevForwardNats() error {
+// ForwardNats forwards local port 33993 to the local dev API nats server.
+func (Dev) ForwardNats() error {
 	devforwardNats := exec.Command(
 		"kubectl",
 		"port-forward",
