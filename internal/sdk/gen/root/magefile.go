@@ -442,7 +442,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Line().Id("workingDir"),
 				Line().Id("arch"),
 				Line().Lit("agent"),
-				Line().Lit("cmd/agent/main_gen.go"),
+				Line().Lit("cmd/agent/main.go"),
 				Line().Lit(false),
 				Line(),
 			).Op(";").Err().Op("!=").Nil()).Block(

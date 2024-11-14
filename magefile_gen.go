@@ -259,7 +259,7 @@ func (Build) AgentBin(arch string) error {
 		workingDir,
 		arch,
 		"agent",
-		"cmd/agent/main_gen.go",
+		"cmd/agent/main.go",
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build agent binary: %w", err)
