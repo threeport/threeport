@@ -5,15 +5,8 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
-	database "database"
 	"flag"
 	"fmt"
-	gorm "gorm"
-	"net/http"
-	"os"
-	"path/filepath"
-	"time"
-
 	validator "github.com/go-playground/validator/v10"
 	godotenv "github.com/joho/godotenv"
 	echo "github.com/labstack/echo/v4"
@@ -22,6 +15,7 @@ import (
 	util "github.com/threeport/threeport/cmd/rest-api/util"
 	version "github.com/threeport/threeport/internal/version"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
+	database "github.com/threeport/threeport/pkg/api-server/v0/database"
 	_ "github.com/threeport/threeport/pkg/api-server/v0/docs"
 	handlers_v0 "github.com/threeport/threeport/pkg/api-server/v0/handlers"
 	routes_v0 "github.com/threeport/threeport/pkg/api-server/v0/routes"
@@ -31,6 +25,11 @@ import (
 	versions_v1 "github.com/threeport/threeport/pkg/api-server/v1/versions"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	zap "go.uber.org/zap"
+	gorm "gorm.io/gorm"
+	"net/http"
+	"os"
+	"path/filepath"
+	"time"
 )
 
 // @title Threeport RESTful API
