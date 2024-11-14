@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	version "github.com/threeport/threeport/internal/version"
+	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -288,6 +290,30 @@ func (Test) Commits() error {
 	}
 
 	fmt.Println("commit check ran successfully")
+
+	return nil
+}
+
+// Up spins up a control plane using tptctl and a local registry for testing.
+func (Test) Up() error {
+	testUp := exec.Command(
+		"./bin/tptctl",
+		"up",
+		"-r",
+		installer.DevImageRepo,
+		"-t",
+		version.GetVersion(),
+		"-n",
+		"dev-0",
+		"--local-registry",
+	)
+
+	output, err := testUp.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to create test control plane: '%s': %w", output, err)
+	}
+
+	fmt.Println("local test control plane created")
 
 	return nil
 }
