@@ -88,7 +88,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Func().Params(Id("Build")).Id(buildApiFuncName).Params(Id("arch").String()).Error().Block(
 		List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 		If(Err().Op("!=").Nil()).Block(
-			Return().Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err()),
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to get working directory: %w"), Err()),
 		),
 		Line(),
 
@@ -164,7 +164,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	).Parens(Error()).Block(
 		List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 		If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err())),
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory: %w"), Err())),
 		),
 		Line(),
 
@@ -255,7 +255,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Func().Params(Id("Build")).Id(buildDbMigratorFuncName).Params(Id("arch").String()).Error().Block(
 		List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 		If(Err().Op("!=").Nil()).Block(
-			Return().Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err()),
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to get working directory: %w"), Err()),
 		),
 		Line(),
 
@@ -331,7 +331,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	).Parens(Error()).Block(
 		List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 		If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err())),
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory: %w"), Err())),
 		),
 		Line(),
 
@@ -431,7 +431,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		f.Func().Params(Id("Build")).Id(buildAgentFuncName).Params(Id("arch").String()).Error().Block(
 			List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 			If(Err().Op("!=").Nil()).Block(
-				Return().Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err()),
+				Return().Qual("fmt", "Errorf").Call(Lit("failed to get working directory: %w"), Err()),
 			),
 			Line(),
 
@@ -507,7 +507,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		).Parens(Error()).Block(
 			List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 			If(Err().Op("!=").Nil()).Block(
-				Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err())),
+				Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory: %w"), Err())),
 			),
 			Line(),
 
@@ -625,7 +625,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			f.Func().Params(Id("Build")).Id(buildFuncName).Params(Id("arch").String()).Error().Block(
 				List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 				If(Err().Op("!=").Nil()).Block(
-					Return().Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err()),
+					Return().Qual("fmt", "Errorf").Call(Lit("failed to get working directory: %w"), Err()),
 				),
 				Line(),
 
@@ -714,7 +714,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			).Error().Block(
 				List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 				If(Err().Op("!=").Nil()).Block(
-					Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory for extension repo: %w"), Err())),
+					Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory: %w"), Err())),
 				),
 				Line(),
 
@@ -1066,6 +1066,34 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Return(Nil()),
 	)
 	f.Line()
+
+	// local registry creation
+	f.Comment("LocalRegistryUp starts a docker container to serve as a local container registry.")
+	f.Func().Params(Id("Dev")).Id("LocalRegistryUp").Params().Error().Block(
+		If(Err().Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev",
+			"CreateLocalRegistry",
+		).Call()).Op(";").Err().Op("!=").Nil().Block(
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to create local container registry: %w"), Err())),
+		),
+		Line(),
+
+		Return().Nil(),
+	)
+
+	// local registry deletion
+	f.Comment("LocalRegistryDown stops and removes the local container registry.")
+	f.Func().Params(Id("Dev")).Id("LocalRegistryDown").Params().Error().Block(
+		If(Err().Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev",
+			"DeleteLocalRegistry",
+		).Call()).Op(";").Err().Op("!=").Nil().Block(
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to remove local container registry: %w"), Err())),
+		),
+		Line(),
+
+		Return().Nil(),
+	)
 
 	// build vals utility function
 	f.Comment("getBuildVals returns the working directory and arch for builds.")

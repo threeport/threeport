@@ -11,7 +11,6 @@ import (
 
 	version "github.com/threeport/threeport/internal/version"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
-	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -108,25 +107,6 @@ func (Test) Integration() error {
 	}
 	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
 		return fmt.Errorf("failed to run integration tests: %w", err)
-	}
-
-	return nil
-}
-
-// LocalRegistryUp starts a docker container to serve as a local container
-// registry.
-func (Dev) LocalRegistryUp() error {
-	if err := tptdev.CreateLocalRegistry(); err != nil {
-		return fmt.Errorf("failed to create local container registry: %w", err)
-	}
-
-	return nil
-}
-
-// LocalRegistryDown stops and removes the local container registry.
-func (Dev) LocalRegistryDown() error {
-	if err := tptdev.DeleteLocalRegistry(); err != nil {
-		return fmt.Errorf("failed to remove local container registry: %w", err)
 	}
 
 	return nil
@@ -408,6 +388,26 @@ func (Dev) ForwardNats() error {
 	}
 
 	fmt.Println("local port 33993 forwarded to local dev API nats server successfully")
+
+	return nil
+}
+
+// ServeDocs serves the Threeport documentation locally.
+func (Dev) ServeDocs() error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	cmd := "mkdocs"
+	args := []string{
+		"serve",
+		"--config-file",
+		fmt.Sprintf("%s/docs/mkdocs.yml", workingDir),
+	}
+	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
+		return fmt.Errorf("failed to serve docs locally: %w", err)
+	}
 
 	return nil
 }

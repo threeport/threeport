@@ -10,6 +10,7 @@ import (
 	mg "github.com/magefile/mage/mg"
 	version "github.com/threeport/threeport/internal/version"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	tptdev "github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"os"
 	"os/exec"
@@ -34,7 +35,7 @@ type Dev mg.Namespace
 func (Build) ApiBin(arch string) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -86,7 +87,7 @@ func (Build) ApiImage(
 ) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -143,7 +144,7 @@ func (Build) ApiImageRelease() error {
 func (Build) DbMigratorBin(arch string) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -195,7 +196,7 @@ func (Build) DbMigratorImage(
 ) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -252,7 +253,7 @@ func (Build) DbMigratorImageRelease() error {
 func (Build) AgentBin(arch string) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -304,7 +305,7 @@ func (Build) AgentImage(
 ) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -361,7 +362,7 @@ func (Build) AgentImageRelease() error {
 func (Build) SecretControllerBin(arch string) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -413,7 +414,7 @@ func (Build) SecretControllerImage(
 ) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -470,7 +471,7 @@ func (Build) SecretControllerImageRelease() error {
 func (Build) AwsControllerBin(arch string) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -522,7 +523,7 @@ func (Build) AwsControllerImage(
 ) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -579,7 +580,7 @@ func (Build) AwsControllerImageRelease() error {
 func (Build) ControlPlaneControllerBin(arch string) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -631,7 +632,7 @@ func (Build) ControlPlaneControllerImage(
 ) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -688,7 +689,7 @@ func (Build) ControlPlaneControllerImageRelease() error {
 func (Build) GatewayControllerBin(arch string) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -740,7 +741,7 @@ func (Build) GatewayControllerImage(
 ) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -797,7 +798,7 @@ func (Build) GatewayControllerImageRelease() error {
 func (Build) HelmWorkloadControllerBin(arch string) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -849,7 +850,7 @@ func (Build) HelmWorkloadControllerImage(
 ) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -906,7 +907,7 @@ func (Build) HelmWorkloadControllerImageRelease() error {
 func (Build) KubernetesRuntimeControllerBin(arch string) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -958,7 +959,7 @@ func (Build) KubernetesRuntimeControllerImage(
 ) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -1015,7 +1016,7 @@ func (Build) KubernetesRuntimeControllerImageRelease() error {
 func (Build) ObservabilityControllerBin(arch string) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -1067,7 +1068,7 @@ func (Build) ObservabilityControllerImage(
 ) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -1124,7 +1125,7 @@ func (Build) ObservabilityControllerImageRelease() error {
 func (Build) TerraformControllerBin(arch string) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -1176,7 +1177,7 @@ func (Build) TerraformControllerImage(
 ) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -1233,7 +1234,7 @@ func (Build) TerraformControllerImageRelease() error {
 func (Build) WorkloadControllerBin(arch string) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildBinary(
@@ -1285,7 +1286,7 @@ func (Build) WorkloadControllerImage(
 ) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory for extension repo: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -1713,6 +1714,24 @@ func (Dev) GenerateSwaggerDocs() error {
 	}
 
 	fmt.Printf("API docs generated in %s\n", docsDestination)
+
+	return nil
+}
+
+// LocalRegistryUp starts a docker container to serve as a local container registry.
+func (Dev) LocalRegistryUp() error {
+	if err := tptdev.CreateLocalRegistry(); err != nil {
+		return fmt.Errorf("failed to create local container registry: %w", err)
+	}
+
+	return nil
+}
+
+// LocalRegistryDown stops and removes the local container registry.
+func (Dev) LocalRegistryDown() error {
+	if err := tptdev.DeleteLocalRegistry(); err != nil {
+		return fmt.Errorf("failed to remove local container registry: %w", err)
+	}
 
 	return nil
 }
