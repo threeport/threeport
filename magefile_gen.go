@@ -115,6 +115,10 @@ func (Build) ApiImageDev() error {
 	}
 
 	build := Build{}
+	if err := build.ApiBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.ApiImage(
 		installer.DevImageRepo,
 		version.GetVersion(),
@@ -129,6 +133,10 @@ func (Build) ApiImageDev() error {
 // ApiImageRelease builds and pushes a release REST API container image.
 func (Build) ApiImageRelease() error {
 	build := Build{}
+	if err := build.ApiBinRelease(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.ApiImage(
 		installer.ThreeportImageRepo,
 		version.GetVersion(),
@@ -224,6 +232,10 @@ func (Build) DbMigratorImageDev() error {
 	}
 
 	build := Build{}
+	if err := build.DbMigratorBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.DbMigratorImage(
 		installer.DevImageRepo,
 		version.GetVersion(),
@@ -238,6 +250,10 @@ func (Build) DbMigratorImageDev() error {
 // DbMigratorImageRelease builds and pushes a release database migrator container image.
 func (Build) DbMigratorImageRelease() error {
 	build := Build{}
+	if err := build.DbMigratorBinRelease(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.DbMigratorImage(
 		installer.ThreeportImageRepo,
 		version.GetVersion(),
@@ -333,6 +349,10 @@ func (Build) AgentImageDev() error {
 	}
 
 	build := Build{}
+	if err := build.AgentBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.AgentImage(
 		installer.DevImageRepo,
 		version.GetVersion(),
@@ -347,6 +367,10 @@ func (Build) AgentImageDev() error {
 // AgentImageRelease builds and pushes a release agent container image.
 func (Build) AgentImageRelease() error {
 	build := Build{}
+	if err := build.AgentBinRelease(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.AgentImage(
 		installer.ThreeportImageRepo,
 		version.GetVersion(),
@@ -442,6 +466,10 @@ func (Build) SecretControllerImageDev() error {
 	}
 
 	build := Build{}
+	if err := build.SecretControllerBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.SecretControllerImage(
 		installer.DevImageRepo,
 		version.GetVersion(),
@@ -456,6 +484,10 @@ func (Build) SecretControllerImageDev() error {
 // SecretControllerImageRelease builds and pushes a release secret-controller container image.
 func (Build) SecretControllerImageRelease() error {
 	build := Build{}
+	if err := build.SecretControllerImageRelease(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.SecretControllerImage(
 		installer.ThreeportImageRepo,
 		version.GetVersion(),
@@ -551,6 +583,10 @@ func (Build) AwsControllerImageDev() error {
 	}
 
 	build := Build{}
+	if err := build.AwsControllerBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.AwsControllerImage(
 		installer.DevImageRepo,
 		version.GetVersion(),
@@ -565,6 +601,10 @@ func (Build) AwsControllerImageDev() error {
 // AwsControllerImageRelease builds and pushes a release aws-controller container image.
 func (Build) AwsControllerImageRelease() error {
 	build := Build{}
+	if err := build.AwsControllerImageRelease(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.AwsControllerImage(
 		installer.ThreeportImageRepo,
 		version.GetVersion(),
@@ -660,6 +700,10 @@ func (Build) ControlPlaneControllerImageDev() error {
 	}
 
 	build := Build{}
+	if err := build.ControlPlaneControllerBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.ControlPlaneControllerImage(
 		installer.DevImageRepo,
 		version.GetVersion(),
@@ -674,6 +718,10 @@ func (Build) ControlPlaneControllerImageDev() error {
 // ControlPlaneControllerImageRelease builds and pushes a release control-plane-controller container image.
 func (Build) ControlPlaneControllerImageRelease() error {
 	build := Build{}
+	if err := build.ControlPlaneControllerImageRelease(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.ControlPlaneControllerImage(
 		installer.ThreeportImageRepo,
 		version.GetVersion(),
@@ -769,6 +817,10 @@ func (Build) GatewayControllerImageDev() error {
 	}
 
 	build := Build{}
+	if err := build.GatewayControllerBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.GatewayControllerImage(
 		installer.DevImageRepo,
 		version.GetVersion(),
@@ -783,6 +835,10 @@ func (Build) GatewayControllerImageDev() error {
 // GatewayControllerImageRelease builds and pushes a release gateway-controller container image.
 func (Build) GatewayControllerImageRelease() error {
 	build := Build{}
+	if err := build.GatewayControllerImageRelease(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.GatewayControllerImage(
 		installer.ThreeportImageRepo,
 		version.GetVersion(),
@@ -878,6 +934,10 @@ func (Build) HelmWorkloadControllerImageDev() error {
 	}
 
 	build := Build{}
+	if err := build.HelmWorkloadControllerBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.HelmWorkloadControllerImage(
 		installer.DevImageRepo,
 		version.GetVersion(),
@@ -892,6 +952,10 @@ func (Build) HelmWorkloadControllerImageDev() error {
 // HelmWorkloadControllerImageRelease builds and pushes a release helm-workload-controller container image.
 func (Build) HelmWorkloadControllerImageRelease() error {
 	build := Build{}
+	if err := build.HelmWorkloadControllerImageRelease(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.HelmWorkloadControllerImage(
 		installer.ThreeportImageRepo,
 		version.GetVersion(),
@@ -987,6 +1051,10 @@ func (Build) KubernetesRuntimeControllerImageDev() error {
 	}
 
 	build := Build{}
+	if err := build.KubernetesRuntimeControllerBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.KubernetesRuntimeControllerImage(
 		installer.DevImageRepo,
 		version.GetVersion(),
@@ -1001,6 +1069,10 @@ func (Build) KubernetesRuntimeControllerImageDev() error {
 // KubernetesRuntimeControllerImageRelease builds and pushes a release kubernetes-runtime-controller container image.
 func (Build) KubernetesRuntimeControllerImageRelease() error {
 	build := Build{}
+	if err := build.KubernetesRuntimeControllerImageRelease(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.KubernetesRuntimeControllerImage(
 		installer.ThreeportImageRepo,
 		version.GetVersion(),
@@ -1096,6 +1168,10 @@ func (Build) ObservabilityControllerImageDev() error {
 	}
 
 	build := Build{}
+	if err := build.ObservabilityControllerBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.ObservabilityControllerImage(
 		installer.DevImageRepo,
 		version.GetVersion(),
@@ -1110,6 +1186,10 @@ func (Build) ObservabilityControllerImageDev() error {
 // ObservabilityControllerImageRelease builds and pushes a release observability-controller container image.
 func (Build) ObservabilityControllerImageRelease() error {
 	build := Build{}
+	if err := build.ObservabilityControllerImageRelease(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.ObservabilityControllerImage(
 		installer.ThreeportImageRepo,
 		version.GetVersion(),
@@ -1205,6 +1285,10 @@ func (Build) TerraformControllerImageDev() error {
 	}
 
 	build := Build{}
+	if err := build.TerraformControllerBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.TerraformControllerImage(
 		installer.DevImageRepo,
 		version.GetVersion(),
@@ -1219,6 +1303,10 @@ func (Build) TerraformControllerImageDev() error {
 // TerraformControllerImageRelease builds and pushes a release terraform-controller container image.
 func (Build) TerraformControllerImageRelease() error {
 	build := Build{}
+	if err := build.TerraformControllerImageRelease(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.TerraformControllerImage(
 		installer.ThreeportImageRepo,
 		version.GetVersion(),
@@ -1314,6 +1402,10 @@ func (Build) WorkloadControllerImageDev() error {
 	}
 
 	build := Build{}
+	if err := build.WorkloadControllerBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.WorkloadControllerImage(
 		installer.DevImageRepo,
 		version.GetVersion(),
@@ -1328,6 +1420,10 @@ func (Build) WorkloadControllerImageDev() error {
 // WorkloadControllerImageRelease builds and pushes a release workload-controller container image.
 func (Build) WorkloadControllerImageRelease() error {
 	build := Build{}
+	if err := build.WorkloadControllerImageRelease(); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := build.WorkloadControllerImage(
 		installer.ThreeportImageRepo,
 		version.GetVersion(),

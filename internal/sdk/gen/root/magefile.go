@@ -200,6 +200,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		),
 		Line(),
 		Id("build").Op(":=").Id("Build").Values(),
+		If(Err().Op(":=").Id("build").Dot(buildApiDevFuncName).Call()).Op(";").Err().Op("!=").Nil().Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to build binary for image build: %w"), Err()),
+		),
+		Line(),
 		If(Err().Op(":=").Id("build").Dot(buildApiImageFuncName).Call(
 			Line().Qual(
 				installerPkg,
@@ -227,6 +231,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Comment(fmt.Sprintf("%s builds and pushes a release REST API container image.", buildApiReleaseImageFuncName))
 	f.Func().Params(Id("Build")).Id(buildApiReleaseImageFuncName).Params().Error().Block(
 		Id("build").Op(":=").Id("Build").Values(),
+		If(Err().Op(":=").Id("build").Dot(buildApiReleaseFuncName).Call()).Op(";").Err().Op("!=").Nil().Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to build binary for image build: %w"), Err()),
+		),
+		Line(),
 		If(Err().Op(":=").Id("build").Dot(buildApiImageFuncName).Call(
 			Line().Qual(
 				installerPkg,
@@ -367,6 +375,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		),
 		Line(),
 		Id("build").Op(":=").Id("Build").Values(),
+		If(Err().Op(":=").Id("build").Dot(buildDbMigratorDevFuncName).Call()).Op(";").Err().Op("!=").Nil().Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to build binary for image build: %w"), Err()),
+		),
+		Line(),
 		If(Err().Op(":=").Id("build").Dot(buildDbMigratorImageFuncName).Call(
 			Line().Qual(
 				installerPkg,
@@ -394,6 +406,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Comment(fmt.Sprintf("%s builds and pushes a release database migrator container image.", buildDbMigratorReleaseImageFuncName))
 	f.Func().Params(Id("Build")).Id(buildDbMigratorReleaseImageFuncName).Params().Error().Block(
 		Id("build").Op(":=").Id("Build").Values(),
+		If(Err().Op(":=").Id("build").Dot(buildDbMigratorReleaseFuncName).Call()).Op(";").Err().Op("!=").Nil().Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to build binary for image build: %w"), Err()),
+		),
+		Line(),
 		If(Err().Op(":=").Id("build").Dot(buildDbMigratorImageFuncName).Call(
 			Line().Qual(
 				installerPkg,
@@ -543,6 +559,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			),
 			Line(),
 			Id("build").Op(":=").Id("Build").Values(),
+			If(Err().Op(":=").Id("build").Dot(buildAgentDevFuncName).Call()).Op(";").Err().Op("!=").Nil().Block(
+				Return().Qual("fmt", "Errorf").Call(Lit("failed to build binary for image build: %w"), Err()),
+			),
+			Line(),
 			If(Err().Op(":=").Id("build").Dot(buildAgentImageFuncName).Call(
 				Line().Qual(
 					installerPkg,
@@ -570,6 +590,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		f.Comment(fmt.Sprintf("%s builds and pushes a release agent container image.", buildAgentReleaseImageFuncName))
 		f.Func().Params(Id("Build")).Id(buildAgentReleaseImageFuncName).Params().Error().Block(
 			Id("build").Op(":=").Id("Build").Values(),
+			If(Err().Op(":=").Id("build").Dot(buildAgentReleaseFuncName).Call()).Op(";").Err().Op("!=").Nil().Block(
+				Return().Qual("fmt", "Errorf").Call(Lit("failed to build binary for image build: %w"), Err()),
+			),
+			Line(),
 			If(Err().Op(":=").Id("build").Dot(buildAgentImageFuncName).Call(
 				Line().Qual(
 					installerPkg,
@@ -760,6 +784,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				),
 				Line(),
 				Id("build").Op(":=").Id("Build").Values(),
+				If(Err().Op(":=").Id("build").Dot(buildDevFuncName).Call()).Op(";").Err().Op("!=").Nil().Block(
+					Return().Qual("fmt", "Errorf").Call(Lit("failed to build binary for image build: %w"), Err()),
+				),
+				Line(),
 				If(Err().Op(":=").Id("build").Dot(buildImageFuncName).Call(
 					Line().Qual(
 						installerPkg,
@@ -794,6 +822,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			))
 			f.Func().Params(Id("Build")).Id(buildReleaseImageFuncName).Params().Error().Block(
 				Id("build").Op(":=").Id("Build").Values(),
+				If(Err().Op(":=").Id("build").Dot(buildReleaseImageFuncName).Call()).Op(";").Err().Op("!=").Nil().Block(
+					Return().Qual("fmt", "Errorf").Call(Lit("failed to build binary for image build: %w"), Err()),
+				),
+				Line(),
 				If(Err().Op(":=").Id("build").Dot(buildImageFuncName).Call(
 					Line().Qual(
 						installerPkg,
