@@ -168,6 +168,12 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		),
 		Line(),
 
+		Id("build").Op(":=").Id("Build").Values(),
+		If(Err().Op(":=").Id("build").Dot(buildApiFuncName).Call(Id("arch"))).Op(";").Err().Op("!=").Nil().Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to build binary for image build: %w"), Err()),
+		),
+		Line(),
+
 		If(Err().Op(":=").Qual(
 			"github.com/threeport/threeport/pkg/util/v0",
 			"BuildImage",
@@ -340,6 +346,12 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 		If(Err().Op("!=").Nil()).Block(
 			Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory: %w"), Err())),
+		),
+		Line(),
+
+		Id("build").Op(":=").Id("Build").Values(),
+		If(Err().Op(":=").Id("build").Dot(buildDbMigratorFuncName).Call(Id("arch"))).Op(";").Err().Op("!=").Nil().Block(
+			Return().Qual("fmt", "Errorf").Call(Lit("failed to build binary for image build: %w"), Err()),
 		),
 		Line(),
 
@@ -524,6 +536,12 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 			If(Err().Op("!=").Nil()).Block(
 				Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory: %w"), Err())),
+			),
+			Line(),
+
+			Id("build").Op(":=").Id("Build").Values(),
+			If(Err().Op(":=").Id("build").Dot(buildAgentFuncName).Call(Id("arch"))).Op(";").Err().Op("!=").Nil().Block(
+				Return().Qual("fmt", "Errorf").Call(Lit("failed to build binary for image build: %w"), Err()),
 			),
 			Line(),
 
@@ -739,6 +757,12 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				List(Id("workingDir"), Id("_"), Err()).Op(":=").Id("getBuildVals").Call(),
 				If(Err().Op("!=").Nil()).Block(
 					Return(Qual("fmt", "Errorf").Call(Lit("failed to get working directory: %w"), Err())),
+				),
+				Line(),
+
+				Id("build").Op(":=").Id("Build").Values(),
+				If(Err().Op(":=").Id("build").Dot(buildFuncName).Call(Id("arch"))).Op(";").Err().Op("!=").Nil().Block(
+					Return().Qual("fmt", "Errorf").Call(Lit("failed to build binary for image build: %w"), Err()),
 				),
 				Line(),
 

@@ -90,6 +90,11 @@ func (Build) ApiImage(
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
+	build := Build{}
+	if err := build.ApiBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/rest-api/image/Dockerfile-alpine",
@@ -205,6 +210,11 @@ func (Build) DbMigratorImage(
 	workingDir, _, err := getBuildVals()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	build := Build{}
+	if err := build.DbMigratorBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -324,6 +334,11 @@ func (Build) AgentImage(
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
+	build := Build{}
+	if err := build.AgentBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/agent/image/Dockerfile-alpine",
@@ -439,6 +454,11 @@ func (Build) SecretControllerImage(
 	workingDir, _, err := getBuildVals()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	build := Build{}
+	if err := build.SecretControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -558,6 +578,11 @@ func (Build) AwsControllerImage(
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
+	build := Build{}
+	if err := build.AwsControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/aws-controller/image/Dockerfile-alpine",
@@ -673,6 +698,11 @@ func (Build) ControlPlaneControllerImage(
 	workingDir, _, err := getBuildVals()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	build := Build{}
+	if err := build.ControlPlaneControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -792,6 +822,11 @@ func (Build) GatewayControllerImage(
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
+	build := Build{}
+	if err := build.GatewayControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/gateway-controller/image/Dockerfile-alpine",
@@ -907,6 +942,11 @@ func (Build) HelmWorkloadControllerImage(
 	workingDir, _, err := getBuildVals()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	build := Build{}
+	if err := build.HelmWorkloadControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -1026,6 +1066,11 @@ func (Build) KubernetesRuntimeControllerImage(
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
+	build := Build{}
+	if err := build.KubernetesRuntimeControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/kubernetes-runtime-controller/image/Dockerfile-alpine",
@@ -1141,6 +1186,11 @@ func (Build) ObservabilityControllerImage(
 	workingDir, _, err := getBuildVals()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	build := Build{}
+	if err := build.ObservabilityControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
 	}
 
 	if err := util.BuildImage(
@@ -1260,6 +1310,11 @@ func (Build) TerraformControllerImage(
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
+	build := Build{}
+	if err := build.TerraformControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
 	if err := util.BuildImage(
 		workingDir,
 		"cmd/terraform-controller/image/Dockerfile-alpine",
@@ -1375,6 +1430,11 @@ func (Build) WorkloadControllerImage(
 	workingDir, _, err := getBuildVals()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	build := Build{}
+	if err := build.WorkloadControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
 	}
 
 	if err := util.BuildImage(
