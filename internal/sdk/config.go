@@ -13,24 +13,25 @@ import (
 // SdkConfig contains all the configuration options available to a user
 // of the SDK.
 type SdkConfig struct {
-	// The name of the extension to be used as a prefix for names for
-	// distinction
+	// The name of the extension. This is used as a prefix for naming in many
+	// places for extensions.
 	ExtensionName string `yaml:"ExtensionName"`
 
 	// ApiNamespace is the globally unique namespace for objects managed by this
-	// API.  It prevents naming collisions between extension objects using in a
+	// API.  It prevents naming collisions between extension objects used in a
 	// single Threeport control plane.  We recommend using a domain name you own
 	// to make it globally unique.
 	ApiNamespace string `yaml:"ApiNamespace"`
 
-	// The image repository that will be used for builds of extensions
+	// The image repository that will be used for builds of extension
 	// components.
 	ImageRepo string `yaml:"ImageRepo"`
 
-	// Details to be displayed on the API documentation page by API server.
+	// Details to be displayed with the API swagger docs that are served by the
+	// API server.
 	ApiDocs ApiDocs `yaml:"ApiDocs"`
 
-	// The configuration of API objects used in extension.
+	// The configuration of API objects used in the extension.
 	ApiObjectConfig `yaml:",inline"`
 }
 
