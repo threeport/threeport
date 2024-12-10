@@ -51,7 +51,9 @@ nav:
     - Control Planes:
       - 'Introduction': 'control-planes/control-plane-intro.md'
   - SDK:
-    - 'Introduction': 'sdk/sdk-intro.md'
+    - 'SDK Introduction': 'sdk/sdk-intro.md'
+    - 'SDK Install': 'sdk/install.md'
+    - 'SDK Tutorial': 'sdk/tutorial.md'
     #- 'Workload Abstraction': 'sdk/workload-abstraction.md'
     #- 'Config Tool Abstraction': 'sdk/config-abstraction.md'
     #- 'Advanced Application Abstraction': 'sdk/advanced-app-abstraction.md'
@@ -96,7 +98,8 @@ markdown_extensions:
   - pymdownx.highlight:
       linenums: true
   - pymdownx.superfences
-  - pymdownx.tabbed
+  - pymdownx.tabbed:
+      alternate_style: true
   - toc:
       permalink: true
 
