@@ -51,7 +51,7 @@ connect to it.
 
 ## Field Determination
 
-An imporant design decision is whether to put a particular field in the
+An important design decision is whether to put a particular field in the
 definition or the instance.  For example, a Kubernetes runtime definition
 includes an `InfraProvider` field that allows the user to nominate which cloud
 provider to use for hosting a Kubernetes cluster.  This could conceivably be put
@@ -83,7 +83,7 @@ fields could be moved to the definition or defaulted.
 * If an object attribute is likely to be consistent across many different
   instances, the field that controls that attribute should likely be in the
   definition.
-* If there are many differnt choices for an attribute, it should likely be in
+* If there are many different choices for an attribute, it should likely be in
   the instance, as putting it in the definition will often lead to a sprawl of
   many different definition choices.
 * If an attribute will often vary depending on the use case, it should likely be
