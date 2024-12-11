@@ -70,6 +70,7 @@ metadata:
     app.kubernetes.io/instance: getting-started
     app.kubernetes.io/managed-by: Helm
 spec:
+  storageClassName: gp2
   accessModes:
     - "ReadWriteOnce"
   resources:
