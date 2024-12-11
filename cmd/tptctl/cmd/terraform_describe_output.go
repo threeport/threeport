@@ -27,7 +27,7 @@ func outputDescribev0TerraformDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* TerraformDefinition Name: %s\n",
-		terraformDefinitionConfig.TerraformDefinition.Name,
+		*terraformDefinitionConfig.TerraformDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -69,7 +69,7 @@ func outputDescribev0TerraformInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* TerraformInstance Name: %s\n",
-		terraformInstanceConfig.TerraformInstance.Name,
+		*terraformInstanceConfig.TerraformInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",

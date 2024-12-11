@@ -21,7 +21,7 @@ func outputDescribev0ControlPlaneDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* ControlPlaneDefinition Name: %s\n",
-		controlPlaneDefinitionConfig.ControlPlaneDefinition.Name,
+		*controlPlaneDefinitionConfig.ControlPlaneDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -46,7 +46,7 @@ func outputDescribev0ControlPlaneInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* ControlPlaneInstance Name: %s\n",
-		controlPlaneInstanceConfig.ControlPlaneInstance.Name,
+		*controlPlaneInstanceConfig.ControlPlaneInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",

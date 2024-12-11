@@ -30,7 +30,7 @@ func outputDescribev0AwsAccountCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsAccount Name: %s\n",
-		awsAccountConfig.AwsAccount.Name,
+		*awsAccountConfig.AwsAccount.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -83,7 +83,7 @@ func outputDescribev0AwsEksKubernetesRuntimeDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsEksKubernetesRuntimeDefinition Name: %s\n",
-		awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition.Name,
+		*awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -129,7 +129,7 @@ func outputDescribev0AwsEksKubernetesRuntimeInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsEksKubernetesRuntimeInstance Name: %s\n",
-		awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name,
+		*awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -162,7 +162,7 @@ func outputDescribev0AwsRelationalDatabaseDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsRelationalDatabaseDefinition Name: %s\n",
-		awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition.Name,
+		*awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -187,7 +187,7 @@ func outputDescribev0AwsRelationalDatabaseInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsRelationalDatabaseInstance Name: %s\n",
-		awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance.Name,
+		*awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -221,7 +221,7 @@ func outputDescribev0AwsObjectStorageBucketDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsObjectStorageBucketDefinition Name: %s\n",
-		awsObjectStorageBucketDefinitionConfig.AwsObjectStorageBucketDefinition.Name,
+		*awsObjectStorageBucketDefinitionConfig.AwsObjectStorageBucketDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -254,7 +254,7 @@ func outputDescribev0AwsObjectStorageBucketInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsObjectStorageBucketInstance Name: %s\n",
-		awsObjectStorageBucketInstanceConfig.AwsObjectStorageBucketInstance.Name,
+		*awsObjectStorageBucketInstanceConfig.AwsObjectStorageBucketInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",

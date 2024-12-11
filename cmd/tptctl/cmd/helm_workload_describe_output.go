@@ -32,7 +32,7 @@ func outputDescribev0HelmWorkloadDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* HelmWorkloadDefinition Name: %s\n",
-		helmWorkloadDefinitionConfig.HelmWorkloadDefinition.Name,
+		*helmWorkloadDefinitionConfig.HelmWorkloadDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -74,7 +74,7 @@ func outputDescribev0HelmWorkloadInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* HelmWorkloadInstance Name: %s\n",
-		helmWorkloadInstanceConfig.HelmWorkloadInstance.Name,
+		*helmWorkloadInstanceConfig.HelmWorkloadInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",

@@ -30,7 +30,7 @@ func outputDescribev0KubernetesRuntimeDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* KubernetesRuntimeDefinition Name: %s\n",
-		kubernetesRuntimeDefinitionConfig.KubernetesRuntimeDefinition.Name,
+		*kubernetesRuntimeDefinitionConfig.KubernetesRuntimeDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -72,7 +72,7 @@ func outputDescribev0KubernetesRuntimeInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* KubernetesRuntimeInstance Name: %s\n",
-		kubernetesRuntimeInstanceConfig.KubernetesRuntimeInstance.Name,
+		*kubernetesRuntimeInstanceConfig.KubernetesRuntimeInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",

@@ -32,7 +32,7 @@ func outputDescribev0WorkloadDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* WorkloadDefinition Name: %s\n",
-		workloadDefinitionConfig.WorkloadDefinition.Name,
+		*workloadDefinitionConfig.WorkloadDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -75,7 +75,7 @@ func outputDescribev0WorkloadInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* WorkloadInstance Name: %s\n",
-		workloadInstanceConfig.WorkloadInstance.Name,
+		*workloadInstanceConfig.WorkloadInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -132,7 +132,7 @@ func outputDescribev1WorkloadInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* WorkloadInstance Name: %s\n",
-		workloadInstanceConfig.WorkloadInstance.Name,
+		*workloadInstanceConfig.WorkloadInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",

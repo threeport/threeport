@@ -1888,7 +1888,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"* %s Name: %%s\n",
 							apiObj.TypeName,
 						)),
-						Line().Id(objectConfigVar).Dot(apiObj.TypeName).Dot("Name"),
+						Line().Op("*").Id(objectConfigVar).Dot(apiObj.TypeName).Dot("Name"),
 						Line(),
 					),
 					Qual("fmt", "Printf").Call(

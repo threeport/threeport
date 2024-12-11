@@ -27,7 +27,7 @@ func outputDescribev0GatewayDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* GatewayDefinition Name: %s\n",
-		gatewayDefinitionConfig.GatewayDefinition.Name,
+		*gatewayDefinitionConfig.GatewayDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -69,7 +69,7 @@ func outputDescribev0GatewayInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* GatewayInstance Name: %s\n",
-		gatewayInstanceConfig.GatewayInstance.Name,
+		*gatewayInstanceConfig.GatewayInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -104,7 +104,7 @@ func outputDescribev0DomainNameDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* DomainNameDefinition Name: %s\n",
-		domainNameDefinitionConfig.DomainNameDefinition.Name,
+		*domainNameDefinitionConfig.DomainNameDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -146,7 +146,7 @@ func outputDescribev0DomainNameInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* DomainNameInstance Name: %s\n",
-		domainNameInstanceConfig.DomainNameInstance.Name,
+		*domainNameInstanceConfig.DomainNameInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",

@@ -21,7 +21,7 @@ func outputDescribev0SecretDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* SecretDefinition Name: %s\n",
-		secretDefinitionConfig.SecretDefinition.Name,
+		*secretDefinitionConfig.SecretDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -46,7 +46,7 @@ func outputDescribev0SecretInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* SecretInstance Name: %s\n",
-		secretInstanceConfig.SecretInstance.Name,
+		*secretInstanceConfig.SecretInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",

@@ -131,7 +131,7 @@ func outputDescribev0ObservabilityStackDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* ObservabilityStackDefinition Name: %s\n",
-		observabilityStackDefinitionConfig.ObservabilityStackDefinition.Name,
+		*observabilityStackDefinitionConfig.ObservabilityStackDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -292,7 +292,7 @@ func outputDescribev0ObservabilityStackInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* ObservabilityStackInstance Name: %s\n",
-		observabilityStackInstanceConfig.ObservabilityStackInstance.Name,
+		*observabilityStackInstanceConfig.ObservabilityStackInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
