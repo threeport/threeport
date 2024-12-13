@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -53,7 +54,7 @@ func (c *ObservabilityStackDefinitionConfig) createObservabilityDashboardDefinit
 	// create observability dashboard definition
 	observabilityDashboardDefinition := &v0.ObservabilityDashboardDefinition{
 		Definition: v0.Definition{
-			Name: util.StringPtr(ObservabilityDashboardName(*c.observabilityStackDefinition.Name)),
+			Name: util.Ptr(ObservabilityDashboardName(*c.observabilityStackDefinition.Name)),
 		},
 	}
 
@@ -86,7 +87,7 @@ func (c *ObservabilityStackDefinitionConfig) deleteObservabilityDashboardDefinit
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.observabilityStackDefinition.ObservabilityDashboardDefinitionID,
-	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete observability dashboard definition: %w", err)
 	}
 
@@ -98,7 +99,7 @@ func (c *ObservabilityStackDefinitionConfig) createLoggingDefinition() error {
 	// create logging definition
 	loggingDefinition := &v0.LoggingDefinition{
 		Definition: v0.Definition{
-			Name: util.StringPtr(LoggingName(*c.observabilityStackDefinition.Name)),
+			Name: util.Ptr(LoggingName(*c.observabilityStackDefinition.Name)),
 		},
 	}
 
@@ -137,7 +138,7 @@ func (c *ObservabilityStackDefinitionConfig) deleteLoggingDefinition() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.observabilityStackDefinition.LoggingDefinitionID,
-	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete logging definition: %w", err)
 	}
 
@@ -149,7 +150,7 @@ func (c *ObservabilityStackDefinitionConfig) createMetricsDefinition() error {
 	// create metrics definition
 	metricsDefinition := &v0.MetricsDefinition{
 		Definition: v0.Definition{
-			Name: util.StringPtr(MetricsName(*c.observabilityStackDefinition.Name)),
+			Name: util.Ptr(MetricsName(*c.observabilityStackDefinition.Name)),
 		},
 	}
 
@@ -182,7 +183,7 @@ func (c *ObservabilityStackDefinitionConfig) deleteMetricsDefinition() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.observabilityStackDefinition.MetricsDefinitionID,
-	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete metrics definition: %w", err)
 	}
 

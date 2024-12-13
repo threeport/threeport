@@ -5,55 +5,6 @@ help:
 	@echo "Commands :"
 	@grep -E '[a-zA-Z\.\-]+:.*?@ .*$$' $(MAKEFILE_LIST)| tr -d '#' | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-19s\033[0m - %s\n", $$1, $$2}'
 
-## builds
-
-#install-sdk: @ Build sdk binary and install in GOPATH
-install-sdk:
-	go build -o $(GOPATH)/bin/threeport-sdk cmd/sdk/main.go
-
-#build-database-migrator: @ Build database migrator
-build-database-migrator:
-	go build -o bin/database-migrator cmd/database-migrator/main.go
-
-#build-tptdev: @ Build tptdev binary
-build-tptdev:
-	go build -o bin/tptdev cmd/tptdev/main.go
-
-#install-tptdev: @ Install tptctl binary
-install-tptdev: build-tptdev
-	sudo cp ./bin/tptdev /usr/local/bin/tptdev
-
-#build-tptctl: @ Build tptctl binary
-build-tptctl:
-	go build -o bin/tptctl cmd/tptctl/main.go
-
-#install-tptctl: @ Install tptctl binary
-install-tptctl: build-tptctl
-	sudo cp ./bin/tptctl /usr/local/bin/tptctl
-
-## code generation
-
-#generate: @ Run code generation
-generate: generate-code generate-docs
-
-#generate-code: @ Generate code
-generate-code:
-	threeport-sdk gen
-
-#generate-docs: @ Generate swagger docs
-generate-docs:
-	swag init --dir cmd/rest-api,pkg/api,pkg/api-server/v0,pkg/api-server/v1 --parseDependency --generalInfo main.go --output pkg/api-server/v0/docs
-
-## testing
-
-#test: @ Run automated tests
-tests:
-	go test -v ./... -count=1
-
-#test-commit: @ Check to make sure commit messages follow conventional commits format
-test-commit:
-	test/scripts/commit-check-latest.sh
-
 ## release
 
 #release: @ Set a new version of threeport, commit, tag and push to origin.  Will trigger CI for new release of threeport.
@@ -71,16 +22,6 @@ endif
 	@git tag ${RELEASE_VERSION}
 	@git push origin main --tag
 	@echo "version ${RELEASE_VERSION} released"
-
-## dev environment
-
-#dev-up: @ Run a local development environment
-dev-up: build-tptdev
-	./bin/tptdev up --auth-enabled=false
-
-#dev-down: @ Delete the local development environment
-dev-down: build-tptdev
-	./bin/tptdev down
 
 #dev-logs-api: @ Follow log output from the local dev API
 dev-logs-api:
@@ -110,22 +51,10 @@ dev-logs-cp:
 dev-logs-agent:
 	kubectl logs deploy/threeport-agent -n threeport-control-plane -f -c manager
 
-#dev-forward-api: @ Forward local port 1323 to the local dev API
-dev-forward-api:
-	kubectl port-forward -n threeport-control-plane service/threeport-api-server 1323:80
-
-#dev-forward-crdb: @ Forward local port 26257 to local dev cockroach database
-dev-forward-crdb:
-	kubectl port-forward -n threeport-control-plane service/crdb 26257
-
-#dev-forward-nats: @ Forward local port 33993 to the local dev API nats server
-dev-forward-nats:
-	kubectl port-forward -n threeport-control-plane service/nats-js 4222:4222
-
 #TODO: move to kubectl exec command that uses `cockroach` binary in contianer
 #dev-query-crdb: @ Open a terminal connection to the dev cockroach database (must first run `make dev-forward-crdb` in another terminal)
 dev-query-crdb:
-	kubectl exec -it -n threeport-control-plane crdb-0 -- cockroach sql --host localhost --insecure --database threeport_api
+	kubectl exec -it -n threeport-control-plane crdb-0 -- cockroach sql --host localhost --certs-dir=/cockroach/cockroach-certs --database threeport_api
 
 #dev-reset-crdb: @ Reset the dev cockroach database
 dev-reset-crdb:

@@ -8,13 +8,14 @@ import (
 	"strings"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
 
 // GetGatewayHttpPortsByGatewayDefinitionId fetches a gateway http port by gateway definition ID.
 func GetGatewayHttpPortsByGatewayDefinitionId(apiClient *http.Client, apiAddr string, id uint) (*[]v0.GatewayHttpPort, error) {
 	var gatewayHttpPort []v0.GatewayHttpPort
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s%s?gatewaydefinitionid=%d", apiAddr, v0.PathGatewayHttpPorts, id),
 		http.MethodGet,
@@ -44,7 +45,7 @@ func GetGatewayHttpPortsByGatewayDefinitionId(apiClient *http.Client, apiAddr st
 func GetGatewayTcpPortsByGatewayDefinitionId(apiClient *http.Client, apiAddr string, id uint) (*[]v0.GatewayTcpPort, error) {
 	var gatewayTcpPort []v0.GatewayTcpPort
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s%s?gatewaydefinitionid=%d", apiAddr, v0.PathGatewayTcpPorts, id),
 		http.MethodGet,

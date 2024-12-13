@@ -38,7 +38,7 @@ func (t *TerraformInstance) BeforeCreate(tx *gorm.DB) error {
 		// encrypt field if encrypt tag is present
 		encrypt := field.Tag.Get("encrypt")
 		if encrypt == "true" {
-			underlyingValue, err := util.GetStringPtrValue(fieldVal)
+			underlyingValue, err := util.GetPtrValue(fieldVal)
 			if err != nil {
 				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
 			}
@@ -82,7 +82,7 @@ func (t *TerraformInstance) BeforeUpdate(tx *gorm.DB) error {
 		// encrypt field if encrypt tag is present
 		encrypt := field.Tag.Get("encrypt")
 		if encrypt == "true" {
-			underlyingValue, err := util.GetStringPtrValue(fieldVal)
+			underlyingValue, err := util.GetPtrValue(fieldVal)
 			if err != nil {
 				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
 			}

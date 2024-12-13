@@ -55,9 +55,9 @@ func outputGetObservabilityStacksCmd(
 	return nil
 }
 
-// outputGetObservabilityStackDefinitionsCmd produces the tabular output for the
+// outputGetv0ObservabilityStackDefinitionsCmd produces the tabular output for the
 // 'tptctl get observability-stack-definitions' command.
-func outputGetObservabilityStackDefinitionsCmd(
+func outputGetv0ObservabilityStackDefinitionsCmd(
 	observabilityStackDefinitions *[]v0.ObservabilityStackDefinition,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -145,9 +145,9 @@ func outputGetObservabilityStackDefinitionsCmd(
 	return nil
 }
 
-// outputGetObservabilityStackInstancesCmd produces the tabular output for the
+// outputGetv0ObservabilityStackInstancesCmd produces the tabular output for the
 // 'tptctl get observability-stack-instances' command.
-func outputGetObservabilityStackInstancesCmd(
+func outputGetv0ObservabilityStackInstancesCmd(
 	observabilityStackInstances *[]v0.ObservabilityStackInstance,
 	apiClient *http.Client,
 	apiEndpoint string,

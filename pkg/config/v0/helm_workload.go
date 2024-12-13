@@ -25,15 +25,15 @@ type HelmWorkloadConfig struct {
 // HelmWorkloadValues contains the attributes needed to manage a helm workload
 // definition and helm workload instance.
 type HelmWorkloadValues struct {
-	Name                      string                           `yaml:"Name"`
-	Repo                      string                           `yaml:"Repo"`
-	Chart                     string                           `yaml:"Chart"`
-	ChartVersion              string                           `yaml:"ChartVersion"`
-	DefinitionValues          string                           `yaml:"DefinitionValues"`
-	DefinitionValuesDocument  string                           `yaml:"DefinitionValuesDocument"`
-	InstanceValues            string                           `yaml:"InstanceValues"`
-	InstanceValuesDocument    string                           `yaml:"InstanceValuesDocument"`
-	HelmWorkloadConfigPath    string                           `yaml:"HelmWorkloadConfigPath"`
+	Name                      *string                          `yaml:"Name"`
+	Repo                      *string                          `yaml:"Repo"`
+	Chart                     *string                          `yaml:"Chart"`
+	ChartVersion              *string                          `yaml:"ChartVersion"`
+	DefinitionValues          *string                          `yaml:"DefinitionValues"`
+	DefinitionValuesDocument  *string                          `yaml:"DefinitionValuesDocument"`
+	InstanceValues            *string                          `yaml:"InstanceValues"`
+	InstanceValuesDocument    *string                          `yaml:"InstanceValuesDocument"`
+	HelmWorkloadConfigPath    *string                          `yaml:"HelmWorkloadConfigPath"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	DomainName                *DomainNameDefinitionValues      `yaml:"DomainName"`
 	Gateway                   *GatewayDefinitionValues         `yaml:"Gateway"`
@@ -49,13 +49,13 @@ type HelmWorkloadDefinitionConfig struct {
 // HelmWorkloadDefinitionValues contains the attributes needed to manage a helm workload
 // definition.
 type HelmWorkloadDefinitionValues struct {
-	Name                   string `yaml:"Name"`
-	Repo                   string `yaml:"Repo"`
-	Chart                  string `yaml:"Chart"`
-	ChartVersion           string `yaml:"ChartVersion"`
-	Values                 string `yaml:"Values"`
-	ValuesDocument         string `yaml:"ValuesDocument"`
-	HelmWorkloadConfigPath string `yaml:"HelmWorkloadConfigPath"`
+	Name                   *string `yaml:"Name"`
+	Repo                   *string `yaml:"Repo"`
+	Chart                  *string `yaml:"Chart"`
+	ChartVersion           *string `yaml:"ChartVersion"`
+	Values                 *string `yaml:"Values"`
+	ValuesDocument         *string `yaml:"ValuesDocument"`
+	HelmWorkloadConfigPath *string `yaml:"HelmWorkloadConfigPath"`
 }
 
 // HelmWorkloadInstanceConfig contains the config for a helm workload instance.
@@ -66,12 +66,12 @@ type HelmWorkloadInstanceConfig struct {
 // HelmWorkloadInstanceValues contains the attributes needed to manage a helm workload
 // instance.
 type HelmWorkloadInstanceValues struct {
-	Name                      string                           `yaml:"Name"`
-	Values                    string                           `yaml:"Values"`
-	ValuesDocument            string                           `yaml:"ValuesDocument"`
+	Name                      *string                          `yaml:"Name"`
+	Values                    *string                          `yaml:"Values"`
+	ValuesDocument            *string                          `yaml:"ValuesDocument"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	HelmWorkloadDefinition    HelmWorkloadDefinitionValues     `yaml:"HelmWorkloadDefinition"`
-	HelmWorkloadConfigPath    string                           `yaml:"HelmWorkloadConfigPath"`
+	HelmWorkloadDefinition    *HelmWorkloadDefinitionValues    `yaml:"HelmWorkloadDefinition"`
+	HelmWorkloadConfigPath    *string                          `yaml:"HelmWorkloadConfigPath"`
 }
 
 // Create creates a helm workload definition and instance in the Threeport API.
@@ -84,7 +84,7 @@ func (h *HelmWorkloadValues) Create(
 	if err := h.ValidateCreate(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to validate values for helm workload with name %s: %w",
-			h.Name,
+			*h.Name,
 			err,
 		)
 	}
@@ -97,7 +97,7 @@ func (h *HelmWorkloadValues) Create(
 	if err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to get operations for helm workload with name %s: %w",
-			h.Name,
+			*h.Name,
 			err,
 		)
 	}
@@ -106,7 +106,7 @@ func (h *HelmWorkloadValues) Create(
 	if err := operations.Create(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to execute create operations for helm workload defined instance with name %s: %w",
-			h.Name,
+			*h.Name,
 			err,
 		)
 	}
@@ -119,27 +119,27 @@ func (h *HelmWorkloadValues) ValidateCreate() error {
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if h.Name == "" {
+	if h.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure repo is set
-	if h.Repo == "" {
+	if h.Repo == nil {
 		multiError.AppendError(errors.New("missing required field in config: Repo"))
 	}
 
 	// ensure chart is set
-	if h.Chart == "" {
+	if h.Chart == nil {
 		multiError.AppendError(errors.New("missing required field in config: Chart"))
 	}
 
 	// ensure definition values or definition values document is set
-	if h.DefinitionValues != "" && h.DefinitionValuesDocument != "" {
+	if h.DefinitionValues != nil && h.DefinitionValuesDocument != nil {
 		multiError.AppendError(errors.New("cannot set both DefinitionValues and DefinitionValuesDocument"))
 	}
 
 	// ensure instance values or instance values document is set
-	if h.InstanceValues != "" && h.InstanceValuesDocument != "" {
+	if h.InstanceValues != nil && h.InstanceValuesDocument != nil {
 		multiError.AppendError(errors.New("cannot set both InstanceValues and InstanceValuesDocument"))
 	}
 
@@ -159,7 +159,7 @@ func (h *HelmWorkloadValues) Delete(
 	if err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to get operations for helm workload with name %s: %w",
-			h.Name,
+			*h.Name,
 			err,
 		)
 	}
@@ -168,7 +168,7 @@ func (h *HelmWorkloadValues) Delete(
 	if err := operations.Delete(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to execute delete operations for helm workload defined instance with name %s: %w",
-			h.Name,
+			*h.Name,
 			err,
 		)
 	}
@@ -182,21 +182,21 @@ func (h *HelmWorkloadDefinitionValues) Create(
 	apiEndpoint string,
 ) (*v0.HelmWorkloadDefinition, error) {
 	// validate required fields
-	if h.Name == "" || h.Repo == "" || h.Chart == "" {
+	if h.Name == nil || h.Repo == nil || h.Chart == nil {
 		return nil, errors.New("missing required field/s in config - required fields: Name, Repo, Chart")
 	}
 
 	// construct helm workload definition object
 	helmWorkloadDefinition := v0.HelmWorkloadDefinition{
 		Definition: v0.Definition{
-			Name: &h.Name,
+			Name: h.Name,
 		},
-		Repo:  &h.Repo,
-		Chart: &h.Chart,
+		Repo:  h.Repo,
+		Chart: h.Chart,
 	}
 
 	// set helm values if present
-	values, err := GetValuesFromDocumentOrInline(h.Values, h.ValuesDocument, h.HelmWorkloadConfigPath)
+	values, err := GetValuesFromDocumentOrInline(*h.Values, *h.ValuesDocument, *h.HelmWorkloadConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get values document from path: %w", err)
 	}
@@ -221,22 +221,22 @@ func (h *HelmWorkloadDefinitionValues) ValidateCreate() error {
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if h.Name == "" {
+	if h.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure repo is set
-	if h.Repo == "" {
+	if h.Repo == nil {
 		multiError.AppendError(errors.New("missing required field in config: Repo"))
 	}
 
 	// ensure chart is set
-	if h.Chart == "" {
+	if h.Chart == nil {
 		multiError.AppendError(errors.New("missing required field in config: Chart"))
 	}
 
 	// ensure values or values document is set
-	if h.Values != "" && h.ValuesDocument != "" {
+	if h.Values != nil && h.ValuesDocument != nil {
 		multiError.AppendError(errors.New("cannot set both Values and ValuesDocument"))
 	}
 
@@ -249,9 +249,9 @@ func (wd *HelmWorkloadDefinitionValues) Describe(
 	apiEndpoint string,
 ) (*status.HelmWorkloadDefinitionStatusDetail, error) {
 	// get helm workload definition by name
-	helmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(apiClient, apiEndpoint, wd.Name)
+	helmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(apiClient, apiEndpoint, *wd.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find helm workload definition with name %s: %w", wd.Name, err)
+		return nil, fmt.Errorf("failed to find helm workload definition with name %s: %w", *wd.Name, err)
 	}
 
 	// get helm workload definition status
@@ -261,7 +261,7 @@ func (wd *HelmWorkloadDefinitionValues) Describe(
 		*helmWorkloadDefinition.ID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status for helm workload definition with name %s: %w", wd.Name, err)
+		return nil, fmt.Errorf("failed to get status for helm workload definition with name %s: %w", *wd.Name, err)
 	}
 
 	return statusDetail, nil
@@ -273,9 +273,9 @@ func (h *HelmWorkloadDefinitionValues) Delete(
 	apiEndpoint string,
 ) (*v0.HelmWorkloadDefinition, error) {
 	// get helm workload definition by name
-	helmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(apiClient, apiEndpoint, h.Name)
+	helmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(apiClient, apiEndpoint, *h.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find helm workload definition with name %s: %w", h.Name, err)
+		return nil, fmt.Errorf("failed to find helm workload definition with name %s: %w", *h.Name, err)
 	}
 
 	// delete helm workload definition
@@ -297,12 +297,12 @@ func (h *HelmWorkloadInstanceValues) Create(
 	apiEndpoint string,
 ) (*v0.HelmWorkloadInstance, error) {
 	// validate required fields
-	if h.Name == "" || h.HelmWorkloadDefinition.Name == "" {
+	if h.Name == nil || h.HelmWorkloadDefinition == nil || h.HelmWorkloadDefinition.Name == nil {
 		return nil, errors.New("missing required field/s in config - required fields: Name, HelmWorkloadDefinition.Name")
 	}
 
 	// get kubernetes runtime instance API object
-	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+	kubernetesRuntimeInstance, err := SetKubernetesRuntimeInstanceForConfig(
 		h.KubernetesRuntimeInstance,
 		apiClient,
 		apiEndpoint,
@@ -315,12 +315,12 @@ func (h *HelmWorkloadInstanceValues) Create(
 	helmWorkloadDefinition, err := client.GetHelmWorkloadDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		h.HelmWorkloadDefinition.Name,
+		*h.HelmWorkloadDefinition.Name,
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to find helm workload definition with name %s: %w",
-			h.HelmWorkloadDefinition.Name,
+			*h.HelmWorkloadDefinition.Name,
 			err,
 		)
 	}
@@ -328,14 +328,14 @@ func (h *HelmWorkloadInstanceValues) Create(
 	// construct helm workload instance object
 	helmWorkloadInstance := v0.HelmWorkloadInstance{
 		Instance: v0.Instance{
-			Name: &h.Name,
+			Name: h.Name,
 		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		HelmWorkloadDefinitionID:    helmWorkloadDefinition.ID,
 	}
 
 	// get helm instance values
-	values, err := GetValuesFromDocumentOrInline(h.Values, h.ValuesDocument, h.HelmWorkloadConfigPath)
+	values, err := GetValuesFromDocumentOrInline(*h.Values, *h.ValuesDocument, *h.HelmWorkloadConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get helm instance values document from path: %w", err)
 	}
@@ -360,7 +360,7 @@ func (h *HelmWorkloadInstanceValues) ValidateCreate() error {
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if h.Name == "" {
+	if h.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
@@ -370,17 +370,17 @@ func (h *HelmWorkloadInstanceValues) ValidateCreate() error {
 	}
 
 	// ensure kubernetes runtime instance name is set
-	if h.KubernetesRuntimeInstance.Name == "" {
+	if h.KubernetesRuntimeInstance.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
 	}
 
 	// ensure helm workload definition name is set
-	if h.HelmWorkloadDefinition.Name == "" {
+	if h.HelmWorkloadDefinition == nil || h.HelmWorkloadDefinition.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: HelmWorkloadDefinition.Name"))
 	}
 
 	// ensure values or values document is set
-	if h.Values != "" && h.ValuesDocument != "" {
+	if h.Values != nil && h.ValuesDocument != nil {
 		multiError.AppendError(errors.New("cannot set both Values and ValuesDocument"))
 	}
 
@@ -390,9 +390,9 @@ func (h *HelmWorkloadInstanceValues) ValidateCreate() error {
 // Describe returns important failure events related to a helm workload instance.
 func (h *HelmWorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoint string) (*workload_status.WorkloadInstanceStatusDetail, error) {
 	// get helm workload instance by name
-	helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByName(apiClient, apiEndpoint, h.Name)
+	helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByName(apiClient, apiEndpoint, *h.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find helm workload instance with name %s: %w", h.Name, err)
+		return nil, fmt.Errorf("failed to find helm workload instance with name %s: %w", *h.Name, err)
 	}
 
 	// get helm workload instance status
@@ -404,7 +404,7 @@ func (h *HelmWorkloadInstanceValues) Describe(apiClient *http.Client, apiEndpoin
 		*helmWorkloadInstance.Reconciled,
 	)
 	if statusDetail.Error != nil {
-		return nil, fmt.Errorf("failed to get status for helm workload instance with name %s: %w", h.Name, statusDetail.Error)
+		return nil, fmt.Errorf("failed to get status for helm workload instance with name %s: %w", *h.Name, statusDetail.Error)
 	}
 
 	return statusDetail, nil
@@ -416,9 +416,9 @@ func (h *HelmWorkloadInstanceValues) Delete(
 	apiEndpoint string,
 ) (*v0.HelmWorkloadInstance, error) {
 	// get helm workload instance by name
-	helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByName(apiClient, apiEndpoint, h.Name)
+	helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByName(apiClient, apiEndpoint, *h.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find helm workload instance with name %s: %w", h.Name, err)
+		return nil, fmt.Errorf("failed to find helm workload instance with name %s: %w", *h.Name, err)
 	}
 
 	// delete helm workload instance
@@ -433,7 +433,7 @@ func (h *HelmWorkloadInstanceValues) Delete(
 
 	// wait for helm workload instance to be deleted
 	util.Retry(60, 1, func() error {
-		if _, err := client.GetHelmWorkloadInstanceByName(apiClient, apiEndpoint, h.Name); err == nil {
+		if _, err := client.GetHelmWorkloadInstanceByName(apiClient, apiEndpoint, *h.Name); err == nil {
 			return errors.New("helm workload instance not deleted")
 		}
 		return nil
@@ -456,7 +456,7 @@ func (h *HelmWorkloadValues) GetOperations(
 	operations := util.Operations{}
 
 	// get helm definition values
-	helmDefinitionValues, err := GetValuesFromDocumentOrInline(h.DefinitionValues, h.DefinitionValuesDocument, h.HelmWorkloadConfigPath)
+	helmDefinitionValues, err := GetValuesFromDocumentOrInline(*h.DefinitionValues, *h.DefinitionValuesDocument, *h.HelmWorkloadConfigPath)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get helm instance values document from path: %w", err)
 	}
@@ -467,7 +467,7 @@ func (h *HelmWorkloadValues) GetOperations(
 		Repo:                   h.Repo,
 		Chart:                  h.Chart,
 		ChartVersion:           h.ChartVersion,
-		Values:                 *helmDefinitionValues,
+		Values:                 helmDefinitionValues,
 		HelmWorkloadConfigPath: h.HelmWorkloadConfigPath,
 	}
 	operations.AppendOperation(util.Operation{
@@ -477,7 +477,7 @@ func (h *HelmWorkloadValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf(
 					"failed to create helm workload definition with name %s: %w",
-					h.Name,
+					*h.Name,
 					err,
 				)
 			}
@@ -487,14 +487,14 @@ func (h *HelmWorkloadValues) GetOperations(
 		Delete: func() error {
 			_, err = helmWorkloadDefinitionValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete helm workload definition with name %s: %w", h.Name, err)
+				return fmt.Errorf("failed to delete helm workload definition with name %s: %w", *h.Name, err)
 			}
 			return nil
 		},
 	})
 
 	// get helm instance values
-	helmInstanceValues, err := GetValuesFromDocumentOrInline(h.InstanceValues, h.InstanceValuesDocument, h.HelmWorkloadConfigPath)
+	helmInstanceValues, err := GetValuesFromDocumentOrInline(*h.InstanceValues, *h.InstanceValuesDocument, *h.HelmWorkloadConfigPath)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get helm instance values document from path: %w", err)
 	}
@@ -502,10 +502,10 @@ func (h *HelmWorkloadValues) GetOperations(
 	// add helm workload instance operation
 	helmWorkloadInstanceValues := HelmWorkloadInstanceValues{
 		Name:                      h.Name,
-		Values:                    *helmInstanceValues,
+		Values:                    helmInstanceValues,
 		HelmWorkloadConfigPath:    h.HelmWorkloadConfigPath,
 		KubernetesRuntimeInstance: h.KubernetesRuntimeInstance,
-		HelmWorkloadDefinition: HelmWorkloadDefinitionValues{
+		HelmWorkloadDefinition: &HelmWorkloadDefinitionValues{
 			Name: h.Name,
 		},
 	}
@@ -514,7 +514,7 @@ func (h *HelmWorkloadValues) GetOperations(
 		Create: func() error {
 			helmWorkloadInstance, err := helmWorkloadInstanceValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create helm workload instance with name %s: %w", h.Name, err)
+				return fmt.Errorf("failed to create helm workload instance with name %s: %w", *h.Name, err)
 			}
 			createdHelmWorkloadInstance = *helmWorkloadInstance
 			return nil
@@ -522,7 +522,7 @@ func (h *HelmWorkloadValues) GetOperations(
 		Delete: func() error {
 			_, err = helmWorkloadInstanceValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete helm workload instance with name %s: %w", h.Name, err)
+				return fmt.Errorf("failed to delete helm workload instance with name %s: %w", *h.Name, err)
 			}
 			return nil
 		},
@@ -739,7 +739,7 @@ func GetValuesDocumentFromPath(valuesDocument, helmWorkloadConfigPath string) (*
 		configPath, _ := filepath.Split(helmWorkloadConfigPath)
 		relativeValuesPath := path.Join(configPath, valuesDocument)
 
-		// load vaules document
+		// load values document
 		valuesContent, err := os.ReadFile(relativeValuesPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read definition ValuesDocument file with name %s: %w", valuesDocument, err)

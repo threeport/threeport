@@ -21,14 +21,14 @@ type GatewayConfig struct {
 // GatewayValues contains the attributes needed to manage a gateway
 // definition and gateway instance.
 type GatewayValues struct {
-	Name                      string                           `yaml:"Name"`
-	HttpPorts                 []GatewayHttpPortValues          `yaml:"HttpPorts"`
-	TcpPorts                  []GatewayTcpPortValues           `yaml:"TcpPorts"`
-	ServiceName               string                           `yaml:"ServiceName"`
-	SubDomain                 string                           `yaml:"SubDomain"`
-	DomainNameDefinition      DomainNameDefinitionValues       `yaml:"DomainNameDefinition"`
+	Name                      *string                          `yaml:"Name"`
+	HttpPorts                 *[]GatewayHttpPortValues         `yaml:"HttpPorts"`
+	TcpPorts                  *[]GatewayTcpPortValues          `yaml:"TcpPorts"`
+	ServiceName               *string                          `yaml:"ServiceName"`
+	SubDomain                 *string                          `yaml:"SubDomain"`
+	DomainNameDefinition      *DomainNameDefinitionValues      `yaml:"DomainNameDefinition"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	WorkloadInstance          WorkloadInstanceValues           `yaml:"WorkloadInstance"`
+	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
 }
 
 // GatewayDefinitionConfig contains the config for a gateway definition.
@@ -38,28 +38,28 @@ type GatewayDefinitionConfig struct {
 
 // GatewayDefinitionValues contains the attributes needed to manage a gateway.
 type GatewayDefinitionValues struct {
-	Name                 string                     `yaml:"Name"`
-	HttpPorts            []GatewayHttpPortValues    `yaml:"HttpPorts"`
-	TcpPorts             []GatewayTcpPortValues     `yaml:"TcpPorts"`
-	ServiceName          string                     `yaml:"ServiceName"`
-	SubDomain            string                     `yaml:"SubDomain"`
-	DomainNameDefinition DomainNameDefinitionValues `yaml:"DomainNameDefinition"`
+	Name                 *string                     `yaml:"Name"`
+	HttpPorts            *[]GatewayHttpPortValues    `yaml:"HttpPorts"`
+	TcpPorts             *[]GatewayTcpPortValues     `yaml:"TcpPorts"`
+	ServiceName          *string                     `yaml:"ServiceName"`
+	SubDomain            *string                     `yaml:"SubDomain"`
+	DomainNameDefinition *DomainNameDefinitionValues `yaml:"DomainNameDefinition"`
 }
 
 // GatewayHttpPortValues contains the attributes needed to manage a gateway
 // http port.
 type GatewayHttpPortValues struct {
-	Port          int    `yaml:"Port"`
-	Path          string `yaml:"Path"`
-	TLSEnabled    bool   `yaml:"TLSEnabled"`
-	HTTPSRedirect bool   `yaml:"HTTPSRedirect"`
+	Port          *int    `yaml:"Port"`
+	Path          *string `yaml:"Path"`
+	TLSEnabled    *bool   `yaml:"TLSEnabled"`
+	HTTPSRedirect *bool   `yaml:"HTTPSRedirect"`
 }
 
 // GatewayTcpPortValues contains the attributes needed to manage a gateway
 // tcp port.
 type GatewayTcpPortValues struct {
-	Port       int  `yaml:"Port"`
-	TLSEnabled bool `yaml:"TLSEnabled"`
+	Port       *int  `yaml:"Port"`
+	TLSEnabled *bool `yaml:"TLSEnabled"`
 }
 
 // GatewayInstanceConfig contains the config for a gateway instance.
@@ -70,10 +70,10 @@ type GatewayInstanceConfig struct {
 // GatewayInstanceValues contains the attributes needed to manage a gateway
 // instance.
 type GatewayInstanceValues struct {
-	Name                      string                           `yaml:"Name"`
-	GatewayDefinition         GatewayDefinitionValues          `yaml:"GatewayDefinition"`
+	Name                      *string                          `yaml:"Name"`
+	GatewayDefinition         *GatewayDefinitionValues         `yaml:"GatewayDefinition"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	WorkloadInstance          WorkloadInstanceValues           `yaml:"WorkloadInstance"`
+	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
 }
 
 // DomainNameConfig contains the config for a domain name.
@@ -84,12 +84,12 @@ type DomainNameConfig struct {
 // DomainNameValues contains the attributes needed to manage a domain name
 // definition and domain name instance.
 type DomainNameValues struct {
-	Name                      string                           `yaml:"Name"`
-	Domain                    string                           `yaml:"Domain"`
-	Zone                      string                           `yaml:"Zone"`
-	AdminEmail                string                           `yaml:"AdminEmail"`
+	Name                      *string                          `yaml:"Name"`
+	Domain                    *string                          `yaml:"Domain"`
+	Zone                      *string                          `yaml:"Zone"`
+	AdminEmail                *string                          `yaml:"AdminEmail"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	WorkloadInstance          WorkloadInstanceValues           `yaml:"WorkloadInstance"`
+	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
 }
 
 // DomainNameDefinitionConfig contains the config for a domain name definition.
@@ -100,10 +100,10 @@ type DomainNameDefinitionConfig struct {
 // DomainNameDefinitionValues contains the attributes needed to manage a domain
 // name definition.
 type DomainNameDefinitionValues struct {
-	Name       string `yaml:"Name"`
-	Domain     string `yaml:"Domain"`
-	Zone       string `yaml:"Zone"`
-	AdminEmail string `yaml:"AdminEmail"`
+	Name       *string `yaml:"Name"`
+	Domain     *string `yaml:"Domain"`
+	Zone       *string `yaml:"Zone"`
+	AdminEmail *string `yaml:"AdminEmail"`
 }
 
 // DomainNameInstanceConfig contains the config for a domain name instance.
@@ -114,10 +114,10 @@ type DomainNameInstanceConfig struct {
 // DomainNameInstanceValues contains the attributes needed to manage a domain
 // name instance.
 type DomainNameInstanceValues struct {
-	Name                      string                           `yaml:"Name"`
-	DomainNameDefinition      DomainNameDefinitionValues       `yaml:"DomainNameDefinition"`
+	Name                      *string                          `yaml:"Name"`
+	DomainNameDefinition      *DomainNameDefinitionValues      `yaml:"DomainNameDefinition"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	WorkloadInstance          WorkloadInstanceValues           `yaml:"WorkloadInstance"`
+	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
 }
 
 // Create creates a gateway definition and instance in the Threeport API.
@@ -128,7 +128,7 @@ func (g *GatewayValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, fmt.Errorf("failed to execute create operations for gateway with name %s: %w", g.Name, err)
+		return nil, nil, fmt.Errorf("failed to execute create operations for gateway with name %s: %w", *g.Name, err)
 	}
 
 	return createdGatewayDefinition, createdGatewayInstance, nil
@@ -144,7 +144,7 @@ func (g *GatewayValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.
 	if err := operations.Delete(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to execute delete operations for gateway defined instance with name %s: %w",
-			g.Name,
+			*g.Name,
 			err,
 		)
 	}
@@ -157,7 +157,7 @@ func (g *GatewayDefinitionValues) Validate() error {
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if g.Name == "" {
+	if g.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
@@ -170,13 +170,13 @@ func (g *GatewayDefinitionValues) Validate() error {
 	if g.HttpPorts != nil {
 		port443 := false
 		redirect := false
-		for _, httpPort := range g.HttpPorts {
+		for _, httpPort := range *g.HttpPorts {
 			// see if redirect is set
-			if httpPort.Port == 80 && httpPort.HTTPSRedirect {
+			if *httpPort.Port == 80 && *httpPort.HTTPSRedirect {
 				redirect = true
 			}
 			// see if port 443 is set
-			if httpPort.Port == 443 {
+			if *httpPort.Port == 443 {
 				port443 = true
 			}
 		}
@@ -197,18 +197,18 @@ func (g *GatewayHttpPortValues) Validate() error {
 	// this is necessary because we can't tell if the user
 	// didn't set the Path field or if they intended to set it to
 	// a blank string
-	if g.Path == "" {
-		g.Path = "/"
+	if g.Path == nil || *g.Path == "" {
+		defaultPath := "/"
+		g.Path = &defaultPath
 	}
 
 	// ensure TLS isn't enabled while HTTPSRedirect is also enabled
-	if g.TLSEnabled && g.HTTPSRedirect {
+	if g.TLSEnabled != nil && g.HTTPSRedirect != nil && *g.TLSEnabled && *g.HTTPSRedirect {
 		multiError.AppendError(errors.New("cannot set both TLSEnabled and HTTPSRedirect to true"))
-
 	}
 
 	// ensure port is set
-	if g.Port == 0 {
+	if g.Port == nil || *g.Port == 0 {
 		multiError.AppendError(errors.New("missing required field in config: Port"))
 	}
 
@@ -221,9 +221,9 @@ func (wd *GatewayDefinitionValues) Describe(
 	apiEndpoint string,
 ) (*status.GatewayDefinitionStatusDetail, error) {
 	// get gateway definition by name
-	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, wd.Name)
+	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, *wd.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find gateway definition with name %s: %w", wd.Name, err)
+		return nil, fmt.Errorf("failed to find gateway definition with name %s: %w", *wd.Name, err)
 	}
 
 	// get gateway definition status
@@ -233,7 +233,7 @@ func (wd *GatewayDefinitionValues) Describe(
 		*gatewayDefinition.ID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status for gateway definition with name %s: %w", wd.Name, err)
+		return nil, fmt.Errorf("failed to get status for gateway definition with name %s: %w", *wd.Name, err)
 	}
 
 	return statusDetail, nil
@@ -242,46 +242,46 @@ func (wd *GatewayDefinitionValues) Describe(
 // Create creates a gateway definition.
 func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayDefinition, error) {
 	if err := g.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for gateway definition with name %s: %w", g.Name, err)
+		return nil, fmt.Errorf("failed to validate values for gateway definition with name %s: %w", *g.Name, err)
 	}
 
 	// construct list of http ports
 	tlsEnabled := false
 	var httpPorts []*v0.GatewayHttpPort
 	if g.HttpPorts != nil {
-		for _, httpPort := range g.HttpPorts {
+		for _, httpPort := range *g.HttpPorts {
 
 			// create copy of pointer
 			currentHttpPort := httpPort
 
 			// validate port config
 			if err := currentHttpPort.Validate(); err != nil {
-				return nil, fmt.Errorf("failed to validate values for http port %d: %w", currentHttpPort.Port, err)
+				return nil, fmt.Errorf("failed to validate values for http port %d: %w", *currentHttpPort.Port, err)
 			}
 
-			if currentHttpPort.TLSEnabled {
+			if currentHttpPort.TLSEnabled != nil && *currentHttpPort.TLSEnabled {
 				tlsEnabled = true
 			}
 
 			httpPorts = append(httpPorts,
 				&v0.GatewayHttpPort{
-					Port:          &currentHttpPort.Port,
-					Path:          &currentHttpPort.Path,
-					TLSEnabled:    &currentHttpPort.TLSEnabled,
-					HTTPSRedirect: &currentHttpPort.HTTPSRedirect,
-				})
+					Port:          currentHttpPort.Port,
+					Path:          currentHttpPort.Path,
+					TLSEnabled:    currentHttpPort.TLSEnabled,
+					HTTPSRedirect: currentHttpPort.HTTPSRedirect,
+				},
+			)
 		}
 	}
 
 	// construct list of tcp ports
 	var tcpPorts []*v0.GatewayTcpPort
 	if g.TcpPorts != nil {
-		for _, tcpPort := range g.TcpPorts {
-			currentTcpPort := tcpPort
+		for _, tcpPort := range *g.TcpPorts {
 			tcpPorts = append(tcpPorts,
 				&v0.GatewayTcpPort{
-					Port:       &currentTcpPort.Port,
-					TLSEnabled: &currentTcpPort.TLSEnabled,
+					Port:       tcpPort.Port,
+					TLSEnabled: tcpPort.TLSEnabled,
 				})
 		}
 	}
@@ -289,11 +289,11 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 	// get domain name definition
 	domainNameUsed := false
 	domainNameDefinition := &v0.DomainNameDefinition{}
-	if g.DomainNameDefinition.Name != "" {
+	if g.DomainNameDefinition != nil && g.DomainNameDefinition.Name != nil && *g.DomainNameDefinition.Name != "" {
 		domainNameUsed = true
-		dnd, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, g.DomainNameDefinition.Name)
+		dnd, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *g.DomainNameDefinition.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", g.DomainNameDefinition.Name, err)
+			return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *g.DomainNameDefinition.Name, err)
 		}
 		domainNameDefinition = dnd
 	} else {
@@ -307,30 +307,30 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 	if domainNameUsed {
 		gatewayDefinition = v0.GatewayDefinition{
 			Definition: v0.Definition{
-				Name: &g.Name,
+				Name: g.Name,
 			},
 			HttpPorts:              httpPorts,
 			TcpPorts:               tcpPorts,
-			SubDomain:              &g.SubDomain,
-			ServiceName:            &g.ServiceName,
+			SubDomain:              g.SubDomain,
+			ServiceName:            g.ServiceName,
 			DomainNameDefinitionID: domainNameDefinition.ID,
 		}
 	} else {
 		gatewayDefinition = v0.GatewayDefinition{
 			Definition: v0.Definition{
-				Name: &g.Name,
+				Name: g.Name,
 			},
 			HttpPorts:   httpPorts,
 			TcpPorts:    tcpPorts,
-			SubDomain:   &g.SubDomain,
-			ServiceName: &g.ServiceName,
+			SubDomain:   g.SubDomain,
+			ServiceName: g.ServiceName,
 		}
 	}
 
 	// create gateway definition
 	createdGatewayDefinition, err := client.CreateGatewayDefinition(apiClient, apiEndpoint, &gatewayDefinition)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create gateway definition with name %s: %w", g.Name, err)
+		return nil, fmt.Errorf("failed to create gateway definition with name %s: %w", *g.Name, err)
 	}
 
 	return createdGatewayDefinition, nil
@@ -339,32 +339,32 @@ func (g *GatewayDefinitionValues) Create(apiClient *http.Client, apiEndpoint str
 // Delete deletes a gateway definition.
 func (g *GatewayDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.GatewayDefinition, error) {
 	// get domain name definition
-	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, g.Name)
+	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, *g.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find gateway definition with name %s: %w", g.Name, err)
+		return nil, fmt.Errorf("failed to find gateway definition with name %s: %w", *g.Name, err)
 	}
 
 	deletedGatewayDefinition, err := client.DeleteGatewayDefinition(apiClient, apiEndpoint, *gatewayDefinition.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to delete gateway definition with name %s: %w", g.Name, err)
+		return nil, fmt.Errorf("failed to delete gateway definition with name %s: %w", *g.Name, err)
 	}
 
 	return deletedGatewayDefinition, nil
 }
 
-// Validate validates the gateway definition values.
+// Validate validates the gateway instance values.
 func (g *GatewayInstanceValues) Validate() error {
 	multiError := util.MultiError{}
 
-	if g.Name == "" {
+	if g.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
-	if g.GatewayDefinition.Name == "" {
+	if g.GatewayDefinition == nil || g.GatewayDefinition.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: GatewayDefinition.Name"))
 	}
 
-	if g.WorkloadInstance.Name == "" {
+	if g.WorkloadInstance == nil || g.WorkloadInstance.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: WorkloadInstance.Name"))
 	}
 
@@ -379,11 +379,11 @@ func (g *GatewayInstanceValues) Validate() error {
 func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.GatewayInstance, error) {
 	// validate required fields
 	if err := g.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for gateay instance with name %s: %w", g.Name, err)
+		return nil, fmt.Errorf("failed to validate values for gateay instance with name %s: %w", *g.Name, err)
 	}
 
 	// get kubernetes runtime instance API object
-	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+	kubernetesRuntimeInstance, err := SetKubernetesRuntimeInstanceForConfig(
 		g.KubernetesRuntimeInstance,
 		apiClient,
 		apiEndpoint,
@@ -391,27 +391,27 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to set kubernetes runtime instance with name %s: %w",
-			g.KubernetesRuntimeInstance.Name,
+			*g.KubernetesRuntimeInstance.Name,
 			err,
 		)
 	}
 
 	// get workload instance
-	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, g.WorkloadInstance.Name)
+	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, *g.WorkloadInstance.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", g.WorkloadInstance.Name, err)
+		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *g.WorkloadInstance.Name, err)
 	}
 
 	// get gateway definition
-	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, g.GatewayDefinition.Name)
+	gatewayDefinition, err := client.GetGatewayDefinitionByName(apiClient, apiEndpoint, *g.GatewayDefinition.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gateway definition with name %s: %w", g.GatewayDefinition.Name, err)
+		return nil, fmt.Errorf("failed to get gateway definition with name %s: %w", *g.GatewayDefinition.Name, err)
 	}
 
 	// construct gateway instance object
 	gatewayInstance := v0.GatewayInstance{
 		Instance: v0.Instance{
-			Name: &g.Name,
+			Name: g.Name,
 		},
 		GatewayDefinitionID:         gatewayDefinition.ID,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
@@ -421,7 +421,7 @@ func (g *GatewayInstanceValues) Create(apiClient *http.Client, apiEndpoint strin
 	// create gateway instance
 	createdGatewayInstance, err := client.CreateGatewayInstance(apiClient, apiEndpoint, &gatewayInstance)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create gateway instance with name %s: %w", g.Name, err)
+		return nil, fmt.Errorf("failed to create gateway instance with name %s: %w", *g.Name, err)
 	}
 
 	return createdGatewayInstance, nil
@@ -436,10 +436,10 @@ func (k *GatewayInstanceValues) Describe(
 	gatewayInstance, err := client.GetGatewayInstanceByName(
 		apiClient,
 		apiEndpoint,
-		k.Name,
+		*k.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find gateway instance with name %s: %w", k.Name, err)
+		return nil, fmt.Errorf("failed to find gateway instance with name %s: %w", *k.Name, err)
 	}
 
 	// get gateway instance status
@@ -449,7 +449,7 @@ func (k *GatewayInstanceValues) Describe(
 		gatewayInstance,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status for gateway instance with name %s: %w", k.Name, err)
+		return nil, fmt.Errorf("failed to get status for gateway instance with name %s: %w", *k.Name, err)
 	}
 
 	return statusDetail, nil
@@ -458,20 +458,20 @@ func (k *GatewayInstanceValues) Describe(
 // Delete deletes a gateway instance.
 func (g *GatewayInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.GatewayInstance, error) {
 	// get gateway instance by name
-	gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, g.Name)
+	gatewayInstance, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, *g.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find gateway instance with name %s: %w", g.Name, err)
+		return nil, fmt.Errorf("failed to find gateway instance with name %s: %w", *g.Name, err)
 	}
 
 	// delete gateway instance
 	deletedGatewayInstance, err := client.DeleteGatewayInstance(apiClient, apiEndpoint, *gatewayInstance.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to delete gateway instance with name %s: %w", g.Name, err)
+		return nil, fmt.Errorf("failed to delete gateway instance with name %s: %w", *g.Name, err)
 	}
 
 	// wait for gateway instance to be deleted
 	util.Retry(60, 1, func() error {
-		if _, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, g.GatewayDefinition.Name); err == nil {
+		if _, err := client.GetGatewayInstanceByName(apiClient, apiEndpoint, *g.GatewayDefinition.Name); err == nil {
 			return errors.New("gateway instance not deleted")
 		}
 		return nil
@@ -507,7 +507,7 @@ func (g *GatewayValues) GetOperations(
 		Create: func() error {
 			gatewayDefinition, err := gatewayDefinitionValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create gateway definition with name %s: %w", g.Name, err)
+				return fmt.Errorf("failed to create gateway definition with name %s: %w", *g.Name, err)
 			}
 			createdGatewayDefinition = *gatewayDefinition
 			return nil
@@ -515,7 +515,7 @@ func (g *GatewayValues) GetOperations(
 		Delete: func() error {
 			_, err = gatewayDefinitionValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete gateway definition with name %s: %w", g.Name, err)
+				return fmt.Errorf("failed to delete gateway definition with name %s: %w", *g.Name, err)
 			}
 			return nil
 		},
@@ -526,7 +526,7 @@ func (g *GatewayValues) GetOperations(
 		Name:                      g.Name,
 		KubernetesRuntimeInstance: g.KubernetesRuntimeInstance,
 		WorkloadInstance:          g.WorkloadInstance,
-		GatewayDefinition: GatewayDefinitionValues{
+		GatewayDefinition: &GatewayDefinitionValues{
 			Name: g.Name,
 		},
 	}
@@ -535,7 +535,7 @@ func (g *GatewayValues) GetOperations(
 		Create: func() error {
 			gatewayInstance, err := gatewayInstanceValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create gateway instance with name %s: %w", g.Name, err)
+				return fmt.Errorf("failed to create gateway instance with name %s: %w", *g.Name, err)
 			}
 			createdGatewayInstance = *gatewayInstance
 			return nil
@@ -543,7 +543,7 @@ func (g *GatewayValues) GetOperations(
 		Delete: func() error {
 			_, err = gatewayInstanceValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete gateway instance with name %s: %w", g.Name, err)
+				return fmt.Errorf("failed to delete gateway instance with name %s: %w", *g.Name, err)
 			}
 			return nil
 		},
@@ -565,7 +565,7 @@ func (n *DomainNameValues) Create(
 	if err := operations.Create(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to execute create operations for domain name defined instance with name %s: %w",
-			n.Name,
+			*n.Name,
 			err,
 		)
 	}
@@ -586,7 +586,7 @@ func (n *DomainNameValues) Delete(
 	if err := operations.Delete(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to execute delete operations for domain name defined instance with name %s: %w",
-			n.Name,
+			*n.Name,
 			err,
 		)
 	}
@@ -599,11 +599,11 @@ func (n *DomainNameValues) Delete(
 func (d *DomainNameDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameDefinition, error) {
 	// validate required fields
 	if err := d.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for domain name definition with name %s: %w", d.Name, err)
+		return nil, fmt.Errorf("failed to validate values for domain name definition with name %s: %w", *d.Name, err)
 	}
 
 	// check if domain name definition exists
-	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Domain)
+	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *d.Domain)
 	if err == nil {
 		return existingDomainNameDefinition, nil
 	}
@@ -611,17 +611,17 @@ func (d *DomainNameDefinitionValues) Create(apiClient *http.Client, apiEndpoint 
 	// construct domain name definition object
 	domainNameDefinition := v0.DomainNameDefinition{
 		Definition: v0.Definition{
-			Name: &d.Name,
+			Name: d.Name,
 		},
-		Domain:     &d.Domain,
-		Zone:       &d.Zone,
-		AdminEmail: &d.AdminEmail,
+		Domain:     d.Domain,
+		Zone:       d.Zone,
+		AdminEmail: d.AdminEmail,
 	}
 
 	// create domain name definition
 	createdDomainNameDefinition, err := client.CreateDomainNameDefinition(apiClient, apiEndpoint, &domainNameDefinition)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create domain name definition with name %s: %w", d.Name, err)
+		return nil, fmt.Errorf("failed to create domain name definition with name %s: %w", *d.Name, err)
 	}
 
 	return createdDomainNameDefinition, nil
@@ -632,19 +632,19 @@ func (d *DomainNameDefinitionValues) Validate() error {
 
 	multiError := util.MultiError{}
 
-	if d.Name == "" {
+	if d.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
-	if d.Domain == "" {
+	if d.Domain == nil {
 		multiError.AppendError(errors.New("missing required field in config: Domain"))
 	}
 
-	if d.Zone == "" {
+	if d.Zone == nil {
 		multiError.AppendError(errors.New("missing required field in config: Zone"))
 	}
 
-	if d.AdminEmail == "" {
+	if d.AdminEmail == nil {
 		multiError.AppendError(errors.New("missing required field in config: AdminEmail"))
 	}
 
@@ -661,9 +661,9 @@ func (wd *DomainNameDefinitionValues) Describe(
 	apiEndpoint string,
 ) (*status.DomainNameDefinitionStatusDetail, error) {
 	// get domain name definition by name
-	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, wd.Name)
+	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *wd.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find domain name definition with name %s: %w", wd.Name, err)
+		return nil, fmt.Errorf("failed to find domain name definition with name %s: %w", *wd.Name, err)
 	}
 
 	// get domain name definition status
@@ -673,7 +673,7 @@ func (wd *DomainNameDefinitionValues) Describe(
 		*domainNameDefinition.ID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status for domain name definition with name %s: %w", wd.Name, err)
+		return nil, fmt.Errorf("failed to get status for domain name definition with name %s: %w", *wd.Name, err)
 	}
 
 	return statusDetail, nil
@@ -682,14 +682,14 @@ func (wd *DomainNameDefinitionValues) Describe(
 // Delete deletes a domain name definition from the Threeport API.
 func (d *DomainNameDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.DomainNameDefinition, error) {
 	// check if domain name definition exists
-	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.Name)
+	existingDomainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *d.Name)
 	if err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("failed to find domain name definition with name %s: %w", *d.Name, err)
 	}
 
 	deletedDomainNameDefinition, err := client.DeleteDomainNameDefinition(apiClient, apiEndpoint, *existingDomainNameDefinition.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to delete domain name definition with name %s: %w", d.Name, err)
+		return nil, fmt.Errorf("failed to delete domain name definition with name %s: %w", *d.Name, err)
 	}
 
 	return deletedDomainNameDefinition, nil
@@ -706,7 +706,7 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 	}
 
 	// get kubernetes runtime instance API object
-	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+	kubernetesRuntimeInstance, err := SetKubernetesRuntimeInstanceForConfig(
 		d.KubernetesRuntimeInstance,
 		apiClient,
 		apiEndpoint,
@@ -716,21 +716,21 @@ func (d *DomainNameInstanceValues) Create(apiClient *http.Client, apiEndpoint st
 	}
 
 	// get workload instance
-	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, d.WorkloadInstance.Name)
+	workloadInstance, err := client.GetWorkloadInstanceByName(apiClient, apiEndpoint, *d.WorkloadInstance.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", d.WorkloadInstance.Name, err)
+		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *d.WorkloadInstance.Name, err)
 	}
 
 	// get domain name definition
-	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, d.DomainNameDefinition.Name)
+	domainNameDefinition, err := client.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *d.DomainNameDefinition.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", d.DomainNameDefinition.Name, err)
+		return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *d.DomainNameDefinition.Name, err)
 	}
 
 	// construct domain name instance object
 	domainNameInstance := v0.DomainNameInstance{
 		Instance: v0.Instance{
-			Name: util.StringPtr(d.getDomainNameInstanceName()),
+			Name: util.Ptr(d.getDomainNameInstanceName()),
 		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		WorkloadInstanceID:          workloadInstance.ID,
@@ -759,10 +759,10 @@ func (k *DomainNameInstanceValues) Describe(
 	domainNameInstance, err := client.GetDomainNameInstanceByName(
 		apiClient,
 		apiEndpoint,
-		k.Name,
+		*k.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find domain name instance with name %s: %w", k.Name, err)
+		return nil, fmt.Errorf("failed to find domain name instance with name %s: %w", *k.Name, err)
 	}
 
 	// get domain name instance status
@@ -772,7 +772,7 @@ func (k *DomainNameInstanceValues) Describe(
 		domainNameInstance,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status for domain name instance with name %s: %w", k.Name, err)
+		return nil, fmt.Errorf("failed to get status for domain name instance with name %s: %w", *k.Name, err)
 	}
 
 	return statusDetail, nil
@@ -793,7 +793,7 @@ func (d *DomainNameInstanceValues) Delete(apiClient *http.Client, apiEndpoint st
 
 	// wait for domain name instance to be deleted
 	util.Retry(60, 1, func() error {
-		if _, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, d.Name); err == nil {
+		if _, err := client.GetDomainNameInstanceByName(apiClient, apiEndpoint, *d.Name); err == nil {
 			return errors.New("domain name instance not deleted")
 		}
 		return nil
@@ -804,19 +804,19 @@ func (d *DomainNameInstanceValues) Delete(apiClient *http.Client, apiEndpoint st
 
 // getDomainNameInstanceName returns the name of the domain name instance.
 func (d *DomainNameInstanceValues) getDomainNameInstanceName() string {
-	return fmt.Sprintf("%s-%s", d.WorkloadInstance.Name, strcase.ToKebab(d.DomainNameDefinition.Name))
+	return fmt.Sprintf("%s-%s", *d.WorkloadInstance.Name, strcase.ToKebab(*d.DomainNameDefinition.Name))
 }
 
 // Validate validates the domain name instance values.
 func (d *DomainNameInstanceValues) Validate() error {
 	multiError := util.MultiError{}
 
-	if d.DomainNameDefinition.Domain == "" {
+	if d.DomainNameDefinition == nil || d.DomainNameDefinition.Domain == nil {
 		multiError.AppendError(errors.New("missing required field in config: DomainNameDefinition.Name"))
 	}
 
-	if d.WorkloadInstance.Name == "" {
-		multiError.AppendError(errors.New("missing required field in config: WorklaodInstance.Name"))
+	if d.WorkloadInstance == nil || d.WorkloadInstance.Name == nil {
+		multiError.AppendError(errors.New("missing required field in config: WorkloadInstance.Name"))
 	}
 
 	if len(multiError.Errors) > 0 {
@@ -851,7 +851,7 @@ func (n *DomainNameValues) GetOperations(
 		Create: func() error {
 			domainNameDefinition, err := domainNameDefinitionValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create domain name definition %s: %w", n.Name, err)
+				return fmt.Errorf("failed to create domain name definition %s: %w", *n.Name, err)
 			}
 			createdDomainNameDefinition = *domainNameDefinition
 			return nil
@@ -859,7 +859,7 @@ func (n *DomainNameValues) GetOperations(
 		Delete: func() error {
 			_, err = domainNameDefinitionValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete domain name definition %s: %w", n.Name, err)
+				return fmt.Errorf("failed to delete domain name definition %s: %w", *n.Name, err)
 			}
 			return nil
 		},
@@ -870,7 +870,7 @@ func (n *DomainNameValues) GetOperations(
 		Name:                      n.Name,
 		KubernetesRuntimeInstance: n.KubernetesRuntimeInstance,
 		WorkloadInstance:          n.WorkloadInstance,
-		DomainNameDefinition: DomainNameDefinitionValues{
+		DomainNameDefinition: &DomainNameDefinitionValues{
 			Name: n.Name,
 		},
 	}
@@ -881,7 +881,7 @@ func (n *DomainNameValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf(
 					"failed to create domain name instance %s: %w",
-					domainNameInstanceValues.Name,
+					*domainNameInstanceValues.Name,
 					err,
 				)
 			}
@@ -893,7 +893,7 @@ func (n *DomainNameValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf(
 					"failed to delete domain name instance %s: %w",
-					domainNameInstanceValues.Name,
+					*domainNameInstanceValues.Name,
 					err,
 				)
 			}

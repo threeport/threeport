@@ -10,9 +10,8 @@ import (
 
 	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -24,7 +23,7 @@ type SecretInstanceConfig struct {
 	secretInstance              *v0.SecretInstance
 	secretDefinition            *v0.SecretDefinition
 	log                         *logr.Logger
-	workloadInstance            *v1.WorkloadInstance
+	workloadInstance            *v0.WorkloadInstance
 	helmWorkloadInstance        *v0.HelmWorkloadInstance
 	kubernetesRuntimeInstance   *v0.KubernetesRuntimeInstance
 	kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition
@@ -49,7 +48,7 @@ func (c *SecretInstanceConfig) getSecretInstanceOperations() *util.Operations {
 		Name:   "secret objects",
 		Create: c.createSecretObjects,
 		Delete: func() error {
-			if err := c.deleteSecretObjects(); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+			if err := c.deleteSecretObjects(); err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 				return fmt.Errorf("failed to delete secret objects: %w", err)
 			}
 			return nil
@@ -62,7 +61,7 @@ func (c *SecretInstanceConfig) getSecretInstanceOperations() *util.Operations {
 // createAttachedObjectReference creates an attached object reference
 // for the secret instance.
 func (c *SecretInstanceConfig) createAttachedObjectReference() error {
-	if err := client_v1.EnsureAttachedObjectReferenceExists(
+	if err := client.EnsureAttachedObjectReferenceExists(
 		c.r.APIClient,
 		c.r.APIServer,
 		c.workloadInstanceType,
@@ -79,7 +78,7 @@ func (c *SecretInstanceConfig) createAttachedObjectReference() error {
 // deleteAttachedObjectReference deletes an attached object reference
 // for the secret instance.
 func (c *SecretInstanceConfig) deleteAttachedObjectReference() error {
-	attachedObjectReference, err := client_v1.GetAttachedObjectReferenceByAttachedObjectID(
+	attachedObjectReference, err := client.GetAttachedObjectReferenceByAttachedObjectID(
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.secretInstance.ID,
@@ -91,7 +90,7 @@ func (c *SecretInstanceConfig) deleteAttachedObjectReference() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		*attachedObjectReference.ID,
-	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete attached object reference: %w", err)
 	}
 
@@ -109,7 +108,7 @@ func (c *SecretInstanceConfig) createSecretObjects() error {
 
 	// update workload with secret manifests
 	switch c.workloadInstanceType {
-	case util.TypeName(v1.WorkloadInstance{}):
+	case util.TypeName(v0.WorkloadInstance{}):
 		// get workload instance
 		workloadInstance, err := client.GetWorkloadInstanceByID(
 			c.r.APIClient,
@@ -141,7 +140,7 @@ func (c *SecretInstanceConfig) createSecretObjects() error {
 		}
 
 		// trigger workload instance reconciliation
-		workloadInstance.Reconciled = util.BoolPtr(false)
+		workloadInstance.Reconciled = util.Ptr(false)
 		_, err = client.UpdateWorkloadInstance(c.r.APIClient, c.r.APIServer, workloadInstance)
 		if err != nil {
 			return fmt.Errorf("failed to update workload instance: %w", err)
@@ -173,7 +172,7 @@ func (c *SecretInstanceConfig) createSecretObjects() error {
 		}
 
 		helmWorkloadInstance.AdditionalResources = &appendedResources
-		helmWorkloadInstance.Reconciled = util.BoolPtr(false)
+		helmWorkloadInstance.Reconciled = util.Ptr(false)
 		_, err = client.UpdateHelmWorkloadInstance(c.r.APIClient, c.r.APIServer, helmWorkloadInstance)
 		if err != nil {
 			return fmt.Errorf("failed to update helm workload instance: %w", err)
@@ -196,7 +195,7 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 
 	// update workload with secret manifests
 	switch c.workloadInstanceType {
-	case util.TypeName(v1.WorkloadInstance{}):
+	case util.TypeName(v0.WorkloadInstance{}):
 		// get workload instance
 		workloadInstance, err := client.GetWorkloadInstanceByID(
 			c.r.APIClient,
@@ -204,7 +203,7 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 			*c.workloadInstanceId,
 		)
 		if err != nil {
-			if errors.Is(err, client.ErrObjectNotFound) {
+			if errors.Is(err, client_lib.ErrObjectNotFound) {
 				return nil
 			}
 			return fmt.Errorf("failed to get workload instance: %w", err)
@@ -217,7 +216,7 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 			*c.workloadInstanceId,
 		)
 		if err != nil {
-			if errors.Is(err, client.ErrObjectNotFound) {
+			if errors.Is(err, client_lib.ErrObjectNotFound) {
 				return nil
 			}
 			return fmt.Errorf("failed to get workload resource instances by workload instance ID: %w", err)
@@ -239,8 +238,8 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 			// schedule workload resource instance for deletion
 			workloadResourceInstance = &v0.WorkloadResourceInstance{
 				Common:               v0.Common{ID: workloadResourceInstance.ID},
-				ScheduledForDeletion: util.TimePtr(time.Now().UTC()),
-				Reconciled:           util.BoolPtr(false),
+				ScheduledForDeletion: util.Ptr(time.Now().UTC()),
+				Reconciled:           util.Ptr(false),
 			}
 			_, err = client.UpdateWorkloadResourceInstance(
 				c.r.APIClient,
@@ -248,7 +247,7 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 				workloadResourceInstance,
 			)
 			if err != nil {
-				if errors.Is(err, client.ErrObjectNotFound) {
+				if errors.Is(err, client_lib.ErrObjectNotFound) {
 					// workload resource instance has already been deleted
 					return nil
 				}
@@ -257,13 +256,13 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 		}
 
 		// trigger workload instance reconciliation
-		workloadInstance.Reconciled = util.BoolPtr(false)
+		workloadInstance.Reconciled = util.Ptr(false)
 		_, err = client.UpdateWorkloadInstance(
 			c.r.APIClient,
 			c.r.APIServer,
 			workloadInstance,
 		)
-		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+		if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 			return fmt.Errorf("failed to update workload instance: %w", err)
 		}
 	case util.TypeName(v0.HelmWorkloadInstance{}):
@@ -287,9 +286,9 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 			}
 		}
 
-		helmWorkloadInstance.Reconciled = util.BoolPtr(false)
+		helmWorkloadInstance.Reconciled = util.Ptr(false)
 		_, err = client.UpdateHelmWorkloadInstance(c.r.APIClient, c.r.APIServer, helmWorkloadInstance)
-		if err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+		if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 			return fmt.Errorf("failed to update helm workload instance: %w", err)
 		}
 	default:
@@ -307,7 +306,7 @@ func getSecretInstanceWorkloadTypeAndId(secretInstance *v0.SecretInstance) (stri
 
 	switch {
 	case secretInstance.WorkloadInstanceID != nil:
-		workloadInstanceType = util.TypeName(v1.WorkloadInstance{})
+		workloadInstanceType = util.TypeName(v0.WorkloadInstance{})
 		workloadInstanceID = secretInstance.WorkloadInstanceID
 	case secretInstance.HelmWorkloadInstanceID != nil:
 		workloadInstanceType = util.TypeName(v0.HelmWorkloadInstance{})
@@ -362,9 +361,9 @@ func (c *SecretInstanceConfig) getThreeportObjects() error {
 
 	// update secret config with correct workload instance
 	switch c.workloadInstanceType {
-	case util.TypeName(v1.WorkloadInstance{}):
+	case util.TypeName(v0.WorkloadInstance{}):
 		// get workload instance
-		c.workloadInstance, err = client_v1.GetWorkloadInstanceByID(
+		c.workloadInstance, err = client.GetWorkloadInstanceByID(
 			c.r.APIClient,
 			c.r.APIServer,
 			*c.secretInstance.WorkloadInstanceID,
@@ -399,7 +398,7 @@ func (c *SecretInstanceConfig) validateThreeportState() error {
 
 	// validate workload is reconciled
 	switch c.workloadInstanceType {
-	case util.TypeName(v1.WorkloadInstance{}):
+	case util.TypeName(v0.WorkloadInstance{}):
 		if !*c.workloadInstance.Reconciled {
 			return errors.New("workload instance not reconciled")
 		}
@@ -482,10 +481,10 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 	}
 
 	// create secret controller workload instance
-	createdSecretControllerWorkloadInstance, err := client_v1.CreateWorkloadInstance(
+	createdSecretControllerWorkloadInstance, err := client.CreateWorkloadInstance(
 		c.r.APIClient,
 		c.r.APIServer,
-		&v1.WorkloadInstance{
+		&v0.WorkloadInstance{
 			Instance:                    v0.Instance{Name: &workloadDefName},
 			WorkloadDefinitionID:        createdSecretControllerWorkloadDefinition.ID,
 			KubernetesRuntimeInstanceID: c.kubernetesRuntimeInstance.ID,

@@ -10,6 +10,15 @@ builds:
       - darwin
     main: cmd/tptctl/main.go
     binary: tptctl
+  - id: threeport-sdk
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    main: cmd/sdk/main.go
+    binary: threeport-sdk
   - id: threeport-rest-api
     env:
       - CGO_ENABLED=0
@@ -102,7 +111,7 @@ archives:
     files:
       - README.md
     wrap_in_directory: true
-    strip_parent_binary_folder: true
+    strip_binary_directory: true
     allow_different_binary_count: true
 checksum:
   name_template: 'checksums.txt'

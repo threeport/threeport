@@ -116,14 +116,6 @@ func HyphenDelimitedString(input []string) string {
 	return output
 }
 
-// StringPtrToString converts a string pointer to a string.
-func StringPtrToString(input *string) string {
-	if input == nil {
-		return ""
-	}
-	return *input
-}
-
 // TypeName returns the type name of the input.
 func TypeName(in any) string {
 	return reflect.TypeOf(in).String()

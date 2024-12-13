@@ -2,8 +2,6 @@ package v0
 
 import "gorm.io/datatypes"
 
-// +threeport-sdk:reconciler
-// +threeport-sdk:add-custom-middleware
 // SecretDefinition defines a secret that can be deployed to a runtime.
 type SecretDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
@@ -20,7 +18,6 @@ type SecretDefinition struct {
 	SecretInstances []*SecretInstance `json:"SecretInstances,omitempty" validate:"optional,association"`
 }
 
-// +threeport-sdk:reconciler
 // todo add marker
 // SecretInstance is an instance of a secret deployed to a runtime.
 type SecretInstance struct {

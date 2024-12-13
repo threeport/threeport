@@ -4,7 +4,6 @@ Copyright © 2023 Threeport admin@threeport.io
 package cmd
 
 import (
-	_ "embed"
 	"fmt"
 
 	"github.com/spf13/cobra"

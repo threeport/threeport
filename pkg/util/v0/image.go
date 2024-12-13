@@ -8,13 +8,10 @@ import (
 
 // ParseImage takes a full image and returns the registry, name and tag values.
 func ParseImage(image string) (string, string, string, error) {
-	// extract tag
-	tagSplit := strings.Split(image, ":")
-	imageTag := tagSplit[1]
-
+	// split the image name from the registry
 	var imageRegistry string
 	var imageName string
-	imageSplit := strings.Split(tagSplit[0], "/")
+	imageSplit := strings.Split(image, "/")
 	switch len(imageSplit) {
 	case 2:
 		imageRegistry = imageSplit[0]
@@ -25,6 +22,11 @@ func ParseImage(image string) (string, string, string, error) {
 	default:
 		return "", "", "", errors.New(fmt.Sprintf("unable to parse image %s", image))
 	}
+
+	// split the image tag from the image name
+	tagSplit := strings.Split(imageName, ":")
+	imageName = tagSplit[0]
+	imageTag := tagSplit[1]
 
 	return imageRegistry, imageName, imageTag, nil
 }

@@ -23,11 +23,11 @@ type TerraformConfig struct {
 // TerraformValues contains the attributes needed to manage a terraform
 // definition and terraform instance.
 type TerraformValues struct {
-	Name                string           `yaml:"Name"`
-	ConfigDir           string           `yaml:"ConfigDir"`
-	AwsAccount          AwsAccountValues `yaml:"AwsAccount"`
-	VarsDocument        string           `yaml:"VarsDocument"`
-	TerraformConfigPath string           `yaml:"TerraformConfigPath"`
+	Name                *string           `yaml:"Name"`
+	ConfigDir           *string           `yaml:"ConfigDir"`
+	AwsAccount          *AwsAccountValues `yaml:"AwsAccount"`
+	VarsDocument        *string           `yaml:"VarsDocument"`
+	TerraformConfigPath *string           `yaml:"TerraformConfigPath"`
 }
 
 // TerraformDefinitionConfig contains the config for a terraform definition.
@@ -38,9 +38,9 @@ type TerraformDefinitionConfig struct {
 // TerraformDefinitionValues contains the attributes needed to manage a terraform
 // definition.
 type TerraformDefinitionValues struct {
-	Name                string `yaml:"Name"`
-	ConfigDir           string `yaml:"ConfigDir"`
-	TerraformConfigPath string `yaml:"TerraformConfigPath"`
+	Name                *string `yaml:"Name"`
+	ConfigDir           *string `yaml:"ConfigDir"`
+	TerraformConfigPath *string `yaml:"TerraformConfigPath"`
 }
 
 // TerraformInstanceConfig contains the config for a terraform instance.
@@ -51,11 +51,11 @@ type TerraformInstanceConfig struct {
 // TerraformInstanceValues contains the attributes needed to manage a terraform
 // instance.
 type TerraformInstanceValues struct {
-	Name                string                    `yaml:"Name"`
-	AwsAccount          AwsAccountValues          `yaml:"AwsAccount"`
-	VarsDocument        string                    `yaml:"VarsDocument"`
-	TerraformDefinition TerraformDefinitionValues `yaml:"TerraformDefinition"`
-	TerraformConfigPath string                    `yaml:"TerraformConfigPath"`
+	Name                *string                    `yaml:"Name"`
+	AwsAccount          *AwsAccountValues          `yaml:"AwsAccount"`
+	VarsDocument        *string                    `yaml:"VarsDocument"`
+	TerraformDefinition *TerraformDefinitionValues `yaml:"TerraformDefinition"`
+	TerraformConfigPath *string                    `yaml:"TerraformConfigPath"`
 }
 
 // Create creates a terraform definition and instance in the Threeport API.
@@ -68,7 +68,7 @@ func (t *TerraformValues) Create(apiClient *http.Client, apiEndpoint string) (*v
 	if err := operations.Create(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to execute create operations for terraform defined instance with name %s: %w",
-			t.Name,
+			*t.Name,
 			err,
 		)
 	}
@@ -88,7 +88,7 @@ func (t *TerraformValues) Delete(apiClient *http.Client, apiEndpoint string) (*v
 	if err := operations.Delete(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to execute delete operations for terraform defined instance with name %s: %w",
-			t.Name,
+			*t.Name,
 			err,
 		)
 	}
@@ -101,12 +101,12 @@ func (t *TerraformDefinitionValues) Validate() error {
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if t.Name == "" {
+	if t.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure terraform config dir is set
-	if t.ConfigDir == "" {
+	if t.ConfigDir == nil {
 		multiError.AppendError(errors.New("missing required field in config: ConfigDir"))
 	}
 
@@ -117,13 +117,13 @@ func (t *TerraformDefinitionValues) Validate() error {
 func (t *TerraformDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.TerraformDefinition, error) {
 	// validate inputs
 	if err := t.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for terraform definition with name %s: %w", t.Name, err)
+		return nil, fmt.Errorf("failed to validate values for terraform definition with name %s: %w", *t.Name, err)
 	}
 
 	// build the path to the terraform config dir relative to the user's working
 	// directory
-	configDir := filepath.Dir(t.TerraformConfigPath)
-	relativeTerraformConfigPath := filepath.Join(configDir, t.ConfigDir)
+	configDir := filepath.Dir(*t.TerraformConfigPath)
+	relativeTerraformConfigPath := filepath.Join(configDir, *t.ConfigDir)
 
 	// collect all the terraform config files
 	var terraformConfigFiles []string
@@ -141,7 +141,7 @@ func (t *TerraformDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 		return nil, fmt.Errorf("failed to find terraform config files in provided config dir: %w", err)
 	}
 	if len(terraformConfigFiles) == 0 {
-		return nil, fmt.Errorf("no terraform config files with '.tf' file extension found in provided config dir: %s", t.ConfigDir)
+		return nil, fmt.Errorf("no terraform config files with '.tf' file extension found in provided config dir: %s", *t.ConfigDir)
 	}
 
 	// load terraform configs
@@ -158,7 +158,7 @@ func (t *TerraformDefinitionValues) Create(apiClient *http.Client, apiEndpoint s
 	// construct terraform definition object
 	terraformDefinition := v0.TerraformDefinition{
 		Definition: v0.Definition{
-			Name: &t.Name,
+			Name: t.Name,
 		},
 		ConfigDir: &concatConfig,
 	}
@@ -178,9 +178,9 @@ func (wd *TerraformDefinitionValues) Describe(
 	apiEndpoint string,
 ) (*status.TerraformDefinitionStatusDetail, error) {
 	// get terraform definition by name
-	terraformDefinition, err := client.GetTerraformDefinitionByName(apiClient, apiEndpoint, wd.Name)
+	terraformDefinition, err := client.GetTerraformDefinitionByName(apiClient, apiEndpoint, *wd.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find terraform definition with name %s: %w", wd.Name, err)
+		return nil, fmt.Errorf("failed to find terraform definition with name %s: %w", *wd.Name, err)
 	}
 
 	// get terraform definition status
@@ -190,7 +190,7 @@ func (wd *TerraformDefinitionValues) Describe(
 		*terraformDefinition.ID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status for terraform definition with name %s: %w", wd.Name, err)
+		return nil, fmt.Errorf("failed to get status for terraform definition with name %s: %w", *wd.Name, err)
 	}
 
 	return statusDetail, nil
@@ -199,9 +199,9 @@ func (wd *TerraformDefinitionValues) Describe(
 // Delete deletes a terraform definition from the Threeport API.
 func (t *TerraformDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.TerraformDefinition, error) {
 	// get terraform definition by name
-	terraformDefinition, err := client.GetTerraformDefinitionByName(apiClient, apiEndpoint, t.Name)
+	terraformDefinition, err := client.GetTerraformDefinitionByName(apiClient, apiEndpoint, *t.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find terraform definition with name %s: %w", t.Name, err)
+		return nil, fmt.Errorf("failed to find terraform definition with name %s: %w", *t.Name, err)
 	}
 
 	// delete terraform definition
@@ -218,17 +218,17 @@ func (t *TerraformInstanceValues) Validate() error {
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if t.Name == "" {
+	if t.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure AWS account name is set
-	if t.AwsAccount.Name == "" {
+	if t.AwsAccount == nil || t.AwsAccount.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: AwsAccount.Name"))
 	}
 
 	// ensure the terraform definition name is set
-	if t.TerraformDefinition.Name == "" {
+	if t.TerraformDefinition == nil || t.TerraformDefinition.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: TerraformDefinition.Name"))
 	}
 
@@ -239,47 +239,47 @@ func (t *TerraformInstanceValues) Validate() error {
 func (t *TerraformInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.TerraformInstance, error) {
 	// validate inputs
 	if err := t.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for terraform instance with name %s: %w", t.Name, err)
+		return nil, fmt.Errorf("failed to validate values for terraform instance with name %s: %w", *t.Name, err)
 	}
 
 	// get terraform definition by name
 	terraformDefinition, err := client.GetTerraformDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		t.TerraformDefinition.Name,
+		*t.TerraformDefinition.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find terraform definition with name %s: %w", t.TerraformDefinition.Name, err)
+		return nil, fmt.Errorf("failed to find terraform definition with name %s: %w", *t.TerraformDefinition.Name, err)
 	}
 
 	// get AWS Account by name
 	awsAccount, err := client.GetAwsAccountByName(
 		apiClient,
 		apiEndpoint,
-		t.AwsAccount.Name,
+		*t.AwsAccount.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", t.AwsAccount.Name, err)
+		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", *t.AwsAccount.Name, err)
 	}
 
 	// construct terraform instance object
 	terraformInstance := v0.TerraformInstance{
 		Instance: v0.Instance{
-			Name: &t.Name,
+			Name: t.Name,
 		},
 		AwsAccountID:          awsAccount.ID,
 		TerraformDefinitionID: terraformDefinition.ID,
 	}
 
 	// add terraform vars if supplied
-	if t.VarsDocument != "" {
+	if t.VarsDocument != nil && *t.VarsDocument != "" {
 		// build the path to the terraform config dir relative to the user's working
 		// directory
-		configDir := filepath.Dir(t.TerraformConfigPath)
-		varsDoc := filepath.Join(configDir, t.VarsDocument)
+		configDir := filepath.Dir(*t.TerraformConfigPath)
+		varsDoc := filepath.Join(configDir, *t.VarsDocument)
 		varsContent, err := os.ReadFile(varsDoc)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read terraform vars file with name %s: %w", t.VarsDocument, err)
+			return nil, fmt.Errorf("failed to read terraform vars file with name %s: %w", *t.VarsDocument, err)
 		}
 
 		// add the terraform vars to the terraform instance object
@@ -305,10 +305,10 @@ func (k *TerraformInstanceValues) Describe(
 	terraformInstance, err := client.GetTerraformInstanceByName(
 		apiClient,
 		apiEndpoint,
-		k.Name,
+		*k.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find terraform instance by name %s: %w", k.Name, err)
+		return nil, fmt.Errorf("failed to find terraform instance by name %s: %w", *k.Name, err)
 	}
 
 	// get terraform instance status
@@ -318,7 +318,7 @@ func (k *TerraformInstanceValues) Describe(
 		terraformInstance,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status for terraform instance with name %s: %w", k.Name, err)
+		return nil, fmt.Errorf("failed to get status for terraform instance with name %s: %w", *k.Name, err)
 	}
 
 	return statusDetail, nil
@@ -327,9 +327,9 @@ func (k *TerraformInstanceValues) Describe(
 // Delete deletes a terraform instance from the Threeport API.
 func (t *TerraformInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.TerraformInstance, error) {
 	// get terraform instance by name
-	terraformInstance, err := client.GetTerraformInstanceByName(apiClient, apiEndpoint, t.Name)
+	terraformInstance, err := client.GetTerraformInstanceByName(apiClient, apiEndpoint, *t.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find terraform instance with name %s: %w", t.Name, err)
+		return nil, fmt.Errorf("failed to find terraform instance with name %s: %w", *t.Name, err)
 	}
 
 	// delete terraform instance
@@ -340,7 +340,7 @@ func (t *TerraformInstanceValues) Delete(apiClient *http.Client, apiEndpoint str
 
 	// wait for terraform instance to be deleted
 	util.Retry(120, 10, func() error {
-		if _, err := client.GetTerraformInstanceByName(apiClient, apiEndpoint, t.Name); err == nil {
+		if _, err := client.GetTerraformInstanceByName(apiClient, apiEndpoint, *t.Name); err == nil {
 			return errors.New("terraform instance not deleted")
 		}
 		return nil
@@ -370,7 +370,7 @@ func (t *TerraformValues) GetOperations(apiClient *http.Client, apiEndpoint stri
 		Create: func() error {
 			terraformDefinition, err := terraformDefinitionValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create terraform definition with name %s: %w", terraformDefinitionValues.Name, err)
+				return fmt.Errorf("failed to create terraform definition with name %s: %w", *terraformDefinitionValues.Name, err)
 			}
 			createdTerraformDefinition = *terraformDefinition
 			return nil
@@ -378,7 +378,7 @@ func (t *TerraformValues) GetOperations(apiClient *http.Client, apiEndpoint stri
 		Delete: func() error {
 			_, err = terraformDefinitionValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete terraform definition with name %s: %w", terraformDefinitionValues.Name, err)
+				return fmt.Errorf("failed to delete terraform definition with name %s: %w", *terraformDefinitionValues.Name, err)
 			}
 			return nil
 		},
@@ -389,10 +389,10 @@ func (t *TerraformValues) GetOperations(apiClient *http.Client, apiEndpoint stri
 		Name:                t.Name,
 		VarsDocument:        t.VarsDocument,
 		TerraformConfigPath: t.TerraformConfigPath,
-		AwsAccount: AwsAccountValues{
+		AwsAccount: &AwsAccountValues{
 			Name: t.AwsAccount.Name,
 		},
-		TerraformDefinition: TerraformDefinitionValues{
+		TerraformDefinition: &TerraformDefinitionValues{
 			Name: t.Name,
 		},
 	}
@@ -401,7 +401,7 @@ func (t *TerraformValues) GetOperations(apiClient *http.Client, apiEndpoint stri
 		Create: func() error {
 			terraformInstance, err := terraformInstanceValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create terraform instance with name %s: %w", terraformInstanceValues.Name, err)
+				return fmt.Errorf("failed to create terraform instance with name %s: %w", *terraformInstanceValues.Name, err)
 			}
 			createdTerraformInstance = *terraformInstance
 			return nil
@@ -409,7 +409,7 @@ func (t *TerraformValues) GetOperations(apiClient *http.Client, apiEndpoint stri
 		Delete: func() error {
 			_, err = terraformInstanceValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete terraform instance with name %s: %w", terraformInstanceValues.Name, err)
+				return fmt.Errorf("failed to delete terraform instance with name %s: %w", *terraformInstanceValues.Name, err)
 			}
 			return nil
 		},
