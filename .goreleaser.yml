@@ -103,6 +103,7 @@ builds:
       - linux
     main: cmd/agent/main.go
     binary: agent
+
 archives:
   - name_template: '{{ .Binary }}_v{{ .Version }}_{{ title .Os }}_{{ if eq .Arch "amd64" }}x86_64{{ else if eq .Arch "386" }}i386{{ else }}{{ .Arch }}{{ end }}'
     format_overrides:
@@ -110,12 +111,18 @@ archives:
         format: zip
     files:
       - README.md
-    binaries:
-      - tptctl
-      - threeport-sdk
     wrap_in_directory: true
     strip_binary_directory: true
     allow_different_binary_count: true
+  - id: threeport-sdk
+    name_template: 'threeport-sdk_v{{ .Version }}_{{ title .Os }}_{{ if eq .Arch "amd64" }}x86_64{{ else if eq .Arch "386" }}i386{{ else }}{{ .Arch }}{{ end }}'
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+    wrap_in_directory: true
+    strip_binary_directory: true
 checksum:
   name_template: 'checksums.txt'
 snapshot:
