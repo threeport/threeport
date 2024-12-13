@@ -8,6 +8,9 @@ builds:
       - linux
       - windows
       - darwin
+    ignore:
+      - goos: linux
+        goarch: 386
     main: cmd/tptctl/main.go
     binary: tptctl
   - id: threeport-sdk
@@ -17,6 +20,9 @@ builds:
       - linux
       - windows
       - darwin
+    ignore:
+      - goos: linux
+        goarch: 386
     main: cmd/sdk/main.go
     binary: threeport-sdk
   - id: threeport-rest-api
@@ -104,17 +110,7 @@ builds:
     main: cmd/agent/main.go
     binary: agent
 archives:
-  - name_template: '{{ .Binary }}_v{{ .Version }}_{{ title .Os }}_{{ if eq .Arch "amd64" }}x86_64{{ else if eq .Arch "386" }}i386{{ else }}{{ .Arch }}{{ end }}'
-    format_overrides:
-      - goos: windows
-        format: zip
-    files:
-      - README.md
-    wrap_in_directory: true
-    strip_binary_directory: true
-    allow_different_binary_count: true
-  - id: threeport-sdk
-    name_template: 'threeport-sdk_v{{ .Version }}_{{ title .Os }}_{{ if eq .Arch "amd64" }}x86_64{{ else if eq .Arch "386" }}i386{{ else }}{{ .Arch }}{{ end }}'
+  - name_template: 'threeport_v{{ .Version }}_{{ title .Os }}_{{ if eq .Arch "amd64" }}x86_64{{ else if eq .Arch "386" }}i386{{ else }}{{ .Arch }}{{ end }}'
     format_overrides:
       - goos: windows
         format: zip
