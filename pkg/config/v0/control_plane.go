@@ -20,10 +20,10 @@ type ControlPlaneConfig struct {
 // ControlPlaneValues contains the attributes needed to manage a control plane
 // definition and control plane instance.
 type ControlPlaneValues struct {
-	Name                      string                           `yaml:"Name"`
-	Namespace                 string                           `yaml:"Namespace"`
-	AuthEnabled               bool                             `yaml:"AuthEnabled"`
-	OnboardParent             bool                             `yaml:"OnboardParent"`
+	Name                      *string                          `yaml:"Name"`
+	Namespace                 *string                          `yaml:"Namespace"`
+	AuthEnabled               *bool                            `yaml:"AuthEnabled"`
+	OnboardParent             *bool                            `yaml:"OnboardParent"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	CustomComponentInfo       []*v0.ControlPlaneComponent      `yaml:"CustomComponentInfo"`
 }
@@ -36,9 +36,9 @@ type ControlPlaneDefinitionConfig struct {
 // ControlPlaneDefinitionValues contains the attributes needed to manage a control plane
 // definition.
 type ControlPlaneDefinitionValues struct {
-	Name          string `yaml:"Name"`
-	AuthEnabled   bool   `yaml:"AuthEnabled"`
-	OnboardParent bool   `yaml:"OnboardParent"`
+	Name          *string `yaml:"Name"`
+	AuthEnabled   *bool   `yaml:"AuthEnabled"`
+	OnboardParent *bool   `yaml:"OnboardParent"`
 }
 
 // ControlPlaneInstanceConfig contains the config for a control plane instance.
@@ -49,10 +49,10 @@ type ControlPlaneInstanceConfig struct {
 // ControlPlaneInstanceValues contains the attributes needed to manage a control plane
 // instance.
 type ControlPlaneInstanceValues struct {
-	Name                      string                           `yaml:"Name"`
-	Namespace                 string                           `yaml:"Namespace"`
+	Name                      *string                          `yaml:"Name"`
+	Namespace                 *string                          `yaml:"Namespace"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	ControlPlaneDefinition    ControlPlaneDefinitionValues     `yaml:"ControlPlaneDefinition"`
+	ControlPlaneDefinition    *ControlPlaneDefinitionValues    `yaml:"ControlPlaneDefinition"`
 	CustomComponentInfo       []*v0.ControlPlaneComponent      `yaml:"CustomComponentInfo"`
 }
 
@@ -75,7 +75,7 @@ func (c *ControlPlaneValues) Create(apiClient *http.Client, apiEndpoint string) 
 		Namespace:                 c.Namespace,
 		KubernetesRuntimeInstance: c.KubernetesRuntimeInstance,
 		CustomComponentInfo:       c.CustomComponentInfo,
-		ControlPlaneDefinition: ControlPlaneDefinitionValues{
+		ControlPlaneDefinition: &ControlPlaneDefinitionValues{
 			Name: c.Name,
 		},
 	}
@@ -91,9 +91,9 @@ func (c *ControlPlaneValues) Create(apiClient *http.Client, apiEndpoint string) 
 // from the Threeport API.
 func (c *ControlPlaneValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.ControlPlaneDefinition, *v0.ControlPlaneInstance, error) {
 	// get control plane instance by name
-	controlPlaneInstance, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, c.Name)
+	controlPlaneInstance, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, *c.Name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find control plane instance with name %s: %w", c.Name, err)
+		return nil, nil, fmt.Errorf("failed to find control plane instance with name %s: %w", *c.Name, err)
 	}
 
 	// ensure control plane instance is not a genesis instance
@@ -102,9 +102,9 @@ func (c *ControlPlaneValues) Delete(apiClient *http.Client, apiEndpoint string) 
 	}
 
 	// get control plane definition by name
-	controlPlaneDefinition, err := client.GetControlPlaneDefinitionByName(apiClient, apiEndpoint, c.Name)
+	controlPlaneDefinition, err := client.GetControlPlaneDefinitionByName(apiClient, apiEndpoint, *c.Name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find control plane definition with name %s: %w", c.Name, err)
+		return nil, nil, fmt.Errorf("failed to find control plane definition with name %s: %w", *c.Name, err)
 	}
 
 	// ensure the control plane definition has no more than one associated instance
@@ -161,17 +161,17 @@ func (c *ControlPlaneValues) Delete(apiClient *http.Client, apiEndpoint string) 
 // Create creates a control plane definition in the Threeport API.
 func (cd *ControlPlaneDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.ControlPlaneDefinition, error) {
 	// validate required fields
-	if cd.Name == "" {
+	if cd.Name == nil {
 		return nil, errors.New("missing required field/s in config - required fields: Name")
 	}
 
 	// construct control plane definition object
 	controlPlaneDefinition := v0.ControlPlaneDefinition{
 		Definition: v0.Definition{
-			Name: &cd.Name,
+			Name: cd.Name,
 		},
-		AuthEnabled:   &cd.AuthEnabled,
-		OnboardParent: &cd.OnboardParent,
+		AuthEnabled:   cd.AuthEnabled,
+		OnboardParent: cd.OnboardParent,
 	}
 
 	// create control plane definition
@@ -186,9 +186,9 @@ func (cd *ControlPlaneDefinitionValues) Create(apiClient *http.Client, apiEndpoi
 // Delete deletes a control plane definition from the Threeport API.
 func (cd *ControlPlaneDefinitionValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.ControlPlaneDefinition, error) {
 	// get control plane definition by name
-	controlPlaneDefinition, err := client.GetControlPlaneDefinitionByName(apiClient, apiEndpoint, cd.Name)
+	controlPlaneDefinition, err := client.GetControlPlaneDefinitionByName(apiClient, apiEndpoint, *cd.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find control plane definition with name %s: %w", cd.Name, err)
+		return nil, fmt.Errorf("failed to find control plane definition with name %s: %w", *cd.Name, err)
 	}
 
 	// delete control plane definition
@@ -203,12 +203,12 @@ func (cd *ControlPlaneDefinitionValues) Delete(apiClient *http.Client, apiEndpoi
 // Create creates a control plane instance in the Threeport API.
 func (ci *ControlPlaneInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.ControlPlaneInstance, error) {
 	// validate required fields
-	if ci.Name == "" || ci.Namespace == "" {
+	if ci.Name == nil || ci.Namespace == nil {
 		return nil, errors.New("missing required field/s in config - required fields: Name, ControlPlaneInstance.Namespace")
 	}
 
 	// get kubernetes runtime instance API object
-	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+	kubernetesRuntimeInstance, err := SetKubernetesRuntimeInstanceForConfig(
 		ci.KubernetesRuntimeInstance,
 		apiClient,
 		apiEndpoint,
@@ -221,18 +221,18 @@ func (ci *ControlPlaneInstanceValues) Create(apiClient *http.Client, apiEndpoint
 	controlPlaneDefinition, err := client.GetControlPlaneDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		ci.ControlPlaneDefinition.Name,
+		*ci.ControlPlaneDefinition.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find control plane definition with name %s: %w", ci.ControlPlaneDefinition.Name, err)
+		return nil, fmt.Errorf("failed to find control plane definition with name %s: %w", *ci.ControlPlaneDefinition.Name, err)
 	}
 
 	// construct control plane instance object
 	controlPlaneInstance := v0.ControlPlaneInstance{
 		Instance: v0.Instance{
-			Name: &ci.Name,
+			Name: ci.Name,
 		},
-		Namespace:                   &ci.Namespace,
+		Namespace:                   ci.Namespace,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		CustomComponentInfo:         ci.CustomComponentInfo,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
@@ -245,15 +245,14 @@ func (ci *ControlPlaneInstanceValues) Create(apiClient *http.Client, apiEndpoint
 	}
 
 	return createdControlPlaneInstance, nil
-
 }
 
 // Delete deletes a control plane instance from the Threeport API.
 func (ci *ControlPlaneInstanceValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.ControlPlaneInstance, error) {
 	// get control plane instance by name
-	controlPlaneInstance, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, ci.Name)
+	controlPlaneInstance, err := client.GetControlPlaneInstanceByName(apiClient, apiEndpoint, *ci.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find control plane instance with name %s: %w", ci.Name, err)
+		return nil, fmt.Errorf("failed to find control plane instance with name %s: %w", *ci.Name, err)
 	}
 
 	// delete control plane instance

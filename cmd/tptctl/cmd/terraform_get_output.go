@@ -84,9 +84,9 @@ func outputGetTerraformsCmd(
 	return nil
 }
 
-// outputGetTerraformDefinitionsCmd produces the tabular output for the
+// outputGetv0TerraformDefinitionsCmd produces the tabular output for the
 // 'tptctl get terraform-definitions' command.
-func outputGetTerraformDefinitionsCmd(
+func outputGetv0TerraformDefinitionsCmd(
 	terraformDefinitions *[]v0.TerraformDefinition,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -105,9 +105,9 @@ func outputGetTerraformDefinitionsCmd(
 	return nil
 }
 
-// outputGetTerraformInstancesCmd produces the tabular output for the
+// outputGetv0TerraformInstancesCmd produces the tabular output for the
 // 'tptctl get terraform-instances' command.
-func outputGetTerraformInstancesCmd(
+func outputGetv0TerraformInstancesCmd(
 	terraformInstances *[]v0.TerraformInstance,
 	apiClient *http.Client,
 	apiEndpoint string,

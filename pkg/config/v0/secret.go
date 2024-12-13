@@ -8,59 +8,52 @@ import (
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"gorm.io/datatypes"
 )
 
-// SecretConfig contains the configuration for a Secret
-// object
+// SecretConfig contains the configuration for a Secret object
 type SecretConfig struct {
 	Secret SecretValues `yaml:"Secret"`
 }
 
-// SecretValues contains the values for a Secret object
-// configuration
+// SecretValues contains the values for a Secret object configuration
 type SecretValues struct {
-	Name                      string                           `yaml:"Name"`
-	Data                      map[string]string                `yaml:"Data"`
-	AwsAccountName            string                           `yaml:"AwsAccountName"`
-	SecretConfigPath          string                           `yaml:"SecretConfigPath"`
+	Name                      *string                          `yaml:"Name"`
+	Data                      *map[string]string               `yaml:"Data"`
+	AwsAccountName            *string                          `yaml:"AwsAccountName"`
+	SecretConfigPath          *string                          `yaml:"SecretConfigPath"`
 	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
 	HelmWorkloadInstance      *HelmWorkloadInstanceValues      `yaml:"HelmWorkloadInstance"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 }
 
-// SecretDefinitionConfig contains the configuration for a
-// SecretDefinition object
+// SecretDefinitionConfig contains the configuration for a SecretDefinition object
 type SecretDefinitionConfig struct {
 	SecretDefinition SecretDefinitionValues `yaml:"SecretDefinition"`
 }
 
-// SecretDefinitionValues contains the values for a
-// SecretDefinition object
+// SecretDefinitionValues contains the values for a SecretDefinition object
 type SecretDefinitionValues struct {
-	Name             string            `yaml:"Name"`
-	AwsAccountName   string            `yaml:"AwsAccountName"`
-	Data             map[string]string `yaml:"Data"`
-	SecretConfigPath string            `yaml:"SecretConfigPath"`
+	Name             *string            `yaml:"Name"`
+	AwsAccountName   *string            `yaml:"AwsAccountName"`
+	Data             *map[string]string `yaml:"Data"`
+	SecretConfigPath *string            `yaml:"SecretConfigPath"`
 }
 
-// SecretInstanceConfig contains the configuration for a
-// SecretInstance object
+// SecretInstanceConfig contains the configuration for a SecretInstance object
 type SecretInstanceConfig struct {
 	SecretInstance SecretInstanceValues `yaml:"SecretInstance"`
 }
 
-// SecretInstanceValues contains the values for a
-// SecretInstance object
+// SecretInstanceValues contains the values for a SecretInstance object
 type SecretInstanceValues struct {
-	Name                      string                           `yaml:"Name"`
+	Name                      *string                          `yaml:"Name"`
 	SecretDefinition          *SecretDefinitionValues          `yaml:"SecretDefinition"`
 	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
 	HelmWorkloadInstance      *HelmWorkloadInstanceValues      `yaml:"HelmWorkloadInstance"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	SecretConfigPath          string                           `yaml:"SecretConfigPath"`
+	SecretConfigPath          *string                          `yaml:"SecretConfigPath"`
 }
 
 // Create creates a Secret object
@@ -83,7 +76,7 @@ func (s *SecretValues) Create(
 	if err := operations.Create(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to create secret defined instance with name %s : %w",
-			s.Name,
+			*s.Name,
 			err,
 		)
 	}
@@ -111,7 +104,7 @@ func (s *SecretValues) GetOperations(
 		Create: func() error {
 			secretDefinition, err := secretDefinitionValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create secret definition with name %s: %w", s.Name, err)
+				return fmt.Errorf("failed to create secret definition with name %s: %w", *s.Name, err)
 			}
 			createdSecretDefinition = *secretDefinition
 			return nil
@@ -119,7 +112,7 @@ func (s *SecretValues) GetOperations(
 		Delete: func() error {
 			_, err := secretDefinitionValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete secret definition with name %s: %w", s.Name, err)
+				return fmt.Errorf("failed to delete secret definition with name %s: %w", *s.Name, err)
 			}
 			return nil
 		},
@@ -137,7 +130,7 @@ func (s *SecretValues) GetOperations(
 		Create: func() error {
 			secretInstance, err := secretInstanceValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create secret instance with name %s: %w", s.Name, err)
+				return fmt.Errorf("failed to create secret instance with name %s: %w", *s.Name, err)
 			}
 			createdSecretInstance = *secretInstance
 			return nil
@@ -145,7 +138,7 @@ func (s *SecretValues) GetOperations(
 		Delete: func() error {
 			_, err := secretInstanceValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete secret instance with name %s: %w", s.Name, err)
+				return fmt.Errorf("failed to delete secret instance with name %s: %w", *s.Name, err)
 			}
 			return nil
 		},
@@ -165,9 +158,9 @@ func (s *SecretValues) Delete(
 		apiEndpoint,
 	)
 
-	// execute create operations
+	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, fmt.Errorf("failed to delete secret defined instance with name %s : %w", s.Name, err)
+		return nil, nil, fmt.Errorf("failed to delete secret defined instance with name %s : %w", *s.Name, err)
 	}
 
 	return nil, nil, nil
@@ -187,7 +180,7 @@ func (s *SecretDefinitionValues) Create(
 	awsAccount, err := client.GetAwsAccountByName(
 		apiClient,
 		apiEndpoint,
-		s.AwsAccountName,
+		*s.AwsAccountName,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get aws account by id: %w", err)
@@ -205,7 +198,7 @@ func (s *SecretDefinitionValues) Create(
 		apiEndpoint,
 		&v0.SecretDefinition{
 			Definition: v0.Definition{
-				Name: util.Ptr(s.Name),
+				Name: util.Ptr(*s.Name),
 			},
 			AwsAccountID: awsAccount.ID,
 			Data:         util.Ptr(datatypes.JSON(jsonData)),
@@ -227,12 +220,12 @@ func (s *SecretDefinitionValues) Delete(
 	secretDefinition, err := client.GetSecretDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		s.Name,
+		*s.Name,
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to get secret definition by name %s: %w",
-			s.Name,
+			*s.Name,
 			err,
 		)
 	}
@@ -261,7 +254,7 @@ func (s *SecretInstanceValues) Create(
 	}
 
 	// get kubernetes runtime instance
-	kubernetesRuntimeInstance, err := setKubernetesRuntimeInstanceForConfig(
+	kubernetesRuntimeInstance, err := SetKubernetesRuntimeInstanceForConfig(
 		s.KubernetesRuntimeInstance,
 		apiClient,
 		apiEndpoint,
@@ -269,7 +262,7 @@ func (s *SecretInstanceValues) Create(
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to set kubernetes runtime instance for secret instance %s: %w",
-			s.Name,
+			*s.Name,
 			err,
 		)
 	}
@@ -278,16 +271,16 @@ func (s *SecretInstanceValues) Create(
 	secretDefinition, err := client.GetSecretDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		s.Name,
+		*s.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get secret definition by name %s: %w", s.Name, err)
+		return nil, fmt.Errorf("failed to get secret definition by name %s: %w", *s.Name, err)
 	}
 
 	// init secret instance object
 	secretInstance := &v0.SecretInstance{
 		Instance: v0.Instance{
-			Name: util.Ptr(s.Name),
+			Name: util.Ptr(*s.Name),
 		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		SecretDefinitionID:          secretDefinition.ID,
@@ -296,10 +289,10 @@ func (s *SecretInstanceValues) Create(
 	// get workload instance
 	switch {
 	case s.WorkloadInstance != nil:
-		workloadInstance, err := client_v1.GetWorkloadInstanceByName(
+		workloadInstance, err := client.GetWorkloadInstanceByName(
 			apiClient,
 			apiEndpoint,
-			s.WorkloadInstance.Name,
+			*s.WorkloadInstance.Name,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workload instance by name: %w", err)
@@ -309,7 +302,7 @@ func (s *SecretInstanceValues) Create(
 		helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByName(
 			apiClient,
 			apiEndpoint,
-			s.HelmWorkloadInstance.Name,
+			*s.HelmWorkloadInstance.Name,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get helm workload instance by name: %w", err)
@@ -339,10 +332,10 @@ func (s *SecretInstanceValues) Delete(
 	secretInstance, err := client.GetSecretInstanceByName(
 		apiClient,
 		apiEndpoint,
-		s.Name,
+		*s.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get secret instance by name %s: %w", s.Name, err)
+		return nil, fmt.Errorf("failed to get secret instance by name %s: %w", *s.Name, err)
 	}
 
 	// delete secret instance
@@ -357,7 +350,7 @@ func (s *SecretInstanceValues) Delete(
 
 	// wait for secret instance to be deleted
 	util.Retry(60, 1, func() error {
-		if _, err := client.GetSecretInstanceByName(apiClient, apiEndpoint, s.Name); err == nil {
+		if _, err := client.GetSecretInstanceByName(apiClient, apiEndpoint, *s.Name); err == nil {
 			return errors.New("secret instance not deleted")
 		}
 		return nil
@@ -370,7 +363,7 @@ func (s *SecretInstanceValues) Delete(
 func (s *SecretValues) ValidateCreate() error {
 	multiError := util.MultiError{}
 
-	if s.Name == "" {
+	if s.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
@@ -378,7 +371,7 @@ func (s *SecretValues) ValidateCreate() error {
 		multiError.AppendError(errors.New("missing required field in config: Data"))
 	}
 
-	if s.AwsAccountName == "" {
+	if s.AwsAccountName == nil {
 		multiError.AppendError(errors.New("missing required field in config: AwsAccountID"))
 	}
 
@@ -391,7 +384,7 @@ func (s *SecretValues) ValidateCreate() error {
 		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance"))
 	}
 
-	if s.KubernetesRuntimeInstance != nil && s.KubernetesRuntimeInstance.Name == "" {
+	if s.KubernetesRuntimeInstance != nil && s.KubernetesRuntimeInstance.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
 	}
 
@@ -402,7 +395,7 @@ func (s *SecretValues) ValidateCreate() error {
 func (s *SecretDefinitionValues) ValidateCreate() error {
 	multiError := util.MultiError{}
 
-	if s.Name == "" {
+	if s.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
@@ -410,18 +403,18 @@ func (s *SecretDefinitionValues) ValidateCreate() error {
 		multiError.AppendError(errors.New("missing required field in config: Data"))
 	}
 
-	if s.AwsAccountName == "" {
+	if s.AwsAccountName == nil {
 		multiError.AppendError(errors.New("missing required field in config: AwsAccountID"))
 	}
 
 	return multiError.Error()
 }
 
-// ValidateCreate validates the secret values before creating a secret
+// ValidateCreate validates the secret values before creating a secret instance
 func (s *SecretInstanceValues) ValidateCreate() error {
 	multiError := util.MultiError{}
 
-	if s.Name == "" {
+	if s.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
@@ -438,7 +431,7 @@ func (s *SecretInstanceValues) ValidateCreate() error {
 		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance"))
 	}
 
-	if s.KubernetesRuntimeInstance != nil && s.KubernetesRuntimeInstance.Name == "" {
+	if s.KubernetesRuntimeInstance != nil && s.KubernetesRuntimeInstance.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
 	}
 

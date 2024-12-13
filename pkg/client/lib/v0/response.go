@@ -82,7 +82,13 @@ func GetResponse(
 		case http.StatusConflict:
 			return nil, fmt.Errorf("%w: %s", ErrConflict, response.Status.Error)
 		default:
-			return nil, errors.New(fmt.Sprintf("API returned status: %d, %s\n%s\nexpected: %d", response.Status.Code, response.Status.Message, string(status), expectedStatusCode))
+			return nil, fmt.Errorf(
+				"API returned status: %d, %s\n%s\nexpected: %d",
+				response.Status.Code,
+				response.Status.Message,
+				string(status),
+				expectedStatusCode,
+			)
 		}
 	}
 

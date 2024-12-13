@@ -21,9 +21,7 @@ import (
 
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -36,12 +34,12 @@ const s3BucketNameConfigMapKey = "s3BucketName"
 type requiredAwsObjectStorageBucketInstanceObjects struct {
 	AwsObjectStorageBucketDefinition v0.AwsObjectStorageBucketDefinition
 	AwsAccount                       v0.AwsAccount
-	WorkloadInstance                 v1.WorkloadInstance
+	WorkloadInstance                 v0.WorkloadInstance
 	KubernetesRuntimeInstance        v0.KubernetesRuntimeInstance
 	AwsEksKubernetesRuntimeInstance  v0.AwsEksKubernetesRuntimeInstance
 }
 
-// v0AwsObjectStorageBucketInstanceCreated performs reconciliation when a v0 workload definition
+// v0AwsObjectStorageBucketInstanceCreated performs reconciliation when a v0 AwsObjectStorageBucketInstance
 // has been created.
 func v0AwsObjectStorageBucketInstanceCreated(
 	r *controller.Reconciler,
@@ -63,10 +61,10 @@ func v0AwsObjectStorageBucketInstanceCreated(
 	}
 
 	// ensure attached object reference exists
-	err := client_v1.EnsureAttachedObjectReferenceExists(
+	err := client.EnsureAttachedObjectReferenceExists(
 		r.APIClient,
 		r.APIServer,
-		util.TypeName(v1.WorkloadInstance{}),
+		util.TypeName(v0.WorkloadInstance{}),
 		awsObjectStorageBucketInstance.WorkloadInstanceID,
 		util.TypeName(*awsObjectStorageBucketInstance),
 		awsObjectStorageBucketInstance.ID,
@@ -276,7 +274,7 @@ func v0AwsObjectStorageBucketInstanceCreated(
 	return 0, nil
 }
 
-// v0AwsObjectStorageBucketInstanceUpdated performs reconciliation when a v0 workload definition
+// v0AwsObjectStorageBucketInstanceUpdated performs reconciliation when a v0 AwsObjectStorageBucketInstance
 // has been updated.
 func v0AwsObjectStorageBucketInstanceUpdated(
 	r *controller.Reconciler,
@@ -286,7 +284,7 @@ func v0AwsObjectStorageBucketInstanceUpdated(
 	return 0, nil
 }
 
-// v0AwsObjectStorageBucketInstanceDeleted performs reconciliation when a v0 workload definition
+// v0AwsObjectStorageBucketInstanceDeleted performs reconciliation when a v0 AwsObjectStorageBucketInstance
 // has been deleted.
 func v0AwsObjectStorageBucketInstanceDeleted(
 	r *controller.Reconciler,
@@ -511,7 +509,7 @@ func getRequiredS3Objects(
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve AWS Account by ID: %w", err)
 	}
-	workloadInstance, err := client_v1.GetWorkloadInstanceByID(
+	workloadInstance, err := client.GetWorkloadInstanceByID(
 		r.APIClient,
 		r.APIServer,
 		*awsObjectStorageBucketInstance.WorkloadInstanceID,
@@ -644,7 +642,7 @@ func updateS3ClientWorkloadConnection(
 	// and create configmap
 	workloadInstanceReconciled := false
 	requiredObjects.WorkloadInstance.Reconciled = &workloadInstanceReconciled
-	_, err = client_v1.UpdateWorkloadInstance(
+	_, err = client.UpdateWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		&requiredObjects.WorkloadInstance,
@@ -758,7 +756,7 @@ func updateS3ClientWorkloadConnection(
 	// service account that now has access to the S3 bucket
 	workloadInstanceReconciled = false
 	requiredObjects.WorkloadInstance.Reconciled = &workloadInstanceReconciled
-	_, err = client_v1.UpdateWorkloadInstance(
+	_, err = client.UpdateWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		&requiredObjects.WorkloadInstance,

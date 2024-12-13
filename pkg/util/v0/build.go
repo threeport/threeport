@@ -50,7 +50,81 @@ func BuildBinary(
 
 	// start build command
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to build %s: %v\noutput:\n%s", binName, err, string(output))
+		return fmt.Errorf("failed to build %s with output '%s': %w", binName, string(output), err)
+	}
+
+	return nil
+}
+
+// BuildImage builds a container image for the linux platform and optionally
+// pushes to a registry and/or loads the image to a kind cluster
+func BuildImage(
+	threeportPath string,
+	dockerfilePath string,
+	arch string,
+	imageRepo string,
+	imageName string,
+	imageTag string,
+	pushImage bool,
+	loadImage bool,
+	loadClusterName string,
+) error {
+	image := fmt.Sprintf("%s/%s:%s", imageRepo, imageName, imageTag)
+
+	dockerBuildCmd := exec.Command(
+		"docker",
+		"buildx",
+		"build",
+		"--load",
+		fmt.Sprintf("--platform=linux/%s", arch),
+		"-t",
+		image,
+		"-f",
+		dockerfilePath,
+		threeportPath,
+	)
+
+	output, err := dockerBuildCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("image build failed for %s with output '%s': %w", image, string(output), err)
+	}
+
+	fmt.Printf("%s image built\n", image)
+
+	// push image if pushImage=true
+	if pushImage {
+		dockerPushCmd := exec.Command("docker", "push", image)
+
+		output, err = dockerPushCmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("image push failed for %s with output '%s': %w", image, string(output), err)
+		}
+
+		fmt.Printf("%s image pushed\n", image)
+	}
+
+	// load image if loadImage=true
+	if loadImage {
+		kindLoadCmd := exec.Command(
+			"kind",
+			"load",
+			"docker-image",
+			image,
+			"--name",
+			loadClusterName,
+		)
+
+		output, err = kindLoadCmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf(
+				"failed to load image %s to kind cluster with output '%s': %w",
+				image,
+				string(output),
+				err,
+			)
+		}
+
+		fmt.Printf("%s image loaded to kind cluster\n", image)
 	}
 
 	return nil

@@ -6,17 +6,22 @@ import (
 	"fmt"
 	"net/http"
 
-	v1 "github.com/threeport/threeport/pkg/api/v1"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
 
-// GetEventsJoinAttachedObjectReferenceByQueryString retrieves events joined to attached object reference by object ID.
-func GetEventsJoinAttachedObjectReferenceByQueryString(apiClient *http.Client, apiAddr, queryString string) (*[]v1.Event, error) {
-	var events []v1.Event
+// GetEventsJoinAttachedObjectReferenceByQueryString retrieves events joined to
+// attached object reference by object ID.
+func GetEventsJoinAttachedObjectReferenceByQueryString(
+	apiClient *http.Client,
+	apiAddr string,
+	queryString string,
+) (*[]v0.Event, error) {
+	var events []v0.Event
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v1/events-join-attached-object-references?%s", apiAddr, queryString),
+		fmt.Sprintf("%s/v0/events-join-attached-object-references?%s", apiAddr, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},

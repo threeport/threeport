@@ -9,4 +9,5 @@ import (
 func AddCustomRoutes(e *echo.Echo, h *handlers.Handler) {
 	WorkloadResourceDefinitionSetRoutes(e, h)
 	WorkloadEventCustomRoutes(e, h)
+	EventsCustomRoutes(e, h)
 }

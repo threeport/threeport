@@ -13,9 +13,12 @@ const (
 	ObjectTypeLogStorageDefinition string = "LogStorageDefinition"
 	ObjectTypeLogStorageInstance   string = "LogStorageInstance"
 
-	PathLogBackends           = "/v0/log-backends"
-	PathLogStorageDefinitions = "/v0/log-storage-definitions"
-	PathLogStorageInstances   = "/v0/log-storage-instances"
+	PathLogBackendVersions           = "/log-backends/versions"
+	PathLogBackends                  = "/v0/log-backends"
+	PathLogStorageDefinitionVersions = "/log-storage-definitions/versions"
+	PathLogStorageDefinitions        = "/v0/log-storage-definitions"
+	PathLogStorageInstanceVersions   = "/log-storage-instances/versions"
+	PathLogStorageInstances          = "/v0/log-storage-instances"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the

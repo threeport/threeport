@@ -46,14 +46,6 @@ func (c *CustomContext) GetBearerToken() (token string, err error) {
 	return token, err
 }
 
-func indexAt(s, substr string, n int) int {
-	idx := strings.Index(s[n:], substr)
-	if idx > -1 {
-		idx += n
-	}
-	return idx
-}
-
 // GetPaginationParams parses pagination query parameters into PageRequestParams.
 func (c *CustomContext) GetPaginationParams() (params PageRequestParams, err error) {
 
@@ -168,14 +160,21 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 // - check for optional associations fields in they payload if checkAssociation parameter is true
 // - check for unsupported fields in the payload
 // and returns an error code and error message if any of the conditions above are met
-func PayloadCheck(c echo.Context, checkAssociation bool, objectType string, objectStruct interface{}) (int, error) {
+func PayloadCheck(
+	c echo.Context,
+	extension bool,
+	checkAssociation bool,
+	objectType string,
+	objectStruct interface{},
+) (int, error) {
 	var payload map[string]interface{}
 	var payloadArray []map[string]interface{}
 	var providedGORMModelFields []string
 	var providedAssociationsFields []string
 	var unsupportedFields []string
+
 	// extract API version from context path i.e. v0, v11 etc.
-	apiVer := c.Path()[1:indexAt(c.Path(), "/", 1)]
+	apiVer := versionFromPath(c.Path(), extension)
 
 	bodyBytes := readBody(c)
 
@@ -242,4 +241,14 @@ func MiddlewareFunc(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		return next(c)
 	}
+}
+
+// versionFromPath returns the API version from the REST path based on whether
+// the path is from core Threeport or an extension of threeport.
+func versionFromPath(path string, extension bool) string {
+	parsedPath := strings.Split(path, "/")
+	if extension {
+		return parsedPath[2]
+	}
+	return parsedPath[1]
 }

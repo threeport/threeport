@@ -70,11 +70,12 @@ func GenClientLib(gen *gen.Generator) error {
 					).Call(
 						Line().Id("apiClient"),
 						Line().Qual("fmt", "Sprintf").Call(
-							Lit(fmt.Sprintf(
-								"%%s/%s/%s",
-								objCollection.Version,
-								pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-							)).Op(",").Id("apiAddr"),
+							Lit("%s%s"),
+							Id("apiAddr"),
+							Qual(
+								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+								fmt.Sprintf("Path%s", pluralize.Pluralize(apiObject.TypeName, 2, false)),
+							),
 						),
 						Line().Qual("net/http", "MethodGet"),
 						Line().New(Qual("bytes", "Buffer")),
@@ -143,11 +144,13 @@ func GenClientLib(gen *gen.Generator) error {
 					).Call(
 						Line().Id("apiClient"),
 						Line().Qual("fmt", "Sprintf").Call(
-							Lit(fmt.Sprintf(
-								"%%s/%s/%s/%%d",
-								objCollection.Version,
-								pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-							)).Op(",").Id("apiAddr").Op(",").Id("id"),
+							Lit("%s%s/%d"),
+							Id("apiAddr"),
+							Qual(
+								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+								fmt.Sprintf("Path%s", pluralize.Pluralize(apiObject.TypeName, 2, false)),
+							),
+							Id("id"),
 						),
 						Line().Qual("net/http", "MethodGet"),
 						Line().New(Qual("bytes", "Buffer")),
@@ -216,11 +219,13 @@ func GenClientLib(gen *gen.Generator) error {
 					).Call(
 						Line().Id("apiClient"),
 						Line().Qual("fmt", "Sprintf").Call(
-							Lit(fmt.Sprintf(
-								"%%s/%s/%s?%%s",
-								objCollection.Version,
-								pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-							)).Op(",").Id("apiAddr").Op(",").Id("queryString"),
+							Lit("%s%s?%s"),
+							Id("apiAddr"),
+							Qual(
+								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+								fmt.Sprintf("Path%s", pluralize.Pluralize(apiObject.TypeName, 2, false)),
+							),
+							Id("queryString"),
 						),
 						Line().Qual("net/http", "MethodGet"),
 						Line().New(Qual("bytes", "Buffer")),
@@ -287,11 +292,13 @@ func GenClientLib(gen *gen.Generator) error {
 					).Call(
 						Line().Id("apiClient"),
 						Line().Qual("fmt", "Sprintf").Call(
-							Lit(fmt.Sprintf(
-								"%%s/%s/%s?name=%%s",
-								objCollection.Version,
-								pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-							)).Op(",").Id("apiAddr").Op(",").Id("name"),
+							Lit("%s%s?name=%s"),
+							Id("apiAddr"),
+							Qual(
+								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+								fmt.Sprintf("Path%s", pluralize.Pluralize(apiObject.TypeName, 2, false)),
+							),
+							Id("name"),
 						),
 						Line().Qual("net/http", "MethodGet"),
 						Line().New(Qual("bytes", "Buffer")),
@@ -402,11 +409,12 @@ func GenClientLib(gen *gen.Generator) error {
 					).Call(
 						Line().Id("apiClient"),
 						Line().Qual("fmt", "Sprintf").Call(
-							Lit(fmt.Sprintf(
-								"%%s/%s/%s",
-								objCollection.Version,
-								pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-							)).Op(",").Id("apiAddr"),
+							Lit("%s%s"),
+							Id("apiAddr"),
+							Qual(
+								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+								fmt.Sprintf("Path%s", pluralize.Pluralize(apiObject.TypeName, 2, false)),
+							),
 						),
 						Line().Qual("net/http", "MethodPost"),
 						Line().Qual("bytes", "NewBuffer").Call(Id(
@@ -499,13 +507,13 @@ func GenClientLib(gen *gen.Generator) error {
 					).Call(
 						Line().Id("apiClient"),
 						Line().Qual("fmt", "Sprintf").Call(
-							Lit(fmt.Sprintf(
-								"%%s/%s/%s/%%d",
-								objCollection.Version,
-								pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-							)).Op(",").Id("apiAddr").Op(",").Id(
-								fmt.Sprintf("%sID", strcase.ToLowerCamel(apiObject.TypeName)),
+							Lit("%s%s/%d"),
+							Id("apiAddr"),
+							Qual(
+								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+								fmt.Sprintf("Path%s", pluralize.Pluralize(apiObject.TypeName, 2, false)),
 							),
+							Id(fmt.Sprintf("%sID", strcase.ToLowerCamel(apiObject.TypeName))),
 						),
 						Line().Qual("net/http", "MethodPatch"),
 						Line().Qual("bytes", "NewBuffer").Call(Id(
@@ -577,11 +585,13 @@ func GenClientLib(gen *gen.Generator) error {
 					).Call(
 						Line().Id("apiClient"),
 						Line().Qual("fmt", "Sprintf").Call(
-							Lit(fmt.Sprintf(
-								"%%s/%s/%s/%%d",
-								objCollection.Version,
-								pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-							)).Op(",").Id("apiAddr").Op(",").Id("id"),
+							Lit("%s%s/%d"),
+							Id("apiAddr"),
+							Qual(
+								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+								fmt.Sprintf("Path%s", pluralize.Pluralize(apiObject.TypeName, 2, false)),
+							),
+							Id("id"),
 						),
 						Line().Qual("net/http", "MethodDelete"),
 						Line().New(Qual("bytes", "Buffer")),

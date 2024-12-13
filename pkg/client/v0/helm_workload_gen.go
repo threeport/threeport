@@ -20,7 +20,7 @@ func GetHelmWorkloadDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.H
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathHelmWorkloadDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -50,7 +50,7 @@ func GetHelmWorkloadDefinitionByID(apiClient *http.Client, apiAddr string, id ui
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathHelmWorkloadDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -80,7 +80,7 @@ func GetHelmWorkloadDefinitionsByQueryString(apiClient *http.Client, apiAddr str
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathHelmWorkloadDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -110,7 +110,7 @@ func GetHelmWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathHelmWorkloadDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -151,7 +151,7 @@ func CreateHelmWorkloadDefinition(apiClient *http.Client, apiAddr string, helmWo
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathHelmWorkloadDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonHelmWorkloadDefinition),
 		map[string]string{},
@@ -193,7 +193,7 @@ func UpdateHelmWorkloadDefinition(apiClient *http.Client, apiAddr string, helmWo
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-definitions/%d", apiAddr, helmWorkloadDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathHelmWorkloadDefinitions, helmWorkloadDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonHelmWorkloadDefinition),
 		map[string]string{},
@@ -224,7 +224,7 @@ func DeleteHelmWorkloadDefinition(apiClient *http.Client, apiAddr string, id uin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathHelmWorkloadDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -255,7 +255,7 @@ func GetHelmWorkloadInstances(apiClient *http.Client, apiAddr string) (*[]v0.Hel
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathHelmWorkloadInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -285,7 +285,7 @@ func GetHelmWorkloadInstanceByID(apiClient *http.Client, apiAddr string, id uint
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathHelmWorkloadInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -315,7 +315,7 @@ func GetHelmWorkloadInstancesByQueryString(apiClient *http.Client, apiAddr strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathHelmWorkloadInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -345,7 +345,7 @@ func GetHelmWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string)
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathHelmWorkloadInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -386,7 +386,7 @@ func CreateHelmWorkloadInstance(apiClient *http.Client, apiAddr string, helmWork
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathHelmWorkloadInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonHelmWorkloadInstance),
 		map[string]string{},
@@ -428,7 +428,7 @@ func UpdateHelmWorkloadInstance(apiClient *http.Client, apiAddr string, helmWork
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-instances/%d", apiAddr, helmWorkloadInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathHelmWorkloadInstances, helmWorkloadInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonHelmWorkloadInstance),
 		map[string]string{},
@@ -459,7 +459,7 @@ func DeleteHelmWorkloadInstance(apiClient *http.Client, apiAddr string, id uint)
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/helm-workload-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathHelmWorkloadInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},

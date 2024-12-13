@@ -13,8 +13,8 @@ import (
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 )
 
-// CreateAPIObject creates the boilerplate and scaffolding for a new API object.
-func CreateAPIObjects(sdkConfig *sdk.SdkConfig, extension bool) error {
+// CreateApiObjects creates the boilerplate and scaffolding for new API objects.
+func CreateApiObjects(sdkConfig *sdk.SdkConfig, extension bool) error {
 	// for each of the provided api objects in a new controller domain, create the necessary scaffolding
 	for _, objectGroup := range sdkConfig.ApiObjectGroups {
 		for _, object := range objectGroup.Objects {

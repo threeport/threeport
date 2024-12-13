@@ -9,7 +9,6 @@ jobs:
   goreleaser:
     runs-on: ubuntu-22.04
     steps:
-
     - name: Checkout
       uses: actions/checkout@v4
       with:
@@ -39,7 +38,6 @@ jobs:
     needs: goreleaser
     runs-on: ubuntu-22.04
     steps:
-
     - name: Get token
       id: get_workflow_token
       uses: peter-murray/workflow-application-token-action@v2

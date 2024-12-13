@@ -7,7 +7,6 @@ import (
 	"fmt"
 	tpapi_lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
-	tpapi_v1 "github.com/threeport/threeport/pkg/api/v1"
 	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -174,7 +173,7 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 					errorMsg := "failed to reconcile created observability dashboard instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&tpapi_v1.Event{
+						&api_v0.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr(event.ReasonFailedCreate),
 							Type:   util.Ptr(event.TypeNormal),
@@ -219,10 +218,10 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of observability dashboard instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created observability dashboard instance object"
+					errorMsg := "failed to reconcile updated observability dashboard instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&tpapi_v1.Event{
+						&api_v0.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr(event.ReasonFailedUpdate),
 							Type:   util.Ptr(event.TypeNormal),
@@ -267,10 +266,10 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of observability dashboard instance encountered for creation")
 				}
 				if operationErr != nil {
-					errorMsg := "failed to reconcile created observability dashboard instance object"
+					errorMsg := "failed to reconcile deleted observability dashboard instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
-						&tpapi_v1.Event{
+						&api_v0.Event{
 							Note:   util.Ptr(errorMsg),
 							Reason: util.Ptr(event.ReasonFailedDelete),
 							Type:   util.Ptr(event.TypeNormal),
@@ -377,7 +376,7 @@ func ObservabilityDashboardInstanceReconciler(r *controller.Reconciler) {
 				strings.ToLower(string(notif.Operation)),
 			)
 			if err := r.EventsRecorder.RecordEvent(
-				&tpapi_v1.Event{
+				&api_v0.Event{
 					Note:   util.Ptr(successMsg),
 					Reason: util.Ptr(event.GetSuccessReasonForOperation(notif.Operation)),
 					Type:   util.Ptr(event.TypeNormal),

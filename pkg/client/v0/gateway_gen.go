@@ -20,7 +20,7 @@ func GetDomainNameDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Dom
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathDomainNameDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -50,7 +50,7 @@ func GetDomainNameDefinitionByID(apiClient *http.Client, apiAddr string, id uint
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathDomainNameDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -80,7 +80,7 @@ func GetDomainNameDefinitionsByQueryString(apiClient *http.Client, apiAddr strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathDomainNameDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -110,7 +110,7 @@ func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathDomainNameDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -151,7 +151,7 @@ func CreateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathDomainNameDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonDomainNameDefinition),
 		map[string]string{},
@@ -193,7 +193,7 @@ func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-definitions/%d", apiAddr, domainNameDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathDomainNameDefinitions, domainNameDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonDomainNameDefinition),
 		map[string]string{},
@@ -224,7 +224,7 @@ func DeleteDomainNameDefinition(apiClient *http.Client, apiAddr string, id uint)
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathDomainNameDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -255,7 +255,7 @@ func GetDomainNameInstances(apiClient *http.Client, apiAddr string) (*[]v0.Domai
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathDomainNameInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -285,7 +285,7 @@ func GetDomainNameInstanceByID(apiClient *http.Client, apiAddr string, id uint) 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathDomainNameInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -315,7 +315,7 @@ func GetDomainNameInstancesByQueryString(apiClient *http.Client, apiAddr string,
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathDomainNameInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -345,7 +345,7 @@ func GetDomainNameInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathDomainNameInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -386,7 +386,7 @@ func CreateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathDomainNameInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonDomainNameInstance),
 		map[string]string{},
@@ -428,7 +428,7 @@ func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-instances/%d", apiAddr, domainNameInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathDomainNameInstances, domainNameInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonDomainNameInstance),
 		map[string]string{},
@@ -459,7 +459,7 @@ func DeleteDomainNameInstance(apiClient *http.Client, apiAddr string, id uint) (
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/domain-name-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathDomainNameInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -490,7 +490,7 @@ func GetGatewayDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Gatewa
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathGatewayDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -520,7 +520,7 @@ func GetGatewayDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -550,7 +550,7 @@ func GetGatewayDefinitionsByQueryString(apiClient *http.Client, apiAddr string, 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathGatewayDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -580,7 +580,7 @@ func GetGatewayDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGatewayDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -621,7 +621,7 @@ func CreateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathGatewayDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonGatewayDefinition),
 		map[string]string{},
@@ -663,7 +663,7 @@ func UpdateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-definitions/%d", apiAddr, gatewayDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayDefinitions, gatewayDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonGatewayDefinition),
 		map[string]string{},
@@ -694,7 +694,7 @@ func DeleteGatewayDefinition(apiClient *http.Client, apiAddr string, id uint) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -725,7 +725,7 @@ func GetGatewayHttpPorts(apiClient *http.Client, apiAddr string) (*[]v0.GatewayH
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-http-ports", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathGatewayHttpPorts),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -755,7 +755,7 @@ func GetGatewayHttpPortByID(apiClient *http.Client, apiAddr string, id uint) (*v
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-http-ports/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayHttpPorts, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -785,7 +785,7 @@ func GetGatewayHttpPortsByQueryString(apiClient *http.Client, apiAddr string, qu
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-http-ports?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathGatewayHttpPorts, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -815,7 +815,7 @@ func GetGatewayHttpPortByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-http-ports?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGatewayHttpPorts, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -856,7 +856,7 @@ func CreateGatewayHttpPort(apiClient *http.Client, apiAddr string, gatewayHttpPo
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-http-ports", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathGatewayHttpPorts),
 		http.MethodPost,
 		bytes.NewBuffer(jsonGatewayHttpPort),
 		map[string]string{},
@@ -898,7 +898,7 @@ func UpdateGatewayHttpPort(apiClient *http.Client, apiAddr string, gatewayHttpPo
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-http-ports/%d", apiAddr, gatewayHttpPortID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayHttpPorts, gatewayHttpPortID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonGatewayHttpPort),
 		map[string]string{},
@@ -929,7 +929,7 @@ func DeleteGatewayHttpPort(apiClient *http.Client, apiAddr string, id uint) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-http-ports/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayHttpPorts, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -960,7 +960,7 @@ func GetGatewayInstances(apiClient *http.Client, apiAddr string) (*[]v0.GatewayI
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathGatewayInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -990,7 +990,7 @@ func GetGatewayInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1020,7 +1020,7 @@ func GetGatewayInstancesByQueryString(apiClient *http.Client, apiAddr string, qu
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathGatewayInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1050,7 +1050,7 @@ func GetGatewayInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGatewayInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1091,7 +1091,7 @@ func CreateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathGatewayInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonGatewayInstance),
 		map[string]string{},
@@ -1133,7 +1133,7 @@ func UpdateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-instances/%d", apiAddr, gatewayInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayInstances, gatewayInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonGatewayInstance),
 		map[string]string{},
@@ -1164,7 +1164,7 @@ func DeleteGatewayInstance(apiClient *http.Client, apiAddr string, id uint) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1195,7 +1195,7 @@ func GetGatewayTcpPorts(apiClient *http.Client, apiAddr string) (*[]v0.GatewayTc
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-tcp-ports", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathGatewayTcpPorts),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1225,7 +1225,7 @@ func GetGatewayTcpPortByID(apiClient *http.Client, apiAddr string, id uint) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-tcp-ports/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayTcpPorts, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1255,7 +1255,7 @@ func GetGatewayTcpPortsByQueryString(apiClient *http.Client, apiAddr string, que
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-tcp-ports?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathGatewayTcpPorts, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1285,7 +1285,7 @@ func GetGatewayTcpPortByName(apiClient *http.Client, apiAddr, name string) (*v0.
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-tcp-ports?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGatewayTcpPorts, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1326,7 +1326,7 @@ func CreateGatewayTcpPort(apiClient *http.Client, apiAddr string, gatewayTcpPort
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-tcp-ports", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathGatewayTcpPorts),
 		http.MethodPost,
 		bytes.NewBuffer(jsonGatewayTcpPort),
 		map[string]string{},
@@ -1368,7 +1368,7 @@ func UpdateGatewayTcpPort(apiClient *http.Client, apiAddr string, gatewayTcpPort
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-tcp-ports/%d", apiAddr, gatewayTcpPortID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayTcpPorts, gatewayTcpPortID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonGatewayTcpPort),
 		map[string]string{},
@@ -1399,7 +1399,7 @@ func DeleteGatewayTcpPort(apiClient *http.Client, apiAddr string, id uint) (*v0.
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/gateway-tcp-ports/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayTcpPorts, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},

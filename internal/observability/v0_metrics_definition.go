@@ -31,7 +31,7 @@ grafana:
   forceDeployDashboards: true
 `
 
-// v0MetricsDefinitionCreated performs reconciliation when a v0 workload definition
+// v0MetricsDefinitionCreated performs reconciliation when a v0 MetricsDefinition
 // has been created.
 func v0MetricsDefinitionCreated(
 	r *controller.Reconciler,
@@ -80,7 +80,7 @@ func v0MetricsDefinitionCreated(
 	return 0, nil
 }
 
-// v0MetricsDefinitionUpdated performs reconciliation when a v0 workload definition
+// v0MetricsDefinitionUpdated performs reconciliation when a v0 MetricsDefinition
 // has been updated.
 func v0MetricsDefinitionUpdated(
 	r *controller.Reconciler,
@@ -90,7 +90,7 @@ func v0MetricsDefinitionUpdated(
 	return 0, nil
 }
 
-// v0MetricsDefinitionDeleted performs reconciliation when a v0 workload definition
+// v0MetricsDefinitionDeleted performs reconciliation when a v0 MetricsDefinition
 // has been deleted.
 func v0MetricsDefinitionDeleted(
 	r *controller.Reconciler,

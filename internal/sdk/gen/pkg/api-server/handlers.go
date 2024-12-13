@@ -9,13 +9,14 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
 
+	"github.com/threeport/threeport/internal/sdk"
 	"github.com/threeport/threeport/internal/sdk/gen"
 	"github.com/threeport/threeport/internal/sdk/util"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 )
 
 // GenHandlers generates all the API object handlers.
-func GenHandlers(gen *gen.Generator) error {
+func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objCollection := range gen.VersionedApiObjectCollections {
 		for _, objGroup := range objCollection.VersionedApiObjectGroups {
 			pluralize := pluralize.NewClient()
@@ -42,9 +43,7 @@ func GenHandlers(gen *gen.Generator) error {
 			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/api-server/lib/v0",
 				tpApiServerLibAlias,
-				//"apiserver_lib",
 				extApiServerLibAlias,
-				//"tpapiserver_lib",
 				gen.Extension,
 			))
 			f.ImportAlias(util.SetImportAlias(
@@ -345,7 +344,7 @@ func GenHandlers(gen *gen.Generator) error {
 				}
 
 				instanceCheck := false
-				if apiObject.DefinedInstance {
+				if apiObject.DefinedInstanceDefinition {
 					instanceCheck = true
 				}
 				deleteObjectChecks := &Statement{}
@@ -456,9 +455,17 @@ func GenHandlers(gen *gen.Generator) error {
 					"@Success 200 {object} %s.ApiObjectVersions \"OK\"",
 					apiServerLibAlias,
 				))
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/versions [GET]", pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/versions [GET]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/versions [GET]", pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.GetVersionHandlerName).Params(
@@ -511,11 +518,20 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Success 201 {object} v0.Response \"Created\"")
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/%s [POST]",
-					objCollection.Version,
-					pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/%s [POST]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s [POST]",
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.AddHandlerName).Params(
@@ -525,8 +541,8 @@ func GenHandlers(gen *gen.Generator) error {
 					),
 				).Parens(List(
 					Error(),
-				)).Block(
-					Id("objectType").Op(":=").Qual(
+				)).BlockFunc(func(g *Group) {
+					g.Id("objectType").Op(":=").Qual(
 						fmt.Sprintf(
 							"%s/pkg/api/%s",
 							gen.ModulePath,
@@ -536,42 +552,70 @@ func GenHandlers(gen *gen.Generator) error {
 							"ObjectType%s",
 							apiObject.TypeName,
 						),
-					),
-					Var().Id(strcase.ToLowerCamel(apiObject.TypeName)).Qual(
+					)
+					g.Var().Id(strcase.ToLowerCamel(apiObject.TypeName)).Qual(
 						fmt.Sprintf(
 							"%s/pkg/api/%s",
 							gen.ModulePath,
 							objCollection.Version,
 						),
 						apiObject.TypeName,
-					),
-					Line(),
-					Comment("check for empty payload, unsupported fields, GORM Model fields, optional associations, etc."),
-					If(Id("id").Op(",").Id("err").Op(":=").Qual(
-						"github.com/threeport/threeport/pkg/api-server/lib/v0",
-						"PayloadCheck",
-					).Call(Id("c").Op(",").Lit(false).Op(",").Id("objectType").Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName))).Op(";").Id("err").Op("!=").Nil()).Block(
-						Return(Qual(
+					)
+					g.Line()
+					g.Comment("check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.")
+					if gen.Extension {
+						g.If(Id("id").Op(",").Id("err").Op(":=").Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
-							"ResponseStatusErr",
-						).Call(Id("id").Op(",").Id("c").Op(",").Nil(), Qual(
-							"errors",
-							"New",
-						).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"),
-						)),
-					),
-					Line(),
-					If(Id("err").Op(":=").Id("c").Dot("Bind").Call(
+							"PayloadCheck",
+						).Call(List(
+							Id("c"),
+							Lit(true),
+							Lit(false),
+							Id("objectType"),
+							Id(strcase.ToLowerCamel(apiObject.TypeName)),
+						)).Op(";").Id("err").Op("!=").Nil()).Block(
+							Return(Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"ResponseStatusErr",
+							).Call(Id("id").Op(",").Id("c").Op(",").Nil(), Qual(
+								"errors",
+								"New",
+							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"),
+							)),
+						)
+					} else {
+						g.If(Id("id").Op(",").Id("err").Op(":=").Qual(
+							"github.com/threeport/threeport/pkg/api-server/lib/v0",
+							"PayloadCheck",
+						).Call(List(
+							Id("c"),
+							Lit(false),
+							Lit(false),
+							Id("objectType"),
+							Id(strcase.ToLowerCamel(apiObject.TypeName)),
+						)).Op(";").Id("err").Op("!=").Nil()).Block(
+							Return(Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"ResponseStatusErr",
+							).Call(Id("id").Op(",").Id("c").Op(",").Nil(), Qual(
+								"errors",
+								"New",
+							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"),
+							)),
+						)
+					}
+					g.Line()
+					g.If(Id("err").Op(":=").Id("c").Dot("Bind").Call(
 						Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))).Op(";").Id("err").Op("!=").Nil().Block(
 						Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")),
 						),
-					)),
-					Line(),
-					Comment("check for missing required fields"),
-					If(Id("id").Op(",").Id("err").Op(":=").Qual(
+					))
+					g.Line()
+					g.Comment("check for missing required fields")
+					g.If(Id("id").Op(",").Id("err").Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"ValidateBoundData",
 					).Call(Id("c").Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType")).Op(";").
@@ -584,11 +628,11 @@ func GenHandlers(gen *gen.Generator) error {
 							"errors",
 							"New",
 						).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
-					),
-					Line(),
-					checkDuplicateNames,
-					Comment("persist to DB"),
-					If(Id("result").Op(":=").Do(func(s *Statement) {
+					)
+					g.Line()
+					g.Add(checkDuplicateNames)
+					g.Comment("persist to DB")
+					g.If(Id("result").Op(":=").Do(func(s *Statement) {
 						if gen.Extension {
 							s.Id("h").Dot("Handler")
 						} else {
@@ -602,26 +646,26 @@ func GenHandlers(gen *gen.Generator) error {
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 						),
-					),
-					Line(),
-					notifyControllersCreateHandler,
-					Line(),
-					Id("response").Op(",").Id("err").Op(":=").Qual(
+					)
+					g.Line()
+					g.Add(notifyControllersCreateHandler)
+					g.Line()
+					g.Id("response").Op(",").Id("err").Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
-					).Call(Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType")),
-					If(Id("err").Op("!=").Nil()).Block(
+					).Call(Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType"))
+					g.If(Id("err").Op("!=").Nil()).Block(
 						Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
 						).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
-					),
-					Line(),
-					Return(Qual(
+					)
+					g.Line()
+					g.Return(Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"ResponseStatus201",
-					).Call(Id("c").Op(",").Op("*").Id("response"))),
-				)
+					).Call(Id("c").Op(",").Op("*").Id("response")))
+				})
 				// get all objects handler
 				f.Comment(fmt.Sprintf(
 					"@Summary gets all %s.",
@@ -646,11 +690,20 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Success 200 {object} v0.Response \"OK\"")
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/%s [GET]",
-					objCollection.Version,
-					pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/%s [GET]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s [GET]",
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.GetAllHandlerName).Params(
@@ -788,11 +841,20 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Success 200 {object} v0.Response \"OK\"")
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/%s/{id} [GET]",
-					objCollection.Version,
-					pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/%s/{id} [GET]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/{id} [GET]",
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.GetOneHandlerName).Params(
@@ -906,11 +968,20 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/%s/{id} [PATCH]",
-					objCollection.Version,
-					pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/%s/{id} [PATCH]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/{id} [PATCH]",
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.PatchHandlerName).Params(
@@ -920,8 +991,8 @@ func GenHandlers(gen *gen.Generator) error {
 					),
 				).Parens(List(
 					Error(),
-				)).Block(
-					Id("objectType").Op(":=").Qual(fmt.Sprintf(
+				)).BlockFunc(func(g *Group) {
+					g.Id("objectType").Op(":=").Qual(fmt.Sprintf(
 						"%s/pkg/api/%s",
 						gen.ModulePath,
 						objCollection.Version,
@@ -930,19 +1001,19 @@ func GenHandlers(gen *gen.Generator) error {
 							"ObjectType%s",
 							apiObject.TypeName,
 						),
-					),
-					Id(fmt.Sprintf(
+					)
+					g.Id(fmt.Sprintf(
 						"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-					)).Op(":=").Id("c").Dot("Param").Call(Lit("id")),
-					Var().Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Qual(
+					)).Op(":=").Id("c").Dot("Param").Call(Lit("id"))
+					g.Var().Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Qual(
 						fmt.Sprintf(
 							"%s/pkg/api/%s",
 							gen.ModulePath,
 							objCollection.Version,
 						),
 						apiObject.TypeName,
-					),
-					If(
+					)
+					g.If(
 						// TODO: figure out preload objects
 						Id("result").Op(":=").Do(func(s *Statement) {
 							if gen.Extension {
@@ -970,34 +1041,63 @@ func GenHandlers(gen *gen.Generator) error {
 								).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 							),
 						),
-					),
-					Line(),
-					Comment("check for empty payload, invalid or unsupported fields, optional associations, etc."),
-					If(
-						Id("id").Op(",").Id("err").Op(":=").Qual(
-							"github.com/threeport/threeport/pkg/api-server/lib/v0",
-							"PayloadCheck",
-						).Call(Id("c").Op(",").Lit(true).Op(",").Id("objectType").Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName))).Op(";").Id("err").Op("!=").Nil().Block(
-							Return(Qual(
+					)
+					g.Line()
+					g.Comment("check for empty payload, invalid or unsupported fields, optional associations, etc.")
+					if gen.Extension {
+						g.If(
+							Id("id").Op(",").Id("err").Op(":=").Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatusErr",
-							).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
-								"errors",
-								"New",
-							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
-						),
-					),
-					Line(),
-					Comment("bind payload"),
-					Var().Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Qual(
+								"PayloadCheck",
+							).Call(List(
+								Id("c"),
+								Lit(true),
+								Lit(true),
+								Id("objectType"),
+								Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+							)).Op(";").Id("err").Op("!=").Nil().Block(
+								Return(Qual(
+									"github.com/threeport/threeport/pkg/api-server/lib/v0",
+									"ResponseStatusErr",
+								).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
+									"errors",
+									"New",
+								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
+							),
+						)
+					} else {
+						g.If(
+							Id("id").Op(",").Id("err").Op(":=").Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"PayloadCheck",
+							).Call(List(
+								Id("c"),
+								Lit(false),
+								Lit(true),
+								Id("objectType"),
+								Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+							)).Op(";").Id("err").Op("!=").Nil().Block(
+								Return(Qual(
+									"github.com/threeport/threeport/pkg/api-server/lib/v0",
+									"ResponseStatusErr",
+								).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
+									"errors",
+									"New",
+								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
+							),
+						)
+					}
+					g.Line()
+					g.Comment("bind payload")
+					g.Var().Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Qual(
 						fmt.Sprintf(
 							"%s/pkg/api/%s",
 							gen.ModulePath,
 							objCollection.Version,
 						),
 						apiObject.TypeName,
-					),
-					If(
+					)
+					g.If(
 						Id("err").Op(":=").Id("c").Dot("Bind").Call(
 							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
 						).Op(";").Id("err").Op("!=").Nil().Block(
@@ -1006,11 +1106,10 @@ func GenHandlers(gen *gen.Generator) error {
 								"ResponseStatus500",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 						),
-					),
-					Line(),
-					Line(),
-					Comment("update object in database"),
-					If(
+					)
+					g.Line()
+					g.Comment("update object in database")
+					g.If(
 						Id("result").Op(":=").Do(func(s *Statement) {
 							if gen.Extension {
 								s.Id("h").Dot("Handler")
@@ -1027,28 +1126,28 @@ func GenHandlers(gen *gen.Generator) error {
 								"ResponseStatus500",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 						),
-					),
-					Line(),
-					notifyControllersUpdateHandler,
-					Line(),
-					Id("response").Op(",").Id("err").Op(":=").Qual(
+					)
+					g.Line()
+					g.Add(notifyControllersUpdateHandler)
+					g.Line()
+					g.Id("response").Op(",").Id("err").Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
-					).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id("objectType")),
-					If(
+					).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id("objectType"))
+					g.If(
 						Id("err").Op("!=").Nil().Block(
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 						),
-					),
-					Line(),
-					Return(Qual(
+					)
+					g.Line()
+					g.Return(Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"ResponseStatus200",
-					).Call(Id("c").Op(",").Op("*").Id("response"))),
-				)
+					).Call(Id("c").Op(",").Op("*").Id("response")))
+				})
 				// replace object handler
 				f.Comment(fmt.Sprintf(
 					"@Summary updates an existing %s by replacing the entire object.", strcase.ToDelimited(apiObject.TypeName, ' '),
@@ -1074,7 +1173,6 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment(fmt.Sprintf(
 					"@Param %[1]s body %[2]s.%[3]s true \"%[3]s object\"",
 					strcase.ToLowerCamel(apiObject.TypeName),
-					//objCollection.Version,
 					objectImportAlias,
 					apiObject.TypeName,
 				))
@@ -1082,11 +1180,20 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/%s/{id} [PUT]",
-					objCollection.Version,
-					pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/%s/{id} [PUT]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/{id} [PUT]",
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.PutHandlerName).Params(
@@ -1096,8 +1203,8 @@ func GenHandlers(gen *gen.Generator) error {
 					),
 				).Parens(List(
 					Error(),
-				)).Block(
-					Id("objectType").Op(":=").Qual(fmt.Sprintf(
+				)).BlockFunc(func(g *Group) {
+					g.Id("objectType").Op(":=").Qual(fmt.Sprintf(
 						"%s/pkg/api/%s",
 						gen.ModulePath,
 						objCollection.Version,
@@ -1106,19 +1213,19 @@ func GenHandlers(gen *gen.Generator) error {
 							"ObjectType%s",
 							apiObject.TypeName,
 						),
-					),
-					Id(fmt.Sprintf(
+					)
+					g.Id(fmt.Sprintf(
 						"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-					)).Op(":=").Id("c").Dot("Param").Call(Lit("id")),
-					Var().Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Qual(
+					)).Op(":=").Id("c").Dot("Param").Call(Lit("id"))
+					g.Var().Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Qual(
 						fmt.Sprintf(
 							"%s/pkg/api/%s",
 							gen.ModulePath,
 							objCollection.Version,
 						),
 						apiObject.TypeName,
-					),
-					If(
+					)
+					g.If(
 						// TODO: figure out preload objects
 						Id("result").Op(":=").Do(func(s *Statement) {
 							if gen.Extension {
@@ -1146,34 +1253,63 @@ func GenHandlers(gen *gen.Generator) error {
 								).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 							),
 						),
-					),
-					Line(),
-					Comment("check for empty payload, invalid or unsupported fields, optional associations, etc."),
-					If(
-						Id("id").Op(",").Id("err").Op(":=").Qual(
-							"github.com/threeport/threeport/pkg/api-server/lib/v0",
-							"PayloadCheck",
-						).Call(Id("c").Op(",").Lit(true).Op(",").Id("objectType").Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName))).Op(";").Id("err").Op("!=").Nil().Block(
-							Return(Qual(
+					)
+					g.Line()
+					g.Comment("check for empty payload, invalid or unsupported fields, optional associations, etc.")
+					if gen.Extension {
+						g.If(
+							Id("id").Op(",").Id("err").Op(":=").Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatusErr",
-							).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
-								"errors",
-								"New",
-							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
-						),
-					),
-					Line(),
-					Comment("bind payload"),
-					Var().Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Qual(
+								"PayloadCheck",
+							).Call(List(
+								Id("c"),
+								Lit(true),
+								Lit(true),
+								Id("objectType"),
+								Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+							)).Op(";").Id("err").Op("!=").Nil().Block(
+								Return(Qual(
+									"github.com/threeport/threeport/pkg/api-server/lib/v0",
+									"ResponseStatusErr",
+								).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
+									"errors",
+									"New",
+								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
+							),
+						)
+					} else {
+						g.If(
+							Id("id").Op(",").Id("err").Op(":=").Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"PayloadCheck",
+							).Call(List(
+								Id("c"),
+								Lit(false),
+								Lit(true),
+								Id("objectType"),
+								Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+							)).Op(";").Id("err").Op("!=").Nil().Block(
+								Return(Qual(
+									"github.com/threeport/threeport/pkg/api-server/lib/v0",
+									"ResponseStatusErr",
+								).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
+									"errors",
+									"New",
+								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
+							),
+						)
+					}
+					g.Line()
+					g.Comment("bind payload")
+					g.Var().Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Qual(
 						fmt.Sprintf(
 							"%s/pkg/api/%s",
 							gen.ModulePath,
 							objCollection.Version,
 						),
 						apiObject.TypeName,
-					),
-					If(
+					)
+					g.If(
 						Id("err").Op(":=").Id("c").Dot("Bind").Call(
 							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
 						).Op(";").Id("err").Op("!=").Nil().Block(
@@ -1182,10 +1318,10 @@ func GenHandlers(gen *gen.Generator) error {
 								"ResponseStatus500",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 						),
-					),
-					Line(),
-					Comment("check for missing required fields"),
-					If(
+					)
+					g.Line()
+					g.Comment("check for missing required fields")
+					g.If(
 						Id("id").Op(",").Id("err").Op(":=").Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ValidateBoundData",
@@ -1199,11 +1335,11 @@ func GenHandlers(gen *gen.Generator) error {
 								"New",
 							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
 						),
-					),
-					Line(),
-					Comment("persist provided data"),
-					Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("ID"),
-					If(
+					)
+					g.Line()
+					g.Comment("persist provided data")
+					g.Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("ID")
+					g.If(
 						Id("result").Op(":=").Do(func(s *Statement) {
 							if gen.Extension {
 								s.Id("h").Dot("Handler")
@@ -1227,10 +1363,10 @@ func GenHandlers(gen *gen.Generator) error {
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 							),
 						),
-					),
-					Line(),
-					Comment("reload updated data from DB"),
-					If(
+					)
+					g.Line()
+					g.Comment("reload updated data from DB")
+					g.If(
 						// TODO: figure out preload objects
 						Id("result").Op(":=").Do(func(s *Statement) {
 							if gen.Extension {
@@ -1258,26 +1394,26 @@ func GenHandlers(gen *gen.Generator) error {
 								).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
 							),
 						),
-					),
-					Line(),
-					Id("response").Op(",").Id("err").Op(":=").Qual(
+					)
+					g.Line()
+					g.Id("response").Op(",").Id("err").Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
-					).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id("objectType")),
-					If(
+					).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id("objectType"))
+					g.If(
 						Id("err").Op("!=").Nil().Block(
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
 						),
-					),
-					Line(),
-					Return(Qual(
+					)
+					g.Line()
+					g.Return(Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"ResponseStatus200",
-					).Call(Id("c").Op(",").Op("*").Id("response"))),
-				)
+					).Call(Id("c").Op(",").Op("*").Id("response")))
+				})
 				// delete object handler
 				f.Comment(fmt.Sprintf(
 					"@Summary deletes a %s.", strcase.ToDelimited(apiObject.TypeName, ' '),
@@ -1296,11 +1432,20 @@ func GenHandlers(gen *gen.Generator) error {
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 409 {object} v0.Response \"Conflict\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				f.Comment(fmt.Sprintf(
-					"@Router /%s/%s/{id} [DELETE]",
-					objCollection.Version,
-					pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
-				))
+				if gen.Extension {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/%s/{id} [DELETE]",
+						util.RestPath(sdkConfig.ApiNamespace),
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				} else {
+					f.Comment(fmt.Sprintf(
+						"@Router /%s/%s/{id} [DELETE]",
+						objCollection.Version,
+						pluralize.Pluralize(strcase.ToKebab(apiObject.TypeName), 2, false),
+					))
+				}
 				f.Func().Params(
 					Id("h").Id("Handler"),
 				).Id(apiObject.DeleteHandlerName).Params(

@@ -13,7 +13,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// v0ObservabilityStackDefinitionCreated performs reconciliation when a v0 workload definition
+// v0ObservabilityStackDefinitionCreated performs reconciliation when a v0 ObservabilityStackDefinition
 // has been created.
 func v0ObservabilityStackDefinitionCreated(
 	r *controller.Reconciler,
@@ -45,7 +45,7 @@ func v0ObservabilityStackDefinitionCreated(
 	return 0, nil
 }
 
-// v0ObservabilityStackDefinitionUpdated performs reconciliation when a v0 workload definition
+// v0ObservabilityStackDefinitionUpdated performs reconciliation when a v0 ObservabilityStackDefinition
 // has been updated.
 func v0ObservabilityStackDefinitionUpdated(
 	r *controller.Reconciler,
@@ -55,7 +55,7 @@ func v0ObservabilityStackDefinitionUpdated(
 	return 0, nil
 }
 
-// v0ObservabilityStackDefinitionDeleted performs reconciliation when a v0 workload definition
+// v0ObservabilityStackDefinitionDeleted performs reconciliation when a v0 ObservabilityStackDefinition
 // has been deleted.
 func v0ObservabilityStackDefinitionDeleted(
 	r *controller.Reconciler,

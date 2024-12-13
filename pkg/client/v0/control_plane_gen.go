@@ -20,7 +20,7 @@ func GetControlPlaneDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.C
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathControlPlaneDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -50,7 +50,7 @@ func GetControlPlaneDefinitionByID(apiClient *http.Client, apiAddr string, id ui
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathControlPlaneDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -80,7 +80,7 @@ func GetControlPlaneDefinitionsByQueryString(apiClient *http.Client, apiAddr str
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathControlPlaneDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -110,7 +110,7 @@ func GetControlPlaneDefinitionByName(apiClient *http.Client, apiAddr, name strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathControlPlaneDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -151,7 +151,7 @@ func CreateControlPlaneDefinition(apiClient *http.Client, apiAddr string, contro
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathControlPlaneDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonControlPlaneDefinition),
 		map[string]string{},
@@ -193,7 +193,7 @@ func UpdateControlPlaneDefinition(apiClient *http.Client, apiAddr string, contro
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-definitions/%d", apiAddr, controlPlaneDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathControlPlaneDefinitions, controlPlaneDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonControlPlaneDefinition),
 		map[string]string{},
@@ -224,7 +224,7 @@ func DeleteControlPlaneDefinition(apiClient *http.Client, apiAddr string, id uin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathControlPlaneDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -255,7 +255,7 @@ func GetControlPlaneInstances(apiClient *http.Client, apiAddr string) (*[]v0.Con
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathControlPlaneInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -285,7 +285,7 @@ func GetControlPlaneInstanceByID(apiClient *http.Client, apiAddr string, id uint
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathControlPlaneInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -315,7 +315,7 @@ func GetControlPlaneInstancesByQueryString(apiClient *http.Client, apiAddr strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathControlPlaneInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -345,7 +345,7 @@ func GetControlPlaneInstanceByName(apiClient *http.Client, apiAddr, name string)
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathControlPlaneInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -386,7 +386,7 @@ func CreateControlPlaneInstance(apiClient *http.Client, apiAddr string, controlP
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathControlPlaneInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonControlPlaneInstance),
 		map[string]string{},
@@ -428,7 +428,7 @@ func UpdateControlPlaneInstance(apiClient *http.Client, apiAddr string, controlP
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-instances/%d", apiAddr, controlPlaneInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathControlPlaneInstances, controlPlaneInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonControlPlaneInstance),
 		map[string]string{},
@@ -459,7 +459,7 @@ func DeleteControlPlaneInstance(apiClient *http.Client, apiAddr string, id uint)
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/control-plane-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathControlPlaneInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},

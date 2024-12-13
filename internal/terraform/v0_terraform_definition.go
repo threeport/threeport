@@ -8,7 +8,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
-// v0TerraformDefinitionCreated performs reconciliation when a v0 workload definition
+// v0TerraformDefinitionCreated performs reconciliation when a v0 TerraformDefinition
 // has been created.
 func v0TerraformDefinitionCreated(
 	r *controller.Reconciler,
@@ -18,7 +18,7 @@ func v0TerraformDefinitionCreated(
 	return 0, nil
 }
 
-// v0TerraformDefinitionUpdated performs reconciliation when a v0 workload definition
+// v0TerraformDefinitionUpdated performs reconciliation when a v0 TerraformDefinition
 // has been updated.
 func v0TerraformDefinitionUpdated(
 	r *controller.Reconciler,
@@ -28,7 +28,7 @@ func v0TerraformDefinitionUpdated(
 	return 0, nil
 }
 
-// v0TerraformDefinitionDeleted performs reconciliation when a v0 workload definition
+// v0TerraformDefinitionDeleted performs reconciliation when a v0 TerraformDefinition
 // has been deleted.
 func v0TerraformDefinitionDeleted(
 	r *controller.Reconciler,

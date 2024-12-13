@@ -10,9 +10,9 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-// outputDescribeGatewayDefinitionCmd produces the plain description
+// outputDescribev0GatewayDefinitionCmd produces the plain description
 // output for the 'tptctl describe gateway-definition' command
-func outputDescribeGatewayDefinitionCmd(
+func outputDescribev0GatewayDefinitionCmd(
 	gatewayDefinition *v0.GatewayDefinition,
 	gatewayDefinitionConfig *config.GatewayDefinitionConfig,
 	apiClient *http.Client,
@@ -27,7 +27,7 @@ func outputDescribeGatewayDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* GatewayDefinition Name: %s\n",
-		gatewayDefinitionConfig.GatewayDefinition.Name,
+		*gatewayDefinitionConfig.GatewayDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -49,9 +49,9 @@ func outputDescribeGatewayDefinitionCmd(
 	return nil
 }
 
-// outputDescribeGatewayInstanceCmd produces the plain description
+// outputDescribev0GatewayInstanceCmd produces the plain description
 // output for the 'tptctl describe gateway-instance' command
-func outputDescribeGatewayInstanceCmd(
+func outputDescribev0GatewayInstanceCmd(
 	gatewayInstance *v0.GatewayInstance,
 	gatewayInstanceConfig *config.GatewayInstanceConfig,
 	apiClient *http.Client,
@@ -69,7 +69,7 @@ func outputDescribeGatewayInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* GatewayInstance Name: %s\n",
-		gatewayInstanceConfig.GatewayInstance.Name,
+		*gatewayInstanceConfig.GatewayInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -87,9 +87,9 @@ func outputDescribeGatewayInstanceCmd(
 	return nil
 }
 
-// outputDescribeDomainNameDefinitionCmd produces the plain description
+// outputDescribev0DomainNameDefinitionCmd produces the plain description
 // output for the 'tptctl describe domain-name-definition' command
-func outputDescribeDomainNameDefinitionCmd(
+func outputDescribev0DomainNameDefinitionCmd(
 	domainNameDefinition *v0.DomainNameDefinition,
 	domainNameDefinitionConfig *config.DomainNameDefinitionConfig,
 	apiClient *http.Client,
@@ -104,7 +104,7 @@ func outputDescribeDomainNameDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* DomainNameDefinition Name: %s\n",
-		domainNameDefinitionConfig.DomainNameDefinition.Name,
+		*domainNameDefinitionConfig.DomainNameDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -126,9 +126,9 @@ func outputDescribeDomainNameDefinitionCmd(
 	return nil
 }
 
-// outputDescribeDomainNameInstanceCmd produces the plain description
+// outputDescribev0DomainNameInstanceCmd produces the plain description
 // output for the 'tptctl describe domain-name-instance' command
-func outputDescribeDomainNameInstanceCmd(
+func outputDescribev0DomainNameInstanceCmd(
 	domainNameInstance *v0.DomainNameInstance,
 	domainNameInstanceConfig *config.DomainNameInstanceConfig,
 	apiClient *http.Client,
@@ -146,7 +146,7 @@ func outputDescribeDomainNameInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* DomainNameInstance Name: %s\n",
-		domainNameInstanceConfig.DomainNameInstance.Name,
+		*domainNameInstanceConfig.DomainNameInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",

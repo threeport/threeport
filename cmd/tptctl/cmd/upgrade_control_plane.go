@@ -31,9 +31,9 @@ var UpgradeControlPlaneCmd = &cobra.Command{
 	Long: `Upgrades the version of the Threeport control plane. The version should be a valid
 	image tag.`,
 	SilenceUsage: true,
-	PreRun:       commandPreRunFunc,
+	PreRun:       CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
-		apiClient, config, apiEndpoint, requestedControlPlane := getClientContext(cmd)
+		apiClient, config, apiEndpoint, requestedControlPlane := GetClientContext(cmd)
 
 		encyptionKey, err := config.GetEncryptionKey(requestedControlPlane)
 		if err != nil {

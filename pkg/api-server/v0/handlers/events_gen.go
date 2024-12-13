@@ -40,7 +40,7 @@ func (h Handler) AddEvent(c echo.Context) error {
 	var event api_v0.Event
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, event); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, event); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -163,7 +163,7 @@ func (h Handler) UpdateEvent(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingEvent); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingEvent); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -215,7 +215,7 @@ func (h Handler) ReplaceEvent(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingEvent); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingEvent); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 

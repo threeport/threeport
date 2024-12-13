@@ -10,7 +10,7 @@ import (
 
 // ProfileRoutes sets up all routes for the Profile handlers.
 func ProfileRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/profiles/versions", h.GetProfileVersions)
+	e.GET(v0.PathProfileVersions, h.GetProfileVersions)
 
 	e.POST(v0.PathProfiles, h.AddProfile)
 	e.GET(v0.PathProfiles, h.GetProfiles)
@@ -22,7 +22,7 @@ func ProfileRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // TierRoutes sets up all routes for the Tier handlers.
 func TierRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/tiers/versions", h.GetTierVersions)
+	e.GET(v0.PathTierVersions, h.GetTierVersions)
 
 	e.POST(v0.PathTiers, h.AddTier)
 	e.GET(v0.PathTiers, h.GetTiers)

@@ -13,8 +13,10 @@ const (
 	ObjectTypeTerraformDefinition string = "TerraformDefinition"
 	ObjectTypeTerraformInstance   string = "TerraformInstance"
 
-	PathTerraformDefinitions = "/v0/terraform-definitions"
-	PathTerraformInstances   = "/v0/terraform-instances"
+	PathTerraformDefinitionVersions = "/terraform-definitions/versions"
+	PathTerraformDefinitions        = "/v0/terraform-definitions"
+	PathTerraformInstanceVersions   = "/terraform-instances/versions"
+	PathTerraformInstances          = "/v0/terraform-instances"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the

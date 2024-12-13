@@ -12,15 +12,13 @@ import (
 
 	workloadutil "github.com/threeport/threeport/internal/workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// v0DomainNameInstanceCreated performs reconciliation when a v0 workload definition
+// v0DomainNameInstanceCreated performs reconciliation when a v0 DomainNameInstance
 // has been created.
 func v0DomainNameInstanceCreated(
 	r *controller.Reconciler,
@@ -28,10 +26,10 @@ func v0DomainNameInstanceCreated(
 	log *logr.Logger,
 ) (int64, error) {
 	// ensure attached object reference exists
-	err := client_v1.EnsureAttachedObjectReferenceExists(
+	err := client.EnsureAttachedObjectReferenceExists(
 		r.APIClient,
 		r.APIServer,
-		util.TypeName(v1.WorkloadInstance{}),
+		util.TypeName(v0.WorkloadInstance{}),
 		domainNameInstance.WorkloadInstanceID,
 		util.TypeName(*domainNameInstance),
 		domainNameInstance.ID,
@@ -49,7 +47,7 @@ func v0DomainNameInstanceCreated(
 	return 0, nil
 }
 
-// v0DomainNameInstanceUpdated performs reconciliation when a v0 workload definition
+// v0DomainNameInstanceUpdated performs reconciliation when a v0 DomainNameInstance
 // has been updated.
 func v0DomainNameInstanceUpdated(
 	r *controller.Reconciler,
@@ -65,7 +63,7 @@ func v0DomainNameInstanceUpdated(
 	return 0, nil
 }
 
-// v0DomainNameInstanceDeleted performs reconciliation when a v0 workload definition
+// v0DomainNameInstanceDeleted performs reconciliation when a v0 DomainNameInstance
 // has been deleted.
 func v0DomainNameInstanceDeleted(
 	r *controller.Reconciler,
@@ -240,12 +238,12 @@ func confirmDnsControllerDeployed(
 	}
 
 	// create external dns workload instance
-	externalDnsWorkloadInstance := v1.WorkloadInstance{
+	externalDnsWorkloadInstance := v0.WorkloadInstance{
 		Instance:                    v0.Instance{Name: &workloadDefName},
 		KubernetesRuntimeInstanceID: domainNameInstance.KubernetesRuntimeInstanceID,
 		WorkloadDefinitionID:        createdWorkloadDef.ID,
 	}
-	createdExternalDnsWorkloadInstance, err := client_v1.CreateWorkloadInstance(r.APIClient, r.APIServer, &externalDnsWorkloadInstance)
+	createdExternalDnsWorkloadInstance, err := client.CreateWorkloadInstance(r.APIClient, r.APIServer, &externalDnsWorkloadInstance)
 	if err != nil {
 		return fmt.Errorf("failed to create external dns controller workload instance: %w", err)
 	}

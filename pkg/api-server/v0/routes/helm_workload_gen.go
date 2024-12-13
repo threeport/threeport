@@ -10,7 +10,7 @@ import (
 
 // HelmWorkloadDefinitionRoutes sets up all routes for the HelmWorkloadDefinition handlers.
 func HelmWorkloadDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/helm-workload-definitions/versions", h.GetHelmWorkloadDefinitionVersions)
+	e.GET(v0.PathHelmWorkloadDefinitionVersions, h.GetHelmWorkloadDefinitionVersions)
 
 	e.POST(v0.PathHelmWorkloadDefinitions, h.AddHelmWorkloadDefinition)
 	e.GET(v0.PathHelmWorkloadDefinitions, h.GetHelmWorkloadDefinitions)
@@ -22,7 +22,7 @@ func HelmWorkloadDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // HelmWorkloadInstanceRoutes sets up all routes for the HelmWorkloadInstance handlers.
 func HelmWorkloadInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/helm-workload-instances/versions", h.GetHelmWorkloadInstanceVersions)
+	e.GET(v0.PathHelmWorkloadInstanceVersions, h.GetHelmWorkloadInstanceVersions)
 
 	e.POST(v0.PathHelmWorkloadInstances, h.AddHelmWorkloadInstance)
 	e.GET(v0.PathHelmWorkloadInstances, h.GetHelmWorkloadInstances)

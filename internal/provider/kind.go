@@ -13,6 +13,8 @@ import (
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
+const kindImage = "kindest/node:v1.31.2"
+
 // KubernetesRuntimeInfraKind represents a kind cluster for local a threeport instance.
 type KubernetesRuntimeInfraKind struct {
 	// The unique name of the kubernetes runtime instance.
@@ -154,7 +156,7 @@ func kindControlPlaneNode(
 	extraPortMappings := getPortMapping(authEnabled, portForwards)
 	controlPlaneNode := v1alpha4.Node{
 		Role:  v1alpha4.ControlPlaneRole,
-		Image: "kindest/node:v1.29.2",
+		Image: kindImage,
 		KubeadmConfigPatches: []string{
 			`kind: InitConfiguration
 nodeRegistration:
@@ -196,7 +198,7 @@ func kindWorkers(numWorkerNodes int, threeportPath, goPath, goCache string) *[]v
 
 		node = v1alpha4.Node{
 			Role:  v1alpha4.WorkerRole,
-			Image: "kindest/node:v1.29.2",
+			Image: kindImage,
 		}
 
 		if threeportPath != "" {

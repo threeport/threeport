@@ -18,19 +18,19 @@ type ObservabilityStackConfig struct {
 // ObservabilityStackValues provides the configuration for an observability
 // stack definition and instance.
 type ObservabilityStackValues struct {
-	Name                                  string                           `yaml:"Name"`
+	Name                                  *string                          `yaml:"Name"`
 	KubernetesRuntimeInstance             *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	MetricsEnabled                        bool                             `yaml:"MetricsEnabled"`
-	LoggingEnabled                        bool                             `yaml:"LoggingEnabled"`
-	GrafanaHelmValues                     string                           `yaml:"GrafanaHelmValues"`
-	GrafanaHelmValuesDocument             string                           `yaml:"GrafanaHelmValuesDocument"`
-	LokiHelmValues                        string                           `yaml:"LokiHelmValues"`
-	LokiHelmValuesDocument                string                           `yaml:"LokiHelmValuesDocument"`
-	PromtailHelmValues                    string                           `yaml:"PromtailHelmValues"`
-	PromtailHelmValuesDocument            string                           `yaml:"PromtailHelmValuesDocument"`
-	KubePrometheusStackHelmValues         string                           `yaml:"KubePrometheusStackHelmValues"`
-	KubePrometheusStackHelmValuesDocument string                           `yaml:"KubePrometheusStackHelmValuesDocument"`
-	ObservabilityConfigPath               string                           `yaml:"ObservabilityConfigPath"`
+	MetricsEnabled                        *bool                            `yaml:"MetricsEnabled"`
+	LoggingEnabled                        *bool                            `yaml:"LoggingEnabled"`
+	GrafanaHelmValues                     *string                          `yaml:"GrafanaHelmValues"`
+	GrafanaHelmValuesDocument             *string                          `yaml:"GrafanaHelmValuesDocument"`
+	LokiHelmValues                        *string                          `yaml:"LokiHelmValues"`
+	LokiHelmValuesDocument                *string                          `yaml:"LokiHelmValuesDocument"`
+	PromtailHelmValues                    *string                          `yaml:"PromtailHelmValues"`
+	PromtailHelmValuesDocument            *string                          `yaml:"PromtailHelmValuesDocument"`
+	KubePrometheusStackHelmValues         *string                          `yaml:"KubePrometheusStackHelmValues"`
+	KubePrometheusStackHelmValuesDocument *string                          `yaml:"KubePrometheusStackHelmValuesDocument"`
+	ObservabilityConfigPath               *string                          `yaml:"ObservabilityConfigPath"`
 }
 
 // ObservabilityStackDefinitionConfig contains the config for an observability
@@ -42,43 +42,44 @@ type ObservabilityStackDefinitionConfig struct {
 // ObservabilityStackDefinitionValues contains the attributes needed to manage
 // an observability stack definition.
 type ObservabilityStackDefinitionValues struct {
-	Name                                  string `yaml:"Name"`
-	GrafanaHelmValues                     string `yaml:"GrafanaHelmValues"`
-	GrafanaHelmValuesDocument             string `yaml:"GrafanaHelmValuesDocument"`
-	LokiHelmValues                        string `yaml:"LokiHelmValues"`
-	LokiHelmValuesDocument                string `yaml:"LokiHelmValuesDocument"`
-	PromtailHelmValues                    string `yaml:"PromtailHelmValues"`
-	PromtailHelmValuesDocument            string `yaml:"PromtailHelmValuesDocument"`
-	KubePrometheusStackHelmValues         string `yaml:"KubePrometheusStackHelmValues"`
-	KubePrometheusStackHelmValuesDocument string `yaml:"KubePrometheusStackHelmValuesDocument"`
-	ObservabilityConfigPath               string `yaml:"ObservabilityConfigPath"`
+	Name                                  *string `yaml:"Name"`
+	GrafanaHelmValues                     *string `yaml:"GrafanaHelmValues"`
+	GrafanaHelmValuesDocument             *string `yaml:"GrafanaHelmValuesDocument"`
+	LokiHelmValues                        *string `yaml:"LokiHelmValues"`
+	LokiHelmValuesDocument                *string `yaml:"LokiHelmValuesDocument"`
+	PromtailHelmValues                    *string `yaml:"PromtailHelmValues"`
+	PromtailHelmValuesDocument            *string `yaml:"PromtailHelmValuesDocument"`
+	KubePrometheusStackHelmValues         *string `yaml:"KubePrometheusStackHelmValues"`
+	KubePrometheusStackHelmValuesDocument *string `yaml:"KubePrometheusStackHelmValuesDocument"`
+	ObservabilityConfigPath               *string `yaml:"ObservabilityConfigPath"`
 }
 
 // ObservabilityStackInstanceConfig contains the config for an observability
-// stack definition.
+// stack instance.
 type ObservabilityStackInstanceConfig struct {
 	ObservabilityStackInstance ObservabilityStackInstanceValues `yaml:"ObservabilityStackInstance"`
 }
 
 // ObservabilityStackInstanceValues contains the attributes needed to manage
-// an observability stack definition.
+// an observability stack instance.
 type ObservabilityStackInstanceValues struct {
-	Name                                  string                             `yaml:"Name"`
-	KubernetesRuntimeInstance             *KubernetesRuntimeInstanceValues   `yaml:"KubernetesRuntimeInstance"`
-	MetricsEnabled                        bool                               `yaml:"MetricsEnabled"`
-	LoggingEnabled                        bool                               `yaml:"LoggingEnabled"`
-	GrafanaHelmValues                     string                             `yaml:"GrafanaHelmValues"`
-	GrafanaHelmValuesDocument             string                             `yaml:"GrafanaHelmValuesDocument"`
-	LokiHelmValues                        string                             `yaml:"LokiHelmValues"`
-	LokiHelmValuesDocument                string                             `yaml:"LokiHelmValuesDocument"`
-	PromtailHelmValues                    string                             `yaml:"PromtailHelmValues"`
-	PromtailHelmValuesDocument            string                             `yaml:"PromtailHelmValuesDocument"`
-	KubePrometheusStackHelmValues         string                             `yaml:"KubePrometheusStackHelmValues"`
-	KubePrometheusStackHelmValuesDocument string                             `yaml:"KubePrometheusStackHelmValuesDocument"`
-	ObservabilityConfigPath               string                             `yaml:"ObservabilityConfigPath"`
-	ObservabilityStackDefinition          ObservabilityStackDefinitionValues `yaml:"ObservabilityStackDefinition"`
+	Name                                  *string                             `yaml:"Name"`
+	KubernetesRuntimeInstance             *KubernetesRuntimeInstanceValues    `yaml:"KubernetesRuntimeInstance"`
+	MetricsEnabled                        *bool                               `yaml:"MetricsEnabled"`
+	LoggingEnabled                        *bool                               `yaml:"LoggingEnabled"`
+	GrafanaHelmValues                     *string                             `yaml:"GrafanaHelmValues"`
+	GrafanaHelmValuesDocument             *string                             `yaml:"GrafanaHelmValuesDocument"`
+	LokiHelmValues                        *string                             `yaml:"LokiHelmValues"`
+	LokiHelmValuesDocument                *string                             `yaml:"LokiHelmValuesDocument"`
+	PromtailHelmValues                    *string                             `yaml:"PromtailHelmValues"`
+	PromtailHelmValuesDocument            *string                             `yaml:"PromtailHelmValuesDocument"`
+	KubePrometheusStackHelmValues         *string                             `yaml:"KubePrometheusStackHelmValues"`
+	KubePrometheusStackHelmValuesDocument *string                             `yaml:"KubePrometheusStackHelmValuesDocument"`
+	ObservabilityConfigPath               *string                             `yaml:"ObservabilityConfigPath"`
+	ObservabilityStackDefinition          *ObservabilityStackDefinitionValues `yaml:"ObservabilityStackDefinition"`
 }
 
+// GetOperations returns the operations for creating or deleting an observability stack.
 func (o *ObservabilityStackValues) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -89,23 +90,23 @@ func (o *ObservabilityStackValues) GetOperations(
 	operations := util.Operations{}
 
 	observabilityStackDefinitionValues := ObservabilityStackDefinitionValues{
-		Name: o.Name,
-		GrafanaHelmValues: o.GrafanaHelmValues,
-		GrafanaHelmValuesDocument: o.GrafanaHelmValuesDocument,
-		LokiHelmValues: o.LokiHelmValues,
-		LokiHelmValuesDocument: o.LokiHelmValuesDocument,
-		PromtailHelmValues: o.PromtailHelmValues,
-		PromtailHelmValuesDocument: o.PromtailHelmValuesDocument,
-		KubePrometheusStackHelmValues: o.KubePrometheusStackHelmValues,
+		Name:                                  o.Name,
+		GrafanaHelmValues:                     o.GrafanaHelmValues,
+		GrafanaHelmValuesDocument:             o.GrafanaHelmValuesDocument,
+		LokiHelmValues:                        o.LokiHelmValues,
+		LokiHelmValuesDocument:                o.LokiHelmValuesDocument,
+		PromtailHelmValues:                    o.PromtailHelmValues,
+		PromtailHelmValuesDocument:            o.PromtailHelmValuesDocument,
+		KubePrometheusStackHelmValues:         o.KubePrometheusStackHelmValues,
 		KubePrometheusStackHelmValuesDocument: o.KubePrometheusStackHelmValuesDocument,
-		ObservabilityConfigPath: o.ObservabilityConfigPath,
+		ObservabilityConfigPath:               o.ObservabilityConfigPath,
 	}
 	operations.AppendOperation(util.Operation{
 		Name: "observability stack definition",
 		Create: func() error {
 			createdOsd, err := observabilityStackDefinitionValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create observability stack definition with name %s: %w", o.Name, err)
+				return fmt.Errorf("failed to create observability stack definition with name %s: %w", *o.Name, err)
 			}
 			createdObservabilityStackDefinition = *createdOsd
 			return nil
@@ -113,34 +114,34 @@ func (o *ObservabilityStackValues) GetOperations(
 		Delete: func() error {
 			_, err := observabilityStackDefinitionValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete observability stack definition with name %s: %w", o.Name, err)
+				return fmt.Errorf("failed to delete observability stack definition with name %s: %w", *o.Name, err)
 			}
 			return nil
 		},
 	})
 
 	observabilityStackInstanceValues := ObservabilityStackInstanceValues{
-		Name: o.Name,
-		KubernetesRuntimeInstance: o.KubernetesRuntimeInstance,
-		MetricsEnabled: o.MetricsEnabled,
-		LoggingEnabled: o.LoggingEnabled,
-		GrafanaHelmValues: o.GrafanaHelmValues,
-		GrafanaHelmValuesDocument: o.GrafanaHelmValuesDocument,
-		LokiHelmValues: o.LokiHelmValues,
-		LokiHelmValuesDocument: o.LokiHelmValuesDocument,
-		PromtailHelmValues: o.PromtailHelmValues,
-		PromtailHelmValuesDocument: o.PromtailHelmValuesDocument,
-		KubePrometheusStackHelmValues: o.KubePrometheusStackHelmValues,
+		Name:                                  o.Name,
+		KubernetesRuntimeInstance:             o.KubernetesRuntimeInstance,
+		MetricsEnabled:                        o.MetricsEnabled,
+		LoggingEnabled:                        o.LoggingEnabled,
+		GrafanaHelmValues:                     o.GrafanaHelmValues,
+		GrafanaHelmValuesDocument:             o.GrafanaHelmValuesDocument,
+		LokiHelmValues:                        o.LokiHelmValues,
+		LokiHelmValuesDocument:                o.LokiHelmValuesDocument,
+		PromtailHelmValues:                    o.PromtailHelmValues,
+		PromtailHelmValuesDocument:            o.PromtailHelmValuesDocument,
+		KubePrometheusStackHelmValues:         o.KubePrometheusStackHelmValues,
 		KubePrometheusStackHelmValuesDocument: o.KubePrometheusStackHelmValuesDocument,
-		ObservabilityConfigPath: o.ObservabilityConfigPath,
-		ObservabilityStackDefinition: observabilityStackDefinitionValues,
+		ObservabilityConfigPath:               o.ObservabilityConfigPath,
+		ObservabilityStackDefinition:          &observabilityStackDefinitionValues,
 	}
 	operations.AppendOperation(util.Operation{
 		Name: "observability stack instance",
 		Create: func() error {
 			createdOsi, err := observabilityStackInstanceValues.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create observability stack instance with name %s: %w", o.Name, err)
+				return fmt.Errorf("failed to create observability stack instance with name %s: %w", *o.Name, err)
 			}
 			createdObservabilityStackInstance = *createdOsi
 			return nil
@@ -148,7 +149,7 @@ func (o *ObservabilityStackValues) GetOperations(
 		Delete: func() error {
 			deletedOsi, err := observabilityStackInstanceValues.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete observability stack instance with name %s: %w", o.Name, err)
+				return fmt.Errorf("failed to delete observability stack instance with name %s: %w", *o.Name, err)
 			}
 			// wait for observability stack instance to be deleted
 			util.Retry(60, 1, func() error {
@@ -189,7 +190,7 @@ func (o *ObservabilityStackValues) Create(
 	if err := operations.Create(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to execute create operations for observability stack defined instance with name %s: %w",
-			o.Name,
+			*o.Name,
 			err,
 		)
 	}
@@ -214,7 +215,7 @@ func (o *ObservabilityStackValues) Delete(
 	if err := operations.Delete(); err != nil {
 		return nil, nil, fmt.Errorf(
 			"failed to execute delete operations for observability stack defined instance with name %s: %w",
-			o.Name,
+			*o.Name,
 			err,
 		)
 	}
@@ -227,7 +228,7 @@ func (o *ObservabilityStackValues) ValidateCreate() error {
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if o.Name == "" {
+	if o.Name == nil {
 		multiError.AppendError(fmt.Errorf("name is required"))
 	}
 
@@ -237,27 +238,27 @@ func (o *ObservabilityStackValues) ValidateCreate() error {
 	}
 
 	// ensure kubernetes runtime instance name is set
-	if o.KubernetesRuntimeInstance.Name == "" {
+	if o.KubernetesRuntimeInstance != nil && o.KubernetesRuntimeInstance.Name == nil {
 		multiError.AppendError(fmt.Errorf("KubernetesRuntimeInstance.Name is required"))
 	}
 
 	// ensure grafana helm values and document are not both set
-	if o.GrafanaHelmValues != "" && o.GrafanaHelmValuesDocument != "" {
+	if o.GrafanaHelmValues != nil && o.GrafanaHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("GrafanaHelmValues and GrafanaHelmValuesDocument cannot both be set"))
 	}
 
 	// ensure loki helm values and document are not both set
-	if o.LokiHelmValues != "" && o.LokiHelmValuesDocument != "" {
+	if o.LokiHelmValues != nil && o.LokiHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("LokiHelmValues and LokiHelmValuesDocument cannot both be set"))
 	}
 
 	// ensure promtail helm values and document are not both set
-	if o.PromtailHelmValues != "" && o.PromtailHelmValuesDocument != "" {
+	if o.PromtailHelmValues != nil && o.PromtailHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("PromtailHelmValues and PromtailHelmValuesDocument cannot both be set"))
 	}
 
 	// ensure kube-prometheus-stack helm values and document are not both set
-	if o.KubePrometheusStackHelmValues != "" && o.KubePrometheusStackHelmValuesDocument != "" {
+	if o.KubePrometheusStackHelmValues != nil && o.KubePrometheusStackHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("KubePrometheusStackHelmValues and KubePrometheusStackHelmValuesDocument cannot both be set"))
 	}
 
@@ -266,7 +267,7 @@ func (o *ObservabilityStackValues) ValidateCreate() error {
 
 // ValidateDelete validates the observability stack values for deletion
 func (o *ObservabilityStackValues) ValidateDelete() error {
-	if o.Name == "" {
+	if o.Name == nil {
 		return fmt.Errorf("name is required")
 	}
 	return nil
@@ -285,15 +286,15 @@ func (o *ObservabilityStackDefinitionValues) Create(
 	// construct observability stack definition object
 	osd := &v0.ObservabilityStackDefinition{
 		Definition: v0.Definition{
-			Name: &o.Name,
+			Name: o.Name,
 		},
 	}
 
 	// set grafana helm values if present
 	grafanaHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.GrafanaHelmValues,
-		o.GrafanaHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		*o.GrafanaHelmValues,
+		*o.GrafanaHelmValuesDocument,
+		*o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get grafana values document from path: %w", err)
@@ -302,9 +303,9 @@ func (o *ObservabilityStackDefinitionValues) Create(
 
 	// set loki helm values if present
 	lokiHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.LokiHelmValues,
-		o.LokiHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		*o.LokiHelmValues,
+		*o.LokiHelmValuesDocument,
+		*o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get loki values document from path: %w", err)
@@ -313,9 +314,9 @@ func (o *ObservabilityStackDefinitionValues) Create(
 
 	// set promtail helm values if present
 	promtailHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.PromtailHelmValues,
-		o.PromtailHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		*o.PromtailHelmValues,
+		*o.PromtailHelmValuesDocument,
+		*o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get promtail values document from path: %w", err)
@@ -324,9 +325,9 @@ func (o *ObservabilityStackDefinitionValues) Create(
 
 	// set kube-prometheus-stack helm values if present
 	kubePrometheusStackHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.KubePrometheusStackHelmValues,
-		o.KubePrometheusStackHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		*o.KubePrometheusStackHelmValues,
+		*o.KubePrometheusStackHelmValuesDocument,
+		*o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube-prometheus-stack values document from path: %w", err)
@@ -360,7 +361,7 @@ func (o *ObservabilityStackDefinitionValues) Delete(
 	osd, err := client.GetObservabilityStackDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		o.Name,
+		*o.Name,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get observability stack definition: %w", err)
@@ -384,27 +385,27 @@ func (o *ObservabilityStackDefinitionValues) ValidateCreate() error {
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if o.Name == "" {
+	if o.Name == nil {
 		multiError.AppendError(fmt.Errorf("name is required"))
 	}
 
 	// ensure grafana helm values and document are not both set
-	if o.GrafanaHelmValues != "" && o.GrafanaHelmValuesDocument != "" {
+	if o.GrafanaHelmValues != nil && o.GrafanaHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("GrafanaHelmValues and GrafanaHelmValuesDocument cannot both be set"))
 	}
 
 	// ensure loki helm values and document are not both set
-	if o.LokiHelmValues != "" && o.LokiHelmValuesDocument != "" {
+	if o.LokiHelmValues != nil && o.LokiHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("LokiHelmValues and LokiHelmValuesDocument cannot both be set"))
 	}
 
 	// ensure promtail helm values and document are not both set
-	if o.PromtailHelmValues != "" && o.PromtailHelmValuesDocument != "" {
+	if o.PromtailHelmValues != nil && o.PromtailHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("PromtailHelmValues and PromtailHelmValuesDocument cannot both be set"))
 	}
 
 	// ensure kube-prometheus-stack helm values and document are not both set
-	if o.KubePrometheusStackHelmValues != "" && o.KubePrometheusStackHelmValuesDocument != "" {
+	if o.KubePrometheusStackHelmValues != nil && o.KubePrometheusStackHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("KubePrometheusStackHelmValues and KubePrometheusStackHelmValuesDocument cannot both be set"))
 	}
 
@@ -413,7 +414,7 @@ func (o *ObservabilityStackDefinitionValues) ValidateCreate() error {
 
 // ValidateDelete validates the observability stack definition values for deletion
 func (o *ObservabilityStackDefinitionValues) ValidateDelete() error {
-	if o.Name == "" {
+	if o.Name == nil {
 		return fmt.Errorf("name is required")
 	}
 	return nil
@@ -433,7 +434,7 @@ func (o *ObservabilityStackInstanceValues) Create(
 	kri, err := client.GetKubernetesRuntimeInstanceByName(
 		apiClient,
 		apiEndpoint,
-		o.KubernetesRuntimeInstance.Name,
+		*o.KubernetesRuntimeInstance.Name,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
@@ -442,12 +443,12 @@ func (o *ObservabilityStackInstanceValues) Create(
 	osd, err := client.GetObservabilityStackDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		o.ObservabilityStackDefinition.Name,
+		*o.ObservabilityStackDefinition.Name,
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to get observability stack definition by name %s: %w",
-			o.ObservabilityStackDefinition.Name,
+			*o.ObservabilityStackDefinition.Name,
 			err,
 		)
 	}
@@ -455,19 +456,19 @@ func (o *ObservabilityStackInstanceValues) Create(
 	// construct observability stack instance object
 	osi := &v0.ObservabilityStackInstance{
 		Instance: v0.Instance{
-			Name: &o.Name,
+			Name: o.Name,
 		},
 		ObservabilityStackDefinitionID: osd.ID,
 		KubernetesRuntimeInstanceID:    kri.ID,
-		MetricsEnabled:                 &o.MetricsEnabled,
-		LoggingEnabled:                 &o.LoggingEnabled,
+		MetricsEnabled:                 o.MetricsEnabled,
+		LoggingEnabled:                 o.LoggingEnabled,
 	}
 
 	// set grafana helm values if present
 	grafanaHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.GrafanaHelmValues,
-		o.GrafanaHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		*o.GrafanaHelmValues,
+		*o.GrafanaHelmValuesDocument,
+		*o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get grafana values document from path: %w", err)
@@ -476,9 +477,9 @@ func (o *ObservabilityStackInstanceValues) Create(
 
 	// set loki helm values if present
 	lokiHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.LokiHelmValues,
-		o.LokiHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		*o.LokiHelmValues,
+		*o.LokiHelmValuesDocument,
+		*o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get loki values document from path: %w", err)
@@ -487,9 +488,9 @@ func (o *ObservabilityStackInstanceValues) Create(
 
 	// set promtail helm values if present
 	promtailHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.PromtailHelmValues,
-		o.PromtailHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		*o.PromtailHelmValues,
+		*o.PromtailHelmValuesDocument,
+		*o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get promtail values document from path: %w", err)
@@ -498,9 +499,9 @@ func (o *ObservabilityStackInstanceValues) Create(
 
 	// set kube-prometheus-stack helm values if present
 	kubePrometheusStackHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.KubePrometheusStackHelmValues,
-		o.KubePrometheusStackHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		*o.KubePrometheusStackHelmValues,
+		*o.KubePrometheusStackHelmValuesDocument,
+		*o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube-prometheus-stack values document from path: %w", err)
@@ -534,7 +535,7 @@ func (o *ObservabilityStackInstanceValues) Delete(
 	osi, err := client.GetObservabilityStackInstanceByName(
 		apiClient,
 		apiEndpoint,
-		o.Name,
+		*o.Name,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get observability stack instance: %w", err)
@@ -558,7 +559,7 @@ func (o *ObservabilityStackInstanceValues) ValidateCreate() error {
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if o.Name == "" {
+	if o.Name == nil {
 		multiError.AppendError(fmt.Errorf("name is required"))
 	}
 
@@ -568,27 +569,27 @@ func (o *ObservabilityStackInstanceValues) ValidateCreate() error {
 	}
 
 	// ensure kubernetes runtime instance name is set
-	if o.KubernetesRuntimeInstance != nil && o.KubernetesRuntimeInstance.Name == "" {
+	if o.KubernetesRuntimeInstance != nil && o.KubernetesRuntimeInstance.Name == nil {
 		multiError.AppendError(fmt.Errorf("KubernetesRuntimeInstance.Name is required"))
 	}
 
 	// ensure grafana helm values and document are not both set
-	if o.GrafanaHelmValues != "" && o.GrafanaHelmValuesDocument != "" {
+	if o.GrafanaHelmValues != nil && o.GrafanaHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("GrafanaHelmValues and GrafanaHelmValuesDocument cannot both be set"))
 	}
 
 	// ensure loki helm values and document are not both set
-	if o.LokiHelmValues != "" && o.LokiHelmValuesDocument != "" {
+	if o.LokiHelmValues != nil && o.LokiHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("LokiHelmValues and LokiHelmValuesDocument cannot both be set"))
 	}
 
 	// ensure promtail helm values and document are not both set
-	if o.PromtailHelmValues != "" && o.PromtailHelmValuesDocument != "" {
+	if o.PromtailHelmValues != nil && o.PromtailHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("PromtailHelmValues and PromtailHelmValuesDocument cannot both be set"))
 	}
 
 	// ensure kube-prometheus-stack helm values and document are not both set
-	if o.KubePrometheusStackHelmValues != "" && o.KubePrometheusStackHelmValuesDocument != "" {
+	if o.KubePrometheusStackHelmValues != nil && o.KubePrometheusStackHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("KubePrometheusStackHelmValues and KubePrometheusStackHelmValuesDocument cannot both be set"))
 	}
 
@@ -597,7 +598,7 @@ func (o *ObservabilityStackInstanceValues) ValidateCreate() error {
 
 // ValidateDelete validates the observability stack instance values for deletion
 func (o *ObservabilityStackInstanceValues) ValidateDelete() error {
-	if o.Name == "" {
+	if o.Name == nil {
 		return fmt.Errorf("name is required")
 	}
 	return nil

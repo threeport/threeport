@@ -101,9 +101,9 @@ func outputGetHelmWorkloadsCmd(
 	return nil
 }
 
-// outputGetHelmWorkloadDefinitionsCmd produces the tabular output for the
+// outputGetv0HelmWorkloadDefinitionsCmd produces the tabular output for the
 // 'tptctl get helm-workload-definitions' command.
-func outputGetHelmWorkloadDefinitionsCmd(
+func outputGetv0HelmWorkloadDefinitionsCmd(
 	helmWorkloadDefinitions *[]v0.HelmWorkloadDefinition,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -124,9 +124,9 @@ func outputGetHelmWorkloadDefinitionsCmd(
 	return nil
 }
 
-// outputGetHelmWorkloadInstancesCmd produces the tabular output for the
+// outputGetv0HelmWorkloadInstancesCmd produces the tabular output for the
 // 'tptctl get helm-workload-instances' command.
-func outputGetHelmWorkloadInstancesCmd(
+func outputGetv0HelmWorkloadInstancesCmd(
 	helmWorkloadInstances *[]v0.HelmWorkloadInstance,
 	apiClient *http.Client,
 	apiEndpoint string,

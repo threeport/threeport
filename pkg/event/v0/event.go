@@ -8,9 +8,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	client_v1 "github.com/threeport/threeport/pkg/client/v1"
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -48,7 +47,7 @@ type EventRecorder struct {
 
 // RecordEvent records a new event with the given information.
 func (r *EventRecorder) RecordEvent(
-	event *v1.Event,
+	event *v0.Event,
 	objectId uint,
 	objectVersion string,
 	objectType string,
@@ -71,13 +70,13 @@ func (r *EventRecorder) RecordEvent(
 		return fmt.Errorf("failed to get events by object id %d: %w", objectId, err)
 	}
 
-	var createdEvent *v1.Event
+	var createdEvent *v0.Event
 	switch len(*events) {
 	case 0:
 		// use operations abstraction to atomically create event
 		// and attached object reference
 		operations := util.Operations{}
-		var createdAttachedObjectReference *v1.AttachedObjectReference
+		var createdAttachedObjectReference *v0.AttachedObjectReference
 
 		event.ReportingController = &r.ReportingController
 		event.EventTime = util.Ptr(time.Now())
@@ -86,7 +85,7 @@ func (r *EventRecorder) RecordEvent(
 		operations.AppendOperation(util.Operation{
 			Name: "event",
 			Create: func() error {
-				createdEvent, err = client_v1.CreateEvent(r.APIClient, r.APIServer, event)
+				createdEvent, err = client_v0.CreateEvent(r.APIClient, r.APIServer, event)
 				if err != nil {
 					return fmt.Errorf("failed to create event: %w", err)
 				}
@@ -94,7 +93,7 @@ func (r *EventRecorder) RecordEvent(
 				return nil
 			},
 			Delete: func() error {
-				_, err = client_v1.DeleteEvent(r.APIClient, r.APIServer, *createdEvent.ID)
+				_, err = client_v0.DeleteEvent(r.APIClient, r.APIServer, *createdEvent.ID)
 				if err != nil {
 					return fmt.Errorf("failed to delete event: %w", err)
 				}
@@ -105,13 +104,13 @@ func (r *EventRecorder) RecordEvent(
 		operations.AppendOperation(util.Operation{
 			Name: "attached object reference",
 			Create: func() error {
-				createdAttachedObjectReference, err = client_v1.CreateAttachedObjectReference(
+				createdAttachedObjectReference, err = client_v0.CreateAttachedObjectReference(
 					r.APIClient,
 					r.APIServer,
-					&v1.AttachedObjectReference{
+					&v0.AttachedObjectReference{
 						ObjectType:         util.Ptr(fmt.Sprintf("%s.%s", objectVersion, objectType)),
 						ObjectID:           util.Ptr(objectId),
-						AttachedObjectType: util.Ptr(util.TypeName(v1.Event{})),
+						AttachedObjectType: util.Ptr(util.TypeName(v0.Event{})),
 						AttachedObjectID:   createdEvent.ID,
 					},
 				)
@@ -121,7 +120,7 @@ func (r *EventRecorder) RecordEvent(
 				return nil
 			},
 			Delete: func() error {
-				_, err = client_v1.DeleteAttachedObjectReference(
+				_, err = client_v0.DeleteAttachedObjectReference(
 					r.APIClient,
 					r.APIServer,
 					*createdAttachedObjectReference.ID,
@@ -137,7 +136,7 @@ func (r *EventRecorder) RecordEvent(
 			Name: "update event",
 			Create: func() error {
 				event.AttachedObjectReferenceID = createdAttachedObjectReference.ID
-				_, err = client_v1.UpdateEvent(r.APIClient, r.APIServer, event)
+				_, err = client_v0.UpdateEvent(r.APIClient, r.APIServer, event)
 				if err != nil {
 					return fmt.Errorf("failed to update event: %w", err)
 				}
@@ -153,7 +152,7 @@ func (r *EventRecorder) RecordEvent(
 		event = &(*events)[0]
 		event.Count = util.Ptr(uint((*event.Count + 1)))
 		event.LastObservedTime = util.Ptr(time.Now())
-		_, err := client_v1.UpdateEvent(r.APIClient, r.APIServer, event)
+		_, err := client_v0.UpdateEvent(r.APIClient, r.APIServer, event)
 		if err != nil {
 			return fmt.Errorf("failed to update event: %w", err)
 		}
@@ -168,7 +167,7 @@ func (r *EventRecorder) RecordEvent(
 // unless the provided error is an ErrWithEvent,
 // in which case it records the event provided
 func (r *EventRecorder) HandleEventOverride(
-	event *v1.Event,
+	event *v0.Event,
 	objectId uint,
 	objectVersion string,
 	objectType string,

@@ -20,9 +20,7 @@ import (
 	handlers_v0 "github.com/threeport/threeport/pkg/api-server/v0/handlers"
 	routes_v0 "github.com/threeport/threeport/pkg/api-server/v0/routes"
 	versions_v0 "github.com/threeport/threeport/pkg/api-server/v0/versions"
-	handlers_v1 "github.com/threeport/threeport/pkg/api-server/v1/handlers"
-	routes_v1 "github.com/threeport/threeport/pkg/api-server/v1/routes"
-	versions_v1 "github.com/threeport/threeport/pkg/api-server/v1/versions"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	zap "go.uber.org/zap"
 	"net/http"
@@ -109,6 +107,11 @@ func main() {
 		e.Logger.Fatalf("failed to initialize database: %v", err)
 	}
 
+	// add extension router middleware
+	if err := api_v0.InitExtensionRouter(db, e); err != nil {
+		e.Logger.Fatalf("failed to initialize extension proxy router: %v", err)
+	}
+
 	// nats connection
 	natsConn := fmt.Sprintf(
 		"nats://%s:%s@%s:%s",
@@ -132,8 +135,6 @@ func main() {
 	// handlers
 	// v0
 	h_v0 := handlers_v0.New(db, nc, *js)
-	// v1
-	h_v1 := handlers_v1.New(db, nc, *js)
 
 	// routes
 	routes_v0.SwaggerRoutes(e)
@@ -143,15 +144,9 @@ func main() {
 	routes_v0.AddRoutes(e, &h_v0)
 	routes_v0.AddCustomRoutes(e, &h_v0)
 
-	// v1
-	routes_v1.AddRoutes(e, &h_v1)
-	routes_v1.AddCustomRoutes(e, &h_v1)
-
 	// add version info for queries to /<object>/versions
 	apiserver_lib.Versions[0] = "v0"
-	apiserver_lib.Versions[1] = "v1"
 	versions_v0.AddVersions()
-	versions_v1.AddVersions()
 
 	if authEnabled {
 		configDir := "/etc/threeport"

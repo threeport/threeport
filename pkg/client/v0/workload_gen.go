@@ -13,241 +13,6 @@ import (
 	"net/http"
 )
 
-// GetAttachedObjectReferences fetches all attached object references.
-// TODO: implement pagination
-func GetAttachedObjectReferences(apiClient *http.Client, apiAddr string) (*[]v0.AttachedObjectReference, error) {
-	var attachedObjectReferences []v0.AttachedObjectReference
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references", apiAddr),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &attachedObjectReferences, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &attachedObjectReferences, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&attachedObjectReferences); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &attachedObjectReferences, nil
-}
-
-// GetAttachedObjectReferenceByID fetches a attached object reference by ID.
-func GetAttachedObjectReferenceByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AttachedObjectReference, error) {
-	var attachedObjectReference v0.AttachedObjectReference
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references/%d", apiAddr, id),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &attachedObjectReference, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return &attachedObjectReference, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&attachedObjectReference); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &attachedObjectReference, nil
-}
-
-// GetAttachedObjectReferencesByQueryString fetches attached object references by provided query string.
-func GetAttachedObjectReferencesByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AttachedObjectReference, error) {
-	var attachedObjectReferences []v0.AttachedObjectReference
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references?%s", apiAddr, queryString),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &attachedObjectReferences, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &attachedObjectReferences, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&attachedObjectReferences); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &attachedObjectReferences, nil
-}
-
-// GetAttachedObjectReferenceByName fetches a attached object reference by name.
-func GetAttachedObjectReferenceByName(apiClient *http.Client, apiAddr, name string) (*v0.AttachedObjectReference, error) {
-	var attachedObjectReferences []v0.AttachedObjectReference
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references?name=%s", apiAddr, name),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &v0.AttachedObjectReference{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &v0.AttachedObjectReference{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&attachedObjectReferences); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	switch {
-	case len(attachedObjectReferences) < 1:
-		return &v0.AttachedObjectReference{}, errors.New(fmt.Sprintf("no attached object reference with name %s", name))
-	case len(attachedObjectReferences) > 1:
-		return &v0.AttachedObjectReference{}, errors.New(fmt.Sprintf("more than one attached object reference with name %s returned", name))
-	}
-
-	return &attachedObjectReferences[0], nil
-}
-
-// CreateAttachedObjectReference creates a new attached object reference.
-func CreateAttachedObjectReference(apiClient *http.Client, apiAddr string, attachedObjectReference *v0.AttachedObjectReference) (*v0.AttachedObjectReference, error) {
-	client_lib.ReplaceAssociatedObjectsWithNil(attachedObjectReference)
-	jsonAttachedObjectReference, err := util.MarshalObject(attachedObjectReference)
-	if err != nil {
-		return attachedObjectReference, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references", apiAddr),
-		http.MethodPost,
-		bytes.NewBuffer(jsonAttachedObjectReference),
-		map[string]string{},
-		http.StatusCreated,
-	)
-	if err != nil {
-		return attachedObjectReference, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return attachedObjectReference, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&attachedObjectReference); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return attachedObjectReference, nil
-}
-
-// UpdateAttachedObjectReference updates a attached object reference.
-func UpdateAttachedObjectReference(apiClient *http.Client, apiAddr string, attachedObjectReference *v0.AttachedObjectReference) (*v0.AttachedObjectReference, error) {
-	client_lib.ReplaceAssociatedObjectsWithNil(attachedObjectReference)
-	// capture the object ID, make a copy of the object, then remove fields that
-	// cannot be updated in the API
-	attachedObjectReferenceID := *attachedObjectReference.ID
-	payloadAttachedObjectReference := *attachedObjectReference
-	payloadAttachedObjectReference.ID = nil
-	payloadAttachedObjectReference.CreatedAt = nil
-	payloadAttachedObjectReference.UpdatedAt = nil
-
-	jsonAttachedObjectReference, err := util.MarshalObject(payloadAttachedObjectReference)
-	if err != nil {
-		return attachedObjectReference, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references/%d", apiAddr, attachedObjectReferenceID),
-		http.MethodPatch,
-		bytes.NewBuffer(jsonAttachedObjectReference),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return attachedObjectReference, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return attachedObjectReference, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&payloadAttachedObjectReference); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	payloadAttachedObjectReference.ID = &attachedObjectReferenceID
-	return &payloadAttachedObjectReference, nil
-}
-
-// DeleteAttachedObjectReference deletes a attached object reference by ID.
-func DeleteAttachedObjectReference(apiClient *http.Client, apiAddr string, id uint) (*v0.AttachedObjectReference, error) {
-	var attachedObjectReference v0.AttachedObjectReference
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s/v0/attached-object-references/%d", apiAddr, id),
-		http.MethodDelete,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &attachedObjectReference, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return &attachedObjectReference, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&attachedObjectReference); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &attachedObjectReference, nil
-}
-
 // GetWorkloadDefinitions fetches all workload definitions.
 // TODO: implement pagination
 func GetWorkloadDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.WorkloadDefinition, error) {
@@ -255,7 +20,7 @@ func GetWorkloadDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Workl
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -285,7 +50,7 @@ func GetWorkloadDefinitionByID(apiClient *http.Client, apiAddr string, id uint) 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -315,7 +80,7 @@ func GetWorkloadDefinitionsByQueryString(apiClient *http.Client, apiAddr string,
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathWorkloadDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -345,7 +110,7 @@ func GetWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name string) (
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathWorkloadDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -386,7 +151,7 @@ func CreateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadDefinition),
 		map[string]string{},
@@ -428,7 +193,7 @@ func UpdateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-definitions/%d", apiAddr, workloadDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadDefinitions, workloadDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadDefinition),
 		map[string]string{},
@@ -459,7 +224,7 @@ func DeleteWorkloadDefinition(apiClient *http.Client, apiAddr string, id uint) (
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -490,7 +255,7 @@ func GetWorkloadEvents(apiClient *http.Client, apiAddr string) (*[]v0.WorkloadEv
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-events", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadEvents),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -520,7 +285,7 @@ func GetWorkloadEventByID(apiClient *http.Client, apiAddr string, id uint) (*v0.
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-events/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadEvents, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -550,7 +315,7 @@ func GetWorkloadEventsByQueryString(apiClient *http.Client, apiAddr string, quer
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-events?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathWorkloadEvents, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -580,7 +345,7 @@ func GetWorkloadEventByName(apiClient *http.Client, apiAddr, name string) (*v0.W
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-events?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathWorkloadEvents, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -621,7 +386,7 @@ func CreateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-events", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadEvents),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadEvent),
 		map[string]string{},
@@ -663,7 +428,7 @@ func UpdateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-events/%d", apiAddr, workloadEventID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadEvents, workloadEventID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadEvent),
 		map[string]string{},
@@ -694,7 +459,7 @@ func DeleteWorkloadEvent(apiClient *http.Client, apiAddr string, id uint) (*v0.W
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-events/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadEvents, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -725,7 +490,7 @@ func GetWorkloadInstances(apiClient *http.Client, apiAddr string) (*[]v0.Workloa
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -755,7 +520,7 @@ func GetWorkloadInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -785,7 +550,7 @@ func GetWorkloadInstancesByQueryString(apiClient *http.Client, apiAddr string, q
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathWorkloadInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -815,7 +580,7 @@ func GetWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string) (*v
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathWorkloadInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -856,7 +621,7 @@ func CreateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadInstance),
 		map[string]string{},
@@ -898,7 +663,7 @@ func UpdateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-instances/%d", apiAddr, workloadInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadInstances, workloadInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadInstance),
 		map[string]string{},
@@ -929,7 +694,7 @@ func DeleteWorkloadInstance(apiClient *http.Client, apiAddr string, id uint) (*v
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -960,7 +725,7 @@ func GetWorkloadResourceDefinitions(apiClient *http.Client, apiAddr string) (*[]
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadResourceDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -990,7 +755,7 @@ func GetWorkloadResourceDefinitionByID(apiClient *http.Client, apiAddr string, i
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadResourceDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1020,7 +785,7 @@ func GetWorkloadResourceDefinitionsByQueryString(apiClient *http.Client, apiAddr
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathWorkloadResourceDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1050,7 +815,7 @@ func GetWorkloadResourceDefinitionByName(apiClient *http.Client, apiAddr, name s
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathWorkloadResourceDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1091,7 +856,7 @@ func CreateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadResourceDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadResourceDefinition),
 		map[string]string{},
@@ -1133,7 +898,7 @@ func UpdateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-definitions/%d", apiAddr, workloadResourceDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadResourceDefinitions, workloadResourceDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadResourceDefinition),
 		map[string]string{},
@@ -1164,7 +929,7 @@ func DeleteWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, id
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadResourceDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1195,7 +960,7 @@ func GetWorkloadResourceInstances(apiClient *http.Client, apiAddr string) (*[]v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadResourceInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1225,7 +990,7 @@ func GetWorkloadResourceInstanceByID(apiClient *http.Client, apiAddr string, id 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadResourceInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1255,7 +1020,7 @@ func GetWorkloadResourceInstancesByQueryString(apiClient *http.Client, apiAddr s
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathWorkloadResourceInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1285,7 +1050,7 @@ func GetWorkloadResourceInstanceByName(apiClient *http.Client, apiAddr, name str
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathWorkloadResourceInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1326,7 +1091,7 @@ func CreateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadResourceInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonWorkloadResourceInstance),
 		map[string]string{},
@@ -1368,7 +1133,7 @@ func UpdateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-instances/%d", apiAddr, workloadResourceInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadResourceInstances, workloadResourceInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonWorkloadResourceInstance),
 		map[string]string{},
@@ -1399,7 +1164,7 @@ func DeleteWorkloadResourceInstance(apiClient *http.Client, apiAddr string, id u
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/workload-resource-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadResourceInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},

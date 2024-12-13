@@ -13,7 +13,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
-// v0KubernetesRuntimeDefinitionCreated performs reconciliation when a v0 workload definition
+// v0KubernetesRuntimeDefinitionCreated performs reconciliation when a v0 KubernetesRuntimeDefinition
 // has been created.
 func v0KubernetesRuntimeDefinitionCreated(
 	r *controller.Reconciler,
@@ -99,7 +99,7 @@ func v0KubernetesRuntimeDefinitionCreated(
 	return 0, nil
 }
 
-// v0KubernetesRuntimeDefinitionUpdated performs reconciliation when a v0 workload definition
+// v0KubernetesRuntimeDefinitionUpdated performs reconciliation when a v0 KubernetesRuntimeDefinition
 // has been updated.
 func v0KubernetesRuntimeDefinitionUpdated(
 	r *controller.Reconciler,
@@ -109,7 +109,7 @@ func v0KubernetesRuntimeDefinitionUpdated(
 	return 0, nil
 }
 
-// v0KubernetesRuntimeDefinitionDeleted performs reconciliation when a v0 workload definition
+// v0KubernetesRuntimeDefinitionDeleted performs reconciliation when a v0 KubernetesRuntimeDefinition
 // has been deleted.
 func v0KubernetesRuntimeDefinitionDeleted(
 	r *controller.Reconciler,

@@ -22,6 +22,8 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	DomainNameDefinitionRoutes(e, h)
 	DomainNameInstanceRoutes(e, h)
 	EventRoutes(e, h)
+	ExtensionApiRoutes(e, h)
+	ExtensionApiRouteRoutes(e, h)
 	GatewayDefinitionRoutes(e, h)
 	GatewayHttpPortRoutes(e, h)
 	GatewayInstanceRoutes(e, h)

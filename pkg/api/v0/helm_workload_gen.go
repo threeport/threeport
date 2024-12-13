@@ -13,8 +13,10 @@ const (
 	ObjectTypeHelmWorkloadDefinition string = "HelmWorkloadDefinition"
 	ObjectTypeHelmWorkloadInstance   string = "HelmWorkloadInstance"
 
-	PathHelmWorkloadDefinitions = "/v0/helm-workload-definitions"
-	PathHelmWorkloadInstances   = "/v0/helm-workload-instances"
+	PathHelmWorkloadDefinitionVersions = "/helm-workload-definitions/versions"
+	PathHelmWorkloadDefinitions        = "/v0/helm-workload-definitions"
+	PathHelmWorkloadInstanceVersions   = "/helm-workload-instances/versions"
+	PathHelmWorkloadInstances          = "/v0/helm-workload-instances"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the

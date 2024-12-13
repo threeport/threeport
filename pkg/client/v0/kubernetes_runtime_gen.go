@@ -20,7 +20,7 @@ func GetKubernetesRuntimeDefinitions(apiClient *http.Client, apiAddr string) (*[
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathKubernetesRuntimeDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -50,7 +50,7 @@ func GetKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr string, 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathKubernetesRuntimeDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -80,7 +80,7 @@ func GetKubernetesRuntimeDefinitionsByQueryString(apiClient *http.Client, apiAdd
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathKubernetesRuntimeDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -110,7 +110,7 @@ func GetKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr, name 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesRuntimeDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -151,7 +151,7 @@ func CreateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, k
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathKubernetesRuntimeDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonKubernetesRuntimeDefinition),
 		map[string]string{},
@@ -193,7 +193,7 @@ func UpdateKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, k
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-definitions/%d", apiAddr, kubernetesRuntimeDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathKubernetesRuntimeDefinitions, kubernetesRuntimeDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonKubernetesRuntimeDefinition),
 		map[string]string{},
@@ -224,7 +224,7 @@ func DeleteKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, i
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathKubernetesRuntimeDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -255,7 +255,7 @@ func GetKubernetesRuntimeInstances(apiClient *http.Client, apiAddr string) (*[]v
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathKubernetesRuntimeInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -285,7 +285,7 @@ func GetKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr string, id
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathKubernetesRuntimeInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -315,7 +315,7 @@ func GetKubernetesRuntimeInstancesByQueryString(apiClient *http.Client, apiAddr 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathKubernetesRuntimeInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -345,7 +345,7 @@ func GetKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, name st
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathKubernetesRuntimeInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -386,7 +386,7 @@ func CreateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kub
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathKubernetesRuntimeInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonKubernetesRuntimeInstance),
 		map[string]string{},
@@ -428,7 +428,7 @@ func UpdateKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, kub
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-instances/%d", apiAddr, kubernetesRuntimeInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathKubernetesRuntimeInstances, kubernetesRuntimeInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonKubernetesRuntimeInstance),
 		map[string]string{},
@@ -459,7 +459,7 @@ func DeleteKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, id 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/kubernetes-runtime-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathKubernetesRuntimeInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},

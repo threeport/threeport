@@ -12,7 +12,6 @@ jobs:
   test:
     runs-on: ubuntu-22.04
     steps:
-
     - name: Check out code
       uses: actions/checkout@v4
 
@@ -25,32 +24,20 @@ jobs:
       run: go install github.com/magefile/mage@latest
 
     - name: Create local container registry
-      run: mage createLocalRegistry
+      run: mage dev:localRegistryUp
 
     - name: Build control plane component binaries
-      run: mage buildAll
-
-    - name: Build agent binary
-      run: mage buildAgent
-
-    - name: Build DB migrator binary
-      run: mage buildDatabaseMigrator
+      run: mage build:allBinsDev
 
     - name: Build and push control plane component images
-      run: mage buildAllImages
-
-    - name: Build and push agent image
-      run: mage buildAgentImage
-
-    - name: Build DB migrator image
-      run: mage buildDatabaseMigratorImage
+      run: mage build:allImagesDev
 
     - name: Build tptctl
-      run: mage buildTptctl
+      run: mage build:tptctl
 
     - name: Create test control plane
-      run: bin/tptctl up -r localhost:5001 -t dev -n dev-0 --local-registry
+      run: mage test:up
 
     - name: Run tests
-      run: go test -v ./test/integration -count=1
+      run: mage test:integration
 

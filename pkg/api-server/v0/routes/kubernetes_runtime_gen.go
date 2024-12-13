@@ -10,7 +10,7 @@ import (
 
 // KubernetesRuntimeDefinitionRoutes sets up all routes for the KubernetesRuntimeDefinition handlers.
 func KubernetesRuntimeDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/kubernetes-runtime-definitions/versions", h.GetKubernetesRuntimeDefinitionVersions)
+	e.GET(v0.PathKubernetesRuntimeDefinitionVersions, h.GetKubernetesRuntimeDefinitionVersions)
 
 	e.POST(v0.PathKubernetesRuntimeDefinitions, h.AddKubernetesRuntimeDefinition)
 	e.GET(v0.PathKubernetesRuntimeDefinitions, h.GetKubernetesRuntimeDefinitions)
@@ -22,7 +22,7 @@ func KubernetesRuntimeDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // KubernetesRuntimeInstanceRoutes sets up all routes for the KubernetesRuntimeInstance handlers.
 func KubernetesRuntimeInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/kubernetes-runtime-instances/versions", h.GetKubernetesRuntimeInstanceVersions)
+	e.GET(v0.PathKubernetesRuntimeInstanceVersions, h.GetKubernetesRuntimeInstanceVersions)
 
 	e.POST(v0.PathKubernetesRuntimeInstances, h.AddKubernetesRuntimeInstance)
 	e.GET(v0.PathKubernetesRuntimeInstances, h.GetKubernetesRuntimeInstances)

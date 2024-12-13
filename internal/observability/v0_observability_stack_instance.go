@@ -29,7 +29,7 @@ serviceMonitor:
   interval: ""
 `
 
-// v0ObservabilityStackInstanceCreated performs reconciliation when a v0 workload definition
+// v0ObservabilityStackInstanceCreated performs reconciliation when a v0 ObservabilityStackInstance
 // has been created.
 func v0ObservabilityStackInstanceCreated(
 	r *controller.Reconciler,
@@ -80,7 +80,7 @@ func v0ObservabilityStackInstanceCreated(
 	return 0, nil
 }
 
-// v0ObservabilityStackInstanceUpdated performs reconciliation when a v0 workload definition
+// v0ObservabilityStackInstanceUpdated performs reconciliation when a v0 ObservabilityStackInstance
 // has been updated.
 func v0ObservabilityStackInstanceUpdated(
 	r *controller.Reconciler,
@@ -90,7 +90,7 @@ func v0ObservabilityStackInstanceUpdated(
 	return 0, nil
 }
 
-// v0ObservabilityStackInstanceDeleted performs reconciliation when a v0 workload definition
+// v0ObservabilityStackInstanceDeleted performs reconciliation when a v0 ObservabilityStackInstance
 // has been deleted.
 func v0ObservabilityStackInstanceDeleted(
 	r *controller.Reconciler,
