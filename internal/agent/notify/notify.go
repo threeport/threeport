@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/threeport/threeport/internal/agent"
 	tpapi "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	tpclient "github.com/threeport/threeport/pkg/client/v0"
 	"gorm.io/datatypes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -202,7 +203,7 @@ func sendThreeportUpdates(
 			tpAPIServer,
 			&wri,
 		)
-		if err != nil && !errors.Is(err, tpclient.ErrObjectNotFound) {
+		if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 			unsentWRIs = append(unsentWRIs, wriCopy)
 		}
 	}

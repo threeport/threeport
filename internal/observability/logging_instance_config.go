@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -52,7 +53,7 @@ func (c *LoggingInstanceConfig) createLokiHelmWorkloadInstance() error {
 		c.r.APIServer,
 		&v0.HelmWorkloadInstance{
 			Instance: v0.Instance{
-				Name: util.StringPtr(LokiHelmChartName(*c.loggingInstance.Name)),
+				Name: util.Ptr(LokiHelmChartName(*c.loggingInstance.Name)),
 			},
 			KubernetesRuntimeInstanceID: c.loggingInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    c.loggingDefinition.LokiHelmWorkloadDefinitionID,
@@ -78,7 +79,7 @@ func (c *LoggingInstanceConfig) deleteLokiHelmWorkloadInstance() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.loggingInstance.LokiHelmWorkloadInstanceID,
-	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete loki helm workload instance: %w", err)
 	}
 
@@ -93,7 +94,7 @@ func (c *LoggingInstanceConfig) createPromtailHelmWorkloadInstance() error {
 		c.r.APIServer,
 		&v0.HelmWorkloadInstance{
 			Instance: v0.Instance{
-				Name: util.StringPtr(PromtailHelmChartName(*c.loggingInstance.Name)),
+				Name: util.Ptr(PromtailHelmChartName(*c.loggingInstance.Name)),
 			},
 			KubernetesRuntimeInstanceID: c.loggingInstance.KubernetesRuntimeInstanceID,
 			HelmWorkloadDefinitionID:    c.loggingDefinition.PromtailHelmWorkloadDefinitionID,
@@ -118,7 +119,7 @@ func (c *LoggingInstanceConfig) deletePromtailHelmWorkloadInstance() error {
 		c.r.APIClient,
 		c.r.APIServer,
 		*c.loggingInstance.PromtailHelmWorkloadInstanceID,
-	); err != nil && !errors.Is(err, client.ErrObjectNotFound) {
+	); err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
 		return fmt.Errorf("failed to delete promtail helm workload instance: %w", err)
 	}
 

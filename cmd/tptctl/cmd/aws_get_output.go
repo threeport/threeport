@@ -13,9 +13,9 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// outputGetAwsAccountsCmd produces the tabular output for the
+// outputGetv0AwsAccountsCmd produces the tabular output for the
 // 'tptctl get aws-accounts' command.
-func outputGetAwsAccountsCmd(
+func outputGetv0AwsAccountsCmd(
 	awsAccounts *[]v0.AwsAccount,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -75,9 +75,9 @@ func outputGetAwsEksKubernetesRuntimesCmd(
 	return nil
 }
 
-// outputGetAwsEksKubernetesRuntimeDefinitionsCmd produces the tabular output for the
+// outputGetv0AwsEksKubernetesRuntimeDefinitionsCmd produces the tabular output for the
 // 'tptctl get aws-eks-kubernetes-runtime-definitions' command.
-func outputGetAwsEksKubernetesRuntimeDefinitionsCmd(
+func outputGetv0AwsEksKubernetesRuntimeDefinitionsCmd(
 	awsEksKubernetesRuntimeDefinitions *[]v0.AwsEksKubernetesRuntimeDefinition,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -116,9 +116,9 @@ func outputGetAwsEksKubernetesRuntimeDefinitionsCmd(
 	return nil
 }
 
-// outputGetAwsEksKubernetesRuntimeInstancesCmd produces the tabular output for the
+// outputGetv0AwsEksKubernetesRuntimeInstancesCmd produces the tabular output for the
 // 'tptctl get aws-eks-kubernetes-runtime-instances' command.
-func outputGetAwsEksKubernetesRuntimeInstancesCmd(
+func outputGetv0AwsEksKubernetesRuntimeInstancesCmd(
 	awsEksKubernetesRuntimeInstances *[]v0.AwsEksKubernetesRuntimeInstance,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -210,9 +210,9 @@ func outputGetAwsRelationalDatabasesCmd(
 	return nil
 }
 
-// outputGetAwsRelationalDatabaseDefinitionsCmd produces the tabular output for the
+// outputGetv0AwsRelationalDatabaseDefinitionsCmd produces the tabular output for the
 // 'tptctl get aws-relational-database-definitions' command.
-func outputGetAwsRelationalDatabaseDefinitionsCmd(
+func outputGetv0AwsRelationalDatabaseDefinitionsCmd(
 	awsRelationalDatabaseDefinitions *[]v0.AwsRelationalDatabaseDefinition,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -254,9 +254,9 @@ func outputGetAwsRelationalDatabaseDefinitionsCmd(
 	return nil
 }
 
-// outputGetAwsRelationalDatabaseInstancesCmd produces the tabular output for the
+// outputGetv0AwsRelationalDatabaseInstancesCmd produces the tabular output for the
 // 'tptctl get aws-relational-database-instances' command.
-func outputGetAwsRelationalDatabaseInstancesCmd(
+func outputGetv0AwsRelationalDatabaseInstancesCmd(
 	awsRelationalDatabaseInstances *[]v0.AwsRelationalDatabaseInstance,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -363,9 +363,9 @@ func outputGetAwsObjectStorageBucketsCmd(
 	return nil
 }
 
-// outputGetAwsObjectStorageBucketDefinitionsCmd produces the tabular output for the
+// outputGetv0AwsObjectStorageBucketDefinitionsCmd produces the tabular output for the
 // 'tptctl get aws-object-storage-bucket-definitions' command.
-func outputGetAwsObjectStorageBucketDefinitionsCmd(
+func outputGetv0AwsObjectStorageBucketDefinitionsCmd(
 	awsObjectStorageBucketDefinitions *[]v0.AwsObjectStorageBucketDefinition,
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -402,9 +402,9 @@ func outputGetAwsObjectStorageBucketDefinitionsCmd(
 	return nil
 }
 
-// outputGetAwsObjectStorageBucketInstancesCmd produces the tabular output for the
+// outputGetv0AwsObjectStorageBucketInstancesCmd produces the tabular output for the
 // 'tptctl get aws-object-storage-bucket-instances' command.
-func outputGetAwsObjectStorageBucketInstancesCmd(
+func outputGetv0AwsObjectStorageBucketInstancesCmd(
 	awsObjectStorageBucketInstances *[]v0.AwsObjectStorageBucketInstance,
 	apiClient *http.Client,
 	apiEndpoint string,

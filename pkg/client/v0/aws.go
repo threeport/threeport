@@ -8,13 +8,14 @@ import (
 	"net/http"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
 
 // GetAwsAccountByDefaultAccount fetches the default AWS account.
 func GetAwsAccountByDefaultAccount(apiClient *http.Client, apiAddr string) (*v0.AwsAccount, error) {
 	var awsAccount v0.AwsAccount
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/%s/aws-accounts?default=true", apiAddr, ApiVersion),
 		http.MethodGet,
@@ -45,7 +46,7 @@ func GetAwsAccountByDefaultAccount(apiClient *http.Client, apiAddr string) (*v0.
 func GetAwsAccountByAccountID(apiClient *http.Client, apiAddr string, accountID string) (*v0.AwsAccount, error) {
 	var awsAccount v0.AwsAccount
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/%s/aws-accounts?accountid=%s", apiAddr, ApiVersion, accountID),
 		http.MethodGet,
@@ -75,7 +76,7 @@ func GetAwsAccountByAccountID(apiClient *http.Client, apiAddr string, accountID 
 func GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
 	var awsEksKubernetesRuntimeDefinition v0.AwsEksKubernetesRuntimeDefinition
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-definitions?kubernetesruntimedefinitionid=%d", apiAddr, ApiVersion, id),
 		http.MethodGet,
@@ -109,7 +110,7 @@ func GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef(apiClient *http.Client,
 func GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsEksKubernetesRuntimeInstance, error) {
 	var awsEksKubernetesRuntimeInstance v0.AwsEksKubernetesRuntimeInstance
 
-	response, err := GetResponse(
+	response, err := client_lib.GetResponse(
 		apiClient,
 		fmt.Sprintf("%s/%s/aws-eks-kubernetes-runtime-instances?kubernetesruntimeinstanceid=%d", apiAddr, ApiVersion, id),
 		http.MethodGet,

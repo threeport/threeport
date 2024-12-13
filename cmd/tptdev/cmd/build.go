@@ -13,7 +13,7 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
-	client "github.com/threeport/threeport/pkg/client/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -133,7 +133,7 @@ var buildCmd = &cobra.Command{
 					// restart pods
 					if (push || load) && restart {
 						// create dynamic client and rest mapper
-						dynamicKubeClient, mapper, err := client.GetKubeDynamicClientAndMapper(kubeconfigPath)
+						dynamicKubeClient, mapper, err := client_lib.GetKubeDynamicClientAndMapper(kubeconfigPath)
 						if err != nil {
 							cli.Error("failed to create dynamic kube client and mapper", err)
 							os.Exit(1)

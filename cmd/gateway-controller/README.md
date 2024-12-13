@@ -1,8 +1,8 @@
-# Threeport gateway Controller
+# Threeport Gateway Controller
 
 Manage gateways on Kubernetes clusters.
 
-Here you will find the main package for the threeport gateway controller.  It
+Here you will find the main package for the Threeport gateway controller.  It
 is responsible for reconciling changes made to GatewayDefinition,
 GatewayInstance, DomainNameDefinition and DomainNameInstance objects in the API.
 In response, it manages gateways and DNS records on the Kubernetes cluster where

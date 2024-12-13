@@ -12,9 +12,9 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-// outputDescribeAwsAccountCmd produces the plain description
+// outputDescribev0AwsAccountCmd produces the plain description
 // output for the 'tptctl describe aws-account' command
-func outputDescribeAwsAccountCmd(
+func outputDescribev0AwsAccountCmd(
 	awsAccount *v0.AwsAccount,
 	awsAccountConfig *config.AwsAccountConfig,
 	apiClient *http.Client,
@@ -30,7 +30,7 @@ func outputDescribeAwsAccountCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsAccount Name: %s\n",
-		awsAccountConfig.AwsAccount.Name,
+		*awsAccountConfig.AwsAccount.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -63,9 +63,9 @@ func outputDescribeAwsAccountCmd(
 	return nil
 }
 
-// outputDescribeAwsEksKubernetesRuntimeDefinitionCmd produces the plain description
+// outputDescribev0AwsEksKubernetesRuntimeDefinitionCmd produces the plain description
 // output for the 'tptctl describe aws-eks-kubernetes-runtime-definition' command
-func outputDescribeAwsEksKubernetesRuntimeDefinitionCmd(
+func outputDescribev0AwsEksKubernetesRuntimeDefinitionCmd(
 	awsEksKubernetesRuntimeDefinition *v0.AwsEksKubernetesRuntimeDefinition,
 	awsEksKubernetesRuntimeDefinitionConfig *config.AwsEksKubernetesRuntimeDefinitionConfig,
 	apiClient *http.Client,
@@ -83,7 +83,7 @@ func outputDescribeAwsEksKubernetesRuntimeDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsEksKubernetesRuntimeDefinition Name: %s\n",
-		awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition.Name,
+		*awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -109,9 +109,9 @@ func outputDescribeAwsEksKubernetesRuntimeDefinitionCmd(
 	return nil
 }
 
-// outputDescribeAwsEksKubernetesRuntimeInstanceCmd produces the plain description
+// outputDescribev0AwsEksKubernetesRuntimeInstanceCmd produces the plain description
 // output for the 'tptctl describe aws-eks-kubernetes-runtime-instance' command
-func outputDescribeAwsEksKubernetesRuntimeInstanceCmd(
+func outputDescribev0AwsEksKubernetesRuntimeInstanceCmd(
 	awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance,
 	awsEksKubernetesRuntimeInstanceConfig *config.AwsEksKubernetesRuntimeInstanceConfig,
 	apiClient *http.Client,
@@ -129,7 +129,7 @@ func outputDescribeAwsEksKubernetesRuntimeInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsEksKubernetesRuntimeInstance Name: %s\n",
-		awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name,
+		*awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -151,9 +151,9 @@ func outputDescribeAwsEksKubernetesRuntimeInstanceCmd(
 	return nil
 }
 
-// outputDescribeAwsRelationalDatabaseDefinitionCmd produces the plain description
+// outputDescribev0AwsRelationalDatabaseDefinitionCmd produces the plain description
 // output for the 'tptctl describe aws-relational-database-definition' command
-func outputDescribeAwsRelationalDatabaseDefinitionCmd(
+func outputDescribev0AwsRelationalDatabaseDefinitionCmd(
 	awsRelationalDatabaseDefinition *v0.AwsRelationalDatabaseDefinition,
 	awsRelationalDatabaseDefinitionConfig *config.AwsRelationalDatabaseDefinitionConfig,
 	apiClient *http.Client,
@@ -162,7 +162,7 @@ func outputDescribeAwsRelationalDatabaseDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsRelationalDatabaseDefinition Name: %s\n",
-		awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition.Name,
+		*awsRelationalDatabaseDefinitionConfig.AwsRelationalDatabaseDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -176,9 +176,9 @@ func outputDescribeAwsRelationalDatabaseDefinitionCmd(
 	return nil
 }
 
-// outputDescribeAwsRelationalDatabaseInstanceCmd produces the plain description
+// outputDescribev0AwsRelationalDatabaseInstanceCmd produces the plain description
 // output for the 'tptctl describe aws-relational-database-instance' command
-func outputDescribeAwsRelationalDatabaseInstanceCmd(
+func outputDescribev0AwsRelationalDatabaseInstanceCmd(
 	awsRelationalDatabaseInstance *v0.AwsRelationalDatabaseInstance,
 	awsRelationalDatabaseInstanceConfig *config.AwsRelationalDatabaseInstanceConfig,
 	apiClient *http.Client,
@@ -187,7 +187,7 @@ func outputDescribeAwsRelationalDatabaseInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsRelationalDatabaseInstance Name: %s\n",
-		awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance.Name,
+		*awsRelationalDatabaseInstanceConfig.AwsRelationalDatabaseInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -201,9 +201,9 @@ func outputDescribeAwsRelationalDatabaseInstanceCmd(
 	return nil
 }
 
-// outputDescribeAwsObjectStorageBucketDefinitionCmd produces the plain description
+// outputDescribev0AwsObjectStorageBucketDefinitionCmd produces the plain description
 // output for the 'tptctl describe aws-object-storage-bucket-definition' command
-func outputDescribeAwsObjectStorageBucketDefinitionCmd(
+func outputDescribev0AwsObjectStorageBucketDefinitionCmd(
 	awsObjectStorageBucketDefinition *v0.AwsObjectStorageBucketDefinition,
 	awsObjectStorageBucketDefinitionConfig *config.AwsObjectStorageBucketDefinitionConfig,
 	apiClient *http.Client,
@@ -221,7 +221,7 @@ func outputDescribeAwsObjectStorageBucketDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsObjectStorageBucketDefinition Name: %s\n",
-		awsObjectStorageBucketDefinitionConfig.AwsObjectStorageBucketDefinition.Name,
+		*awsObjectStorageBucketDefinitionConfig.AwsObjectStorageBucketDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -243,9 +243,9 @@ func outputDescribeAwsObjectStorageBucketDefinitionCmd(
 	return nil
 }
 
-// outputDescribeAwsObjectStorageBucketInstanceCmd produces the plain description
+// outputDescribev0AwsObjectStorageBucketInstanceCmd produces the plain description
 // output for the 'tptctl describe aws-object-storage-bucket-instance' command
-func outputDescribeAwsObjectStorageBucketInstanceCmd(
+func outputDescribev0AwsObjectStorageBucketInstanceCmd(
 	awsObjectStorageBucketInstance *v0.AwsObjectStorageBucketInstance,
 	awsObjectStorageBucketInstanceConfig *config.AwsObjectStorageBucketInstanceConfig,
 	apiClient *http.Client,
@@ -254,7 +254,7 @@ func outputDescribeAwsObjectStorageBucketInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* AwsObjectStorageBucketInstance Name: %s\n",
-		awsObjectStorageBucketInstanceConfig.AwsObjectStorageBucketInstance.Name,
+		*awsObjectStorageBucketInstanceConfig.AwsObjectStorageBucketInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",

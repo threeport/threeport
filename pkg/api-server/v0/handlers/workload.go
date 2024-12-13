@@ -7,9 +7,9 @@ import (
 	echo "github.com/labstack/echo/v4"
 	gorm "gorm.io/gorm"
 
-	iapi "github.com/threeport/threeport/pkg/api-server/v0"
+	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -29,17 +29,17 @@ func (h Handler) AddWorkloadResourceDefinitions(c echo.Context) error {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := iapi.PayloadCheck(c, false, objectType, v0.WorkloadResourceDefinition{}); err != nil {
-		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, v0.WorkloadResourceDefinition{}); err != nil {
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&workloadResourceDefinitions); err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := iapi.ValidateBoundData(c, workloadResourceDefinitions, objectType); err != nil {
-		return iapi.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	if id, err := apiserver_lib.ValidateBoundData(c, workloadResourceDefinitions, objectType); err != nil {
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// create all workload resource definitions or none at all
@@ -55,15 +55,15 @@ func (h Handler) AddWorkloadResourceDefinitions(c echo.Context) error {
 		return nil
 	})
 	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	response, err := v0.CreateResponse(nil, createdWRDs, objectType)
+	response, err := apiserver_lib.CreateResponse(nil, createdWRDs, objectType)
 	if err != nil {
-		return iapi.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
-	return iapi.ResponseStatus201(c, *response)
+	return apiserver_lib.ResponseStatus201(c, *response)
 }
 
 // @Summary deletes workload events by query parameter.
@@ -78,9 +78,9 @@ func (h Handler) AddWorkloadResourceDefinitions(c echo.Context) error {
 // @Router /v0/workload-events [DELETE]
 func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadEvent
-	params, err := c.(*iapi.CustomContext).GetPaginationParams()
+	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
 	if err != nil {
-		return iapi.ResponseStatus400(c, &params, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
 	}
 
 	// ensure query parameters are present to prevent client from deleting all
@@ -88,7 +88,7 @@ func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
 	queryParams := c.QueryParams()
 	if len(queryParams) != 1 {
 		err := errors.New("must provide one - and only one - query parameter when deleting multiple workload events")
-		return iapi.ResponseStatus400(c, &params, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
 	}
 
 	// ensure workload events are deleted by workload or helm workload instance
@@ -97,34 +97,34 @@ func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
 	for k, _ := range queryParams {
 		if !util.StringSliceContains(validQueryKeys, k, false) {
 			err := fmt.Errorf("can only delete multiple workload events using query parameter keys %s", validQueryKeys)
-			return iapi.ResponseStatus400(c, &params, err, objectType)
+			return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
 		}
 	}
 
 	var filter v0.WorkloadEvent
 	if err := c.Bind(&filter); err != nil {
-		return iapi.ResponseStatus500(c, &params, err, objectType)
+		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	workloadEvents := &[]v0.WorkloadEvent{}
 	if result := h.DB.Where(&filter).Find(workloadEvents).Count(&totalCount); result.Error != nil {
-		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	// return 404 if no matches found for query parameter
 	if len(*workloadEvents) == 0 {
-		return iapi.ResponseStatus404(c, nil, client.ErrObjectNotFound, objectType)
+		return apiserver_lib.ResponseStatus404(c, nil, client_lib.ErrObjectNotFound, objectType)
 	}
 
 	if result := h.DB.Delete(workloadEvents); result.Error != nil {
-		return iapi.ResponseStatus500(c, &params, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	response, err := v0.CreateResponse(v0.CreateMeta(params, totalCount), *workloadEvents, objectType)
+	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *workloadEvents, objectType)
 	if err != nil {
-		return iapi.ResponseStatus500(c, &params, err, objectType)
+		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
-	return iapi.ResponseStatus200(c, *response)
+	return apiserver_lib.ResponseStatus200(c, *response)
 }

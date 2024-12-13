@@ -29,11 +29,13 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
+	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -66,6 +68,7 @@ type GenesisControlPlaneCLIArgs struct {
 	SkipTeardown          bool
 	ControlPlaneOnly      bool
 	KindInfraPortForward  []string
+	LocalRegistry         bool
 }
 
 // Uninstaller contains the necessary information to uninstall a control plane
@@ -74,7 +77,7 @@ type Uninstaller struct {
 	createErrMsg           string
 	createErr              error
 	controlPlane           *threeport.ControlPlane
-	kubernetesRuntimeInfra *provider.KubernetesRuntimeInfra
+	kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	dynamicKubeClient      *dynamic.Interface
 	mapper                 *meta.RESTMapper
 	cleanConfig            *bool
@@ -169,6 +172,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.ControlPlaneOnly = a.ControlPlaneOnly
 	cpi.Opts.RestApiEksLoadBalancer = true
 	cpi.Opts.SkipTeardown = a.SkipTeardown
+	cpi.Opts.LocalRegistry = a.LocalRegistry
 
 	return cpi, nil
 }
@@ -210,6 +214,13 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 	threeportConfig.ControlPlanes = []config.ControlPlane{}
 	threeportControlPlaneConfig := &config.ControlPlane{}
+
+	// create local registry if requested
+	if cpi.Opts.LocalRegistry {
+		if err := tptdev.CreateLocalRegistry(); err != nil {
+			return fmt.Errorf("failed to create local container registry: %w", err)
+		}
+	}
 
 	// create threeport config for new instance
 	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
@@ -293,7 +304,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}()
 
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
-		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfra
+		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfra
 		if cpi.Opts.ControlPlaneOnly {
 			kubeConnectionInfo, err = kube.GetConnectionInfoFromKubeconfig(kubernetesRuntimeInfraKind.KubeconfigPath)
 			if err != nil {
@@ -303,6 +314,15 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
 			if err != nil {
 				return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
+			}
+		}
+
+		// connect local registry if requested
+		if cpi.Opts.LocalRegistry {
+			if err := tptdev.ConnectLocalRegistry(
+				provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			); err != nil {
+				return uninstaller.cleanOnCreateError("failed to connect local container registry to Threeport control plane cluster", err)
 			}
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
@@ -343,6 +363,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			// create IAM role for resource management
 			resourceManagerRoleName := provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName)
 			_, err = provider.CreateResourceManagerRole(
+				cpi.Opts.Namespace,
 				builder_iam.CreateIamTags(
 					cpi.Opts.Name,
 					map[string]string{},
@@ -355,6 +376,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				true,
 				true,
 				awsConfigUser,
+				cpi.Opts.AdditionalAwsIrsaConditions,
 			)
 			if err != nil {
 				deleteErr := provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, awsConfigUser)
@@ -417,6 +439,23 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			&eksInventoryChan,
 		}
 
+		// TODO: add flags to tptctl command for high availability, etc to
+		// deterimine these values
+		// construct eks kubernetes runtime infra object
+		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
+			RuntimeInstanceName:          provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			AwsAccountID:                 *callerIdentity.Account,
+			AwsConfig:                    awsConfigResourceManager,
+			ResourceClient:               &eksClient,
+			ZoneCount:                    int32(2),
+			DefaultNodeGroupInstanceType: "t3.medium",
+			DefaultNodeGroupInitialNodes: int32(3),
+			DefaultNodeGroupMinNodes:     int32(3),
+			DefaultNodeGroupMaxNodes:     int32(250),
+		}
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
+		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfra
+
 		// capture messages as resources are created and return to user
 		go func() {
 			for msg := range *eksClient.MessageChan {
@@ -448,23 +487,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			}
 			os.Exit(1)
 		}()
-
-		// TODO: add flags to tptctl command for high availability, etc to
-		// deterimine these values
-		// construct eks kubernetes runtime infra object
-		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
-			RuntimeInstanceName:          provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
-			AwsAccountID:                 *callerIdentity.Account,
-			AwsConfig:                    awsConfigResourceManager,
-			ResourceClient:               &eksClient,
-			ZoneCount:                    int32(2),
-			DefaultNodeGroupInstanceType: "t3.medium",
-			DefaultNodeGroupInitialNodes: int32(3),
-			DefaultNodeGroupMinNodes:     int32(3),
-			DefaultNodeGroupMaxNodes:     int32(250),
-		}
-
-		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
 
 		if cpi.Opts.ControlPlaneOnly {
 			kubeConnectionInfo, err = kubernetesRuntimeInfraEKS.GetConnection()
@@ -540,11 +562,13 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return uninstaller.cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err)
 		}
 		if err = provider.UpdateResourceManagerRoleTrustPolicy(
+			cpi.Opts.Namespace,
 			cpi.Opts.ControlPlaneName,
 			*callerIdentity.Account,
 			"",
 			inventory.Cluster.OidcProviderUrl,
 			awsConfigUser,
+			cpi.Opts.AdditionalAwsIrsaConditions,
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to update resource manager role", err)
 		}
@@ -587,12 +611,19 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	uninstaller.dynamicKubeClient = &dynamicKubeClient
 	uninstaller.mapper = mapper
 
+	// generate new DB client credentials
+	dbCreds, err := auth.GenerateDbCreds()
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to generated DB client credentials", err)
+	}
+
 	// install the threeport control plane dependencies
 	if err := cpi.InstallThreeportControlPlaneDependencies(
 		dynamicKubeClient,
 		mapper,
 		cpi.Opts.InfraProvider,
 		encryptionKey,
+		dbCreds,
 	); err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport control plane dependencies", err)
 	}
@@ -611,6 +642,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(
 			authConfig.CAConfig,
 			&authConfig.CAPrivateKey,
+			"localhost",
 		)
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to generate client certificate and private key", err)
@@ -654,6 +686,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err := cpi.UpdateThreeportAPIDeployment(
 		dynamicKubeClient,
 		mapper,
+		dbCreds,
 	); err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport API server", err)
 	}
@@ -715,7 +748,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	attemptsMax := 30
 	waitDurationSeconds := 10
 	if err = util.Retry(attemptsMax, waitDurationSeconds, func() error {
-		_, err := client.GetResponse(
+		_, err := client_lib.GetResponse(
 			apiClient,
 			fmt.Sprintf("%s/version", threeportAPIEndpoint),
 			http.MethodGet,
@@ -1096,7 +1129,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err != nil {
 		return fmt.Errorf("failed to get threeport certificates from config: %w", err)
 	}
-	apiClient, err := client.GetHTTPClient(threeportControlPlaneConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
+	apiClient, err := client_lib.GetHTTPClient(threeportControlPlaneConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
 	if err != nil {
 		return fmt.Errorf("failed to create http client: %w", err)
 	}
@@ -1338,11 +1371,11 @@ func (u *Uninstaller) cleanOnCreateError(
 		); invErr != nil {
 			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to read eks kubernetes runtime inventory for resource deletion: %w", createErr, invErr)
 		}
-		(*u.kubernetesRuntimeInfra).(*provider.KubernetesRuntimeInfraEKS).ResourceInventory = &inventory
+		u.kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS).ResourceInventory = &inventory
 	}
 
 	// delete infra
-	if deleteErr := (*u.kubernetesRuntimeInfra).Delete(); deleteErr != nil {
+	if deleteErr := u.kubernetesRuntimeInfra.Delete(); deleteErr != nil {
 		return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to delete control plane infra, you may have dangling kubernetes runtime infra resources still running: %w", createErr, deleteErr)
 	}
 	Info("Created Threeport infra deleted due to error")

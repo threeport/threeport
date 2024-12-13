@@ -13,6 +13,8 @@ import (
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
+const kindImage = "kindest/node:v1.31.2"
+
 // KubernetesRuntimeInfraKind represents a kind cluster for local a threeport instance.
 type KubernetesRuntimeInfraKind struct {
 	// The unique name of the kubernetes runtime instance.
@@ -54,7 +56,15 @@ func (i *KubernetesRuntimeInfraKind) Create() (*kube.KubeConnectionInfo, error) 
 		i.RuntimeInstanceName,
 		cluster.CreateWithKubeconfigPath(i.KubeconfigPath),
 		cluster.CreateWithWaitForReady(time.Duration(1000000000*60*5)), // 5 minutes
-		cluster.CreateWithV1Alpha4Config(getKindConfig(i.AuthEnabled, i.DevEnvironment, i.ThreeportPath, i.NumWorkerNodes, i.PortForwards)),
+		cluster.CreateWithV1Alpha4Config(
+			getKindConfig(
+				i.AuthEnabled,
+				i.DevEnvironment,
+				i.ThreeportPath,
+				i.NumWorkerNodes,
+				i.PortForwards,
+			),
+		),
 	); err != nil {
 		return &kube.KubeConnectionInfo{}, fmt.Errorf("failed to create new kind cluster: %w", err)
 	}
@@ -83,8 +93,19 @@ func (i *KubernetesRuntimeInfraKind) Delete() error {
 }
 
 // getKindConfig returns a kind config for a threeport Kubernetes runtime.
-func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWorkerNodes int, portForwards map[int32]int32) *v1alpha4.Cluster {
-	clusterConfig := v1alpha4.Cluster{}
+func getKindConfig(
+	authEnabled,
+	devEnvironment bool,
+	threeportPath string,
+	numWorkerNodes int,
+	portForwards map[int32]int32,
+) *v1alpha4.Cluster {
+	clusterConfig := v1alpha4.Cluster{
+		ContainerdConfigPatches: []string{
+			`[plugins."io.containerd.grpc.v1.cri".registry]
+			   config_path = "/etc/containerd/certs.d"`,
+		},
+	}
 
 	var controlPlaneNode v1alpha4.Node
 	var workerNodes []v1alpha4.Node
@@ -125,11 +146,17 @@ func getKindConfig(authEnabled, devEnvironment bool, threeportPath string, numWo
 }
 
 // kindControlPlaneNode returns a control plane node
-func kindControlPlaneNode(authEnabled bool, threeportPath, goPath, goCache string, portForwards map[int32]int32) *v1alpha4.Node {
+func kindControlPlaneNode(
+	authEnabled bool,
+	threeportPath string,
+	goPath string,
+	goCache string,
+	portForwards map[int32]int32,
+) *v1alpha4.Node {
 	extraPortMappings := getPortMapping(authEnabled, portForwards)
 	controlPlaneNode := v1alpha4.Node{
 		Role:  v1alpha4.ControlPlaneRole,
-		Image: "kindest/node:v1.28.0@sha256:b7a4cad12c197af3ba43202d3efe03246b3f0793f162afb40a33c923952d5b31",
+		Image: kindImage,
 		KubeadmConfigPatches: []string{
 			`kind: InitConfiguration
 nodeRegistration:
@@ -171,7 +198,7 @@ func kindWorkers(numWorkerNodes int, threeportPath, goPath, goCache string) *[]v
 
 		node = v1alpha4.Node{
 			Role:  v1alpha4.WorkerRole,
-			Image: "kindest/node:v1.28.0@sha256:b7a4cad12c197af3ba43202d3efe03246b3f0793f162afb40a33c923952d5b31",
+			Image: kindImage,
 		}
 
 		if threeportPath != "" {

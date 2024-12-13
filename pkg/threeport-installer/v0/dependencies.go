@@ -6,6 +6,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/threeport/threeport/pkg/api-server/v0/database"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
+)
+
+const (
+	dbCredsSecretName = "db-certs"
+	natsServiceName   = "nats-js"
 )
 
 // CreateThreeportControlPlaneNamespace creates the threeport control plane
@@ -38,6 +46,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 	mapper *meta.RESTMapper,
 	infraProvider,
 	encryptionKey string,
+	dbCreds *auth.DbCreds,
 ) error {
 	if err := cpi.CreateThreeportControlPlaneNamespace(kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed in create threeport control plane namespace: %w", err)
@@ -161,7 +170,7 @@ store_dir: /data
 			"apiVersion": "v1",
 			"kind":       "Service",
 			"metadata": map[string]interface{}{
-				"name":      "nats-js",
+				"name":      natsServiceName,
 				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":     "nats",
@@ -541,6 +550,31 @@ store_dir: /data
 		return fmt.Errorf("failed to create/update API server secret for workload controller: %w", err)
 	}
 
+	// asdf
+	var dbCertsSecret = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      dbCredsSecretName,
+				"namespace": cpi.Opts.Namespace,
+			},
+			"stringData": map[string]interface{}{
+				"ca.crt":               dbCreds.AuthConfig.CAPemEncoded,
+				"node.crt":             dbCreds.NodeCert,
+				"node.key":             dbCreds.NodeKey,
+				"client.root.crt":      dbCreds.RootCert,
+				"client.root.key":      dbCreds.RootKey,
+				"client.threeport.crt": dbCreds.ThreeportCert,
+				"client.threeport.key": dbCreds.ThreeportKey,
+			},
+		},
+	}
+
+	if err := cpi.CreateOrUpdateKubeResource(dbCertsSecret, kubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to create DB certs secret: %w", err)
+	}
+
 	var crdbPDB = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"kind":       "PodDisruptionBudget",
@@ -575,7 +609,7 @@ store_dir: /data
 			"kind":       "Service",
 			"apiVersion": "v1",
 			"metadata": map[string]interface{}{
-				"name":      "crdb",
+				"name":      database.ThreeportDatabaseHost,
 				"namespace": cpi.Opts.Namespace,
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":      "cockroachdb",
@@ -727,7 +761,7 @@ store_dir: /data
 									//    some Pods of existing cluster are down (for whatever reason).
 									// See details explained here:
 									// https://github.com/helm/charts/pull/18993#issuecomment-558795102
-									"exec /cockroach/cockroach start-single-node --advertise-host=$(hostname).${STATEFULSET_FQDN} --insecure --http-port=8080 --port=26257 --cache=25% --max-sql-memory=25% --logtostderr=INFO",
+									"exec /cockroach/cockroach start-single-node --certs-dir=/cockroach/cockroach-certs --advertise-host=$(hostname).${STATEFULSET_FQDN} --http-port=8080 --port=26257 --cache=25% --max-sql-memory=25% --logtostderr=INFO",
 								},
 								"env": []interface{}{
 									map[string]interface{}{
@@ -740,7 +774,7 @@ store_dir: /data
 									},
 									map[string]interface{}{
 										"name":  "COCKROACH_CHANNEL",
-										"value": "kubernetes-helm",
+										"value": "kubernetes-secure",
 									},
 								},
 								"ports": []interface{}{
@@ -760,14 +794,10 @@ store_dir: /data
 										"name":      "datadir",
 										"mountPath": "/cockroach/cockroach-data/",
 									},
-								},
-								"livenessProbe": map[string]interface{}{
-									"httpGet": map[string]interface{}{
-										"path": "/health",
-										"port": "http",
+									map[string]interface{}{
+										"name":      "db-certs",
+										"mountPath": "/cockroach/cockroach-certs",
 									},
-									"initialDelaySeconds": 30,
-									"periodSeconds":       5,
 								},
 								"readinessProbe": map[string]interface{}{
 									"httpGet": map[string]interface{}{
@@ -785,6 +815,13 @@ store_dir: /data
 								"name": "datadir",
 								"persistentVolumeClaim": map[string]interface{}{
 									"claimName": "datadir",
+								},
+							},
+							map[string]interface{}{
+								"name": "db-certs",
+								"secret": map[string]interface{}{
+									"secretName":  dbCredsSecretName,
+									"defaultMode": 256,
 								},
 							},
 						},

@@ -99,7 +99,7 @@ func BuildDevImage(threeportPath string) error {
 func BuildGoBinary(threeportPath, arch string, component *v0.ControlPlaneComponent, noCache bool) error {
 	// set name of main.go file
 	main := "main_gen.go"
-	if strings.Contains(component.Name, "rest-api") || strings.Contains(component.Name, "agent") || strings.Contains(component.Name, "database-migrator") {
+	if strings.Contains(component.Name, "agent") {
 		main = "main.go"
 	}
 
@@ -212,8 +212,19 @@ func PushDockerImage(tag string) error {
 	dockerUsername := os.Getenv("DOCKER_USERNAME")
 	dockerPassword := os.Getenv("DOCKER_PASSWORD")
 
+	var isLocal bool
+	parts := strings.Split(tag, "/")
+	if parts[0] == "localhost:5001" {
+		isLocal = true
+	}
+
 	// configure docker auth if credentials are present
 	switch {
+	case isLocal:
+		authConfig := registry.AuthConfig{}
+		authConfigBytes, _ := json.Marshal(authConfig)
+		authConfigEncoded := base64.URLEncoding.EncodeToString(authConfigBytes)
+		imagePushOptions.RegistryAuth = authConfigEncoded
 	case isDockerConfigPresent &&
 		dockerUsername == "" &&
 		dockerPassword == "":

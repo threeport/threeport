@@ -108,11 +108,18 @@ type Options struct {
 	// verbose logging
 	Verbose bool
 
+	// provide any additional conditions to be added to aws IRSA
+	AdditionalAwsIrsaConditions []string
+
 	// A general map to pass around information between various install phases.
 	AdditionalOptions map[string]interface{}
 
 	// Skip teardown of control plane components if an error is encountered.
 	SkipTeardown bool
+
+	// Create and connect local container registry for local control plane
+	// clusters.
+	LocalRegistry bool
 }
 
 type ControlPlaneInstaller struct {
@@ -184,16 +191,17 @@ func defaultInstallFunction(kubernetesRuntimeInstance *v0.KubernetesRuntimeInsta
 }
 
 var defaultInstallerOptions = Options{
-	Name:                 ControlPlaneName,
-	Namespace:            ControlPlaneNamespace,
-	ControllerList:       ThreeportControllerList,
-	RestApiInfo:          ThreeportRestApi,
-	DatabaseMigratorInfo: DatabaseMigrator,
-	AgentInfo:            ThreeportAgent,
-	PreInstallFunction:   defaultInstallFunction,
-	PostInstallFunction:  defaultInstallFunction,
-	InThreeport:          false,
-	AdditionalOptions:    make(map[string]interface{}),
+	Name:                        ControlPlaneName,
+	Namespace:                   ControlPlaneNamespace,
+	ControllerList:              ThreeportControllerList,
+	RestApiInfo:                 ThreeportRestApi,
+	DatabaseMigratorInfo:        DatabaseMigrator,
+	AgentInfo:                   ThreeportAgent,
+	PreInstallFunction:          defaultInstallFunction,
+	PostInstallFunction:         defaultInstallFunction,
+	InThreeport:                 false,
+	AdditionalAwsIrsaConditions: make([]string, 0),
+	AdditionalOptions:           make(map[string]interface{}),
 }
 
 func NewInstaller(os ...InstallerOption) *ControlPlaneInstaller {

@@ -10,3 +10,6 @@ versions while the functions in a given package version will maintain consistent
 function signatures to preserve compatibility.  As such, if function signatures
 or fundamental behaviors change, they must be put into a new package version.
 
+See the [Versions documentation](../../docs/versions.md) for more information
+on the versioning of objects and library packages.
+

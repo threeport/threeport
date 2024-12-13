@@ -13,8 +13,10 @@ import (
 	"github.com/mitchellh/go-homedir"
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/spf13/viper"
+
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -235,7 +237,7 @@ func (cfg *ThreeportConfig) GetHTTPClient(requestedControlPlane string) (*http.C
 		return nil, fmt.Errorf("failed to get threeport certificates: %w", err)
 	}
 
-	apiClient, err := client.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey, "")
+	apiClient, err := client_lib.GetHTTPClient(authEnabled, ca, clientCertificate, clientPrivateKey, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get http client: %w", err)
 	}
@@ -414,7 +416,7 @@ func DeleteThreeportConfigControlPlane(threeportConfig *ThreeportConfig, deleteT
 // DefaultThreeportConfigPath returns the default path to the threeport config
 // file on the user's filesystem.
 func DefaultThreeportConfigPath(homedir string) string {
-	return filepath.Join(homedir, ".config", "threeport")
+	return filepath.Join(homedir, ".threeport")
 }
 
 // DefaultProviderConfigDir returns the default path to the directory for storing
@@ -430,4 +432,14 @@ func DefaultProviderConfigDir() (string, error) {
 	}
 
 	return DefaultThreeportConfigPath(home), nil
+}
+
+// DefaultPluginDir returns the default directory for tptctl plugin installation.
+func DefaultPluginDir() (string, error) {
+	home, err := homedir.Dir()
+	if err != nil {
+		return "", fmt.Errorf("failed to determine user home directory: %w", err)
+	}
+
+	return filepath.Join(home, ".threeport", "plugins"), nil
 }
