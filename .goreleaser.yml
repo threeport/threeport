@@ -3,7 +3,7 @@ before:
 builds:
   - id: tptctl
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
     goos:
       - linux
       - windows
