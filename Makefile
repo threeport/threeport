@@ -15,9 +15,9 @@ ifndef RELEASE_VERSION
 endif
 	@echo -n "Are you sure you want to release version ${RELEASE_VERSION} of threeport? [y/n] " && read ans && [ $${ans:-n} = y ]
 	@echo ${RELEASE_VERSION} > internal/version/version.txt
-	@awk -v version="// @version ${RELEASE_VERSION}" '/\/\/ @version/ {print version; next} 1' cmd/rest-api/main.go > tmpfile && mv tmpfile cmd/rest-api/main.go
+	@awk -v version="// @version ${RELEASE_VERSION}" '/\/\/ @version/ {print version; next} 1' cmd/rest-api/main_gen.go > tmpfile && mv tmpfile cmd/rest-api/main_gen.go
 	@git add internal/version/version.txt
-	@git add cmd/rest-api/main.go
+	@git add cmd/rest-api/main_gen.go
 	@git commit -s -m "release: cut version ${RELEASE_VERSION}"
 	@git tag ${RELEASE_VERSION}
 	@git push origin main --tag
@@ -107,7 +107,7 @@ dev-sub-nats:
 
 #dev-debug-api: @ Start debugging session for API (must first run `make dev-forward-nats` in another terminal)
 dev-debug-api:
-	dlv debug cmd/rest-api/main.go -- -env-file hack/env -auto-migrate -verbose
+	dlv debug cmd/rest-api/main_gen.go -- -env-file hack/env -auto-migrate -verbose
 
 #dev-debug-wrk: @ Start debugging session for workload-controller (must first run `make dev-forward-nats` in another terminal)
 dev-debug-wrk:

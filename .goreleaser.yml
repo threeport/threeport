@@ -24,14 +24,14 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-    main: cmd/rest-api/main.go
+    main: cmd/rest-api/main_gen.go
     binary: rest-api
   - id: threeport-database-migrator
     env:
       - CGO_ENABLED=0
     goos:
       - linux
-    main: cmd/database-migrator/main.go
+    main: cmd/database-migrator/main_gen.go
     binary: database-migrator
   - id: threeport-workload-controller
     env:
