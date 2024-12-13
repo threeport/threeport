@@ -110,6 +110,9 @@ archives:
         format: zip
     files:
       - README.md
+    binaries:
+      - tptctl
+      - threeport-sdk
     wrap_in_directory: true
     strip_binary_directory: true
     allow_different_binary_count: true
