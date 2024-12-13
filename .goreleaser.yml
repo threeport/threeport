@@ -10,6 +10,15 @@ builds:
       - darwin
     main: cmd/tptctl/main.go
     binary: tptctl
+  - id: threeport-sdk
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    main: cmd/sdk/main.go
+    binary: threeport-sdk
   - id: threeport-rest-api
     env:
       - CGO_ENABLED=0
