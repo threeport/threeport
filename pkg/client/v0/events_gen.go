@@ -20,7 +20,7 @@ func GetEvents(apiClient *http.Client, apiAddr string) (*[]v0.Event, error) {
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/events", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathEvents),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -50,7 +50,7 @@ func GetEventByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Event, e
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/events/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathEvents, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -80,7 +80,7 @@ func GetEventsByQueryString(apiClient *http.Client, apiAddr string, queryString 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/events?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathEvents, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -110,7 +110,7 @@ func GetEventByName(apiClient *http.Client, apiAddr, name string) (*v0.Event, er
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/events?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathEvents, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -151,7 +151,7 @@ func CreateEvent(apiClient *http.Client, apiAddr string, event *v0.Event) (*v0.E
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/events", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathEvents),
 		http.MethodPost,
 		bytes.NewBuffer(jsonEvent),
 		map[string]string{},
@@ -193,7 +193,7 @@ func UpdateEvent(apiClient *http.Client, apiAddr string, event *v0.Event) (*v0.E
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/events/%d", apiAddr, eventID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathEvents, eventID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonEvent),
 		map[string]string{},
@@ -224,7 +224,7 @@ func DeleteEvent(apiClient *http.Client, apiAddr string, id uint) (*v0.Event, er
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/events/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathEvents, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},

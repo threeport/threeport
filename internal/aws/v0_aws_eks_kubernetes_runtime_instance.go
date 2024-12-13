@@ -21,7 +21,7 @@ import (
 
 const staleAckDurationSeconds = 240
 
-// v0AwsEksKubernetesRuntimeInstanceCreated performs reconciliation when a v0 workload definition
+// v0AwsEksKubernetesRuntimeInstanceCreated performs reconciliation when a v0 AwsEksKubernetesRuntimeInstance
 // has been created.
 func v0AwsEksKubernetesRuntimeInstanceCreated(
 	r *controller.Reconciler,
@@ -266,7 +266,7 @@ func v0AwsEksKubernetesRuntimeInstanceCreated(
 	return 90, nil
 }
 
-// v0AwsEksKubernetesRuntimeInstanceUpdated performs reconciliation when a v0 workload definition
+// v0AwsEksKubernetesRuntimeInstanceUpdated performs reconciliation when a v0 AwsEksKubernetesRuntimeInstance
 // has been updated.
 func v0AwsEksKubernetesRuntimeInstanceUpdated(
 	r *controller.Reconciler,
@@ -276,7 +276,7 @@ func v0AwsEksKubernetesRuntimeInstanceUpdated(
 	return 0, nil
 }
 
-// v0AwsEksKubernetesRuntimeInstanceDeleted performs reconciliation when a v0 workload definition
+// v0AwsEksKubernetesRuntimeInstanceDeleted performs reconciliation when a v0 AwsEksKubernetesRuntimeInstance
 // has been deleted.
 func v0AwsEksKubernetesRuntimeInstanceDeleted(
 	r *controller.Reconciler,

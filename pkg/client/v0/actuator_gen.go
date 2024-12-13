@@ -20,7 +20,7 @@ func GetProfiles(apiClient *http.Client, apiAddr string) (*[]v0.Profile, error) 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/profiles", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathProfiles),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -50,7 +50,7 @@ func GetProfileByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Profil
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/profiles/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathProfiles, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -80,7 +80,7 @@ func GetProfilesByQueryString(apiClient *http.Client, apiAddr string, queryStrin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/profiles?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathProfiles, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -110,7 +110,7 @@ func GetProfileByName(apiClient *http.Client, apiAddr, name string) (*v0.Profile
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/profiles?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathProfiles, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -151,7 +151,7 @@ func CreateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/profiles", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathProfiles),
 		http.MethodPost,
 		bytes.NewBuffer(jsonProfile),
 		map[string]string{},
@@ -193,7 +193,7 @@ func UpdateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/profiles/%d", apiAddr, profileID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathProfiles, profileID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonProfile),
 		map[string]string{},
@@ -224,7 +224,7 @@ func DeleteProfile(apiClient *http.Client, apiAddr string, id uint) (*v0.Profile
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/profiles/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathProfiles, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -255,7 +255,7 @@ func GetTiers(apiClient *http.Client, apiAddr string) (*[]v0.Tier, error) {
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/tiers", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathTiers),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -285,7 +285,7 @@ func GetTierByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Tier, err
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/tiers/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTiers, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -315,7 +315,7 @@ func GetTiersByQueryString(apiClient *http.Client, apiAddr string, queryString s
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/tiers?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathTiers, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -345,7 +345,7 @@ func GetTierByName(apiClient *http.Client, apiAddr, name string) (*v0.Tier, erro
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/tiers?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathTiers, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -386,7 +386,7 @@ func CreateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/tiers", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathTiers),
 		http.MethodPost,
 		bytes.NewBuffer(jsonTier),
 		map[string]string{},
@@ -428,7 +428,7 @@ func UpdateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/tiers/%d", apiAddr, tierID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTiers, tierID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonTier),
 		map[string]string{},
@@ -459,7 +459,7 @@ func DeleteTier(apiClient *http.Client, apiAddr string, id uint) (*v0.Tier, erro
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/tiers/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTiers, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},

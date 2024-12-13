@@ -10,7 +10,7 @@ import (
 
 // EventRoutes sets up all routes for the Event handlers.
 func EventRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/events/versions", h.GetEventVersions)
+	e.GET(v0.PathEventVersions, h.GetEventVersions)
 
 	e.POST(v0.PathEvents, h.AddEvent)
 	e.GET(v0.PathEvents, h.GetEvents)

@@ -16,7 +16,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// v0ObservabilityDashboardInstanceCreated performs reconciliation when a v0 workload definition
+// v0ObservabilityDashboardInstanceCreated performs reconciliation when a v0 ObservabilityDashboardInstance
 // has been created.
 func v0ObservabilityDashboardInstanceCreated(
 	r *controller.Reconciler,
@@ -78,7 +78,7 @@ func v0ObservabilityDashboardInstanceCreated(
 	return 0, nil
 }
 
-// v0ObservabilityDashboardInstanceUpdated performs reconciliation when a v0 workload definition
+// v0ObservabilityDashboardInstanceUpdated performs reconciliation when a v0 ObservabilityDashboardInstance
 // has been updated.
 func v0ObservabilityDashboardInstanceUpdated(
 	r *controller.Reconciler,
@@ -88,7 +88,7 @@ func v0ObservabilityDashboardInstanceUpdated(
 	return 0, nil
 }
 
-// v0ObservabilityDashboardInstanceDeleted performs reconciliation when a v0 workload definition
+// v0ObservabilityDashboardInstanceDeleted performs reconciliation when a v0 ObservabilityDashboardInstance
 // has been deleted.
 func v0ObservabilityDashboardInstanceDeleted(
 	r *controller.Reconciler,

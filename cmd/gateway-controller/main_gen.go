@@ -42,7 +42,7 @@ func main() {
 		"Number of concurrent reconcilers to run for domain name instances",
 	)
 
-	var apiServer = flag.String("api-server", "threeport-api-server", "Threepoort REST API server endpoint")
+	var apiServer = flag.String("api-server", "threeport-api-server.threeport-control-plane.svc.cluster.local", "Threepoort REST API server endpoint")
 	var msgBrokerHost = flag.String("msg-broker-host", "", "Threeport message broker hostname")
 	var msgBrokerPort = flag.String("msg-broker-port", "", "Threeport message broker port")
 	var msgBrokerUser = flag.String("msg-broker-user", "", "Threeport message broker user")

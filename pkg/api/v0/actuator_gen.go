@@ -12,8 +12,10 @@ const (
 	ObjectTypeProfile string = "Profile"
 	ObjectTypeTier    string = "Tier"
 
-	PathProfiles = "/v0/profiles"
-	PathTiers    = "/v0/tiers"
+	PathProfileVersions = "/profiles/versions"
+	PathProfiles        = "/v0/profiles"
+	PathTierVersions    = "/tiers/versions"
+	PathTiers           = "/v0/tiers"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the

@@ -29,7 +29,7 @@ func (h Handler) AddWorkloadResourceDefinitions(c echo.Context) error {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, v0.WorkloadResourceDefinition{}); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, v0.WorkloadResourceDefinition{}); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 

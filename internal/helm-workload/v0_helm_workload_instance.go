@@ -39,7 +39,7 @@ const (
 	HelmValuesDir      = "/tmp/helm"
 )
 
-// v0HelmWorkloadInstanceCreated performs reconciliation when a v0 workload definition
+// v0HelmWorkloadInstanceCreated performs reconciliation when a v0 HelmWorkloadInstance
 // has been created.
 func v0HelmWorkloadInstanceCreated(
 	r *controller.Reconciler,
@@ -196,7 +196,7 @@ func v0HelmWorkloadInstanceCreated(
 	return 0, nil
 }
 
-// v0HelmWorkloadInstanceUpdated performs reconciliation when a v0 workload definition
+// v0HelmWorkloadInstanceUpdated performs reconciliation when a v0 HelmWorkloadInstance
 // has been updated.
 func v0HelmWorkloadInstanceUpdated(
 	r *controller.Reconciler,
@@ -269,7 +269,7 @@ func v0HelmWorkloadInstanceUpdated(
 	return 0, nil
 }
 
-// v0HelmWorkloadInstanceDeleted performs reconciliation when a v0 workload definition
+// v0HelmWorkloadInstanceDeleted performs reconciliation when a v0 HelmWorkloadInstance
 // has been deleted.
 func v0HelmWorkloadInstanceDeleted(
 	r *controller.Reconciler,

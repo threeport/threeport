@@ -9,7 +9,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
-// v0ControlPlaneDefinitionCreated performs reconciliation when a v0 workload definition
+// v0ControlPlaneDefinitionCreated performs reconciliation when a v0 ControlPlaneDefinition
 // has been created.
 func v0ControlPlaneDefinitionCreated(
 	r *controller.Reconciler,
@@ -19,7 +19,7 @@ func v0ControlPlaneDefinitionCreated(
 	return 0, nil
 }
 
-// v0ControlPlaneDefinitionUpdated performs reconciliation when a v0 workload definition
+// v0ControlPlaneDefinitionUpdated performs reconciliation when a v0 ControlPlaneDefinition
 // has been updated.
 func v0ControlPlaneDefinitionUpdated(
 	r *controller.Reconciler,
@@ -29,7 +29,7 @@ func v0ControlPlaneDefinitionUpdated(
 	return 0, nil
 }
 
-// v0ControlPlaneDefinitionDeleted performs reconciliation when a v0 workload definition
+// v0ControlPlaneDefinitionDeleted performs reconciliation when a v0 ControlPlaneDefinition
 // has been deleted.
 func v0ControlPlaneDefinitionDeleted(
 	r *controller.Reconciler,

@@ -40,7 +40,7 @@ sidecar:
     searchNamespace: ALL
 `
 
-// v0ObservabilityDashboardDefinitionCreated performs reconciliation when a v0 workload definition
+// v0ObservabilityDashboardDefinitionCreated performs reconciliation when a v0 ObservabilityDashboardDefinition
 // has been created.
 func v0ObservabilityDashboardDefinitionCreated(
 	r *controller.Reconciler,
@@ -89,7 +89,7 @@ func v0ObservabilityDashboardDefinitionCreated(
 	return 0, nil
 }
 
-// v0ObservabilityDashboardDefinitionUpdated performs reconciliation when a v0 workload definition
+// v0ObservabilityDashboardDefinitionUpdated performs reconciliation when a v0 ObservabilityDashboardDefinition
 // has been updated.
 func v0ObservabilityDashboardDefinitionUpdated(
 	r *controller.Reconciler,
@@ -99,7 +99,7 @@ func v0ObservabilityDashboardDefinitionUpdated(
 	return 0, nil
 }
 
-// v0ObservabilityDashboardDefinitionDeleted performs reconciliation when a v0 workload definition
+// v0ObservabilityDashboardDefinitionDeleted performs reconciliation when a v0 ObservabilityDashboardDefinition
 // has been deleted.
 func v0ObservabilityDashboardDefinitionDeleted(
 	r *controller.Reconciler,

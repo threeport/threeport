@@ -1,4 +1,4 @@
-# Database Mighrations for Threeport
+# Database Migrations for Threeport
 
 Threeport changes to the API will require database updates to accomodate the required schema modifications.
 The database migrator will help facilitate these migrations.

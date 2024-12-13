@@ -13,7 +13,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
-// v0SecretInstanceCreated performs reconciliation when a v0 workload definition
+// v0SecretInstanceCreated performs reconciliation when a v0 SecretInstance
 // has been created.
 func v0SecretInstanceCreated(
 	r *controller.Reconciler,
@@ -45,7 +45,7 @@ func v0SecretInstanceCreated(
 	return 0, nil
 }
 
-// v0SecretInstanceUpdated performs reconciliation when a v0 workload definition
+// v0SecretInstanceUpdated performs reconciliation when a v0 SecretInstance
 // has been updated.
 func v0SecretInstanceUpdated(
 	r *controller.Reconciler,
@@ -55,7 +55,7 @@ func v0SecretInstanceUpdated(
 	return 0, nil
 }
 
-// v0SecretInstanceDeleted performs reconciliation when a v0 workload definition
+// v0SecretInstanceDeleted performs reconciliation when a v0 SecretInstance
 // has been deleted.
 func v0SecretInstanceDeleted(
 	r *controller.Reconciler,

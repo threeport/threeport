@@ -87,7 +87,7 @@ func GenControllerMain(gen *gen.Generator) error {
 					"github.com/namsral/flag",
 					"String",
 				).Call(
-					Lit("api-server").Op(",").Lit("threeport-api-server").Op(",").Lit("Threepoort REST API server endpoint"),
+					Lit("api-server").Op(",").Lit("threeport-api-server.threeport-control-plane.svc.cluster.local").Op(",").Lit("Threepoort REST API server endpoint"),
 				),
 				Var().Id("msgBrokerHost").Op("=").Qual(
 					"github.com/namsral/flag",

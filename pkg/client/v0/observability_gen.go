@@ -20,7 +20,7 @@ func GetLoggingDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Loggin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathLoggingDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -50,7 +50,7 @@ func GetLoggingDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLoggingDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -80,7 +80,7 @@ func GetLoggingDefinitionsByQueryString(apiClient *http.Client, apiAddr string, 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathLoggingDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -110,7 +110,7 @@ func GetLoggingDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathLoggingDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -151,7 +151,7 @@ func CreateLoggingDefinition(apiClient *http.Client, apiAddr string, loggingDefi
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathLoggingDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonLoggingDefinition),
 		map[string]string{},
@@ -193,7 +193,7 @@ func UpdateLoggingDefinition(apiClient *http.Client, apiAddr string, loggingDefi
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-definitions/%d", apiAddr, loggingDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLoggingDefinitions, loggingDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLoggingDefinition),
 		map[string]string{},
@@ -224,7 +224,7 @@ func DeleteLoggingDefinition(apiClient *http.Client, apiAddr string, id uint) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLoggingDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -255,7 +255,7 @@ func GetLoggingInstances(apiClient *http.Client, apiAddr string) (*[]v0.LoggingI
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathLoggingInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -285,7 +285,7 @@ func GetLoggingInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLoggingInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -315,7 +315,7 @@ func GetLoggingInstancesByQueryString(apiClient *http.Client, apiAddr string, qu
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathLoggingInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -345,7 +345,7 @@ func GetLoggingInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathLoggingInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -386,7 +386,7 @@ func CreateLoggingInstance(apiClient *http.Client, apiAddr string, loggingInstan
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathLoggingInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonLoggingInstance),
 		map[string]string{},
@@ -428,7 +428,7 @@ func UpdateLoggingInstance(apiClient *http.Client, apiAddr string, loggingInstan
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-instances/%d", apiAddr, loggingInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLoggingInstances, loggingInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonLoggingInstance),
 		map[string]string{},
@@ -459,7 +459,7 @@ func DeleteLoggingInstance(apiClient *http.Client, apiAddr string, id uint) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/logging-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLoggingInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -490,7 +490,7 @@ func GetMetricsDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Metric
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathMetricsDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -520,7 +520,7 @@ func GetMetricsDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathMetricsDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -550,7 +550,7 @@ func GetMetricsDefinitionsByQueryString(apiClient *http.Client, apiAddr string, 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathMetricsDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -580,7 +580,7 @@ func GetMetricsDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathMetricsDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -621,7 +621,7 @@ func CreateMetricsDefinition(apiClient *http.Client, apiAddr string, metricsDefi
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathMetricsDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonMetricsDefinition),
 		map[string]string{},
@@ -663,7 +663,7 @@ func UpdateMetricsDefinition(apiClient *http.Client, apiAddr string, metricsDefi
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-definitions/%d", apiAddr, metricsDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathMetricsDefinitions, metricsDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonMetricsDefinition),
 		map[string]string{},
@@ -694,7 +694,7 @@ func DeleteMetricsDefinition(apiClient *http.Client, apiAddr string, id uint) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathMetricsDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -725,7 +725,7 @@ func GetMetricsInstances(apiClient *http.Client, apiAddr string) (*[]v0.MetricsI
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathMetricsInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -755,7 +755,7 @@ func GetMetricsInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathMetricsInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -785,7 +785,7 @@ func GetMetricsInstancesByQueryString(apiClient *http.Client, apiAddr string, qu
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathMetricsInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -815,7 +815,7 @@ func GetMetricsInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathMetricsInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -856,7 +856,7 @@ func CreateMetricsInstance(apiClient *http.Client, apiAddr string, metricsInstan
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathMetricsInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonMetricsInstance),
 		map[string]string{},
@@ -898,7 +898,7 @@ func UpdateMetricsInstance(apiClient *http.Client, apiAddr string, metricsInstan
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-instances/%d", apiAddr, metricsInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathMetricsInstances, metricsInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonMetricsInstance),
 		map[string]string{},
@@ -929,7 +929,7 @@ func DeleteMetricsInstance(apiClient *http.Client, apiAddr string, id uint) (*v0
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/metrics-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathMetricsInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -960,7 +960,7 @@ func GetObservabilityDashboardDefinitions(apiClient *http.Client, apiAddr string
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathObservabilityDashboardDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -990,7 +990,7 @@ func GetObservabilityDashboardDefinitionByID(apiClient *http.Client, apiAddr str
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityDashboardDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1020,7 +1020,7 @@ func GetObservabilityDashboardDefinitionsByQueryString(apiClient *http.Client, a
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathObservabilityDashboardDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1050,7 +1050,7 @@ func GetObservabilityDashboardDefinitionByName(apiClient *http.Client, apiAddr, 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathObservabilityDashboardDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1091,7 +1091,7 @@ func CreateObservabilityDashboardDefinition(apiClient *http.Client, apiAddr stri
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathObservabilityDashboardDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonObservabilityDashboardDefinition),
 		map[string]string{},
@@ -1133,7 +1133,7 @@ func UpdateObservabilityDashboardDefinition(apiClient *http.Client, apiAddr stri
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-definitions/%d", apiAddr, observabilityDashboardDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityDashboardDefinitions, observabilityDashboardDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonObservabilityDashboardDefinition),
 		map[string]string{},
@@ -1164,7 +1164,7 @@ func DeleteObservabilityDashboardDefinition(apiClient *http.Client, apiAddr stri
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityDashboardDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1195,7 +1195,7 @@ func GetObservabilityDashboardInstances(apiClient *http.Client, apiAddr string) 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathObservabilityDashboardInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1225,7 +1225,7 @@ func GetObservabilityDashboardInstanceByID(apiClient *http.Client, apiAddr strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityDashboardInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1255,7 +1255,7 @@ func GetObservabilityDashboardInstancesByQueryString(apiClient *http.Client, api
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathObservabilityDashboardInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1285,7 +1285,7 @@ func GetObservabilityDashboardInstanceByName(apiClient *http.Client, apiAddr, na
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathObservabilityDashboardInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1326,7 +1326,7 @@ func CreateObservabilityDashboardInstance(apiClient *http.Client, apiAddr string
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathObservabilityDashboardInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonObservabilityDashboardInstance),
 		map[string]string{},
@@ -1368,7 +1368,7 @@ func UpdateObservabilityDashboardInstance(apiClient *http.Client, apiAddr string
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-instances/%d", apiAddr, observabilityDashboardInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityDashboardInstances, observabilityDashboardInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonObservabilityDashboardInstance),
 		map[string]string{},
@@ -1399,7 +1399,7 @@ func DeleteObservabilityDashboardInstance(apiClient *http.Client, apiAddr string
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-dashboard-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityDashboardInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1430,7 +1430,7 @@ func GetObservabilityStackDefinitions(apiClient *http.Client, apiAddr string) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathObservabilityStackDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1460,7 +1460,7 @@ func GetObservabilityStackDefinitionByID(apiClient *http.Client, apiAddr string,
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityStackDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1490,7 +1490,7 @@ func GetObservabilityStackDefinitionsByQueryString(apiClient *http.Client, apiAd
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathObservabilityStackDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1520,7 +1520,7 @@ func GetObservabilityStackDefinitionByName(apiClient *http.Client, apiAddr, name
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathObservabilityStackDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1561,7 +1561,7 @@ func CreateObservabilityStackDefinition(apiClient *http.Client, apiAddr string, 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathObservabilityStackDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonObservabilityStackDefinition),
 		map[string]string{},
@@ -1603,7 +1603,7 @@ func UpdateObservabilityStackDefinition(apiClient *http.Client, apiAddr string, 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-definitions/%d", apiAddr, observabilityStackDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityStackDefinitions, observabilityStackDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonObservabilityStackDefinition),
 		map[string]string{},
@@ -1634,7 +1634,7 @@ func DeleteObservabilityStackDefinition(apiClient *http.Client, apiAddr string, 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityStackDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1665,7 +1665,7 @@ func GetObservabilityStackInstances(apiClient *http.Client, apiAddr string) (*[]
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathObservabilityStackInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1695,7 +1695,7 @@ func GetObservabilityStackInstanceByID(apiClient *http.Client, apiAddr string, i
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityStackInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1725,7 +1725,7 @@ func GetObservabilityStackInstancesByQueryString(apiClient *http.Client, apiAddr
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathObservabilityStackInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1755,7 +1755,7 @@ func GetObservabilityStackInstanceByName(apiClient *http.Client, apiAddr, name s
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathObservabilityStackInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1796,7 +1796,7 @@ func CreateObservabilityStackInstance(apiClient *http.Client, apiAddr string, ob
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathObservabilityStackInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonObservabilityStackInstance),
 		map[string]string{},
@@ -1838,7 +1838,7 @@ func UpdateObservabilityStackInstance(apiClient *http.Client, apiAddr string, ob
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-instances/%d", apiAddr, observabilityStackInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityStackInstances, observabilityStackInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonObservabilityStackInstance),
 		map[string]string{},
@@ -1869,7 +1869,7 @@ func DeleteObservabilityStackInstance(apiClient *http.Client, apiAddr string, id
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/observability-stack-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityStackInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},

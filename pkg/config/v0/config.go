@@ -416,7 +416,7 @@ func DeleteThreeportConfigControlPlane(threeportConfig *ThreeportConfig, deleteT
 // DefaultThreeportConfigPath returns the default path to the threeport config
 // file on the user's filesystem.
 func DefaultThreeportConfigPath(homedir string) string {
-	return filepath.Join(homedir, ".config", "threeport")
+	return filepath.Join(homedir, ".threeport")
 }
 
 // DefaultProviderConfigDir returns the default path to the directory for storing
@@ -432,4 +432,14 @@ func DefaultProviderConfigDir() (string, error) {
 	}
 
 	return DefaultThreeportConfigPath(home), nil
+}
+
+// DefaultPluginDir returns the default directory for tptctl plugin installation.
+func DefaultPluginDir() (string, error) {
+	home, err := homedir.Dir()
+	if err != nil {
+		return "", fmt.Errorf("failed to determine user home directory: %w", err)
+	}
+
+	return filepath.Join(home, ".threeport", "plugins"), nil
 }

@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -83,12 +82,12 @@ func GetWorkloadResourceDefinitionsByWorkloadDefinitionID(apiClient *http.Client
 
 // GetWorkloadInstancesByWorkloadDefinitionID fetches workload instances
 // by workload definition ID
-func GetWorkloadInstancesByWorkloadDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v1.WorkloadInstance, error) {
-	var workloadInstances []v1.WorkloadInstance
+func GetWorkloadInstancesByWorkloadDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.WorkloadInstance, error) {
+	var workloadInstances []v0.WorkloadInstance
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?workloaddefinitionid=%d", apiAddr, v1.PathWorkloadInstances, id),
+		fmt.Sprintf("%s%s?workloaddefinitionid=%d", apiAddr, v0.PathWorkloadInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -144,12 +143,12 @@ func GetWorkloadResourceInstancesByWorkloadInstanceID(apiClient *http.Client, ap
 }
 
 // GetWorkloadInstancesByKubernetesRuntimeInstanceID
-func GetWorkloadInstancesByKubernetesRuntimeInstanceID(apiClient *http.Client, apiAddr string, kubernetesRuntimeID uint) (*[]v1.WorkloadInstance, error) {
-	var workloadInstances []v1.WorkloadInstance
+func GetWorkloadInstancesByKubernetesRuntimeInstanceID(apiClient *http.Client, apiAddr string, kubernetesRuntimeID uint) (*[]v0.WorkloadInstance, error) {
+	var workloadInstances []v0.WorkloadInstance
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s%s?kubernetesruntimeinstanceid=%d", apiAddr, v1.PathWorkloadInstances, kubernetesRuntimeID),
+		fmt.Sprintf("%s%s?kubernetesruntimeinstanceid=%d", apiAddr, v0.PathWorkloadInstances, kubernetesRuntimeID),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -201,80 +200,4 @@ func DeleteWorkloadEventsByQueryString(apiClient *http.Client, apiAddr string, q
 	}
 
 	return &workloadEvents, nil
-}
-
-// GetAttachedObjectReferencesByAttachedObjectID fetches attached object references
-// by attached object ID.
-func GetAttachedObjectReferencesByAttachedObjectID(
-	apiClient *http.Client,
-	apiAddr string,
-	id uint,
-) (
-	*[]v1.AttachedObjectReference,
-	error,
-) {
-	var attachedObjectReferences []v1.AttachedObjectReference
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s?attachedobjectid=%d", apiAddr, v1.PathAttachedObjectReferences, id),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &attachedObjectReferences, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &attachedObjectReferences, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&attachedObjectReferences); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &attachedObjectReferences, nil
-}
-
-// GetAttachedObjectReferencesByObjectID fetches an attached object reference
-// by object ID.
-func GetAttachedObjectReferencesByObjectID(
-	apiClient *http.Client,
-	apiAddr string,
-	id uint,
-) (
-	*[]v1.AttachedObjectReference,
-	error,
-) {
-	var attachedObjectReferences []v1.AttachedObjectReference
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s?objectid=%d", apiAddr, v1.PathAttachedObjectReferences, id),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &attachedObjectReferences, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &attachedObjectReferences, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&attachedObjectReferences); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &attachedObjectReferences, nil
 }

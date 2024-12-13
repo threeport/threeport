@@ -20,7 +20,7 @@ func GetTerraformDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.Terr
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathTerraformDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -50,7 +50,7 @@ func GetTerraformDefinitionByID(apiClient *http.Client, apiAddr string, id uint)
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTerraformDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -80,7 +80,7 @@ func GetTerraformDefinitionsByQueryString(apiClient *http.Client, apiAddr string
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathTerraformDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -110,7 +110,7 @@ func GetTerraformDefinitionByName(apiClient *http.Client, apiAddr, name string) 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathTerraformDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -151,7 +151,7 @@ func CreateTerraformDefinition(apiClient *http.Client, apiAddr string, terraform
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathTerraformDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonTerraformDefinition),
 		map[string]string{},
@@ -193,7 +193,7 @@ func UpdateTerraformDefinition(apiClient *http.Client, apiAddr string, terraform
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-definitions/%d", apiAddr, terraformDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTerraformDefinitions, terraformDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonTerraformDefinition),
 		map[string]string{},
@@ -224,7 +224,7 @@ func DeleteTerraformDefinition(apiClient *http.Client, apiAddr string, id uint) 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTerraformDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -255,7 +255,7 @@ func GetTerraformInstances(apiClient *http.Client, apiAddr string) (*[]v0.Terraf
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathTerraformInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -285,7 +285,7 @@ func GetTerraformInstanceByID(apiClient *http.Client, apiAddr string, id uint) (
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTerraformInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -315,7 +315,7 @@ func GetTerraformInstancesByQueryString(apiClient *http.Client, apiAddr string, 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathTerraformInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -345,7 +345,7 @@ func GetTerraformInstanceByName(apiClient *http.Client, apiAddr, name string) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathTerraformInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -386,7 +386,7 @@ func CreateTerraformInstance(apiClient *http.Client, apiAddr string, terraformIn
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathTerraformInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonTerraformInstance),
 		map[string]string{},
@@ -428,7 +428,7 @@ func UpdateTerraformInstance(apiClient *http.Client, apiAddr string, terraformIn
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-instances/%d", apiAddr, terraformInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTerraformInstances, terraformInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonTerraformInstance),
 		map[string]string{},
@@ -459,7 +459,7 @@ func DeleteTerraformInstance(apiClient *http.Client, apiAddr string, id uint) (*
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/terraform-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTerraformInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},

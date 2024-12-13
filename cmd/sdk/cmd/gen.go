@@ -52,7 +52,7 @@ See the Threeport SDK docs for more information: https://threeport.io/sdk/sdk-in
 		}
 
 		// build source code at root of project
-		if err := root.GenRoot(&generator); err != nil {
+		if err := root.GenRoot(&generator, sdkConfig); err != nil {
 			cli.Error("failed to generate source code at prject root", err)
 			os.Exit(1)
 		}

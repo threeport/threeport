@@ -54,7 +54,7 @@ dev-logs-agent:
 #TODO: move to kubectl exec command that uses `cockroach` binary in contianer
 #dev-query-crdb: @ Open a terminal connection to the dev cockroach database (must first run `make dev-forward-crdb` in another terminal)
 dev-query-crdb:
-	kubectl exec -it -n threeport-control-plane crdb-0 -- cockroach sql --host localhost --insecure --database threeport_api
+	kubectl exec -it -n threeport-control-plane crdb-0 -- cockroach sql --host localhost --certs-dir=/cockroach/cockroach-certs --database threeport_api
 
 #dev-reset-crdb: @ Reset the dev cockroach database
 dev-reset-crdb:

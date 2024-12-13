@@ -105,7 +105,6 @@ ApiObjectGroups:
     - Name: Event
       Versions:
         - v0
-        - v1
 - Name: gateway
   Objects:
     - Name: GatewayDefinition
@@ -251,13 +250,9 @@ ApiObjectGroups:
       DefinedInstance: false
       Versions:
         - v0
-    - Name: AttachedObjectReference
-      Versions:
-        - v0
     - Name: WorkloadInstance
       Versions:
         - v0
-        - v1
       Reconcilable: true
       Tptctl:
         Enabled: true
@@ -268,4 +263,13 @@ ApiObjectGroups:
   Objects:
     - Name: AttachedObjectReference
       Versions:
-        - v1
+        - v0
+- Name: extension
+  Objects:
+    - Name: ExtensionApi
+      Versions:
+        - v0
+    - Name: ExtensionApiRoute
+      Versions:
+        - v0
+

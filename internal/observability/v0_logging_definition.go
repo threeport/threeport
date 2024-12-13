@@ -56,7 +56,7 @@ extraObjects:
 // promtailValues contains the default values for the promtail helm chart.
 const promtailValues = ``
 
-// v0LoggingDefinitionCreated performs reconciliation when a v0 workload definition
+// v0LoggingDefinitionCreated performs reconciliation when a v0 LoggingDefinition
 // has been created.
 func v0LoggingDefinitionCreated(
 	r *controller.Reconciler,
@@ -109,7 +109,7 @@ func v0LoggingDefinitionCreated(
 	return 0, nil
 }
 
-// v0LoggingDefinitionUpdated performs reconciliation when a v0 workload definition
+// v0LoggingDefinitionUpdated performs reconciliation when a v0 LoggingDefinition
 // has been updated.
 func v0LoggingDefinitionUpdated(
 	r *controller.Reconciler,
@@ -119,7 +119,7 @@ func v0LoggingDefinitionUpdated(
 	return 0, nil
 }
 
-// v0LoggingDefinitionDeleted performs reconciliation when a v0 workload definition
+// v0LoggingDefinitionDeleted performs reconciliation when a v0 LoggingDefinition
 // has been deleted.
 func v0LoggingDefinitionDeleted(
 	r *controller.Reconciler,

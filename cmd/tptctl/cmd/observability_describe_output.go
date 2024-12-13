@@ -11,9 +11,9 @@ import (
 	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
-// outputDescribeObservabilityStackDefinitionCmd produces the plain description
+// outputDescribev0ObservabilityStackDefinitionCmd produces the plain description
 // output for the 'tptctl describe observability-stack-definition' command
-func outputDescribeObservabilityStackDefinitionCmd(
+func outputDescribev0ObservabilityStackDefinitionCmd(
 	observabilityStackDefinition *v0.ObservabilityStackDefinition,
 	observabilityStackDefinitionConfig *config.ObservabilityStackDefinitionConfig,
 	apiClient *http.Client,
@@ -131,7 +131,7 @@ func outputDescribeObservabilityStackDefinitionCmd(
 	// output describe details
 	fmt.Printf(
 		"* ObservabilityStackDefinition Name: %s\n",
-		observabilityStackDefinitionConfig.ObservabilityStackDefinition.Name,
+		*observabilityStackDefinitionConfig.ObservabilityStackDefinition.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",
@@ -172,9 +172,9 @@ func outputDescribeObservabilityStackDefinitionCmd(
 	return nil
 }
 
-// outputDescribeObservabilityStackInstanceCmd produces the plain description
+// outputDescribev0ObservabilityStackInstanceCmd produces the plain description
 // output for the 'tptctl describe observability-stack-instance' command
-func outputDescribeObservabilityStackInstanceCmd(
+func outputDescribev0ObservabilityStackInstanceCmd(
 	observabilityStackInstance *v0.ObservabilityStackInstance,
 	observabilityStackInstanceConfig *config.ObservabilityStackInstanceConfig,
 	apiClient *http.Client,
@@ -292,7 +292,7 @@ func outputDescribeObservabilityStackInstanceCmd(
 	// output describe details
 	fmt.Printf(
 		"* ObservabilityStackInstance Name: %s\n",
-		observabilityStackInstanceConfig.ObservabilityStackInstance.Name,
+		*observabilityStackInstanceConfig.ObservabilityStackInstance.Name,
 	)
 	fmt.Printf(
 		"* Created: %s\n",

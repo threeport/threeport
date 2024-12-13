@@ -5,8 +5,6 @@ package database
 import (
 	"context"
 	"fmt"
-	v0 "github.com/threeport/threeport/pkg/api/v0"
-	v1 "github.com/threeport/threeport/pkg/api/v1"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
@@ -37,7 +35,7 @@ type ZapLogger struct {
 
 // Init initializes the API database.
 func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
-	dsn, err := GetDsn()
+	dsn, err := GetDsn(false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to populate DB DSN from environment: %w", err)
 	}
@@ -57,8 +55,9 @@ func Init(autoMigrate bool, logger *zap.Logger) (*gorm.DB, error) {
 }
 
 // GetDsn returns the data source name string or an error if one of the required
-// env vars is not set.
-func GetDsn() (string, error) {
+// env vars is not set.  If the root user is requested the DSN will include the
+// root user and reference the root user's SSL cert creds.
+func GetDsn(rootDbUser bool) (string, error) {
 	var dbEnvErrors util.MultiError
 
 	requiredDbEnvVars := map[string]string{
@@ -79,11 +78,16 @@ func GetDsn() (string, error) {
 		}
 	}
 
+	dbUser := requiredDbEnvVars["DB_USER"]
+	if rootDbUser {
+		dbUser = "root"
+	}
+
 	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s dbname=%s sslmode=%s sslrootcert=%s/ca.crt sslcert=%[6]s/client.threeport.crt sslkey=%[6]s/client.threeport.key TimeZone=UTC",
+		"host=%s port=%s user=%s dbname=%s sslmode=%s sslrootcert=%s/ca.crt sslcert=%[6]s/client.%[3]s.crt sslkey=%[6]s/client.%[3]s.key TimeZone=UTC",
 		requiredDbEnvVars["DB_HOST"],
 		requiredDbEnvVars["DB_PORT"],
-		requiredDbEnvVars["DB_USER"],
+		dbUser,
 		requiredDbEnvVars["DB_NAME"],
 		requiredDbEnvVars["DB_SSL_MODE"],
 		ThreeportApiDbCertsDir,
@@ -199,61 +203,6 @@ func (zl *ZapLogger) Trace(ctx context.Context, begin time.Time, fc func() (stri
 
 	// log the message using the logger
 	logger.Debug("gorm query")
-}
-
-// Return all database init object interfaces.
-func GetDbInterfaces() []interface{} {
-	return []interface{}{
-		&v0.AttachedObjectReference{},
-		&v0.AwsAccount{},
-		&v0.AwsEksKubernetesRuntimeDefinition{},
-		&v0.AwsEksKubernetesRuntimeInstance{},
-		&v0.AwsObjectStorageBucketDefinition{},
-		&v0.AwsObjectStorageBucketInstance{},
-		&v0.AwsRelationalDatabaseDefinition{},
-		&v0.AwsRelationalDatabaseInstance{},
-		&v0.ControlPlaneComponent{},
-		&v0.KubernetesRuntimeDefinition{},
-		&v0.KubernetesRuntimeInstance{},
-		&v0.Definition{},
-		&v0.DomainNameDefinition{},
-		&v0.DomainNameInstance{},
-		&v0.Event{},
-		&v0.GatewayDefinition{},
-		&v0.GatewayHttpPort{},
-		&v0.GatewayInstance{},
-		&v0.GatewayTcpPort{},
-		&v0.HelmWorkloadDefinition{},
-		&v0.HelmWorkloadInstance{},
-		&v0.Instance{},
-		&v0.ControlPlaneDefinition{},
-		&v0.ControlPlaneInstance{},
-		&v0.LogBackend{},
-		&v0.LogStorageDefinition{},
-		&v0.LogStorageInstance{},
-		&v0.LoggingDefinition{},
-		&v0.LoggingInstance{},
-		&v0.MetricsDefinition{},
-		&v0.MetricsInstance{},
-		&v0.ObservabilityDashboardDefinition{},
-		&v0.ObservabilityDashboardInstance{},
-		&v0.ObservabilityStackDefinition{},
-		&v0.ObservabilityStackInstance{},
-		&v0.Profile{},
-		&v0.SecretDefinition{},
-		&v0.SecretInstance{},
-		&v0.TerraformDefinition{},
-		&v0.TerraformInstance{},
-		&v0.Tier{},
-		&v0.WorkloadDefinition{},
-		&v0.WorkloadEvent{},
-		&v0.WorkloadInstance{},
-		&v0.WorkloadResourceDefinition{},
-		&v0.WorkloadResourceInstance{},
-		&v1.AttachedObjectReference{},
-		&v1.Event{},
-		&v1.WorkloadInstance{},
-	}
 }
 
 // suppressSensitive supresses messages containing sesitive strings.

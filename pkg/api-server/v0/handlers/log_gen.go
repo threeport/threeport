@@ -40,7 +40,7 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 	var logBackend api_v0.LogBackend
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, logBackend); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, logBackend); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -178,7 +178,7 @@ func (h Handler) UpdateLogBackend(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingLogBackend); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingLogBackend); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -230,7 +230,7 @@ func (h Handler) ReplaceLogBackend(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingLogBackend); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingLogBackend); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -331,7 +331,7 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 	var logStorageDefinition api_v0.LogStorageDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, logStorageDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, logStorageDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -469,7 +469,7 @@ func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingLogStorageDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingLogStorageDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -521,7 +521,7 @@ func (h Handler) ReplaceLogStorageDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingLogStorageDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingLogStorageDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -628,7 +628,7 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 	var logStorageInstance api_v0.LogStorageInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, logStorageInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, logStorageInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -766,7 +766,7 @@ func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingLogStorageInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingLogStorageInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -818,7 +818,7 @@ func (h Handler) ReplaceLogStorageInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingLogStorageInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingLogStorageInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 

@@ -20,7 +20,7 @@ func GetAwsAccounts(apiClient *http.Client, apiAddr string) (*[]v0.AwsAccount, e
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-accounts", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsAccounts),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -50,7 +50,7 @@ func GetAwsAccountByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Aws
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-accounts/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsAccounts, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -80,7 +80,7 @@ func GetAwsAccountsByQueryString(apiClient *http.Client, apiAddr string, querySt
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-accounts?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathAwsAccounts, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -110,7 +110,7 @@ func GetAwsAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsA
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-accounts?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsAccounts, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -151,7 +151,7 @@ func CreateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.Aws
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-accounts", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsAccounts),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAwsAccount),
 		map[string]string{},
@@ -193,7 +193,7 @@ func UpdateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.Aws
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-accounts/%d", apiAddr, awsAccountID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsAccounts, awsAccountID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsAccount),
 		map[string]string{},
@@ -224,7 +224,7 @@ func DeleteAwsAccount(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsA
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-accounts/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsAccounts, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -255,7 +255,7 @@ func GetAwsEksKubernetesRuntimeDefinitions(apiClient *http.Client, apiAddr strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -285,7 +285,7 @@ func GetAwsEksKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr st
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -315,7 +315,7 @@ func GetAwsEksKubernetesRuntimeDefinitionsByQueryString(apiClient *http.Client, 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -345,7 +345,7 @@ func GetAwsEksKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr,
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -386,7 +386,7 @@ func CreateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeDefinition),
 		map[string]string{},
@@ -428,7 +428,7 @@ func UpdateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-definitions/%d", apiAddr, awsEksKubernetesRuntimeDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions, awsEksKubernetesRuntimeDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeDefinition),
 		map[string]string{},
@@ -459,7 +459,7 @@ func DeleteAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -490,7 +490,7 @@ func GetAwsEksKubernetesRuntimeInstances(apiClient *http.Client, apiAddr string)
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -520,7 +520,7 @@ func GetAwsEksKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr stri
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -550,7 +550,7 @@ func GetAwsEksKubernetesRuntimeInstancesByQueryString(apiClient *http.Client, ap
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -580,7 +580,7 @@ func GetAwsEksKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, n
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -621,7 +621,7 @@ func CreateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeInstance),
 		map[string]string{},
@@ -663,7 +663,7 @@ func UpdateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-instances/%d", apiAddr, awsEksKubernetesRuntimeInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances, awsEksKubernetesRuntimeInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeInstance),
 		map[string]string{},
@@ -694,7 +694,7 @@ func DeleteAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-eks-kubernetes-runtime-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -725,7 +725,7 @@ func GetAwsObjectStorageBucketDefinitions(apiClient *http.Client, apiAddr string
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsObjectStorageBucketDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -755,7 +755,7 @@ func GetAwsObjectStorageBucketDefinitionByID(apiClient *http.Client, apiAddr str
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsObjectStorageBucketDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -785,7 +785,7 @@ func GetAwsObjectStorageBucketDefinitionsByQueryString(apiClient *http.Client, a
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathAwsObjectStorageBucketDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -815,7 +815,7 @@ func GetAwsObjectStorageBucketDefinitionByName(apiClient *http.Client, apiAddr, 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsObjectStorageBucketDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -856,7 +856,7 @@ func CreateAwsObjectStorageBucketDefinition(apiClient *http.Client, apiAddr stri
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsObjectStorageBucketDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAwsObjectStorageBucketDefinition),
 		map[string]string{},
@@ -898,7 +898,7 @@ func UpdateAwsObjectStorageBucketDefinition(apiClient *http.Client, apiAddr stri
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-definitions/%d", apiAddr, awsObjectStorageBucketDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsObjectStorageBucketDefinitions, awsObjectStorageBucketDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsObjectStorageBucketDefinition),
 		map[string]string{},
@@ -929,7 +929,7 @@ func DeleteAwsObjectStorageBucketDefinition(apiClient *http.Client, apiAddr stri
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsObjectStorageBucketDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -960,7 +960,7 @@ func GetAwsObjectStorageBucketInstances(apiClient *http.Client, apiAddr string) 
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsObjectStorageBucketInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -990,7 +990,7 @@ func GetAwsObjectStorageBucketInstanceByID(apiClient *http.Client, apiAddr strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsObjectStorageBucketInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1020,7 +1020,7 @@ func GetAwsObjectStorageBucketInstancesByQueryString(apiClient *http.Client, api
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathAwsObjectStorageBucketInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1050,7 +1050,7 @@ func GetAwsObjectStorageBucketInstanceByName(apiClient *http.Client, apiAddr, na
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsObjectStorageBucketInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1091,7 +1091,7 @@ func CreateAwsObjectStorageBucketInstance(apiClient *http.Client, apiAddr string
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsObjectStorageBucketInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAwsObjectStorageBucketInstance),
 		map[string]string{},
@@ -1133,7 +1133,7 @@ func UpdateAwsObjectStorageBucketInstance(apiClient *http.Client, apiAddr string
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-instances/%d", apiAddr, awsObjectStorageBucketInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsObjectStorageBucketInstances, awsObjectStorageBucketInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsObjectStorageBucketInstance),
 		map[string]string{},
@@ -1164,7 +1164,7 @@ func DeleteAwsObjectStorageBucketInstance(apiClient *http.Client, apiAddr string
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-object-storage-bucket-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsObjectStorageBucketInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1195,7 +1195,7 @@ func GetAwsRelationalDatabaseDefinitions(apiClient *http.Client, apiAddr string)
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsRelationalDatabaseDefinitions),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1225,7 +1225,7 @@ func GetAwsRelationalDatabaseDefinitionByID(apiClient *http.Client, apiAddr stri
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsRelationalDatabaseDefinitions, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1255,7 +1255,7 @@ func GetAwsRelationalDatabaseDefinitionsByQueryString(apiClient *http.Client, ap
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-definitions?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathAwsRelationalDatabaseDefinitions, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1285,7 +1285,7 @@ func GetAwsRelationalDatabaseDefinitionByName(apiClient *http.Client, apiAddr, n
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-definitions?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsRelationalDatabaseDefinitions, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1326,7 +1326,7 @@ func CreateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-definitions", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsRelationalDatabaseDefinitions),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseDefinition),
 		map[string]string{},
@@ -1368,7 +1368,7 @@ func UpdateAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-definitions/%d", apiAddr, awsRelationalDatabaseDefinitionID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsRelationalDatabaseDefinitions, awsRelationalDatabaseDefinitionID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseDefinition),
 		map[string]string{},
@@ -1399,7 +1399,7 @@ func DeleteAwsRelationalDatabaseDefinition(apiClient *http.Client, apiAddr strin
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-definitions/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsRelationalDatabaseDefinitions, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1430,7 +1430,7 @@ func GetAwsRelationalDatabaseInstances(apiClient *http.Client, apiAddr string) (
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsRelationalDatabaseInstances),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1460,7 +1460,7 @@ func GetAwsRelationalDatabaseInstanceByID(apiClient *http.Client, apiAddr string
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsRelationalDatabaseInstances, id),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1490,7 +1490,7 @@ func GetAwsRelationalDatabaseInstancesByQueryString(apiClient *http.Client, apiA
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-instances?%s", apiAddr, queryString),
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathAwsRelationalDatabaseInstances, queryString),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1520,7 +1520,7 @@ func GetAwsRelationalDatabaseInstanceByName(apiClient *http.Client, apiAddr, nam
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-instances?name=%s", apiAddr, name),
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsRelationalDatabaseInstances, name),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -1561,7 +1561,7 @@ func CreateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-instances", apiAddr),
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsRelationalDatabaseInstances),
 		http.MethodPost,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseInstance),
 		map[string]string{},
@@ -1603,7 +1603,7 @@ func UpdateAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-instances/%d", apiAddr, awsRelationalDatabaseInstanceID),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsRelationalDatabaseInstances, awsRelationalDatabaseInstanceID),
 		http.MethodPatch,
 		bytes.NewBuffer(jsonAwsRelationalDatabaseInstance),
 		map[string]string{},
@@ -1634,7 +1634,7 @@ func DeleteAwsRelationalDatabaseInstance(apiClient *http.Client, apiAddr string,
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/v0/aws-relational-database-instances/%d", apiAddr, id),
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsRelationalDatabaseInstances, id),
 		http.MethodDelete,
 		new(bytes.Buffer),
 		map[string]string{},

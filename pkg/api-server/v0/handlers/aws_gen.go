@@ -44,7 +44,7 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 	var awsAccount api_v0.AwsAccount
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, awsAccount); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsAccount); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -182,7 +182,7 @@ func (h Handler) UpdateAwsAccount(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsAccount); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsAccount); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -234,7 +234,7 @@ func (h Handler) ReplaceAwsAccount(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsAccount); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsAccount); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -335,7 +335,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	var awsEksKubernetesRuntimeDefinition api_v0.AwsEksKubernetesRuntimeDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, awsEksKubernetesRuntimeDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsEksKubernetesRuntimeDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -473,7 +473,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsEksKubernetesRuntimeDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsEksKubernetesRuntimeDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -525,7 +525,7 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeDefinition(c echo.Context) error 
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsEksKubernetesRuntimeDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsEksKubernetesRuntimeDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -632,7 +632,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	var awsEksKubernetesRuntimeInstance api_v0.AwsEksKubernetesRuntimeInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, awsEksKubernetesRuntimeInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsEksKubernetesRuntimeInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -783,7 +783,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsEksKubernetesRuntimeInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsEksKubernetesRuntimeInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -848,7 +848,7 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsEksKubernetesRuntimeInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsEksKubernetesRuntimeInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -986,7 +986,7 @@ func (h Handler) AddAwsObjectStorageBucketDefinition(c echo.Context) error {
 	var awsObjectStorageBucketDefinition api_v0.AwsObjectStorageBucketDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, awsObjectStorageBucketDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsObjectStorageBucketDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1124,7 +1124,7 @@ func (h Handler) UpdateAwsObjectStorageBucketDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsObjectStorageBucketDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsObjectStorageBucketDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1176,7 +1176,7 @@ func (h Handler) ReplaceAwsObjectStorageBucketDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsObjectStorageBucketDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsObjectStorageBucketDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1283,7 +1283,7 @@ func (h Handler) AddAwsObjectStorageBucketInstance(c echo.Context) error {
 	var awsObjectStorageBucketInstance api_v0.AwsObjectStorageBucketInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, awsObjectStorageBucketInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsObjectStorageBucketInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1434,7 +1434,7 @@ func (h Handler) UpdateAwsObjectStorageBucketInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsObjectStorageBucketInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsObjectStorageBucketInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1499,7 +1499,7 @@ func (h Handler) ReplaceAwsObjectStorageBucketInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsObjectStorageBucketInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsObjectStorageBucketInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1637,7 +1637,7 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 	var awsRelationalDatabaseDefinition api_v0.AwsRelationalDatabaseDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, awsRelationalDatabaseDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsRelationalDatabaseDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1775,7 +1775,7 @@ func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsRelationalDatabaseDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsRelationalDatabaseDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1827,7 +1827,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsRelationalDatabaseDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsRelationalDatabaseDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -1934,7 +1934,7 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 	var awsRelationalDatabaseInstance api_v0.AwsRelationalDatabaseInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, awsRelationalDatabaseInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsRelationalDatabaseInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -2085,7 +2085,7 @@ func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsRelationalDatabaseInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsRelationalDatabaseInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -2150,7 +2150,7 @@ func (h Handler) ReplaceAwsRelationalDatabaseInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingAwsRelationalDatabaseInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsRelationalDatabaseInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 

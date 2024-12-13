@@ -16,7 +16,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// v0MetricsInstanceCreated performs reconciliation when a v0 workload definition
+// v0MetricsInstanceCreated performs reconciliation when a v0 MetricsInstance
 // has been created.
 func v0MetricsInstanceCreated(
 	r *controller.Reconciler,
@@ -78,7 +78,7 @@ func v0MetricsInstanceCreated(
 	return 0, nil
 }
 
-// v0MetricsInstanceUpdated performs reconciliation when a v0 workload definition
+// v0MetricsInstanceUpdated performs reconciliation when a v0 MetricsInstance
 // has been updated.
 func v0MetricsInstanceUpdated(
 	r *controller.Reconciler,
@@ -88,7 +88,7 @@ func v0MetricsInstanceUpdated(
 	return 0, nil
 }
 
-// v0MetricsInstanceDeleted performs reconciliation when a v0 workload definition
+// v0MetricsInstanceDeleted performs reconciliation when a v0 MetricsInstance
 // has been deleted.
 func v0MetricsInstanceDeleted(
 	r *controller.Reconciler,

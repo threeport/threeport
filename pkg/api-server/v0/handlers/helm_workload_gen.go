@@ -44,7 +44,7 @@ func (h Handler) AddHelmWorkloadDefinition(c echo.Context) error {
 	var helmWorkloadDefinition api_v0.HelmWorkloadDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, helmWorkloadDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, helmWorkloadDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -195,7 +195,7 @@ func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingHelmWorkloadDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingHelmWorkloadDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -260,7 +260,7 @@ func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingHelmWorkloadDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingHelmWorkloadDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -404,7 +404,7 @@ func (h Handler) AddHelmWorkloadInstance(c echo.Context) error {
 	var helmWorkloadInstance api_v0.HelmWorkloadInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, helmWorkloadInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, helmWorkloadInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -555,7 +555,7 @@ func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingHelmWorkloadInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingHelmWorkloadInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -620,7 +620,7 @@ func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingHelmWorkloadInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingHelmWorkloadInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 

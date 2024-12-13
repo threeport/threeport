@@ -11,7 +11,8 @@ import (
 const (
 	ObjectTypeEvent string = "Event"
 
-	PathEvents = "/v0/events"
+	PathEventVersions = "/events/versions"
+	PathEvents        = "/v0/events"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the

@@ -13,8 +13,10 @@ const (
 	ObjectTypeKubernetesRuntimeDefinition string = "KubernetesRuntimeDefinition"
 	ObjectTypeKubernetesRuntimeInstance   string = "KubernetesRuntimeInstance"
 
-	PathKubernetesRuntimeDefinitions = "/v0/kubernetes-runtime-definitions"
-	PathKubernetesRuntimeInstances   = "/v0/kubernetes-runtime-instances"
+	PathKubernetesRuntimeDefinitionVersions = "/kubernetes-runtime-definitions/versions"
+	PathKubernetesRuntimeDefinitions        = "/v0/kubernetes-runtime-definitions"
+	PathKubernetesRuntimeInstanceVersions   = "/kubernetes-runtime-instances/versions"
+	PathKubernetesRuntimeInstances          = "/v0/kubernetes-runtime-instances"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the

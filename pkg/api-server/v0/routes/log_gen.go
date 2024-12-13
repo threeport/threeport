@@ -10,7 +10,7 @@ import (
 
 // LogBackendRoutes sets up all routes for the LogBackend handlers.
 func LogBackendRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/log-backends/versions", h.GetLogBackendVersions)
+	e.GET(v0.PathLogBackendVersions, h.GetLogBackendVersions)
 
 	e.POST(v0.PathLogBackends, h.AddLogBackend)
 	e.GET(v0.PathLogBackends, h.GetLogBackends)
@@ -22,7 +22,7 @@ func LogBackendRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // LogStorageDefinitionRoutes sets up all routes for the LogStorageDefinition handlers.
 func LogStorageDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/log-storage-definitions/versions", h.GetLogStorageDefinitionVersions)
+	e.GET(v0.PathLogStorageDefinitionVersions, h.GetLogStorageDefinitionVersions)
 
 	e.POST(v0.PathLogStorageDefinitions, h.AddLogStorageDefinition)
 	e.GET(v0.PathLogStorageDefinitions, h.GetLogStorageDefinitions)
@@ -34,7 +34,7 @@ func LogStorageDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // LogStorageInstanceRoutes sets up all routes for the LogStorageInstance handlers.
 func LogStorageInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/log-storage-instances/versions", h.GetLogStorageInstanceVersions)
+	e.GET(v0.PathLogStorageInstanceVersions, h.GetLogStorageInstanceVersions)
 
 	e.POST(v0.PathLogStorageInstances, h.AddLogStorageInstance)
 	e.GET(v0.PathLogStorageInstances, h.GetLogStorageInstances)

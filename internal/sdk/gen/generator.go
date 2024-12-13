@@ -94,8 +94,12 @@ type ApiObjectGroup struct {
 	// properly.
 	TptctlConfigPathModels []string
 
-	// The details for each API object in the group.
+	// The details for each API object in the group.  Contains an API object for
+	// each version of each object.
 	ApiObjects []*ApiObject
+
+	// The details for each API object but not for each version of each object.
+	UnversionedApiObjects []*UnversionedApiObject
 
 	// The name of the object group's controller in kebab case, e.g.
 	// kubernetes-runtime-controller
@@ -125,7 +129,7 @@ type ApiObjectGroup struct {
 }
 
 // VersionedApiObjectCollection contains all API objects grouped by version and
-// then group in the way the API is organized.
+// then grouped in the way the API is organized.
 type VersionedApiObjectCollection struct {
 	// The version for all API objects.
 	Version string
@@ -134,6 +138,8 @@ type VersionedApiObjectCollection struct {
 	VersionedApiObjectGroups []VersionedApiObjectGroup
 }
 
+// VersionedApiObjectGroup contains all the API objects for a particular group
+// of a particular version.
 type VersionedApiObjectGroup struct {
 	// Object group name in short kebab case, e.g. kubernetes-runtime
 	Name string
@@ -142,8 +148,8 @@ type VersionedApiObjectGroup struct {
 	ApiObjects []*ApiObject
 }
 
-// ApiObject contains the values for a particular model.
-type ApiObject struct { // was: ModelConfig
+// ApiObject contains the values for a particular model of a particular version.
+type ApiObject struct {
 	// The name of the go package where the API object's data models is defined.
 	PackageName string
 
@@ -165,12 +171,20 @@ type ApiObject struct { // was: ModelConfig
 	// have code that includes passing the config path to config package object.
 	TptctlConfigPath bool
 
-	// Only applied to definition objects - if true, there is a corresponding
-	// instance object.
+	// Will be set to true on an instance object that is a part of a defined
+	// instance where the definition object has a Tptctl.ConfigPath set to true
+	// in the SDK config.
+	DefinedInstanceTptctlConfigPath bool
 
 	// Only applied to definition objects - if true, there is a corresponding
-	// instance object that a DefinedInstance conncection must be made with.
-	DefinedInstance bool
+	// instance object.  A defined instance abstraction will be generated.
+	// Ref: https://threeport.io/concepts/definitions-instances/#defined-instance-abstractions
+	DefinedInstanceDefinition bool
+
+	// Only applied to instance objects - if true, there is a corresponding
+	// definition object.  A defined instance abstraction will be generated.
+	// Ref: https://threeport.io/concepts/definitions-instances/#defined-instance-abstractions
+	DefinedInstanceInstance bool
 
 	// notification subjects
 	CreateSubject string
@@ -190,6 +204,32 @@ type ApiObject struct { // was: ModelConfig
 	PutMiddlewareFuncName    string
 	DeleteHandlerName        string
 	DeleteMiddlewareFuncName string
+}
+
+// UnversionedApiObject represents one API object regardless of how many
+// versions exist for that object.
+type UnversionedApiObject struct {
+	// All the available versions of this API object.
+	Versions []string
+
+	// The name of the object type.
+	TypeName string
+	// If true, generate tptctl commands for the model.
+	TptctlCommands bool
+
+	// If true, the config for the object, references another file and should
+	// have code that includes passing the config path to config package object.
+	TptctlConfigPath bool
+
+	// Will be set to true on an instance object that is a part of a defined
+	// instance where the definition object has a Tptctl.ConfigPath set to true
+	// in the SDK config.
+	DefinedInstanceTptctlConfigPath bool
+
+	// Only applied to instance objects - if true, there is a corresponding
+	// definition object.  A defined instance abstraction will be generated.
+	// Ref: https://threeport.io/concepts/definitions-instances/#defined-instance-abstractions
+	DefinedInstanceInstance bool
 }
 
 // ReconciledObject is a struct that contains the name and version of a
@@ -357,7 +397,36 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 						apiObjectGroup.Objects,
 					)
 					if definedInstance {
-						mc.DefinedInstance = true
+						mc.DefinedInstanceDefinition = true
+					}
+				}
+
+				// if an instance object, determine if a part of a
+				// DefinedInstance abstraction
+				if strings.HasSuffix(*obj.Name, "Instance") {
+					definedInstance, definitionName, _ := sdk.IsOfDefinedInstance(
+						*obj.Name,
+						apiObjectGroup.Objects,
+					)
+					if definedInstance {
+						mc.DefinedInstanceInstance = true
+						// determine if the definition paired with this instance
+						// has a TptctlConfigPath set in SDK config
+						definitionConfigObject, err := sdk.ApiObjectFromGroup(
+							definitionName,
+							apiObjectGroup,
+						)
+						if err != nil {
+							return fmt.Errorf(
+								"failed to get definition for instance in defined instance pair: %w",
+								err,
+							)
+						}
+						if definitionConfigObject.Tptctl != nil && definitionConfigObject.Tptctl.ConfigPath != nil {
+							if *definitionConfigObject.Tptctl.ConfigPath {
+								mc.DefinedInstanceTptctlConfigPath = true
+							}
+						}
 					}
 				}
 
@@ -622,6 +691,40 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 
 		// append the assembled ApiObjectGroup in the generator
 		g.ApiObjectGroups = append(g.ApiObjectGroups, genApiObjectGroup)
+	}
+
+	// add unversioned API objects with from API objects with all versions
+	// listed for each.  This is used in tptctl command generation where we need
+	// each unique API object with all its versions listed together.
+	for i, objGroup := range g.ApiObjectGroups {
+		var unversionedObjects []*UnversionedApiObject
+		for _, obj := range objGroup.ApiObjects {
+			foundUnversioned := false
+			for j, uvObj := range unversionedObjects {
+				if uvObj.TypeName == obj.TypeName {
+					foundUnversioned = true
+					unversionedObjects[j].Versions = append(
+						unversionedObjects[j].Versions,
+						obj.Version,
+					)
+				}
+			}
+			if !foundUnversioned {
+				unversionedObj := UnversionedApiObject{
+					Versions:                        []string{obj.Version},
+					TypeName:                        obj.TypeName,
+					TptctlCommands:                  obj.TptctlCommands,
+					TptctlConfigPath:                obj.TptctlConfigPath,
+					DefinedInstanceInstance:         obj.DefinedInstanceInstance,
+					DefinedInstanceTptctlConfigPath: obj.DefinedInstanceTptctlConfigPath,
+				}
+				unversionedObjects = append(
+					unversionedObjects,
+					&unversionedObj,
+				)
+			}
+		}
+		g.ApiObjectGroups[i].UnversionedApiObjects = unversionedObjects
 	}
 
 	////////////// populate Generator.VersionedApiObjectCollections //////////////

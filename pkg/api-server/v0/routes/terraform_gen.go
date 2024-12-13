@@ -10,7 +10,7 @@ import (
 
 // TerraformDefinitionRoutes sets up all routes for the TerraformDefinition handlers.
 func TerraformDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/terraform-definitions/versions", h.GetTerraformDefinitionVersions)
+	e.GET(v0.PathTerraformDefinitionVersions, h.GetTerraformDefinitionVersions)
 
 	e.POST(v0.PathTerraformDefinitions, h.AddTerraformDefinition)
 	e.GET(v0.PathTerraformDefinitions, h.GetTerraformDefinitions)
@@ -22,7 +22,7 @@ func TerraformDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 
 // TerraformInstanceRoutes sets up all routes for the TerraformInstance handlers.
 func TerraformInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET("/terraform-instances/versions", h.GetTerraformInstanceVersions)
+	e.GET(v0.PathTerraformInstanceVersions, h.GetTerraformInstanceVersions)
 
 	e.POST(v0.PathTerraformInstances, h.AddTerraformInstance)
 	e.GET(v0.PathTerraformInstances, h.GetTerraformInstances)

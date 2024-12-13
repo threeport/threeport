@@ -11,16 +11,13 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
-// v0SecretDefinitionCreated performs reconciliation when a v0 workload definition
+// v0SecretDefinitionCreated performs reconciliation when a v0 SecretDefinition
 // has been created.
 func v0SecretDefinitionCreated(
 	r *controller.Reconciler,
 	secretDefinition *v0.SecretDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-	fmt.Println("##############################################################")
-	fmt.Printf("%+v\n", secretDefinition)
-	fmt.Println("##############################################################")
 	// configure secret definition config
 	secretDefinitionConfig := &SecretDefinitionConfig{
 		r:                r,
@@ -36,7 +33,7 @@ func v0SecretDefinitionCreated(
 	return 0, nil
 }
 
-// v0SecretDefinitionUpdated performs reconciliation when a v0 workload definition
+// v0SecretDefinitionUpdated performs reconciliation when a v0 SecretDefinition
 // has been updated.
 func v0SecretDefinitionUpdated(
 	r *controller.Reconciler,
@@ -46,7 +43,7 @@ func v0SecretDefinitionUpdated(
 	return 0, nil
 }
 
-// v0SecretDefinitionDeleted performs reconciliation when a v0 workload definition
+// v0SecretDefinitionDeleted performs reconciliation when a v0 SecretDefinition
 // has been deleted.
 func v0SecretDefinitionDeleted(
 	r *controller.Reconciler,

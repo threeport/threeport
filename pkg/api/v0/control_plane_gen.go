@@ -13,8 +13,10 @@ const (
 	ObjectTypeControlPlaneDefinition string = "ControlPlaneDefinition"
 	ObjectTypeControlPlaneInstance   string = "ControlPlaneInstance"
 
-	PathControlPlaneDefinitions = "/v0/control-plane-definitions"
-	PathControlPlaneInstances   = "/v0/control-plane-instances"
+	PathControlPlaneDefinitionVersions = "/control-plane-definitions/versions"
+	PathControlPlaneDefinitions        = "/v0/control-plane-definitions"
+	PathControlPlaneInstanceVersions   = "/control-plane-instances/versions"
+	PathControlPlaneInstances          = "/v0/control-plane-instances"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the

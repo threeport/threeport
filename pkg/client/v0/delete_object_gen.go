@@ -76,6 +76,16 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 			return fmt.Errorf("failed to delete Event: %w", err)
 		}
 
+	case "v0.ExtensionApi":
+		if _, err := DeleteExtensionApi(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete ExtensionApi: %w", err)
+		}
+
+	case "v0.ExtensionApiRoute":
+		if _, err := DeleteExtensionApiRoute(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete ExtensionApiRoute: %w", err)
+		}
+
 	case "v0.GatewayDefinition":
 		if _, err := DeleteGatewayDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete GatewayDefinition: %w", err)

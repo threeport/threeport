@@ -44,7 +44,7 @@ func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 	var kubernetesRuntimeDefinition api_v0.KubernetesRuntimeDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, kubernetesRuntimeDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, kubernetesRuntimeDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -195,7 +195,7 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingKubernetesRuntimeDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingKubernetesRuntimeDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -260,7 +260,7 @@ func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingKubernetesRuntimeDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingKubernetesRuntimeDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -404,7 +404,7 @@ func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 	var kubernetesRuntimeInstance api_v0.KubernetesRuntimeInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, kubernetesRuntimeInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, kubernetesRuntimeInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -555,7 +555,7 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingKubernetesRuntimeInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingKubernetesRuntimeInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -620,7 +620,7 @@ func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingKubernetesRuntimeInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingKubernetesRuntimeInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 

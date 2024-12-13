@@ -44,7 +44,7 @@ func (h Handler) AddTerraformDefinition(c echo.Context) error {
 	var terraformDefinition api_v0.TerraformDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, terraformDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, terraformDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -195,7 +195,7 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingTerraformDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingTerraformDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -260,7 +260,7 @@ func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingTerraformDefinition); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingTerraformDefinition); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -404,7 +404,7 @@ func (h Handler) AddTerraformInstance(c echo.Context) error {
 	var terraformInstance api_v0.TerraformInstance
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, objectType, terraformInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, terraformInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -555,7 +555,7 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingTerraformInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingTerraformInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -620,7 +620,7 @@ func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, true, objectType, existingTerraformInstance); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingTerraformInstance); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 

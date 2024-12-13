@@ -8,6 +8,7 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
 
+	"github.com/threeport/threeport/internal/sdk"
 	"github.com/threeport/threeport/internal/sdk/gen"
 	"github.com/threeport/threeport/internal/sdk/util"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
@@ -15,7 +16,7 @@ import (
 
 // GenRoutes generates the functions that return all API server routes for each
 // object.
-func GenRoutes(gen *gen.Generator) error {
+func GenRoutes(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objCollection := range gen.VersionedApiObjectCollections {
 		for _, objGroup := range objCollection.VersionedApiObjectGroups {
 			pluralize := pluralize.NewClient()
@@ -55,8 +56,13 @@ func GenRoutes(gen *gen.Generator) error {
 					),
 				).Block(
 					Id("e").Dot("GET").Call(
-						Lit(
-							fmt.Sprintf("/%s/versions", pluralize.Pluralize(strcase.ToKebab(apiObj.TypeName), 2, false)),
+						Qual(
+							fmt.Sprintf(
+								"%s/pkg/api/%s",
+								gen.ModulePath,
+								objCollection.Version,
+							),
+							fmt.Sprintf("Path%sVersions", apiObj.TypeName),
 						),
 						Id("h").Dot(apiObj.GetVersionHandlerName),
 					),
