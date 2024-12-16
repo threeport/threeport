@@ -27,6 +27,8 @@ builds:
       - CGO_ENABLED=1
       - CC=clang
       - CXX=clang++
+      - CGO_CFLAGS=""
+      - CGO_LDFLAGS=""
     flags:
       - -trimpath
   - id: tptctl-darwin-arm64
@@ -40,6 +42,8 @@ builds:
       - CGO_ENABLED=1
       - CC=clang
       - CXX=clang++
+      - CGO_CFLAGS=""
+      - CGO_LDFLAGS=""
     flags:
       - -trimpath
   - id: tptctl-linux-amd64
@@ -183,7 +187,6 @@ archives:
     files:
       - README.md
     wrap_in_directory: true
-    strip_binary_directory: true
     allow_different_binary_count: true
 checksum:
   name_template: 'checksums.txt'
