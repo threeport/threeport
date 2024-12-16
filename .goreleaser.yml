@@ -27,7 +27,8 @@ builds:
       - CGO_ENABLED=1
       - CC=o64-clang
       - CXX=o64-clang++
-    flags: - -trimpath
+    flags:
+      - -trimpath
   - id: tptctl-darwin-arm64
     binary: tptctl
     main: cmd/tptctl/main.go
@@ -39,7 +40,8 @@ builds:
       - CGO_ENABLED=1
       - CC=o64-clang
       - CXX=o64-clang++
-    flags: - -trimpath
+    flags:
+      - -trimpath
   - id: tptctl-linux-amd64
     binary: tptctl
     main: cmd/tptctl/main.go
@@ -51,7 +53,8 @@ builds:
       - CGO_ENABLED=1
       - CC=x86_64-linux-gnu-gcc
       - CXX=x86_64-linux-gnu-g++
-    flags: - -trimpath
+    flags:
+      - -trimpath
   - id: threeport-sdk
     env:
       - CGO_ENABLED=0
