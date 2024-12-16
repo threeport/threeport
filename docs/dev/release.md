@@ -64,6 +64,12 @@ Re-apply the tag for the current release.
 git tag v0.4.0
 ```
 
+Push new commit to main branch.
+
+```bash
+git push origin main
+```
+
 Push the tag to trigger the release process with the CI fixes in place.
 
 ```bash

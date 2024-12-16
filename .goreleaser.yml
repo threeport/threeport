@@ -5,6 +5,8 @@ builds:
     env:
       - CGO_ENABLED=1
       - CC=aarch64-linux-gnu-gcc
+      - CGO_CFLAGS="-march=armv8-a"
+      - CGO_CFLAGS_ALLOW="-march=.*" # This will allow the march flag
     goos:
       - linux
       - windows
