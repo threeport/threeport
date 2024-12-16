@@ -16,36 +16,36 @@ builds:
   #      goarch: 386
   #  main: cmd/tptctl/main.go
   #  binary: tptctl
-  - id: tptctl-darwin-amd64
-    binary: tptctl
-    main: cmd/tptctl/main.go
-    goarch:
-      - amd64
-    goos:
-      - darwin
-    env:
-      - CGO_ENABLED=1
-      - CC=clang
-      - CXX=clang++
-      - CGO_CFLAGS=""
-      - CGO_LDFLAGS=""
-    flags:
-      - -trimpath
-  - id: tptctl-darwin-arm64
-    binary: tptctl
-    main: cmd/tptctl/main.go
-    goarch:
-      - arm64
-    goos:
-      - darwin
-    env:
-      - CGO_ENABLED=1
-      - CC=clang
-      - CXX=clang++
-      - CGO_CFLAGS=""
-      - CGO_LDFLAGS=""
-    flags:
-      - -trimpath
+  #- id: tptctl-darwin-amd64
+  #  binary: tptctl
+  #  main: cmd/tptctl/main.go
+  #  goarch:
+  #    - amd64
+  #  goos:
+  #    - darwin
+  #  env:
+  #    - CGO_ENABLED=1
+  #    - CC=clang
+  #    - CXX=clang++
+  #    - CGO_CFLAGS=""
+  #    - CGO_LDFLAGS=""
+  #  flags:
+  #    - -trimpath
+  #- id: tptctl-darwin-arm64
+  #  binary: tptctl
+  #  main: cmd/tptctl/main.go
+  #  goarch:
+  #    - arm64
+  #  goos:
+  #    - darwin
+  #  env:
+  #    - CGO_ENABLED=1
+  #    - CC=clang
+  #    - CXX=clang++
+  #    - CGO_CFLAGS=""
+  #    - CGO_LDFLAGS=""
+  #  flags:
+  #    - -trimpath
   - id: tptctl-linux-amd64
     binary: tptctl
     main: cmd/tptctl/main.go
