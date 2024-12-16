@@ -30,4 +30,19 @@ builds:
       - CGO_LDFLAGS=""
     flags:
       - -trimpath
+  - id: threeport-sdk
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+    main: cmd/sdk/main.go
+    binary: threeport-sdk
+archives:
+  - name_template: 'threeport_v{{ .Version }}_{{ title .Os }}_{{ if eq .Arch "amd64" }}x86_64{{ else if eq .Arch "386" }}i386{{ else }}{{ .Arch }}{{ end }}'
+    files:
+      - README.md
+    wrap_in_directory: true
+    allow_different_binary_count: true
+checksum:
+  name_template: 'checksums-darwin.txt'
 
