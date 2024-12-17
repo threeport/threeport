@@ -1,4 +1,4 @@
-<img src="docs/img/threeport-logo-green.jpg">
+<img src="docs/dev/img/threeport-logo-green.jpg">
 
 An application orchestration control plane.
 
@@ -46,10 +46,4 @@ API that are used for critical production systems.  With the 1.0 release, APIs
 will stabilize and guarantee backward compatibility.  Additionally, there are
 security concerns and observability systems which are crucial for production
 that are not yet implemented.
-
-## Managed Threeport Providers
-
-[Qleet](https://qleet.io) provides a fully managed threeport service that
-lets teams deliver their software into their own cloud provider accounts using
-Threeport.
 
