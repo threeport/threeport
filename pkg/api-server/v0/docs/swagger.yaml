@@ -843,6 +843,40 @@ definitions:
     - ReportingController
     - Type
     type: object
+  v0.ExtensionApi:
+    properties:
+      Endpoint:
+        description: |-
+          The extension API server's endpoint to proxy requests to for extension
+          objects.
+        type: string
+      ExtensionApiRoutes:
+        description: |-
+          The routes as URL paths to proxy requests to the API server's endpoint.
+          All supported routes for an extension API should be added so that it is
+          proxied.
+        items:
+          $ref: '#/definitions/v0.ExtensionApiRoute'
+        type: array
+      Name:
+        description: An arbitrary name for the extension API.
+        type: string
+    required:
+    - Endpoint
+    - Name
+    type: object
+  v0.ExtensionApiRoute:
+    properties:
+      ExtensionApiId:
+        description: The extension Api this route belongs to.
+        type: integer
+      Path:
+        description: The URL path supported by the extension API.
+        type: string
+    required:
+    - ExtensionApiId
+    - Path
+    type: object
   v0.GatewayDefinition:
     properties:
       CreationAcknowledged:
@@ -2721,7 +2755,7 @@ info:
   description: Core API server for the Threeport application orchestration control
     plane.
   title: Threeport RESTful API
-  version: v0.6.0-dev
+  version: v0.6.0
 paths:
   /attached-object-references/versions:
     get:
@@ -2891,6 +2925,32 @@ paths:
           schema:
             $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetEventVersions gets the supported versions for the event API.
+  /extension-api-routes/versions:
+    get:
+      description: Get the supported API versions for extension api routes.
+      operationId: extensionApiRoute-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.ApiObjectVersions'
+      summary: GetExtensionApiRouteVersions gets the supported versions for the extension
+        api route API.
+  /extension-apis/versions:
+    get:
+      description: Get the supported API versions for extension apis.
+      operationId: extensionApi-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.ApiObjectVersions'
+      summary: GetExtensionApiVersions gets the supported versions for the extension
+        api API.
   /gateway-definitions/versions:
     get:
       description: Get the supported API versions for gateway definitions.
@@ -5850,6 +5910,404 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing event by replacing the entire object.
+  /v0/extension-api-routes:
+    get:
+      consumes:
+      - application/json
+      description: Get all extension api routes from the Threeport database.
+      operationId: get-v0-extensionApiRoutes
+      parameters:
+      - description: extension api route search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all extension api routes.
+    post:
+      consumes:
+      - application/json
+      description: Add a new extension api route to the Threeport database.
+      operationId: add-v0-extensionApiRoute
+      parameters:
+      - description: ExtensionApiRoute object
+        in: body
+        name: extensionApiRoute
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ExtensionApiRoute'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new extension api route.
+  /v0/extension-api-routes/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a extension api route by ID from the database.
+      operationId: delete-v0-extensionApiRoute
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a extension api route.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular extension api route from the database.
+      operationId: get-v0-extensionApiRoute
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a extension api route.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a extension api route in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating extension api route objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-v0-extensionApiRoute
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ExtensionApiRoute object
+        in: body
+        name: extensionApiRoute
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ExtensionApiRoute'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing extension api route.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a extension api route in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating extension api route objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-v0-extensionApiRoute
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ExtensionApiRoute object
+        in: body
+        name: extensionApiRoute
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ExtensionApiRoute'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing extension api route by replacing the entire object.
+  /v0/extension-apis:
+    get:
+      consumes:
+      - application/json
+      description: Get all extension apis from the Threeport database.
+      operationId: get-v0-extensionApis
+      parameters:
+      - description: extension api search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all extension apis.
+    post:
+      consumes:
+      - application/json
+      description: Add a new extension api to the Threeport database.
+      operationId: add-v0-extensionApi
+      parameters:
+      - description: ExtensionApi object
+        in: body
+        name: extensionApi
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ExtensionApi'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new extension api.
+  /v0/extension-apis/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a extension api by ID from the database.
+      operationId: delete-v0-extensionApi
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a extension api.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular extension api from the database.
+      operationId: get-v0-extensionApi
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a extension api.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a extension api in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating extension api objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-v0-extensionApi
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ExtensionApi object
+        in: body
+        name: extensionApi
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ExtensionApi'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing extension api.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a extension api in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating extension api objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-v0-extensionApi
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ExtensionApi object
+        in: body
+        name: extensionApi
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ExtensionApi'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing extension api by replacing the entire object.
   /v0/gateway-definitions:
     get:
       consumes:
