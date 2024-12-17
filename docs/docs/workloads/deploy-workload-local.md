@@ -20,7 +20,7 @@ cd threeport-test
 Download a sample workload config as follows:
 
 ```bash
-curl -O https://raw.githubusercontent.com/threeport/threeport/main/samples/wordpress-workload-local.yaml
+curl -O https://raw.githubusercontent.com/threeport/threeport/main/samples/workload/wordpress-workload-local.yaml
 ```
 
 You now have the workload config on your local file system.  If you open the file you'll
@@ -39,7 +39,7 @@ The `YAMLDocument` field refers to another file with the Kubernetes resource
 manifests.  Download that file as well:
 
 ```bash
-curl -O https://raw.githubusercontent.com/threeport/threeport/main/samples/wordpress-manifest-local.yaml
+curl -O https://raw.githubusercontent.com/threeport/threeport/main/samples/workload/wordpress-manifest-local.yaml
 ```
 
 ## Create Workload
