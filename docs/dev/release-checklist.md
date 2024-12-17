@@ -8,6 +8,8 @@
   locally
 - [] Ensure builds for any new binaries and conatainers are included in
   `.goreleaser.yml`.
+- [] Ensure `mage dev:generateDocs` has been run to update version in Swagger
+  docs.
 - [] Run local e2e tests as documented in [testing docs](testing.md)
 - [] Pull latest changes for feature branch, build tptctl and container images,
   test manually using Threeport user doc guides.  Ensure guides work as
