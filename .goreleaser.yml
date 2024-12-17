@@ -12,8 +12,6 @@ builds:
       - CGO_ENABLED=1
       - CC=x86_64-linux-gnu-gcc
       - CXX=x86_64-linux-gnu-g++
-    flags:
-      - -trimpath
   - id: threeport-sdk
     env:
       - CGO_ENABLED=0

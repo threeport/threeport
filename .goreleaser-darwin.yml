@@ -13,8 +13,6 @@ builds:
       - CXX=clang++
       - CGO_CFLAGS=""
       - CGO_LDFLAGS=""
-    flags:
-      - -trimpath
   - id: tptctl-darwin-arm64
     binary: tptctl
     main: cmd/tptctl/main.go
@@ -28,8 +26,6 @@ builds:
       - CXX=clang++
       - CGO_CFLAGS=""
       - CGO_LDFLAGS=""
-    flags:
-      - -trimpath
   - id: threeport-sdk
     env:
       - CGO_ENABLED=0
