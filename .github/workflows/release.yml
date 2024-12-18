@@ -19,6 +19,9 @@ jobs:
       with:
         go-version-file: 'go.mod'
 
+    - name: Check go version
+      run: go version
+
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@v5.0.0
       with:
@@ -26,6 +29,9 @@ jobs:
         args: release --clean -f ./.goreleaser-darwin.yml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Check pflag version
+      run: go list -m -json all | jq -r 'select(.Path == "github.com/spf13/pflag") | .Version'
 
   goreleaser:
     runs-on: ubuntu-22.04
