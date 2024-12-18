@@ -1,8 +1,6 @@
 module github.com/threeport/threeport
 
-go 1.22.0
-
-toolchain go1.22.2
+go 1.22.10
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.26.1
@@ -56,8 +54,6 @@ require (
 	sigs.k8s.io/kind v0.22.0
 	sigs.k8s.io/yaml v1.4.0
 )
-
-replace github.com/threeport/threeport/041 v0.4.1 => github.com/threeport/threeport v0.4.1
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
