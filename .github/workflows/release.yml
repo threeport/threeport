@@ -22,6 +22,9 @@ jobs:
     - name: Check go version
       run: go version
 
+    - name: Check go environment
+      run: go env
+
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@v5.0.0
       with:
@@ -29,9 +32,6 @@ jobs:
         args: release --clean -f ./.goreleaser-darwin.yml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Check pflag version
-      run: go list -m -json all | jq -r 'select(.Path == "github.com/spf13/pflag") | .Version'
 
   goreleaser:
     runs-on: ubuntu-22.04
@@ -57,6 +57,12 @@ jobs:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GH_ACCESS_TOKEN }}
+
+    - name: Check go version
+      run: go version
+
+    - name: Check go environment
+      run: go env
 
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@v5.0.0
