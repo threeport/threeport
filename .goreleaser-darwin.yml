@@ -8,18 +8,18 @@ builds:
     goos:
       - darwin
     env:
-      - GCCGO="gccgo"
-      - AR="ar"
-      - CC="clang"
-      - CXX="clang++"
-      - CGO_ENABLED="1"
-      - CGO_CFLAGS="-O2 -g"
+      - GCCGO=gccgo
+      - AR=ar
+      - CC=clang
+      - CXX=clang++
+      - CGO_ENABLED=1
+      - CGO_CFLAGS=-O2 -g
       - CGO_CPPFLAGS=""
-      - CGO_CXXFLAGS="-O2 -g"
-      - CGO_FFLAGS="-O2 -g"
-      - CGO_LDFLAGS="-O2 -g"
-      - PKG_CONFIG="pkg-config"
-      - GOGCCFLAGS="-fPIC -arch amd64 -pthread -fno-caret-diagnostics -Qunused-arguments -fmessage-length=0 -ffile-prefix-map=/var/folders/wm/z_xwbqnn3vq70c82bv3wcdd40000gn/T/go-build4024893129=/tmp/go-build -gno-record-gcc-switches -fno-common"
+      - CGO_CXXFLAGS=-O2 -g
+      - CGO_FFLAGS=-O2 -g
+      - CGO_LDFLAGS=-O2 -g
+      - PKG_CONFIG=pkg-config
+      - GOGCCFLAGS=-fPIC -arch amd64 -pthread -fno-caret-diagnostics -Qunused-arguments -fmessage-length=0 -ffile-prefix-map=/var/folders/wm/z_xwbqnn3vq70c82bv3wcdd40000gn/T/go-build4024893129=/tmp/go-build -gno-record-gcc-switches -fno-common
   - id: tptctl-darwin-arm64
     binary: tptctl
     main: cmd/tptctl/main.go
@@ -28,18 +28,18 @@ builds:
     goos:
       - darwin
     env:
-      - GCCGO="gccgo"
-      - AR="ar"
-      - CC="clang"
-      - CXX="clang++"
-      - CGO_ENABLED="1"
-      - CGO_CFLAGS="-O2 -g"
+      - GCCGO=gccgo
+      - AR=ar
+      - CC=clang
+      - CXX=clang++
+      - CGO_ENABLED=1
+      - CGO_CFLAGS=-O2 -g
       - CGO_CPPFLAGS=""
-      - CGO_CXXFLAGS="-O2 -g"
-      - CGO_FFLAGS="-O2 -g"
-      - CGO_LDFLAGS="-O2 -g"
-      - PKG_CONFIG="pkg-config"
-      - GOGCCFLAGS="-fPIC -arch arm64 -pthread -fno-caret-diagnostics -Qunused-arguments -fmessage-length=0 -ffile-prefix-map=/var/folders/wm/z_xwbqnn3vq70c82bv3wcdd40000gn/T/go-build4024893129=/tmp/go-build -gno-record-gcc-switches -fno-common"
+      - CGO_CXXFLAGS=-O2 -g
+      - CGO_FFLAGS=-O2 -g
+      - CGO_LDFLAGS=-O2 -g
+      - PKG_CONFIG=pkg-config
+      - GOGCCFLAGS=-fPIC -arch arm64 -pthread -fno-caret-diagnostics -Qunused-arguments -fmessage-length=0 -ffile-prefix-map=/var/folders/wm/z_xwbqnn3vq70c82bv3wcdd40000gn/T/go-build4024893129=/tmp/go-build -gno-record-gcc-switches -fno-common
   - id: threeport-sdk
     env:
       - CGO_ENABLED=0
