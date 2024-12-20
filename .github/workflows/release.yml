@@ -52,7 +52,7 @@ jobs:
     - name: Upload tptctl for mac
       uses: actions/upload-artifact@v3
       with:
-        name: threeport-${{ runner.os }}-${{ matrix.arch }}
+        name: threeport-${{ matrix.os }}-${{ matrix.arch }}
         path: release/tptctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
 
     - name: Create GitHub Release
