@@ -159,6 +159,7 @@ func (Build) Tptctl(goos, goarch string) error {
 	buildTptctlCmd := exec.Command(
 		"go",
 		"build",
+		"-trimpath",
 		"-o",
 		"bin/tptctl",
 		"cmd/tptctl/main.go",
