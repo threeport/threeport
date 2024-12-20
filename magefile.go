@@ -166,6 +166,7 @@ func (Build) Tptctl(goos, goarch string) error {
 
 	buildTptctlCmd.Env = append(
 		os.Environ(),
+		"GOTMPDIR=/tmp/go-tmp",
 		fmt.Sprintf("GOOS=%s", goos),
 		fmt.Sprintf("GOARCH=%s", goarch),
 	)
