@@ -64,7 +64,17 @@ jobs:
           This release includes the CLI binary for `tptctl`. Download the binary for your platform and install it in your `$PATH`.
         draft: false
         prerelease: false
-        files: release/tptctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+        #files: release/tptctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Release Assets
+      uses: actions/upload-release-asset@v1
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: release/tptctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+        asset_name: tptctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+        asset_content_type: application/gzip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
