@@ -42,17 +42,24 @@ jobs:
     - name: Build tptctl
       run: mage build:tptctl ${{ matrix.os }} ${{ matrix.arch }}
 
+    - name: Archive binary
+      run: |
+        mkdir -p release
+        mv bin/tptctl release/tptctl-${{ matrix.os }}-${{ matrix.arch }}
+        tar -czvf release/tptctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz -C release tptctl-${{ matrix.os }}-${{ matrix.arch }}
+      shell: bash
+
     - name: Upload tptctl for mac
       uses: actions/upload-artifact@v3
       with:
-        name: threeport_v0.6.0_Darwin_arm64
-        path: bin/tptctl
+        name: threeport-${{ runner.os }}-${{ matrix.arch }}
+        path: release/tptctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
 
     - name: Create GitHub Release
       uses: actions/create-release@v1
       with:
         tag_name: ${{ github.ref_name }}
-        release_name: Release ${{ github.ref_name }}
+        release_name: ${{ github.ref_name }}
         body: |
           This release includes the CLI binary for `tptctl`. Download the binary for your platform and install it in your `$PATH`.
         draft: false
