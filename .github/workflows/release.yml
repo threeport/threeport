@@ -36,6 +36,12 @@ jobs:
     - name: Clean Go build cache
       run: go clean -cache -modcache
 
+    - name: Set consistent GOTMPDIR
+      run: |
+        export GOTMPDIR=/tmp/go-tmp
+        mkdir -p $GOTMPDIR
+        echo "Using GOTMPDIR=$GOTMPDIR"
+
     - name: Debug ouput
       run: |
         go version
