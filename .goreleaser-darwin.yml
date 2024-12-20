@@ -7,6 +7,8 @@ builds:
       - amd64
     goos:
       - darwin
+    flags:
+      - -trimpath
     env:
       - GCCGO=gccgo
       - AR=ar
@@ -27,6 +29,8 @@ builds:
       - arm64
     goos:
       - darwin
+    flags:
+      - -trimpath
     env:
       - GCCGO=gccgo
       - AR=ar
