@@ -34,12 +34,12 @@ jobs:
       run: go install github.com/magefile/mage@latest
 
     - name: Debug ouput
-	  run: |
-		go version
-		go env
-		go list -m all
-		go mod graph
-		go clean -cache -modcache
+      run: |
+        go version
+        go env
+        go list -m all
+        go mod graph
+        go clean -cache -modcache
 
     #- name: Check go version
     #  run: go version
