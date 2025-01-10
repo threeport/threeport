@@ -9,8 +9,8 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"plugin"
 
 	"github.com/spf13/cobra"
 
@@ -40,7 +40,7 @@ Visit https://threeport.io for more information.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	// load plugins
+	// find installed plugins
 	pluginDir, ok := os.LookupEnv("THREEPORT_PLUGIN_DIR")
 	if !ok {
 		p, err := config.DefaultPluginDir()
@@ -50,8 +50,45 @@ func Execute() {
 		}
 		pluginDir = p
 	}
-	loadPlugins(pluginDir)
+	installedPlugins := loadPlugins(pluginDir)
 
+	// validate that no naming colisions exist between plugins and core commands
+	var validatedPlugins []string
+	for _, plug := range installedPlugins {
+		validated := true
+		for _, cmd := range rootCmd.Commands() {
+			if cmd.Use == plug {
+				cli.Warning(fmt.Sprintf(
+					"plugin '%s' conflicts with core tptctl command - plugin ignored",
+					plug,
+				))
+				validated = false
+			}
+		}
+		if validated {
+			validatedPlugins = append(validatedPlugins, plug)
+		}
+	}
+
+	// call plugin executable if given as first arg to tptctl
+	for _, plugFile := range validatedPlugins {
+		if len(os.Args) > 1 && os.Args[1] == filepath.Base(plugFile) {
+			plugArgs := os.Args[2:]
+			plugCmd := exec.Command(plugFile, plugArgs...)
+			output, err := plugCmd.CombinedOutput()
+			if err != nil {
+				cli.Error(
+					fmt.Sprintf("failed to run plugin %s with output %s", filepath.Base(plugFile), output),
+					err,
+				)
+				os.Exit(1)
+			}
+			fmt.Println(string(output))
+			os.Exit(0)
+		}
+	}
+
+	// execute core commands
 	err := rootCmd.Execute()
 	if err != nil {
 		cli.Error("", err)
@@ -144,13 +181,13 @@ func GetClientContext(cmd *cobra.Command) (*http.Client, *config.ThreeportConfig
 }
 
 // loadPlugins loads all tptctl plugins in the plugin dir.
-func loadPlugins(pluginDir string) {
+func loadPlugins(pluginDir string) []string {
 	// check if plugin dir exists
 	if _, err := os.Stat(pluginDir); err != nil {
 		if os.IsNotExist(err) {
 			// plugin dir does not exist - assume no plugins installed
 			cli.Warning("no plugins installed")
-			return
+			return []string{}
 		} else {
 			cli.Error("failed to check for plugin directory", err)
 			os.Exit(1)
@@ -174,24 +211,5 @@ func loadPlugins(pluginDir string) {
 		os.Exit(1)
 	}
 
-	// load each plugin
-	for _, file := range pluginFiles {
-		if filepath.Ext(file) == ".so" {
-			cli.Info(fmt.Sprintf("loading plugin %s", file))
-			p, err := plugin.Open(file)
-			if err != nil {
-				cli.Warning(fmt.Sprintf("failed to load plugin %s: %v", file, err))
-				continue
-			}
-
-			cmdFunc, err := p.Lookup("Register")
-			if err != nil {
-				cli.Warning(fmt.Sprintf("failed to find Register function in plugin %s: %v", file, err))
-				continue
-			}
-
-			registerFunc := cmdFunc.(func(*cobra.Command, *cli.GenesisControlPlaneCLIArgs))
-			registerFunc(rootCmd, cliArgs)
-		}
-	}
+	return pluginFiles
 }
