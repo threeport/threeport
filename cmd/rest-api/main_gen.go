@@ -7,10 +7,6 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
-	"net/http"
-	"os"
-	"path/filepath"
-
 	validator "github.com/go-playground/validator/v10"
 	godotenv "github.com/joho/godotenv"
 	echo "github.com/labstack/echo/v4"
@@ -27,6 +23,9 @@ import (
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	zap "go.uber.org/zap"
+	"net/http"
+	"os"
+	"path/filepath"
 )
 
 // @title Threeport RESTful API
