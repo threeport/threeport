@@ -57,10 +57,11 @@ func Execute() {
 	for _, plug := range installedPlugins {
 		validated := true
 		for _, cmd := range rootCmd.Commands() {
-			if cmd.Use == plug {
+			if cmd.Use == filepath.Base(plug) {
 				cli.Warning(fmt.Sprintf(
-					"plugin '%s' conflicts with core tptctl command - plugin ignored",
+					"plugin '%s' conflicts with core 'tptctl %s' command - plugin ignored",
 					plug,
+					cmd.Use,
 				))
 				validated = false
 			}
