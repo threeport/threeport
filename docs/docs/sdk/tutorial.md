@@ -2397,24 +2397,12 @@ Next, let's build the `tptctl` plugin for the WordPress extension.
 mage build:plugin
 ```
 
-> Note:  If you're using a Mac, you may encounter security restrictions that
-> prevent your workstation from running the plugin.  If, when you run it, you
-> see output similar to this:
-> ``` bash
-> [1]    40259 killed     tptctl wordpress -h
-> ```
-> Then run the following command.
-> ```bash
-> codesign -f -s - bin/wordpress.so
-> ```
-> Then repeat the two steps below to install and test the plugin.
-
-Now, we can install the plugin.  If you'd like to install the plugin to a
-different location from the default `~/.threeport/plugins`, see the usage
-information with `tptctl help` for more info.
+To install a tptctl plugin, simply copy the plugin binary to the tptctl plugin
+directory - by default `~/.threeport/plugins`.  See `tptctl help` for more info
+on installing tptctl plugins.
 
 ```bash
-cp bin/wordpress.so ~/.threeport/plugins/
+cp bin/wordpress ~/.threeport/plugins/
 ```
 
 Check the plugin was successfully installed.
@@ -2423,33 +2411,45 @@ Check the plugin was successfully installed.
 tptctl wordpress -h
 ```
 
+> Note:  If you're using a Mac, you may encounter security restrictions that
+> prevent your workstation from running the plugin.  If, when you run it, you
+> see output similar to this:
+> ``` bash
+> [1]    40259 killed     tptctl wordpress -h
+> ```
+> Then run the following command.
+> ```bash
+> codesign -f -s - bin/wordpress
+> ```
+> Then repeat the two steps below to install and test the plugin.
+
 You should see the help output for the wordpress plugin similar to that shown below.
 
 ```bash
-Info: loading plugin /Users/lander2k2/.threeport/plugins/wordpress.so
 Manage the Wordpress Threeport extension
 
 Usage:
-  tptctl wordpress [command]
+  wordpress [command]
 
 Available Commands:
+  completion  Generate the autocompletion script for the specified shell
   create      Create a Threeport Wordpress object
   delete      Delete a Threeport Wordpress object
   describe    Describe a Threeport Wordpress object
   get         Get a Threeport Wordpress object
+  help        Help about any command
   install     Install the Wordpress extension to an existing Threeport control plane
 
 Flags:
-  -h, --help   help for wordpress
-
-Global Flags:
+  -h, --help                      help for wordpress
       --provider-config string    Path to infra provider config directory (default is $HOME/.threeport/).
       --threeport-config string   Path to config file (default is $HOME/.threeport/config.yaml). Can also be set with environment variable THREEPORT_CONFIG
+  -t, --toggle                    Help message for toggle
 
 Additional help topics:
-  tptctl wordpress update Update a Threeport Wordpress object
+  wordpress update     Update a Threeport Wordpress object
 
-Use "tptctl wordpress [command] --help" for more information about a command.
+Use "wordpress [command] --help" for more information about a command.
 ```
 
 Next, we need to build the binaries and container images for each containerized
