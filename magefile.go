@@ -155,21 +155,13 @@ func (Install) Tptdev() error {
 }
 
 // Tptctl builds tptctl binary.
-func (Build) Tptctl(goos, goarch string) error {
+func (Build) Tptctl() error {
 	buildTptctlCmd := exec.Command(
 		"go",
 		"build",
-		"-trimpath",
 		"-o",
 		"bin/tptctl",
 		"cmd/tptctl/main.go",
-	)
-
-	buildTptctlCmd.Env = append(
-		os.Environ(),
-		"GOTMPDIR=/tmp/go-tmp",
-		fmt.Sprintf("GOOS=%s", goos),
-		fmt.Sprintf("GOARCH=%s", goarch),
 	)
 	output, err := buildTptctlCmd.CombinedOutput()
 	if err != nil {
@@ -181,29 +173,10 @@ func (Build) Tptctl(goos, goarch string) error {
 	return nil
 }
 
-//// Tptctl builds tptctl binary.
-//func (Build) TptctlDev() error {
-//	buildTptctlCmd := exec.Command(
-//		"go",
-//		"build",
-//		"-o",
-//		"bin/tptctl",
-//		"cmd/tptctl/main.go",
-//	)
-//	output, err := buildTptctlCmd.CombinedOutput()
-//	if err != nil {
-//		return fmt.Errorf("build failed for tptctl binary with output: '%s': %w", output, err)
-//	}
-//
-//	fmt.Println("tptctl binary built and available at bin/tptctl")
-//
-//	return nil
-//}
-
 // Tptctl installs the tptctl binary at the provided path.
 func (Install) Tptctl(path string) error {
 	build := Build{}
-	if err := build.Tptctl("darwin", "arm64"); err != nil {
+	if err := build.Tptctl(); err != nil {
 		return fmt.Errorf("failed to build tptctl: %w", err)
 	}
 

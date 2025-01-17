@@ -1027,10 +1027,9 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Line().Lit("build"),
 				Line().Lit("-o"),
 				Line().Lit(fmt.Sprintf(
-					"bin/%s.so",
+					"bin/%s",
 					strcase.ToKebab(sdkConfig.ExtensionName),
 				)),
-				Line().Lit("-buildmode=plugin"),
 				Line().Lit(fmt.Sprintf(
 					"cmd/%s/main_gen.go",
 					strcase.ToSnake(sdkConfig.ExtensionName),
@@ -1050,7 +1049,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line(),
 
 			Qual("fmt", "Println").Call(Lit(fmt.Sprintf(
-				"tptctl plugin built and available at bin/%s.so",
+				"tptctl plugin built and available at bin/%s",
 				strcase.ToKebab(sdkConfig.ExtensionName),
 			))),
 			Line(),

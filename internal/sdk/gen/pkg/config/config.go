@@ -54,8 +54,9 @@ func GenConfig(gen *gen.Generator) error {
 					instValuesVar := strcase.ToLowerCamel(instValuesObjectName)
 
 					f.Comment(fmt.Sprintf(
-						"%s contains the config for a wordpress which is an abstraction",
+						"%s contains the config for a %s which is an abstraction",
 						defInstConfigObjectName,
+						defInstObjectHuman,
 					))
 					f.Comment(fmt.Sprintf(
 						"of a %s definition and %[1]s instance.",
