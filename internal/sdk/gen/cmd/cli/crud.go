@@ -48,9 +48,7 @@ func GenPluginCrudCmds(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		f.Line()
 
 		f.Func().Id("init").Params().Block(
-			Id(
-				fmt.Sprintf("%sCmd", strcase.ToCamel(sdkConfig.ExtensionName)),
-			).Dot("AddCommand").Call(Id(fmt.Sprintf("%sCmd", crudCmdUpper))),
+			Id("rootCmd").Dot("AddCommand").Call(Id(fmt.Sprintf("%sCmd", crudCmdUpper))),
 		)
 
 		// write code to file if it doesn't already exist

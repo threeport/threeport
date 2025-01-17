@@ -93,8 +93,7 @@ type WordpressInstance struct {
 ```
 
 This constitutes your Threeport extension's data model.  Add fields to these
-objects for information that will need to be persisted that will configure the
-workloads that constitute your app.
+objects for config information that will need to be persisted.
 
 Add the following fields so that the file looks as follows when you are
 finished.
@@ -432,12 +431,407 @@ import (
 )
 ```
 
+
+### Updates to `internal/wordpress/v0_wordpress_instance.go`
+
+Lastly, let's add the operations to mange `WordpressInstance` objects.  The
+scaffolding for this is in `internal/wordpress/v0_wordpress_instance.go`.  If
+you open that file, you'll see empty functions to create, update and delete
+these objects.  Again, when actions are executed through the Threeport API,
+these functions will be called to reconcile the desired operations.
+
+Update the `v0WordpressInstanceCreated` function as shown below.
+
+```go
+// v0WordpressInstanceCreated performs reconciliation when a v0 WordpressInstance
+// has been created.
+func v0WordpressInstanceCreated(
+	r *controller.Reconciler,
+	wordpressInstance *v0.WordpressInstance,
+	log *logr.Logger,
+) (int64, error) {
+	// get attached Kubernetes runtime instance ID
+	kubernetesRuntimeInstanceId, err := tpclient.GetObjectIdByAttachedObject(
+		r.APIClient,
+		r.APIServer,
+		tpapi.ObjectTypeKubernetesRuntimeInstance,
+		v0.ObjectTypeWordpressInstance,
+		*wordpressInstance.ID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get Kubernetes runtime instance by attachment: %w", err)
+	}
+
+	// get workload definition attached to wordpress definition
+	workloadDefinitionId, err := tpclient.GetObjectIdByAttachedObject(
+		r.APIClient,
+		r.APIServer,
+		tpapi.ObjectTypeWorkloadDefinition,
+		v0.ObjectTypeWordpressDefinition,
+		*wordpressInstance.WordpressDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get workload definition by attachment: %w", err)
+	}
+
+	// create workload instance if it doesn't already exist
+	nameQuery := fmt.Sprintf("name=%s", *wordpressInstance.Name)
+	existingWorkloadInstances, err := tpclient.GetWorkloadInstancesByQueryString(
+		r.APIClient,
+		r.APIServer,
+		nameQuery,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to check for workload instance with name %s: %w", *wordpressInstance.Name, err)
+	}
+	var createdWorkloadInstance *tpapi.WorkloadInstance
+	if len(*existingWorkloadInstances) == 0 {
+		workloadInstance := tpapi.WorkloadInstance{
+			Instance: tpapi.Instance{
+				Name: wordpressInstance.Name,
+			},
+			KubernetesRuntimeInstanceID: kubernetesRuntimeInstanceId,
+			WorkloadDefinitionID:        workloadDefinitionId,
+		}
+		createdWorkloadInst, err := tpclient.CreateWorkloadInstance(
+			r.APIClient,
+			r.APIServer,
+			&workloadInstance,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create workload instance: %w", err)
+		}
+		createdWorkloadInstance = createdWorkloadInst
+	}
+
+	// establish attachment between wordpress instance and workload instance
+	if err := tpclient.EnsureAttachedObjectReferenceExists(
+		r.APIClient,
+		r.APIServer,
+		tpapi.ObjectTypeWorkloadInstance,
+		createdWorkloadInstance.ID,
+		v0.ObjectTypeWordpressInstance,
+		wordpressInstance.ID,
+	); err != nil {
+		return 0, fmt.Errorf("failed to attach wordpress instance to workload instance: %w", err)
+	}
+
+	// get wordpress definition
+	wordpressDefinition, err := client.GetWordpressDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*wordpressInstance.WordpressDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get wordpress definition: %w", err)
+	}
+
+	// get infra provider for kubernetes runtime - needed to determine storage
+	// class for wordpress PVC
+	infraProvider, err := tpclient.GetInfraProviderByKubernetesRuntimeInstanceID(
+		r.APIClient,
+		r.APIServer,
+		kubernetesRuntimeInstanceId,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to determine infra provider for Kubernetes runtime: %w", err)
+	}
+
+	// get the manifest for the PVC
+	pvcManifest, err := getPvcManifest(
+		*infraProvider,
+		*wordpressDefinition.Name,
+		*wordpressDefinition.Environment,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get Kubernetes manifest for persistent volume claim: %w", err)
+	}
+
+	// create the workload resource instance for the PVC
+	pvcWri := tpapi.WorkloadResourceInstance{
+		JSONDefinition:     pvcManifest,
+		WorkloadInstanceID: createdWorkloadInstance.ID,
+	}
+	_, err = tpclient.CreateWorkloadResourceInstance(
+		r.APIClient,
+		r.APIServer,
+		&pvcWri,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create workload resource instance for persistent volume claim: %w", err)
+	}
+
+	// trigger reconciliation to create the PVC
+	unreconciledWorkloadInstance := tpapi.WorkloadInstance{
+		Common: tpapi.Common{
+			ID: createdWorkloadInstance.ID,
+		},
+		Reconciliation: tpapi.Reconciliation{
+			Reconciled: util.Ptr(false),
+		},
+	}
+	_, err = tpclient.UpdateWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		&unreconciledWorkloadInstance,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to update workload instance as unreconciled: %w", err)
+	}
+
+	// create relational database instance if requested
+	if *wordpressDefinition.ManagedDatabase {
+		// get relational database definition ID
+		awsRdsDefinitionId, err := tpclient.GetObjectIdByAttachedObject(
+			r.APIClient,
+			r.APIServer,
+			tpapi.ObjectTypeAwsRelationalDatabaseDefinition,
+			v0.ObjectTypeWordpressDefinition,
+			*wordpressDefinition.ID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get AWS relational database definition ID by attachment: %w", err)
+		}
+		// construct relational database instance
+		awsRdsInstance := tpapi.AwsRelationalDatabaseInstance{
+			Instance: tpapi.Instance{
+				Name: wordpressInstance.Name,
+			},
+			AwsRelationalDatabaseDefinitionID: awsRdsDefinitionId,
+			WorkloadInstanceID:                createdWorkloadInstance.ID,
+		}
+		// create relational database instance
+		createdRdsInstance, err := tpclient.CreateAwsRelationalDatabaseInstance(
+			r.APIClient,
+			r.APIServer,
+			&awsRdsInstance,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create AWS relational database instance: %w", err)
+		}
+		// establish attachment between wordpress instance and relational
+		// database instance
+		if err := tpclient.EnsureAttachedObjectReferenceExists(
+			r.APIClient,
+			r.APIServer,
+			tpapi.ObjectTypeAwsRelationalDatabaseInstance,
+			createdRdsInstance.ID,
+			v0.ObjectTypeWordpressInstance,
+			wordpressInstance.ID,
+		); err != nil {
+			return 0, fmt.Errorf("failed to attach wordpress instance to AWS relational database instance: %w", err)
+		}
+	}
+
+	// create gateway and subdomain DNS record if requested
+	if wordpressInstance.SubDomain != nil && *wordpressInstance.SubDomain != "" {
+		// get attached domain name definition ID
+		domainNameDefinitionId, err := tpclient.GetObjectIdByAttachedObject(
+			r.APIClient,
+			r.APIServer,
+			tpapi.ObjectTypeDomainNameDefinition,
+			v0.ObjectTypeWordpressDefinition,
+			*wordpressDefinition.ID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get attached domain name definition: %w", err)
+		}
+		// contruct gateway definition object
+		gatewayDefinition := tpapi.GatewayDefinition{
+			Definition: tpapi.Definition{
+				Name: util.Ptr("web-service-gateway"),
+			},
+			HttpPorts: []*tpapi.GatewayHttpPort{
+				{
+					Port:          util.Ptr(80),
+					Path:          util.Ptr("/"),
+					HTTPSRedirect: util.Ptr(true),
+				}, {
+					Port:       util.Ptr(443),
+					Path:       util.Ptr("/"),
+					TLSEnabled: util.Ptr(true),
+				},
+			},
+			DomainNameDefinitionID: domainNameDefinitionId,
+			SubDomain:              wordpressInstance.SubDomain,
+			ServiceName:            util.Ptr(getWordpressServiceName(*wordpressDefinition.Name)),
+			WorkloadDefinitionID:   workloadDefinitionId,
+		}
+		// create gateway definition
+		createdGatewayDefinition, err := tpclient.CreateGatewayDefinition(
+			r.APIClient,
+			r.APIServer,
+			&gatewayDefinition,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create gateway definition: %w", err)
+		}
+		// construct gateway instance
+		gatewayInstance := tpapi.GatewayInstance{
+			Instance: tpapi.Instance{
+				Name: util.Ptr(fmt.Sprintf("%s-gateway", *wordpressInstance.Name)),
+			},
+			KubernetesRuntimeInstanceID: kubernetesRuntimeInstanceId,
+			GatewayDefinitionID:         createdGatewayDefinition.ID,
+			WorkloadInstanceID:          createdWorkloadInstance.ID,
+		}
+		// created gateway instance
+		createdGatewayInstance, err := tpclient.CreateGatewayInstance(
+			r.APIClient,
+			r.APIServer,
+			&gatewayInstance,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create gateway instance: %w", err)
+		}
+		// create attachment between gateway instance and wordpress instance
+		if err := tpclient.EnsureAttachedObjectReferenceExists(
+			r.APIClient,
+			r.APIServer,
+			tpapi.ObjectTypeGatewayInstance,
+			createdGatewayInstance.ID,
+			v0.ObjectTypeWordpressInstance,
+			wordpressInstance.ID,
+		); err != nil {
+			return 0, fmt.Errorf("failed to create attachment between wordpress instance and gateway instance: %w", err)
+		}
+		// construct domain name instance
+		domainNameInstance := tpapi.DomainNameInstance{
+			Instance: tpapi.Instance{
+				Name: util.Ptr(fmt.Sprintf("%s-domain-name", *wordpressInstance.Name)),
+			},
+			DomainNameDefinitionID:      domainNameDefinitionId,
+			WorkloadInstanceID:          createdWorkloadInstance.ID,
+			KubernetesRuntimeInstanceID: kubernetesRuntimeInstanceId,
+		}
+		// create domain name instance
+		createdDomainNameInstance, err := tpclient.CreateDomainNameInstance(
+			r.APIClient,
+			r.APIServer,
+			&domainNameInstance,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create domain name instance: %w", err)
+		}
+		// create attachment between domain name instance and wordpress instance
+		if err := tpclient.EnsureAttachedObjectReferenceExists(
+			r.APIClient,
+			r.APIServer,
+			tpapi.ObjectTypeDomainNameInstance,
+			createdDomainNameInstance.ID,
+			v0.ObjectTypeWordpressInstance,
+			wordpressInstance.ID,
+		); err != nil {
+			return 0, fmt.Errorf("failed to create attachment between wordpress instance and domain name instance: %w", err)
+		}
+	}
+
+	return 0, nil
+}
+```
+
+Now, update the `v0WordpressInstanceDeleted` function with the code below.
+
+```go
+// v0WordpressInstanceDeleted performs reconciliation when a v0 WordpressInstance
+// has been deleted.
+func v0WordpressInstanceDeleted(
+	r *controller.Reconciler,
+	wordpressInstance *v0.WordpressInstance,
+	log *logr.Logger,
+) (int64, error) {
+	// get attached workload instance
+	workloadInstanceId, err := tpclient.GetObjectIdByAttachedObject(
+		r.APIClient,
+		r.APIServer,
+		tpapi.ObjectTypeWorkloadInstance,
+		v0.ObjectTypeWordpressInstance,
+		*wordpressInstance.ID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to find attached workload instance: %w", err)
+	}
+
+	// delete workload instance
+	_, err = tpclient.DeleteWorkloadInstance(
+		r.APIClient,
+		r.APIServer,
+		*workloadInstanceId,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete workload instance: %w", err)
+	}
+
+	// remove workload instance attachment
+	if err := tpclient.EnsureAttachedObjectReferenceRemoved(
+		r.APIClient,
+		r.APIServer,
+		tpapi.ObjectTypeWorkloadInstance,
+		workloadInstanceId,
+		v0.ObjectTypeWordpressInstance,
+		wordpressInstance.ID,
+	); err != nil {
+		return 0, fmt.Errorf("failed to remove attachment to deleted workload instance: %w", err)
+	}
+
+	// delete relational database instance if it exists
+	awsRdsInstanceIds, err := tpclient.GetObjectIdsByAttachedObject(
+		r.APIClient,
+		r.APIServer,
+		tpapi.ObjectTypeAwsRelationalDatabaseInstance,
+		v0.ObjectTypeWordpressInstance,
+		*wordpressInstance.ID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get attached relational database IDs: %w", err)
+	}
+	for _, rdsInstanceId := range awsRdsInstanceIds {
+		_, err := tpclient.DeleteAwsRelationalDatabaseInstance(
+			r.APIClient,
+			r.APIServer,
+			*rdsInstanceId,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to delete AWS RDS instance with id %d: %w", *rdsInstanceId, err)
+		}
+		if err := tpclient.EnsureAttachedObjectReferenceRemoved(
+			r.APIClient,
+			r.APIServer,
+			tpapi.ObjectTypeAwsRelationalDatabaseInstance,
+			rdsInstanceId,
+			v0.ObjectTypeWordpressInstance,
+			wordpressInstance.ID,
+		); err != nil {
+			return 0, fmt.Errorf("failed to remove attachment to deleted AWS relational database instance: %w", err)
+		}
+	}
+
+	return 0, nil
+}
+```
+
+Ensure the following imports are included in this file.
+
+```go
+import (
+	"fmt"
+
+	logr "github.com/go-logr/logr"
+	tpapi "github.com/threeport/threeport/pkg/api/v0"
+	tpclient "github.com/threeport/threeport/pkg/client/v0"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
+
+	v0 "wordpress-threeport-extension/pkg/api/v0"
+	client "wordpress-threeport-extension/pkg/client/v0"
+)
+```
+
 ### Add `internal/wordpress/wordpress_manifest.go`
 
-The updates we made to the `v0WordpressDefinitionCreated` function include a
-reference to a function `wordpressYaml`.  Let's add that function in a separate
-file.  This function defines the Kubernetes manifests for the WordPress workload
-and sets the variables needed for different install options.
+The updates we've made so far reference some functions that don't exist yet.
+These functions define the Kubernetes configurations for the WordPress workloads
+and set the variables needed for different install options.
 
 Add a new file `internal/wordpress/wordpress_manifest.go` with the following
 contents.
@@ -446,9 +840,13 @@ contents.
 package wordpress
 
 import (
+	"errors"
 	"fmt"
 
+	tpapi "github.com/threeport/threeport/pkg/api/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
+	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -1388,37 +1786,6 @@ mysqladmin status -uroot -p"${password_aux}"
 		return yamlDoc, fmt.Errorf("failed to append object to YAML manifest: %w", err)
 	}
 
-	var persistentVolumeClaimWordpress = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"kind":       "PersistentVolumeClaim",
-			"apiVersion": "v1",
-			"metadata": map[string]interface{}{
-				"name":      fmt.Sprintf("%s-wordpress", definitionName),
-				"namespace": "default",
-				"labels": map[string]interface{}{
-					"app.kubernetes.io/name":       "wordpress",
-					"app.kubernetes.io/instance":   definitionName,
-					"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
-					"environment":                  environment,
-				},
-			},
-			"spec": map[string]interface{}{
-				"accessModes": []interface{}{
-					"ReadWriteOnce",
-				},
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
-						"storage": "10Gi",
-					},
-				},
-			},
-		},
-	}
-	yamlDoc, err = kube.AppendObjectToYamlDoc(persistentVolumeClaimWordpress, yamlDoc)
-	if err != nil {
-		return yamlDoc, fmt.Errorf("failed to append object to YAML manifest: %w", err)
-	}
-
 	var serviceWordpress = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -1469,348 +1836,59 @@ mysqladmin status -uroot -p"${password_aux}"
 func getWordpressServiceName(definitionName string) string {
 	return fmt.Sprintf("%s-wordpress", definitionName)
 }
-```
 
-### Updates to `internal/wordpress/v0_wordpress_instance.go`
-
-Lastly, let's add the operations to mange `WordpressInstance` objects.  The
-scaffolding for this is in `internal/wordpress/v0_wordpress_instance.go`.  If
-you open that file, you'll see empty functions to create, update and delete
-these objects.  Again, when actions are executed through the Threeport API,
-these functions will be called to reconcile the desired operations.
-
-Update the `v0WordpressInstanceCreated` function as shown below.
-
-```go
-// v0WordpressInstanceCreated performs reconciliation when a v0 WordpressInstance
-// has been created.
-func v0WordpressInstanceCreated(
-	r *controller.Reconciler,
-	wordpressInstance *v0.WordpressInstance,
-	log *logr.Logger,
-) (int64, error) {
-	// get attached Kubernetes runtime instance ID
-	kubernetesRuntimeInstanceId, err := tpclient.GetObjectIdByAttachedObject(
-		r.APIClient,
-		r.APIServer,
-		tpapi.ObjectTypeKubernetesRuntimeInstance,
-		v0.ObjectTypeWordpressInstance,
-		*wordpressInstance.ID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get Kubernetes runtime instance by attachment: %w", err)
+// getPvcManifest returns the JSON for the persistent volume claim with the
+// storage class name set for the infra provider.
+func getPvcManifest(
+	infraProvider string,
+	definitionName string,
+	environment string,
+) (*datatypes.JSON, error) {
+	var storageClassName string
+	switch infraProvider {
+	case tpapi.KubernetesRuntimeInfraProviderKind:
+		storageClassName = "standard"
+	case tpapi.KubernetesRuntimeInfraProviderEKS:
+		storageClassName = "gp2"
+	default:
+		return nil, errors.New("unrecognized infra provider")
 	}
 
-	// get workload definition attached to wordpress definition
-	workloadDefinitionId, err := tpclient.GetObjectIdByAttachedObject(
-		r.APIClient,
-		r.APIServer,
-		tpapi.ObjectTypeWorkloadDefinition,
-		v0.ObjectTypeWordpressDefinition,
-		*wordpressInstance.WordpressDefinitionID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get workload definition by attachment: %w", err)
-	}
-
-	// create workload instance if it doesn't already exist
-	nameQuery := fmt.Sprintf("name=%s", *wordpressInstance.Name)
-	existingWorkloadInstances, err := tpclient.GetWorkloadInstancesByQueryString(
-		r.APIClient,
-		r.APIServer,
-		nameQuery,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to check for workload instance with name %s: %w", *wordpressInstance.Name, err)
-	}
-	var createdWorkloadInstance *tpapi.WorkloadInstance
-	if len(*existingWorkloadInstances) == 0 {
-		workloadInstance := tpapi.WorkloadInstance{
-			Instance: tpapi.Instance{
-				Name: wordpressInstance.Name,
-			},
-			KubernetesRuntimeInstanceID: kubernetesRuntimeInstanceId,
-			WorkloadDefinitionID:        workloadDefinitionId,
-		}
-		createdWorkloadInst, err := tpclient.CreateWorkloadInstance(
-			r.APIClient,
-			r.APIServer,
-			&workloadInstance,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create workload instance: %w", err)
-		}
-		createdWorkloadInstance = createdWorkloadInst
-	}
-
-	// establish attachment between wordpress instance and workload instance
-	if err := tpclient.EnsureAttachedObjectReferenceExists(
-		r.APIClient,
-		r.APIServer,
-		tpapi.ObjectTypeWorkloadInstance,
-		createdWorkloadInstance.ID,
-		v0.ObjectTypeWordpressInstance,
-		wordpressInstance.ID,
-	); err != nil {
-		return 0, fmt.Errorf("failed to attach wordpress instance to workload instance: %w", err)
-	}
-
-	// get wordpress definition
-	wordpressDefinition, err := client.GetWordpressDefinitionByID(
-		r.APIClient,
-		r.APIServer,
-		*wordpressInstance.WordpressDefinitionID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get wordpress definition: %w", err)
-	}
-
-	// create relational database instance if requested
-	if *wordpressDefinition.ManagedDatabase {
-		// get relational database definition ID
-		awsRdsDefinitionId, err := tpclient.GetObjectIdByAttachedObject(
-			r.APIClient,
-			r.APIServer,
-			tpapi.ObjectTypeAwsRelationalDatabaseDefinition,
-			v0.ObjectTypeWordpressDefinition,
-			*wordpressDefinition.ID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get AWS relational database definition ID by attachment: %w", err)
-		}
-		// construct relational database instance
-		awsRdsInstance := tpapi.AwsRelationalDatabaseInstance{
-			Instance: tpapi.Instance{
-				Name: wordpressInstance.Name,
-			},
-			AwsRelationalDatabaseDefinitionID: awsRdsDefinitionId,
-			WorkloadInstanceID:                createdWorkloadInstance.ID,
-		}
-		// create relational database instance
-		createdRdsInstance, err := tpclient.CreateAwsRelationalDatabaseInstance(
-			r.APIClient,
-			r.APIServer,
-			&awsRdsInstance,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create AWS relational database instance: %w", err)
-		}
-		// establish attachment between wordpress instance and relational
-		// database instance
-		if err := tpclient.EnsureAttachedObjectReferenceExists(
-			r.APIClient,
-			r.APIServer,
-			tpapi.ObjectTypeAwsRelationalDatabaseInstance,
-			createdRdsInstance.ID,
-			v0.ObjectTypeWordpressInstance,
-			wordpressInstance.ID,
-		); err != nil {
-			return 0, fmt.Errorf("failed to attach wordpress instance to AWS relational database instance: %w", err)
-		}
-	}
-
-	// create gateway and subdomain DNS record if requested
-	if wordpressInstance.SubDomain != nil && *wordpressInstance.SubDomain != "" {
-		// get attached domain name definition ID
-		domainNameDefinitionId, err := tpclient.GetObjectIdByAttachedObject(
-			r.APIClient,
-			r.APIServer,
-			tpapi.ObjectTypeDomainNameDefinition,
-			v0.ObjectTypeWordpressDefinition,
-			*wordpressDefinition.ID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get attached domain name definition: %w", err)
-		}
-		// contruct gateway definition object
-		gatewayDefinition := tpapi.GatewayDefinition{
-			Definition: tpapi.Definition{
-				Name: util.Ptr("web-service-gateway"),
-			},
-			HttpPorts: []*tpapi.GatewayHttpPort{
-				{
-					Port:          util.Ptr(80),
-					Path:          util.Ptr("/"),
-					HTTPSRedirect: util.Ptr(true),
-				}, {
-					Port:       util.Ptr(443),
-					Path:       util.Ptr("/"),
-					TLSEnabled: util.Ptr(true),
+	var persistentVolumeClaimWordpress = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"kind":       "PersistentVolumeClaim",
+			"apiVersion": "v1",
+			"metadata": map[string]interface{}{
+				"name":      fmt.Sprintf("%s-wordpress", definitionName),
+				"namespace": "default",
+				"labels": map[string]interface{}{
+					"app.kubernetes.io/name":       "wordpress",
+					"app.kubernetes.io/instance":   definitionName,
+					"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+					"environment":                  environment,
 				},
 			},
-			DomainNameDefinitionID: domainNameDefinitionId,
-			SubDomain:              wordpressInstance.SubDomain,
-			ServiceName:            util.Ptr(getWordpressServiceName(*wordpressDefinition.Name)),
-			WorkloadDefinitionID:   workloadDefinitionId,
-		}
-		// create gateway definition
-		createdGatewayDefinition, err := tpclient.CreateGatewayDefinition(
-			r.APIClient,
-			r.APIServer,
-			&gatewayDefinition,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create gateway definition: %w", err)
-		}
-		// construct gateway instance
-		gatewayInstance := tpapi.GatewayInstance{
-			Instance: tpapi.Instance{
-				Name: util.Ptr(fmt.Sprintf("%s-gateway", *wordpressInstance.Name)),
+			"spec": map[string]interface{}{
+				"storageClassName": storageClassName,
+				"accessModes": []interface{}{
+					"ReadWriteOnce",
+				},
+				"resources": map[string]interface{}{
+					"requests": map[string]interface{}{
+						"storage": "10Gi",
+					},
+				},
 			},
-			KubernetesRuntimeInstanceID: kubernetesRuntimeInstanceId,
-			GatewayDefinitionID:         createdGatewayDefinition.ID,
-			WorkloadInstanceID:          createdWorkloadInstance.ID,
-		}
-		// created gateway instance
-		createdGatewayInstance, err := tpclient.CreateGatewayInstance(
-			r.APIClient,
-			r.APIServer,
-			&gatewayInstance,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create gateway instance: %w", err)
-		}
-		// create attachment between gateway instance and wordpress instance
-		if err := tpclient.EnsureAttachedObjectReferenceExists(
-			r.APIClient,
-			r.APIServer,
-			tpapi.ObjectTypeGatewayInstance,
-			createdGatewayInstance.ID,
-			v0.ObjectTypeWordpressInstance,
-			wordpressInstance.ID,
-		); err != nil {
-			return 0, fmt.Errorf("failed to create attachment between wordpress instance and gateway instance: %w", err)
-		}
-		// construct domain name instance
-		domainNameInstance := tpapi.DomainNameInstance{
-			Instance: tpapi.Instance{
-				Name: util.Ptr(fmt.Sprintf("%s-domain-name", *wordpressInstance.Name)),
-			},
-			DomainNameDefinitionID:      domainNameDefinitionId,
-			WorkloadInstanceID:          createdWorkloadInstance.ID,
-			KubernetesRuntimeInstanceID: kubernetesRuntimeInstanceId,
-		}
-		// create domain name instance
-		createdDomainNameInstance, err := tpclient.CreateDomainNameInstance(
-			r.APIClient,
-			r.APIServer,
-			&domainNameInstance,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create domain name instance: %w", err)
-		}
-		// create attachment between domain name instance and wordpress instance
-		if err := tpclient.EnsureAttachedObjectReferenceExists(
-			r.APIClient,
-			r.APIServer,
-			tpapi.ObjectTypeDomainNameInstance,
-			createdDomainNameInstance.ID,
-			v0.ObjectTypeWordpressInstance,
-			wordpressInstance.ID,
-		); err != nil {
-			return 0, fmt.Errorf("failed to create attachment between wordpress instance and domain name instance: %w", err)
-		}
+		},
 	}
 
-	return 0, nil
+	jsonData, err := util.UnstructuredToDatatypesJson(persistentVolumeClaimWordpress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate JSON for PVC: %w", err)
+	}
+
+	return &jsonData, nil
 }
-```
-
-Now, update the `v0WordpressInstanceDeleted` function with the code below.
-
-```go
-// v0WordpressInstanceDeleted performs reconciliation when a v0 WordpressInstance
-// has been deleted.
-func v0WordpressInstanceDeleted(
-	r *controller.Reconciler,
-	wordpressInstance *v0.WordpressInstance,
-	log *logr.Logger,
-) (int64, error) {
-	// get attached workload instance
-	workloadInstanceId, err := tpclient.GetObjectIdByAttachedObject(
-		r.APIClient,
-		r.APIServer,
-		tpapi.ObjectTypeWorkloadInstance,
-		v0.ObjectTypeWordpressInstance,
-		*wordpressInstance.ID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to find attached workload instance: %w", err)
-	}
-
-	// delete workload instance
-	_, err = tpclient.DeleteWorkloadInstance(
-		r.APIClient,
-		r.APIServer,
-		*workloadInstanceId,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete workload instance: %w", err)
-	}
-
-	// remove workload instance attachment
-	if err := tpclient.EnsureAttachedObjectReferenceRemoved(
-		r.APIClient,
-		r.APIServer,
-		tpapi.ObjectTypeWorkloadInstance,
-		workloadInstanceId,
-		v0.ObjectTypeWordpressInstance,
-		wordpressInstance.ID,
-	); err != nil {
-		return 0, fmt.Errorf("failed to remove attachment to deleted workload instance: %w", err)
-	}
-
-	// delete relational database instance if it exists
-	awsRdsInstanceIds, err := tpclient.GetObjectIdsByAttachedObject(
-		r.APIClient,
-		r.APIServer,
-		tpapi.ObjectTypeAwsRelationalDatabaseInstance,
-		v0.ObjectTypeWordpressInstance,
-		*wordpressInstance.ID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get attached relational database IDs: %w", err)
-	}
-	for _, rdsInstanceId := range awsRdsInstanceIds {
-		_, err := tpclient.DeleteAwsRelationalDatabaseInstance(
-			r.APIClient,
-			r.APIServer,
-			*rdsInstanceId,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to delete AWS RDS instance with id %d: %w", *rdsInstanceId, err)
-		}
-		if err := tpclient.EnsureAttachedObjectReferenceRemoved(
-			r.APIClient,
-			r.APIServer,
-			tpapi.ObjectTypeAwsRelationalDatabaseInstance,
-			rdsInstanceId,
-			v0.ObjectTypeWordpressInstance,
-			wordpressInstance.ID,
-		); err != nil {
-			return 0, fmt.Errorf("failed to remove attachment to deleted AWS relational database instance: %w", err)
-		}
-	}
-
-	return 0, nil
-}
-```
-
-Ensure the following imports are included in this file.
-
-```go
-import (
-	"fmt"
-
-	logr "github.com/go-logr/logr"
-	tpapi "github.com/threeport/threeport/pkg/api/v0"
-	tpclient "github.com/threeport/threeport/pkg/client/v0"
-	controller "github.com/threeport/threeport/pkg/controller/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
-
-	v0 "wordpress-threeport-extension/pkg/api/v0"
-	client "wordpress-threeport-extension/pkg/client/v0"
-)
 ```
 
 At this point the create and delete functionality for the WordPress objects has
@@ -2302,34 +2380,35 @@ import (
 That's it!  We've added 1 file and modified 3 others.  We're ready to build and
 deploy the extension to Threeport.
 
-## Project Dependencies
+## Build
 
-Now, we need to get the project's go library dependencies and ensure they match
-the versions in the core Threeport repository.  This is because we'll be
-building a shared object binary for the tptctl plugin and the dependency
-versions need to match.
-
-The Threeport SDK has a command to do just this.
+First, we need to satisfy the project's package dependencies.
 
 ```bash
-threeport-sdk sync
+go mod tidy
 ```
-
-Running this command will update your `go.mod` file so that your extension works
-with the latest released version of Threeport.  If you would like to sync it with
-an earlier version of Threeport, or with a version of Threeport that is in
-development on your local filesystem, check the usage for this command with
-`threeport-sdk sync -h` for instructions.
-
-## Build
 
 The Threeport SDK provides [mage](https://magefile.org/) targets with convenient
 development utilities.  To see all available mage targets, simple run `mage`.
 
-First, let's build the `tptctl` plugin for the WordPress extension.
+Next, let's build the `tptctl` plugin for the WordPress extension.
 
 ```bash
 mage build:plugin
+```
+
+To install a tptctl plugin, simply copy the plugin binary to the tptctl plugin
+directory - by default `~/.threeport/plugins`.  See `tptctl help` for more info
+on installing tptctl plugins.
+
+```bash
+cp bin/wordpress ~/.threeport/plugins/
+```
+
+Check the plugin was successfully installed.
+
+```bash
+tptctl wordpress -h
 ```
 
 > Note:  If you're using a Mac, you may encounter security restrictions that
@@ -2340,51 +2419,37 @@ mage build:plugin
 > ```
 > Then run the following command.
 > ```bash
-> codesign -f -s - bin/wordpress.so
+> codesign -f -s - bin/wordpress
 > ```
 > Then repeat the two steps below to install and test the plugin.
-
-Now, we can install the plugin.  If you'd like to install the plugin to a
-different location from the default `~/.threeport/plugins`, see the usage
-information with `tptctl help` for more info.
-
-```bash
-cp bin/wordpress.so ~/.threeport/plugins/
-```
-
-Check the plugin was successfully installed.
-
-```bash
-tptctl wordpress -h
-```
 
 You should see the help output for the wordpress plugin similar to that shown below.
 
 ```bash
-Info: loading plugin /Users/lander2k2/.threeport/plugins/wordpress.so
 Manage the Wordpress Threeport extension
 
 Usage:
-  tptctl wordpress [command]
+  wordpress [command]
 
 Available Commands:
+  completion  Generate the autocompletion script for the specified shell
   create      Create a Threeport Wordpress object
   delete      Delete a Threeport Wordpress object
   describe    Describe a Threeport Wordpress object
   get         Get a Threeport Wordpress object
+  help        Help about any command
   install     Install the Wordpress extension to an existing Threeport control plane
 
 Flags:
-  -h, --help   help for wordpress
-
-Global Flags:
+  -h, --help                      help for wordpress
       --provider-config string    Path to infra provider config directory (default is $HOME/.threeport/).
       --threeport-config string   Path to config file (default is $HOME/.threeport/config.yaml). Can also be set with environment variable THREEPORT_CONFIG
+  -t, --toggle                    Help message for toggle
 
 Additional help topics:
-  tptctl wordpress update Update a Threeport Wordpress object
+  wordpress update     Update a Threeport Wordpress object
 
-Use "tptctl wordpress [command] --help" for more information about a command.
+Use "wordpress [command] --help" for more information about a command.
 ```
 
 Next, we need to build the binaries and container images for each containerized

@@ -37,10 +37,8 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// set values for threeport and extensions where different
 	exampleCmdStr := "tptctl"
-	cliArgsVar := "cliArgs"
 	if gen.Extension {
 		exampleCmdStr = fmt.Sprintf("tptctl %s", strcase.ToKebab(sdkConfig.ExtensionName))
-		cliArgsVar = "CliArgs"
 	}
 
 	// set import paths for threeport and extensions where different
@@ -180,11 +178,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							rootCmdStrHuman,
 						)),
 						Id("SilenceUsage"): True(),
-						Id("PreRun"): util.QualifiedOrLocal(
-							gen.Extension,
-							"github.com/threeport/threeport/cmd/tptctl/cmd",
-							"CommandPreRunFunc",
-						),
+						Id("PreRun"):       Id("CommandPreRunFunc"),
 						Id("Run"): Func().Params(Id("cmd").Op("*").Qual(
 							"github.com/spf13/cobra",
 							"Command",
@@ -280,7 +274,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Id("GetCmd").Dot("AddCommand").Call(Id(getCmdVar)),
 						Line(),
 						Id(getCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-							Line().Op("&").Id(cliArgsVar).Dot("ControlPlaneName"),
+							Line().Op("&").Id("cliArgs").Dot("ControlPlaneName"),
 							Line().Lit("control-plane-name"),
 							Lit("i"),
 							Lit(""),
@@ -334,11 +328,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							rootCmdStrHuman,
 						)),
 						Id("SilenceUsage"): True(),
-						Id("PreRun"): util.QualifiedOrLocal(
-							gen.Extension,
-							"github.com/threeport/threeport/cmd/tptctl/cmd",
-							"CommandPreRunFunc",
-						),
+						Id("PreRun"):       Id("CommandPreRunFunc"),
 						Id("Run"): Func().Params(Id("cmd").Op("*").Qual(
 							"github.com/spf13/cobra",
 							"Command",
@@ -473,7 +463,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						),
 						Id(createCmdVar).Dot("MarkFlagRequired").Call(Lit("config")),
 						Id(createCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-							Line().Op("&").Id(cliArgsVar).Dot("ControlPlaneName"),
+							Line().Op("&").Id("cliArgs").Dot("ControlPlaneName"),
 							Line().Lit("control-plane-name"),
 							Lit("i"),
 							Lit(""),
@@ -537,11 +527,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							rootCmdStrHuman,
 						)),
 						Id("SilenceUsage"): True(),
-						Id("PreRun"): util.QualifiedOrLocal(
-							gen.Extension,
-							"github.com/threeport/threeport/cmd/tptctl/cmd",
-							"CommandPreRunFunc",
-						),
+						Id("PreRun"):       Id("CommandPreRunFunc"),
 						Id("Run"): Func().Params(Id("cmd").Op("*").Qual(
 							"github.com/spf13/cobra",
 							"Command",
@@ -682,7 +668,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line(),
 						),
 						Id(deleteCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-							Line().Op("&").Id(cliArgsVar).Dot("ControlPlaneName"),
+							Line().Op("&").Id("cliArgs").Dot("ControlPlaneName"),
 							Line().Lit("control-plane-name"),
 							Lit("i"),
 							Lit(""),
@@ -805,11 +791,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						pluralize.Pluralize(cmdStrHuman, 2, false),
 					)),
 					Id("SilenceUsage"): True(),
-					Id("PreRun"): util.QualifiedOrLocal(
-						gen.Extension,
-						"github.com/threeport/threeport/cmd/tptctl/cmd",
-						"CommandPreRunFunc",
-					),
+					Id("PreRun"):       Id("CommandPreRunFunc"),
 					Id("Run"): Func().Params(Id("cmd").Op("*").Qual(
 						"github.com/spf13/cobra",
 						"Command",
@@ -913,7 +895,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Id("GetCmd").Dot("AddCommand").Call(Id(getCmdVar)),
 					Line(),
 					Id(getCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(cliArgsVar).Dot("ControlPlaneName"),
+						Line().Op("&").Id("cliArgs").Dot("ControlPlaneName"),
 						Line().Lit("control-plane-name"),
 						Lit("i"),
 						Lit(""),
@@ -976,11 +958,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						cmdStrHuman,
 					)),
 					Id("SilenceUsage"): True(),
-					Id("PreRun"): util.QualifiedOrLocal(
-						gen.Extension,
-						"github.com/threeport/threeport/cmd/tptctl/cmd",
-						"CommandPreRunFunc",
-					),
+					Id("PreRun"):       Id("CommandPreRunFunc"),
 					Id("Run"): Func().Params(Id("cmd").Op("*").Qual(
 						"github.com/spf13/cobra",
 						"Command",
@@ -1098,7 +1076,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					),
 					Id(createCmdVar).Dot("MarkFlagRequired").Call(Lit("config")),
 					Id(createCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(cliArgsVar).Dot("ControlPlaneName"),
+						Line().Op("&").Id("cliArgs").Dot("ControlPlaneName"),
 						Line().Lit("control-plane-name"),
 						Lit("i"),
 						Lit(""),
@@ -1163,11 +1141,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						cmdStrHuman,
 					)),
 					Id("SilenceUsage"): True(),
-					Id("PreRun"): util.QualifiedOrLocal(
-						gen.Extension,
-						"github.com/threeport/threeport/cmd/tptctl/cmd",
-						"CommandPreRunFunc",
-					),
+					Id("PreRun"):       Id("CommandPreRunFunc"),
 					Id("Run"): Func().Params(Id("cmd").Op("*").Qual(
 						"github.com/spf13/cobra",
 						"Command",
@@ -1330,7 +1304,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line(),
 					),
 					Id(deleteCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(cliArgsVar).Dot("ControlPlaneName"),
+						Line().Op("&").Id("cliArgs").Dot("ControlPlaneName"),
 						Line().Lit("control-plane-name"),
 						Lit("i"),
 						Lit(""),
@@ -1394,11 +1368,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						cmdStrHuman,
 					)),
 					Id("SilenceUsage"): True(),
-					Id("PreRun"): util.QualifiedOrLocal(
-						gen.Extension,
-						"github.com/threeport/threeport/cmd/tptctl/cmd",
-						"CommandPreRunFunc",
-					),
+					Id("PreRun"):       Id("CommandPreRunFunc"),
 					Id("Run"): Func().Params(Id("cmd").Op("*").Qual(
 						"github.com/spf13/cobra",
 						"Command",
@@ -1618,7 +1588,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									"github.com/threeport/threeport/pkg/config/v0",
 									"GetThreeportConfig",
 								).Call(
-									Id(cliArgsVar).Dot("ControlPlaneName"),
+									Id("cliArgs").Dot("ControlPlaneName"),
 								),
 								If(Err().Op("!=").Nil()).Block(
 									Id("cli").Dot("Error").Call(
@@ -1777,7 +1747,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line(),
 					),
 					Id(describeCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(cliArgsVar).Dot("ControlPlaneName"),
+						Line().Op("&").Id("cliArgs").Dot("ControlPlaneName"),
 						Line().Lit("control-plane-name"),
 						Lit("i"),
 						Lit(""),

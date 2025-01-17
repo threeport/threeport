@@ -227,10 +227,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Line()
 
 	f.Func().Id("init").Params().Block(
-		Id(fmt.Sprintf(
-			"%sCmd",
-			strcase.ToCamel(sdkConfig.ExtensionName),
-		)).Dot("AddCommand").Call(Id("installCmd")),
+		Id("rootCmd").Dot("AddCommand").Call(Id("installCmd")),
 		Line(),
 		Id("installCmd").Dot("Flags").Call().Dot("BoolVarP").Call(
 			Line().Op("&").Id("development"),
