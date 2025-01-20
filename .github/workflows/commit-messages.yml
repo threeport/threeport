@@ -13,7 +13,7 @@ jobs:
   check-latest-commit:
     name: Check Latest Commit Message
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -21,7 +21,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.22'
+        go-version: '1.23'
 
     - name: Install mage
       run: go install github.com/magefile/mage@latest
@@ -31,7 +31,7 @@ jobs:
 
   check-commits:
     name: Check Commit Messages
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name == 'pull_request'
     steps:
     - name: Checkout Code
@@ -55,7 +55,7 @@ jobs:
 
   check-pull-request-title:
     name: Check Pull Request Title
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name == 'pull_request'
     steps:
     - name: Checkout Code

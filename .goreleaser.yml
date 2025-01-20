@@ -1,28 +1,19 @@
 ---
-before:
 builds:
-  - id: tptctl-linux-amd64
+  - id: tptctl
     binary: tptctl
     main: cmd/tptctl/main.go
-    goarch:
-      - amd64
-    goos:
-      - linux
-    env:
-      - CGO_ENABLED=1
-      - CC=x86_64-linux-gnu-gcc
-      - CXX=x86_64-linux-gnu-g++
-  - id: threeport-sdk
-    env:
-      - CGO_ENABLED=0
     goos:
       - linux
       - windows
-    ignore:
-      - goos: linux
-        goarch: 386
-    main: cmd/sdk/main.go
+      - darwin
+    env:
+      - CGO_ENABLED=0
+  - id: threeport-sdk
     binary: threeport-sdk
+    main: cmd/sdk/main.go
+    env:
+      - CGO_ENABLED=0
   - id: threeport-rest-api
     env:
       - CGO_ENABLED=0
