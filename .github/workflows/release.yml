@@ -6,125 +6,8 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
-  #tptctl-test:
-  #  runs-on: macos-15
-
-  #  strategy:
-  #    matrix:
-  #      os:
-  #        - darwin
-  #        #- linux
-  #        #- windows
-  #      arch:
-  #        #- amd64
-  #        - arm64
-
-  #  steps:
-  #  - name: Checkout
-  #    uses: actions/checkout@v4
-  #    with:
-  #      fetch-depth: 0
-
-  #  - name: Set up Go
-  #    uses: actions/setup-go@v5
-  #    with:
-  #      go-version-file: 'go.mod'
-
-  #  - name: Install mage
-  #    run: go install github.com/magefile/mage@latest
-
-  #  - name: Clean Go build cache
-  #    run: go clean -cache -modcache
-
-  #  - name: Set consistent GOTMPDIR
-  #    run: |
-  #      export GOTMPDIR=/tmp/go-tmp
-  #      mkdir -p $GOTMPDIR
-  #      echo "Using GOTMPDIR=$GOTMPDIR"
-
-  #  - name: Debug ouput
-  #    run: |
-  #      go version
-  #      go env
-  #      go list -m all
-  #      go mod graph
-  #      go clean -cache -modcache
-
-  #  #- name: Check go version
-  #  #  run: go version
-
-  #  #- name: Check go environment
-  #  #  run: go env
-
-  #  - name: Build tptctl
-  #    run: mage build:tptctl ${{ matrix.os }} ${{ matrix.arch }}
-
-  #  - name: Archive binary
-  #    run: |
-  #      mkdir -p release
-  #      mv bin/tptctl release/tptctl-${{ matrix.os }}-${{ matrix.arch }}
-  #      tar -czvf release/tptctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz -C release tptctl-${{ matrix.os }}-${{ matrix.arch }}
-  #    shell: bash
-
-  #  - name: Upload tptctl for mac
-  #    uses: actions/upload-artifact@v3
-  #    with:
-  #      name: threeport-${{ matrix.os }}-${{ matrix.arch }}
-  #      path: release/tptctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
-
-  #  - name: Create GitHub Release
-  #    id: create_release
-  #    uses: actions/create-release@v1
-  #    with:
-  #      tag_name: ${{ github.ref_name }}
-  #      release_name: ${{ github.ref_name }}
-  #      body: |
-  #        This release includes the CLI binary for `tptctl`. Download the binary for your platform and install it in your `$PATH`.
-  #      draft: false
-  #      prerelease: false
-  #      #files: release/tptctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
-  #    env:
-  #      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  #  - name: Upload Release Assets
-  #    uses: actions/upload-release-asset@v1
-  #    with:
-  #      upload_url: ${{ steps.create_release.outputs.upload_url }}
-  #      asset_path: release/tptctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
-  #      asset_name: tptctl-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
-  #      asset_content_type: application/gzip
-  #    env:
-  #      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  goreleaser-darwin:
-    runs-on: macos-15
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: 'go.mod'
-
-    - name: Check go version
-      run: go version
-
-    - name: Check go environment
-      run: go env
-
-    - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v5.0.0
-      with:
-        version: v1.26.2
-        args: release --clean -f ./.goreleaser-darwin.yml
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   goreleaser:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -134,12 +17,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version-file: 'go.mod'
-
-    - name: Install build dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf libc6-dev-arm64-cross libc6-dev-armhf-cross g++-aarch64-linux-gnu clang
+        go-version: '1.23'
 
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v3
@@ -148,12 +26,6 @@ jobs:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GH_ACCESS_TOKEN }}
 
-    - name: Check go version
-      run: go version
-
-    - name: Check go environment
-      run: go env
-
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@v5.0.0
       with:
@@ -161,4 +33,3 @@ jobs:
         args: release --clean -f ./.goreleaser.yml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
