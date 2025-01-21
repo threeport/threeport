@@ -14,6 +14,8 @@ Threeport consists of two primary components:
 The Threeport core is a software delivery control plane.  You can install the core system
 and immediately start delivering applications to your runtime environments.
 
+<img src="docs/docs/img/ThreeportStack.png">
+
 The core system provides primitives to manage the following:
 * Runtime Environments: Threeport provisions and manages Kubernetes clusters for your
   applications to run in.
