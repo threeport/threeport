@@ -2,7 +2,7 @@
 
 Threeport is a software delivery platform.
 
-Threeport delivers applications into their runtime environments. Once an application has 
+Threeport delivers applications into remote runtime environments. Once an application has 
 been built, Threeport is used to deploy and manage it over time.
 
 Threeport consists of two primary components:
@@ -66,7 +66,8 @@ maintainability as systems grow in complexity.
 
 User documentation can be found on our [user docs site](https://threeport.io/).
 
-Developer documentation can be found [here](docs/dev/README.md).
+If you're interested in contributing to Threeport, please see our
+[developer docs](docs/dev/README.md).
 
 ## Note
 
