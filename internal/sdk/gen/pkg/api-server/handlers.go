@@ -35,7 +35,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			tpApiServerLibAlias := "apiserver_lib"
 			extApiServerLibAlias := "tpapiserver_lib"
 			var apiServerLibAlias string
-			if gen.Extension {
+			if gen.Module {
 				apiServerLibAlias = extApiServerLibAlias
 			} else {
 				apiServerLibAlias = tpApiServerLibAlias
@@ -44,19 +44,19 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				"github.com/threeport/threeport/pkg/api-server/lib/v0",
 				tpApiServerLibAlias,
 				extApiServerLibAlias,
-				gen.Extension,
+				gen.Module,
 			))
 			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/api-server/v0/handlers",
 				"handlers_v0",
 				"tp_handlers",
-				gen.Extension,
+				gen.Module,
 			))
 			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/api/v0",
 				"api_v0",
 				"tpapi_v0",
-				gen.Extension,
+				gen.Module,
 			))
 
 			for _, apiObject := range objGroup.ApiObjects {
@@ -77,7 +77,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					).Line()
 					checkDuplicateNames.Id("nameUsed").Op(":=").Lit(true).Line()
 					checkDuplicateNames.Id("result").Op(":=").Do(func(s *Statement) {
-						if gen.Extension {
+						if gen.Module {
 							s.Id("h").Dot("Handler")
 						} else {
 							s.Id("h")
@@ -153,7 +153,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
 						),
 						Do(func(s *Statement) {
-							if gen.Extension {
+							if gen.Module {
 								s.Id("h").Dot("Handler")
 							} else {
 								s.Id("h")
@@ -188,7 +188,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
 						),
 						Do(func(s *Statement) {
-							if gen.Extension {
+							if gen.Module {
 								s.Id("h").Dot("Handler")
 							} else {
 								s.Id("h")
@@ -232,7 +232,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						),
 						If(
 							Id("result").Op(":=").Do(func(s *Statement) {
-								if gen.Extension {
+								if gen.Module {
 									s.Id("h").Dot("Handler")
 								} else {
 									s.Id("h")
@@ -268,7 +268,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							).Call(Id("c"), Nil(), Id("err"), Id("objectType"))),
 						),
 						Do(func(s *Statement) {
-							if gen.Extension {
+							if gen.Module {
 								s.Id("h").Dot("Handler")
 							} else {
 								s.Id("h")
@@ -307,7 +307,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Comment("from DB"),
 							If(
 								Id("result").Op(":=").Do(func(s *Statement) {
-									if gen.Extension {
+									if gen.Module {
 										s.Id("h").Dot("Handler")
 									} else {
 										s.Id("h")
@@ -328,7 +328,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					deleteObjectExecution.Line()
 					deleteObjectExecution.If(
 						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Extension {
+							if gen.Module {
 								s.Id("h").Dot("Handler")
 							} else {
 								s.Id("h")
@@ -352,7 +352,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					instancesName := strings.TrimSuffix(apiObject.TypeName, "Definition") + "Instances"
 					deleteObjectChecks = If(
 						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Extension {
+							if gen.Module {
 								s.Id("h").Dot("Handler")
 							} else {
 								s.Id("h")
@@ -403,7 +403,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				} else {
 					deleteObjectChecks = If(
 						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Extension {
+							if gen.Module {
 								s.Id("h").Dot("Handler")
 							} else {
 								s.Id("h")
@@ -455,7 +455,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					"@Success 200 {object} %s.ApiObjectVersions \"OK\"",
 					apiServerLibAlias,
 				))
-				if gen.Extension {
+				if gen.Module {
 					f.Comment(fmt.Sprintf(
 						"@Router /%s/%s/versions [GET]",
 						util.RestPath(sdkConfig.ApiNamespace),
@@ -518,7 +518,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				f.Comment("@Success 201 {object} v0.Response \"Created\"")
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				if gen.Extension {
+				if gen.Module {
 					f.Comment(fmt.Sprintf(
 						"@Router /%s/%s/%s [POST]",
 						util.RestPath(sdkConfig.ApiNamespace),
@@ -563,7 +563,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					)
 					g.Line()
 					g.Comment("check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.")
-					if gen.Extension {
+					if gen.Module {
 						g.If(Id("id").Op(",").Id("err").Op(":=").Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"PayloadCheck",
@@ -633,7 +633,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.Add(checkDuplicateNames)
 					g.Comment("persist to DB")
 					g.If(Id("result").Op(":=").Do(func(s *Statement) {
-						if gen.Extension {
+						if gen.Module {
 							s.Id("h").Dot("Handler")
 						} else {
 							s.Id("h")
@@ -690,7 +690,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				f.Comment("@Success 200 {object} v0.Response \"OK\"")
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				if gen.Extension {
+				if gen.Module {
 					f.Comment(fmt.Sprintf(
 						"@Router /%s/%s/%s [GET]",
 						util.RestPath(sdkConfig.ApiNamespace),
@@ -753,7 +753,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Line(),
 					Var().Id("totalCount").Int64(),
 					If(Id("result").Op(":=").Do(func(s *Statement) {
-						if gen.Extension {
+						if gen.Module {
 							s.Id("h").Dot("Handler")
 						} else {
 							s.Id("h")
@@ -785,7 +785,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						apiObject.TypeName,
 					).Values(),
 					If(Id("result").Op(":=").Do(func(s *Statement) {
-						if gen.Extension {
+						if gen.Module {
 							s.Id("h").Dot("Handler")
 						} else {
 							s.Id("h")
@@ -841,7 +841,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				f.Comment("@Success 200 {object} v0.Response \"OK\"")
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				if gen.Extension {
+				if gen.Module {
 					f.Comment(fmt.Sprintf(
 						"@Router /%s/%s/%s/{id} [GET]",
 						util.RestPath(sdkConfig.ApiNamespace),
@@ -889,7 +889,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					If(
 						// TODO: figure out preload objects
 						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Extension {
+							if gen.Module {
 								s.Id("h").Dot("Handler")
 							} else {
 								s.Id("h")
@@ -968,7 +968,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				if gen.Extension {
+				if gen.Module {
 					f.Comment(fmt.Sprintf(
 						"@Router /%s/%s/%s/{id} [PATCH]",
 						util.RestPath(sdkConfig.ApiNamespace),
@@ -1016,7 +1016,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.If(
 						// TODO: figure out preload objects
 						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Extension {
+							if gen.Module {
 								s.Id("h").Dot("Handler")
 							} else {
 								s.Id("h")
@@ -1044,7 +1044,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					)
 					g.Line()
 					g.Comment("check for empty payload, invalid or unsupported fields, optional associations, etc.")
-					if gen.Extension {
+					if gen.Module {
 						g.If(
 							Id("id").Op(",").Id("err").Op(":=").Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
@@ -1111,7 +1111,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.Comment("update object in database")
 					g.If(
 						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Extension {
+							if gen.Module {
 								s.Id("h").Dot("Handler")
 							} else {
 								s.Id("h")
@@ -1180,7 +1180,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				if gen.Extension {
+				if gen.Module {
 					f.Comment(fmt.Sprintf(
 						"@Router /%s/%s/%s/{id} [PUT]",
 						util.RestPath(sdkConfig.ApiNamespace),
@@ -1228,7 +1228,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.If(
 						// TODO: figure out preload objects
 						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Extension {
+							if gen.Module {
 								s.Id("h").Dot("Handler")
 							} else {
 								s.Id("h")
@@ -1256,7 +1256,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					)
 					g.Line()
 					g.Comment("check for empty payload, invalid or unsupported fields, optional associations, etc.")
-					if gen.Extension {
+					if gen.Module {
 						g.If(
 							Id("id").Op(",").Id("err").Op(":=").Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
@@ -1341,7 +1341,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("ID")
 					g.If(
 						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Extension {
+							if gen.Module {
 								s.Id("h").Dot("Handler")
 							} else {
 								s.Id("h")
@@ -1369,7 +1369,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.If(
 						// TODO: figure out preload objects
 						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Extension {
+							if gen.Module {
 								s.Id("h").Dot("Handler")
 							} else {
 								s.Id("h")
@@ -1432,7 +1432,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
 				f.Comment("@Failure 409 {object} v0.Response \"Conflict\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
-				if gen.Extension {
+				if gen.Module {
 					f.Comment(fmt.Sprintf(
 						"@Router /%s/%s/%s/{id} [DELETE]",
 						util.RestPath(sdkConfig.ApiNamespace),

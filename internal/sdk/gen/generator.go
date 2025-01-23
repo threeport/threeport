@@ -21,9 +21,9 @@ import (
 // Generator contains the values for generating the source code for Threeport
 // and its extensions when the 'threeport-sdk gen' command is run.
 type Generator struct {
-	// If true, is an extension of Threeport.  If false, is the
+	// If true, is a module of Threeport. If false, is the
 	// threeeport/threeport project.
-	Extension bool
+	Module bool
 
 	// The project path as provided by the module statement in go.mod.
 	ModulePath string
@@ -252,12 +252,12 @@ type ReconciledObject struct {
 func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 	pluralize := pluralize.NewClient()
 
-	// determine if an extension and get module path from go.mod
-	extension, modulePath, err := sdkutil.IsExtension()
+	// determine if a module and get module path from go.mod
+	module, modulePath, err := sdkutil.IsModule()
 	if err != nil {
-		return fmt.Errorf("could not determine if generating code for an extension: %w", err)
+		return fmt.Errorf("could not determine if generating code for a module: %w", err)
 	}
-	g.Extension = extension
+	g.Module = module
 	g.ModulePath = modulePath
 
 	// determine Go version
@@ -308,7 +308,7 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 
 		}
 
-		if version == "v0" && !extension {
+		if version == "v0" && !module {
 			// this is a hack to ensure that there are order constraints satisfied for
 			// the db automigrate function to properly execute
 			swaps := map[string]string{
@@ -327,7 +327,7 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 					}
 				}
 
-				if keyIndex == -1 && valueIndex == -1 && !extension {
+				if keyIndex == -1 && valueIndex == -1 && !module {
 					return fmt.Errorf("could not find items to swap in db automigrate: %s and %s", key, value)
 				}
 
@@ -590,7 +590,7 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 			for _, rm := range genApiObjectGroup.ReconciledApiObjectNames {
 				for i, mc := range genApiObjectGroup.ApiObjects {
 					if rm == mc.TypeName {
-						if !mc.ReconciledField && !extension {
+						if !mc.ReconciledField && !module {
 							return errors.New(fmt.Sprintf(
 								"%s object does not include a Reconciled field - all objects with reconcilers must include this field", rm,
 							))

@@ -9,33 +9,33 @@ import (
 )
 
 const (
-	ObjectTypeExtensionApi      string = "ExtensionApi"
-	ObjectTypeExtensionApiRoute string = "ExtensionApiRoute"
+	ObjectTypeModuleApi      string = "ModuleApi"
+	ObjectTypeModuleApiRoute string = "ModuleApiRoute"
 
-	PathExtensionApiVersions      = "/extension-apis/versions"
-	PathExtensionApis             = "/v0/extension-apis"
-	PathExtensionApiRouteVersions = "/extension-api-routes/versions"
-	PathExtensionApiRoutes        = "/v0/extension-api-routes"
+	PathModuleApiVersions      = "/module-apis/versions"
+	PathModuleApis             = "/v0/module-apis"
+	PathModuleApiRouteVersions = "/module-api-routes/versions"
+	PathModuleApiRoutes        = "/v0/module-api-routes"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (ea *ExtensionApi) NotificationPayload(
+func (ma *ModuleApi) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
 	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
 		CreationTime:  &creationTime,
-		Object:        ea,
-		ObjectVersion: ea.GetVersion(),
+		Object:        ma,
+		ObjectVersion: ma.GetVersion(),
 		Operation:     operation,
 	}
 
 	payload, err := json.Marshal(notif)
 	if err != nil {
-		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", ea, err)
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", ma, err)
 	}
 
 	return &payload, nil
@@ -46,50 +46,50 @@ func (ea *ExtensionApi) NotificationPayload(
 // and then unmarshalling into the typed object.  We are not using the
 // mapstructure library here as that requires custom decode hooks to manage
 // fields with non-native go types.
-func (ea *ExtensionApi) DecodeNotifObject(object interface{}) error {
+func (ma *ModuleApi) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
 		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
 	}
-	if err := json.Unmarshal(jsonObject, &ea); err != nil {
+	if err := json.Unmarshal(jsonObject, &ma); err != nil {
 		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
 	}
 	return nil
 }
 
 // GetId returns the unique ID for the object.
-func (ea *ExtensionApi) GetId() uint {
-	return *ea.ID
+func (ma *ModuleApi) GetId() uint {
+	return *ma.ID
 }
 
 // Type returns the object type.
-func (ea *ExtensionApi) GetType() string {
-	return "ExtensionApi"
+func (ma *ModuleApi) GetType() string {
+	return "ModuleApi"
 }
 
 // Version returns the version of the API object.
-func (ea *ExtensionApi) GetVersion() string {
+func (ma *ModuleApi) GetVersion() string {
 	return "v0"
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
-func (ear *ExtensionApiRoute) NotificationPayload(
+func (mar *ModuleApiRoute) NotificationPayload(
 	operation notifications.NotificationOperation,
 	requeue bool,
 	creationTime int64,
 ) (*[]byte, error) {
 	notif := notifications.Notification{
 		CreationTime:  &creationTime,
-		Object:        ear,
-		ObjectVersion: ear.GetVersion(),
+		Object:        mar,
+		ObjectVersion: mar.GetVersion(),
 		Operation:     operation,
 	}
 
 	payload, err := json.Marshal(notif)
 	if err != nil {
-		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", ear, err)
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", mar, err)
 	}
 
 	return &payload, nil
@@ -100,28 +100,28 @@ func (ear *ExtensionApiRoute) NotificationPayload(
 // and then unmarshalling into the typed object.  We are not using the
 // mapstructure library here as that requires custom decode hooks to manage
 // fields with non-native go types.
-func (ear *ExtensionApiRoute) DecodeNotifObject(object interface{}) error {
+func (mar *ModuleApiRoute) DecodeNotifObject(object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
 		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
 	}
-	if err := json.Unmarshal(jsonObject, &ear); err != nil {
+	if err := json.Unmarshal(jsonObject, &mar); err != nil {
 		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
 	}
 	return nil
 }
 
 // GetId returns the unique ID for the object.
-func (ear *ExtensionApiRoute) GetId() uint {
-	return *ear.ID
+func (mar *ModuleApiRoute) GetId() uint {
+	return *mar.ID
 }
 
 // Type returns the object type.
-func (ear *ExtensionApiRoute) GetType() string {
-	return "ExtensionApiRoute"
+func (mar *ModuleApiRoute) GetType() string {
+	return "ModuleApiRoute"
 }
 
 // Version returns the version of the API object.
-func (ear *ExtensionApiRoute) GetVersion() string {
+func (mar *ModuleApiRoute) GetVersion() string {
 	return "v0"
 }

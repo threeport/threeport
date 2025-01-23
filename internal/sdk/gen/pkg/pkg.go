@@ -47,7 +47,7 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	// generate API handler wrapper for Threeport extensions
-	if generator.Extension {
+	if generator.Module {
 		if err := apiserver.GenHandlerWrapper(generator); err != nil {
 			return fmt.Errorf("failed to generate API handler wrapper: %w", err)
 		}
@@ -80,16 +80,16 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// generate custom function to delete by object type and ID for
 	// threeport/threeport only
-	if !generator.Extension {
+	if !generator.Module {
 		if err := client.GenDeleteObjByTypeAndId(generator); err != nil {
 			return fmt.Errorf("failed to generate custom delete function: %w", err)
 		}
 	}
 
 	////////////////////////////// pkg/config //////////////////////////////////
-	// TODO: remove generator.Extension if-statement to apply to core threeport
+	// TODO: remove generator.Module if-statement to apply to core threeport
 	// as well.  Complete codegen for config package.
-	if generator.Extension {
+	if generator.Module {
 		if err := config.GenConfig(generator); err != nil {
 			return fmt.Errorf("failed to generate config package: %w", err)
 		}
@@ -98,7 +98,7 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	//////////////////////////// pkg/installer /////////////////////////////////
 	// install extension API and controller and register with an existing
 	// Threeport control plane
-	if generator.Extension {
+	if generator.Module {
 		if err := installer.GenInstaller(generator, sdkConfig); err != nil {
 			return fmt.Errorf("failed to generate installer package: %w", err)
 		}

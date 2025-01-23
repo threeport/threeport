@@ -39,15 +39,15 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("Use"): Lit("install"),
 		Id("Example"): Lit(fmt.Sprintf(
 			"  tptctl %s install",
-			strcase.ToKebab(sdkConfig.ExtensionName),
+			strcase.ToKebab(sdkConfig.ModuleName),
 		)),
 		Id("Short"): Lit(fmt.Sprintf(
-			"Install the %s extension to an existing Threeport control plane",
-			sdkConfig.ExtensionName,
+			"Install the %s module to an existing Threeport control plane",
+			sdkConfig.ModuleName,
 		)),
 		Id("Long"): Lit(fmt.Sprintf(
-			"Install the %s extension to an existing Threeport control plane",
-			sdkConfig.ExtensionName,
+			"Install the %s module to an existing Threeport control plane",
+			sdkConfig.ModuleName,
 		)),
 		Id("PreRun"): Qual(
 			"github.com/threeport/threeport/cmd/tptctl/cmd",
@@ -174,8 +174,8 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Comment("install extension"),
 			If(
 				Id("err").Op(":=").Id("inst").Dot(fmt.Sprintf(
-					"Install%sExtension",
-					strcase.ToCamel(sdkConfig.ExtensionName),
+					"Install%sModule",
+					strcase.ToCamel(sdkConfig.ModuleName),
 				)).Call(), Id("err").Op("!=").Nil(),
 			).Block(
 				Qual(
@@ -183,8 +183,8 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					"Error",
 				).Call(
 					Lit(fmt.Sprintf(
-						"failed to install %s extension",
-						sdkConfig.ExtensionName,
+						"failed to install %s module",
+						sdkConfig.ModuleName,
 					)), Id("err"),
 				),
 				Qual("os", "Exit").Call(Lit(1)),
@@ -193,8 +193,8 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 			Comment("register extension with Threeport API"),
 			If(Err().Op(":=").Id("inst").Dot(fmt.Sprintf(
-				"Register%sExtension",
-				strcase.ToCamel(sdkConfig.ExtensionName),
+				"Register%sModule",
+				strcase.ToCamel(sdkConfig.ModuleName),
 			))).Call(
 				Line().Id("apiClient"),
 				Line().Id("apiEndpoint"),
@@ -205,8 +205,8 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					"Error",
 				).Call(
 					Lit(fmt.Sprintf(
-						"failed to register %s extension with Threeport API",
-						sdkConfig.ExtensionName,
+						"failed to register %s module with Threeport API",
+						sdkConfig.ModuleName,
 					)), Id("err"),
 				),
 				Qual("os", "Exit").Call(Lit(1)),
@@ -218,8 +218,8 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				"Complete",
 			).Call(
 				Lit(fmt.Sprintf(
-					"%s extension installed",
-					sdkConfig.ExtensionName,
+					"%s module installed",
+					sdkConfig.ModuleName,
 				)),
 			),
 		),
@@ -273,7 +273,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	// write code to file
 	genFilepath := filepath.Join(
 		"cmd",
-		strcase.ToSnake(sdkConfig.ExtensionName),
+		strcase.ToSnake(sdkConfig.ModuleName),
 		"cmd",
 		"install.go",
 	)

@@ -1,11 +1,11 @@
 # Threeport SDK Tutorial
 
-The following tutorial walks through building a Threeport extension for managing
-Wordpress deployments.
+The following tutorial walks through building a Threeport module for managing
+WordPress deployments.
 
 > Note: This tutorial provides instructions to build a new Golang project from
 > scratch.  If you'd like to skip to the end, the finished project can be viewed on
-> [GitHub](https://github.com/threeport/wordpress-threeport-extension).
+> [GitHub](https://github.com/threeport/wordpress-threeport-module).
 
 ## Prerequisites
 
@@ -18,10 +18,10 @@ Wordpress deployments.
 ## Initialize Project
 
 ```bash
-mkdir wordpress-threeport-extension
-cd wordpress-threeport-extension
+mkdir wordpress-threeport-module
+cd wordpress-threeport-module
 git init
-go mod init wordpress-threeport-extension
+go mod init wordpress-threeport-module
 ```
 
 ## Create SDK Config
@@ -31,11 +31,11 @@ following contents.  Replace the `ImageRepo` value for one that you have access
 to.
 
 ```yaml
-ExtensionName: Wordpress
+ModuleName: Wordpress
 ApiNamespace: example.com
 ApiDocs:
   Title: WordPress Threeport API
-  Description: API server for the WordPress extension to Threeport.
+  Description: API server for the Threeport WordPress module.
   ContactName: John Doe
   ContactEmail: john@example.com
 ImageRepo: ghcr.io/myorg/myimage
@@ -92,7 +92,7 @@ type WordpressInstance struct {
 }
 ```
 
-This constitutes your Threeport extension's data model.  Add fields to these
+This constitutes your Threeport module's data model. Add fields to these
 objects for config information that will need to be persisted.
 
 Add the following fields so that the file looks as follows when you are
@@ -427,7 +427,7 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 
-	v0 "wordpress-threeport-extension/pkg/api/v0"
+	v0 "wordpress-threeport-module/pkg/api/v0"
 )
 ```
 
@@ -822,8 +822,8 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 
-	v0 "wordpress-threeport-extension/pkg/api/v0"
-	client "wordpress-threeport-extension/pkg/client/v0"
+	v0 "wordpress-threeport-module/pkg/api/v0"
+	client "wordpress-threeport-module/pkg/client/v0"
 )
 ```
 
@@ -874,7 +874,7 @@ func wordpressYaml(
 					"labels": map[string]interface{}{
 						"app.kubernetes.io/name":       "mariadb",
 						"app.kubernetes.io/instance":   definitionName,
-						"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+						"app.kubernetes.io/managed-by": "wordrpess-threepport-module",
 						"environment":                  environment,
 					},
 				},
@@ -896,7 +896,7 @@ func wordpressYaml(
 					"labels": map[string]interface{}{
 						"app.kubernetes.io/name":       "mariadb",
 						"app.kubernetes.io/instance":   definitionName,
-						"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+						"app.kubernetes.io/managed-by": "wordrpess-threepport-module",
 						"environment":                  environment,
 					},
 				},
@@ -922,7 +922,7 @@ func wordpressYaml(
 					"labels": map[string]interface{}{
 						"app.kubernetes.io/name":       "mariadb",
 						"app.kubernetes.io/instance":   definitionName,
-						"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+						"app.kubernetes.io/managed-by": "wordrpess-threepport-module",
 						"app.kubernetes.io/component":  "primary",
 						"environment":                  environment,
 					},
@@ -974,7 +974,7 @@ pid-file=/opt/bitnami/mariadb/tmp/mysqld.pid`,
 					"labels": map[string]interface{}{
 						"app.kubernetes.io/name":       "mariadb",
 						"app.kubernetes.io/instance":   definitionName,
-						"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+						"app.kubernetes.io/managed-by": "wordrpess-threepport-module",
 						"app.kubernetes.io/component":  "primary",
 						"environment":                  environment,
 					},
@@ -1015,7 +1015,7 @@ pid-file=/opt/bitnami/mariadb/tmp/mysqld.pid`,
 					"labels": map[string]interface{}{
 						"app.kubernetes.io/name":       "mariadb",
 						"app.kubernetes.io/instance":   definitionName,
-						"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+						"app.kubernetes.io/managed-by": "wordrpess-threepport-module",
 						"app.kubernetes.io/component":  "primary",
 						"environment":                  environment,
 					},
@@ -1042,7 +1042,7 @@ pid-file=/opt/bitnami/mariadb/tmp/mysqld.pid`,
 							"labels": map[string]interface{}{
 								"app.kubernetes.io/name":       "mariadb",
 								"app.kubernetes.io/instance":   definitionName,
-								"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+								"app.kubernetes.io/managed-by": "wordrpess-threepport-module",
 								"app.kubernetes.io/component":  "primary",
 								"environment":                  environment,
 							},
@@ -1228,7 +1228,7 @@ mysqladmin status -uroot -p"${password_aux}"
 					"labels": map[string]interface{}{
 						"app.kubernetes.io/name":       "wordpress",
 						"app.kubernetes.io/instance":   definitionName,
-						"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+						"app.kubernetes.io/managed-by": "wordrpess-threepport-module",
 						"environment":                  environment,
 					},
 				},
@@ -1248,7 +1248,7 @@ mysqladmin status -uroot -p"${password_aux}"
 							"labels": map[string]interface{}{
 								"app.kubernetes.io/name":       "wordpress",
 								"app.kubernetes.io/instance":   definitionName,
-								"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+								"app.kubernetes.io/managed-by": "wordrpess-threepport-module",
 								"environment":                  environment,
 							},
 						},
@@ -1490,7 +1490,7 @@ mysqladmin status -uroot -p"${password_aux}"
 					"labels": map[string]interface{}{
 						"app.kubernetes.io/name":       "wordpress",
 						"app.kubernetes.io/instance":   definitionName,
-						"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+						"app.kubernetes.io/managed-by": "wordrpess-threepport-module",
 						"environment":                  environment,
 					},
 				},
@@ -1510,7 +1510,7 @@ mysqladmin status -uroot -p"${password_aux}"
 							"labels": map[string]interface{}{
 								"app.kubernetes.io/name":       "wordpress",
 								"app.kubernetes.io/instance":   definitionName,
-								"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+								"app.kubernetes.io/managed-by": "wordrpess-threepport-module",
 								"environment":                  environment,
 							},
 						},
@@ -1771,7 +1771,7 @@ mysqladmin status -uroot -p"${password_aux}"
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "wordpress",
 					"app.kubernetes.io/instance":   definitionName,
-					"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+					"app.kubernetes.io/managed-by": "wordrpess-threepport-module",
 					"environment":                  environment,
 				},
 			},
@@ -1796,7 +1796,7 @@ mysqladmin status -uroot -p"${password_aux}"
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "wordpress",
 					"app.kubernetes.io/instance":   definitionName,
-					"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+					"app.kubernetes.io/managed-by": "wordrpess-threepport-module",
 					"environment":                  environment,
 				},
 			},
@@ -1864,7 +1864,7 @@ func getPvcManifest(
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "wordpress",
 					"app.kubernetes.io/instance":   definitionName,
-					"app.kubernetes.io/managed-by": "wordrpess-threepport-extension",
+					"app.kubernetes.io/managed-by": "wordrpess-threepport-module",
 					"environment":                  environment,
 				},
 			},
@@ -2372,13 +2372,13 @@ import (
 	tpconfig "github.com/threeport/threeport/pkg/config/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 
-	api_v0 "wordpress-threeport-extension/pkg/api/v0"
-	client_v0 "wordpress-threeport-extension/pkg/client/v0"
+	api_v0 "wordpress-threeport-module/pkg/api/v0"
+	client_v0 "wordpress-threeport-module/pkg/client/v0"
 )
 ```
 
 That's it!  We've added 1 file and modified 3 others.  We're ready to build and
-deploy the extension to Threeport.
+deploy the module to Threeport.
 
 ## Build
 
@@ -2391,7 +2391,7 @@ go mod tidy
 The Threeport SDK provides [mage](https://magefile.org/) targets with convenient
 development utilities.  To see all available mage targets, simple run `mage`.
 
-Next, let's build the `tptctl` plugin for the WordPress extension.
+Next, let's build the `tptctl` plugin for the WordPress module.
 
 ```bash
 mage build:plugin
@@ -2426,7 +2426,7 @@ tptctl wordpress -h
 You should see the help output for the wordpress plugin similar to that shown below.
 
 ```bash
-Manage the Wordpress Threeport extension
+Manage the Wordpress Threeport module
 
 Usage:
   wordpress [command]
@@ -2438,7 +2438,7 @@ Available Commands:
   describe    Describe a Threeport Wordpress object
   get         Get a Threeport Wordpress object
   help        Help about any command
-  install     Install the Wordpress extension to an existing Threeport control plane
+  install     Install the Wordpress module to an existing Threeport control plane
 
 Flags:
   -h, --help                      help for wordpress
@@ -2458,7 +2458,7 @@ images are built, they will be pushed to a container registry to make them
 available for installation.
 
 > Note: In this and other following sections, you will have the option to
-> test the WordPress extension in a "Local Dev Environment" on your
+> test the WordPress module in a "Local Dev Environment" on your
 > workstation, or in a "Remote Environment" running in AWS.
 >
 > The remote environment option will provide a more realistic use case and will
@@ -2535,11 +2535,11 @@ If you don't aleady have one, install a Threeport control plane for testing.
     For more info on installing Threeport remotely, see the
     [documentation to Install Threeport on AWS](../../install/install-threeport-aws).
 
-## Install WordPress Extension
+## Install WordPress Module
 
 === "Local Dev Environment"
 
-    To install the WordPress extension using the image pushed to the local dev
+    To install the WordPress module using the image pushed to the local dev
     registry, use the following command.
 
     ```bash
@@ -2555,7 +2555,7 @@ If you don't aleady have one, install a Threeport control plane for testing.
     tptctl wordpress install
     ```
 
-## Use the WordpressExtension
+## Use the WordPress Module
 
 === "Local Dev Environment"
 
@@ -2727,8 +2727,8 @@ Local or Remote environment.
 ## Summary
 
 In this tutorial we walked through each and every step to build a sample
-extension to the Threeport control plane.  You can apply the same process to
-create any extension to Threeport that you like.  Use cases are not limited to
+module to the Threeport control plane.  You can apply the same process to
+create any module to Threeport that you like.  Use cases are not limited to
 particular workload support.  Other use cases can include:
 
 * Support for alternative infrastructure providers.

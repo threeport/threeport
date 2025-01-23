@@ -12,51 +12,51 @@ import (
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-// ExtensionApi
+// ModuleApi
 ///////////////////////////////////////////////////////////////////////////////
 
-// @Summary GetExtensionApiVersions gets the supported versions for the extension api API.
-// @Description Get the supported API versions for extension apis.
-// @ID extensionApi-get-versions
+// @Summary GetModuleApiVersions gets the supported versions for the module api API.
+// @Description Get the supported API versions for module apis.
+// @ID moduleApi-get-versions
 // @Produce json
 // @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
-// @Router /extension-apis/versions [GET]
-func (h Handler) GetExtensionApiVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeExtensionApi)])
+// @Router /module-apis/versions [GET]
+func (h Handler) GetModuleApiVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeModuleApi)])
 }
 
-// @Summary adds a new extension api.
-// @Description Add a new extension api to the Threeport database.
-// @ID add-v0-extensionApi
+// @Summary adds a new module api.
+// @Description Add a new module api to the Threeport database.
+// @ID add-v0-moduleApi
 // @Accept json
 // @Produce json
-// @Param extensionApi body api_v0.ExtensionApi true "ExtensionApi object"
+// @Param moduleApi body api_v0.ModuleApi true "ModuleApi object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/extension-apis [POST]
-func (h Handler) AddExtensionApi(c echo.Context) error {
-	objectType := api_v0.ObjectTypeExtensionApi
-	var extensionApi api_v0.ExtensionApi
+// @Router /v0/module-apis [POST]
+func (h Handler) AddModuleApi(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleApi
+	var moduleApi api_v0.ModuleApi
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, extensionApi); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, moduleApi); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	if err := c.Bind(&extensionApi); err != nil {
+	if err := c.Bind(&moduleApi); err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, extensionApi, objectType); err != nil {
+	if id, err := apiserver_lib.ValidateBoundData(c, moduleApi, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// check for duplicate names
-	var existingExtensionApi api_v0.ExtensionApi
+	var existingModuleApi api_v0.ModuleApi
 	nameUsed := true
-	result := h.DB.Where("name = ?", extensionApi.Name).First(&existingExtensionApi)
+	result := h.DB.Where("name = ?", moduleApi.Name).First(&existingModuleApi)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
@@ -69,11 +69,11 @@ func (h Handler) AddExtensionApi(c echo.Context) error {
 	}
 
 	// persist to DB
-	if result := h.DB.Create(&extensionApi); result.Error != nil {
+	if result := h.DB.Create(&moduleApi); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, extensionApi, objectType)
+	response, err := apiserver_lib.CreateResponse(nil, moduleApi, objectType)
 	if err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -81,34 +81,34 @@ func (h Handler) AddExtensionApi(c echo.Context) error {
 	return apiserver_lib.ResponseStatus201(c, *response)
 }
 
-// @Summary gets all extension apis.
-// @Description Get all extension apis from the Threeport database.
-// @ID get-v0-extensionApis
+// @Summary gets all module apis.
+// @Description Get all module apis from the Threeport database.
+// @ID get-v0-moduleApis
 // @Accept json
 // @Produce json
-// @Param name query string false "extension api search by name"
+// @Param name query string false "module api search by name"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/extension-apis [GET]
-func (h Handler) GetExtensionApis(c echo.Context) error {
-	objectType := api_v0.ObjectTypeExtensionApi
+// @Router /v0/module-apis [GET]
+func (h Handler) GetModuleApis(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleApi
 	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
 	if err != nil {
 		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
 	}
 
-	var filter api_v0.ExtensionApi
+	var filter api_v0.ModuleApi
 	if err := c.Bind(&filter); err != nil {
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
-	if result := h.DB.Model(&api_v0.ExtensionApi{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&api_v0.ModuleApi{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	records := &[]api_v0.ExtensionApi{}
+	records := &[]api_v0.ModuleApi{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
@@ -121,28 +121,28 @@ func (h Handler) GetExtensionApis(c echo.Context) error {
 	return apiserver_lib.ResponseStatus200(c, *response)
 }
 
-// @Summary gets a extension api.
-// @Description Get a particular extension api from the database.
-// @ID get-v0-extensionApi
+// @Summary gets a module api.
+// @Description Get a particular module api from the database.
+// @ID get-v0-moduleApi
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/extension-apis/{id} [GET]
-func (h Handler) GetExtensionApi(c echo.Context) error {
-	objectType := api_v0.ObjectTypeExtensionApi
-	extensionApiID := c.Param("id")
-	var extensionApi api_v0.ExtensionApi
-	if result := h.DB.First(&extensionApi, extensionApiID); result.Error != nil {
+// @Router /v0/module-apis/{id} [GET]
+func (h Handler) GetModuleApi(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleApi
+	moduleApiID := c.Param("id")
+	var moduleApi api_v0.ModuleApi
+	if result := h.DB.First(&moduleApi, moduleApiID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, extensionApi, objectType)
+	response, err := apiserver_lib.CreateResponse(nil, moduleApi, objectType)
 	if err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -150,27 +150,27 @@ func (h Handler) GetExtensionApi(c echo.Context) error {
 	return apiserver_lib.ResponseStatus200(c, *response)
 }
 
-// @Summary updates specific fields for an existing extension api.
-// @Description Update a extension api in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating extension api objects only.
+// @Summary updates specific fields for an existing module api.
+// @Description Update a module api in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating module api objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-v0-extensionApi
+// @ID update-v0-moduleApi
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param extensionApi body api_v0.ExtensionApi true "ExtensionApi object"
+// @Param moduleApi body api_v0.ModuleApi true "ModuleApi object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/extension-apis/{id} [PATCH]
-func (h Handler) UpdateExtensionApi(c echo.Context) error {
-	objectType := api_v0.ObjectTypeExtensionApi
-	extensionApiID := c.Param("id")
-	var existingExtensionApi api_v0.ExtensionApi
-	if result := h.DB.First(&existingExtensionApi, extensionApiID); result.Error != nil {
+// @Router /v0/module-apis/{id} [PATCH]
+func (h Handler) UpdateModuleApi(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleApi
+	moduleApiID := c.Param("id")
+	var existingModuleApi api_v0.ModuleApi
+	if result := h.DB.First(&existingModuleApi, moduleApiID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -178,22 +178,22 @@ func (h Handler) UpdateExtensionApi(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingExtensionApi); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingModuleApi); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
-	var updatedExtensionApi api_v0.ExtensionApi
-	if err := c.Bind(&updatedExtensionApi); err != nil {
+	var updatedModuleApi api_v0.ModuleApi
+	if err := c.Bind(&updatedModuleApi); err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
-	if result := h.DB.Model(&existingExtensionApi).Updates(updatedExtensionApi); result.Error != nil {
+	if result := h.DB.Model(&existingModuleApi).Updates(updatedModuleApi); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingExtensionApi, objectType)
+	response, err := apiserver_lib.CreateResponse(nil, existingModuleApi, objectType)
 	if err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -201,28 +201,28 @@ func (h Handler) UpdateExtensionApi(c echo.Context) error {
 	return apiserver_lib.ResponseStatus200(c, *response)
 }
 
-// @Summary updates an existing extension api by replacing the entire object.
-// @Description Replace a extension api in the database.  All required fields must be provided.
+// @Summary updates an existing module api by replacing the entire object.
+// @Description Replace a module api in the database.  All required fields must be provided.
 // @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating extension api objects only.
+// @Description Note: This API endpint is for updating module api objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-v0-extensionApi
+// @ID replace-v0-moduleApi
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param extensionApi body api_v0.ExtensionApi true "ExtensionApi object"
+// @Param moduleApi body api_v0.ModuleApi true "ModuleApi object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/extension-apis/{id} [PUT]
-func (h Handler) ReplaceExtensionApi(c echo.Context) error {
-	objectType := api_v0.ObjectTypeExtensionApi
-	extensionApiID := c.Param("id")
-	var existingExtensionApi api_v0.ExtensionApi
-	if result := h.DB.First(&existingExtensionApi, extensionApiID); result.Error != nil {
+// @Router /v0/module-apis/{id} [PUT]
+func (h Handler) ReplaceModuleApi(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleApi
+	moduleApiID := c.Param("id")
+	var existingModuleApi api_v0.ModuleApi
+	if result := h.DB.First(&existingModuleApi, moduleApiID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -230,36 +230,36 @@ func (h Handler) ReplaceExtensionApi(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingExtensionApi); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingModuleApi); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
-	var updatedExtensionApi api_v0.ExtensionApi
-	if err := c.Bind(&updatedExtensionApi); err != nil {
+	var updatedModuleApi api_v0.ModuleApi
+	if err := c.Bind(&updatedModuleApi); err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, updatedExtensionApi, objectType); err != nil {
+	if id, err := apiserver_lib.ValidateBoundData(c, updatedModuleApi, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
-	updatedExtensionApi.ID = existingExtensionApi.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedExtensionApi); result.Error != nil {
+	updatedModuleApi.ID = existingModuleApi.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedModuleApi); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// reload updated data from DB
-	if result := h.DB.First(&existingExtensionApi, extensionApiID); result.Error != nil {
+	if result := h.DB.First(&existingModuleApi, moduleApiID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingExtensionApi, objectType)
+	response, err := apiserver_lib.CreateResponse(nil, existingModuleApi, objectType)
 	if err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -267,9 +267,9 @@ func (h Handler) ReplaceExtensionApi(c echo.Context) error {
 	return apiserver_lib.ResponseStatus200(c, *response)
 }
 
-// @Summary deletes a extension api.
-// @Description Delete a extension api by ID from the database.
-// @ID delete-v0-extensionApi
+// @Summary deletes a module api.
+// @Description Delete a module api by ID from the database.
+// @ID delete-v0-moduleApi
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -277,12 +277,12 @@ func (h Handler) ReplaceExtensionApi(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/extension-apis/{id} [DELETE]
-func (h Handler) DeleteExtensionApi(c echo.Context) error {
-	objectType := api_v0.ObjectTypeExtensionApi
-	extensionApiID := c.Param("id")
-	var extensionApi api_v0.ExtensionApi
-	if result := h.DB.First(&extensionApi, extensionApiID); result.Error != nil {
+// @Router /v0/module-apis/{id} [DELETE]
+func (h Handler) DeleteModuleApi(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleApi
+	moduleApiID := c.Param("id")
+	var moduleApi api_v0.ModuleApi
+	if result := h.DB.First(&moduleApi, moduleApiID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -290,11 +290,11 @@ func (h Handler) DeleteExtensionApi(c echo.Context) error {
 	}
 
 	// delete object
-	if result := h.DB.Delete(&extensionApi); result.Error != nil {
+	if result := h.DB.Delete(&moduleApi); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, extensionApi, objectType)
+	response, err := apiserver_lib.CreateResponse(nil, moduleApi, objectType)
 	if err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -303,53 +303,53 @@ func (h Handler) DeleteExtensionApi(c echo.Context) error {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// ExtensionApiRoute
+// ModuleApiRoute
 ///////////////////////////////////////////////////////////////////////////////
 
-// @Summary GetExtensionApiRouteVersions gets the supported versions for the extension api route API.
-// @Description Get the supported API versions for extension api routes.
-// @ID extensionApiRoute-get-versions
+// @Summary GetModuleApiRouteVersions gets the supported versions for the module api route API.
+// @Description Get the supported API versions for module api routes.
+// @ID moduleApiRoute-get-versions
 // @Produce json
 // @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
-// @Router /extension-api-routes/versions [GET]
-func (h Handler) GetExtensionApiRouteVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeExtensionApiRoute)])
+// @Router /module-api-routes/versions [GET]
+func (h Handler) GetModuleApiRouteVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeModuleApiRoute)])
 }
 
-// @Summary adds a new extension api route.
-// @Description Add a new extension api route to the Threeport database.
-// @ID add-v0-extensionApiRoute
+// @Summary adds a new module api route.
+// @Description Add a new module api route to the Threeport database.
+// @ID add-v0-moduleApiRoute
 // @Accept json
 // @Produce json
-// @Param extensionApiRoute body api_v0.ExtensionApiRoute true "ExtensionApiRoute object"
+// @Param moduleApiRoute body api_v0.ModuleApiRoute true "ModuleApiRoute object"
 // @Success 201 {object} v0.Response "Created"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/extension-api-routes [POST]
-func (h Handler) AddExtensionApiRoute(c echo.Context) error {
-	objectType := api_v0.ObjectTypeExtensionApiRoute
-	var extensionApiRoute api_v0.ExtensionApiRoute
+// @Router /v0/module-api-routes [POST]
+func (h Handler) AddModuleApiRoute(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleApiRoute
+	var moduleApiRoute api_v0.ModuleApiRoute
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, extensionApiRoute); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, moduleApiRoute); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	if err := c.Bind(&extensionApiRoute); err != nil {
+	if err := c.Bind(&moduleApiRoute); err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, extensionApiRoute, objectType); err != nil {
+	if id, err := apiserver_lib.ValidateBoundData(c, moduleApiRoute, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist to DB
-	if result := h.DB.Create(&extensionApiRoute); result.Error != nil {
+	if result := h.DB.Create(&moduleApiRoute); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, extensionApiRoute, objectType)
+	response, err := apiserver_lib.CreateResponse(nil, moduleApiRoute, objectType)
 	if err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -357,34 +357,34 @@ func (h Handler) AddExtensionApiRoute(c echo.Context) error {
 	return apiserver_lib.ResponseStatus201(c, *response)
 }
 
-// @Summary gets all extension api routes.
-// @Description Get all extension api routes from the Threeport database.
-// @ID get-v0-extensionApiRoutes
+// @Summary gets all module api routes.
+// @Description Get all module api routes from the Threeport database.
+// @ID get-v0-moduleApiRoutes
 // @Accept json
 // @Produce json
-// @Param name query string false "extension api route search by name"
+// @Param name query string false "module api route search by name"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/extension-api-routes [GET]
-func (h Handler) GetExtensionApiRoutes(c echo.Context) error {
-	objectType := api_v0.ObjectTypeExtensionApiRoute
+// @Router /v0/module-api-routes [GET]
+func (h Handler) GetModuleApiRoutes(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleApiRoute
 	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
 	if err != nil {
 		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
 	}
 
-	var filter api_v0.ExtensionApiRoute
+	var filter api_v0.ModuleApiRoute
 	if err := c.Bind(&filter); err != nil {
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
-	if result := h.DB.Model(&api_v0.ExtensionApiRoute{}).Where(&filter).Count(&totalCount); result.Error != nil {
+	if result := h.DB.Model(&api_v0.ModuleApiRoute{}).Where(&filter).Count(&totalCount); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
-	records := &[]api_v0.ExtensionApiRoute{}
+	records := &[]api_v0.ModuleApiRoute{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
@@ -397,28 +397,28 @@ func (h Handler) GetExtensionApiRoutes(c echo.Context) error {
 	return apiserver_lib.ResponseStatus200(c, *response)
 }
 
-// @Summary gets a extension api route.
-// @Description Get a particular extension api route from the database.
-// @ID get-v0-extensionApiRoute
+// @Summary gets a module api route.
+// @Description Get a particular module api route from the database.
+// @ID get-v0-moduleApiRoute
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/extension-api-routes/{id} [GET]
-func (h Handler) GetExtensionApiRoute(c echo.Context) error {
-	objectType := api_v0.ObjectTypeExtensionApiRoute
-	extensionApiRouteID := c.Param("id")
-	var extensionApiRoute api_v0.ExtensionApiRoute
-	if result := h.DB.First(&extensionApiRoute, extensionApiRouteID); result.Error != nil {
+// @Router /v0/module-api-routes/{id} [GET]
+func (h Handler) GetModuleApiRoute(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleApiRoute
+	moduleApiRouteID := c.Param("id")
+	var moduleApiRoute api_v0.ModuleApiRoute
+	if result := h.DB.First(&moduleApiRoute, moduleApiRouteID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, extensionApiRoute, objectType)
+	response, err := apiserver_lib.CreateResponse(nil, moduleApiRoute, objectType)
 	if err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -426,27 +426,27 @@ func (h Handler) GetExtensionApiRoute(c echo.Context) error {
 	return apiserver_lib.ResponseStatus200(c, *response)
 }
 
-// @Summary updates specific fields for an existing extension api route.
-// @Description Update a extension api route in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating extension api route objects only.
+// @Summary updates specific fields for an existing module api route.
+// @Description Update a module api route in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating module api route objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID update-v0-extensionApiRoute
+// @ID update-v0-moduleApiRoute
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param extensionApiRoute body api_v0.ExtensionApiRoute true "ExtensionApiRoute object"
+// @Param moduleApiRoute body api_v0.ModuleApiRoute true "ModuleApiRoute object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/extension-api-routes/{id} [PATCH]
-func (h Handler) UpdateExtensionApiRoute(c echo.Context) error {
-	objectType := api_v0.ObjectTypeExtensionApiRoute
-	extensionApiRouteID := c.Param("id")
-	var existingExtensionApiRoute api_v0.ExtensionApiRoute
-	if result := h.DB.First(&existingExtensionApiRoute, extensionApiRouteID); result.Error != nil {
+// @Router /v0/module-api-routes/{id} [PATCH]
+func (h Handler) UpdateModuleApiRoute(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleApiRoute
+	moduleApiRouteID := c.Param("id")
+	var existingModuleApiRoute api_v0.ModuleApiRoute
+	if result := h.DB.First(&existingModuleApiRoute, moduleApiRouteID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -454,22 +454,22 @@ func (h Handler) UpdateExtensionApiRoute(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingExtensionApiRoute); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingModuleApiRoute); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
-	var updatedExtensionApiRoute api_v0.ExtensionApiRoute
-	if err := c.Bind(&updatedExtensionApiRoute); err != nil {
+	var updatedModuleApiRoute api_v0.ModuleApiRoute
+	if err := c.Bind(&updatedModuleApiRoute); err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
-	if result := h.DB.Model(&existingExtensionApiRoute).Updates(updatedExtensionApiRoute); result.Error != nil {
+	if result := h.DB.Model(&existingModuleApiRoute).Updates(updatedModuleApiRoute); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingExtensionApiRoute, objectType)
+	response, err := apiserver_lib.CreateResponse(nil, existingModuleApiRoute, objectType)
 	if err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -477,28 +477,28 @@ func (h Handler) UpdateExtensionApiRoute(c echo.Context) error {
 	return apiserver_lib.ResponseStatus200(c, *response)
 }
 
-// @Summary updates an existing extension api route by replacing the entire object.
-// @Description Replace a extension api route in the database.  All required fields must be provided.
+// @Summary updates an existing module api route by replacing the entire object.
+// @Description Replace a module api route in the database.  All required fields must be provided.
 // @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating extension api route objects only.
+// @Description Note: This API endpint is for updating module api route objects only.
 // @Description Request bodies that include related objects will be accepted, however
 // @Description the related objects will not be changed.  Call the patch or put method for
 // @Description each particular existing object to change them.
-// @ID replace-v0-extensionApiRoute
+// @ID replace-v0-moduleApiRoute
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
-// @Param extensionApiRoute body api_v0.ExtensionApiRoute true "ExtensionApiRoute object"
+// @Param moduleApiRoute body api_v0.ModuleApiRoute true "ModuleApiRoute object"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/extension-api-routes/{id} [PUT]
-func (h Handler) ReplaceExtensionApiRoute(c echo.Context) error {
-	objectType := api_v0.ObjectTypeExtensionApiRoute
-	extensionApiRouteID := c.Param("id")
-	var existingExtensionApiRoute api_v0.ExtensionApiRoute
-	if result := h.DB.First(&existingExtensionApiRoute, extensionApiRouteID); result.Error != nil {
+// @Router /v0/module-api-routes/{id} [PUT]
+func (h Handler) ReplaceModuleApiRoute(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleApiRoute
+	moduleApiRouteID := c.Param("id")
+	var existingModuleApiRoute api_v0.ModuleApiRoute
+	if result := h.DB.First(&existingModuleApiRoute, moduleApiRouteID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -506,36 +506,36 @@ func (h Handler) ReplaceExtensionApiRoute(c echo.Context) error {
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingExtensionApiRoute); err != nil {
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingModuleApiRoute); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
-	var updatedExtensionApiRoute api_v0.ExtensionApiRoute
-	if err := c.Bind(&updatedExtensionApiRoute); err != nil {
+	var updatedModuleApiRoute api_v0.ModuleApiRoute
+	if err := c.Bind(&updatedModuleApiRoute); err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, updatedExtensionApiRoute, objectType); err != nil {
+	if id, err := apiserver_lib.ValidateBoundData(c, updatedModuleApiRoute, objectType); err != nil {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
-	updatedExtensionApiRoute.ID = existingExtensionApiRoute.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedExtensionApiRoute); result.Error != nil {
+	updatedModuleApiRoute.ID = existingModuleApiRoute.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedModuleApiRoute); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// reload updated data from DB
-	if result := h.DB.First(&existingExtensionApiRoute, extensionApiRouteID); result.Error != nil {
+	if result := h.DB.First(&existingModuleApiRoute, moduleApiRouteID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingExtensionApiRoute, objectType)
+	response, err := apiserver_lib.CreateResponse(nil, existingModuleApiRoute, objectType)
 	if err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
@@ -543,9 +543,9 @@ func (h Handler) ReplaceExtensionApiRoute(c echo.Context) error {
 	return apiserver_lib.ResponseStatus200(c, *response)
 }
 
-// @Summary deletes a extension api route.
-// @Description Delete a extension api route by ID from the database.
-// @ID delete-v0-extensionApiRoute
+// @Summary deletes a module api route.
+// @Description Delete a module api route by ID from the database.
+// @ID delete-v0-moduleApiRoute
 // @Accept json
 // @Produce json
 // @Param id path int true "ID"
@@ -553,12 +553,12 @@ func (h Handler) ReplaceExtensionApiRoute(c echo.Context) error {
 // @Failure 404 {object} v0.Response "Not Found"
 // @Failure 409 {object} v0.Response "Conflict"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/extension-api-routes/{id} [DELETE]
-func (h Handler) DeleteExtensionApiRoute(c echo.Context) error {
-	objectType := api_v0.ObjectTypeExtensionApiRoute
-	extensionApiRouteID := c.Param("id")
-	var extensionApiRoute api_v0.ExtensionApiRoute
-	if result := h.DB.First(&extensionApiRoute, extensionApiRouteID); result.Error != nil {
+// @Router /v0/module-api-routes/{id} [DELETE]
+func (h Handler) DeleteModuleApiRoute(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleApiRoute
+	moduleApiRouteID := c.Param("id")
+	var moduleApiRoute api_v0.ModuleApiRoute
+	if result := h.DB.First(&moduleApiRoute, moduleApiRouteID); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
@@ -566,11 +566,11 @@ func (h Handler) DeleteExtensionApiRoute(c echo.Context) error {
 	}
 
 	// delete object
-	if result := h.DB.Delete(&extensionApiRoute); result.Error != nil {
+	if result := h.DB.Delete(&moduleApiRoute); result.Error != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, extensionApiRoute, objectType)
+	response, err := apiserver_lib.CreateResponse(nil, moduleApiRoute, objectType)
 	if err != nil {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}

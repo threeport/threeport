@@ -76,16 +76,6 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 			return fmt.Errorf("failed to delete Event: %w", err)
 		}
 
-	case "v0.ExtensionApi":
-		if _, err := DeleteExtensionApi(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete ExtensionApi: %w", err)
-		}
-
-	case "v0.ExtensionApiRoute":
-		if _, err := DeleteExtensionApiRoute(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete ExtensionApiRoute: %w", err)
-		}
-
 	case "v0.GatewayDefinition":
 		if _, err := DeleteGatewayDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete GatewayDefinition: %w", err)
@@ -159,6 +149,16 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 	case "v0.MetricsInstance":
 		if _, err := DeleteMetricsInstance(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete MetricsInstance: %w", err)
+		}
+
+	case "v0.ModuleApi":
+		if _, err := DeleteModuleApi(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete ModuleApi: %w", err)
+		}
+
+	case "v0.ModuleApiRoute":
+		if _, err := DeleteModuleApiRoute(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete ModuleApiRoute: %w", err)
 		}
 
 	case "v0.ObservabilityDashboardDefinition":

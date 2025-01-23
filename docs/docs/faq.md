@@ -1,12 +1,12 @@
 # Frequently Asked Questions
 
-## What kind of applications does Threport support?
+## What kind of applications does Threeport support?
 
 Threeport supports any containerized application.  It doesn't matter what
-language your app is built with.  Threeport intentionally does not dictate any
-build processes, frameworks or app architecture.  Your continuous integration
-processes need not change.  If your app can be built into a container image,
-it can run on Threeport.
+language your app is developed in or what your build processes are.  Threeport
+intentionally does not dictate any build processes, frameworks or app architecture.
+Your continuous integration processes need not change.  If your app can be built
+into a container image, it can run on Threeport.
 
 ## Does Threeport support runtime environments besides Kubernetes?
 
@@ -20,11 +20,6 @@ of that system.
 Today, Amazon Web Services is the only supported cloud provider.  See our
 [roadmap](https://github.com/threeport/threeport/blob/main/ROADMAP.md) for plans
 to support others.
-
-## Does my team have to support Threeport to use it?
-
-See our [Managed Threeport](./managed-threeport.md) page for an up-to-date list
-of providers that offer managed Threeport solutions.
 
 ## Where did the name "Threeport" come from?
 
