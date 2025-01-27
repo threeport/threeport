@@ -14,9 +14,9 @@ import (
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 )
 
-// GenInstaller generates the installer package for extension projects that
-// installs the extension components alongside an existing Threeport control
-// plane and registers that extension with Threeport.
+// GenInstaller generates the installer package for module projects that
+// installs the module components alongside an existing Threeport control
+// plane and registers that module with Threeport.
 func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	pluralize := pluralize.NewClient()
 	f := NewFile("v0")
@@ -37,10 +37,10 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 	}
 
-	extensionNameKebab := strcase.ToKebab(sdkConfig.ExtensionName)
-	extensionNameSnake := strcase.ToSnake(sdkConfig.ExtensionName)
-	extensionNameCamel := strcase.ToCamel(sdkConfig.ExtensionName)
-	extensionNameLowerCamel := strcase.ToLowerCamel(sdkConfig.ExtensionName)
+	moduleNameKebab := strcase.ToKebab(sdkConfig.ModuleName)
+	moduleNameSnake := strcase.ToSnake(sdkConfig.ModuleName)
+	moduleNameCamel := strcase.ToCamel(sdkConfig.ModuleName)
+	moduleNameLowerCamel := strcase.ToLowerCamel(sdkConfig.ModuleName)
 
 	f.Const().Defs(
 		Id("ReleaseImageRepo").Op("=").Lit(sdkConfig.ImageRepo),
@@ -49,29 +49,29 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("DbInitLocation").Op("=").Lit("/etc/threeport/db-create"),
 		Id("defaultNamespace").Op("=").Lit(fmt.Sprintf(
 			"threeport-%s",
-			extensionNameKebab,
+			moduleNameKebab,
 		)),
 		Id("defaultThreeportNamespace").Op("=").Lit("threeport-control-plane"),
 		Id("apiServerDeployName").Op("=").Lit(fmt.Sprintf(
 			"threeport-%s-api-server",
-			strcase.ToKebab(sdkConfig.ExtensionName),
+			strcase.ToKebab(sdkConfig.ModuleName),
 		)),
-		Id("extensionName").Op("=").Lit(fmt.Sprintf(
-			"%s/%s-extension-api",
+		Id("moduleName").Op("=").Lit(fmt.Sprintf(
+			"%s/%s-module-api",
 			sdkConfig.ApiNamespace,
-			strcase.ToKebab(sdkConfig.ExtensionName),
+			strcase.ToKebab(sdkConfig.ModuleName),
 		)),
 		Id("caSecretName").Op("=").Lit(fmt.Sprintf(
 			"%s-controller-ca",
-			extensionNameKebab,
+			moduleNameKebab,
 		)),
 		Id("certSecretName").Op("=").Lit(fmt.Sprintf(
 			"%s-controller-cert",
-			extensionNameKebab,
+			moduleNameKebab,
 		)),
 	)
 
-	f.Comment("Installer contains the values needed for an extension installation.")
+	f.Comment("Installer contains the values needed for a module installation.")
 	f.Type().Id("Installer").Struct(
 		Comment("dynamice interface client for Kubernetes API"),
 		Id("KubeClient").Qual("k8s.io/client-go/dynamic", "Interface"),
@@ -79,17 +79,17 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Line().Comment("Kubernetes API REST mapper"),
 		Id("KubeRestMapper").Op("*").Qual("k8s.io/apimachinery/pkg/api/meta", "RESTMapper"),
 
-		Line().Comment("The Kubernetes namespace to install the extension components in."),
-		Id("ExtensionNamespace").String(),
+		Line().Comment("The Kubernetes namespace to install the module components in."),
+		Id("ModuleNamespace").String(),
 
 		Line().Comment("The Kubernetes namespace the Threeport control plane is installed in."),
 		Id("ThreeportNamespace").String(),
 
-		Line().Comment("The container image repository to pull extension's API server and"),
+		Line().Comment("The container image repository to pull module's API server and"),
 		Comment("controller/s' container images from."),
 		Id("ControlPlaneImageRepo").String(),
 
-		Line().Comment("The container image tag to use for extension's API server and"),
+		Line().Comment("The container image tag to use for module's API server and"),
 		Comment("controller/s' container image."),
 		Id("ControlPlaneImageTag").String(),
 
@@ -98,8 +98,8 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 
 	f.Comment(fmt.Sprintf(
-		"NewInstaller returns a %s extension installer with default values.",
-		extensionNameKebab,
+		"NewInstaller returns a %s module installer with default values.",
+		moduleNameKebab,
 	))
 	f.Func().Id("NewInstaller").Params(
 		Line().Id("kubeClient").Qual("k8s.io/client-go/dynamic", "Interface"),
@@ -109,7 +109,7 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("defaultInstaller").Op(":=").Id("Installer").Values(Dict{
 			Id("KubeClient"):         Id("kubeClient"),
 			Id("KubeRestMapper"):     Id("restMapper"),
-			Id("ExtensionNamespace"): Id("defaultNamespace"),
+			Id("ModuleNamespace"):    Id("defaultNamespace"),
 			Id("ThreeportNamespace"): Id("defaultThreeportNamespace"),
 		}),
 		Line(),
@@ -117,11 +117,11 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Return(Op("&").Id("defaultInstaller")),
 	)
 
-	installFuncName := fmt.Sprintf("Install%sExtension", extensionNameCamel)
+	installFuncName := fmt.Sprintf("Install%sModule", moduleNameCamel)
 	f.Comment(fmt.Sprintf(
-		"%s installs the controller and API for the %s extension.",
+		"%s installs the controller and API for the %s module.",
 		installFuncName,
-		extensionNameKebab,
+		moduleNameKebab,
 	))
 	f.Func().Params(
 		Id("i").Op("*").Id("Installer"),
@@ -135,7 +135,7 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Lit("apiVersion"): Lit("v1"),
 				Lit("kind"):       Lit("Namespace"),
 				Lit("metadata"): Map(String()).Interface().Values(Dict{
-					Line().Lit("name"): Id("i.ExtensionNamespace").Op(",").Line(),
+					Line().Lit("name"): Id("i.ModuleNamespace").Op(",").Line(),
 				}),
 			}).Op(",").Line(),
 		})
@@ -152,15 +152,15 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		), Err().Op("!=").Nil()).Block(
 			Return(Qual("fmt", "Errorf").Call(
 				Lit(fmt.Sprintf(
-					"failed to create/update %s extension namespace: %%w",
-					extensionNameKebab,
+					"failed to create/update %s module namespace: %%w",
+					moduleNameKebab,
 				)),
 				Err(),
 			)),
 		)
 		g.Line()
 
-		g.Comment("copy secrets into extension namespace")
+		g.Comment("copy secrets into module namespace")
 		copySecrets := []string{
 			"db-root-cert",
 			"db-threeport-cert",
@@ -174,7 +174,7 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Line().Op("*").Id("i.KubeRestMapper"),
 				Line().Lit(secretName),
 				Line().Id("i").Dot("ThreeportNamespace"),
-				Line().Id("i").Dot("ExtensionNamespace"),
+				Line().Id("i").Dot("ModuleNamespace"),
 				Line(),
 			).Op(";").Err().Op("!=").Nil()).Block(
 				Return(Qual("fmt", "Errorf").Call(
@@ -186,7 +186,7 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		}
 		g.Line()
 
-		extensionDbName := fmt.Sprintf("threeport_%s_api", extensionNameSnake)
+		moduleDbName := fmt.Sprintf("threeport_%s_api", moduleNameSnake)
 		g.Comment("create configmap used to initialize API database")
 		g.Var().Id("dbCreateConfig").Op("=").Op("&").Qual(
 			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
@@ -197,12 +197,12 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Lit("kind"):       Lit("ConfigMap"),
 				Lit("metadata"): Map(String()).Interface().Values(Dict{
 					Lit("name"):      Lit("db-create"),
-					Lit("namespace"): Id("i.ExtensionNamespace"),
+					Lit("namespace"): Id("i.ModuleNamespace"),
 				}),
 				Lit("data"): Map(String()).Interface().Values(Dict{
 					Line().Lit("db.sql"): Lit(fmt.Sprintf(`CREATE USER IF NOT EXISTS threeport;
 CREATE DATABASE IF NOT EXISTS %[1]s encoding='utf-8';
-GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
+GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 				}),
 			}),
 		})
@@ -219,7 +219,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 			Return(Qual("fmt", "Errorf").Call(
 				Lit(fmt.Sprintf(
 					"failed to create/update %s DB initialization configmap: %%w",
-					extensionNameKebab,
+					moduleNameKebab,
 				)),
 				Err(),
 			)),
@@ -228,7 +228,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 
 		g.Comment(fmt.Sprintf(
 			"install %s API server deployment",
-			extensionNameKebab,
+			moduleNameKebab,
 		))
 		g.Id("apiArgs").Op(":=").Index().Interface().Values(Lit("-auto-migrate=true"))
 		g.If(Op("!").Id("i").Dot("AuthEnabled")).Block(
@@ -236,7 +236,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 		)
 		g.Var().Id(fmt.Sprintf(
 			"%sApiDeploy",
-			extensionNameLowerCamel,
+			moduleNameLowerCamel,
 		)).Op("=").Op("&").Qual(
 			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
 			"Unstructured",
@@ -246,7 +246,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 				Lit("kind"):       Lit("Deployment"),
 				Lit("metadata"): Map(String()).Interface().Values(Dict{
 					Lit("name"):      Id("apiServerDeployName"),
-					Lit("namespace"): Id("i.ExtensionNamespace"),
+					Lit("namespace"): Id("i.ModuleNamespace"),
 				}),
 				Lit("spec"): Map(String()).Interface().Values(Dict{
 					Lit("replicas"): Lit(1),
@@ -287,7 +287,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 									Lit("image"): Qual("fmt", "Sprintf").Call(
 										Line().Lit(fmt.Sprintf(
 											"%%s/threeport-%s-rest-api:%%s",
-											extensionNameKebab,
+											moduleNameKebab,
 										)),
 										Line().Id("i").Dot("ControlPlaneImageRepo"),
 										Line().Id("i").Dot("ControlPlaneImageTag"),
@@ -362,7 +362,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 									Lit("image"): Qual("fmt", "Sprintf").Call(
 										Line().Lit(fmt.Sprintf(
 											"%%s/threeport-%s-database-migrator:%%s",
-											extensionNameKebab,
+											moduleNameKebab,
 										)),
 										Line().Id("i").Dot("ControlPlaneImageRepo"),
 										Line().Id("i").Dot("ControlPlaneImageTag"),
@@ -427,7 +427,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 		).Call(
 			Id(fmt.Sprintf(
 				"%sApiDeploy",
-				extensionNameLowerCamel,
+				moduleNameLowerCamel,
 			)),
 			Id("i.KubeClient"),
 			Op("*").Id("i.KubeRestMapper"),
@@ -435,7 +435,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 			Return(Qual("fmt", "Errorf").Call(
 				Lit(fmt.Sprintf(
 					"failed to create/update %s API deployment: %%w",
-					extensionNameKebab,
+					moduleNameKebab,
 				)),
 				Err(),
 			)),
@@ -444,11 +444,11 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 
 		g.Comment(fmt.Sprintf(
 			"install %s API server service",
-			extensionNameKebab,
+			moduleNameKebab,
 		))
 		g.Var().Id(fmt.Sprintf(
 			"%sApiService",
-			extensionNameLowerCamel,
+			moduleNameLowerCamel,
 		)).Op("=").Op("&").Qual(
 			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
 			"Unstructured",
@@ -461,7 +461,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 						Line().Lit("app.kubernetes.io/name"): Id("apiServerDeployName").Op(",").Line(),
 					}),
 					Lit("name"):      Id("apiServerDeployName"),
-					Lit("namespace"): Id("i").Dot("ExtensionNamespace"),
+					Lit("namespace"): Id("i").Dot("ModuleNamespace"),
 				}),
 				Lit("spec"): Map(String()).Interface().Values(Dict{
 					Lit("ports"): Index().Interface().Values(
@@ -482,7 +482,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 			List(Id("_"), Err()).Op(":=").Id("kube").Dot("CreateOrUpdateResource").Call(
 				Id(fmt.Sprintf(
 					"%sApiService",
-					extensionNameLowerCamel,
+					moduleNameLowerCamel,
 				)),
 				Id("i").Dot("KubeClient"),
 				Op("*").Id("i").Dot("KubeRestMapper"),
@@ -491,14 +491,14 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 		).Block(
 			Return(Qual("fmt", "Errorf").Call(Lit(fmt.Sprintf(
 				"failed to create/updated %s API service: %%w",
-				extensionNameKebab,
+				moduleNameKebab,
 			)), Err())),
 		)
 		g.Line()
 
 		g.Comment(fmt.Sprintf(
 			"install %s controller",
-			extensionNameKebab,
+			moduleNameKebab,
 		))
 
 		g.Id("controllerVolumes").Op(":=").Index().Interface().Values()
@@ -526,7 +526,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 			If(Err().Op("!=").Nil()).Block(
 				Return(Qual("fmt", "Errorf").Call(Lit(fmt.Sprintf(
 					"failed to generate client cert and key for %s controller: %%w",
-					extensionNameKebab,
+					moduleNameKebab,
 				)), Err())),
 			),
 			Line(),
@@ -538,7 +538,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 			), Err().Op("!=").Nil()).Block(
 				Return(Qual("fmt", "Errorf").Call(Lit(fmt.Sprintf(
 					"failed to create client auth certs for %s controller: %%w",
-					extensionNameKebab,
+					moduleNameKebab,
 				)), Err())),
 			),
 			Line(),
@@ -555,7 +555,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 		g.Line()
 		g.Var().Id(fmt.Sprintf(
 			"%sControllerDeploy",
-			extensionNameLowerCamel,
+			moduleNameLowerCamel,
 		)).Op("=").Op("&").Qual(
 			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
 			"Unstructured",
@@ -566,9 +566,9 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 				Lit("metadata"): Map(String()).Interface().Values(Dict{
 					Lit("name"): Lit(fmt.Sprintf(
 						"threeport-%s-controller",
-						extensionNameKebab,
+						moduleNameKebab,
 					)),
-					Lit("namespace"): Id("i.ExtensionNamespace"),
+					Lit("namespace"): Id("i.ModuleNamespace"),
 				}),
 				Lit("spec"): Map(String()).Interface().Values(Dict{
 					Lit("replicas"): Lit(1),
@@ -576,7 +576,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 						Line().Lit("matchLabels"): Map(String()).Interface().Values(Dict{
 							Line().Lit("app.kubernetes.io/name"): Lit(fmt.Sprintf(
 								"threeport-%s-controller",
-								extensionNameKebab,
+								moduleNameKebab,
 							)).Op(",").Line(),
 						}).Op(",").Line(),
 					}),
@@ -592,7 +592,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 							Line().Lit("labels"): Map(String()).Interface().Values(Dict{
 								Line().Lit("app.kubernetes.io/name"): Lit(fmt.Sprintf(
 									"threeport-%s-controller",
-									extensionNameKebab,
+									moduleNameKebab,
 								)).Op(",").Line(),
 							}).Op(",").Line(),
 						}),
@@ -603,7 +603,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 									Lit("command"): Index().Interface().Values(
 										Line().Lit(fmt.Sprintf(
 											"/%s-controller",
-											extensionNameKebab,
+											moduleNameKebab,
 										)),
 										Line(),
 									),
@@ -622,7 +622,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 									Lit("image"): Qual("fmt", "Sprintf").Call(
 										Line().Lit(fmt.Sprintf(
 											"%%s/threeport-%s-controller:%%s",
-											extensionNameKebab,
+											moduleNameKebab,
 										)),
 										Line().Id("i").Dot("ControlPlaneImageRepo"),
 										Line().Id("i").Dot("ControlPlaneImageTag"),
@@ -631,7 +631,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 									Lit("imagePullPolicy"): Lit("IfNotPresent"),
 									Lit("name"): Lit(fmt.Sprintf(
 										"%s-controller",
-										extensionNameKebab,
+										moduleNameKebab,
 									)),
 									Lit("volumeMounts"): Id("controllerVolumeMounts"),
 									Lit("readinessProbe"): Map(String()).Interface().Values(Dict{
@@ -664,7 +664,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 		).Call(
 			Id(fmt.Sprintf(
 				"%sControllerDeploy",
-				extensionNameLowerCamel,
+				moduleNameLowerCamel,
 			)),
 			Id("i.KubeClient"),
 			Op("*").Id("i.KubeRestMapper"),
@@ -672,7 +672,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 			Return(Qual("fmt", "Errorf").Call(
 				Lit(fmt.Sprintf(
 					"failed to create/update %s controller deployment: %%w",
-					extensionNameKebab,
+					moduleNameKebab,
 				)),
 				Err(),
 			)),
@@ -783,44 +783,44 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 	)
 
 	f.Comment(fmt.Sprintf(
-		"Register%sExtension calls the Threeport API to register the extension",
-		extensionNameCamel,
+		"Register%sModule calls the Threeport API to register the module",
+		moduleNameCamel,
 	))
 	f.Comment(fmt.Sprintf(
-		"API so that extension object requests are proxied to the %s extension",
-		sdkConfig.ExtensionName,
+		"API so that module object requests are proxied to the %s module",
+		sdkConfig.ModuleName,
 	))
 	f.Comment("API.")
 	f.Func().Params(Id("i").Op("*").Id("Installer")).Id(fmt.Sprintf(
-		"Register%sExtension",
-		extensionNameCamel,
+		"Register%sModule",
+		moduleNameCamel,
 	)).Params(
 		Line().Id("apiClient").Op("*").Qual("net/http", "Client"),
 		Line().Id("apiAddr").String(),
 		Line(),
 	).Error().Block(
-		Comment("check to see if extension is already registered"),
-		Var().Id("existingExtApi").Op("*").Qual(
+		Comment("check to see if module is already registered"),
+		Var().Id("existingModApi").Op("*").Qual(
 			"github.com/threeport/threeport/pkg/api/v0",
-			"ExtensionApi",
+			"ModuleApi",
 		),
-		List(Id("existingExtApi"), Op("_")).Op("=").Qual(
+		List(Id("existingModApi"), Op("_")).Op("=").Qual(
 			"github.com/threeport/threeport/pkg/client/v0",
-			"GetExtensionApiByName",
+			"GetModuleApiByName",
 		).Call(
-			Id("apiClient"), Id("apiAddr"), Id("extensionName"),
+			Id("apiClient"), Id("apiAddr"), Id("moduleName"),
 		),
-		If(Id("existingExtApi").Dot("ID").Op("==").Nil()).Block(
-			Comment("register the extension in the Threeport API"),
-			Id("extensionApi").Op(":=").Qual(
+		If(Id("existingModApi").Dot("ID").Op("==").Nil()).Block(
+			Comment("register the module in the Threeport API"),
+			Id("moduleApi").Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/api/v0",
-				"ExtensionApi",
+				"ModuleApi",
 			).Values(
 				Dict{
 					Id("Name"): Qual(
 						"github.com/threeport/threeport/pkg/util/v0",
 						"Ptr",
-					).Call(Id("extensionName")),
+					).Call(Id("moduleName")),
 					Id("Endpoint"): Qual(
 						"github.com/threeport/threeport/pkg/util/v0",
 						"Ptr",
@@ -831,23 +831,23 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 					)),
 				},
 			),
-			List(Id("createdExtApi"), Err()).Op(":=").Qual(
+			List(Id("createdModApi"), Err()).Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/client/v0",
-				"CreateExtensionApi",
+				"CreateModuleApi",
 			).Call(
-				Id("apiClient"), Id("apiAddr"), Op("&").Id("extensionApi"),
+				Id("apiClient"), Id("apiAddr"), Op("&").Id("moduleApi"),
 			),
 			If(Err().Op("!=").Nil()).Block(
 				Return(Qual("fmt", "Errorf").Call(
-					Lit("failed to create extension API object in Threeport API: %w"),
+					Lit("failed to create module API object in Threeport API: %w"),
 					Err(),
 				)),
 			),
-			Id("existingExtApi").Op("=").Id("createdExtApi"),
+			Id("existingModApi").Op("=").Id("createdModApi"),
 		),
 		Line(),
 
-		Comment("add all the paths to the registered extension if they don't already exist"),
+		Comment("add all the paths to the registered module if they don't already exist"),
 		Id("allRoutePaths").Op(":=").Index().String().ValuesFunc(func(g *Group) {
 			for _, objCollection := range gen.VersionedApiObjectCollections {
 				for _, objGroup := range objCollection.VersionedApiObjectGroups {
@@ -868,22 +868,22 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 		For(List(Op("_"), Id("path")).Op(":=").Range().Id("allRoutePaths")).Block(
 			Comment("check to see if route path exists"),
 			Id("query").Op(":=").Qual("fmt", "Sprintf").Call(
-				Lit("path=%s&extensionapiid=%d"),
+				Lit("path=%s&moduleapiid=%d"),
 				Id("path"),
-				Op("*").Id("existingExtApi").Dot("ID"),
+				Op("*").Id("existingModApi").Dot("ID"),
 			),
 			List(
 				Id("existingRoutes"),
 				Err(),
 			).Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/client/v0",
-				"GetExtensionApiRoutesByQueryString",
+				"GetModuleApiRoutesByQueryString",
 			).Call(
 				Id("apiClient"), Id("apiAddr"), Id("query"),
 			),
 			If(Err().Op("!=").Nil()).Block(
 				Return(Qual("fmt", "Errorf").Call(
-					Lit("failed to check for existing route path %s"),
+					Lit("failed to check for existing route path %s: %w"),
 					Id("path"),
 					Err(),
 				)),
@@ -892,14 +892,14 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 				Comment("route path doesn't exist - create it"),
 				Id("route").Op(":=").Qual(
 					"github.com/threeport/threeport/pkg/api/v0",
-					"ExtensionApiRoute",
+					"ModuleApiRoute",
 				).Values(Dict{
-					Id("Path"):           Op("&").Id("path"),
-					Id("ExtensionApiID"): Id("existingExtApi").Dot("ID"),
+					Id("Path"):        Op("&").Id("path"),
+					Id("ModuleApiID"): Id("existingModApi").Dot("ID"),
 				}),
 				List(Op("_"), Err()).Op(":=").Qual(
 					"github.com/threeport/threeport/pkg/client/v0",
-					"CreateExtensionApiRoute",
+					"CreateModuleApiRoute",
 				).Call(
 					Id("apiClient"), Id("apiAddr"), Op("&").Id("route"),
 				),
@@ -1120,7 +1120,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 				Lit("kind"):       Lit("Secret"),
 				Lit("metadata"): Map(String()).Interface().Values(Dict{
 					Lit("name"):      Id("caSecretName"),
-					Lit("namespace"): Id("i").Dot("ExtensionNamespace"),
+					Lit("namespace"): Id("i").Dot("ModuleNamespace"),
 				}),
 				Lit("stringData"): Map(String()).Interface().Values(Dict{
 					Line().Lit("tls.crt"): Id("caCert").Op(",").Line(),
@@ -1138,7 +1138,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 			Return(Qual("fmt", "Errorf").Call(
 				Lit(fmt.Sprintf(
 					"failed to create/update %s CA cert secret: %%w",
-					extensionNameKebab,
+					moduleNameKebab,
 				)),
 				Err(),
 			)),
@@ -1153,7 +1153,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 				Lit("kind"):       Lit("Secret"),
 				Lit("metadata"): Map(String()).Interface().Values(Dict{
 					Lit("name"):      Id("certSecretName"),
-					Lit("namespace"): Id("i").Dot("ExtensionNamespace"),
+					Lit("namespace"): Id("i").Dot("ModuleNamespace"),
 				}),
 				Lit("stringData"): Map(String()).Interface().Values(Dict{
 					Lit("tls.crt"): Id("clientCert"),
@@ -1172,7 +1172,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, extensionDbName)).Op(",").Line(),
 			Return(Qual("fmt", "Errorf").Call(
 				Lit(fmt.Sprintf(
 					"failed to create/update %s client cert secret: %%w",
-					extensionNameKebab,
+					moduleNameKebab,
 				)),
 				Err(),
 			)),

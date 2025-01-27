@@ -2,7 +2,7 @@
 
 This guide provides instructions to install Threeport on
 [AWS Elastic Kubernetes Service](https://aws.amazon.com/eks/).  We will spin up
-a new EKS cluster and install the Threeport control plane there.  It requires you
+a new EKS cluster and install the Threeport core system there.  It requires you
 have an AWS account and API keys.  This install method is useful for testing
 Threeport on a remote cloud provider.
 
@@ -25,13 +25,13 @@ file system, you're likely already set up.
 Also, ensure you have the required permissions to create the necessary resources
 in AWS.  If your user has the built-in `AdministratorAccess` policy attached, you can
 continue.  Otherwise, check out our [AWS Permissions guide](../aws/aws-iam.md)
-to make sure you can create the resources required to run a Threeport control plane.
+to make sure you can create the resources required to run a Threeport core system.
 
 You also will need your AWS account ID.  It can be found in the AWS console.
 Log in to AWS and look at the top-right of the console.  It will say something like
 `username @ 1111-2222-3333`.  The 12 digit number (without dashes) is your account ID.
 
-With credentials configured, run the following to install the Threeport control plane in EKS:
+With credentials configured, run the following to install Threeport in EKS:
 
 ```bash
 tptctl up \
@@ -42,9 +42,9 @@ tptctl up \
 
 This process will usually take 10-15 minutes.  It can take even longer on some
 AWS accounts.  You will see output as AWS resources are created. It will create a remote
-EKS Kubernetes cluster and install all of the control plane components.  It will also
+EKS Kubernetes cluster and install all of the core system components.  It will also
 register the same EKS cluster as the default Kubernetes cluster
-cluster for tenant workloads.
+for tenant workloads.
 
 ## Validate Deployment
 
@@ -59,7 +59,7 @@ with:
 aws eks update-kubeconfig --name threeport-test --region [aws region]
 ```
 
-Then, view the Threeport control plane pods with kubectl:
+Then, view the Threeport core system pods with kubectl:
 
 ```bash
 kubectl get pods -n threeport-control-plane
@@ -74,9 +74,8 @@ give you clear idea of Threeport's dependency management capabilities.  See our
 ## Clean Up
 
 If you're done for now and not installing a workload on AWS, you can
-uninstall the Threeport control plane:
+uninstall Threeport:
 
 ```bash
 tptctl down --name test
 ```
-

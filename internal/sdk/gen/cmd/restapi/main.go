@@ -25,9 +25,9 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// set startup message output
 	var startupMessage string
-	if gen.Extension {
+	if gen.Module {
 		startupMessage = fmt.Sprintf(
-			"\nThreeport extension REST API for API namespace %s: %%s\n",
+			"\nThreeport module REST API for API namespace %s: %%s\n",
 			sdkConfig.ApiNamespace,
 		)
 	} else {
@@ -122,21 +122,21 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		"github.com/threeport/threeport/pkg/log/v0",
 		"log",
 		"tp_log",
-		gen.Extension,
+		gen.Module,
 	))
 	f.ImportAlias(util.SetImportAlias(
 		"github.com/threeport/threeport/pkg/api-server/v0/routes",
 		"routes_v0",
 		"tp_routes",
-		gen.Extension,
+		gen.Module,
 	))
 	f.ImportAlias(util.SetImportAlias(
 		"github.com/threeport/threeport/pkg/api-server/v0",
 		"apiserver",
 		"tp_apiserver",
-		gen.Extension,
+		gen.Module,
 	))
-	if !gen.Extension {
+	if !gen.Module {
 		f.ImportAlias("github.com/threeport/threeport/pkg/api/v0", "api_v0")
 	}
 	f.Anon("github.com/threeport/threeport/pkg/api-server/v0/docs")
@@ -145,7 +145,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	if sdkConfig.ApiDocs.Title != "" {
 		f.Comment(fmt.Sprintf("@title %s", sdkConfig.ApiDocs.Title))
 	} else {
-		f.Comment("@title Threeport Extension API")
+		f.Comment("@title Threeport Module API")
 	}
 	f.Comment(fmt.Sprintf("@version %s", strings.TrimSuffix(projectVersion, "\n")))
 	if sdkConfig.ApiDocs.Description != "" {
@@ -330,12 +330,12 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 		g.Line()
 
-		if !gen.Extension {
-			g.Comment("add extension router middleware")
+		if !gen.Module {
+			g.Comment("add module router middleware")
 			g.If(
 				Err().Op(":=").Qual(
 					"github.com/threeport/threeport/pkg/api/v0",
-					"InitExtensionRouter",
+					"InitModuleRouter",
 				).Call(List(Id("db"), Id("e"))),
 			).Op(";").Err().Op("!=").Nil().Block(
 				Id("e").Dot("Logger").Dot("Fatalf").Call(
@@ -385,7 +385,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 		g.Add(versionRegistration)
 
-		if gen.Extension {
+		if gen.Module {
 			// TODO: implement https, authenticaion for extension API server (see commented
 			// block below).
 			g.Comment("TODO: implement https, authentication for the extension API server")

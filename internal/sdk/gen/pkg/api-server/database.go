@@ -20,11 +20,11 @@ func GenDatabaseInit(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	f.ImportAlias("github.com/threeport/threeport/pkg/log/v0", "log")
 	f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
-	if gen.Extension {
+	if gen.Module {
 		f.ImportAlias("github.com/threeport/threeport/pkg/api-server/v0/database", "tp_database")
 	}
 
-	if !gen.Extension {
+	if !gen.Module {
 		f.Const().Defs(
 			Comment("Threeport database connection values"),
 			Id("ThreeportDatabaseUser").Op("=").Lit("threeport").Comment("used by Threeport API"),
@@ -137,7 +137,7 @@ func GenDatabaseInit(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 		g.Line()
 
-		if gen.Extension {
+		if gen.Module {
 			g.Id("dsn").Op(":=").Qual("fmt", "Sprintf").Call(
 				Line().Lit("host=%s port=%s user=%s dbname=%s sslmode=%s sslrootcert=%s/ca.crt sslcert=%[6]s/client.%[3]s.crt sslkey=%[6]s/client.%[3]s.key TimeZone=UTC"),
 				Line().Id("requiredDbEnvVars").Index(Lit("DB_HOST")),

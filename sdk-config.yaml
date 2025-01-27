@@ -264,12 +264,12 @@ ApiObjectGroups:
     - Name: AttachedObjectReference
       Versions:
         - v0
-- Name: extension
+- Name: module
   Objects:
-    - Name: ExtensionApi
+    - Name: ModuleApi
       Versions:
         - v0
-    - Name: ExtensionApiRoute
+    - Name: ModuleApiRoute
       Versions:
         - v0
 
