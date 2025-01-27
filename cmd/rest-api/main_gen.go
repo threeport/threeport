@@ -107,8 +107,8 @@ func main() {
 		e.Logger.Fatalf("failed to initialize database: %v", err)
 	}
 
-	// add extension router middleware
-	if err := api_v0.InitExtensionRouter(db, e); err != nil {
+	// add module router middleware
+	if err := api_v0.InitModuleRouter(db, e); err != nil {
 		e.Logger.Fatalf("failed to initialize extension proxy router: %v", err)
 	}
 

@@ -9,10 +9,10 @@ import (
 	"reflect"
 )
 
-// AddExtensionApiVersions adds field validation info and adds it
+// AddModuleApiVersions adds field validation info and adds it
 // to the REST API versions.
-func AddExtensionApiVersions() {
-	apiserver_v0.ExtensionApiTaggedFields[apiserver_lib.TagNameValidate] = &apiserver_lib.FieldsByTag{
+func AddModuleApiVersions() {
+	apiserver_v0.ModuleApiTaggedFields[apiserver_lib.TagNameValidate] = &apiserver_lib.FieldsByTag{
 		Optional:             []string{},
 		OptionalAssociations: []string{},
 		Required:             []string{},
@@ -22,29 +22,29 @@ func AddExtensionApiVersions() {
 	// parse struct and populate the FieldsByTag object
 	apiserver_lib.ParseStruct(
 		apiserver_lib.TagNameValidate,
-		reflect.ValueOf(new(api_v0.ExtensionApi)),
+		reflect.ValueOf(new(api_v0.ModuleApi)),
 		"",
 		apiserver_lib.Translate,
-		apiserver_v0.ExtensionApiTaggedFields,
+		apiserver_v0.ModuleApiTaggedFields,
 	)
 
 	// create a version object which contains the object name and versions
 	versionObj := apiserver_lib.VersionObject{
-		Object:  string(api_v0.ObjectTypeExtensionApi),
+		Object:  string(api_v0.ObjectTypeModuleApi),
 		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map
-	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.ExtensionApiTaggedFields[apiserver_lib.TagNameValidate]
+	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.ModuleApiTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
 	apiserver_lib.AddObjectVersion(versionObj)
 }
 
-// AddExtensionApiRouteVersions adds field validation info and adds it
+// AddModuleApiRouteVersions adds field validation info and adds it
 // to the REST API versions.
-func AddExtensionApiRouteVersions() {
-	apiserver_v0.ExtensionApiRouteTaggedFields[apiserver_lib.TagNameValidate] = &apiserver_lib.FieldsByTag{
+func AddModuleApiRouteVersions() {
+	apiserver_v0.ModuleApiRouteTaggedFields[apiserver_lib.TagNameValidate] = &apiserver_lib.FieldsByTag{
 		Optional:             []string{},
 		OptionalAssociations: []string{},
 		Required:             []string{},
@@ -54,20 +54,20 @@ func AddExtensionApiRouteVersions() {
 	// parse struct and populate the FieldsByTag object
 	apiserver_lib.ParseStruct(
 		apiserver_lib.TagNameValidate,
-		reflect.ValueOf(new(api_v0.ExtensionApiRoute)),
+		reflect.ValueOf(new(api_v0.ModuleApiRoute)),
 		"",
 		apiserver_lib.Translate,
-		apiserver_v0.ExtensionApiRouteTaggedFields,
+		apiserver_v0.ModuleApiRouteTaggedFields,
 	)
 
 	// create a version object which contains the object name and versions
 	versionObj := apiserver_lib.VersionObject{
-		Object:  string(api_v0.ObjectTypeExtensionApiRoute),
+		Object:  string(api_v0.ObjectTypeModuleApiRoute),
 		Version: "v0",
 	}
 
 	// add the object tagged fields to the global tagged fields map
-	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.ExtensionApiRouteTaggedFields[apiserver_lib.TagNameValidate]
+	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.ModuleApiRouteTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
 	apiserver_lib.AddObjectVersion(versionObj)

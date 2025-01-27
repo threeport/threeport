@@ -63,35 +63,35 @@ func GenCmd(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		return fmt.Errorf("failed to generate controller Dockerfiles: %w", err)
 	}
 
-	// generate extension tptctl plugin main package
-	if generator.Extension {
+	// generate module tptctl plugin main package
+	if generator.Module {
 		if err := cli.GenPluginMain(generator, sdkConfig); err != nil {
-			return fmt.Errorf("failed to generate extension plugin main package: %w", err)
+			return fmt.Errorf("failed to generate module plugin main package: %w", err)
 		}
 	}
 
 	// generate extension tptctl plugin plugin root command
-	if generator.Extension {
+	if generator.Module {
 		if err := cli.GenPluginRootCmd(generator, sdkConfig); err != nil {
-			return fmt.Errorf("failed to generate extension plugin root command: %w", err)
+			return fmt.Errorf("failed to generate module plugin root command: %w", err)
 		}
 	}
 
 	// generate extension tptctl plugin install command
-	if generator.Extension {
+	if generator.Module {
 		if err := cli.GenPluginInstallCmd(generator, sdkConfig); err != nil {
-			return fmt.Errorf("failed to generate extension plugin install command: %w", err)
+			return fmt.Errorf("failed to generate module plugin install command: %w", err)
 		}
 	}
 
-	// generate extension tptctl plugin CRUD commands
-	if generator.Extension {
+	// generate module tptctl plugin CRUD commands
+	if generator.Module {
 		if err := cli.GenPluginCrudCmds(generator, sdkConfig); err != nil {
-			return fmt.Errorf("failed to generate extension plugin CRUD commands: %w", err)
+			return fmt.Errorf("failed to generate module plugin CRUD commands: %w", err)
 		}
 	}
 
-	// generate standard commands for tptctl and extension plugins
+	// generate standard commands for tptctl and module plugins
 	if err := cli.GenCliCommands(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate tptctl commands: %w", err)
 	}

@@ -16,7 +16,7 @@ nav:
     - 'Orchestration Abstractions': 'concepts/orchestration-abstractions.md'
     - 'Comparisons': 'concepts/comparisons.md'
     - 'Definitions & Instances': 'concepts/definitions-instances.md'
-    - 'Extensions': 'concepts/extensions.md'
+    - 'Custom Modules': 'concepts/extensions.md'
   - Install:
     - 'Threeport CLI': 'install/install-tptctl.md'
     - 'Local Threeport': 'install/install-threeport-local.md'

@@ -1,14 +1,15 @@
 # Threeport
 
-Threeport is an open source Application Orchestrator.
+Threeport is an open source software delivery platform.
 
 If you'd prefer to try out Threeport rather than read about it, jump over to our
 [Getting Started guide](./getting-started.md).
 
-App Orchestration is the next evolution for software delivery.  For years we have used
-continuous delivery pipelines and GitOps as methods for delivering software.  As
-cloud native has become more ubiquitous, these methods have become increasingly
-insufficient.
+Threeport uses an approach to software delivery that we call "Application Orchestration."
+This is the next evolution for software delivery. For years we have used continuous 
+delivery pipelines and GitOps as our approaches to delivering software. As cloud native has 
+become more ubiquitous, and as software systems have become more complex, these methods 
+have become increasingly insufficient.
 
 Threeport offers a self-service experience to developers.
 DevOps and platform engineering teams can streamline and facilitate
@@ -19,7 +20,7 @@ enables smooth software delivery whatever your organization's policies may be.
 
 Fundamentally, Threeport exists to reduce engineering toil, increase resource
 consumption efficiency, and make the most complex software systems manageable by
-relatively small teams.  This leads to the delivery of more feature rich and
+relatively small teams.  This leads to the delivery of more feature-rich and
 more reliable software with lower infrastructure and engineering costs.
 
 Better software.  Lower costs.
@@ -37,15 +38,15 @@ Following is a common scenario for a developer workflow using Threeport:
 0. The CI actions run (GitHub actions in this case) and produce a container image that is
    pushed to a registry such as Docker Hub or GitHub Container Registry.
 0. The developer uses `tptctl` to deploy their workload.  This makes a call to
-   the Threeport API and triggers the control plane to deploy the app.
+   the Threeport core system and triggers it to deploy the app.
    Threeport will call the Kubernetes API to deploy the Kubernetes resources.
    If requested, Threeport can deploy AWS managed service dependencies as well
    as other support services to configure ingress routing from the internet,
    provision SSL certs, set DNS records, etc.
 0. The image is pulled by the Kubernetes control plane.
 0. The app runs in containers on the Kubernetes cluster.  This example shows
-   the app running in the same Kubernetes environment as the Threeport Control
-   Plane, but this is optional.  Threeport can deploy separate Kubernetes
+   the app running in the same Kubernetes environment as the Threeport Core,
+   but this is optional.  Threeport can deploy separate Kubernetes
    runtime environments as needed, and manage deployments to any cluster managed
    by Threeport.
 
@@ -95,16 +96,16 @@ applications.
 The process for optimizing application delivery with platform engineering looks
 something like this:
 
-0. A platform engineering team uses the Threeport SDK to build an extension to the
-   Threeport control plane.  The code for this extension lives in its own
+0. A platform engineering team uses the Threeport SDK to build a custom module for the
+   Threeport core system.  The code for this module lives in its own
    git repo.  Experienced Go programmers with a sound understanding of
    Kubernetes and Threeport can usually produce a POC within a couple of weeks,
    even faster for simpler use cases.
 0. The primary asset produced from the project's CI pipeline is a container
    image for the Threeport controller that understands the needs of the custom
    workload.
-0. The custom controller is deployed with the rest of the Threeport control
-   plane.  Threeport is now extended to include intelligent management of
+0. The custom controller is deployed with the rest of the Threeport core
+   system.  Threeport is now extended to include intelligent management of
    instances of the custom workload.
 0. The developers now use a custom object that requires much less configuration
    as the details of implementation are built into the custom Threeport

@@ -82,16 +82,6 @@ func (Event) TableName() string {
 	return "v0_events"
 }
 
-// TableName sets the name of the table for the ExtensionApi objects in the database.
-func (ExtensionApi) TableName() string {
-	return "v0_extension_apis"
-}
-
-// TableName sets the name of the table for the ExtensionApiRoute objects in the database.
-func (ExtensionApiRoute) TableName() string {
-	return "v0_extension_api_routes"
-}
-
 // TableName sets the name of the table for the GatewayDefinition objects in the database.
 func (GatewayDefinition) TableName() string {
 	return "v0_gateway_definitions"
@@ -170,6 +160,16 @@ func (MetricsDefinition) TableName() string {
 // TableName sets the name of the table for the MetricsInstance objects in the database.
 func (MetricsInstance) TableName() string {
 	return "v0_metrics_instances"
+}
+
+// TableName sets the name of the table for the ModuleApi objects in the database.
+func (ModuleApi) TableName() string {
+	return "v0_module_apis"
+}
+
+// TableName sets the name of the table for the ModuleApiRoute objects in the database.
+func (ModuleApiRoute) TableName() string {
+	return "v0_module_api_routes"
 }
 
 // TableName sets the name of the table for the ObservabilityDashboardDefinition objects in the database.

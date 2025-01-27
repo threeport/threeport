@@ -37,15 +37,15 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// set values for threeport and extensions where different
 	exampleCmdStr := "tptctl"
-	if gen.Extension {
-		exampleCmdStr = fmt.Sprintf("tptctl %s", strcase.ToKebab(sdkConfig.ExtensionName))
+	if gen.Module {
+		exampleCmdStr = fmt.Sprintf("tptctl %s", strcase.ToKebab(sdkConfig.ModuleName))
 	}
 
 	// set import paths for threeport and extensions where different
 	apiImportPath := "github.com/threeport/threeport/pkg/api/"
 	clientImportPath := "github.com/threeport/threeport/pkg/client/"
 	configImportPath := "github.com/threeport/threeport/pkg/config/"
-	if gen.Extension {
+	if gen.Module {
 		apiImportPath = fmt.Sprintf("%s/pkg/api/", gen.ModulePath)
 		clientImportPath = fmt.Sprintf("%s/pkg/client/", gen.ModulePath)
 		configImportPath = fmt.Sprintf("%s/pkg/config/", gen.ModulePath)
@@ -60,7 +60,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		commandCode.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
 		commandCode.ImportAlias("github.com/threeport/threeport/pkg/encryption/v0", "encryption")
 		commandCode.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
-		if gen.Extension {
+		if gen.Module {
 			commandCode.ImportAlias("github.com/threeport/threeport/cmd/tptctl/cmd", "tptctl_cmd")
 			commandCode.ImportAlias("github.com/threeport/threeport/pkg/config/v0", "tptctl_config")
 		} else {
@@ -183,7 +183,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"github.com/spf13/cobra",
 							"Command",
 						), Id("args").Index().String()).BlockFunc(func(g *Group) {
-							if gen.Extension {
+							if gen.Module {
 								g.List(
 									Id("apiClient"),
 									Id("_"),
@@ -333,7 +333,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"github.com/spf13/cobra",
 							"Command",
 						), Id("args").Index().String()).BlockFunc(func(g *Group) {
-							if gen.Extension {
+							if gen.Module {
 								g.List(
 									Id("apiClient"),
 									Id("_"),
@@ -532,7 +532,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"github.com/spf13/cobra",
 							"Command",
 						), Id("args").Index().String()).BlockFunc(func(g *Group) {
-							if gen.Extension {
+							if gen.Module {
 								g.List(
 									Id("apiClient"),
 									Id("_"),
@@ -796,7 +796,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"github.com/spf13/cobra",
 						"Command",
 					), Id("args").Index().String()).BlockFunc(func(g *Group) {
-						if gen.Extension {
+						if gen.Module {
 							g.List(
 								Id("apiClient"),
 								Id("_"),
@@ -963,7 +963,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"github.com/spf13/cobra",
 						"Command",
 					), Id("args").Index().String()).BlockFunc(func(g *Group) {
-						if gen.Extension {
+						if gen.Module {
 							g.List(
 								Id("apiClient"),
 								Id("_"),
@@ -1146,7 +1146,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"github.com/spf13/cobra",
 						"Command",
 					), Id("args").Index().String()).BlockFunc(func(g *Group) {
-						if gen.Extension {
+						if gen.Module {
 							g.List(
 								Id("apiClient"),
 								Id("_"),
@@ -1373,7 +1373,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"github.com/spf13/cobra",
 						"Command",
 					), Id("args").Index().String()).BlockFunc(func(g *Group) {
-						if gen.Extension {
+						if gen.Module {
 							g.List(
 								Id("apiClient"),
 								Id("_"),
@@ -1879,8 +1879,8 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 		if commandsGenerated {
 			commandsDir := filepath.Join("cmd", "tptctl", "cmd")
-			if gen.Extension {
-				commandsDir = filepath.Join("cmd", strcase.ToSnake(sdkConfig.ExtensionName), "cmd")
+			if gen.Module {
+				commandsDir = filepath.Join("cmd", strcase.ToSnake(sdkConfig.ModuleName), "cmd")
 			}
 			// write commands code to file
 			genFilepath := filepath.Join(

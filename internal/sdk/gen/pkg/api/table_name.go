@@ -35,7 +35,7 @@ func GenTableNames(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				name,
 			))
 			f.Func().Params(Id(name)).Id("TableName").Params().String().BlockFunc(func(g *Group) {
-				if gen.Extension {
+				if gen.Module {
 					tableName := util.TableName(
 						fmt.Sprintf(
 							"%s_%s_%s",

@@ -31,13 +31,13 @@ func GenClientLib(gen *gen.Generator) error {
 				"github.com/threeport/threeport/pkg/util/v0",
 				"util",
 				"tputil",
-				gen.Extension,
+				gen.Module,
 			))
 			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/client/lib/v0",
 				"client_lib",
 				"tpclient_lib",
-				gen.Extension,
+				gen.Module,
 			))
 
 			for _, apiObject := range objGroup.ApiObjects {
