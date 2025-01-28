@@ -2,7 +2,7 @@
 
 This guide provides instructions for installing Threeport on
 [kind](https://kind.sigs.k8s.io/).  We will run Kubernetes in docker
-containers on your local machine and install the Threeport control plane there.
+containers on your local machine and install the Threeport core system there.
 It requires you have docker installed on your machine.  This install method is
 useful for testing out Threeport to get an idea of how it works.
 
@@ -29,7 +29,7 @@ sudo usermod -aG docker $USER
 
 ## Install Threeport
 
-To install the Threeport control plane locally:
+To install the Threeport core system locally:
 
 ```bash
 tptctl up \
@@ -86,4 +86,3 @@ uninstall the Threeport control plane:
 ```bash
 tptctl down --name test
 ```
-

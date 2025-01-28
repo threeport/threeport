@@ -20,7 +20,7 @@ type WorkloadTestCase struct {
 	// The name of the object - must match the name in the config file
 	ObjectName string
 
-	// Path to Threeport config from root of threeport/threeport repo
+	// Path to workload config from root of threeport/threeport repo
 	ConfigPath string
 
 	// The Kubernetes deployment resource to check that it is healthy - must
@@ -76,7 +76,7 @@ var workloadTestCases = []WorkloadTestCase{
 
 // Create uses tptctl to create the workload test cases.
 func (w *WorkloadTestCase) Create(threeportPath string) error {
-	command := tptctlCommand()
+	command := tptctlCommand(threeportPath)
 	cmdArgs := []string{
 		"create",
 		w.Object,
@@ -110,7 +110,7 @@ func (w *WorkloadTestCase) Describe(
 		return nil
 	}
 
-	command := tptctlCommand()
+	command := tptctlCommand(threeportPath)
 	cmdArgs := []string{
 		"describe",
 		"workload-instance",
@@ -214,8 +214,8 @@ func (w *WorkloadTestCase) Validate() error {
 }
 
 // Delete uses tptctl to delete the defined instance and instance test cases.
-func (w *WorkloadTestCase) DeleteInstances() error {
-	command := tptctlCommand()
+func (w *WorkloadTestCase) DeleteInstances(threeportPath string) error {
+	command := tptctlCommand(threeportPath)
 	cmdArgs := []string{
 		"delete",
 		w.Object,
@@ -240,8 +240,8 @@ func (w *WorkloadTestCase) DeleteInstances() error {
 }
 
 // Delete uses tptctl to delete the workload definitions.
-func (w *WorkloadTestCase) DeleteDefinitions() error {
-	command := tptctlCommand()
+func (w *WorkloadTestCase) DeleteDefinitions(threeportPath string) error {
+	command := tptctlCommand(threeportPath)
 	cmdArgs := []string{
 		"delete",
 		w.Object,
@@ -278,6 +278,6 @@ func (w *WorkloadTestCase) Worked(err error) bool {
 	return false
 }
 
-func tptctlCommand() string {
+func tptctlCommand(threeportPath string) string {
 	return filepath.Join(threeportPath, "bin", "tptctl")
 }

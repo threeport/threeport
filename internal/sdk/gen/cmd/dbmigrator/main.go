@@ -20,10 +20,10 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// set table name for goose table that tracks DB version
 	gooseVersionTableName := "threeport_goose_db_version"
-	if gen.Extension {
+	if gen.Module {
 		gooseVersionTableName = fmt.Sprintf(
 			"threeport_%s_goose_db_version",
-			strcase.ToSnake(sdkConfig.ExtensionName),
+			strcase.ToSnake(sdkConfig.ModuleName),
 		)
 	}
 
@@ -34,7 +34,7 @@ func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	var installerPath string
 	var apiServerDbPath string
-	if gen.Extension {
+	if gen.Module {
 		installerPath = fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath)
 		apiServerDbPath = fmt.Sprintf("%s/pkg/api-server/v0/database", gen.ModulePath)
 		f.ImportAlias(

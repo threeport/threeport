@@ -34,8 +34,8 @@ func GetMajorMinorVersionFromGoModule() (string, error) {
 	return version, nil
 }
 
-// IsExtension determines whether the sdk is being run from an extension.
-func IsExtension() (bool, string, error) {
+// IsModule determines whether the sdk is being run from a module.
+func IsModule() (bool, string, error) {
 	modPath, err := GetPathFromGoModule()
 	if err != nil {
 		return false, "", fmt.Errorf("could not get go mod path: %w", err)

@@ -32,19 +32,19 @@ func GenObjValidationVersions(gen *gen.Generator) error {
 				"github.com/threeport/threeport/pkg/api-server/lib/v0",
 				"apiserver_lib",
 				"tpapiserver_lib",
-				gen.Extension,
+				gen.Module,
 			))
 			f.ImportAlias(util.SetImportAlias(
 				fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", objCollection.Version),
 				fmt.Sprintf("api_%s", objCollection.Version),
 				fmt.Sprintf("tpapi_%s", objCollection.Version),
-				gen.Extension,
+				gen.Module,
 			))
 			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/api",
 				"api",
 				"tpapi",
-				gen.Extension,
+				gen.Module,
 			))
 
 			for _, apiObject := range objGroup.ApiObjects {

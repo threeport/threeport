@@ -11,39 +11,39 @@ import (
 	"gorm.io/gorm"
 )
 
-// ExtensionRouter contains the route paths that are mapped to their handler
+// ModuleRouter contains the route paths that are mapped to their handler
 // functions.
-type ExtensionRouter struct {
+type ModuleRouter struct {
 	routes sync.Map
 }
 
-var ExtRouter = ExtensionRouter{
+var ModRouter = ModuleRouter{
 	routes: sync.Map{},
 }
 
-// InitExtensionRouter initializes an extension router.  It first queries the
-// database for any existing extension APIs and their routes.  It then adds
-// those route paths so that API requests using the extension object REST paths
-// are proxied to the extension API.  It then instructs the echo server to use
-// the ServeExtensionRoutes method as middleware so that extension paths are
+// InitModuleRouter initializes an module router.  It first queries the
+// database for any existing module APIs and their routes.  It then adds
+// those route paths so that API requests using the module object REST paths
+// are proxied to the module API.  It then instructs the echo server to use
+// the ServeModuleRoutes method as middleware so that module paths are
 // checked first when API requests are received.
-func InitExtensionRouter(
+func InitModuleRouter(
 	db *gorm.DB,
 	e *echo.Echo,
 ) error {
-	var extensionApis []ExtensionApi
-	if result := db.Preload("ExtensionApiRoutes").Find(&extensionApis); result.Error != nil {
-		return fmt.Errorf("failed to query extension APIs from database: %w", result.Error)
+	var moduleApis []ModuleApi
+	if result := db.Preload("ModuleApiRoutes").Find(&moduleApis); result.Error != nil {
+		return fmt.Errorf("failed to query module APIs from database: %w", result.Error)
 	}
 
-	for _, extApi := range extensionApis {
-		for _, apiRoute := range extApi.ExtensionApiRoutes {
-			ExtRouter.AddRoute(*apiRoute.Path, func(c echo.Context) error {
+	for _, modApi := range moduleApis {
+		for _, apiRoute := range modApi.ModuleApiRoutes {
+			ModRouter.AddRoute(*apiRoute.Path, func(c echo.Context) error {
 				proxyUrl, err := url.Parse(
-					fmt.Sprintf("http://%s", *extApi.Endpoint),
+					fmt.Sprintf("http://%s", *modApi.Endpoint),
 				)
 				if err != nil {
-					return fmt.Errorf("failed to parse extension's proxy target URL: %w", err)
+					return fmt.Errorf("failed to parse module's proxy target URL: %w", err)
 				}
 				proxy := httputil.NewSingleHostReverseProxy(proxyUrl)
 				proxy.ServeHTTP(c.Response().Writer, c.Request())
@@ -52,25 +52,25 @@ func InitExtensionRouter(
 		}
 	}
 
-	e.Use(ExtRouter.ServeExtensionRoutes)
+	e.Use(ModRouter.ServeModuleRoutes)
 
 	return nil
 }
 
 // AddRoute adds a new route to the dynamic route map
-func (e *ExtensionRouter) AddRoute(path string, handler echo.HandlerFunc) {
+func (e *ModuleRouter) AddRoute(path string, handler echo.HandlerFunc) {
 	e.routes.Store(path, handler)
 }
 
 // RemoveRoute removes a route from the dynamic route map
-func (e *ExtensionRouter) RemoveRoute(path string) {
+func (e *ModuleRouter) RemoveRoute(path string) {
 	e.routes.Delete(path)
 }
 
-// ServeExtensionRoutes checks if a dynamic route exists.  If it does, it
+// ServeModuleRoutes checks if a dynamic route exists.  If it does, it
 // returns the handler function for that route.  If not, it pases it on to the
 // next handler func to continue normal request processing.
-func (e *ExtensionRouter) ServeExtensionRoutes(next echo.HandlerFunc) echo.HandlerFunc {
+func (e *ModuleRouter) ServeModuleRoutes(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		requestPath := c.Request().URL.Path
 

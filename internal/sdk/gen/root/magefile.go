@@ -21,9 +21,9 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	f.PackageComment("+build mage")
 
-	// set installer package based for threeport and extensions
+	// set installer package for threeport and modules
 	var installerPkg string
-	if gen.Extension {
+	if gen.Module {
 		installerPkg = fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath)
 	} else {
 		installerPkg = fmt.Sprintf("%s/pkg/threeport-installer/v0", gen.ModulePath)
@@ -31,7 +31,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// set release image repo constant
 	var releaseImageRepoConst string
-	if gen.Extension {
+	if gen.Module {
 		releaseImageRepoConst = "ReleaseImageRepo"
 	} else {
 		releaseImageRepoConst = "ThreeportImageRepo"
@@ -149,10 +149,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// image build and push function for API
 	apiImageName := "threeport-rest-api"
-	if gen.Extension {
+	if gen.Module {
 		apiImageName = fmt.Sprintf(
 			"threeport-%s-rest-api",
-			strcase.ToSnake(sdkConfig.ExtensionName),
+			strcase.ToSnake(sdkConfig.ModuleName),
 		)
 	}
 	f.Comment(fmt.Sprintf("%s builds and pushes a REST API container image.", buildApiImageFuncName))
@@ -322,10 +322,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// image build and push function for database migrator
 	dbMigratorImageName := "threeport-database-migrator"
-	if gen.Extension {
+	if gen.Module {
 		dbMigratorImageName = fmt.Sprintf(
 			"threeport-%s-database-migrator",
-			strcase.ToSnake(sdkConfig.ExtensionName),
+			strcase.ToSnake(sdkConfig.ModuleName),
 		)
 	}
 	f.Comment(fmt.Sprintf("%s builds and pushes a database migrator container image.", buildDbMigratorImageFuncName))
@@ -429,7 +429,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
-	if !gen.Extension {
+	if !gen.Module {
 		// add function names to "build all" functions
 		buildFuncNames = append(buildFuncNames, buildAgentFuncName)
 		buildDevFuncNames = append(buildDevFuncNames, buildAgentDevFuncName)
@@ -504,10 +504,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 		// image build and push function for agent
 		dbMigratorImageName := "threeport-agent"
-		if gen.Extension {
+		if gen.Module {
 			dbMigratorImageName = fmt.Sprintf(
 				"threeport-%s-agent",
-				strcase.ToSnake(sdkConfig.ExtensionName),
+				strcase.ToSnake(sdkConfig.ModuleName),
 			)
 		}
 		f.Comment(fmt.Sprintf("%s builds and pushes a agent container image.", buildAgentImageFuncName))
@@ -978,11 +978,11 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Line()
 
 		g.Id("imageName").Op(":=").Qual("fmt", "Sprintf").Call(Lit("threeport-%s"), Id("component"))
-		if gen.Extension {
+		if gen.Module {
 			g.If(Id("component").Op("==").Lit("rest-api")).Block(
 				Id("imageName").Op("=").Qual("fmt", "Sprintf").Call(
 					Lit("threeport-%s-%s"),
-					Lit(strcase.ToSnake(sdkConfig.ExtensionName)),
+					Lit(strcase.ToSnake(sdkConfig.ModuleName)),
 					Id("component"),
 				),
 			)
@@ -1019,7 +1019,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Line()
 
 	// extension plugin build
-	if gen.Extension {
+	if gen.Module {
 		f.Comment("Plugin compiles the extension's tptctl plugin.")
 		f.Func().Params(Id("Build")).Id("Plugin").Params().Error().Block(
 			Id("buildCmd").Op(":=").Qual("os/exec", "Command").Call(
@@ -1028,11 +1028,11 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Line().Lit("-o"),
 				Line().Lit(fmt.Sprintf(
 					"bin/%s",
-					strcase.ToKebab(sdkConfig.ExtensionName),
+					strcase.ToKebab(sdkConfig.ModuleName),
 				)),
 				Line().Lit(fmt.Sprintf(
 					"cmd/%s/main_gen.go",
-					strcase.ToSnake(sdkConfig.ExtensionName),
+					strcase.ToSnake(sdkConfig.ModuleName),
 				)),
 				Line(),
 			),
@@ -1050,7 +1050,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 			Qual("fmt", "Println").Call(Lit(fmt.Sprintf(
 				"tptctl plugin built and available at bin/%s",
-				strcase.ToKebab(sdkConfig.ExtensionName),
+				strcase.ToKebab(sdkConfig.ModuleName),
 			))),
 			Line(),
 

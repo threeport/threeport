@@ -13,17 +13,17 @@ import (
 // SdkConfig contains all the configuration options available to a user
 // of the SDK.
 type SdkConfig struct {
-	// The name of the extension. This is used as a prefix for naming in many
-	// places for extensions.
-	ExtensionName string `yaml:"ExtensionName"`
+	// The name of the module. This is used as a prefix for naming in many
+	// places for modules.
+	ModuleName string `yaml:"ModuleName"`
 
 	// ApiNamespace is the globally unique namespace for objects managed by this
-	// API.  It prevents naming collisions between extension objects used in a
-	// single Threeport control plane.  We recommend using a domain name you own
-	// to make it globally unique.
+	// API.  It prevents naming collisions between objects used in different
+	// modules within a single Threeport control plane.  We recommend using a
+	// domain name you own to make it globally unique.
 	ApiNamespace string `yaml:"ApiNamespace"`
 
-	// The image repository that will be used for builds of extension
+	// The image repository that will be used for builds of module
 	// components.
 	ImageRepo string `yaml:"ImageRepo"`
 
@@ -31,7 +31,7 @@ type SdkConfig struct {
 	// API server.
 	ApiDocs ApiDocs `yaml:"ApiDocs"`
 
-	// The configuration of API objects used in the extension.
+	// The configuration of API objects used in the module.
 	ApiObjectConfig `yaml:",inline"`
 }
 
@@ -165,13 +165,13 @@ func GetSdkConfig(configPath string) (*SdkConfig, error) {
 
 // ValidateSdkConfig validates an SDK config.
 func ValidateSdkConfig(sdkConfig *SdkConfig) error {
-	// determine if repo is an extension
-	extension, _, err := util.IsExtension()
+	// determine if repo is a module
+	module, _, err := util.IsModule()
 	if err != nil {
-		fmt.Errorf("failed to determine if generating code for an extension: %w", err)
+		return fmt.Errorf("failed to determine if generating code for a module: %w", err)
 	}
 
-	if extension && sdkConfig.ApiNamespace == "" {
+	if module && sdkConfig.ApiNamespace == "" {
 		return fmt.Errorf("ApiNamespace is a required field")
 	}
 
@@ -193,7 +193,7 @@ func ValidateSdkConfig(sdkConfig *SdkConfig) error {
 					if *obj.Name == instanceName {
 						if obj.DefinedInstance != nil && !*obj.DefinedInstance {
 							return fmt.Errorf(
-								"%s has 'DefinedInstance: false' but %s has 'DefinedInstance: true' (or is not set).  This will result in invalid API objects.  Both definition and instance must have the same value for 'DefinedInstance'.",
+								"%s has 'DefinedInstance: false' but %s has 'DefinedInstance: true' (or is not set).  This will result in invalid API objects.  Both definition and instance must have the same value for 'DefinedInstance'",
 								instanceName,
 								*object.Name,
 							)
@@ -205,7 +205,7 @@ func ValidateSdkConfig(sdkConfig *SdkConfig) error {
 					if *obj.Name == definitionName {
 						if obj.DefinedInstance != nil && !*obj.DefinedInstance {
 							return fmt.Errorf(
-								"%s has 'DefinedInstance: false' but %s has 'DefinedInstance: true' (or is not set).  This will result in invalid API objects.  Both definition and instance must have the same value for 'DefinedInstance'.",
+								"%s has 'DefinedInstance: false' but %s has 'DefinedInstance: true' (or is not set).  This will result in invalid API objects.  Both definition and instance must have the same value for 'DefinedInstance'",
 								definitionName,
 								*object.Name,
 							)

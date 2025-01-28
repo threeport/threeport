@@ -38,7 +38,7 @@ func GenApiObjectMethods(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			// object REST path constants
 			paths := &Statement{}
 			for _, apiObj := range objGroup.ApiObjects {
-				if gen.Extension {
+				if gen.Module {
 					paths.Id(fmt.Sprintf(
 						"Path%sVersions",
 						apiObj.TypeName,

@@ -23,7 +23,7 @@ func GenConfig(gen *gen.Generator) error {
 			// set import paths
 			apiImportPath := fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", objCollection.Version)
 			clientImportPath := fmt.Sprintf("github.com/threeport/threeport/pkg/client/%s", objCollection.Version)
-			if gen.Extension {
+			if gen.Module {
 				apiImportPath = fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version)
 				clientImportPath = fmt.Sprintf("%s/pkg/client/%s", gen.ModulePath, objCollection.Version)
 			}
@@ -31,7 +31,7 @@ func GenConfig(gen *gen.Generator) error {
 			f.ImportAlias(apiImportPath, fmt.Sprintf("api_%s", objCollection.Version))
 			f.ImportAlias(clientImportPath, fmt.Sprintf("client_%s", objCollection.Version))
 			f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
-			if gen.Extension {
+			if gen.Module {
 				f.ImportAlias("github.com/threeport/threeport/pkg/api/v0", "tpapi_v0")
 			}
 

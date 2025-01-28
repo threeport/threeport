@@ -37,12 +37,12 @@ func GenPluginCrudCmds(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Id("Short"): Lit(fmt.Sprintf(
 				"%s a Threeport %s object",
 				crudCmdUpper,
-				sdkConfig.ExtensionName,
+				sdkConfig.ModuleName,
 			)),
 			Id("Long"): Lit(fmt.Sprintf(`%s a Threeport %s object.
 
 	The %s command does nothing by itself.  Use one of the available subcommands
-	to %[3]s different objects from the system.`, crudCmdUpper, sdkConfig.ExtensionName, crudCmd)),
+	to %[3]s different objects from the system.`, crudCmdUpper, sdkConfig.ModuleName, crudCmd)),
 		})
 
 		f.Line()
@@ -54,7 +54,7 @@ func GenPluginCrudCmds(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		// write code to file if it doesn't already exist
 		genFilepath := filepath.Join(
 			"cmd",
-			strcase.ToSnake(sdkConfig.ExtensionName),
+			strcase.ToSnake(sdkConfig.ModuleName),
 			"cmd",
 			fmt.Sprintf("%s.go", crudCmd),
 		)

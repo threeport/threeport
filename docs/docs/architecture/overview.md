@@ -1,7 +1,7 @@
 # Architecture Overview
 
-Threeport is a distributed software system that performs application
-orchestration.  It serves as a unified, global control plane for all cloud
+Threeport is a distributed software system that serves as a software delivery
+platform.  It serves as a unified, global control plane for all cloud
 infrastructure, compute environments and the applications that run there.
 
 Users interface with the Threeport RESTful API in the control plane.
@@ -137,7 +137,7 @@ The `tptctl up` command executes the following steps when installing on AWS:
 
 A Threeport control plane can also be installed locally on a user's
 workstation using [kind](https://kind.sigs.k8s.io/) for local testing and
-development.  See our [Local Threeport
+development. See our [Local Threeport
 guide](../install/install-threeport-local.md) for instructions on installing
 Threeport locally.  With a local Threeport control plane, the user can then
 deploy Kubernetes clusters in the cloud and deploy workloads there.  However,

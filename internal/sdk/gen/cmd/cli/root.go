@@ -21,8 +21,8 @@ func GenPluginRootCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
 	f.ImportAlias("github.com/threeport/threeport/pkg/config/v0", "config")
 
-	packageDir := strcase.ToSnake(sdkConfig.ExtensionName)
-	commandLit := strcase.ToKebab(sdkConfig.ExtensionName)
+	packageDir := strcase.ToSnake(sdkConfig.ModuleName)
+	commandLit := strcase.ToKebab(sdkConfig.ModuleName)
 
 	f.Var().Id("cliArgs").Op("=").Op("&").Qual(
 		"github.com/threeport/threeport/pkg/cli/v0",
@@ -36,20 +36,20 @@ func GenPluginRootCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	))
 	f.Comment(fmt.Sprintf(
 		"the %s plugin.",
-		sdkConfig.ExtensionName,
+		sdkConfig.ModuleName,
 	))
 	f.Var().Id("rootCmd").Op("=").Op("&").Qual(
 		"github.com/spf13/cobra",
 		"Command",
 	).Values(Dict{
-		Id("Use"): Lit(strcase.ToKebab(sdkConfig.ExtensionName)),
+		Id("Use"): Lit(strcase.ToKebab(sdkConfig.ModuleName)),
 		Id("Short"): Lit(fmt.Sprintf(
-			"Manage the %s Threeport extension",
-			sdkConfig.ExtensionName,
+			"Manage the %s Threeport module",
+			sdkConfig.ModuleName,
 		)),
 		Id("Long"): Lit(fmt.Sprintf(
-			"Manage the %s Threeport extension",
-			sdkConfig.ExtensionName,
+			"Manage the %s Threeport module",
+			sdkConfig.ModuleName,
 		)),
 	})
 	f.Line()

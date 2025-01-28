@@ -21,7 +21,7 @@ func GenObjectTaggedFields(gen *gen.Generator) error {
 			"github.com/threeport/threeport/pkg/api-server/lib/v0",
 			"apiserver_lib",
 			"tpapiserver_lib",
-			gen.Extension,
+			gen.Module,
 		))
 
 		taggedFieldVars := &Statement{}

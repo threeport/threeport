@@ -41,13 +41,13 @@ See the Threeport SDK docs for more information: https://threeport.io/sdk/sdk-in
 		}
 
 		// determine if project is threeport/threeport or an extension
-		extension, _, err := util.IsExtension()
+		module, _, err := util.IsModule()
 		if err != nil {
-			return fmt.Errorf("could not determine if creating scaffolding for an extension: %w", err)
+			return fmt.Errorf("could not determine if creating scaffolding for an module: %w", err)
 		}
 
 		// create API object source code scaffolding
-		if err = create.CreateApiObjects(sdkConfig, extension); err != nil {
+		if err = create.CreateApiObjects(sdkConfig, module); err != nil {
 			cli.Error("failed to create API objects", err)
 			os.Exit(1)
 		}
