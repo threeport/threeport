@@ -255,7 +255,7 @@ store_dir: /data
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            "nats-box",
-								"image":           "natsio/nats-box:0.14.3",
+								"image":           "natsio/nats-box:0.16.0-nonroot",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       nil,
 								"env": []interface{}{
@@ -354,7 +354,7 @@ store_dir: /data
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            "nats",
-								"image":           "nats:2.10.12-alpine",
+								"image":           "nats:2.10.25-alpine",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       map[string]interface{}{},
 								"ports": []interface{}{
@@ -479,7 +479,7 @@ store_dir: /data
 							//################################
 							map[string]interface{}{
 								"name":            "reloader",
-								"image":           "natsio/nats-server-config-reloader:0.14.1",
+								"image":           "natsio/nats-server-config-reloader:0.16.1",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       nil,
 								"command": []interface{}{
@@ -511,7 +511,7 @@ store_dir: /data
 							//#############################
 							map[string]interface{}{
 								"name":            "metrics",
-								"image":           "natsio/prometheus-nats-exporter:0.14.0",
+								"image":           "natsio/prometheus-nats-exporter:0.16.0",
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       map[string]interface{}{},
 								"args": []interface{}{
