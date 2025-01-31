@@ -15,6 +15,11 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v4
 
+    - name: Set up Docker
+      uses: docker/setup-docker-action@v4
+      with:
+        version: '27.5.1'
+
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
@@ -40,4 +45,3 @@ jobs:
 
     - name: Run tests
       run: mage test:integration
-
