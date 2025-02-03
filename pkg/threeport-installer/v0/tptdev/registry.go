@@ -30,7 +30,7 @@ const (
 // it will return without error
 func CreateLocalRegistry() error {
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithVersion("1.45"))
+	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return fmt.Errorf("failed to create Docker client: %w", err)
 	}
