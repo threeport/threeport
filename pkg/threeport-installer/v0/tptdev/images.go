@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
@@ -207,7 +208,7 @@ func PushDockerImage(tag string) error {
 		isDockerConfigPresent = false
 	}
 
-	imagePushOptions := types.ImagePushOptions{All: true}
+	imagePushOptions := image.PushOptions{All: true}
 
 	dockerUsername := os.Getenv("DOCKER_USERNAME")
 	dockerPassword := os.Getenv("DOCKER_PASSWORD")

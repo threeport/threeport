@@ -53,7 +53,7 @@ const (
 	DefaultServiceAccount = "default"
 
 	// Cockroach db image tag
-	DatabaseImageTag = "v23.1.14"
+	DatabaseImageTag = "v24.3.3"
 
 	// The Kubernetes namespace in which the threeport control plane is
 	// installed

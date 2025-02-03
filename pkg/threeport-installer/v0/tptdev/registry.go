@@ -7,8 +7,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -46,7 +46,7 @@ func CreateLocalRegistry() error {
 	_, _, err = cli.ImageInspectWithRaw(ctx, registryImage)
 	if err != nil {
 		// image does not exist, pull it
-		reader, err := cli.ImagePull(ctx, registryImage, types.ImagePullOptions{})
+		reader, err := cli.ImagePull(ctx, registryImage, image.PullOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to pull registry image: %w", err)
 		}
