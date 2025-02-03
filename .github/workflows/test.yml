@@ -26,9 +26,6 @@ jobs:
     - name: Create local container registry
       run: mage dev:localRegistryUp
 
-    - name: Build control plane component binaries
-      run: mage build:allBinsDev
-
     - name: Build and push control plane component images
       run: mage build:allImagesDev
 
