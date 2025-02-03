@@ -23,10 +23,10 @@ jobs:
     - name: Install mage
       run: go install github.com/magefile/mage@latest
 
-      - name: Set up Docker
+    - name: Set up Docker
       uses: docker/setup-docker-action@v4
       with:
-        docker-version: '27.5.1' # Adjust this to match the version with API 1.45
+        version: '27.5.1'
 
     - name: Create local container registry
       run: mage dev:localRegistryUp
