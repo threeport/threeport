@@ -21,8 +21,8 @@ var genConfig string
 // genCmd represents the parent command for all codegen related operations
 var genCmd = &cobra.Command{
 	Use:   "gen",
-	Short: "Generate source code for Threeport or its extensions.",
-	Long: `Generate source code for Threeport or its extensions.
+	Short: "Generate source code for Threeport or its modules.",
+	Long: `Generate source code for Threeport or its modules.
 
 Once you have defined your data model for the API objects in 'pkg/api/', run this
 command to generate the source code scaffolding and boilerplated for the project.
