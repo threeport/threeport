@@ -40,10 +40,10 @@ See the Threeport SDK docs for more information: https://threeport.io/sdk/sdk-in
 			os.Exit(1)
 		}
 
-		// determine if project is threeport/threeport or an extension
+		// determine if project is threeport/threeport or a module
 		module, _, err := util.IsModule()
 		if err != nil {
-			return fmt.Errorf("could not determine if creating scaffolding for an module: %w", err)
+			return fmt.Errorf("could not determine if creating scaffolding for a module: %w", err)
 		}
 
 		// create API object source code scaffolding

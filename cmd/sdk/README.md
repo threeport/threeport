@@ -1,6 +1,6 @@
 # Threeport SDK
 
-Generate boilerplate and scaffolding code for Threeport and its extensions.
+Generate boilerplate and scaffolding code for Threeport and its modules.
 
 The SDK does two things:
 
@@ -9,15 +9,15 @@ The SDK does two things:
    user's SDK config.
    The user then adds the field attributes to those objects.
 1. Generates the source code boilerplate and scaffolding for all components of
-   the project.  This includes source code for the extension's API server and
+   the project.  This includes source code for the module's API server and
    Threeport controllers.
    The user then adds the reconciliation logic to the controller scaffolding.
 
-This applies to core Threeport itself and independently developed extensions to
+This applies to core Threeport itself and independently developed modules for 
 Threeport.
 
 Any source code files with the suffix `_gen.go` are boilerplate that should not
-be edited by the SDK user developing Threeport or an extension.  These files
+be edited by the SDK user developing Threeport or a module.  These files
 include a header comment to this effect.
 
 Scaffolding that is intended for modification by the developer do not have the
@@ -29,4 +29,3 @@ generation which has good docs with many examples in its README.
 
 For more information see the [internal sdk package
 docs](../../internal/sdk/README.md) docs.
-
