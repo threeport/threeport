@@ -1,4 +1,4 @@
-<img src="docs/dev/img/Threeport-logo-green.jpg">
+<img src="docs/dev/img/threeport-logo-green.jpg">
 
 Threeport is a software delivery platform.
 
