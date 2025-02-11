@@ -28,7 +28,7 @@ jobs:
         password: ${{ secrets.GH_ACCESS_TOKEN }}
 
     - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v5.0.0
+      uses: goreleaser/goreleaser-action@v6.2.1
       with:
         version: latest
         args: release --clean -f ./.goreleaser.yml
