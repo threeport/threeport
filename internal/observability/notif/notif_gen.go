@@ -46,7 +46,7 @@ const (
 	LoggingInstanceDeleteSubject = "loggingInstance.delete"
 )
 
-// Get GetObservabilityStackDefinitionSubjects returns the NATS subjects
+// GetObservabilityStackDefinitionSubjects returns the NATS subjects
 // for observability stack definitions.
 func GetObservabilityStackDefinitionSubjects() []string {
 	return []string{
@@ -56,7 +56,7 @@ func GetObservabilityStackDefinitionSubjects() []string {
 	}
 }
 
-// Get GetObservabilityStackInstanceSubjects returns the NATS subjects
+// GetObservabilityStackInstanceSubjects returns the NATS subjects
 // for observability stack instances.
 func GetObservabilityStackInstanceSubjects() []string {
 	return []string{
@@ -66,7 +66,7 @@ func GetObservabilityStackInstanceSubjects() []string {
 	}
 }
 
-// Get GetObservabilityDashboardDefinitionSubjects returns the NATS subjects
+// GetObservabilityDashboardDefinitionSubjects returns the NATS subjects
 // for observability dashboard definitions.
 func GetObservabilityDashboardDefinitionSubjects() []string {
 	return []string{
@@ -76,7 +76,7 @@ func GetObservabilityDashboardDefinitionSubjects() []string {
 	}
 }
 
-// Get GetObservabilityDashboardInstanceSubjects returns the NATS subjects
+// GetObservabilityDashboardInstanceSubjects returns the NATS subjects
 // for observability dashboard instances.
 func GetObservabilityDashboardInstanceSubjects() []string {
 	return []string{
@@ -86,7 +86,7 @@ func GetObservabilityDashboardInstanceSubjects() []string {
 	}
 }
 
-// Get GetMetricsDefinitionSubjects returns the NATS subjects
+// GetMetricsDefinitionSubjects returns the NATS subjects
 // for metrics definitions.
 func GetMetricsDefinitionSubjects() []string {
 	return []string{
@@ -96,7 +96,7 @@ func GetMetricsDefinitionSubjects() []string {
 	}
 }
 
-// Get GetMetricsInstanceSubjects returns the NATS subjects
+// GetMetricsInstanceSubjects returns the NATS subjects
 // for metrics instances.
 func GetMetricsInstanceSubjects() []string {
 	return []string{
@@ -106,7 +106,7 @@ func GetMetricsInstanceSubjects() []string {
 	}
 }
 
-// Get GetLoggingDefinitionSubjects returns the NATS subjects
+// GetLoggingDefinitionSubjects returns the NATS subjects
 // for logging definitions.
 func GetLoggingDefinitionSubjects() []string {
 	return []string{
@@ -116,7 +116,7 @@ func GetLoggingDefinitionSubjects() []string {
 	}
 }
 
-// Get GetLoggingInstanceSubjects returns the NATS subjects
+// GetLoggingInstanceSubjects returns the NATS subjects
 // for logging instances.
 func GetLoggingInstanceSubjects() []string {
 	return []string{

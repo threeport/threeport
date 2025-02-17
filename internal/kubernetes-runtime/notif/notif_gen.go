@@ -3,7 +3,7 @@
 package notif
 
 const (
-	KubernetesRuntimeStreamName = "kubernetes-runtimeStream"
+	KubernetesRuntimeStreamName = "kubernetesRuntimeStream"
 
 	KubernetesRuntimeDefinitionSubject       = "kubernetesRuntimeDefinition.*"
 	KubernetesRuntimeDefinitionCreateSubject = "kubernetesRuntimeDefinition.create"
@@ -16,7 +16,7 @@ const (
 	KubernetesRuntimeInstanceDeleteSubject = "kubernetesRuntimeInstance.delete"
 )
 
-// Get GetKubernetesRuntimeDefinitionSubjects returns the NATS subjects
+// GetKubernetesRuntimeDefinitionSubjects returns the NATS subjects
 // for kubernetes runtime definitions.
 func GetKubernetesRuntimeDefinitionSubjects() []string {
 	return []string{
@@ -26,7 +26,7 @@ func GetKubernetesRuntimeDefinitionSubjects() []string {
 	}
 }
 
-// Get GetKubernetesRuntimeInstanceSubjects returns the NATS subjects
+// GetKubernetesRuntimeInstanceSubjects returns the NATS subjects
 // for kubernetes runtime instances.
 func GetKubernetesRuntimeInstanceSubjects() []string {
 	return []string{

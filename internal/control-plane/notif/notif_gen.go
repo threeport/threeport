@@ -3,7 +3,7 @@
 package notif
 
 const (
-	ControlPlaneStreamName = "control-planeStream"
+	ControlPlaneStreamName = "controlPlaneStream"
 
 	ControlPlaneDefinitionSubject       = "controlPlaneDefinition.*"
 	ControlPlaneDefinitionCreateSubject = "controlPlaneDefinition.create"
@@ -16,7 +16,7 @@ const (
 	ControlPlaneInstanceDeleteSubject = "controlPlaneInstance.delete"
 )
 
-// Get GetControlPlaneDefinitionSubjects returns the NATS subjects
+// GetControlPlaneDefinitionSubjects returns the NATS subjects
 // for control plane definitions.
 func GetControlPlaneDefinitionSubjects() []string {
 	return []string{
@@ -26,7 +26,7 @@ func GetControlPlaneDefinitionSubjects() []string {
 	}
 }
 
-// Get GetControlPlaneInstanceSubjects returns the NATS subjects
+// GetControlPlaneInstanceSubjects returns the NATS subjects
 // for control plane instances.
 func GetControlPlaneInstanceSubjects() []string {
 	return []string{

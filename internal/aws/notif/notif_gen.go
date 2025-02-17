@@ -21,7 +21,7 @@ const (
 	AwsObjectStorageBucketInstanceDeleteSubject = "awsObjectStorageBucketInstance.delete"
 )
 
-// Get GetAwsEksKubernetesRuntimeInstanceSubjects returns the NATS subjects
+// GetAwsEksKubernetesRuntimeInstanceSubjects returns the NATS subjects
 // for aws eks kubernetes runtime instances.
 func GetAwsEksKubernetesRuntimeInstanceSubjects() []string {
 	return []string{
@@ -31,7 +31,7 @@ func GetAwsEksKubernetesRuntimeInstanceSubjects() []string {
 	}
 }
 
-// Get GetAwsRelationalDatabaseInstanceSubjects returns the NATS subjects
+// GetAwsRelationalDatabaseInstanceSubjects returns the NATS subjects
 // for aws relational database instances.
 func GetAwsRelationalDatabaseInstanceSubjects() []string {
 	return []string{
@@ -41,7 +41,7 @@ func GetAwsRelationalDatabaseInstanceSubjects() []string {
 	}
 }
 
-// Get GetAwsObjectStorageBucketInstanceSubjects returns the NATS subjects
+// GetAwsObjectStorageBucketInstanceSubjects returns the NATS subjects
 // for aws object storage bucket instances.
 func GetAwsObjectStorageBucketInstanceSubjects() []string {
 	return []string{
