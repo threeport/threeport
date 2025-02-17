@@ -9,10 +9,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/threeport/threeport/internal/sdk"
-	"github.com/threeport/threeport/internal/sdk/create"
-	"github.com/threeport/threeport/internal/sdk/util"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	sdk "github.com/threeport/threeport/pkg/sdk/v0"
+	"github.com/threeport/threeport/pkg/sdk/v0/create"
+	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
 var createConfig string
