@@ -38,7 +38,7 @@ func GenConfig(gen *gen.Generator) error {
 			for _, apiObject := range objGroup.ApiObjects {
 				// defined instance config abstraction
 				if apiObject.DefinedInstanceDefinition {
-					defInstObject := strings.Trim(apiObject.TypeName, "Definition")
+					defInstObject := strings.TrimSuffix(apiObject.TypeName, "Definition")
 					defInstConfigObjectName := fmt.Sprintf("%sConfig", defInstObject)
 					defInstValuesObjectName := fmt.Sprintf("%sValues", defInstObject)
 					defInstMethodVar := strings.ToLower(defInstObject[0:1])
