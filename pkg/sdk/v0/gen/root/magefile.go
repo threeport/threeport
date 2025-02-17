@@ -634,6 +634,12 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			buildReleaseImageFuncName := fmt.Sprintf("%sControllerImageRelease", objGroup.ControllerDomain)
 			buildReleaseImageFuncNames = append(buildReleaseImageFuncNames, buildReleaseImageFuncName)
 
+			// set image name
+			imageName := fmt.Sprintf("threeport-%s", objGroup.ControllerName)
+			if gen.Module {
+				imageName = fmt.Sprintf("threeport-%s-%s", strcase.ToKebab(sdkConfig.ModuleName), objGroup.ControllerName)
+			}
+
 			// binary build function
 			f.Comment(fmt.Sprintf(
 				"%s builds the binary for the %s.",
@@ -750,7 +756,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Line().Lit(fmt.Sprintf("cmd/%s/image/Dockerfile-alpine", objGroup.ControllerName)),
 					Line().Id("arch"),
 					Line().Id("imageRepo"),
-					Line().Lit(fmt.Sprintf("threeport-%s-%s", strcase.ToKebab(sdkConfig.ModuleName), objGroup.ControllerName)),
+					Line().Lit(imageName),
 					Line().Id("imageTag"),
 					Line().True(),
 					Line().False(),
