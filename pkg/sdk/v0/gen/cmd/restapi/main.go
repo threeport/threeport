@@ -27,11 +27,11 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	var startupMessage string
 	if gen.Module {
 		startupMessage = fmt.Sprintf(
-			"\nThreeport module REST API for API namespace %s: %%s\n",
+			"Threeport module REST API for API namespace %s: %%s",
 			sdkConfig.ApiNamespace,
 		)
 	} else {
-		startupMessage = "\nThreeport REST API: %s\n"
+		startupMessage = "Threeport REST API: %s"
 	}
 
 	// build handler registration source code
@@ -261,6 +261,10 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.If(Id("err").Op("!=").Nil()).Block(
 			Panic(Id("err")),
 		)
+		g.Id("e").Dot("Logger").Op("=").Qual(
+			"github.com/threeport/threeport/pkg/log/v0",
+			"NewEchoLogger",
+		).Call(Op("&").Id("logger"))
 		g.Id("e").Dot("Use").Call(
 			Qual(
 				"github.com/labstack/echo/v4/middleware",
@@ -396,7 +400,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			})
 			g.Line()
 
-			g.Qual("fmt", "Printf").Call(Lit(startupMessage), Qual(
+			g.Id("e").Dot("Logger").Dot("Infof").Call(Lit(startupMessage), Qual(
 				fmt.Sprintf("%s/internal/version", gen.ModulePath),
 				"GetVersion",
 			).Call())
@@ -446,7 +450,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				}),
 				Line(),
 
-				Qual("fmt", "Printf").Call(Lit(startupMessage), Qual(
+				Id("e").Dot("Logger").Dot("Infof").Call(Lit(startupMessage), Qual(
 					fmt.Sprintf("%s/internal/version", gen.ModulePath),
 					"GetVersion",
 				).Call()),
@@ -464,7 +468,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				}),
 				Line(),
 
-				Qual("fmt", "Printf").Call(Lit(startupMessage), Qual(
+				Id("e").Dot("Logger").Dot("Infof").Call(Lit(startupMessage), Qual(
 					fmt.Sprintf("%s/internal/version", gen.ModulePath),
 					"GetVersion",
 				).Call()),
