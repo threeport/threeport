@@ -67,7 +67,7 @@ type GenesisControlPlaneCLIArgs struct {
 	Verbose               bool
 	SkipTeardown          bool
 	ControlPlaneOnly      bool
-	KindInfraPortForward  []string
+	KindPortMappings      []string
 	LocalRegistry         bool
 }
 
@@ -173,6 +173,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.RestApiEksLoadBalancer = true
 	cpi.Opts.SkipTeardown = a.SkipTeardown
 	cpi.Opts.LocalRegistry = a.LocalRegistry
+	cpi.Opts.KindPortMappings = a.KindPortMappings
 
 	return cpi, nil
 }
@@ -249,8 +250,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 
-		portForwards := make(map[int32]int32)
-		for _, mapping := range cpi.Opts.KindInfraPortForward {
+		portMappings := make(map[int32]int32)
+		for _, mapping := range cpi.Opts.KindPortMappings {
 			split := strings.Split(mapping, ":")
 			if len(split) != 2 {
 				return fmt.Errorf("failed to parse kind port forward %s", mapping)
@@ -266,7 +267,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				return fmt.Errorf("failed to parse host port: %s as int32", split[0])
 			}
 
-			portForwards[int32(containerPort)] = int32(hostPort)
+			portMappings[int32(containerPort)] = int32(hostPort)
 		}
 
 		// construct kind infra provider object
@@ -277,7 +278,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			ThreeportPath:       cpi.Opts.ThreeportPath,
 			NumWorkerNodes:      cpi.Opts.NumWorkerNodes,
 			AuthEnabled:         cpi.Opts.AuthEnabled,
-			PortForwards:        portForwards,
+			PortMappings:        portMappings,
 		}
 
 		// update threeport config with api endpoint
@@ -1286,6 +1287,7 @@ func ValidateCreateGenesisControlPlaneFlags(
 	infraProvider string,
 	createRootDomain string,
 	authEnabled bool,
+	kindPortMappings []string,
 ) error {
 	// ensure name length doesn't exceed maximum
 	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
@@ -1313,6 +1315,11 @@ func ValidateCreateGenesisControlPlaneFlags(
 				infraProvider, allowedInfraProviders,
 			),
 		)
+	}
+
+	// return an error if kind port mappings are provided for a non-kind provider
+	if infraProvider != v0.KubernetesRuntimeInfraProviderKind && len(kindPortMappings) > 0 {
+		return errors.New("kind port mappings are only supported for infrastructure provider 'kind'")
 	}
 
 	// TODO: We are currently deploying on EKS without internal auth enabled.
