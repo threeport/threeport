@@ -24,18 +24,50 @@ type ThreeportPostRenderer struct {
 	HelmWorkloadInstance   *v0.HelmWorkloadInstance
 }
 
-// Run modifies the redndered manifests to add threeport labels that allow the
+// Run modifies the rendered manifests to add threeport labels that allow the
 // threeport agent to monitor the workload.
 func (p *ThreeportPostRenderer) Run(renderedManifests *bytes.Buffer) (*bytes.Buffer, error) {
 	splitManifests := releaseutil.SplitManifests(renderedManifests.String())
 	var postRenderedManifests string
 	for _, manifest := range splitManifests {
+		// Skip completely empty manifests
+		trimmedManifest := bytes.TrimSpace([]byte(manifest))
+		if len(trimmedManifest) == 0 {
+			continue
+		}
+
+		// Check if this is just a YAML separator or only contains comments
+		lines := bytes.Split(trimmedManifest, []byte("\n"))
+		onlyCommentsOrEmpty := true
+		for _, line := range lines {
+			lineContent := bytes.TrimSpace(line)
+			if len(lineContent) > 0 && !bytes.HasPrefix(lineContent, []byte("#")) && string(lineContent) != "---" {
+				onlyCommentsOrEmpty = false
+				break
+			}
+		}
+
+		if onlyCommentsOrEmpty {
+			continue
+		}
+
 		// convert to unstructured kube object
 		serializer := yamlserailizer.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 		kubeObject := &unstructured.Unstructured{}
 		_, _, err := serializer.Decode([]byte(manifest), nil, kubeObject)
 		if err != nil {
+			// Check if this is a YAML document with "---" but no content
+			if len(bytes.TrimSpace(trimmedManifest)) == 0 || string(bytes.TrimSpace(trimmedManifest)) == "---" {
+				continue
+			}
+
+			// For other decoding errors, return the error
 			return nil, fmt.Errorf("failed to decode YAML manifest to unstructured object: %w", err)
+		}
+
+		// Check if the object has kind and apiVersion
+		if kubeObject.GetKind() == "" || kubeObject.GetAPIVersion() == "" {
+			return nil, fmt.Errorf("invalid Kubernetes manifest: missing Kind or apiVersion")
 		}
 
 		// set label metadata on object to signal threeport agent
@@ -104,7 +136,7 @@ func (p *ThreeportPostRenderer) AppendAdditionalResources(
 		// convert unstructured kube object back to yaml
 		kubeObject := &unstructured.Unstructured{Object: additionalResourceUnmarshaled}
 		kubeObject.SetNamespace(*p.HelmWorkloadInstance.ReleaseNamespace)
-		yamlBytes, err := yaml.Marshal(additionalResource)
+		yamlBytes, err := yaml.Marshal(kubeObject)
 		if err != nil {
 			return "", fmt.Errorf("failed to convert unstructured object back to YAML: %w", err)
 		}
