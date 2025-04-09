@@ -3,6 +3,7 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -185,6 +186,10 @@ func DeleteWorkloadEventsByQueryString(apiClient *http.Client, apiAddr string, q
 		http.StatusOK,
 	)
 	if err != nil {
+		// if nothing to delete, return empty array without error
+		if errors.Is(err, client_lib.ErrObjectNotFound) {
+			return &workloadEvents, nil
+		}
 		return &workloadEvents, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
