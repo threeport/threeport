@@ -26,18 +26,20 @@ func GetResponse(
 	expectedStatusCode int,
 ) (*apiserver_lib.Response, error) {
 
+	// If no scheme is present, determine based on transport configuration
 	urlScheme := "http://"
 
 	// check if TLS is configured
-	tlsConfigured := false
-	if transport, ok := client.Transport.(*CustomTransport); ok {
-		tlsConfigured = transport.IsTlsEnabled
+	if transport, ok := client.Transport.(*CustomTransport); ok && transport.IsTlsEnabled {
+		urlScheme = "https://"
+	} else if transport, ok := client.Transport.(*http.Transport); ok {
+		// If it's a standard http.Transport with TLS config, assume HTTPS
+		if transport.TLSClientConfig != nil {
+			urlScheme = "https://"
+		}
 	}
 
-	// update url if TLS is configured
-	if tlsConfigured {
-		urlScheme = "https://"
-	}
+	// Prepend the scheme to the URL
 	url = urlScheme + url
 
 	req, err := http.NewRequest(httpMethod, url, reqBody)

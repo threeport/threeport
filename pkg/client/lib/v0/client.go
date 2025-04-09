@@ -83,7 +83,7 @@ func GetHTTPClient(
 
 		rootCA = string(caCertBytes)
 	} else {
-		return nil, errors.New("could not find certificate files")
+		return nil, errors.New("could not load client authentication certificates")
 	}
 
 	// create certificate pool and add certificate authority
@@ -103,7 +103,7 @@ func GetHTTPClient(
 	var apiClient *http.Client
 	var customTransport *CustomTransport
 
-	if sessionToken != "" {
+	if sessionToken == "" {
 		customTransport = &CustomTransport{
 			CustomRoundTripper: Chain(tlsTransport),
 			IsTlsEnabled:       true,
