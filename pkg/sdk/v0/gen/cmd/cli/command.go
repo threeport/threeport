@@ -1293,6 +1293,17 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line(),
 					),
 					Id(deleteCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
+						Line().Op("&").Id(deleteNameVar),
+						Line().Lit("name"),
+						Lit("n"),
+						Lit(""),
+						Lit(fmt.Sprintf(
+							"Name of %s.",
+							cmdStrHuman,
+						)),
+						Line(),
+					),
+					Id(deleteCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
 						Line().Op("&").Id("cliArgs").Dot("ControlPlaneName"),
 						Line().Lit("control-plane-name"),
 						Lit("i"),

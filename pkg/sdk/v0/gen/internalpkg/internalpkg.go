@@ -32,7 +32,7 @@ func GenInternalPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	// generate NATS notification constants and functions for controllers
-	if err := controller.GenNotifs(generator); err != nil {
+	if err := controller.GenNotifs(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate notif constants and functions for controller: %w", err)
 	}
 

@@ -16,7 +16,7 @@ const (
 	TerraformInstanceDeleteSubject = "terraformInstance.delete"
 )
 
-// Get GetTerraformDefinitionSubjects returns the NATS subjects
+// GetTerraformDefinitionSubjects returns the NATS subjects
 // for terraform definitions.
 func GetTerraformDefinitionSubjects() []string {
 	return []string{
@@ -26,7 +26,7 @@ func GetTerraformDefinitionSubjects() []string {
 	}
 }
 
-// Get GetTerraformInstanceSubjects returns the NATS subjects
+// GetTerraformInstanceSubjects returns the NATS subjects
 // for terraform instances.
 func GetTerraformInstanceSubjects() []string {
 	return []string{

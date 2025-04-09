@@ -497,10 +497,9 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 		g.Line()
 
 		g.Comment(fmt.Sprintf(
-			"install %s controller",
+			"install %s controller/s",
 			moduleNameKebab,
 		))
-
 		g.Id("controllerVolumes").Op(":=").Index().Interface().Values()
 		g.Id("controllerVolumeMounts").Op(":=").Index().Interface().Values()
 		g.If(Id("i").Dot("AuthEnabled")).Block(
@@ -553,132 +552,142 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 			Id("controllerArgs").Op("=").Append(Id("controllerArgs"), Lit("-auth-enabled=false")),
 		)
 		g.Line()
-		g.Var().Id(fmt.Sprintf(
-			"%sControllerDeploy",
-			moduleNameLowerCamel,
-		)).Op("=").Op("&").Qual(
-			"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
-			"Unstructured",
-		).Values(Dict{
-			Line().Id("Object"): Map(String()).Interface().Values(Dict{
-				Lit("apiVersion"): Lit("apps/v1"),
-				Lit("kind"):       Lit("Deployment"),
-				Lit("metadata"): Map(String()).Interface().Values(Dict{
-					Lit("name"): Lit(fmt.Sprintf(
-						"threeport-%s-controller",
-						moduleNameKebab,
-					)),
-					Lit("namespace"): Id("i.ModuleNamespace"),
-				}),
-				Lit("spec"): Map(String()).Interface().Values(Dict{
-					Lit("replicas"): Lit(1),
-					Lit("selector"): Map(String()).Interface().Values(Dict{
-						Line().Lit("matchLabels"): Map(String()).Interface().Values(Dict{
-							Line().Lit("app.kubernetes.io/name"): Lit(fmt.Sprintf(
-								"threeport-%s-controller",
-								moduleNameKebab,
-							)).Op(",").Line(),
-						}).Op(",").Line(),
+		for _, objGroup := range gen.ApiObjectGroups {
+			// skip if no controllers for this object group
+			if len(objGroup.ReconciledObjects) == 0 {
+				continue
+			}
+			g.Var().Id(fmt.Sprintf(
+				"%sControllerDeploy",
+				strcase.ToCamel(objGroup.ControllerShortName),
+			)).Op("=").Op("&").Qual(
+				"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
+				"Unstructured",
+			).Values(Dict{
+				Line().Id("Object"): Map(String()).Interface().Values(Dict{
+					Lit("apiVersion"): Lit("apps/v1"),
+					Lit("kind"):       Lit("Deployment"),
+					Lit("metadata"): Map(String()).Interface().Values(Dict{
+						Lit("name"): Lit(fmt.Sprintf(
+							"threeport-%s-%s-controller",
+							moduleNameKebab,
+							objGroup.ControllerShortName,
+						)),
+						Lit("namespace"): Id("i.ModuleNamespace"),
 					}),
-					Lit("strategy"): Map(String()).Interface().Values(Dict{
-						Lit("rollingUpdate"): Map(String()).Interface().Values(Dict{
-							Lit("maxSurge"):       Lit("25%"),
-							Lit("maxUnavailable"): Lit("25%"),
-						}),
-						Lit("type"): Lit("RollingUpdate"),
-					}),
-					Lit("template"): Map(String()).Interface().Values(Dict{
-						Lit("metadata"): Map(String()).Interface().Values(Dict{
-							Line().Lit("labels"): Map(String()).Interface().Values(Dict{
+					Lit("spec"): Map(String()).Interface().Values(Dict{
+						Lit("replicas"): Lit(1),
+						Lit("selector"): Map(String()).Interface().Values(Dict{
+							Line().Lit("matchLabels"): Map(String()).Interface().Values(Dict{
 								Line().Lit("app.kubernetes.io/name"): Lit(fmt.Sprintf(
-									"threeport-%s-controller",
+									"threeport-%s-%s-controller",
 									moduleNameKebab,
+									objGroup.ControllerShortName,
 								)).Op(",").Line(),
 							}).Op(",").Line(),
 						}),
-						Lit("spec"): Map(String()).Interface().Values(Dict{
-							Lit("containers"): Index().Interface().Values(
-								Line().Map(String()).Interface().Values(Dict{
-									Lit("args"): Id("controllerArgs"),
-									Lit("command"): Index().Interface().Values(
-										Line().Lit(fmt.Sprintf(
-											"/%s-controller",
-											moduleNameKebab,
-										)),
-										Line(),
-									),
-									Lit("envFrom"): Index().Interface().Values(
-										Line().Map(String()).Interface().Values(Dict{
-											Line().Lit("secretRef"): Map(String()).Interface().Values(Dict{
-												Line().Lit("name"): Lit("controller-config").Op(",").Line(),
-											}).Op(",").Line(),
-										}),
-										Line().Map(String()).Interface().Values(Dict{
-											Line().Lit("secretRef"): Map(String()).Interface().Values(Dict{
-												Line().Lit("name"): Lit("encryption-key").Op(",").Line(),
-											}).Op(",").Line(),
-										}).Op(",").Line(),
-									),
-									Lit("image"): Qual("fmt", "Sprintf").Call(
-										Line().Lit(fmt.Sprintf(
-											"%%s/threeport-%s-controller:%%s",
-											moduleNameKebab,
-										)),
-										Line().Id("i").Dot("ControlPlaneImageRepo"),
-										Line().Id("i").Dot("ControlPlaneImageTag"),
-										Line(),
-									),
-									Lit("imagePullPolicy"): Lit("IfNotPresent"),
-									Lit("name"): Lit(fmt.Sprintf(
-										"%s-controller",
+						Lit("strategy"): Map(String()).Interface().Values(Dict{
+							Lit("rollingUpdate"): Map(String()).Interface().Values(Dict{
+								Lit("maxSurge"):       Lit("25%"),
+								Lit("maxUnavailable"): Lit("25%"),
+							}),
+							Lit("type"): Lit("RollingUpdate"),
+						}),
+						Lit("template"): Map(String()).Interface().Values(Dict{
+							Lit("metadata"): Map(String()).Interface().Values(Dict{
+								Line().Lit("labels"): Map(String()).Interface().Values(Dict{
+									Line().Lit("app.kubernetes.io/name"): Lit(fmt.Sprintf(
+										"threeport-%s-%s-controller",
 										moduleNameKebab,
-									)),
-									Lit("volumeMounts"): Id("controllerVolumeMounts"),
-									Lit("readinessProbe"): Map(String()).Interface().Values(Dict{
-										Lit("failureThreshold"): Lit(1),
-										Lit("httpGet"): Map(String()).Interface().Values(Dict{
-											Lit("path"):   Lit("/readyz"),
-											Lit("port"):   Lit(8081),
-											Lit("scheme"): Lit("HTTP"),
-										}),
-										Lit("initialDelaySeconds"): Lit(1),
-										Lit("periodSeconds"):       Lit(2),
-										Lit("successThreshold"):    Lit(1),
-										Lit("timeoutSeconds"):      Lit(1),
-									}),
+										objGroup.ControllerShortName,
+									)).Op(",").Line(),
 								}).Op(",").Line(),
-							),
-							Lit("restartPolicy"):                 Lit("Always"),
-							Lit("terminationGracePeriodSeconds"): Lit(30),
-							Lit("volumes"):                       Id("controllerVolumes"),
+							}),
+							Lit("spec"): Map(String()).Interface().Values(Dict{
+								Lit("containers"): Index().Interface().Values(
+									Line().Map(String()).Interface().Values(Dict{
+										Lit("args"): Id("controllerArgs"),
+										Lit("command"): Index().Interface().Values(
+											Line().Lit(fmt.Sprintf(
+												"/%s-controller",
+												objGroup.ControllerShortName,
+											)),
+											Line(),
+										),
+										Lit("envFrom"): Index().Interface().Values(
+											Line().Map(String()).Interface().Values(Dict{
+												Line().Lit("secretRef"): Map(String()).Interface().Values(Dict{
+													Line().Lit("name"): Lit("controller-config").Op(",").Line(),
+												}).Op(",").Line(),
+											}),
+											Line().Map(String()).Interface().Values(Dict{
+												Line().Lit("secretRef"): Map(String()).Interface().Values(Dict{
+													Line().Lit("name"): Lit("encryption-key").Op(",").Line(),
+												}).Op(",").Line(),
+											}).Op(",").Line(),
+										),
+										Lit("image"): Qual("fmt", "Sprintf").Call(
+											Line().Lit(fmt.Sprintf(
+												"%%s/threeport-%s-%s-controller:%%s",
+												moduleNameKebab,
+												objGroup.ControllerShortName,
+											)),
+											Line().Id("i").Dot("ControlPlaneImageRepo"),
+											Line().Id("i").Dot("ControlPlaneImageTag"),
+											Line(),
+										),
+										Lit("imagePullPolicy"): Lit("IfNotPresent"),
+										Lit("name"): Lit(fmt.Sprintf(
+											"%s-%s-controller",
+											moduleNameKebab,
+											objGroup.ControllerShortName,
+										)),
+										Lit("volumeMounts"): Id("controllerVolumeMounts"),
+										Lit("readinessProbe"): Map(String()).Interface().Values(Dict{
+											Lit("failureThreshold"): Lit(1),
+											Lit("httpGet"): Map(String()).Interface().Values(Dict{
+												Lit("path"):   Lit("/readyz"),
+												Lit("port"):   Lit(8081),
+												Lit("scheme"): Lit("HTTP"),
+											}),
+											Lit("initialDelaySeconds"): Lit(1),
+											Lit("periodSeconds"):       Lit(2),
+											Lit("successThreshold"):    Lit(1),
+											Lit("timeoutSeconds"):      Lit(1),
+										}),
+									}).Op(",").Line(),
+								),
+								Lit("restartPolicy"):                 Lit("Always"),
+								Lit("terminationGracePeriodSeconds"): Lit(30),
+								Lit("volumes"):                       Id("controllerVolumes"),
+							}),
 						}),
 					}),
-				}),
-			}).Op(",").Line(),
-		})
-		g.Line()
+				}).Op(",").Line(),
+			})
+			g.Line()
 
-		g.If(List(Id("_"), Err()).Op(":=").Qual(
-			"github.com/threeport/threeport/pkg/kube/v0",
-			"CreateOrUpdateResource",
-		).Call(
-			Id(fmt.Sprintf(
-				"%sControllerDeploy",
-				moduleNameLowerCamel,
-			)),
-			Id("i.KubeClient"),
-			Op("*").Id("i.KubeRestMapper"),
-		), Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(
-				Lit(fmt.Sprintf(
-					"failed to create/update %s controller deployment: %%w",
-					moduleNameKebab,
+			g.If(List(Id("_"), Err()).Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/kube/v0",
+				"CreateOrUpdateResource",
+			).Call(
+				Id(fmt.Sprintf(
+					"%sControllerDeploy",
+					strcase.ToCamel(objGroup.ControllerShortName),
 				)),
-				Err(),
-			)),
-		)
-		g.Line()
-
+				Id("i.KubeClient"),
+				Op("*").Id("i.KubeRestMapper"),
+			), Err().Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(
+					Lit(fmt.Sprintf(
+						"failed to create/update %s controller deployment: %%w",
+						objGroup.ControllerShortName,
+					)),
+					Err(),
+				)),
+			)
+			g.Line()
+		}
 		g.Return(Nil())
 	})
 	f.Line()

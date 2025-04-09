@@ -16,7 +16,7 @@ const (
 	SecretInstanceDeleteSubject = "secretInstance.delete"
 )
 
-// Get GetSecretDefinitionSubjects returns the NATS subjects
+// GetSecretDefinitionSubjects returns the NATS subjects
 // for secret definitions.
 func GetSecretDefinitionSubjects() []string {
 	return []string{
@@ -26,7 +26,7 @@ func GetSecretDefinitionSubjects() []string {
 	}
 }
 
-// Get GetSecretInstanceSubjects returns the NATS subjects
+// GetSecretInstanceSubjects returns the NATS subjects
 // for secret instances.
 func GetSecretInstanceSubjects() []string {
 	return []string{

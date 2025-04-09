@@ -3,19 +3,29 @@ package controller
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	"github.com/threeport/threeport/pkg/sdk/v0/gen"
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
 // GenNotifs generates the source code for the NATS notifications and functions
 // that provide notification subjects.
-func GenNotifs(gen *gen.Generator) error {
+func GenNotifs(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
+	notifPrefix := ""
+	if gen.Module {
+		prohibitedChars := regexp.MustCompile(`[\s.\*><\\/]`)
+		sanitized := prohibitedChars.ReplaceAllString(sdkConfig.ApiNamespace, "-")
+		sanitized = strings.Trim(sanitized, "-")
+		notifPrefix = sanitized + "_"
+	}
 	for _, objGroup := range gen.ApiObjectGroups {
 		if len(objGroup.ReconciledObjects) > 0 {
 			pluralize := pluralize.NewClient()
@@ -25,22 +35,23 @@ func GenNotifs(gen *gen.Generator) error {
 			subjects := &Statement{}
 			var subjectFuncs []string
 			for _, object := range objGroup.ReconciledObjects {
-				createSubject := object.Name + "CreateSubject"
-				updateSubject := object.Name + "UpdateSubject"
-				deleteSubject := object.Name + "DeleteSubject"
+				wildcardSubjectKey := object.Name + "Subject"
+				createSubjectKey := object.Name + "CreateSubject"
+				updateSubjectKey := object.Name + "UpdateSubject"
+				deleteSubjectKey := object.Name + "DeleteSubject"
 				subjects.Line()
-				subjects.Id(object.Name + "Subject").Op("=").Lit(strcase.ToLowerCamel(object.Name) + ".*")
+				subjects.Id(wildcardSubjectKey).Op("=").Lit(notifPrefix + strcase.ToLowerCamel(object.Name) + ".*")
 				subjects.Line()
-				subjects.Id(createSubject).Op("=").Lit(strcase.ToLowerCamel(object.Name) + ".create")
+				subjects.Id(createSubjectKey).Op("=").Lit(notifPrefix + strcase.ToLowerCamel(object.Name) + ".create")
 				subjects.Line()
-				subjects.Id(updateSubject).Op("=").Lit(strcase.ToLowerCamel(object.Name) + ".update")
+				subjects.Id(updateSubjectKey).Op("=").Lit(notifPrefix + strcase.ToLowerCamel(object.Name) + ".update")
 				subjects.Line()
-				subjects.Id(deleteSubject).Op("=").Lit(strcase.ToLowerCamel(object.Name) + ".delete")
+				subjects.Id(deleteSubjectKey).Op("=").Lit(notifPrefix + strcase.ToLowerCamel(object.Name) + ".delete")
 				subjects.Line()
 				subjectFuncs = append(subjectFuncs, getObjectSubjectFuncName(object.Name))
 			}
 			f.Const().Defs(
-				Id(objGroup.StreamName).Op("=").Lit(objGroup.ControllerShortName+"Stream"),
+				Id(objGroup.StreamName).Op("=").Lit(notifPrefix+strcase.ToLowerCamel(objGroup.ControllerShortName)+"Stream"),
 				Line(),
 				subjects,
 				Line(),
@@ -49,7 +60,7 @@ func GenNotifs(gen *gen.Generator) error {
 
 			// NATS subjects for each object
 			for _, object := range objGroup.ReconciledObjects {
-				f.Comment(fmt.Sprintf("Get %s returns the NATS subjects", getObjectSubjectFuncName(object.Name)))
+				f.Comment(fmt.Sprintf("%s returns the NATS subjects", getObjectSubjectFuncName(object.Name)))
 				f.Comment(fmt.Sprintf("for %s.", pluralize.Pluralize(strcase.ToDelimited(object.Name, ' '), 2, false)))
 				f.Func().Id(getObjectSubjectFuncName(object.Name)).Params().Index().String().Block(
 					Return(

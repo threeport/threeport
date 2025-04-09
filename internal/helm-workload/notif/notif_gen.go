@@ -3,7 +3,7 @@
 package notif
 
 const (
-	HelmWorkloadStreamName = "helm-workloadStream"
+	HelmWorkloadStreamName = "helmWorkloadStream"
 
 	HelmWorkloadDefinitionSubject       = "helmWorkloadDefinition.*"
 	HelmWorkloadDefinitionCreateSubject = "helmWorkloadDefinition.create"
@@ -16,7 +16,7 @@ const (
 	HelmWorkloadInstanceDeleteSubject = "helmWorkloadInstance.delete"
 )
 
-// Get GetHelmWorkloadDefinitionSubjects returns the NATS subjects
+// GetHelmWorkloadDefinitionSubjects returns the NATS subjects
 // for helm workload definitions.
 func GetHelmWorkloadDefinitionSubjects() []string {
 	return []string{
@@ -26,7 +26,7 @@ func GetHelmWorkloadDefinitionSubjects() []string {
 	}
 }
 
-// Get GetHelmWorkloadInstanceSubjects returns the NATS subjects
+// GetHelmWorkloadInstanceSubjects returns the NATS subjects
 // for helm workload instances.
 func GetHelmWorkloadInstanceSubjects() []string {
 	return []string{

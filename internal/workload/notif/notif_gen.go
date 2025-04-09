@@ -16,7 +16,7 @@ const (
 	WorkloadInstanceDeleteSubject = "workloadInstance.delete"
 )
 
-// Get GetWorkloadDefinitionSubjects returns the NATS subjects
+// GetWorkloadDefinitionSubjects returns the NATS subjects
 // for workload definitions.
 func GetWorkloadDefinitionSubjects() []string {
 	return []string{
@@ -26,7 +26,7 @@ func GetWorkloadDefinitionSubjects() []string {
 	}
 }
 
-// Get GetWorkloadInstanceSubjects returns the NATS subjects
+// GetWorkloadInstanceSubjects returns the NATS subjects
 // for workload instances.
 func GetWorkloadInstanceSubjects() []string {
 	return []string{

@@ -21,7 +21,7 @@ const (
 	DomainNameInstanceDeleteSubject = "domainNameInstance.delete"
 )
 
-// Get GetGatewayDefinitionSubjects returns the NATS subjects
+// GetGatewayDefinitionSubjects returns the NATS subjects
 // for gateway definitions.
 func GetGatewayDefinitionSubjects() []string {
 	return []string{
@@ -31,7 +31,7 @@ func GetGatewayDefinitionSubjects() []string {
 	}
 }
 
-// Get GetGatewayInstanceSubjects returns the NATS subjects
+// GetGatewayInstanceSubjects returns the NATS subjects
 // for gateway instances.
 func GetGatewayInstanceSubjects() []string {
 	return []string{
@@ -41,7 +41,7 @@ func GetGatewayInstanceSubjects() []string {
 	}
 }
 
-// Get GetDomainNameInstanceSubjects returns the NATS subjects
+// GetDomainNameInstanceSubjects returns the NATS subjects
 // for domain name instances.
 func GetDomainNameInstanceSubjects() []string {
 	return []string{

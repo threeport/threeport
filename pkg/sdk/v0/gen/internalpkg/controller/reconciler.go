@@ -417,7 +417,7 @@ func GenReconcilers(gen *gen.Generator) error {
 			genFilepath := filepath.Join(
 				"internal",
 				objGroup.ControllerShortName,
-				fmt.Sprintf("%s_gen_reconciler.go", strcase.ToSnake(varObjectName)),
+				fmt.Sprintf("%s_reconciler_gen.go", strcase.ToSnake(varObjectName)),
 			)
 			_, err := util.WriteCodeToFile(f, genFilepath, true)
 			if err != nil {

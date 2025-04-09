@@ -152,7 +152,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	if gen.Module {
 		apiImageName = fmt.Sprintf(
 			"threeport-%s-rest-api",
-			strcase.ToSnake(sdkConfig.ModuleName),
+			strcase.ToKebab(sdkConfig.ModuleName),
 		)
 	}
 	f.Comment(fmt.Sprintf("%s builds and pushes a REST API container image.", buildApiImageFuncName))
@@ -325,7 +325,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	if gen.Module {
 		dbMigratorImageName = fmt.Sprintf(
 			"threeport-%s-database-migrator",
-			strcase.ToSnake(sdkConfig.ModuleName),
+			strcase.ToKebab(sdkConfig.ModuleName),
 		)
 	}
 	f.Comment(fmt.Sprintf("%s builds and pushes a database migrator container image.", buildDbMigratorImageFuncName))
@@ -507,7 +507,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		if gen.Module {
 			dbMigratorImageName = fmt.Sprintf(
 				"threeport-%s-agent",
-				strcase.ToSnake(sdkConfig.ModuleName),
+				strcase.ToKebab(sdkConfig.ModuleName),
 			)
 		}
 		f.Comment(fmt.Sprintf("%s builds and pushes a agent container image.", buildAgentImageFuncName))
@@ -634,6 +634,12 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			buildReleaseImageFuncName := fmt.Sprintf("%sControllerImageRelease", objGroup.ControllerDomain)
 			buildReleaseImageFuncNames = append(buildReleaseImageFuncNames, buildReleaseImageFuncName)
 
+			// set image name
+			imageName := fmt.Sprintf("threeport-%s", objGroup.ControllerName)
+			if gen.Module {
+				imageName = fmt.Sprintf("threeport-%s-%s", strcase.ToKebab(sdkConfig.ModuleName), objGroup.ControllerName)
+			}
+
 			// binary build function
 			f.Comment(fmt.Sprintf(
 				"%s builds the binary for the %s.",
@@ -750,7 +756,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Line().Lit(fmt.Sprintf("cmd/%s/image/Dockerfile-alpine", objGroup.ControllerName)),
 					Line().Id("arch"),
 					Line().Id("imageRepo"),
-					Line().Lit(fmt.Sprintf("threeport-%s", objGroup.ControllerName)),
+					Line().Lit(imageName),
 					Line().Id("imageTag"),
 					Line().True(),
 					Line().False(),
@@ -982,7 +988,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			g.If(Id("component").Op("==").Lit("rest-api")).Block(
 				Id("imageName").Op("=").Qual("fmt", "Sprintf").Call(
 					Lit("threeport-%s-%s"),
-					Lit(strcase.ToSnake(sdkConfig.ModuleName)),
+					Lit(strcase.ToKebab(sdkConfig.ModuleName)),
 					Id("component"),
 				),
 			)

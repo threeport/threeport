@@ -29,7 +29,7 @@ import (
 )
 
 // @title Threeport RESTful API
-// @version v0.6.0
+// @version v0.7.0-dev
 // @description Core API server for the Threeport application orchestration control plane.
 // @contact.url https://threerport.io
 // @BasePath /
@@ -67,6 +67,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	e.Logger = log.NewEchoLogger(&logger)
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogError:    true,
 		LogHost:     true,
@@ -179,7 +180,7 @@ func main() {
 			},
 		}
 
-		fmt.Printf("\nThreeport REST API: %s\n", version.GetVersion())
+		e.Logger.Infof("Threeport REST API: %s", version.GetVersion())
 		configureHealthCheckEndpoint()
 		if server.ListenAndServeTLS("", "") != http.ErrServerClosed {
 			e.Logger.Fatal(err)
@@ -191,7 +192,7 @@ func main() {
 			Handler: e,
 		}
 
-		fmt.Printf("\nThreeport REST API: %s\n", version.GetVersion())
+		e.Logger.Infof("Threeport REST API: %s", version.GetVersion())
 		configureHealthCheckEndpoint()
 		if server.ListenAndServe() != http.ErrServerClosed {
 			e.Logger.Fatal(err)
