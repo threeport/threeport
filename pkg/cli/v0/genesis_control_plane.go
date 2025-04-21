@@ -1278,6 +1278,57 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 			}
 		}
+	case v0.KubernetesRuntimeInfraProviderOKE:
+		// check for workload instances on non-kind kubernetes runtimes - halt delete if
+		// any are present
+		workloadInstances, err := client.GetWorkloadInstances(
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve workload instances from threeport API: %w", err)
+		}
+		if len(*workloadInstances) > 0 {
+			return errors.New("found workload instances that could prevent control plane deletion - delete all workload instances before deleting control plane")
+		}
+
+		// get control plane instances
+		controlPlaneInstances, err := client.GetControlPlaneInstances(
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve control plane instances from threeport API: %w", err)
+		}
+		if len(*controlPlaneInstances) > 1 {
+			return errors.New("found non-genesis control plane instance(s) that could prevent control plane deletion - delete all non-genesis control plane instances before deleting genesis control plane")
+		}
+
+		// create a client and resource mapper to connect to kubernetes cluster
+		// API for deleting resources
+		var dynamicKubeClient dynamic.Interface
+		var mapper *meta.RESTMapper
+		dynamicKubeClient, mapper, err = kube.GetClient(
+			kubernetesRuntimeInstance,
+			false,
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+			threeportControlPlaneConfig.EncryptionKey,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
+		}
+
+		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
+			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
+		}
+
+		if !cpi.Opts.ControlPlaneOnly {
+			// delete control plane infra
+			if err := kubernetesRuntimeInfra.Delete(); err != nil {
+				return fmt.Errorf("failed to delete control plane infra: %w", err)
+			}
+		}
 	}
 
 	// update threeport config to remove deleted threeport instance
