@@ -69,6 +69,16 @@ type GenesisControlPlaneCLIArgs struct {
 	ControlPlaneOnly      bool
 	KindInfraPortForward  []string
 	LocalRegistry         bool
+
+	// Oracle Cloud Infrastructure (OCI) specific options
+	OracleTenancyID               string
+	OracleCompartmentID           string
+	OracleRegion                  string
+	OracleAvailabilityDomainCount int32
+	OracleWorkerNodeShape         string
+	OracleWorkerNodeInitialCount  int32
+	OracleWorkerNodeMinCount      int32
+	OracleWorkerNodeMaxCount      int32
 }
 
 // Uninstaller contains the necessary information to uninstall a control plane
@@ -492,6 +502,32 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			kubeConnectionInfo, err = kubernetesRuntimeInfraEKS.GetConnection()
 			if err != nil {
 				return fmt.Errorf("failed to get connection info for eks kubernetes runtime: %w", err)
+			}
+		} else {
+			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
+			if err != nil {
+				return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
+			}
+		}
+	case v0.KubernetesRuntimeInfraProviderOKE:
+		// Create OKE infrastructure
+		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
+			RuntimeInstanceName:     provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			TenancyID:               cpi.Opts.OracleTenancyID,
+			CompartmentID:           cpi.Opts.OracleCompartmentID,
+			Region:                  cpi.Opts.OracleRegion,
+			AvailabilityDomainCount: cpi.Opts.OracleAvailabilityDomainCount,
+			WorkerNodeShape:         cpi.Opts.OracleWorkerNodeShape,
+			WorkerNodeInitialCount:  cpi.Opts.OracleWorkerNodeInitialCount,
+			WorkerNodeMinCount:      cpi.Opts.OracleWorkerNodeMinCount,
+			WorkerNodeMaxCount:      cpi.Opts.OracleWorkerNodeMaxCount,
+		}
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
+
+		if cpi.Opts.ControlPlaneOnly {
+			kubeConnectionInfo, err = kubernetesRuntimeInfraOKE.GetConnection()
+			if err != nil {
+				return fmt.Errorf("failed to get connection info for OKE kubernetes runtime: %w", err)
 			}
 		} else {
 			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()

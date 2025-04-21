@@ -21,6 +21,7 @@ type KubernetesRuntimeInfraProvider string
 const (
 	KubernetesRuntimeInfraProviderKind = "kind"
 	KubernetesRuntimeInfraProviderEKS  = "eks"
+	KubernetesRuntimeInfraProviderOKE  = "oke"
 )
 
 // SupportedInfraProviders returns all supported infra providers.
@@ -28,6 +29,7 @@ func SupportedInfraProviders() []KubernetesRuntimeInfraProvider {
 	return []KubernetesRuntimeInfraProvider{
 		KubernetesRuntimeInfraProviderKind,
 		KubernetesRuntimeInfraProviderEKS,
+		KubernetesRuntimeInfraProviderOKE,
 	}
 }
 
