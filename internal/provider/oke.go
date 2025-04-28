@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/oracle/oci-go-sdk/v65/common"
+	ocicore "github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/oracle/oci-go-sdk/v65/identity"
 	"github.com/pulumi/pulumi-oci/sdk/go/oci"
 	"github.com/pulumi/pulumi-oci/sdk/go/oci/containerengine"
@@ -237,11 +238,58 @@ func (i *KubernetesRuntimeInfraOKE) getAvailabilityDomainName() (string, error) 
 	return *response.Items[0].Name, nil
 }
 
+// getServiceGatewayServiceID returns the OCI service ID for the service gateway in a given region.
+// This ID is used to identify the Oracle Services Network in the service gateway.
+func getServiceGatewayServiceID(region string, compartmentID string) (string, error) {
+	// Create a new virtual network client
+	configProvider := common.DefaultConfigProvider()
+	vcnClient, err := ocicore.NewVirtualNetworkClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create virtual network client: %w", err)
+	}
+
+	// Set the region for the client
+	vcnClient.SetRegion(region)
+
+	// Create a request to list services
+	request := ocicore.ListServicesRequest{}
+
+	// Call the API to get services
+	response, err := vcnClient.ListServices(context.Background(), request)
+	if err != nil {
+		return "", fmt.Errorf("failed to list services: %w", err)
+	}
+
+	// Find the Oracle Services Network service
+	for _, service := range response.Items {
+		if service.Name != nil && strings.Contains(*service.Name, "Services In Oracle Services Network") {
+			return *service.Id, nil
+		}
+	}
+
+	// If service not found, return an error
+	return "", fmt.Errorf("Oracle Services Network service not found in region %s", region)
+}
+
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
 func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 	// Load OCI configuration
 	if err := i.loadOCIConfig(); err != nil {
 		return nil, fmt.Errorf("failed to load OCI configuration: %w", err)
+	}
+
+	// Set default values for worker nodes if not specified
+	if i.WorkerNodeShape == "" {
+		i.WorkerNodeShape = "VM.Standard.A1.Flex"
+	}
+	if i.WorkerNodeInitialCount == 0 {
+		i.WorkerNodeInitialCount = 2
+	}
+	if i.WorkerNodeMinCount == 0 {
+		i.WorkerNodeMinCount = 2
+	}
+	if i.WorkerNodeMaxCount == 0 {
+		i.WorkerNodeMaxCount = 2
 	}
 
 	// Get the availability domain name
@@ -320,6 +368,12 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 			return fmt.Errorf("failed to create NAT Gateway: %w", err)
 		}
 
+		// Get the service gateway service ID
+		serviceID, err := getServiceGatewayServiceID(i.Region, i.CompartmentID)
+		if err != nil {
+			return fmt.Errorf("failed to get service gateway service ID: %w", err)
+		}
+
 		// Create Service Gateway
 		serviceGateway, err := core.NewServiceGateway(ctx, fmt.Sprintf("%s-sg", i.RuntimeInstanceName), &core.ServiceGatewayArgs{
 			CompartmentId: pulumi.String(i.CompartmentID),
@@ -327,7 +381,7 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 			DisplayName:   pulumi.String(fmt.Sprintf("%s-sg", i.RuntimeInstanceName)),
 			Services: core.ServiceGatewayServiceArray{
 				&core.ServiceGatewayServiceArgs{
-					ServiceId: pulumi.String("ocid1.service.oc1.phx.aaaaaaaasgvxtsqcj2jkt2xppos637xym4ab5qqqptgwjd4guj7v3d26t7oa"), // Replace with actual OCI service ID
+					ServiceId: pulumi.String(serviceID),
 				},
 			},
 		}, pulumi.Provider(ociProvider),
@@ -415,6 +469,7 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 			Name:              pulumi.String(i.RuntimeInstanceName),
 			VcnId:             vcn.ID(),
 			KubernetesVersion: pulumi.String("v1.29.1"),
+			//KubernetesVersion: pulumi.String("v1.30.10"),
 			Options: &containerengine.ClusterOptionsArgs{
 				KubernetesNetworkConfig: &containerengine.ClusterOptionsKubernetesNetworkConfigArgs{
 					PodsCidr:     pulumi.String("10.244.0.0/16"),
@@ -448,8 +503,15 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 					Value: pulumi.String("true"),
 				},
 			},
-			QuantityPerSubnet: pulumi.Int(int(i.WorkerNodeInitialCount)),
-			SubnetIds:         pulumi.StringArray{privateSubnet.ID()},
+			NodeConfigDetails: &containerengine.NodePoolNodeConfigDetailsArgs{
+				Size: pulumi.Int(int(i.WorkerNodeInitialCount)),
+				PlacementConfigs: containerengine.NodePoolNodeConfigDetailsPlacementConfigArray{
+					&containerengine.NodePoolNodeConfigDetailsPlacementConfigArgs{
+						AvailabilityDomain: pulumi.String(availabilityDomain),
+						SubnetId:           privateSubnet.ID(),
+					},
+				},
+			},
 		}, pulumi.Provider(ociProvider),
 			pulumi.DependsOn([]pulumi.Resource{cluster}))
 		if err != nil {
