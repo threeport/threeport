@@ -523,6 +523,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			WorkerNodeMaxCount:      cpi.Opts.OracleWorkerNodeMaxCount,
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
+		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfra
 
 		if cpi.Opts.ControlPlaneOnly {
 			kubeConnectionInfo, err = kubernetesRuntimeInfraOKE.GetConnection()

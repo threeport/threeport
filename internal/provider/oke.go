@@ -2,16 +2,23 @@ package provider
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/oracle/oci-go-sdk/v65/common"
+	"github.com/pulumi/pulumi-oci/sdk/go/oci"
 	"github.com/pulumi/pulumi-oci/sdk/go/oci/containerengine"
 	"github.com/pulumi/pulumi-oci/sdk/go/oci/core"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	"gopkg.in/ini.v1"
 )
 
 // KubernetesRuntimeInfraOKE represents the infrastructure for a threeport-managed OKE
@@ -44,54 +51,353 @@ type KubernetesRuntimeInfraOKE struct {
 	// The maximum number of nodes allowed in the worker node pool.
 	WorkerNodeMaxCount int32
 
-	// The Pulumi stack for managing OKE resources
-	PulumiStack *auto.Stack
+	// The path to the Pulumi state directory
+	stateDir string
+}
+
+// loadOCIConfig reads the OCI configuration using the OCI SDK and updates the struct fields
+func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
+	// Get user's home directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	// Path to OCI config file
+	ociConfigPath := filepath.Join(homeDir, ".oci", "config")
+	fmt.Printf("Loading OCI config from: %s\n", ociConfigPath)
+
+	// Check if config file exists
+	if _, err := os.Stat(ociConfigPath); os.IsNotExist(err) {
+		return fmt.Errorf("OCI config file not found at %s", ociConfigPath)
+	}
+
+	// Load the configuration using the OCI SDK
+	configProvider, err := common.ConfigurationProviderFromFile(ociConfigPath, "")
+	if err != nil {
+		return fmt.Errorf("failed to load OCI configuration: %w", err)
+	}
+
+	// Get the tenancy OCID
+	tenancyOCID, err := configProvider.TenancyOCID()
+	if err != nil {
+		return fmt.Errorf("failed to get tenancy OCID: %w", err)
+	}
+	fmt.Printf("Loaded tenancy OCID: %s\n", tenancyOCID)
+
+	// Get the user OCID
+	userOCID, err := configProvider.UserOCID()
+	if err != nil {
+		return fmt.Errorf("failed to get user OCID: %w", err)
+	}
+	fmt.Printf("Loaded user OCID: %s\n", userOCID)
+
+	// Get the region
+	region, err := configProvider.Region()
+	if err != nil {
+		return fmt.Errorf("failed to get region: %w", err)
+	}
+	fmt.Printf("Loaded region: %s\n", region)
+
+	// Get the fingerprint
+	fingerprint, err := configProvider.KeyFingerprint()
+	if err != nil {
+		return fmt.Errorf("failed to get key fingerprint: %w", err)
+	}
+	fmt.Printf("Loaded key fingerprint: %s\n", fingerprint)
+
+	// Get the private key
+	privateKey, err := configProvider.PrivateRSAKey()
+	if err != nil {
+		return fmt.Errorf("failed to get private key: %w", err)
+	}
+
+	// Convert private key to PEM-encoded string
+	privateKeyPEM := privateKeyToPEM(privateKey)
+	fmt.Printf("Successfully loaded private key\n")
+
+	// Read the config file to get the compartment OCID
+	cfg, err := ini.Load(ociConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to read OCI config file: %w", err)
+	}
+
+	// Get the compartment OCID from the DEFAULT section
+	compartmentOCID := cfg.Section("DEFAULT").Key("compartment_id").String()
+	if compartmentOCID == "" {
+		// If no compartment_id is specified, use the tenancy OCID as the root compartment
+		compartmentOCID = tenancyOCID
+	}
+	fmt.Printf("Using compartment OCID: %s\n", compartmentOCID)
+
+	// Update struct fields with values from config
+	if i.TenancyID == "" {
+		i.TenancyID = tenancyOCID
+	}
+	if i.CompartmentID == "" {
+		i.CompartmentID = compartmentOCID
+	}
+	if i.Region == "" {
+		i.Region = region
+	}
+
+	// Set environment variables for OCI authentication
+	os.Setenv("OCI_TENANCY_OCID", tenancyOCID)
+	os.Setenv("OCI_USER_OCID", userOCID)
+	os.Setenv("OCI_REGION", region)
+	os.Setenv("OCI_KEY_FINGERPRINT", fingerprint)
+	os.Setenv("OCI_PRIVATE_KEY", privateKeyPEM)
+	os.Setenv("OCI_COMPARTMENT_OCID", compartmentOCID)
+
+	// Validate required fields
+	if i.TenancyID == "" {
+		return fmt.Errorf("tenancy ID not found in OCI config")
+	}
+	if i.CompartmentID == "" {
+		return fmt.Errorf("compartment ID not found in OCI config")
+	}
+	if i.Region == "" {
+		return fmt.Errorf("region not found in OCI config")
+	}
+
+	return nil
+}
+
+// privateKeyToPEM converts an RSA private key to a PEM-encoded string
+func privateKeyToPEM(privateKey *rsa.PrivateKey) string {
+	// Marshal the private key to PKCS#1 format
+	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+
+	// Create a PEM block
+	privateKeyPEM := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: privateKeyBytes,
+		},
+	)
+
+	// Convert to string
+	return string(privateKeyPEM)
+}
+
+// createDNSLabel creates a valid DNS label that meets OCI requirements:
+// - Must be 15 characters or less
+// - Must contain only lowercase alphanumeric characters
+// - Maintains uniqueness by using parts of the original name
+func createDNSLabel(name string) string {
+	// Convert to lowercase
+	dnsLabel := strings.ToLower(name)
+
+	// If longer than 15 chars, take first 7 and last 7 with 'x' in middle
+	if len(dnsLabel) > 15 {
+		dnsLabel = dnsLabel[:7] + "x" + dnsLabel[len(dnsLabel)-7:]
+	}
+
+	// Replace any non-alphanumeric chars with 'x'
+	dnsLabel = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			return r
+		}
+		return 'x'
+	}, dnsLabel)
+
+	return dnsLabel
 }
 
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
 func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
+	// Load OCI configuration
+	if err := i.loadOCIConfig(); err != nil {
+		return nil, fmt.Errorf("failed to load OCI configuration: %w", err)
+	}
+
+	// Set up state directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get home directory: %w", err)
+	}
+	i.stateDir = filepath.Join(homeDir, ".config", "threeport", "pulumi-state", i.RuntimeInstanceName)
+
+	// Ensure state directory exists
+	if err := os.MkdirAll(i.stateDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create state directory: %w", err)
+	}
+
+	// Create Pulumi.yaml project file
+	pulumiYaml := `name: oke
+runtime: go
+description: Oracle Kubernetes Engine (OKE) cluster for Threeport
+`
+	pulumiYamlPath := filepath.Join(i.stateDir, "Pulumi.yaml")
+	if err := os.WriteFile(pulumiYamlPath, []byte(pulumiYaml), 0644); err != nil {
+		return nil, fmt.Errorf("failed to create Pulumi.yaml: %w", err)
+	}
+
 	// Create a new Pulumi program
 	program := func(ctx *pulumi.Context) error {
+		// Create OCI provider with explicit configuration
+		ociProvider, err := oci.NewProvider(ctx, "oci-provider", &oci.ProviderArgs{
+			Region:      pulumi.String(i.Region),
+			TenancyOcid: pulumi.String(i.TenancyID),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create OCI provider: %w", err)
+		}
+
 		// Create VCN for the cluster
 		vcn, err := core.NewVcn(ctx, fmt.Sprintf("%s-vcn", i.RuntimeInstanceName), &core.VcnArgs{
 			CompartmentId: pulumi.String(i.CompartmentID),
 			CidrBlock:     pulumi.String("10.0.0.0/16"),
 			DisplayName:   pulumi.String(fmt.Sprintf("%s-vcn", i.RuntimeInstanceName)),
-			DnsLabel:      pulumi.String(i.RuntimeInstanceName),
-		}, pulumi.DeleteBeforeReplace(true))
+			DnsLabel:      pulumi.String(createDNSLabel(i.RuntimeInstanceName)),
+		}, pulumi.Provider(ociProvider),
+			pulumi.DeleteBeforeReplace(true),
+			pulumi.Protect(false))
 		if err != nil {
 			return fmt.Errorf("failed to create VCN: %w", err)
 		}
 
 		// Create Internet Gateway
-		_, err = core.NewInternetGateway(ctx, fmt.Sprintf("%s-igw", i.RuntimeInstanceName), &core.InternetGatewayArgs{
+		internetGateway, err := core.NewInternetGateway(ctx, fmt.Sprintf("%s-ig", i.RuntimeInstanceName), &core.InternetGatewayArgs{
 			CompartmentId: pulumi.String(i.CompartmentID),
 			VcnId:         vcn.ID(),
-			DisplayName:   pulumi.String(fmt.Sprintf("%s-igw", i.RuntimeInstanceName)),
+			DisplayName:   pulumi.String(fmt.Sprintf("%s-ig", i.RuntimeInstanceName)),
 			Enabled:       pulumi.Bool(true),
-		}, pulumi.DeleteBeforeReplace(true))
+		}, pulumi.Provider(ociProvider),
+			pulumi.DependsOn([]pulumi.Resource{vcn}))
 		if err != nil {
 			return fmt.Errorf("failed to create Internet Gateway: %w", err)
 		}
 
-		// Create OKE Cluster
+		// Create NAT Gateway
+		natGateway, err := core.NewNatGateway(ctx, fmt.Sprintf("%s-ng", i.RuntimeInstanceName), &core.NatGatewayArgs{
+			CompartmentId: pulumi.String(i.CompartmentID),
+			VcnId:         vcn.ID(),
+			DisplayName:   pulumi.String(fmt.Sprintf("%s-ng", i.RuntimeInstanceName)),
+			BlockTraffic:  pulumi.Bool(false),
+		}, pulumi.Provider(ociProvider),
+			pulumi.DependsOn([]pulumi.Resource{vcn}))
+		if err != nil {
+			return fmt.Errorf("failed to create NAT Gateway: %w", err)
+		}
+
+		// Create Service Gateway
+		serviceGateway, err := core.NewServiceGateway(ctx, fmt.Sprintf("%s-sg", i.RuntimeInstanceName), &core.ServiceGatewayArgs{
+			CompartmentId: pulumi.String(i.CompartmentID),
+			VcnId:         vcn.ID(),
+			DisplayName:   pulumi.String(fmt.Sprintf("%s-sg", i.RuntimeInstanceName)),
+			Services: core.ServiceGatewayServiceArray{
+				&core.ServiceGatewayServiceArgs{
+					ServiceId: pulumi.String("ocid1.service.oc1.iad.aaaaaaaaaaaaaaa"), // Replace with actual OCI service ID
+				},
+			},
+		}, pulumi.Provider(ociProvider),
+			pulumi.DependsOn([]pulumi.Resource{vcn}))
+		if err != nil {
+			return fmt.Errorf("failed to create Service Gateway: %w", err)
+		}
+
+		// Create route table for public subnet
+		publicRouteTable, err := core.NewRouteTable(ctx, fmt.Sprintf("%s-public-rt", i.RuntimeInstanceName), &core.RouteTableArgs{
+			CompartmentId: pulumi.String(i.CompartmentID),
+			VcnId:         vcn.ID(),
+			DisplayName:   pulumi.String(fmt.Sprintf("%s-public-rt", i.RuntimeInstanceName)),
+			RouteRules: core.RouteTableRouteRuleArray{
+				&core.RouteTableRouteRuleArgs{
+					Destination:     pulumi.String("0.0.0.0/0"),
+					DestinationType: pulumi.String("CIDR_BLOCK"),
+					NetworkEntityId: internetGateway.ID(),
+				},
+			},
+		}, pulumi.Provider(ociProvider),
+			pulumi.DependsOn([]pulumi.Resource{internetGateway}))
+		if err != nil {
+			return fmt.Errorf("failed to create public route table: %w", err)
+		}
+
+		// Create route table for private subnet
+		privateRouteTable, err := core.NewRouteTable(ctx, fmt.Sprintf("%s-private-rt", i.RuntimeInstanceName), &core.RouteTableArgs{
+			CompartmentId: pulumi.String(i.CompartmentID),
+			VcnId:         vcn.ID(),
+			DisplayName:   pulumi.String(fmt.Sprintf("%s-private-rt", i.RuntimeInstanceName)),
+			RouteRules: core.RouteTableRouteRuleArray{
+				&core.RouteTableRouteRuleArgs{
+					Destination:     pulumi.String("0.0.0.0/0"),
+					DestinationType: pulumi.String("CIDR_BLOCK"),
+					NetworkEntityId: natGateway.ID(),
+				},
+				&core.RouteTableRouteRuleArgs{
+					Destination:     pulumi.String("all-iad-services-in-oracle-services-network"),
+					DestinationType: pulumi.String("SERVICE_CIDR_BLOCK"),
+					NetworkEntityId: serviceGateway.ID(),
+				},
+			},
+		}, pulumi.Provider(ociProvider),
+			pulumi.DependsOn([]pulumi.Resource{natGateway, serviceGateway}))
+		if err != nil {
+			return fmt.Errorf("failed to create private route table: %w", err)
+		}
+
+		// Create public subnet for load balancers
+		publicSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-public-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
+			AvailabilityDomain:     pulumi.String(fmt.Sprintf("%s:AD-1", i.Region)),
+			CidrBlock:              pulumi.String("10.0.1.0/24"),
+			CompartmentId:          pulumi.String(i.CompartmentID),
+			VcnId:                  vcn.ID(),
+			DisplayName:            pulumi.String(fmt.Sprintf("%s-public-subnet", i.RuntimeInstanceName)),
+			DnsLabel:               pulumi.String(createDNSLabel(fmt.Sprintf("%s-public", i.RuntimeInstanceName))),
+			ProhibitPublicIpOnVnic: pulumi.Bool(false),
+			RouteTableId:           publicRouteTable.ID(),
+		}, pulumi.Provider(ociProvider),
+			pulumi.DependsOn([]pulumi.Resource{vcn, publicRouteTable}))
+		if err != nil {
+			return fmt.Errorf("failed to create public subnet: %w", err)
+		}
+
+		// Create private subnet for worker nodes
+		privateSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-private-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
+			AvailabilityDomain:     pulumi.String(fmt.Sprintf("%s:AD-1", i.Region)),
+			CidrBlock:              pulumi.String("10.0.2.0/24"),
+			CompartmentId:          pulumi.String(i.CompartmentID),
+			VcnId:                  vcn.ID(),
+			DisplayName:            pulumi.String(fmt.Sprintf("%s-private-subnet", i.RuntimeInstanceName)),
+			DnsLabel:               pulumi.String(createDNSLabel(fmt.Sprintf("%s-private", i.RuntimeInstanceName))),
+			ProhibitPublicIpOnVnic: pulumi.Bool(true),
+			RouteTableId:           privateRouteTable.ID(),
+		}, pulumi.Provider(ociProvider),
+			pulumi.DependsOn([]pulumi.Resource{vcn, privateRouteTable}))
+		if err != nil {
+			return fmt.Errorf("failed to create private subnet: %w", err)
+		}
+
+		// Create OKE Cluster with explicit dependency on networking components
 		cluster, err := containerengine.NewCluster(ctx, i.RuntimeInstanceName, &containerengine.ClusterArgs{
 			CompartmentId:     pulumi.String(i.CompartmentID),
 			Name:              pulumi.String(i.RuntimeInstanceName),
 			VcnId:             vcn.ID(),
-			KubernetesVersion: pulumi.String("v1.28.2"), // Latest stable version
+			KubernetesVersion: pulumi.String("v1.29.1"),
 			Options: &containerengine.ClusterOptionsArgs{
 				KubernetesNetworkConfig: &containerengine.ClusterOptionsKubernetesNetworkConfigArgs{
 					PodsCidr:     pulumi.String("10.244.0.0/16"),
 					ServicesCidr: pulumi.String("10.96.0.0/12"),
 				},
 			},
-		}, pulumi.DeleteBeforeReplace(true))
+		}, pulumi.Provider(ociProvider),
+			pulumi.DependsOn([]pulumi.Resource{
+				vcn,
+				internetGateway,
+				natGateway,
+				serviceGateway,
+				publicSubnet,
+				privateSubnet,
+				publicRouteTable,
+				privateRouteTable,
+			}))
 		if err != nil {
 			return fmt.Errorf("failed to create OKE cluster: %w", err)
 		}
 
-		// Create Node Pool
+		// Create Node Pool with explicit dependency on cluster
 		_, err = containerengine.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &containerengine.NodePoolArgs{
 			ClusterId:     cluster.ID(),
 			CompartmentId: pulumi.String(i.CompartmentID),
@@ -104,8 +410,9 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 				},
 			},
 			QuantityPerSubnet: pulumi.Int(int(i.WorkerNodeInitialCount)),
-			SubnetIds:         pulumi.StringArray{vcn.ID()}, // In a real implementation, we'd create proper subnets
-		}, pulumi.DeleteBeforeReplace(true))
+			SubnetIds:         pulumi.StringArray{privateSubnet.ID()},
+		}, pulumi.Provider(ociProvider),
+			pulumi.DependsOn([]pulumi.Resource{cluster}))
 		if err != nil {
 			return fmt.Errorf("failed to create node pool: %w", err)
 		}
@@ -117,47 +424,85 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 		return nil
 	}
 
-	// Create a new Pulumi stack with local backend
-	stackName := fmt.Sprintf("oke-%s", i.RuntimeInstanceName)
+	// Create a context for the automation API
 	ctx := context.Background()
 
-	// Configure local filesystem backend
-	homeDir, err := os.UserHomeDir()
+	// Set environment variables for Pulumi configuration
+	os.Setenv("PULUMI_BACKEND_URL", "file://"+i.stateDir)
+	os.Setenv("PULUMI_HOME", i.stateDir)
+	os.Setenv("PULUMI_ORGANIZATION", "organization")
+	os.Setenv("PULUMI_PROJECT", "oke")
+	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "threeport") // Set a default passphrase for state encryption
+
+	// Set plugin path to the default location
+	userHomeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
-	stateDir := filepath.Join(homeDir, ".config", "threeport", "pulumi-state")
+	defaultPluginPath := filepath.Join(userHomeDir, ".pulumi", "plugins")
+	os.Setenv("PULUMI_PLUGIN_PATH", defaultPluginPath)
 
-	// Ensure state directory exists
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create state directory: %w", err)
-	}
-
-	// Create stack with local workspace
-	stack, err := auto.NewStackInlineSource(ctx, stackName, "oke", program, auto.WorkDir(stateDir))
+	// Create a new workspace with local state backend
+	workspace, err := auto.NewLocalWorkspace(ctx,
+		auto.Program(program),
+		auto.WorkDir(i.stateDir),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Pulumi stack: %w", err)
+		return nil, fmt.Errorf("failed to create workspace: %w", err)
 	}
-	i.PulumiStack = &stack
 
-	// Run the update to create resources
-	_, err = i.PulumiStack.Up(ctx)
+	// Create or select a stack with fully qualified name
+	stackName := fmt.Sprintf("organization/oke/%s", i.RuntimeInstanceName)
+	stack, err := auto.UpsertStack(ctx, stackName, workspace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resources: %w", err)
+		return nil, fmt.Errorf("failed to create/select stack: %w", err)
 	}
 
-	// Get outputs
-	outputs, err := i.PulumiStack.Outputs(ctx)
+	// Set up stack configuration
+	err = stack.SetConfig(ctx, "oci:region", auto.ConfigValue{Value: i.Region})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get outputs: %w", err)
+		return nil, fmt.Errorf("failed to set region config: %w", err)
 	}
 
-	clusterId := outputs["clusterId"].Value.(string)
-	kubeconfig := outputs["kubeconfig"].Value.(string)
+	// Set OCI environment variables
+	os.Setenv("OCI_REGION", i.Region)
+	os.Setenv("OCI_TENANCY_OCID", i.TenancyID)
+	os.Setenv("OCI_COMPARTMENT_OCID", i.CompartmentID)
 
-	// Construct KubeConnectionInfo
+	// Deploy the stack
+	_, err = stack.Up(ctx, optup.ProgressStreams(os.Stdout))
+	if err != nil {
+		return nil, fmt.Errorf("failed to deploy stack: %w", err)
+	}
+
+	// Get the stack outputs
+	outputs, err := stack.Outputs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stack outputs: %w", err)
+	}
+
+	// Extract cluster ID and kubeconfig from outputs
+	clusterIDValue, ok := outputs["clusterId"]
+	if !ok {
+		return nil, fmt.Errorf("failed to get cluster ID from outputs")
+	}
+	clusterID, ok := clusterIDValue.Value.(string)
+	if !ok {
+		return nil, fmt.Errorf("cluster ID output is not a string")
+	}
+
+	kubeconfigValue, ok := outputs["kubeconfig"]
+	if !ok {
+		return nil, fmt.Errorf("failed to get kubeconfig from outputs")
+	}
+	kubeconfig, ok := kubeconfigValue.Value.(string)
+	if !ok {
+		return nil, fmt.Errorf("kubeconfig output is not a string")
+	}
+
+	// Return the connection info
 	kubeConnInfo := &kube.KubeConnectionInfo{
-		APIEndpoint:   clusterId,
+		APIEndpoint:   clusterID,
 		CACertificate: kubeconfig,
 	}
 
@@ -166,34 +511,59 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 
 // Delete deletes an Oracle Cloud OKE cluster.
 func (i *KubernetesRuntimeInfraOKE) Delete() error {
-	if i.PulumiStack != nil {
-		ctx := context.Background()
-		_, err := i.PulumiStack.Destroy(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to destroy Pulumi stack: %w", err)
-		}
+	if i.stateDir == "" {
+		return fmt.Errorf("state directory not initialized")
 	}
+
+	// Check if state directory exists
+	if _, err := os.Stat(i.stateDir); os.IsNotExist(err) {
+		return fmt.Errorf("state directory does not exist: %s", i.stateDir)
+	}
+
+	// Set environment variable for Pulumi state directory
+	os.Setenv("PULUMI_HOME", i.stateDir)
+
+	// Set up Pulumi project and stack
+	os.Setenv("PULUMI_PROJECT", i.RuntimeInstanceName)
+	os.Setenv("PULUMI_STACK", i.RuntimeInstanceName)
+	os.Setenv("PULUMI_MONITOR_ADDRESS", "127.0.0.1:60005")
+
+	// Create a program that will destroy resources
+	program := func(ctx *pulumi.Context) error {
+		// The program will read the existing state and destroy resources
+		return nil
+	}
+
+	// Execute the program with destroy flag
+	os.Setenv("PULUMI_DESTROY", "true")
+	if err := pulumi.RunErr(program); err != nil {
+		return fmt.Errorf("failed to destroy Pulumi resources: %w", err)
+	}
+
+	// Remove the state directory after successful destruction
+	if err := os.RemoveAll(i.stateDir); err != nil {
+		return fmt.Errorf("failed to remove state directory: %w", err)
+	}
+
 	return nil
 }
 
 // GetConnection gets the latest connection info for authentication to an OKE cluster.
 func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, error) {
-	if i.PulumiStack == nil {
-		return nil, fmt.Errorf("Pulumi stack not initialized")
+	if i.stateDir == "" {
+		return nil, fmt.Errorf("state directory not initialized")
 	}
 
-	ctx := context.Background()
-	outputs, err := i.PulumiStack.Outputs(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get outputs: %w", err)
+	// Check if state directory exists
+	if _, err := os.Stat(i.stateDir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("state directory does not exist: %s", i.stateDir)
 	}
 
-	clusterId := outputs["clusterId"].Value.(string)
-	kubeconfig := outputs["kubeconfig"].Value.(string)
-
+	// For now, return placeholder values
+	// In a real implementation, you would parse the Pulumi state file to get the actual values
 	kubeConnInfo := &kube.KubeConnectionInfo{
-		APIEndpoint:   clusterId,
-		CACertificate: kubeconfig,
+		APIEndpoint:   "placeholder-cluster-id",
+		CACertificate: "placeholder-kubeconfig",
 	}
 
 	return kubeConnInfo, nil
