@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/oracle/oci-go-sdk/v65/common"
+	"github.com/oracle/oci-go-sdk/v65/identity"
 	"github.com/pulumi/pulumi-oci/sdk/go/oci"
 	"github.com/pulumi/pulumi-oci/sdk/go/oci/containerengine"
 	"github.com/pulumi/pulumi-oci/sdk/go/oci/core"
@@ -204,11 +205,49 @@ func createDNSLabel(name string) string {
 	return dnsLabel
 }
 
+// getAvailabilityDomainName returns the full name of the first availability domain in the region
+func (i *KubernetesRuntimeInfraOKE) getAvailabilityDomainName() (string, error) {
+	// Create a new identity client
+	configProvider := common.DefaultConfigProvider()
+	identityClient, err := identity.NewIdentityClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create identity client: %w", err)
+	}
+
+	// Set the region for the client
+	identityClient.SetRegion(i.Region)
+
+	// Create a request to list availability domains
+	request := identity.ListAvailabilityDomainsRequest{
+		CompartmentId: common.String(i.CompartmentID),
+	}
+
+	// Call the API to get availability domains
+	response, err := identityClient.ListAvailabilityDomains(context.Background(), request)
+	if err != nil {
+		return "", fmt.Errorf("failed to list availability domains: %w", err)
+	}
+
+	// Check if we have any availability domains
+	if len(response.Items) == 0 {
+		return "", fmt.Errorf("no availability domains found in region %s", i.Region)
+	}
+
+	// Return the name of the first availability domain
+	return *response.Items[0].Name, nil
+}
+
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
 func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 	// Load OCI configuration
 	if err := i.loadOCIConfig(); err != nil {
 		return nil, fmt.Errorf("failed to load OCI configuration: %w", err)
+	}
+
+	// Get the availability domain name
+	availabilityDomain, err := i.getAvailabilityDomainName()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get availability domain: %w", err)
 	}
 
 	// Set up state directory
@@ -340,7 +379,7 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 
 		// Create public subnet for load balancers
 		publicSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-public-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
-			AvailabilityDomain:     pulumi.String(fmt.Sprintf("%s:AD-1", i.Region)),
+			AvailabilityDomain:     pulumi.String(availabilityDomain),
 			CidrBlock:              pulumi.String("10.0.1.0/24"),
 			CompartmentId:          pulumi.String(i.CompartmentID),
 			VcnId:                  vcn.ID(),
@@ -356,7 +395,7 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 
 		// Create private subnet for worker nodes
 		privateSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-private-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
-			AvailabilityDomain:     pulumi.String(fmt.Sprintf("%s:AD-1", i.Region)),
+			AvailabilityDomain:     pulumi.String(availabilityDomain),
 			CidrBlock:              pulumi.String("10.0.2.0/24"),
 			CompartmentId:          pulumi.String(i.CompartmentID),
 			VcnId:                  vcn.ID(),
