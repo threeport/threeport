@@ -327,7 +327,7 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 			DisplayName:   pulumi.String(fmt.Sprintf("%s-sg", i.RuntimeInstanceName)),
 			Services: core.ServiceGatewayServiceArray{
 				&core.ServiceGatewayServiceArgs{
-					ServiceId: pulumi.String("ocid1.service.oc1.iad.aaaaaaaaaaaaaaa"), // Replace with actual OCI service ID
+					ServiceId: pulumi.String("ocid1.service.oc1.phx.aaaaaaaasgvxtsqcj2jkt2xppos637xym4ab5qqqptgwjd4guj7v3d26t7oa"), // Replace with actual OCI service ID
 				},
 			},
 		}, pulumi.Provider(ociProvider),
@@ -366,7 +366,7 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 					NetworkEntityId: natGateway.ID(),
 				},
 				&core.RouteTableRouteRuleArgs{
-					Destination:     pulumi.String("all-iad-services-in-oracle-services-network"),
+					Destination:     pulumi.String("all-phx-services-in-oracle-services-network"),
 					DestinationType: pulumi.String("SERVICE_CIDR_BLOCK"),
 					NetworkEntityId: serviceGateway.ID(),
 				},
