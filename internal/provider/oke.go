@@ -271,6 +271,48 @@ func getServiceGatewayServiceID(region string, compartmentID string) (string, er
 	return "", fmt.Errorf("Oracle Services Network service not found in region %s", region)
 }
 
+// getOracleLinuxImageOCID returns the OCID of the latest Oracle Linux image for the specified shape
+func (i *KubernetesRuntimeInfraOKE) getOracleLinuxImageOCID() (string, error) {
+	// Create a new compute client
+	configProvider := common.DefaultConfigProvider()
+	computeClient, err := ocicore.NewComputeClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create compute client: %w", err)
+	}
+
+	// Set the region for the client
+	computeClient.SetRegion(i.Region)
+
+	// Create a request to list images
+	request := ocicore.ListImagesRequest{
+		CompartmentId:          common.String(i.CompartmentID),
+		OperatingSystem:        common.String("Oracle Linux"),
+		OperatingSystemVersion: common.String("8"),
+		Shape:                  common.String(i.WorkerNodeShape),
+		SortBy:                 ocicore.ListImagesSortByTimecreated,
+		SortOrder:              ocicore.ListImagesSortOrderDesc,
+	}
+
+	// Call the API to get images
+	response, err := computeClient.ListImages(context.Background(), request)
+	if err != nil {
+		return "", fmt.Errorf("failed to list images: %w", err)
+	}
+
+	// Check if we have any images
+	if len(response.Items) == 0 {
+		return "", fmt.Errorf("no Oracle Linux images found for shape %s", i.WorkerNodeShape)
+	}
+	// Print out all available images
+	fmt.Println("Available Oracle Linux images:")
+	for _, image := range response.Items {
+		fmt.Printf("- %s\n", *image.DisplayName)
+	}
+
+	// Return the OCID of the first (latest) image
+	return *response.Items[0].Id, nil
+}
+
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
 func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 	// Load OCI configuration
@@ -491,7 +533,15 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 			return fmt.Errorf("failed to create OKE cluster: %w", err)
 		}
 
+		// Get the Oracle Linux image OCID
+		imageOCID, err := i.getOracleLinuxImageOCID()
+		if err != nil {
+			return fmt.Errorf("failed to get Oracle Linux image OCID: %w", err)
+		}
+		fmt.Printf("Using Oracle Linux image OCID: %s\n", imageOCID)
+
 		// Create Node Pool with explicit dependency on cluster
+		fmt.Printf("Creating node pool with shape: %s, initial count: %d\n", i.WorkerNodeShape, i.WorkerNodeInitialCount)
 		_, err = containerengine.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &containerengine.NodePoolArgs{
 			ClusterId:     cluster.ID(),
 			CompartmentId: pulumi.String(i.CompartmentID),
@@ -512,9 +562,14 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 					},
 				},
 			},
+			NodeSourceDetails: &containerengine.NodePoolNodeSourceDetailsArgs{
+				ImageId:    pulumi.String(imageOCID),
+				SourceType: pulumi.String("IMAGE"),
+			},
 		}, pulumi.Provider(ociProvider),
 			pulumi.DependsOn([]pulumi.Resource{cluster}))
 		if err != nil {
+			fmt.Printf("Failed to create node pool: %v\n", err)
 			return fmt.Errorf("failed to create node pool: %w", err)
 		}
 
