@@ -10,6 +10,7 @@ import (
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	zap "go.uber.org/zap"
 	gorm "gorm.io/gorm"
 	"net/http"
 	"time"
@@ -45,15 +46,18 @@ func (h Handler) AddTerraformDefinition(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, terraformDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&terraformDefinition); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, terraformDefinition, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -65,6 +69,7 @@ func (h Handler) AddTerraformDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
 		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 	}
@@ -74,6 +79,7 @@ func (h Handler) AddTerraformDefinition(c echo.Context) error {
 
 	// persist to DB
 	if result := h.DB.Create(&terraformDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -85,6 +91,7 @@ func (h Handler) AddTerraformDefinition(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.TerraformDefinitionCreateSubject, *notifPayload)
@@ -92,6 +99,7 @@ func (h Handler) AddTerraformDefinition(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, terraformDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -117,21 +125,25 @@ func (h Handler) GetTerraformDefinitions(c echo.Context) error {
 
 	var filter api_v0.TerraformDefinition
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Model(&api_v0.TerraformDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.TerraformDefinition{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -156,11 +168,13 @@ func (h Handler) GetTerraformDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, terraformDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -191,22 +205,26 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingTerraformDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedTerraformDefinition api_v0.TerraformDefinition
 	if err := c.Bind(&updatedTerraformDefinition); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingTerraformDefinition).Updates(updatedTerraformDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -218,6 +236,7 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.TerraformDefinitionUpdateSubject, *notifPayload)
@@ -225,6 +244,7 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, existingTerraformDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -256,28 +276,33 @@ func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingTerraformDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedTerraformDefinition api_v0.TerraformDefinition
 	if err := c.Bind(&updatedTerraformDefinition); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedTerraformDefinition, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedTerraformDefinition.ID = existingTerraformDefinition.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedTerraformDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -286,11 +311,13 @@ func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingTerraformDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -316,6 +343,7 @@ func (h Handler) DeleteTerraformDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error checking for dependent instances", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -338,6 +366,7 @@ func (h Handler) DeleteTerraformDefinition(c echo.Context) error {
 				Reconciled:        &reconciled,
 			}}
 		if result := h.DB.Model(&terraformDefinition).Updates(scheduledTerraformDefinition); result.Error != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 		// notify controller
@@ -347,6 +376,7 @@ func (h Handler) DeleteTerraformDefinition(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.TerraformDefinitionDeleteSubject, *notifPayload)
@@ -362,6 +392,7 @@ func (h Handler) DeleteTerraformDefinition(c echo.Context) error {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
 			if result := h.DB.Delete(&terraformDefinition); result.Error != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 			}
 		}
@@ -369,6 +400,7 @@ func (h Handler) DeleteTerraformDefinition(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, terraformDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -405,15 +437,18 @@ func (h Handler) AddTerraformInstance(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, terraformInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&terraformInstance); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, terraformInstance, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -425,6 +460,7 @@ func (h Handler) AddTerraformInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
 		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 	}
@@ -434,6 +470,7 @@ func (h Handler) AddTerraformInstance(c echo.Context) error {
 
 	// persist to DB
 	if result := h.DB.Create(&terraformInstance); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -445,6 +482,7 @@ func (h Handler) AddTerraformInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.TerraformInstanceCreateSubject, *notifPayload)
@@ -452,6 +490,7 @@ func (h Handler) AddTerraformInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, terraformInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -477,21 +516,25 @@ func (h Handler) GetTerraformInstances(c echo.Context) error {
 
 	var filter api_v0.TerraformInstance
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Model(&api_v0.TerraformInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.TerraformInstance{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -516,11 +559,13 @@ func (h Handler) GetTerraformInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, terraformInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -551,22 +596,26 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingTerraformInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedTerraformInstance api_v0.TerraformInstance
 	if err := c.Bind(&updatedTerraformInstance); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingTerraformInstance).Updates(updatedTerraformInstance); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -578,6 +627,7 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.TerraformInstanceUpdateSubject, *notifPayload)
@@ -585,6 +635,7 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, existingTerraformInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -616,28 +667,33 @@ func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingTerraformInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedTerraformInstance api_v0.TerraformInstance
 	if err := c.Bind(&updatedTerraformInstance); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedTerraformInstance, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedTerraformInstance.ID = existingTerraformInstance.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedTerraformInstance); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -646,11 +702,13 @@ func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingTerraformInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -676,6 +734,7 @@ func (h Handler) DeleteTerraformInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error checking for dependent instances", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -692,6 +751,7 @@ func (h Handler) DeleteTerraformInstance(c echo.Context) error {
 				Reconciled:        &reconciled,
 			}}
 		if result := h.DB.Model(&terraformInstance).Updates(scheduledTerraformInstance); result.Error != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 		// notify controller
@@ -701,6 +761,7 @@ func (h Handler) DeleteTerraformInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.TerraformInstanceDeleteSubject, *notifPayload)
@@ -716,6 +777,7 @@ func (h Handler) DeleteTerraformInstance(c echo.Context) error {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
 			if result := h.DB.Delete(&terraformInstance); result.Error != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 			}
 		}
@@ -723,6 +785,7 @@ func (h Handler) DeleteTerraformInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, terraformInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 

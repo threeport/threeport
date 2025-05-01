@@ -4,6 +4,8 @@ import (
 	"errors"
 
 	echo "github.com/labstack/echo/v4"
+	zap "go.uber.org/zap"
+
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -28,6 +30,7 @@ func (h Handler) GetEventsJoinAttachedObjectReferences(c echo.Context) error {
 
 	var filter v0.Event
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -43,11 +46,13 @@ func (h Handler) GetEventsJoinAttachedObjectReferences(c echo.Context) error {
 	).Where(
 		"v0_attached_object_references.object_id = ?", objectId,
 	).Where(&filter).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error getting events with attached object references", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 

@@ -69,7 +69,7 @@ func GetResponse(
 	var response apiserver_lib.Response
 	if resp.StatusCode != expectedStatusCode {
 		if err := json.Unmarshal(respBody, &response); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal response body from threeport API: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal response body '%s' from threeport API: %w", string(respBody), err)
 		}
 		status, err := json.MarshalIndent(response.Status, "", "  ")
 		if err != nil {

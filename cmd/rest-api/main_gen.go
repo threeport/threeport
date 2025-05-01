@@ -135,7 +135,7 @@ func main() {
 
 	// handlers
 	// v0
-	h_v0 := handlers_v0.New(db, nc, *js)
+	h_v0 := handlers_v0.New(db, nc, *js, &logger)
 
 	// routes
 	routes_v0.SwaggerRoutes(e)

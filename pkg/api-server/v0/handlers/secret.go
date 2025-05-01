@@ -8,6 +8,7 @@ import (
 	"time"
 
 	echo "github.com/labstack/echo/v4"
+	zap "go.uber.org/zap"
 	"gorm.io/datatypes"
 	gorm "gorm.io/gorm"
 
@@ -58,15 +59,18 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 
 		// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 		if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, secretDefinition); err != nil {
+			h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 			return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 		}
 
 		if err := c.Bind(&secretDefinition); err != nil {
+			h.Logger.Error("handler error: error binding object", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 
 		// check for missing required fields
 		if id, err := apiserver_lib.ValidateBoundData(c, secretDefinition, objectType); err != nil {
+			h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 			return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 		}
 
@@ -78,6 +82,7 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 				nameUsed = false
 			} else {
+				h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
 				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 			}
 		}
@@ -91,6 +96,7 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 
 		// persist to DB
 		if result := h.DB.Create(&secretDefinition); result.Error != nil {
+			h.Logger.Error("handler error: error persisting secret definition to DB", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 
@@ -128,6 +134,7 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 				time.Now().Unix(),
 			)
 			if err != nil {
+				h.Logger.Error("handler error: error creating notification payload", zap.Error(err))
 				return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 			}
 			h.JS.Publish(notif.SecretDefinitionCreateSubject, *notifPayload)
@@ -135,6 +142,7 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 
 		response, err := apiserver_lib.CreateResponse(nil, secretDefinition, objectType)
 		if err != nil {
+			h.Logger.Error("handler error: error creating response", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 

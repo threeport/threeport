@@ -93,6 +93,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						)).Block(
 							Id("nameUsed").Op("=").Lit(false),
 						).Else().Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error checking for duplicate names"),
+								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+							),
 							Return(
 								Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
@@ -147,6 +151,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line(),
 						),
 						If(Id("err").Op("!=").Nil().Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating NATS notification"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
@@ -182,6 +190,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line(),
 						),
 						If(Id("err").Op("!=").Nil().Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating NATS notification"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
@@ -244,6 +256,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							),
 							Id("result").Dot("Error").Op("!=").Nil(),
 						).Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating scheduled deletion"),
+								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
@@ -262,6 +278,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line(),
 						),
 						If(Id("err").Op("!=").Nil()).Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating NATS notification"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
@@ -315,6 +335,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								}).Dot("DB").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))),
 								Id("result").Dot("Error").Op("!=").Nil(),
 							).Block(
+								Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error deleting object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								),
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatus500",
@@ -336,6 +360,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}).Dot("DB").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))),
 						Id("result").Dot("Error").Op("!=").Nil(),
 					).Block(
+						Id("h").Dot("Logger").Dot("Error").Call(
+							Lit("handler error: error deleting object"),
+							Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+						),
 						Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
@@ -374,6 +402,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"ResponseStatus404",
 									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 									)),
+								Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error checking for dependent instances"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								),
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatus500",
@@ -424,6 +456,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"ResponseStatus404",
 									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 									)),
+								Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error checking for dependent instances"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								),
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatus500",
@@ -574,6 +610,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Id("objectType"),
 							Id(strcase.ToLowerCamel(apiObject.TypeName)),
 						)).Op(";").Id("err").Op("!=").Nil()).Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error performing payload check"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatusErr",
@@ -594,6 +634,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Id("objectType"),
 							Id(strcase.ToLowerCamel(apiObject.TypeName)),
 						)).Op(";").Id("err").Op("!=").Nil()).Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error performing payload check"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatusErr",
@@ -607,6 +651,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.Line()
 					g.If(Id("err").Op(":=").Id("c").Dot("Bind").Call(
 						Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))).Op(";").Id("err").Op("!=").Nil().Block(
+						Id("h").Dot("Logger").Dot("Error").Call(
+							Lit("handler error: error binding object"),
+							Qual("go.uber.org/zap", "Error").Call(Id("err")),
+						),
 						Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
@@ -621,6 +669,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					).Call(Id("c").Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType")).Op(";").
 						Id("err").Op("!=").Nil(),
 					).Block(
+						Id("h").Dot("Logger").Dot("Error").Call(
+							Lit("handler error: error validating bound data"),
+							Qual("go.uber.org/zap", "Error").Call(Id("err")),
+						),
 						Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatusErr",
@@ -641,6 +693,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					}).Dot("DB").Dot("Create").Call(
 						Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
 					).Op(";").Id("result").Dot("Error").Op("!=").Nil()).Block(
+						Id("h").Dot("Logger").Dot("Error").Call(
+							Lit("handler error: error creating object"),
+							Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+						),
 						Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
@@ -655,6 +711,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"CreateResponse",
 					).Call(Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType"))
 					g.If(Id("err").Op("!=").Nil()).Block(
+						Id("h").Dot("Logger").Dot("Error").Call(
+							Lit("handler error: error creating response"),
+							Qual("go.uber.org/zap", "Error").Call(Id("err")),
+						),
 						Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
@@ -745,6 +805,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						apiObject.TypeName,
 					),
 					If(Id("err").Op(":=").Id("c").Dot("Bind").Call(Op("&").Id("filter")).Op(";").Id("err").Op("!=").Nil().Block(
+						Id("h").Dot("Logger").Dot("Error").Call(
+							Lit("handler error: error binding filter"),
+							Qual("go.uber.org/zap", "Error").Call(Id("err")),
+						),
 						Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
@@ -769,6 +833,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Values(),
 					).Dot("Where").Call(Op("&").Id("filter")).Dot("Count").Call(Op("&").Id("totalCount")),
 						Id("result").Dot("Error").Op("!=").Nil().Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error counting objects"),
+								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
@@ -797,6 +865,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Id("params").Dot("Page").Op("-").Lit(1)).Op("*").Id("params").Dot("Size")).
 						// TODO: figure out DB preloads
 						Dot("Find").Call(Id("records")).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
+						Id("h").Dot("Logger").Dot("Error").Call(
+							Lit("handler error: error finding objects"),
+							Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+						),
 						Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
@@ -812,6 +884,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"CreateMeta",
 					).Call(Id("params").Op(",").Id("totalCount")).Op(",").Op("*").Id("records").Op(",").Id("objectType")),
 					If(Id("err").Op("!=").Nil().Block(
+						Id("h").Dot("Logger").Dot("Error").Call(
+							Lit("handler error: error creating response"),
+							Qual("go.uber.org/zap", "Error").Call(Id("err")),
+						),
 						Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
@@ -908,6 +984,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"ResponseStatus404",
 									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 									)),
+								Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								),
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatus500",
@@ -923,6 +1003,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType"),
 						),
 						If(Id("err").Op("!=").Nil().Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating response"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
@@ -1035,6 +1119,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"ResponseStatus404",
 									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 									)),
+								Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								),
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatus500",
@@ -1056,6 +1144,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Id("objectType"),
 								Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
 							)).Op(";").Id("err").Op("!=").Nil().Block(
+								Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error performing payload check"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								),
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatusErr",
@@ -1077,6 +1169,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Id("objectType"),
 								Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
 							)).Op(";").Id("err").Op("!=").Nil().Block(
+								Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error performing payload check"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								),
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatusErr",
@@ -1101,6 +1197,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Id("err").Op(":=").Id("c").Dot("Bind").Call(
 							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
 						).Op(";").Id("err").Op("!=").Nil().Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error binding payload"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
@@ -1121,6 +1221,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Dot("Updates").Call(
 							Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
 						).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error updating object"),
+								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
@@ -1136,6 +1240,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id("objectType"))
 					g.If(
 						Id("err").Op("!=").Nil().Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating response"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
@@ -1247,6 +1355,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"ResponseStatus404",
 									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 									)),
+								Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								),
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatus500",
@@ -1268,6 +1380,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Id("objectType"),
 								Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
 							)).Op(";").Id("err").Op("!=").Nil().Block(
+								Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error performing payload check"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								),
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatusErr",
@@ -1289,6 +1405,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Id("objectType"),
 								Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
 							)).Op(";").Id("err").Op("!=").Nil().Block(
+								Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error performing payload check"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								),
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatusErr",
@@ -1313,6 +1433,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Id("err").Op(":=").Id("c").Dot("Bind").Call(
 							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
 						).Op(";").Id("err").Op("!=").Nil().Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error binding payload"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
@@ -1327,6 +1451,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"ValidateBoundData",
 						).Call(Id("c").Op(",").Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Op(",").Id("objectType")).
 							Op(";").Id("err").Op("!=").Nil().Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error validating bound data"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatusErr",
@@ -1357,6 +1485,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Dot("Save").Call(
 							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
 						).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error persisting object"),
+								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
@@ -1388,6 +1520,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"ResponseStatus404",
 									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 									)),
+								Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								),
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatus500",
@@ -1402,6 +1538,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id("objectType"))
 					g.If(
 						Id("err").Op("!=").Nil().Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating response"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
@@ -1488,6 +1628,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					).Call(Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType")),
 					If(
 						Id("err").Op("!=").Nil().Block(
+							Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating response"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							),
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
