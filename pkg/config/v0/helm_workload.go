@@ -34,6 +34,7 @@ type HelmWorkloadValues struct {
 	InstanceValues            *string                          `yaml:"InstanceValues"`
 	InstanceValuesDocument    *string                          `yaml:"InstanceValuesDocument"`
 	HelmWorkloadConfigPath    *string                          `yaml:"HelmWorkloadConfigPath"`
+	ReleaseNamespace          *string                          `yaml:"ReleaseNamespace"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	DomainName                *DomainNameDefinitionValues      `yaml:"DomainName"`
 	Gateway                   *GatewayDefinitionValues         `yaml:"Gateway"`
@@ -70,6 +71,7 @@ type HelmWorkloadInstanceValues struct {
 	Values                    *string                          `yaml:"Values"`
 	ValuesDocument            *string                          `yaml:"ValuesDocument"`
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
+	ReleaseNamespace          *string                          `yaml:"ReleaseNamespace"`
 	HelmWorkloadDefinition    *HelmWorkloadDefinitionValues    `yaml:"HelmWorkloadDefinition"`
 	HelmWorkloadConfigPath    *string                          `yaml:"HelmWorkloadConfigPath"`
 }
@@ -196,7 +198,7 @@ func (h *HelmWorkloadDefinitionValues) Create(
 	}
 
 	// set helm values if present
-	values, err := GetValuesFromDocumentOrInline(*h.Values, *h.ValuesDocument, *h.HelmWorkloadConfigPath)
+	values, err := GetValuesFromDocumentOrInline(h.Values, h.ValuesDocument, h.HelmWorkloadConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get values document from path: %w", err)
 	}
@@ -333,9 +335,12 @@ func (h *HelmWorkloadInstanceValues) Create(
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		HelmWorkloadDefinitionID:    helmWorkloadDefinition.ID,
 	}
+	if h.ReleaseNamespace != nil {
+		helmWorkloadInstance.ReleaseNamespace = h.ReleaseNamespace
+	}
 
 	// get helm instance values
-	values, err := GetValuesFromDocumentOrInline(*h.Values, *h.ValuesDocument, *h.HelmWorkloadConfigPath)
+	values, err := GetValuesFromDocumentOrInline(h.Values, h.ValuesDocument, h.HelmWorkloadConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get helm instance values document from path: %w", err)
 	}
@@ -456,7 +461,7 @@ func (h *HelmWorkloadValues) GetOperations(
 	operations := util.Operations{}
 
 	// get helm definition values
-	helmDefinitionValues, err := GetValuesFromDocumentOrInline(*h.DefinitionValues, *h.DefinitionValuesDocument, *h.HelmWorkloadConfigPath)
+	helmDefinitionValues, err := GetValuesFromDocumentOrInline(h.DefinitionValues, h.DefinitionValuesDocument, h.HelmWorkloadConfigPath)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get helm instance values document from path: %w", err)
 	}
@@ -494,7 +499,7 @@ func (h *HelmWorkloadValues) GetOperations(
 	})
 
 	// get helm instance values
-	helmInstanceValues, err := GetValuesFromDocumentOrInline(*h.InstanceValues, *h.InstanceValuesDocument, *h.HelmWorkloadConfigPath)
+	helmInstanceValues, err := GetValuesFromDocumentOrInline(h.InstanceValues, h.InstanceValuesDocument, h.HelmWorkloadConfigPath)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get helm instance values document from path: %w", err)
 	}
@@ -508,6 +513,9 @@ func (h *HelmWorkloadValues) GetOperations(
 		HelmWorkloadDefinition: &HelmWorkloadDefinitionValues{
 			Name: h.Name,
 		},
+	}
+	if h.ReleaseNamespace != nil {
+		helmWorkloadInstanceValues.ReleaseNamespace = h.ReleaseNamespace
 	}
 	operations.AppendOperation(util.Operation{
 		Name: "helm workload instance",
@@ -731,13 +739,13 @@ func (h *HelmWorkloadValues) GetOperations(
 
 // GetValuesDocumentFromPath returns the values document content from the path
 // provided.
-func GetValuesDocumentFromPath(valuesDocument, helmWorkloadConfigPath string) (*string, error) {
+func GetValuesDocumentFromPath(valuesDocument, helmWorkloadConfigPath *string) (*string, error) {
 	// set helm values if present
-	if valuesDocument != "" {
+	if valuesDocument != nil {
 		// build the path to the values document relative to the user's working
 		// directory
-		configPath, _ := filepath.Split(helmWorkloadConfigPath)
-		relativeValuesPath := path.Join(configPath, valuesDocument)
+		configPath, _ := filepath.Split(*helmWorkloadConfigPath)
+		relativeValuesPath := path.Join(configPath, *valuesDocument)
 
 		// load values document
 		valuesContent, err := os.ReadFile(relativeValuesPath)
@@ -752,9 +760,10 @@ func GetValuesDocumentFromPath(valuesDocument, helmWorkloadConfigPath string) (*
 
 // GetValuesFromDocumentOrInline returns the values document content from the
 // inline value provided first, then from the document provided
-func GetValuesFromDocumentOrInline(inline, valuesDocument, helmWorkloadConfigPath string) (*string, error) {
-	if inline != "" {
-		return &inline, nil
+func GetValuesFromDocumentOrInline(inline, valuesDocument, helmWorkloadConfigPath *string) (*string, error) {
+	if inline != nil {
+		return inline, nil
 	}
+
 	return GetValuesDocumentFromPath(valuesDocument, helmWorkloadConfigPath)
 }

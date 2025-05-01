@@ -8,5 +8,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${ARCH} go build -a -o helm-workload-control
 
 FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /build/helm-workload-controller /
+ENV HELM_CACHE_HOME=/var/helm/.cache/helm
+RUN mkdir -p /var/helm /var/helm/.cache/helm && \
+    chown -R 65532:65532 /var/helm
 USER 65532:65532
+
 ENTRYPOINT ["/helm-workload-controller"]

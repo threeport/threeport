@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	HelmRepoConfigFile = "/root/repository.yaml"
+	HelmRepoConfigFile = "/var/helm/repository.yaml"
 	HelmValuesDir      = "/tmp/helm"
 )
 
@@ -116,7 +116,7 @@ func v0HelmWorkloadInstanceCreated(
 		if uninstallErr := uninstallHelmRelease(
 			install.ReleaseName,
 			actionConf,
-		); err != nil {
+		); uninstallErr != nil {
 			return 0, fmt.Errorf("failed to uninstall helm release: %w after failed to install helm chart: %w", uninstallErr, err)
 		}
 		return 0, fmt.Errorf("failed to install helm chart: %w", err)
@@ -351,11 +351,13 @@ func v0HelmWorkloadInstanceDeleted(
 	}
 
 	// delete the namespace
-	installer.DeleteNamespaces(
-		kubeClient,
-		mapper,
-		[]string{*helmWorkloadInstance.ReleaseNamespace},
-	)
+	if helmWorkloadInstance.ReleaseNamespace != nil {
+		installer.DeleteNamespaces(
+			kubeClient,
+			mapper,
+			[]string{*helmWorkloadInstance.ReleaseNamespace},
+		)
+	}
 
 	return 0, nil
 }
@@ -470,17 +472,17 @@ func helmReleaseName(helmWorkloadInstance *v0.HelmWorkloadInstance) string {
 // over time.
 func cleanLocalFiles() error {
 	// remove helm repo config file
-	if err := os.Remove(HelmRepoConfigFile); err != nil {
+	if err := os.Remove(HelmRepoConfigFile); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove helm repo config file: %w", err)
 	}
 
 	// remove values files
-	if err := os.RemoveAll(HelmValuesDir); err != nil {
+	if err := os.RemoveAll(HelmValuesDir); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove helm values files: %w", err)
 	}
 
 	// remove helm cache files
-	if err := os.RemoveAll("/root/.cache/helm"); err != nil {
+	if err := os.RemoveAll("/var/helm/.cache/helm"); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove helm cache files: %w", err)
 	}
 

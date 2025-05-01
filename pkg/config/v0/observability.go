@@ -292,9 +292,9 @@ func (o *ObservabilityStackDefinitionValues) Create(
 
 	// set grafana helm values if present
 	grafanaHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		*o.GrafanaHelmValues,
-		*o.GrafanaHelmValuesDocument,
-		*o.ObservabilityConfigPath,
+		o.GrafanaHelmValues,
+		o.GrafanaHelmValuesDocument,
+		o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get grafana values document from path: %w", err)
@@ -303,9 +303,9 @@ func (o *ObservabilityStackDefinitionValues) Create(
 
 	// set loki helm values if present
 	lokiHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		*o.LokiHelmValues,
-		*o.LokiHelmValuesDocument,
-		*o.ObservabilityConfigPath,
+		o.LokiHelmValues,
+		o.LokiHelmValuesDocument,
+		o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get loki values document from path: %w", err)
@@ -314,9 +314,9 @@ func (o *ObservabilityStackDefinitionValues) Create(
 
 	// set promtail helm values if present
 	promtailHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		*o.PromtailHelmValues,
-		*o.PromtailHelmValuesDocument,
-		*o.ObservabilityConfigPath,
+		o.PromtailHelmValues,
+		o.PromtailHelmValuesDocument,
+		o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get promtail values document from path: %w", err)
@@ -325,9 +325,9 @@ func (o *ObservabilityStackDefinitionValues) Create(
 
 	// set kube-prometheus-stack helm values if present
 	kubePrometheusStackHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		*o.KubePrometheusStackHelmValues,
-		*o.KubePrometheusStackHelmValuesDocument,
-		*o.ObservabilityConfigPath,
+		o.KubePrometheusStackHelmValues,
+		o.KubePrometheusStackHelmValuesDocument,
+		o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube-prometheus-stack values document from path: %w", err)
@@ -466,9 +466,9 @@ func (o *ObservabilityStackInstanceValues) Create(
 
 	// set grafana helm values if present
 	grafanaHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		*o.GrafanaHelmValues,
-		*o.GrafanaHelmValuesDocument,
-		*o.ObservabilityConfigPath,
+		o.GrafanaHelmValues,
+		o.GrafanaHelmValuesDocument,
+		o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get grafana values document from path: %w", err)
@@ -477,9 +477,9 @@ func (o *ObservabilityStackInstanceValues) Create(
 
 	// set loki helm values if present
 	lokiHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		*o.LokiHelmValues,
-		*o.LokiHelmValuesDocument,
-		*o.ObservabilityConfigPath,
+		o.LokiHelmValues,
+		o.LokiHelmValuesDocument,
+		o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get loki values document from path: %w", err)
@@ -488,9 +488,9 @@ func (o *ObservabilityStackInstanceValues) Create(
 
 	// set promtail helm values if present
 	promtailHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		*o.PromtailHelmValues,
-		*o.PromtailHelmValuesDocument,
-		*o.ObservabilityConfigPath,
+		o.PromtailHelmValues,
+		o.PromtailHelmValuesDocument,
+		o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get promtail values document from path: %w", err)
@@ -499,9 +499,9 @@ func (o *ObservabilityStackInstanceValues) Create(
 
 	// set kube-prometheus-stack helm values if present
 	kubePrometheusStackHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		*o.KubePrometheusStackHelmValues,
-		*o.KubePrometheusStackHelmValuesDocument,
-		*o.ObservabilityConfigPath,
+		o.KubePrometheusStackHelmValues,
+		o.KubePrometheusStackHelmValuesDocument,
+		o.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube-prometheus-stack values document from path: %w", err)
