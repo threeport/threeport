@@ -14,9 +14,9 @@ import (
 	ocicontainerengine "github.com/oracle/oci-go-sdk/v65/containerengine"
 	ocicore "github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/oracle/oci-go-sdk/v65/identity"
-	"github.com/pulumi/pulumi-oci/sdk/go/oci"
-	"github.com/pulumi/pulumi-oci/sdk/go/oci/containerengine"
-	"github.com/pulumi/pulumi-oci/sdk/go/oci/core"
+	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci"
+	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/containerengine"
+	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/core"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -272,8 +272,69 @@ func getServiceGatewayServiceID(region string, compartmentID string) (string, er
 	return "", fmt.Errorf("Oracle Services Network service not found in region %s", region)
 }
 
+// getLatestOKEVersion returns the latest Kubernetes version available in OKE
+func (i *KubernetesRuntimeInfraOKE) getLatestOKEVersion() (string, error) {
+	// Create a new container engine client
+	configProvider := common.DefaultConfigProvider()
+	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create container engine client: %w", err)
+	}
+
+	// Set the region for the client
+	containerClient.SetRegion(i.Region)
+
+	// Create a request to list node pool options
+	request := ocicontainerengine.GetNodePoolOptionsRequest{
+		CompartmentId:    common.String(i.CompartmentID),
+		NodePoolOptionId: common.String("all"),
+	}
+
+	// Call the API to get node pool options
+	response, err := containerClient.GetNodePoolOptions(context.Background(), request)
+	if err != nil {
+		return "", fmt.Errorf("failed to get node pool options: %w", err)
+	}
+
+	// Check if we have any images
+	if len(response.Sources) == 0 {
+		return "", fmt.Errorf("no OKE worker node images found")
+	}
+
+	// Find the latest version by parsing version strings
+	latestVersion := ""
+	for _, source := range response.Sources {
+		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok {
+			name := *sourceType.SourceName
+			// Extract version from name (e.g., "OKE-1.30.10")
+			if strings.Contains(name, "OKE-") {
+				version := strings.Split(name, "OKE-")[1]
+				version = strings.Split(version, "-")[0] // Remove any trailing parts
+				if latestVersion == "" || version > latestVersion {
+					latestVersion = version
+				}
+			}
+		}
+	}
+
+	if latestVersion == "" {
+		return "", fmt.Errorf("could not determine latest OKE version")
+	}
+
+	latestVersion = "v" + latestVersion
+
+	return latestVersion, nil
+}
+
 // getOKEWorkerNodeImageOCID returns the OCID of the specified OKE worker node image
 func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) {
+	// Get the latest OKE version
+	// latestVersion, err := i.getLatestOKEVersion()
+	// if err != nil {
+	// 	return "", fmt.Errorf("failed to get latest OKE version: %w", err)
+	// }
+	latestVersion := "1.30.10"
+
 	// Create a new container engine client
 	configProvider := common.DefaultConfigProvider()
 	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
@@ -310,15 +371,18 @@ func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) 
 		}
 	}
 
-	// Find the first image source
+	// Find an image with the latest Kubernetes version
 	for _, source := range response.Sources {
 		// Try to get the concrete type
 		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok {
-			return *sourceType.ImageId, nil
+			name := *sourceType.SourceName
+			if strings.Contains(name, fmt.Sprintf("OKE-%s", latestVersion)) && strings.Contains(name, "aarch64") {
+				return *sourceType.ImageId, nil
+			}
 		}
 	}
 
-	return "", fmt.Errorf("no suitable OKE worker node images found")
+	return "", fmt.Errorf("no suitable OKE worker node images found with Kubernetes version %s and aarch64 architecture", latestVersion)
 }
 
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
@@ -327,6 +391,13 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 	if err := i.loadOCIConfig(); err != nil {
 		return nil, fmt.Errorf("failed to load OCI configuration: %w", err)
 	}
+
+	// Get the latest OKE version
+	latestVersion, err := i.getLatestOKEVersion()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest OKE version: %w", err)
+	}
+	// latestVersion := "v1.30.10"
 
 	// Set default values for worker nodes if not specified
 	if i.WorkerNodeShape == "" {
@@ -518,8 +589,7 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 			CompartmentId:     pulumi.String(i.CompartmentID),
 			Name:              pulumi.String(i.RuntimeInstanceName),
 			VcnId:             vcn.ID(),
-			KubernetesVersion: pulumi.String("v1.29.1"),
-			//KubernetesVersion: pulumi.String("v1.30.10"),
+			KubernetesVersion: pulumi.String(latestVersion),
 			Options: &containerengine.ClusterOptionsArgs{
 				KubernetesNetworkConfig: &containerengine.ClusterOptionsKubernetesNetworkConfigArgs{
 					PodsCidr:     pulumi.String("10.244.0.0/16"),
@@ -555,7 +625,7 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 			CompartmentId:     pulumi.String(i.CompartmentID),
 			Name:              pulumi.String(fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)),
 			NodeShape:         pulumi.String(i.WorkerNodeShape),
-			KubernetesVersion: pulumi.String("v1.29.1"),
+			KubernetesVersion: pulumi.String(latestVersion),
 			InitialNodeLabels: containerengine.NodePoolInitialNodeLabelArray{
 				&containerengine.NodePoolInitialNodeLabelArgs{
 					Key:   pulumi.String("threeport.io/managed"),
