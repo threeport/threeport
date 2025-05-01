@@ -40,7 +40,7 @@ type KubernetesRuntimeInfraKind struct {
 	// Addition ports to expose on the kind cluster.
 	// The key is the container port and value is the Host Port.
 	// The protocol is assumed TCP
-	PortForwards map[int32]int32
+	PortMappings map[int32]int32
 }
 
 // Create installs a Kubernetes cluster using kind for the threeport control
@@ -62,7 +62,7 @@ func (i *KubernetesRuntimeInfraKind) Create() (*kube.KubeConnectionInfo, error) 
 				i.DevEnvironment,
 				i.ThreeportPath,
 				i.NumWorkerNodes,
-				i.PortForwards,
+				i.PortMappings,
 			),
 		),
 	); err != nil {
@@ -98,7 +98,7 @@ func getKindConfig(
 	devEnvironment bool,
 	threeportPath string,
 	numWorkerNodes int,
-	portForwards map[int32]int32,
+	portMappings map[int32]int32,
 ) *v1alpha4.Cluster {
 	clusterConfig := v1alpha4.Cluster{
 		ContainerdConfigPatches: []string{
@@ -133,10 +133,10 @@ func getKindConfig(
 			goCache = homeDir + "/.cache/go-build"
 		}
 
-		controlPlaneNode = *kindControlPlaneNode(authEnabled, threeportPath, goPath, goCache, portForwards)
+		controlPlaneNode = *kindControlPlaneNode(authEnabled, threeportPath, goPath, goCache, portMappings)
 		workerNodes = *kindWorkers(numWorkerNodes, threeportPath, goPath, goCache)
 	} else {
-		controlPlaneNode = *kindControlPlaneNode(authEnabled, "", "", "", portForwards)
+		controlPlaneNode = *kindControlPlaneNode(authEnabled, "", "", "", portMappings)
 		workerNodes = *kindWorkers(numWorkerNodes, "", "", "")
 	}
 	clusterConfig.Nodes = []v1alpha4.Node{controlPlaneNode}
@@ -151,9 +151,9 @@ func kindControlPlaneNode(
 	threeportPath string,
 	goPath string,
 	goCache string,
-	portForwards map[int32]int32,
+	portMappings map[int32]int32,
 ) *v1alpha4.Node {
-	extraPortMappings := getPortMapping(authEnabled, portForwards)
+	extraPortMappings := getPortMapping(authEnabled, portMappings)
 	controlPlaneNode := v1alpha4.Node{
 		Role:  v1alpha4.ControlPlaneRole,
 		Image: kindImage,
@@ -226,8 +226,8 @@ func kindWorkers(numWorkerNodes int, threeportPath, goPath, goCache string) *[]v
 	return &nodes
 }
 
-// Get port mappings for the kind cluster
-func getPortMapping(authEnabled bool, portForwards map[int32]int32) []v1alpha4.PortMapping {
+// getPortMapping returns port mappings for the kind cluster
+func getPortMapping(authEnabled bool, portMappings map[int32]int32) []v1alpha4.PortMapping {
 	hostPort := threeport.GetThreeportAPIPort(authEnabled)
 	extraPortMappings := make([]v1alpha4.PortMapping, 0)
 	extraPortMappings = append(
@@ -238,7 +238,7 @@ func getPortMapping(authEnabled bool, portForwards map[int32]int32) []v1alpha4.P
 			Protocol:      v1alpha4.PortMappingProtocolTCP,
 		})
 
-	for cPort, hPort := range portForwards {
+	for cPort, hPort := range portMappings {
 		extraPortMappings = append(
 			extraPortMappings,
 			v1alpha4.PortMapping{
