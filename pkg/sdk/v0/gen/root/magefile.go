@@ -983,15 +983,14 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 		g.Line()
 
-		g.Id("imageName").Op(":=").Qual("fmt", "Sprintf").Call(Lit("threeport-%s"), Id("component"))
 		if gen.Module {
-			g.If(Id("component").Op("==").Lit("rest-api")).Block(
-				Id("imageName").Op("=").Qual("fmt", "Sprintf").Call(
-					Lit("threeport-%s-%s"),
-					Lit(strcase.ToKebab(sdkConfig.ModuleName)),
-					Id("component"),
-				),
+			g.Id("imageName").Op(":=").Qual("fmt", "Sprintf").Call(
+				Lit("threeport-%s-%s"),
+				Lit(strcase.ToKebab(sdkConfig.ModuleName)),
+				Id("component"),
 			)
+		} else {
+			g.Id("imageName").Op(":=").Qual("fmt", "Sprintf").Call(Lit("threeport-%s"), Id("component"))
 		}
 		g.Line()
 
