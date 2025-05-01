@@ -31,9 +31,12 @@ func GetResponse(
 
 	// check if TLS is configured
 	if transport, ok := client.Transport.(*CustomTransport); ok && transport.IsTlsEnabled {
+		// with auth enabled in Threeport, a CustomTransport is used with IsTlsEnabled=true
 		urlScheme = "https://"
 	} else if transport, ok := client.Transport.(*http.Transport); ok {
-		// If it's a standard http.Transport with TLS config, assume HTTPS
+		// this is not used in Threeport, but can be used for connections to proxies and gateways
+		// that are in front of the Threeport API and require HTTPS connections but perhaps without
+		// client certificate authentication
 		if transport.TLSClientConfig != nil {
 			urlScheme = "https://"
 		}
