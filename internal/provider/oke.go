@@ -329,11 +329,10 @@ func (i *KubernetesRuntimeInfraOKE) getLatestOKEVersion() (string, error) {
 // getOKEWorkerNodeImageOCID returns the OCID of the specified OKE worker node image
 func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) {
 	// Get the latest OKE version
-	// latestVersion, err := i.getLatestOKEVersion()
-	// if err != nil {
-	// 	return "", fmt.Errorf("failed to get latest OKE version: %w", err)
-	// }
-	latestVersion := "1.30.10"
+	latestVersion, err := i.getLatestOKEVersion()
+	if err != nil {
+		return "", fmt.Errorf("failed to get latest OKE version: %w", err)
+	}
 
 	// Create a new container engine client
 	configProvider := common.DefaultConfigProvider()
