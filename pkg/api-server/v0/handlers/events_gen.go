@@ -295,7 +295,7 @@ func (h Handler) DeleteEvent(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
-		h.Logger.Error("handler error: error checking for dependent instances", zap.Error(result.Error))
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
