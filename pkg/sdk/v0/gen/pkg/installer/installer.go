@@ -3,6 +3,7 @@ package installer
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/gertd/go-pluralize"
@@ -1226,18 +1227,22 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 		)),
 	)
 
-	// write code to file
+	// write code to file if not excluded by SDK config
 	genFilepath := filepath.Join(
 		"pkg",
 		"installer",
 		"v0",
 		"installer_gen.go",
 	)
-	_, err := util.WriteCodeToFile(f, genFilepath, true)
-	if err != nil {
-		return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+	if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+		cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
+	} else {
+		_, err := util.WriteCodeToFile(f, genFilepath, true)
+		if err != nil {
+			return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+		}
+		cli.Info(fmt.Sprintf("source code for installer package written to %s", genFilepath))
 	}
-	cli.Info(fmt.Sprintf("source code for installer package written to %s", genFilepath))
 
 	return nil
 }

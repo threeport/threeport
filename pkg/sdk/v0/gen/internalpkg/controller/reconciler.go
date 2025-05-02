@@ -3,19 +3,21 @@ package controller
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"github.com/dave/jennifer/jen"
 	. "github.com/dave/jennifer/jen"
 	"github.com/iancoleman/strcase"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	"github.com/threeport/threeport/pkg/sdk/v0/gen"
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
 // GenReconcilers generates the reconciler boilerplate for each of a
 // controller's reconcilers.
-func GenReconcilers(gen *gen.Generator) error {
+func GenReconcilers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objGroup := range gen.ApiObjectGroups {
 		for _, obj := range objGroup.ReconciledObjects {
 			varObjectName := strcase.ToLowerCamel(obj.Name)
@@ -413,17 +415,21 @@ func GenReconcilers(gen *gen.Generator) error {
 				Id("r").Dot("ShutdownWait").Dot("Done").Call(),
 			)
 
-			// write code to file
+			// write code to file if not excluded by SDK config
 			genFilepath := filepath.Join(
 				"internal",
 				objGroup.ControllerShortName,
 				fmt.Sprintf("%s_reconciler_gen.go", strcase.ToSnake(varObjectName)),
 			)
-			_, err := util.WriteCodeToFile(f, genFilepath, true)
-			if err != nil {
-				return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+			if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+				cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
+			} else {
+				_, err := util.WriteCodeToFile(f, genFilepath, true)
+				if err != nil {
+					return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+				}
+				cli.Info(fmt.Sprintf("source code for controller reconciler written to %s", genFilepath))
 			}
-			cli.Info(fmt.Sprintf("source code for controller reconciler written to %s", genFilepath))
 		}
 	}
 

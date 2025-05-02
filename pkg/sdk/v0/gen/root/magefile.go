@@ -2,6 +2,7 @@ package root
 
 import (
 	"fmt"
+	"slices"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/iancoleman/strcase"
@@ -1142,13 +1143,17 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Return(Id("workingDir"), Id("arch"), Nil()),
 	)
 
-	// write code to file
+	// write code to file if not excluded by SDK config
 	genFilepath := "magefile_gen.go"
-	_, err := util.WriteCodeToFile(f, genFilepath, true)
-	if err != nil {
-		return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+	if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+		cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
+	} else {
+		_, err := util.WriteCodeToFile(f, genFilepath, true)
+		if err != nil {
+			return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+		}
+		cli.Info(fmt.Sprintf("source code for magefile written to %s", genFilepath))
 	}
-	cli.Info(fmt.Sprintf("source code for magefile written to %s", genFilepath))
 
 	return nil
 }

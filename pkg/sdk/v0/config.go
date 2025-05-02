@@ -33,6 +33,9 @@ type SdkConfig struct {
 
 	// The configuration of API objects used in the module.
 	ApiObjectConfig `yaml:",inline"`
+
+	// The filepaths to files that should be excluded from code generation.
+	ExcludeFiles []string `yaml:"ExcludeFiles"`
 }
 
 // ApiDocs contains the information displayed on the documentation page served

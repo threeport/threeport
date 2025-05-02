@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	. "github.com/dave/jennifer/jen"
@@ -494,13 +495,17 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Go().Qual("net/http", "ListenAndServe").Call(Lit(":8081"), Nil()),
 	)
 
-	// write code to file
+	// write code to file if not excluded by SDK config
 	genFilepath := filepath.Join("cmd", "rest-api", "main_gen.go")
-	_, err = util.WriteCodeToFile(f, genFilepath, true)
-	if err != nil {
-		return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+	if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+		cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
+	} else {
+		_, err = util.WriteCodeToFile(f, genFilepath, true)
+		if err != nil {
+			return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+		}
+		cli.Info(fmt.Sprintf("source code for API main package written to %s", genFilepath))
 	}
-	cli.Info(fmt.Sprintf("source code for API main package written to %s", genFilepath))
 
 	return nil
 }

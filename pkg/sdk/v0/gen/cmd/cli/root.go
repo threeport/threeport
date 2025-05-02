@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/iancoleman/strcase"
@@ -154,21 +155,25 @@ func GenPluginRootCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Return(Nil()),
 	)
 
-	// write code to file
+	// write code to file if not excluded by SDK config
 	genFilepath := filepath.Join(
 		"cmd",
 		packageDir,
 		"cmd",
 		"root.go",
 	)
-	fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
-	if err != nil {
-		return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
-	}
-	if fileWritten {
-		cli.Info(fmt.Sprintf("source code for plugin root command written to %s", genFilepath))
+	if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+		cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
 	} else {
-		cli.Info(fmt.Sprintf("source code for plugin root command already exists at %s - not overwritten", genFilepath))
+		fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
+		if err != nil {
+			return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+		}
+		if fileWritten {
+			cli.Info(fmt.Sprintf("source code for plugin root command written to %s", genFilepath))
+		} else {
+			cli.Info(fmt.Sprintf("source code for plugin root command already exists at %s - not overwritten", genFilepath))
+		}
 	}
 
 	return nil

@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/iancoleman/strcase"
@@ -51,29 +52,34 @@ func GenPluginCrudCmds(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Id("rootCmd").Dot("AddCommand").Call(Id(fmt.Sprintf("%sCmd", crudCmdUpper))),
 		)
 
-		// write code to file if it doesn't already exist
+		// write code to file if it doesn't already exist and not excluded by SDK config
 		genFilepath := filepath.Join(
 			"cmd",
 			strcase.ToSnake(sdkConfig.ModuleName),
 			"cmd",
 			fmt.Sprintf("%s.go", crudCmd),
 		)
-		fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
-		if err != nil {
-			return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
-		}
-		if fileWritten {
-			cli.Info(fmt.Sprintf(
-				"source code for %s command written to %s",
-				crudCmd,
-				genFilepath,
-			))
+		if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+			cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
+			continue
 		} else {
-			cli.Info(fmt.Sprintf(
-				"source code for %s command already exists at %s - not overwritten",
-				crudCmd,
-				genFilepath,
-			))
+			fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
+			if err != nil {
+				return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+			}
+			if fileWritten {
+				cli.Info(fmt.Sprintf(
+					"source code for %s command written to %s",
+					crudCmd,
+					genFilepath,
+				))
+			} else {
+				cli.Info(fmt.Sprintf(
+					"source code for %s command already exists at %s - not overwritten",
+					crudCmd,
+					genFilepath,
+				))
+			}
 		}
 	}
 
