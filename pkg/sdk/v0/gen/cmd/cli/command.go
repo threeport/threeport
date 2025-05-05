@@ -1890,7 +1890,6 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			)
 			if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
 				cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
-				continue
 			} else {
 				_, err := util.WriteCodeToFile(commandCode, genFilepath, true)
 				if err != nil {
@@ -1910,7 +1909,6 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			)
 			if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
 				cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
-				continue
 			} else {
 				fileWritten, err := util.WriteCodeToFile(getOutputCode, genFilepath, false)
 				if err != nil {

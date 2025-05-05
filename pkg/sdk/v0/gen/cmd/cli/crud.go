@@ -61,7 +61,6 @@ func GenPluginCrudCmds(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 		if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
 			cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
-			continue
 		} else {
 			fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
 			if err != nil {
