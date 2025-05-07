@@ -777,6 +777,16 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
 			}
 		}
+	case v0.KubernetesRuntimeInfraProviderOKE:
+		threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+		if err != nil {
+			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
+		}
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
+		}); err != nil {
+			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
+		}
 	}
 
 	// if auth enabled install the threeport API TLS assets that include the alt
@@ -797,7 +807,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// wait for the API before installing the rest of the control plane, however
 	// it is helpful for dev environments and harmless otherwise since the
 	// controllers need the API to be running in order to start
-	Info("Waiting for threeport API to start running...")
+	Info(fmt.Sprintf("Waiting for threeport API to start running at %s", threeportAPIEndpoint))
 	attemptsMax := 30
 	waitDurationSeconds := 10
 	if err = util.Retry(attemptsMax, waitDurationSeconds, func() error {
@@ -810,6 +820,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			http.StatusOK,
 		)
 		if err != nil {
+			fmt.Println("err", err)
 			return fmt.Errorf("failed to get threeport API version: %w", err)
 		}
 		return nil
