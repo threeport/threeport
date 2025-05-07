@@ -631,7 +631,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			DefaultRuntime:            &defaultRuntime,
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
-		location := "us-phoenix-1"
+		kubernetesRuntimeInfraOKE := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraOKE)
+		location, err := mapping.GetLocationForAwsRegion(kubernetesRuntimeInfraOKE.Region)
+		if err != nil {
+			return uninstaller.cleanOnCreateError(fmt.Sprintf("failed to get threeport location for OKE region %s", "us-phoenix-1"), err)
+		}
 		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
 			Instance: v0.Instance{
 				Name: &kubernetesRuntimeInstName,

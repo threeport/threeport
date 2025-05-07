@@ -74,6 +74,10 @@ func getRegionMap() *[]RegionMap {
 			AwsRegion: "ca-central-1",
 		},
 		{
+			Location:  "NorthAmerica:Phoenix",
+			AwsRegion: "us-phoenix-1",
+		},
+		{
 			Location:  "Asia:HongKong",
 			AwsRegion: "ap-east-1",
 		},
