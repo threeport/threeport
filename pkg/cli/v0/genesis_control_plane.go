@@ -630,6 +630,22 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			ConnectionTokenExpiration: &kubeConnectionInfo.EKSTokenExpiration,
 			DefaultRuntime:            &defaultRuntime,
 		}
+	case v0.KubernetesRuntimeInfraProviderOKE:
+		location := "us-phoenix-1"
+		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
+			Instance: v0.Instance{
+				Name: &kubernetesRuntimeInstName,
+			},
+			Reconciliation: v0.Reconciliation{
+				Reconciled: &instReconciled,
+			},
+			ThreeportControlPlaneHost: &controlPlaneHost,
+			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
+			CACertificate:             &kubeConnectionInfo.CACertificate,
+			ConnectionToken:           &kubeConnectionInfo.OKEToken,
+			DefaultRuntime:            &defaultRuntime,
+			Location:                  &location,
+		}
 	}
 
 	// get kubernetes client and mapper for use with kube API
