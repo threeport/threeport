@@ -970,6 +970,22 @@ func (i *KubernetesRuntimeInfraOKE) Delete() error {
 	return nil
 }
 
+type KubeConfig struct {
+	Clusters []struct {
+		Cluster struct {
+			Server                   string `yaml:"server"`
+			CertificateAuthorityData string `yaml:"certificate-authority-data"`
+		} `yaml:"cluster"`
+	} `yaml:"clusters"`
+	Users []struct {
+		User struct {
+			Token                 string `yaml:"token"`
+			ClientCertificateData string `yaml:"client-certificate-data"`
+			ClientKeyData         string `yaml:"client-key-data"`
+		} `yaml:"user"`
+	} `yaml:"users"`
+}
+
 // GetConnection gets the latest connection info for authentication to an OKE cluster.
 func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, error) {
 	// Load OCI configuration first
@@ -1044,58 +1060,22 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("failed to read kubeconfig content: %w", err)
 	}
 
-	// Parse the kubeconfig to extract the CA certificate and client certificate
-	kubeconfig := make(map[string]interface{})
+	// Parse the kubeconfig using the KubeConfig struct
+	var kubeconfig KubeConfig
 	if err := yaml.Unmarshal(kubeconfigBytes, &kubeconfig); err != nil {
 		return nil, fmt.Errorf("failed to parse kubeconfig: %w", err)
 	}
 
-	clusters, ok := kubeconfig["clusters"].([]interface{})
-	if !ok || len(clusters) == 0 {
+	// Validate and extract required fields
+	if len(kubeconfig.Clusters) == 0 {
 		return nil, fmt.Errorf("no clusters found in kubeconfig")
-	}
-
-	cluster0, ok := clusters[0].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid cluster format in kubeconfig")
-	}
-
-	clusterData, ok := cluster0["cluster"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid cluster data format in kubeconfig")
-	}
-
-	caCert, ok := clusterData["certificate-authority-data"].(string)
-	if !ok {
-		return nil, fmt.Errorf("CA certificate not found in kubeconfig")
-	}
-
-	// Extract client certificate data
-	users, ok := kubeconfig["users"].([]interface{})
-	if !ok || len(users) == 0 {
-		return nil, fmt.Errorf("no users found in kubeconfig")
-	}
-
-	user0, ok := users[0].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid user format in kubeconfig")
-	}
-
-	userData, ok := user0["user"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid user data format in kubeconfig")
-	}
-
-	clientCert, ok := userData["client-certificate-data"].(string)
-	if !ok {
-		return nil, fmt.Errorf("client certificate not found in kubeconfig")
 	}
 
 	// Create connection info
 	kubeConnInfo := &kube.KubeConnectionInfo{
 		APIEndpoint:   *clusterDetails.Endpoints.PublicEndpoint,
-		CACertificate: caCert,
-		Certificate:   clientCert,
+		CACertificate: kubeconfig.Clusters[0].Cluster.CertificateAuthorityData,
+		Certificate:   kubeconfig.Users[0].User.Token,
 	}
 
 	return kubeConnInfo, nil
