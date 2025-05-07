@@ -75,7 +75,6 @@ type Status struct {
 	ExpirationTimestamp string `json:"expirationTimestamp"`
 }
 
-
 func generateToken(clusterID string) (string, error) {
 	// Create a configuration provider from the default config file
 	configProvider := common.DefaultConfigProvider()
@@ -149,9 +148,8 @@ func generateToken(clusterID string) (string, error) {
 		return "", fmt.Errorf("failed to marshal exec credential: %v", err)
 	}
 
-	return string(jsonBytes), nil
+	return base64.StdEncoding.EncodeToString(jsonBytes), nil
 }
-
 
 // loadOCIConfig reads the OCI configuration using the OCI SDK and updates the struct fields
 func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
@@ -1178,11 +1176,15 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
+	caCert, err := base64.StdEncoding.DecodeString(kubeconfig.Clusters[0].Cluster.CertificateAuthorityData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode CA certificate: %w", err)
+	}
+
 	// Create connection info
 	kubeConnInfo := &kube.KubeConnectionInfo{
 		APIEndpoint:   *clusterDetails.Endpoints.PublicEndpoint,
-		CACertificate: kubeconfig.Clusters[0].Cluster.CertificateAuthorityData,
-		Certificate:   kubeconfig.Users[0].User.Token,
+		CACertificate: string(caCert),
 		OKEToken:      token,
 	}
 
