@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	"gopkg.in/ini.v1"
+	"gopkg.in/yaml.v2"
 )
 
 // KubernetesRuntimeInfraOKE represents the infrastructure for a threeport-managed OKE
@@ -375,13 +377,15 @@ func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) 
 		// Try to get the concrete type
 		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok {
 			name := *sourceType.SourceName
-			if strings.Contains(name, fmt.Sprintf("OKE-%s", latestVersion)) && strings.Contains(name, "aarch64") {
+			// Remove leading 'v' from version for image search
+			versionWithoutV := strings.TrimPrefix(latestVersion, "v")
+			if strings.Contains(name, fmt.Sprintf("OKE-%s", versionWithoutV)) {
 				return *sourceType.ImageId, nil
 			}
 		}
 	}
 
-	return "", fmt.Errorf("no suitable OKE worker node images found with Kubernetes version %s and aarch64 architecture", latestVersion)
+	return "", fmt.Errorf("no suitable OKE worker node images found with Kubernetes version %s", latestVersion)
 }
 
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
@@ -403,13 +407,13 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 		i.WorkerNodeShape = "VM.Standard.A1.Flex"
 	}
 	if i.WorkerNodeInitialCount == 0 {
-		i.WorkerNodeInitialCount = 2
+		i.WorkerNodeInitialCount = 1
 	}
 	if i.WorkerNodeMinCount == 0 {
-		i.WorkerNodeMinCount = 2
+		i.WorkerNodeMinCount = 1
 	}
 	if i.WorkerNodeMaxCount == 0 {
-		i.WorkerNodeMaxCount = 2
+		i.WorkerNodeMaxCount = 1
 	}
 
 	// Get the availability domain name
@@ -457,6 +461,7 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 			CidrBlock:     pulumi.String("10.0.0.0/16"),
 			DisplayName:   pulumi.String(fmt.Sprintf("%s-vcn", i.RuntimeInstanceName)),
 			DnsLabel:      pulumi.String(createDNSLabel(i.RuntimeInstanceName)),
+			IsIpv6enabled: pulumi.Bool(false),
 		}, pulumi.Provider(ociProvider),
 			pulumi.DeleteBeforeReplace(true),
 			pulumi.Protect(false))
@@ -551,9 +556,132 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 			return fmt.Errorf("failed to create private route table: %w", err)
 		}
 
-		// Create public subnet for load balancers
+		// Create security list for control plane subnet
+		controlPlaneSecList, err := core.NewSecurityList(ctx, fmt.Sprintf("%s-control-plane-seclist", i.RuntimeInstanceName), &core.SecurityListArgs{
+			CompartmentId: pulumi.String(i.CompartmentID),
+			VcnId:         vcn.ID(),
+			DisplayName:   pulumi.String(fmt.Sprintf("%s-control-plane-seclist", i.RuntimeInstanceName)),
+			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
+				&core.SecurityListEgressSecurityRuleArgs{
+					Protocol:    pulumi.String("all"),
+					Destination: pulumi.String("0.0.0.0/0"),
+					Stateless:   pulumi.Bool(false),
+				},
+			},
+			IngressSecurityRules: core.SecurityListIngressSecurityRuleArray{
+				// Allow incoming HTTPS traffic from anywhere for K8s API access
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol: pulumi.String("6"), // TCP
+					Source:   pulumi.String("0.0.0.0/0"),
+					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(6443),
+						Min: pulumi.Int(6443),
+					},
+					Stateless: pulumi.Bool(false),
+				},
+				// Allow incoming ICMP traffic for path discovery
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol: pulumi.String("1"), // ICMP
+					Source:   pulumi.String("0.0.0.0/0"),
+					IcmpOptions: &core.SecurityListIngressSecurityRuleIcmpOptionsArgs{
+						Type: pulumi.Int(3),
+						Code: pulumi.Int(4),
+					},
+					Stateless: pulumi.Bool(false),
+				},
+			},
+		}, pulumi.Provider(ociProvider),
+			pulumi.DependsOn([]pulumi.Resource{vcn}))
+		if err != nil {
+			return fmt.Errorf("failed to create control plane security list: %w", err)
+		}
+
+		// Create security list for worker nodes subnet
+		workerNodesSecList, err := core.NewSecurityList(ctx, fmt.Sprintf("%s-worker-nodes-seclist", i.RuntimeInstanceName), &core.SecurityListArgs{
+			CompartmentId: pulumi.String(i.CompartmentID),
+			VcnId:         vcn.ID(),
+			DisplayName:   pulumi.String(fmt.Sprintf("%s-worker-nodes-seclist", i.RuntimeInstanceName)),
+			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
+				// Allow all outbound traffic
+				&core.SecurityListEgressSecurityRuleArgs{
+					Protocol:    pulumi.String("all"),
+					Destination: pulumi.String("0.0.0.0/0"),
+					Stateless:   pulumi.Bool(false),
+				},
+			},
+			IngressSecurityRules: core.SecurityListIngressSecurityRuleArray{
+				// Allow incoming traffic from control plane
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol:  pulumi.String("all"),
+					Source:    pulumi.String("0.0.0.0/0"),
+					Stateless: pulumi.Bool(false),
+				},
+			},
+		}, pulumi.Provider(ociProvider),
+			pulumi.DependsOn([]pulumi.Resource{vcn}))
+		if err != nil {
+			return fmt.Errorf("failed to create worker nodes security list: %w", err)
+		}
+
+		// Create security list for load balancer subnet
+		loadBalancerSecList, err := core.NewSecurityList(ctx, fmt.Sprintf("%s-load-balancer-seclist", i.RuntimeInstanceName), &core.SecurityListArgs{
+			CompartmentId: pulumi.String(i.CompartmentID),
+			VcnId:         vcn.ID(),
+			DisplayName:   pulumi.String(fmt.Sprintf("%s-load-balancer-seclist", i.RuntimeInstanceName)),
+			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
+				// Allow all outbound traffic to worker nodes
+				&core.SecurityListEgressSecurityRuleArgs{
+					Protocol:    pulumi.String("6"),           // TCP
+					Destination: pulumi.String("10.0.2.0/24"), // Worker nodes subnet CIDR
+					Stateless:   pulumi.Bool(false),
+				},
+			},
+			IngressSecurityRules: core.SecurityListIngressSecurityRuleArray{
+				// Allow incoming HTTP traffic
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol: pulumi.String("6"), // TCP
+					Source:   pulumi.String("0.0.0.0/0"),
+					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(80),
+						Min: pulumi.Int(80),
+					},
+					Stateless: pulumi.Bool(false),
+				},
+				// Allow incoming HTTPS traffic
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol: pulumi.String("6"), // TCP
+					Source:   pulumi.String("0.0.0.0/0"),
+					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(443),
+						Min: pulumi.Int(443),
+					},
+					Stateless: pulumi.Bool(false),
+				},
+			},
+		}, pulumi.Provider(ociProvider),
+			pulumi.DependsOn([]pulumi.Resource{vcn}))
+		if err != nil {
+			return fmt.Errorf("failed to create load balancer security list: %w", err)
+		}
+
+		// Create load balancer subnet (public)
+		loadBalancerSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-lb-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
+			CidrBlock:              pulumi.String("10.0.3.0/24"),
+			CompartmentId:          pulumi.String(i.CompartmentID),
+			VcnId:                  vcn.ID(),
+			DisplayName:            pulumi.String(fmt.Sprintf("%s-lb-subnet", i.RuntimeInstanceName)),
+			DnsLabel:               pulumi.String(createDNSLabel(fmt.Sprintf("%s-lb", i.RuntimeInstanceName))),
+			ProhibitPublicIpOnVnic: pulumi.Bool(false),
+			RouteTableId:           publicRouteTable.ID(),
+			SecurityListIds:        pulumi.StringArray{loadBalancerSecList.ID()},
+		}, pulumi.Provider(ociProvider),
+			pulumi.DependsOn([]pulumi.Resource{vcn, publicRouteTable, loadBalancerSecList}))
+		if err != nil {
+			return fmt.Errorf("failed to create load balancer subnet: %w", err)
+		}
+
+		// Update public subnet (control plane) to use security list
 		publicSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-public-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
-			AvailabilityDomain:     pulumi.String(availabilityDomain),
 			CidrBlock:              pulumi.String("10.0.1.0/24"),
 			CompartmentId:          pulumi.String(i.CompartmentID),
 			VcnId:                  vcn.ID(),
@@ -561,15 +689,15 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 			DnsLabel:               pulumi.String(createDNSLabel(fmt.Sprintf("%s-public", i.RuntimeInstanceName))),
 			ProhibitPublicIpOnVnic: pulumi.Bool(false),
 			RouteTableId:           publicRouteTable.ID(),
+			SecurityListIds:        pulumi.StringArray{controlPlaneSecList.ID()},
 		}, pulumi.Provider(ociProvider),
-			pulumi.DependsOn([]pulumi.Resource{vcn, publicRouteTable}))
+			pulumi.DependsOn([]pulumi.Resource{vcn, publicRouteTable, controlPlaneSecList}))
 		if err != nil {
 			return fmt.Errorf("failed to create public subnet: %w", err)
 		}
 
-		// Create private subnet for worker nodes
+		// Update private subnet (worker nodes) to use security list
 		privateSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-private-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
-			AvailabilityDomain:     pulumi.String(availabilityDomain),
 			CidrBlock:              pulumi.String("10.0.2.0/24"),
 			CompartmentId:          pulumi.String(i.CompartmentID),
 			VcnId:                  vcn.ID(),
@@ -577,8 +705,9 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 			DnsLabel:               pulumi.String(createDNSLabel(fmt.Sprintf("%s-private", i.RuntimeInstanceName))),
 			ProhibitPublicIpOnVnic: pulumi.Bool(true),
 			RouteTableId:           privateRouteTable.ID(),
+			SecurityListIds:        pulumi.StringArray{workerNodesSecList.ID()},
 		}, pulumi.Provider(ociProvider),
-			pulumi.DependsOn([]pulumi.Resource{vcn, privateRouteTable}))
+			pulumi.DependsOn([]pulumi.Resource{vcn, privateRouteTable, workerNodesSecList}))
 		if err != nil {
 			return fmt.Errorf("failed to create private subnet: %w", err)
 		}
@@ -589,11 +718,17 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 			Name:              pulumi.String(i.RuntimeInstanceName),
 			VcnId:             vcn.ID(),
 			KubernetesVersion: pulumi.String(latestVersion),
+			EndpointConfig: &containerengine.ClusterEndpointConfigArgs{
+				IsPublicIpEnabled: pulumi.Bool(true),
+				SubnetId:          publicSubnet.ID(),
+				NsgIds:            pulumi.StringArray{}, // Optional: Add network security group IDs if needed
+			},
 			Options: &containerengine.ClusterOptionsArgs{
 				KubernetesNetworkConfig: &containerengine.ClusterOptionsKubernetesNetworkConfigArgs{
 					PodsCidr:     pulumi.String("10.244.0.0/16"),
 					ServicesCidr: pulumi.String("10.96.0.0/12"),
 				},
+				ServiceLbSubnetIds: pulumi.StringArray{loadBalancerSubnet.ID()},
 			},
 		}, pulumi.Provider(ociProvider),
 			pulumi.DependsOn([]pulumi.Resource{
@@ -619,7 +754,7 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 
 		// Create Node Pool with explicit dependency on cluster
 		fmt.Printf("Creating node pool with shape: %s, initial count: %d\n", i.WorkerNodeShape, i.WorkerNodeInitialCount)
-		_, err = containerengine.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &containerengine.NodePoolArgs{
+		nodePool, err := containerengine.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &containerengine.NodePoolArgs{
 			ClusterId:         cluster.ID(),
 			CompartmentId:     pulumi.String(i.CompartmentID),
 			Name:              pulumi.String(fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)),
@@ -644,6 +779,10 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 				ImageId:    pulumi.String(imageOCID),
 				SourceType: pulumi.String("IMAGE"),
 			},
+			NodeShapeConfig: &containerengine.NodePoolNodeShapeConfigArgs{
+				Ocpus:       pulumi.Float64(1.0),
+				MemoryInGbs: pulumi.Float64(6.0),
+			},
 		}, pulumi.Provider(ociProvider),
 			pulumi.DependsOn([]pulumi.Resource{cluster}))
 		if err != nil {
@@ -651,8 +790,9 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 			return fmt.Errorf("failed to create node pool: %w", err)
 		}
 
-		// Export cluster ID and kubeconfig for later use
+		// Export cluster ID, node pool ID and kubeconfig for later use
 		ctx.Export("clusterId", cluster.ID())
+		ctx.Export("nodePoolId", nodePool.ID())
 		ctx.Export("kubeconfig", cluster.Endpoints.Index(pulumi.Int(0)).PrivateEndpoint())
 
 		return nil
@@ -734,10 +874,58 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 		return nil, fmt.Errorf("kubeconfig output is not a string")
 	}
 
-	// Return the connection info
+	// Parse the kubeconfig to extract the CA certificate and client certificate
+	kubeconfigMap := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(kubeconfig), &kubeconfigMap); err != nil {
+		return nil, fmt.Errorf("failed to parse kubeconfig: %w", err)
+	}
+
+	clusters, ok := kubeconfigMap["clusters"].([]interface{})
+	if !ok || len(clusters) == 0 {
+		return nil, fmt.Errorf("no clusters found in kubeconfig")
+	}
+
+	cluster0, ok := clusters[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid cluster format in kubeconfig")
+	}
+
+	clusterData, ok := cluster0["cluster"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid cluster data format in kubeconfig")
+	}
+
+	caCert, ok := clusterData["certificate-authority-data"].(string)
+	if !ok {
+		return nil, fmt.Errorf("CA certificate not found in kubeconfig")
+	}
+
+	// Extract client certificate data
+	users, ok := kubeconfigMap["users"].([]interface{})
+	if !ok || len(users) == 0 {
+		return nil, fmt.Errorf("no users found in kubeconfig")
+	}
+
+	user0, ok := users[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid user format in kubeconfig")
+	}
+
+	userData, ok := user0["user"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid user data format in kubeconfig")
+	}
+
+	clientCert, ok := userData["client-certificate-data"].(string)
+	if !ok {
+		return nil, fmt.Errorf("client certificate not found in kubeconfig")
+	}
+
+	// Create connection info
 	kubeConnInfo := &kube.KubeConnectionInfo{
 		APIEndpoint:   clusterID,
-		CACertificate: kubeconfig,
+		CACertificate: caCert,
+		Certificate:   clientCert,
 	}
 
 	return kubeConnInfo, nil
@@ -784,20 +972,130 @@ func (i *KubernetesRuntimeInfraOKE) Delete() error {
 
 // GetConnection gets the latest connection info for authentication to an OKE cluster.
 func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, error) {
-	if i.stateDir == "" {
-		return nil, fmt.Errorf("state directory not initialized")
+	// Load OCI configuration first
+	if err := i.loadOCIConfig(); err != nil {
+		return nil, fmt.Errorf("failed to load OCI configuration: %w", err)
 	}
 
-	// Check if state directory exists
-	if _, err := os.Stat(i.stateDir); os.IsNotExist(err) {
-		return nil, fmt.Errorf("state directory does not exist: %s", i.stateDir)
+	// Create a new container engine client
+	configProvider := common.DefaultConfigProvider()
+	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create container engine client: %w", err)
 	}
 
-	// For now, return placeholder values
-	// In a real implementation, you would parse the Pulumi state file to get the actual values
+	// Set the region for the client
+	containerClient.SetRegion(i.Region)
+
+	// List clusters to find the one with matching name
+	request := ocicontainerengine.ListClustersRequest{
+		CompartmentId: &i.CompartmentID,
+		Name:          &i.RuntimeInstanceName,
+		LifecycleState: []ocicontainerengine.ClusterLifecycleStateEnum{
+			ocicontainerengine.ClusterLifecycleStateActive,
+		},
+	}
+
+	response, err := containerClient.ListClusters(context.Background(), request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list clusters: %w", err)
+	}
+
+	if len(response.Items) == 0 {
+		return nil, fmt.Errorf("no active cluster found with name %s", i.RuntimeInstanceName)
+	}
+
+	cluster := response.Items[0]
+	if cluster.Id == nil {
+		return nil, fmt.Errorf("cluster ID is nil")
+	}
+
+	// Get cluster details to get the API endpoint
+	getClusterRequest := ocicontainerengine.GetClusterRequest{
+		ClusterId: cluster.Id,
+	}
+
+	clusterDetails, err := containerClient.GetCluster(context.Background(), getClusterRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster details: %w", err)
+	}
+
+	if clusterDetails.Endpoints == nil || clusterDetails.Endpoints.PublicEndpoint == nil {
+		return nil, fmt.Errorf("cluster endpoints not found")
+	}
+
+	// Get the kubeconfig which contains the CA certificate
+	kubeconfigRequest := ocicontainerengine.CreateKubeconfigRequest{
+		ClusterId: cluster.Id,
+		CreateClusterKubeconfigContentDetails: ocicontainerengine.CreateClusterKubeconfigContentDetails{
+			TokenVersion: common.String("2.0.0"),
+		},
+	}
+
+	kubeconfigResponse, err := containerClient.CreateKubeconfig(context.Background(), kubeconfigRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubeconfig: %w", err)
+	}
+	defer kubeconfigResponse.Content.Close()
+
+	// Read the kubeconfig content
+	kubeconfigBytes, err := io.ReadAll(kubeconfigResponse.Content)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read kubeconfig content: %w", err)
+	}
+
+	// Parse the kubeconfig to extract the CA certificate and client certificate
+	kubeconfig := make(map[string]interface{})
+	if err := yaml.Unmarshal(kubeconfigBytes, &kubeconfig); err != nil {
+		return nil, fmt.Errorf("failed to parse kubeconfig: %w", err)
+	}
+
+	clusters, ok := kubeconfig["clusters"].([]interface{})
+	if !ok || len(clusters) == 0 {
+		return nil, fmt.Errorf("no clusters found in kubeconfig")
+	}
+
+	cluster0, ok := clusters[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid cluster format in kubeconfig")
+	}
+
+	clusterData, ok := cluster0["cluster"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid cluster data format in kubeconfig")
+	}
+
+	caCert, ok := clusterData["certificate-authority-data"].(string)
+	if !ok {
+		return nil, fmt.Errorf("CA certificate not found in kubeconfig")
+	}
+
+	// Extract client certificate data
+	users, ok := kubeconfig["users"].([]interface{})
+	if !ok || len(users) == 0 {
+		return nil, fmt.Errorf("no users found in kubeconfig")
+	}
+
+	user0, ok := users[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid user format in kubeconfig")
+	}
+
+	userData, ok := user0["user"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid user data format in kubeconfig")
+	}
+
+	clientCert, ok := userData["client-certificate-data"].(string)
+	if !ok {
+		return nil, fmt.Errorf("client certificate not found in kubeconfig")
+	}
+
+	// Create connection info
 	kubeConnInfo := &kube.KubeConnectionInfo{
-		APIEndpoint:   "placeholder-cluster-id",
-		CACertificate: "placeholder-kubeconfig",
+		APIEndpoint:   *clusterDetails.Endpoints.PublicEndpoint,
+		CACertificate: caCert,
+		Certificate:   clientCert,
 	}
 
 	return kubeConnInfo, nil
