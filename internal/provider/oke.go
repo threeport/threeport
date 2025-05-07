@@ -63,17 +63,6 @@ type KubernetesRuntimeInfraOKE struct {
 	stateDir string
 }
 
-type ExecCredential struct {
-	APIVersion string `json:"apiVersion"`
-	Kind       string `json:"kind"`
-	Status     Status `json:"status"`
-}
-
-type Status struct {
-	Token               string `json:"token"`
-	ExpirationTimestamp string `json:"expirationTimestamp"`
-}
-
 func generateToken(clusterID string) (string, error) {
 	// Create a configuration provider from the default config file
 	configProvider := common.DefaultConfigProvider()
