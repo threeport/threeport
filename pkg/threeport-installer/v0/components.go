@@ -1279,9 +1279,18 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIEndpoint(
 			}
 
 			firstIngress := ingress[0].(map[string]interface{})
-			apiEndpoint, found, err = unstructured.NestedString(firstIngress, "hostname")
-			if err != nil || !found {
-				return fmt.Errorf("failed to retrieve threeport API load balancer hostname: %w", err)
+
+			switch cpi.Opts.InfraProvider {
+			case "eks":
+				apiEndpoint, found, err = unstructured.NestedString(firstIngress, "hostname")
+				if err != nil || !found {
+					return fmt.Errorf("failed to retrieve threeport API load balancer hostname: %w", err)
+				}
+			case "oke":
+				apiEndpoint, found, err = unstructured.NestedString(firstIngress, "ip")
+				if err != nil || !found {
+					return fmt.Errorf("failed to retrieve threeport API load balancer ip: %w", err)
+				}
 			}
 
 			return nil
@@ -1736,15 +1745,13 @@ func (cpi *ControlPlaneInstaller) GetAPIServicePort() (string, int32) {
 			return "https", 443
 		}
 		return "http", 80
-	} else if cpi.Opts.InfraProvider == "eks" {
-		if cpi.Opts.AuthEnabled {
-			return "https", 443
-		}
-
-		return "http", 80
 	}
 
-	return "", 0
+	if cpi.Opts.AuthEnabled {
+		return "https", 443
+	}
+
+	return "http", 80
 }
 
 // getAgentArgs returns the args that are passed to the threeport agent.  In
