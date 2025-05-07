@@ -17,6 +17,7 @@ type KubeConnectionInfo struct {
 	CACertificate      string
 	Certificate        string
 	Key                string
+	OKEToken           string
 	EKSToken           string
 	EKSTokenExpiration time.Time
 }

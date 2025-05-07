@@ -4,12 +4,16 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/oracle/oci-go-sdk/v65/common"
 	ocicontainerengine "github.com/oracle/oci-go-sdk/v65/containerengine"
@@ -59,6 +63,95 @@ type KubernetesRuntimeInfraOKE struct {
 	// The path to the Pulumi state directory
 	stateDir string
 }
+
+type ExecCredential struct {
+	APIVersion string `json:"apiVersion"`
+	Kind       string `json:"kind"`
+	Status     Status `json:"status"`
+}
+
+type Status struct {
+	Token               string `json:"token"`
+	ExpirationTimestamp string `json:"expirationTimestamp"`
+}
+
+
+func generateToken(clusterID string) (string, error) {
+	// Create a configuration provider from the default config file
+	configProvider := common.DefaultConfigProvider()
+
+	// Get the region from the config
+	region, err := configProvider.Region()
+	if err != nil {
+		return "", fmt.Errorf("failed to get region: %v", err)
+	}
+
+	// Create the container engine client
+	client, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create client: %v", err)
+	}
+
+	// Construct the URL
+	url := fmt.Sprintf("https://containerengine.%s.oraclecloud.com/cluster_request/%s", region, clusterID)
+
+	// Create the initial request
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	// Sign the request
+	err = client.Signer.Sign(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign request: %v", err)
+	}
+
+	// Get the authorization and date headers
+	headerParams := map[string]string{
+		"authorization": req.Header.Get("authorization"),
+		"date":          req.Header.Get("date"),
+	}
+
+	// Create the token request with the headers as query parameters
+	tokenReq, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create token request: %v", err)
+	}
+
+	// Add the headers as query parameters
+	q := tokenReq.URL.Query()
+	for key, value := range headerParams {
+		q.Add(key, value)
+	}
+	tokenReq.URL.RawQuery = q.Encode()
+
+	// Encode the URL as the token
+	token := base64.URLEncoding.EncodeToString([]byte(tokenReq.URL.String()))
+
+	// Calculate expiration time (4 minutes from now)
+	expirationTime := time.Now().UTC().Add(4 * time.Minute)
+	expirationTimestamp := expirationTime.Format(time.RFC3339)
+
+	// Create the ExecCredential
+	execCred := ExecCredential{
+		APIVersion: "client.authentication.k8s.io/v1beta1",
+		Kind:       "ExecCredential",
+		Status: Status{
+			Token:               token,
+			ExpirationTimestamp: expirationTimestamp,
+		},
+	}
+
+	// Convert to JSON
+	jsonBytes, err := json.MarshalIndent(execCred, "", "    ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal exec credential: %v", err)
+	}
+
+	return string(jsonBytes), nil
+}
+
 
 // loadOCIConfig reads the OCI configuration using the OCI SDK and updates the struct fields
 func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
@@ -874,6 +967,10 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 		return nil, fmt.Errorf("kubeconfig output is not a string")
 	}
 
+	// Print kubeconfig content for debugging
+	kubeconfigStr := string(kubeconfig)
+	fmt.Printf("Kubeconfig content:\n%s\n", kubeconfigStr)
+
 	// Parse the kubeconfig to extract the CA certificate and client certificate
 	kubeconfigMap := make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(kubeconfig), &kubeconfigMap); err != nil {
@@ -1045,6 +1142,7 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 		ClusterId: cluster.Id,
 		CreateClusterKubeconfigContentDetails: ocicontainerengine.CreateClusterKubeconfigContentDetails{
 			TokenVersion: common.String("2.0.0"),
+			Expiration:   common.Int(86400),
 		},
 	}
 
@@ -1060,6 +1158,10 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("failed to read kubeconfig content: %w", err)
 	}
 
+	// Print kubeconfig content for debugging
+	// kubeconfigStr := string(kubeconfigBytes)
+	// fmt.Printf("Kubeconfig content:\n%s\n", kubeconfigStr)
+
 	// Parse the kubeconfig using the KubeConfig struct
 	var kubeconfig KubeConfig
 	if err := yaml.Unmarshal(kubeconfigBytes, &kubeconfig); err != nil {
@@ -1071,11 +1173,17 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("no clusters found in kubeconfig")
 	}
 
+	token, err := generateToken(*cluster.Id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate token: %w", err)
+	}
+
 	// Create connection info
 	kubeConnInfo := &kube.KubeConnectionInfo{
 		APIEndpoint:   *clusterDetails.Endpoints.PublicEndpoint,
 		CACertificate: kubeconfig.Clusters[0].Cluster.CertificateAuthorityData,
 		Certificate:   kubeconfig.Users[0].User.Token,
+		OKEToken:      token,
 	}
 
 	return kubeConnInfo, nil
