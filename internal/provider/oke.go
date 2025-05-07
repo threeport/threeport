@@ -5,7 +5,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -100,6 +99,9 @@ func generateToken(clusterID string) (string, error) {
 		return "", fmt.Errorf("failed to create request: %v", err)
 	}
 
+	// Set the date header in RFC1123 format with GMT
+	req.Header.Set("date", time.Now().In(time.FixedZone("GMT", 0)).Format("Mon, 02 Jan 2006 15:04:05 GMT"))
+
 	// Sign the request
 	err = client.Signer.Sign(req)
 	if err != nil {
@@ -128,27 +130,7 @@ func generateToken(clusterID string) (string, error) {
 	// Encode the URL as the token
 	token := base64.URLEncoding.EncodeToString([]byte(tokenReq.URL.String()))
 
-	// Calculate expiration time (4 minutes from now)
-	expirationTime := time.Now().UTC().Add(4 * time.Minute)
-	expirationTimestamp := expirationTime.Format(time.RFC3339)
-
-	// Create the ExecCredential
-	execCred := ExecCredential{
-		APIVersion: "client.authentication.k8s.io/v1beta1",
-		Kind:       "ExecCredential",
-		Status: Status{
-			Token:               token,
-			ExpirationTimestamp: expirationTimestamp,
-		},
-	}
-
-	// Convert to JSON
-	jsonBytes, err := json.MarshalIndent(execCred, "", "    ")
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal exec credential: %v", err)
-	}
-
-	return base64.StdEncoding.EncodeToString(jsonBytes), nil
+	return token, nil
 }
 
 // loadOCIConfig reads the OCI configuration using the OCI SDK and updates the struct fields
