@@ -812,8 +812,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// it is helpful for dev environments and harmless otherwise since the
 	// controllers need the API to be running in order to start
 	Info(fmt.Sprintf("Waiting for threeport API to start running at %s", threeportAPIEndpoint))
-	attemptsMax := 30
-	waitDurationSeconds := 10
+	attemptsMax := 150
+	waitDurationSeconds := 2
 	if err = util.Retry(attemptsMax, waitDurationSeconds, func() error {
 		_, err := client_lib.GetResponse(
 			apiClient,
@@ -1129,6 +1129,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var awsConfigUser *aws.Config
 	var awsConfigResourceManager *aws.Config
+	var kubeConnection *kube.KubeConnectionInfo
 	switch threeportControlPlaneConfig.Provider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
@@ -1191,6 +1192,22 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			ResourceInventory:   &inventory,
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
+	case v0.KubernetesRuntimeInfraProviderOKE:
+		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
+			RuntimeInstanceName:     provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			TenancyID:               cpi.Opts.OracleTenancyID,
+			CompartmentID:           cpi.Opts.OracleCompartmentID,
+			Region:                  cpi.Opts.OracleRegion,
+			AvailabilityDomainCount: cpi.Opts.OracleAvailabilityDomainCount,
+			WorkerNodeShape:         cpi.Opts.OracleWorkerNodeShape,
+			WorkerNodeInitialCount:  cpi.Opts.OracleWorkerNodeInitialCount,
+			WorkerNodeMinCount:      cpi.Opts.OracleWorkerNodeMinCount,
+			WorkerNodeMaxCount:      cpi.Opts.OracleWorkerNodeMaxCount,
+		}
+		if kubeConnection, err = kubernetesRuntimeInfraOKE.GetConnection(); err != nil {
+			return fmt.Errorf("failed to get connection for OKE kubernetes runtime infra: %w", err)
+		}
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
 	}
 
 	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.ControlPlaneName)
@@ -1204,14 +1221,12 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 	// get the kubernetes runtime instance object
 	var kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance
-	if false {
-		kubernetesRuntimeInstance, err = client.GetThreeportControlPlaneKubernetesRuntimeInstance(
-			apiClient,
-			threeportControlPlaneConfig.APIServer,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
-		}
+	kubernetesRuntimeInstance, err = client.GetThreeportControlPlaneKubernetesRuntimeInstance(
+		apiClient,
+		threeportControlPlaneConfig.APIServer,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
 	}
 
 	// if provider is EKS we need to delete the threeport API service to
@@ -1339,6 +1354,9 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return errors.New("found non-genesis control plane instance(s) that could prevent control plane deletion - delete all non-genesis control plane instances before deleting genesis control plane")
 		}
 
+		// update kubernetes runtime instance with latest connection token
+		kubernetesRuntimeInstance.ConnectionToken = &kubeConnection.OKEToken
+
 		// create a client and resource mapper to connect to kubernetes cluster
 		// API for deleting resources
 		var dynamicKubeClient dynamic.Interface
@@ -1348,7 +1366,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			false,
 			apiClient,
 			threeportControlPlaneConfig.APIServer,
-			threeportControlPlaneConfig.EncryptionKey,
+			"", // no encryption key for OKE token since we set it locally
 		)
 		if err != nil {
 			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
@@ -1358,11 +1376,13 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
 		}
 
-		if !cpi.Opts.ControlPlaneOnly {
-			// delete control plane infra
-			if err := kubernetesRuntimeInfra.Delete(); err != nil {
-				return fmt.Errorf("failed to delete control plane infra: %w", err)
-			}
+		if cpi.Opts.ControlPlaneOnly {
+			return nil
+		}
+
+		// delete control plane infra
+		if err := kubernetesRuntimeInfra.Delete(); err != nil {
+			return fmt.Errorf("failed to delete control plane infra: %w", err)
 		}
 	}
 
