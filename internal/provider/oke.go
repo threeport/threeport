@@ -64,470 +64,6 @@ type KubernetesRuntimeInfraOKE struct {
 	stateDir string
 }
 
-func generateToken(clusterID string) (string, error) {
-	// Create a configuration provider from the default config file
-	configProvider := common.DefaultConfigProvider()
-
-	// Get the region from the config
-	region, err := configProvider.Region()
-	if err != nil {
-		return "", fmt.Errorf("failed to get region: %v", err)
-	}
-
-	// Create the container engine client
-	client, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
-	if err != nil {
-		return "", fmt.Errorf("failed to create client: %v", err)
-	}
-
-	// Construct the URL
-	url := fmt.Sprintf("https://containerengine.%s.oraclecloud.com/cluster_request/%s", region, clusterID)
-
-	// Create the initial request
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %v", err)
-	}
-
-	// Set the date header in RFC1123 format with GMT
-	req.Header.Set("date", time.Now().In(time.FixedZone("GMT", 0)).Format("Mon, 02 Jan 2006 15:04:05 GMT"))
-
-	// Sign the request
-	err = client.Signer.Sign(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to sign request: %v", err)
-	}
-
-	// Get the authorization and date headers
-	headerParams := map[string]string{
-		"authorization": req.Header.Get("authorization"),
-		"date":          req.Header.Get("date"),
-	}
-
-	// Create the token request with the headers as query parameters
-	tokenReq, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create token request: %v", err)
-	}
-
-	// Add the headers as query parameters
-	q := tokenReq.URL.Query()
-	for key, value := range headerParams {
-		q.Add(key, value)
-	}
-	tokenReq.URL.RawQuery = q.Encode()
-
-	// Encode the URL as the token
-	token := base64.URLEncoding.EncodeToString([]byte(tokenReq.URL.String()))
-
-	return token, nil
-}
-
-// loadOCIConfig reads the OCI configuration using the OCI SDK and updates the struct fields
-func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
-	// Get user's home directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	// Path to OCI config file
-	ociConfigPath := filepath.Join(homeDir, ".oci", "config")
-	fmt.Printf("Loading OCI config from: %s\n", ociConfigPath)
-
-	// Check if config file exists
-	if _, err := os.Stat(ociConfigPath); os.IsNotExist(err) {
-		return fmt.Errorf("OCI config file not found at %s", ociConfigPath)
-	}
-
-	// Load the configuration using the OCI SDK
-	configProvider, err := common.ConfigurationProviderFromFile(ociConfigPath, "")
-	if err != nil {
-		return fmt.Errorf("failed to load OCI configuration: %w", err)
-	}
-
-	// Get the tenancy OCID
-	tenancyOCID, err := configProvider.TenancyOCID()
-	if err != nil {
-		return fmt.Errorf("failed to get tenancy OCID: %w", err)
-	}
-	fmt.Printf("Loaded tenancy OCID: %s\n", tenancyOCID)
-
-	// Get the user OCID
-	userOCID, err := configProvider.UserOCID()
-	if err != nil {
-		return fmt.Errorf("failed to get user OCID: %w", err)
-	}
-	fmt.Printf("Loaded user OCID: %s\n", userOCID)
-
-	// Get the region
-	region, err := configProvider.Region()
-	if err != nil {
-		return fmt.Errorf("failed to get region: %w", err)
-	}
-	fmt.Printf("Loaded region: %s\n", region)
-
-	// Get the fingerprint
-	fingerprint, err := configProvider.KeyFingerprint()
-	if err != nil {
-		return fmt.Errorf("failed to get key fingerprint: %w", err)
-	}
-	fmt.Printf("Loaded key fingerprint: %s\n", fingerprint)
-
-	// Get the private key
-	privateKey, err := configProvider.PrivateRSAKey()
-	if err != nil {
-		return fmt.Errorf("failed to get private key: %w", err)
-	}
-
-	// Convert private key to PEM-encoded string
-	privateKeyPEM := privateKeyToPEM(privateKey)
-	fmt.Printf("Successfully loaded private key\n")
-
-	// Read the config file to get the compartment OCID
-	cfg, err := ini.Load(ociConfigPath)
-	if err != nil {
-		return fmt.Errorf("failed to read OCI config file: %w", err)
-	}
-
-	// Get the compartment OCID from the DEFAULT section
-	compartmentOCID := cfg.Section("DEFAULT").Key("compartment_id").String()
-	if compartmentOCID == "" {
-		// If no compartment_id is specified, use the tenancy OCID as the root compartment
-		compartmentOCID = tenancyOCID
-	}
-	fmt.Printf("Using compartment OCID: %s\n", compartmentOCID)
-
-	// Update struct fields with values from config
-	if i.TenancyID == "" {
-		i.TenancyID = tenancyOCID
-	}
-	if i.CompartmentID == "" {
-		i.CompartmentID = compartmentOCID
-	}
-	if i.Region == "" {
-		i.Region = region
-	}
-
-	// Set environment variables for OCI authentication
-	os.Setenv("OCI_TENANCY_OCID", tenancyOCID)
-	os.Setenv("OCI_USER_OCID", userOCID)
-	os.Setenv("OCI_REGION", region)
-	os.Setenv("OCI_KEY_FINGERPRINT", fingerprint)
-	os.Setenv("OCI_PRIVATE_KEY", privateKeyPEM)
-	os.Setenv("OCI_COMPARTMENT_OCID", compartmentOCID)
-
-	// Validate required fields
-	if i.TenancyID == "" {
-		return fmt.Errorf("tenancy ID not found in OCI config")
-	}
-	if i.CompartmentID == "" {
-		return fmt.Errorf("compartment ID not found in OCI config")
-	}
-	if i.Region == "" {
-		return fmt.Errorf("region not found in OCI config")
-	}
-
-	return nil
-}
-
-// privateKeyToPEM converts an RSA private key to a PEM-encoded string
-func privateKeyToPEM(privateKey *rsa.PrivateKey) string {
-	// Marshal the private key to PKCS#1 format
-	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
-
-	// Create a PEM block
-	privateKeyPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: privateKeyBytes,
-		},
-	)
-
-	// Convert to string
-	return string(privateKeyPEM)
-}
-
-// createDNSLabel creates a valid DNS label that meets OCI requirements:
-// - Must be 15 characters or less
-// - Must contain only lowercase alphanumeric characters
-// - Maintains uniqueness by using parts of the original name
-func createDNSLabel(name string) string {
-	// Convert to lowercase
-	dnsLabel := strings.ToLower(name)
-
-	// If longer than 15 chars, take first 7 and last 7 with 'x' in middle
-	if len(dnsLabel) > 15 {
-		dnsLabel = dnsLabel[:7] + "x" + dnsLabel[len(dnsLabel)-7:]
-	}
-
-	// Replace any non-alphanumeric chars with 'x'
-	dnsLabel = strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			return r
-		}
-		return 'x'
-	}, dnsLabel)
-
-	return dnsLabel
-}
-
-// getAvailabilityDomainName returns the full name of the first availability domain in the region
-func (i *KubernetesRuntimeInfraOKE) getAvailabilityDomainName() (string, error) {
-	// Create a new identity client
-	configProvider := common.DefaultConfigProvider()
-	identityClient, err := identity.NewIdentityClientWithConfigurationProvider(configProvider)
-	if err != nil {
-		return "", fmt.Errorf("failed to create identity client: %w", err)
-	}
-
-	// Set the region for the client
-	identityClient.SetRegion(i.Region)
-
-	// Create a request to list availability domains
-	request := identity.ListAvailabilityDomainsRequest{
-		CompartmentId: common.String(i.CompartmentID),
-	}
-
-	// Call the API to get availability domains
-	response, err := identityClient.ListAvailabilityDomains(context.Background(), request)
-	if err != nil {
-		return "", fmt.Errorf("failed to list availability domains: %w", err)
-	}
-
-	// Check if we have any availability domains
-	if len(response.Items) == 0 {
-		return "", fmt.Errorf("no availability domains found in region %s", i.Region)
-	}
-
-	// Return the name of the first availability domain
-	return *response.Items[0].Name, nil
-}
-
-// getServiceGatewayServiceID returns the OCI service ID for the service gateway in a given region.
-// This ID is used to identify the Oracle Services Network in the service gateway.
-func getServiceGatewayServiceID(region string, compartmentID string) (string, error) {
-	// Create a new virtual network client
-	configProvider := common.DefaultConfigProvider()
-	vcnClient, err := ocicore.NewVirtualNetworkClientWithConfigurationProvider(configProvider)
-	if err != nil {
-		return "", fmt.Errorf("failed to create virtual network client: %w", err)
-	}
-
-	// Set the region for the client
-	vcnClient.SetRegion(region)
-
-	// Create a request to list services
-	request := ocicore.ListServicesRequest{}
-
-	// Call the API to get services
-	response, err := vcnClient.ListServices(context.Background(), request)
-	if err != nil {
-		return "", fmt.Errorf("failed to list services: %w", err)
-	}
-
-	// Find the Oracle Services Network service
-	for _, service := range response.Items {
-		if service.Name != nil && strings.Contains(*service.Name, "Services In Oracle Services Network") {
-			return *service.Id, nil
-		}
-	}
-
-	// If service not found, return an error
-	return "", fmt.Errorf("Oracle Services Network service not found in region %s", region)
-}
-
-// getLatestOKEVersion returns the latest Kubernetes version available in OKE
-func (i *KubernetesRuntimeInfraOKE) getLatestOKEVersion() (string, error) {
-	// Create a new container engine client
-	configProvider := common.DefaultConfigProvider()
-	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
-	if err != nil {
-		return "", fmt.Errorf("failed to create container engine client: %w", err)
-	}
-
-	// Set the region for the client
-	containerClient.SetRegion(i.Region)
-
-	// Create a request to list node pool options
-	request := ocicontainerengine.GetNodePoolOptionsRequest{
-		CompartmentId:    common.String(i.CompartmentID),
-		NodePoolOptionId: common.String("all"),
-	}
-
-	// Call the API to get node pool options
-	response, err := containerClient.GetNodePoolOptions(context.Background(), request)
-	if err != nil {
-		return "", fmt.Errorf("failed to get node pool options: %w", err)
-	}
-
-	// Check if we have any images
-	if len(response.Sources) == 0 {
-		return "", fmt.Errorf("no OKE worker node images found")
-	}
-
-	// Find the latest version by parsing version strings
-	latestVersion := ""
-	for _, source := range response.Sources {
-		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok {
-			name := *sourceType.SourceName
-			// Extract version from name (e.g., "OKE-1.30.10")
-			if strings.Contains(name, "OKE-") {
-				version := strings.Split(name, "OKE-")[1]
-				version = strings.Split(version, "-")[0] // Remove any trailing parts
-				if latestVersion == "" || version > latestVersion {
-					latestVersion = version
-				}
-			}
-		}
-	}
-
-	if latestVersion == "" {
-		return "", fmt.Errorf("could not determine latest OKE version")
-	}
-
-	latestVersion = "v" + latestVersion
-
-	return latestVersion, nil
-}
-
-// getOKEWorkerNodeImageOCID returns the OCID of the specified OKE worker node image
-func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) {
-	// Get the latest OKE version
-	latestVersion, err := i.getLatestOKEVersion()
-	if err != nil {
-		return "", fmt.Errorf("failed to get latest OKE version: %w", err)
-	}
-
-	// Create a new container engine client
-	configProvider := common.DefaultConfigProvider()
-	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
-	if err != nil {
-		return "", fmt.Errorf("failed to create container engine client: %w", err)
-	}
-
-	// Set the region for the client
-	containerClient.SetRegion(i.Region)
-
-	// Create a request to list node pool options
-	request := ocicontainerengine.GetNodePoolOptionsRequest{
-		CompartmentId:    common.String(i.CompartmentID),
-		NodePoolOptionId: common.String("all"),
-	}
-
-	// Call the API to get node pool options
-	response, err := containerClient.GetNodePoolOptions(context.Background(), request)
-	if err != nil {
-		return "", fmt.Errorf("failed to get node pool options: %w", err)
-	}
-
-	// Check if we have any images
-	if len(response.Sources) == 0 {
-		return "", fmt.Errorf("no OKE worker node images found")
-	}
-
-	// Print out all available images
-	fmt.Println("\nAvailable OKE worker node images:")
-	for _, source := range response.Sources {
-		// Try to get the concrete type
-		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok {
-			fmt.Printf("- Name: %s, OCID: %s\n", *sourceType.SourceName, *sourceType.ImageId)
-		}
-	}
-
-	// Find an image with the latest Kubernetes version
-	for _, source := range response.Sources {
-		// Try to get the concrete type
-		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok {
-			name := *sourceType.SourceName
-			// Remove leading 'v' from version for image search
-			versionWithoutV := strings.TrimPrefix(latestVersion, "v")
-			if strings.Contains(name, fmt.Sprintf("OKE-%s", versionWithoutV)) {
-				return *sourceType.ImageId, nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("no suitable OKE worker node images found with Kubernetes version %s", latestVersion)
-}
-
-// setupPulumiWorkspace sets up the Pulumi workspace and environment for OKE operations
-func (i *KubernetesRuntimeInfraOKE) setupPulumiWorkspace(program pulumi.RunFunc) (auto.Stack, error) {
-	// Load OCI configuration
-	if err := i.loadOCIConfig(); err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to load OCI configuration: %w", err)
-	}
-
-	// Set up state directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to get home directory: %w", err)
-	}
-	i.stateDir = filepath.Join(homeDir, ".config", "threeport", "pulumi-state", i.RuntimeInstanceName)
-
-	// Ensure state directory exists
-	if err := os.MkdirAll(i.stateDir, 0755); err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to create state directory: %w", err)
-	}
-
-	// Create Pulumi.yaml project file
-	pulumiYaml := `name: oke
-runtime: go
-description: Oracle Kubernetes Engine (OKE) cluster for Threeport
-`
-	pulumiYamlPath := filepath.Join(i.stateDir, "Pulumi.yaml")
-	if err := os.WriteFile(pulumiYamlPath, []byte(pulumiYaml), 0644); err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to create Pulumi.yaml: %w", err)
-	}
-
-	// Set environment variables for Pulumi configuration
-	os.Setenv("PULUMI_BACKEND_URL", "file://"+i.stateDir)
-	os.Setenv("PULUMI_HOME", i.stateDir)
-	os.Setenv("PULUMI_ORGANIZATION", "organization")
-	os.Setenv("PULUMI_PROJECT", "oke")
-	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "threeport") // Set a default passphrase for state encryption
-
-	// Set plugin path to the default location
-	userHomeDir, err := os.UserHomeDir()
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to get home directory: %w", err)
-	}
-	defaultPluginPath := filepath.Join(userHomeDir, ".pulumi", "plugins")
-	os.Setenv("PULUMI_PLUGIN_PATH", defaultPluginPath)
-
-	// Create a context for the automation API
-	ctx := context.Background()
-
-	// Create a new workspace with local state backend
-	workspace, err := auto.NewLocalWorkspace(ctx,
-		auto.Program(program),
-		auto.WorkDir(i.stateDir),
-	)
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to create workspace: %w", err)
-	}
-
-	// Create or select a stack with fully qualified name
-	stackName := fmt.Sprintf("organization/oke/%s", i.RuntimeInstanceName)
-	stack, err := auto.UpsertStack(ctx, stackName, workspace)
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to create/select stack: %w", err)
-	}
-
-	// Set up stack configuration
-	err = stack.SetConfig(ctx, "oci:region", auto.ConfigValue{Value: i.Region})
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to set region config: %w", err)
-	}
-
-	// Set OCI environment variables
-	os.Setenv("OCI_REGION", i.Region)
-	os.Setenv("OCI_TENANCY_OCID", i.TenancyID)
-	os.Setenv("OCI_COMPARTMENT_OCID", i.CompartmentID)
-
-	return stack, nil
-}
-
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
 func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 	// Set default values for worker nodes if not specified
@@ -1020,22 +556,6 @@ func (i *KubernetesRuntimeInfraOKE) Delete() error {
 	return nil
 }
 
-type KubeConfig struct {
-	Clusters []struct {
-		Cluster struct {
-			Server                   string `yaml:"server"`
-			CertificateAuthorityData string `yaml:"certificate-authority-data"`
-		} `yaml:"cluster"`
-	} `yaml:"clusters"`
-	Users []struct {
-		User struct {
-			Token                 string `yaml:"token"`
-			ClientCertificateData string `yaml:"client-certificate-data"`
-			ClientKeyData         string `yaml:"client-key-data"`
-		} `yaml:"user"`
-	} `yaml:"users"`
-}
-
 // GetConnection gets the latest connection info for authentication to an OKE cluster.
 func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, error) {
 	// Load OCI configuration first
@@ -1147,4 +667,478 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 func OKEInventoryFilepath(providerConfigDir, instanceName string) string {
 	inventoryFilename := fmt.Sprintf("oke-inventory-%s.json", instanceName)
 	return filepath.Join(providerConfigDir, inventoryFilename)
+}
+
+// KubeConfig represents the structure of the kubeconfig file
+type KubeConfig struct {
+	Clusters []struct {
+		Cluster struct {
+			CertificateAuthorityData string `yaml:"certificate-authority-data"`
+		} `yaml:"cluster"`
+	} `yaml:"clusters"`
+}
+
+// generateToken generates an authentication token for the OKE cluster
+func generateToken(clusterID string) (string, error) {
+	// Create a configuration provider from the default config file
+	configProvider := common.DefaultConfigProvider()
+
+	// Get the region from the config
+	region, err := configProvider.Region()
+	if err != nil {
+		return "", fmt.Errorf("failed to get region: %v", err)
+	}
+
+	// Create the container engine client
+	client, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create client: %v", err)
+	}
+
+	// Construct the URL
+	url := fmt.Sprintf("https://containerengine.%s.oraclecloud.com/cluster_request/%s", region, clusterID)
+
+	// Create the initial request
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	// Set the date header in RFC1123 format with GMT
+	req.Header.Set("date", time.Now().In(time.FixedZone("GMT", 0)).Format("Mon, 02 Jan 2006 15:04:05 GMT"))
+
+	// Sign the request
+	err = client.Signer.Sign(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign request: %v", err)
+	}
+
+	// Get the authorization and date headers
+	headerParams := map[string]string{
+		"authorization": req.Header.Get("authorization"),
+		"date":          req.Header.Get("date"),
+	}
+
+	// Create the token request with the headers as query parameters
+	tokenReq, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create token request: %v", err)
+	}
+
+	// Add the headers as query parameters
+	q := tokenReq.URL.Query()
+	for key, value := range headerParams {
+		q.Add(key, value)
+	}
+	tokenReq.URL.RawQuery = q.Encode()
+
+	// Encode the URL as the token
+	token := base64.URLEncoding.EncodeToString([]byte(tokenReq.URL.String()))
+
+	return token, nil
+}
+
+// loadOCIConfig reads the OCI configuration using the OCI SDK and updates the struct fields
+func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
+	// Get user's home directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	// Path to OCI config file
+	ociConfigPath := filepath.Join(homeDir, ".oci", "config")
+	fmt.Printf("Loading OCI config from: %s\n", ociConfigPath)
+
+	// Check if config file exists
+	if _, err := os.Stat(ociConfigPath); os.IsNotExist(err) {
+		return fmt.Errorf("OCI config file not found at %s", ociConfigPath)
+	}
+
+	// Load the configuration using the OCI SDK
+	configProvider, err := common.ConfigurationProviderFromFile(ociConfigPath, "")
+	if err != nil {
+		return fmt.Errorf("failed to load OCI configuration: %w", err)
+	}
+
+	// Get the tenancy OCID
+	tenancyOCID, err := configProvider.TenancyOCID()
+	if err != nil {
+		return fmt.Errorf("failed to get tenancy OCID: %w", err)
+	}
+	fmt.Printf("Loaded tenancy OCID: %s\n", tenancyOCID)
+
+	// Get the user OCID
+	userOCID, err := configProvider.UserOCID()
+	if err != nil {
+		return fmt.Errorf("failed to get user OCID: %w", err)
+	}
+	fmt.Printf("Loaded user OCID: %s\n", userOCID)
+
+	// Get the region
+	region, err := configProvider.Region()
+	if err != nil {
+		return fmt.Errorf("failed to get region: %w", err)
+	}
+	fmt.Printf("Loaded region: %s\n", region)
+
+	// Get the fingerprint
+	fingerprint, err := configProvider.KeyFingerprint()
+	if err != nil {
+		return fmt.Errorf("failed to get key fingerprint: %w", err)
+	}
+	fmt.Printf("Loaded key fingerprint: %s\n", fingerprint)
+
+	// Get the private key
+	privateKey, err := configProvider.PrivateRSAKey()
+	if err != nil {
+		return fmt.Errorf("failed to get private key: %w", err)
+	}
+
+	// Convert private key to PEM-encoded string
+	privateKeyPEM := privateKeyToPEM(privateKey)
+	fmt.Printf("Successfully loaded private key\n")
+
+	// Read the config file to get the compartment OCID
+	cfg, err := ini.Load(ociConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to read OCI config file: %w", err)
+	}
+
+	// Get the compartment OCID from the DEFAULT section
+	compartmentOCID := cfg.Section("DEFAULT").Key("compartment_id").String()
+	if compartmentOCID == "" {
+		// If no compartment_id is specified, use the tenancy OCID as the root compartment
+		compartmentOCID = tenancyOCID
+	}
+	fmt.Printf("Using compartment OCID: %s\n", compartmentOCID)
+
+	// Update struct fields with values from config
+	if i.TenancyID == "" {
+		i.TenancyID = tenancyOCID
+	}
+	if i.CompartmentID == "" {
+		i.CompartmentID = compartmentOCID
+	}
+	if i.Region == "" {
+		i.Region = region
+	}
+
+	// Set environment variables for OCI authentication
+	os.Setenv("OCI_TENANCY_OCID", tenancyOCID)
+	os.Setenv("OCI_USER_OCID", userOCID)
+	os.Setenv("OCI_REGION", region)
+	os.Setenv("OCI_KEY_FINGERPRINT", fingerprint)
+	os.Setenv("OCI_PRIVATE_KEY", privateKeyPEM)
+	os.Setenv("OCI_COMPARTMENT_OCID", compartmentOCID)
+
+	// Validate required fields
+	if i.TenancyID == "" {
+		return fmt.Errorf("tenancy ID not found in OCI config")
+	}
+	if i.CompartmentID == "" {
+		return fmt.Errorf("compartment ID not found in OCI config")
+	}
+	if i.Region == "" {
+		return fmt.Errorf("region not found in OCI config")
+	}
+
+	return nil
+}
+
+// privateKeyToPEM converts an RSA private key to a PEM-encoded string
+func privateKeyToPEM(privateKey *rsa.PrivateKey) string {
+	// Marshal the private key to PKCS#1 format
+	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+
+	// Create a PEM block
+	privateKeyPEM := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: privateKeyBytes,
+		},
+	)
+
+	// Convert to string
+	return string(privateKeyPEM)
+}
+
+// createDNSLabel creates a valid DNS label that meets OCI requirements:
+// - Must be 15 characters or less
+// - Must contain only lowercase alphanumeric characters
+// - Maintains uniqueness by using parts of the original name
+func createDNSLabel(name string) string {
+	// Convert to lowercase
+	dnsLabel := strings.ToLower(name)
+
+	// If longer than 15 chars, take first 7 and last 7 with 'x' in middle
+	if len(dnsLabel) > 15 {
+		dnsLabel = dnsLabel[:7] + "x" + dnsLabel[len(dnsLabel)-7:]
+	}
+
+	// Replace any non-alphanumeric chars with 'x'
+	dnsLabel = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			return r
+		}
+		return 'x'
+	}, dnsLabel)
+
+	return dnsLabel
+}
+
+// getAvailabilityDomainName returns the full name of the first availability domain in the region
+func (i *KubernetesRuntimeInfraOKE) getAvailabilityDomainName() (string, error) {
+	// Create a new identity client
+	configProvider := common.DefaultConfigProvider()
+	identityClient, err := identity.NewIdentityClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create identity client: %w", err)
+	}
+
+	// Set the region for the client
+	identityClient.SetRegion(i.Region)
+
+	// Create a request to list availability domains
+	request := identity.ListAvailabilityDomainsRequest{
+		CompartmentId: common.String(i.CompartmentID),
+	}
+
+	// Call the API to get availability domains
+	response, err := identityClient.ListAvailabilityDomains(context.Background(), request)
+	if err != nil {
+		return "", fmt.Errorf("failed to list availability domains: %w", err)
+	}
+
+	// Check if we have any availability domains
+	if len(response.Items) == 0 {
+		return "", fmt.Errorf("no availability domains found in region %s", i.Region)
+	}
+
+	// Return the name of the first availability domain
+	return *response.Items[0].Name, nil
+}
+
+// getServiceGatewayServiceID returns the OCI service ID for the service gateway in a given region.
+// This ID is used to identify the Oracle Services Network in the service gateway.
+func getServiceGatewayServiceID(region string, compartmentID string) (string, error) {
+	// Create a new virtual network client
+	configProvider := common.DefaultConfigProvider()
+	vcnClient, err := ocicore.NewVirtualNetworkClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create virtual network client: %w", err)
+	}
+
+	// Set the region for the client
+	vcnClient.SetRegion(region)
+
+	// Create a request to list services
+	request := ocicore.ListServicesRequest{}
+
+	// Call the API to get services
+	response, err := vcnClient.ListServices(context.Background(), request)
+	if err != nil {
+		return "", fmt.Errorf("failed to list services: %w", err)
+	}
+
+	// Find the Oracle Services Network service
+	for _, service := range response.Items {
+		if service.Name != nil && strings.Contains(*service.Name, "Services In Oracle Services Network") {
+			return *service.Id, nil
+		}
+	}
+
+	// If service not found, return an error
+	return "", fmt.Errorf("Oracle Services Network service not found in region %s", region)
+}
+
+// getLatestOKEVersion returns the latest Kubernetes version available in OKE
+func (i *KubernetesRuntimeInfraOKE) getLatestOKEVersion() (string, error) {
+	// Create a new container engine client
+	configProvider := common.DefaultConfigProvider()
+	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create container engine client: %w", err)
+	}
+
+	// Set the region for the client
+	containerClient.SetRegion(i.Region)
+
+	// Create a request to list node pool options
+	request := ocicontainerengine.GetNodePoolOptionsRequest{
+		CompartmentId:    common.String(i.CompartmentID),
+		NodePoolOptionId: common.String("all"),
+	}
+
+	// Call the API to get node pool options
+	response, err := containerClient.GetNodePoolOptions(context.Background(), request)
+	if err != nil {
+		return "", fmt.Errorf("failed to get node pool options: %w", err)
+	}
+
+	// Check if we have any images
+	if len(response.Sources) == 0 {
+		return "", fmt.Errorf("no OKE worker node images found")
+	}
+
+	// Find the latest version by parsing version strings
+	latestVersion := ""
+	for _, source := range response.Sources {
+		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok {
+			name := *sourceType.SourceName
+			// Extract version from name (e.g., "OKE-1.30.10")
+			if strings.Contains(name, "OKE-") {
+				version := strings.Split(name, "OKE-")[1]
+				version = strings.Split(version, "-")[0] // Remove any trailing parts
+				if latestVersion == "" || version > latestVersion {
+					latestVersion = version
+				}
+			}
+		}
+	}
+
+	if latestVersion == "" {
+		return "", fmt.Errorf("could not determine latest OKE version")
+	}
+
+	latestVersion = "v" + latestVersion
+
+	return latestVersion, nil
+}
+
+// getOKEWorkerNodeImageOCID returns the OCID of the specified OKE worker node image
+func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) {
+	// Get the latest OKE version
+	latestVersion, err := i.getLatestOKEVersion()
+	if err != nil {
+		return "", fmt.Errorf("failed to get latest OKE version: %w", err)
+	}
+
+	// Create a new container engine client
+	configProvider := common.DefaultConfigProvider()
+	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create container engine client: %w", err)
+	}
+
+	// Set the region for the client
+	containerClient.SetRegion(i.Region)
+
+	// Create a request to list node pool options
+	request := ocicontainerengine.GetNodePoolOptionsRequest{
+		CompartmentId:    common.String(i.CompartmentID),
+		NodePoolOptionId: common.String("all"),
+	}
+
+	// Call the API to get node pool options
+	response, err := containerClient.GetNodePoolOptions(context.Background(), request)
+	if err != nil {
+		return "", fmt.Errorf("failed to get node pool options: %w", err)
+	}
+
+	// Check if we have any images
+	if len(response.Sources) == 0 {
+		return "", fmt.Errorf("no OKE worker node images found")
+	}
+
+	// Print out all available images
+	fmt.Println("\nAvailable OKE worker node images:")
+	for _, source := range response.Sources {
+		// Try to get the concrete type
+		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok {
+			fmt.Printf("- Name: %s, OCID: %s\n", *sourceType.SourceName, *sourceType.ImageId)
+		}
+	}
+
+	// Find an image with the latest Kubernetes version
+	for _, source := range response.Sources {
+		// Try to get the concrete type
+		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok {
+			name := *sourceType.SourceName
+			// Remove leading 'v' from version for image search
+			versionWithoutV := strings.TrimPrefix(latestVersion, "v")
+			if strings.Contains(name, fmt.Sprintf("OKE-%s", versionWithoutV)) {
+				return *sourceType.ImageId, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no suitable OKE worker node images found with Kubernetes version %s", latestVersion)
+}
+
+// setupPulumiWorkspace sets up the Pulumi workspace and environment for OKE operations
+func (i *KubernetesRuntimeInfraOKE) setupPulumiWorkspace(program pulumi.RunFunc) (auto.Stack, error) {
+	// Load OCI configuration
+	if err := i.loadOCIConfig(); err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to load OCI configuration: %w", err)
+	}
+
+	// Set up state directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to get home directory: %w", err)
+	}
+	i.stateDir = filepath.Join(homeDir, ".config", "threeport", "pulumi-state", i.RuntimeInstanceName)
+
+	// Ensure state directory exists
+	if err := os.MkdirAll(i.stateDir, 0755); err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to create state directory: %w", err)
+	}
+
+	// Create Pulumi.yaml project file
+	pulumiYaml := `name: oke
+runtime: go
+description: Oracle Kubernetes Engine (OKE) cluster for Threeport
+`
+	pulumiYamlPath := filepath.Join(i.stateDir, "Pulumi.yaml")
+	if err := os.WriteFile(pulumiYamlPath, []byte(pulumiYaml), 0644); err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to create Pulumi.yaml: %w", err)
+	}
+
+	// Set environment variables for Pulumi configuration
+	os.Setenv("PULUMI_BACKEND_URL", "file://"+i.stateDir)
+	os.Setenv("PULUMI_HOME", i.stateDir)
+	os.Setenv("PULUMI_ORGANIZATION", "organization")
+	os.Setenv("PULUMI_PROJECT", "oke")
+	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "threeport") // Set a default passphrase for state encryption
+
+	// Set plugin path to the default location
+	userHomeDir, err := os.UserHomeDir()
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to get home directory: %w", err)
+	}
+	defaultPluginPath := filepath.Join(userHomeDir, ".pulumi", "plugins")
+	os.Setenv("PULUMI_PLUGIN_PATH", defaultPluginPath)
+
+	// Create a context for the automation API
+	ctx := context.Background()
+
+	// Create a new workspace with local state backend
+	workspace, err := auto.NewLocalWorkspace(ctx,
+		auto.Program(program),
+		auto.WorkDir(i.stateDir),
+	)
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Create or select a stack with fully qualified name
+	stackName := fmt.Sprintf("organization/oke/%s", i.RuntimeInstanceName)
+	stack, err := auto.UpsertStack(ctx, stackName, workspace)
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to create/select stack: %w", err)
+	}
+
+	// Set up stack configuration
+	err = stack.SetConfig(ctx, "oci:region", auto.ConfigValue{Value: i.Region})
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to set region config: %w", err)
+	}
+
+	// Set OCI environment variables
+	os.Setenv("OCI_REGION", i.Region)
+	os.Setenv("OCI_TENANCY_OCID", i.TenancyID)
+	os.Setenv("OCI_COMPARTMENT_OCID", i.CompartmentID)
+
+	return stack, nil
 }
