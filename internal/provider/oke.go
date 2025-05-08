@@ -674,33 +674,18 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			CompartmentId: pulumi.String(i.CompartmentID),
 			VcnId:         vcn.ID(),
 			DisplayName:   pulumi.String(fmt.Sprintf("%s-control-plane-seclist", i.RuntimeInstanceName)),
+			IngressSecurityRules: core.SecurityListIngressSecurityRuleArray{
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol:  pulumi.String("all"),
+					Source:    pulumi.String("0.0.0.0/0"),
+					Stateless: pulumi.Bool(false),
+				},
+			},
 			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("all"),
 					Destination: pulumi.String("0.0.0.0/0"),
 					Stateless:   pulumi.Bool(false),
-				},
-			},
-			IngressSecurityRules: core.SecurityListIngressSecurityRuleArray{
-				// Allow incoming HTTPS traffic from anywhere for K8s API access
-				&core.SecurityListIngressSecurityRuleArgs{
-					Protocol: pulumi.String("6"), // TCP
-					Source:   pulumi.String("0.0.0.0/0"),
-					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
-						Max: pulumi.Int(6443),
-						Min: pulumi.Int(6443),
-					},
-					Stateless: pulumi.Bool(false),
-				},
-				// Allow incoming ICMP traffic for path discovery
-				&core.SecurityListIngressSecurityRuleArgs{
-					Protocol: pulumi.String("1"), // ICMP
-					Source:   pulumi.String("0.0.0.0/0"),
-					IcmpOptions: &core.SecurityListIngressSecurityRuleIcmpOptionsArgs{
-						Type: pulumi.Int(3),
-						Code: pulumi.Int(4),
-					},
-					Stateless: pulumi.Bool(false),
 				},
 			},
 		}, pulumi.Provider(ociProvider),
@@ -714,20 +699,19 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			CompartmentId: pulumi.String(i.CompartmentID),
 			VcnId:         vcn.ID(),
 			DisplayName:   pulumi.String(fmt.Sprintf("%s-worker-nodes-seclist", i.RuntimeInstanceName)),
+			IngressSecurityRules: core.SecurityListIngressSecurityRuleArray{
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol:  pulumi.String("all"),
+					Source:    pulumi.String("0.0.0.0/0"),
+					Stateless: pulumi.Bool(false),
+				},
+			},
 			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
 				// Allow all outbound traffic
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("all"),
 					Destination: pulumi.String("0.0.0.0/0"),
 					Stateless:   pulumi.Bool(false),
-				},
-			},
-			IngressSecurityRules: core.SecurityListIngressSecurityRuleArray{
-				// Allow incoming traffic from control plane
-				&core.SecurityListIngressSecurityRuleArgs{
-					Protocol:  pulumi.String("all"),
-					Source:    pulumi.String("0.0.0.0/0"),
-					Stateless: pulumi.Bool(false),
 				},
 			},
 		}, pulumi.Provider(ociProvider),
@@ -741,14 +725,6 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			CompartmentId: pulumi.String(i.CompartmentID),
 			VcnId:         vcn.ID(),
 			DisplayName:   pulumi.String(fmt.Sprintf("%s-load-balancer-seclist", i.RuntimeInstanceName)),
-			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
-				// Allow all outbound traffic to worker nodes
-				&core.SecurityListEgressSecurityRuleArgs{
-					Protocol:    pulumi.String("6"),           // TCP
-					Destination: pulumi.String("10.0.2.0/24"), // Worker nodes subnet CIDR
-					Stateless:   pulumi.Bool(false),
-				},
-			},
 			IngressSecurityRules: core.SecurityListIngressSecurityRuleArray{
 				// Allow incoming HTTP traffic
 				&core.SecurityListIngressSecurityRuleArgs{
@@ -769,6 +745,14 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 						Min: pulumi.Int(443),
 					},
 					Stateless: pulumi.Bool(false),
+				},
+			},
+			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
+				// Allow all outbound traffic to worker nodes
+				&core.SecurityListEgressSecurityRuleArgs{
+					Protocol:    pulumi.String("6"),           // TCP
+					Destination: pulumi.String("10.0.2.0/24"), // Worker nodes subnet CIDR
+					Stateless:   pulumi.Bool(false),
 				},
 			},
 		}, pulumi.Provider(ociProvider),
