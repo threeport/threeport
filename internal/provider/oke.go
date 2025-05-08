@@ -462,20 +462,19 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest OKE version: %w", err)
 	}
-	// latestVersion := "v1.30.10"
 
 	// Set default values for worker nodes if not specified
 	if i.WorkerNodeShape == "" {
 		i.WorkerNodeShape = "VM.Standard.A1.Flex"
 	}
 	if i.WorkerNodeInitialCount == 0 {
-		i.WorkerNodeInitialCount = 1
+		i.WorkerNodeInitialCount = 2
 	}
 	if i.WorkerNodeMinCount == 0 {
 		i.WorkerNodeMinCount = 1
 	}
 	if i.WorkerNodeMaxCount == 0 {
-		i.WorkerNodeMaxCount = 1
+		i.WorkerNodeMaxCount = 2
 	}
 
 	// Get the availability domain name
@@ -842,8 +841,8 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 				SourceType: pulumi.String("IMAGE"),
 			},
 			NodeShapeConfig: &containerengine.NodePoolNodeShapeConfigArgs{
-				Ocpus:       pulumi.Float64(1.0),
-				MemoryInGbs: pulumi.Float64(6.0),
+				Ocpus:       pulumi.Float64(2.0),
+				MemoryInGbs: pulumi.Float64(12.0),
 			},
 		}, pulumi.Provider(ociProvider),
 			pulumi.DependsOn([]pulumi.Resource{cluster}))
