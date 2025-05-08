@@ -451,13 +451,85 @@ func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) 
 	return "", fmt.Errorf("no suitable OKE worker node images found with Kubernetes version %s", latestVersion)
 }
 
-// Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
-func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
+// setupPulumiWorkspace sets up the Pulumi workspace and environment for OKE operations
+func (i *KubernetesRuntimeInfraOKE) setupPulumiWorkspace(program pulumi.RunFunc) (auto.Stack, error) {
 	// Load OCI configuration
 	if err := i.loadOCIConfig(); err != nil {
-		return nil, fmt.Errorf("failed to load OCI configuration: %w", err)
+		return auto.Stack{}, fmt.Errorf("failed to load OCI configuration: %w", err)
 	}
 
+	// Set up state directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to get home directory: %w", err)
+	}
+	i.stateDir = filepath.Join(homeDir, ".config", "threeport", "pulumi-state", i.RuntimeInstanceName)
+
+	// Ensure state directory exists
+	if err := os.MkdirAll(i.stateDir, 0755); err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to create state directory: %w", err)
+	}
+
+	// Create Pulumi.yaml project file
+	pulumiYaml := `name: oke
+runtime: go
+description: Oracle Kubernetes Engine (OKE) cluster for Threeport
+`
+	pulumiYamlPath := filepath.Join(i.stateDir, "Pulumi.yaml")
+	if err := os.WriteFile(pulumiYamlPath, []byte(pulumiYaml), 0644); err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to create Pulumi.yaml: %w", err)
+	}
+
+	// Set environment variables for Pulumi configuration
+	os.Setenv("PULUMI_BACKEND_URL", "file://"+i.stateDir)
+	os.Setenv("PULUMI_HOME", i.stateDir)
+	os.Setenv("PULUMI_ORGANIZATION", "organization")
+	os.Setenv("PULUMI_PROJECT", "oke")
+	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "threeport") // Set a default passphrase for state encryption
+
+	// Set plugin path to the default location
+	userHomeDir, err := os.UserHomeDir()
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to get home directory: %w", err)
+	}
+	defaultPluginPath := filepath.Join(userHomeDir, ".pulumi", "plugins")
+	os.Setenv("PULUMI_PLUGIN_PATH", defaultPluginPath)
+
+	// Create a context for the automation API
+	ctx := context.Background()
+
+	// Create a new workspace with local state backend
+	workspace, err := auto.NewLocalWorkspace(ctx,
+		auto.Program(program),
+		auto.WorkDir(i.stateDir),
+	)
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Create or select a stack with fully qualified name
+	stackName := fmt.Sprintf("organization/oke/%s", i.RuntimeInstanceName)
+	stack, err := auto.UpsertStack(ctx, stackName, workspace)
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to create/select stack: %w", err)
+	}
+
+	// Set up stack configuration
+	err = stack.SetConfig(ctx, "oci:region", auto.ConfigValue{Value: i.Region})
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to set region config: %w", err)
+	}
+
+	// Set OCI environment variables
+	os.Setenv("OCI_REGION", i.Region)
+	os.Setenv("OCI_TENANCY_OCID", i.TenancyID)
+	os.Setenv("OCI_COMPARTMENT_OCID", i.CompartmentID)
+
+	return stack, nil
+}
+
+// Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
+func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 	// Get the latest OKE version
 	latestVersion, err := i.getLatestOKEVersion()
 	if err != nil {
@@ -484,30 +556,8 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 		return nil, fmt.Errorf("failed to get availability domain: %w", err)
 	}
 
-	// Set up state directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-	i.stateDir = filepath.Join(homeDir, ".config", "threeport", "pulumi-state", i.RuntimeInstanceName)
-
-	// Ensure state directory exists
-	if err := os.MkdirAll(i.stateDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create state directory: %w", err)
-	}
-
-	// Create Pulumi.yaml project file
-	pulumiYaml := `name: oke
-runtime: go
-description: Oracle Kubernetes Engine (OKE) cluster for Threeport
-`
-	pulumiYamlPath := filepath.Join(i.stateDir, "Pulumi.yaml")
-	if err := os.WriteFile(pulumiYamlPath, []byte(pulumiYaml), 0644); err != nil {
-		return nil, fmt.Errorf("failed to create Pulumi.yaml: %w", err)
-	}
-
-	// Create a new Pulumi program
-	program := func(ctx *pulumi.Context) error {
+	// Set up Pulumi workspace and get stack
+	stack, err := i.setupPulumiWorkspace(func(ctx *pulumi.Context) error {
 		// Create OCI provider with explicit configuration
 		ociProvider, err := oci.NewProvider(ctx, "oci-provider", &oci.ProviderArgs{
 			Region:      pulumi.String(i.Region),
@@ -858,52 +908,13 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 		ctx.Export("kubeconfig", cluster.Endpoints.Index(pulumi.Int(0)).PrivateEndpoint())
 
 		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
 	}
 
 	// Create a context for the automation API
 	ctx := context.Background()
-
-	// Set environment variables for Pulumi configuration
-	os.Setenv("PULUMI_BACKEND_URL", "file://"+i.stateDir)
-	os.Setenv("PULUMI_HOME", i.stateDir)
-	os.Setenv("PULUMI_ORGANIZATION", "organization")
-	os.Setenv("PULUMI_PROJECT", "oke")
-	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "threeport") // Set a default passphrase for state encryption
-
-	// Set plugin path to the default location
-	userHomeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-	defaultPluginPath := filepath.Join(userHomeDir, ".pulumi", "plugins")
-	os.Setenv("PULUMI_PLUGIN_PATH", defaultPluginPath)
-
-	// Create a new workspace with local state backend
-	workspace, err := auto.NewLocalWorkspace(ctx,
-		auto.Program(program),
-		auto.WorkDir(i.stateDir),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create workspace: %w", err)
-	}
-
-	// Create or select a stack with fully qualified name
-	stackName := fmt.Sprintf("organization/oke/%s", i.RuntimeInstanceName)
-	stack, err := auto.UpsertStack(ctx, stackName, workspace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create/select stack: %w", err)
-	}
-
-	// Set up stack configuration
-	err = stack.SetConfig(ctx, "oci:region", auto.ConfigValue{Value: i.Region})
-	if err != nil {
-		return nil, fmt.Errorf("failed to set region config: %w", err)
-	}
-
-	// Set OCI environment variables
-	os.Setenv("OCI_REGION", i.Region)
-	os.Setenv("OCI_TENANCY_OCID", i.TenancyID)
-	os.Setenv("OCI_COMPARTMENT_OCID", i.CompartmentID)
 
 	// Deploy the stack
 	_, err = stack.Up(ctx, optup.ProgressStreams(os.Stdout))
@@ -999,68 +1010,16 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 
 // Delete deletes an Oracle Cloud OKE cluster.
 func (i *KubernetesRuntimeInfraOKE) Delete() error {
-	// Load OCI configuration
-	if err := i.loadOCIConfig(); err != nil {
-		return fmt.Errorf("failed to load OCI configuration: %w", err)
-	}
-
-	// Set up state directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-	i.stateDir = filepath.Join(homeDir, ".config", "threeport", "pulumi-state", i.RuntimeInstanceName)
-
-	// Set environment variables for Pulumi configuration
-	os.Setenv("PULUMI_BACKEND_URL", "file://"+i.stateDir)
-	os.Setenv("PULUMI_HOME", i.stateDir)
-	os.Setenv("PULUMI_ORGANIZATION", "organization")
-	os.Setenv("PULUMI_PROJECT", "oke")
-	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "threeport") // Set a default passphrase for state encryption
-
-	// Set plugin path to the default location
-	userHomeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-	defaultPluginPath := filepath.Join(userHomeDir, ".pulumi", "plugins")
-	os.Setenv("PULUMI_PLUGIN_PATH", defaultPluginPath)
-
-	// Create a program that will destroy resources
-	program := func(ctx *pulumi.Context) error {
-		// The program will read the existing state and destroy resources
+	// Set up Pulumi workspace and get stack
+	stack, err := i.setupPulumiWorkspace(func(ctx *pulumi.Context) error {
 		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to set up Pulumi workspace: %w", err)
 	}
 
 	// Create a context for the automation API
 	ctx := context.Background()
-
-	// Create a new workspace with local state backend
-	workspace, err := auto.NewLocalWorkspace(ctx,
-		auto.Program(program),
-		auto.WorkDir(i.stateDir),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create workspace: %w", err)
-	}
-
-	// Create or select a stack with fully qualified name
-	stackName := fmt.Sprintf("organization/oke/%s", i.RuntimeInstanceName)
-	stack, err := auto.UpsertStack(ctx, stackName, workspace)
-	if err != nil {
-		return fmt.Errorf("failed to create/select stack: %w", err)
-	}
-
-	// Set up stack configuration
-	err = stack.SetConfig(ctx, "oci:region", auto.ConfigValue{Value: i.Region})
-	if err != nil {
-		return fmt.Errorf("failed to set region config: %w", err)
-	}
-
-	// Set OCI environment variables
-	os.Setenv("OCI_REGION", i.Region)
-	os.Setenv("OCI_TENANCY_OCID", i.TenancyID)
-	os.Setenv("OCI_COMPARTMENT_OCID", i.CompartmentID)
 
 	// Destroy the stack
 	_, err = stack.Destroy(ctx, optdestroy.ProgressStreams(os.Stdout))
