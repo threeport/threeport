@@ -1727,9 +1727,14 @@ func (cpi *ControlPlaneInstaller) getAPIServiceType() string {
 // getAPIServiceAnnotations returns the threeport API's service annotation based
 // on infra provider to provision the correct load balancer.
 func (cpi *ControlPlaneInstaller) getAPIServiceAnnotations() map[string]interface{} {
-	if cpi.Opts.InfraProvider == "eks" && cpi.Opts.RestApiEksLoadBalancer {
+	switch {
+	case cpi.Opts.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS && cpi.Opts.RestApiEksLoadBalancer:
 		return map[string]interface{}{
 			"service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
+		}
+	case cpi.Opts.InfraProvider == v0.KubernetesRuntimeInfraProviderOKE:
+		return map[string]interface{}{
+			"oci.oraclecloud.com/load-balancer-type": "nlb",
 		}
 	}
 
