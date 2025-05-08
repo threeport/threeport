@@ -530,12 +530,6 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
 func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
-	// Get the latest OKE version
-	latestVersion, err := i.getLatestOKEVersion()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get latest OKE version: %w", err)
-	}
-
 	// Set default values for worker nodes if not specified
 	if i.WorkerNodeShape == "" {
 		i.WorkerNodeShape = "VM.Standard.A1.Flex"
@@ -550,14 +544,21 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 		i.WorkerNodeMaxCount = 2
 	}
 
-	// Get the availability domain name
-	availabilityDomain, err := i.getAvailabilityDomainName()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get availability domain: %w", err)
-	}
-
 	// Set up Pulumi workspace and get stack
 	stack, err := i.setupPulumiWorkspace(func(ctx *pulumi.Context) error {
+
+		// Get the latest OKE version
+		latestVersion, err := i.getLatestOKEVersion()
+		if err != nil {
+			return fmt.Errorf("failed to get latest OKE version: %w", err)
+		}
+
+		// Get the availability domain name
+		availabilityDomain, err := i.getAvailabilityDomainName()
+		if err != nil {
+			return fmt.Errorf("failed to get availability domain: %w", err)
+		}
+
 		// Create OCI provider with explicit configuration
 		ociProvider, err := oci.NewProvider(ctx, "oci-provider", &oci.ProviderArgs{
 			Region:      pulumi.String(i.Region),
