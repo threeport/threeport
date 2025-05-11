@@ -181,6 +181,21 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 			return fmt.Errorf("failed to delete ObservabilityStackInstance: %w", err)
 		}
 
+	case "v0.OciAccount":
+		if _, err := DeleteOciAccount(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete OciAccount: %w", err)
+		}
+
+	case "v0.OciOkeKubernetesRuntimeDefinition":
+		if _, err := DeleteOciOkeKubernetesRuntimeDefinition(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete OciOkeKubernetesRuntimeDefinition: %w", err)
+		}
+
+	case "v0.OciOkeKubernetesRuntimeInstance":
+		if _, err := DeleteOciOkeKubernetesRuntimeInstance(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete OciOkeKubernetesRuntimeInstance: %w", err)
+		}
+
 	case "v0.Profile":
 		if _, err := DeleteProfile(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete Profile: %w", err)

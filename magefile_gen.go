@@ -601,6 +601,120 @@ func (Build) AwsControllerImageRelease() error {
 	return nil
 }
 
+// OciControllerBin builds the binary for the oci-controller.
+func (Build) OciControllerBin(arch string) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"oci-controller",
+		"cmd/oci-controller/main_gen.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build oci-controller binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/oci-controller")
+
+	return nil
+}
+
+// OciControllerBinDev builds the oci-controller binary for the architcture of the machine
+// where it is built.
+func (Build) OciControllerBinDev() error {
+	_, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	build := Build{}
+	if err := build.OciControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build dev oci-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// OciControllerBinRelease builds the oci-controller binary for release architecture.
+func (Build) OciControllerBinRelease() error {
+	build := Build{}
+	if err := build.OciControllerBin(releaseArch); err != nil {
+		return fmt.Errorf("failed to build release oci-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// OciControllerImage builds and pushes the container image for the oci-controller.
+func (Build) OciControllerImage(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	build := Build{}
+	if err := build.OciControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		"cmd/oci-controller/image/Dockerfile-alpine",
+		arch,
+		imageRepo,
+		"threeport-oci-controller",
+		imageTag,
+		true,
+		false,
+		"",
+	); err != nil {
+		return fmt.Errorf("failed to build and push oci-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// OciControllerImageDev builds and pushes a development oci-controller container image.
+func (Build) OciControllerImageDev() error {
+	_, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	build := Build{}
+	if err := build.OciControllerImage(
+		installer.DevImageRepo,
+		version.GetVersion(),
+		arch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push dev oci-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// OciControllerImageRelease builds and pushes a release oci-controller container image.
+func (Build) OciControllerImageRelease() error {
+	build := Build{}
+	if err := build.OciControllerImage(
+		installer.ThreeportImageRepo,
+		version.GetVersion(),
+		releaseArch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push release oci-controller image: %w", err)
+	}
+
+	return nil
+}
+
 // ControlPlaneControllerBin builds the binary for the control-plane-controller.
 func (Build) ControlPlaneControllerBin(arch string) error {
 	workingDir, _, err := getBuildVals()
@@ -1422,6 +1536,10 @@ func (Build) AllBins(arch string) error {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
+	if err := build.OciControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
 	if err := build.ControlPlaneControllerBin(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
@@ -1476,6 +1594,10 @@ func (Build) AllBinsDev() error {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
+	if err := build.OciControllerBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
 	if err := build.ControlPlaneControllerBinDev(); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
@@ -1527,6 +1649,10 @@ func (Build) AllBinsRelease() error {
 	}
 
 	if err := build.AwsControllerBinRelease(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.OciControllerBinRelease(); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
@@ -1588,6 +1714,10 @@ func (Build) AllImages(
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
+	if err := build.OciControllerImage(imageRepo, imageTag, arch); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
 	if err := build.ControlPlaneControllerImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
@@ -1642,6 +1772,10 @@ func (Build) AllImagesDev() error {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
+	if err := build.OciControllerImageDev(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
 	if err := build.ControlPlaneControllerImageDev(); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
@@ -1693,6 +1827,10 @@ func (Build) AllImagesRelease() error {
 	}
 
 	if err := build.AwsControllerImageRelease(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	if err := build.OciControllerImageRelease(); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 

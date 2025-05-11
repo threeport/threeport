@@ -251,42 +251,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/extension-api-routes/versions": {
-            "get": {
-                "description": "Get the supported API versions for extension api routes.",
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "GetExtensionApiRouteVersions gets the supported versions for the extension api route API.",
-                "operationId": "extensionApiRoute-get-versions",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.ApiObjectVersions"
-                        }
-                    }
-                }
-            }
-        },
-        "/extension-apis/versions": {
-            "get": {
-                "description": "Get the supported API versions for extension apis.",
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "GetExtensionApiVersions gets the supported versions for the extension api API.",
-                "operationId": "extensionApi-get-versions",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.ApiObjectVersions"
-                        }
-                    }
-                }
-            }
-        },
         "/gateway-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for gateway definitions.",
@@ -557,6 +521,42 @@ const docTemplate = `{
                 }
             }
         },
+        "/module-api-routes/versions": {
+            "get": {
+                "description": "Get the supported API versions for module api routes.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetModuleApiRouteVersions gets the supported versions for the module api route API.",
+                "operationId": "moduleApiRoute-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/module-apis/versions": {
+            "get": {
+                "description": "Get the supported API versions for module apis.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetModuleApiVersions gets the supported versions for the module api API.",
+                "operationId": "moduleApi-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
+                        }
+                    }
+                }
+            }
+        },
         "/observability-dashboard-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for observability dashboard definitions.",
@@ -619,6 +619,60 @@ const docTemplate = `{
                 ],
                 "summary": "GetObservabilityStackInstanceVersions gets the supported versions for the observability stack instance API.",
                 "operationId": "observabilityStackInstance-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/oci-accounts/versions": {
+            "get": {
+                "description": "Get the supported API versions for oci accounts.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetOciAccountVersions gets the supported versions for the oci account API.",
+                "operationId": "ociAccount-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/oci-oke-kubernetes-runtime-definitions/versions": {
+            "get": {
+                "description": "Get the supported API versions for oci oke kubernetes runtime definitions.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetOciOkeKubernetesRuntimeDefinitionVersions gets the supported versions for the oci oke kubernetes runtime definition API.",
+                "operationId": "ociOkeKubernetesRuntimeDefinition-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/oci-oke-kubernetes-runtime-instances/versions": {
+            "get": {
+                "description": "Get the supported API versions for oci oke kubernetes runtime instances.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetOciOkeKubernetesRuntimeInstanceVersions gets the supported versions for the oci oke kubernetes runtime instance API.",
+                "operationId": "ociOkeKubernetesRuntimeInstance-get-versions",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4400,568 +4454,6 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.Event"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/extension-api-routes": {
-            "get": {
-                "description": "Get all extension api routes from the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets all extension api routes.",
-                "operationId": "get-v0-extensionApiRoutes",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "extension api route search by name",
-                        "name": "name",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Add a new extension api route to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new extension api route.",
-                "operationId": "add-v0-extensionApiRoute",
-                "parameters": [
-                    {
-                        "description": "ExtensionApiRoute object",
-                        "name": "extensionApiRoute",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.ExtensionApiRoute"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/extension-api-routes/{id}": {
-            "get": {
-                "description": "Get a particular extension api route from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets a extension api route.",
-                "operationId": "get-v0-extensionApiRoute",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Replace a extension api route in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating extension api route objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates an existing extension api route by replacing the entire object.",
-                "operationId": "replace-v0-extensionApiRoute",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "ExtensionApiRoute object",
-                        "name": "extensionApiRoute",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.ExtensionApiRoute"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a extension api route by ID from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "deletes a extension api route.",
-                "operationId": "delete-v0-extensionApiRoute",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "description": "Update a extension api route in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating extension api route objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates specific fields for an existing extension api route.",
-                "operationId": "update-v0-extensionApiRoute",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "ExtensionApiRoute object",
-                        "name": "extensionApiRoute",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.ExtensionApiRoute"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/extension-apis": {
-            "get": {
-                "description": "Get all extension apis from the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets all extension apis.",
-                "operationId": "get-v0-extensionApis",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "extension api search by name",
-                        "name": "name",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Add a new extension api to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new extension api.",
-                "operationId": "add-v0-extensionApi",
-                "parameters": [
-                    {
-                        "description": "ExtensionApi object",
-                        "name": "extensionApi",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.ExtensionApi"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/extension-apis/{id}": {
-            "get": {
-                "description": "Get a particular extension api from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets a extension api.",
-                "operationId": "get-v0-extensionApi",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Replace a extension api in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating extension api objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates an existing extension api by replacing the entire object.",
-                "operationId": "replace-v0-extensionApi",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "ExtensionApi object",
-                        "name": "extensionApi",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.ExtensionApi"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a extension api by ID from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "deletes a extension api.",
-                "operationId": "delete-v0-extensionApi",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "description": "Update a extension api in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating extension api objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates specific fields for an existing extension api.",
-                "operationId": "update-v0-extensionApi",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "ExtensionApi object",
-                        "name": "extensionApi",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.ExtensionApi"
                         }
                     }
                 ],
@@ -9208,6 +8700,568 @@ const docTemplate = `{
                 }
             }
         },
+        "/v0/module-api-routes": {
+            "get": {
+                "description": "Get all module api routes from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all module api routes.",
+                "operationId": "get-v0-moduleApiRoutes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "module api route search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new module api route to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new module api route.",
+                "operationId": "add-v0-moduleApiRoute",
+                "parameters": [
+                    {
+                        "description": "ModuleApiRoute object",
+                        "name": "moduleApiRoute",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleApiRoute"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/module-api-routes/{id}": {
+            "get": {
+                "description": "Get a particular module api route from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a module api route.",
+                "operationId": "get-v0-moduleApiRoute",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a module api route in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating module api route objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing module api route by replacing the entire object.",
+                "operationId": "replace-v0-moduleApiRoute",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ModuleApiRoute object",
+                        "name": "moduleApiRoute",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleApiRoute"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a module api route by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a module api route.",
+                "operationId": "delete-v0-moduleApiRoute",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a module api route in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating module api route objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing module api route.",
+                "operationId": "update-v0-moduleApiRoute",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ModuleApiRoute object",
+                        "name": "moduleApiRoute",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleApiRoute"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/module-apis": {
+            "get": {
+                "description": "Get all module apis from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all module apis.",
+                "operationId": "get-v0-moduleApis",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "module api search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new module api to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new module api.",
+                "operationId": "add-v0-moduleApi",
+                "parameters": [
+                    {
+                        "description": "ModuleApi object",
+                        "name": "moduleApi",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleApi"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/module-apis/{id}": {
+            "get": {
+                "description": "Get a particular module api from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a module api.",
+                "operationId": "get-v0-moduleApi",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a module api in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating module api objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing module api by replacing the entire object.",
+                "operationId": "replace-v0-moduleApi",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ModuleApi object",
+                        "name": "moduleApi",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleApi"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a module api by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a module api.",
+                "operationId": "delete-v0-moduleApi",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a module api in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating module api objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing module api.",
+                "operationId": "update-v0-moduleApi",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ModuleApi object",
+                        "name": "moduleApi",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleApi"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/observability-dashboard-definitions": {
             "get": {
                 "description": "Get all observability dashboard definitions from the Threeport database.",
@@ -10301,6 +10355,849 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.ObservabilityStackInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/oci-accounts": {
+            "get": {
+                "description": "Get all oci accounts from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all oci accounts.",
+                "operationId": "get-v0-ociAccounts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "oci account search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new oci account to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new oci account.",
+                "operationId": "add-v0-ociAccount",
+                "parameters": [
+                    {
+                        "description": "OciAccount object",
+                        "name": "ociAccount",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.OciAccount"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/oci-accounts/{id}": {
+            "get": {
+                "description": "Get a particular oci account from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a oci account.",
+                "operationId": "get-v0-ociAccount",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a oci account in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating oci account objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing oci account by replacing the entire object.",
+                "operationId": "replace-v0-ociAccount",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "OciAccount object",
+                        "name": "ociAccount",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.OciAccount"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a oci account by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a oci account.",
+                "operationId": "delete-v0-ociAccount",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a oci account in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating oci account objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing oci account.",
+                "operationId": "update-v0-ociAccount",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "OciAccount object",
+                        "name": "ociAccount",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.OciAccount"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/oci-oke-kubernetes-runtime-definitions": {
+            "get": {
+                "description": "Get all oci oke kubernetes runtime definitions from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all oci oke kubernetes runtime definitions.",
+                "operationId": "get-v0-ociOkeKubernetesRuntimeDefinitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "oci oke kubernetes runtime definition search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new oci oke kubernetes runtime definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new oci oke kubernetes runtime definition.",
+                "operationId": "add-v0-ociOkeKubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "description": "OciOkeKubernetesRuntimeDefinition object",
+                        "name": "ociOkeKubernetesRuntimeDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.OciOkeKubernetesRuntimeDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/oci-oke-kubernetes-runtime-definitions/{id}": {
+            "get": {
+                "description": "Get a particular oci oke kubernetes runtime definition from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a oci oke kubernetes runtime definition.",
+                "operationId": "get-v0-ociOkeKubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a oci oke kubernetes runtime definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating oci oke kubernetes runtime definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing oci oke kubernetes runtime definition by replacing the entire object.",
+                "operationId": "replace-v0-ociOkeKubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "OciOkeKubernetesRuntimeDefinition object",
+                        "name": "ociOkeKubernetesRuntimeDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.OciOkeKubernetesRuntimeDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a oci oke kubernetes runtime definition by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a oci oke kubernetes runtime definition.",
+                "operationId": "delete-v0-ociOkeKubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a oci oke kubernetes runtime definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating oci oke kubernetes runtime definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing oci oke kubernetes runtime definition.",
+                "operationId": "update-v0-ociOkeKubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "OciOkeKubernetesRuntimeDefinition object",
+                        "name": "ociOkeKubernetesRuntimeDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.OciOkeKubernetesRuntimeDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/oci-oke-kubernetes-runtime-instances": {
+            "get": {
+                "description": "Get all oci oke kubernetes runtime instances from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all oci oke kubernetes runtime instances.",
+                "operationId": "get-v0-ociOkeKubernetesRuntimeInstances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "oci oke kubernetes runtime instance search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new oci oke kubernetes runtime instance to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new oci oke kubernetes runtime instance.",
+                "operationId": "add-v0-ociOkeKubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "description": "OciOkeKubernetesRuntimeInstance object",
+                        "name": "ociOkeKubernetesRuntimeInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.OciOkeKubernetesRuntimeInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/oci-oke-kubernetes-runtime-instances/{id}": {
+            "get": {
+                "description": "Get a particular oci oke kubernetes runtime instance from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a oci oke kubernetes runtime instance.",
+                "operationId": "get-v0-ociOkeKubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a oci oke kubernetes runtime instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating oci oke kubernetes runtime instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing oci oke kubernetes runtime instance by replacing the entire object.",
+                "operationId": "replace-v0-ociOkeKubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "OciOkeKubernetesRuntimeInstance object",
+                        "name": "ociOkeKubernetesRuntimeInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.OciOkeKubernetesRuntimeInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a oci oke kubernetes runtime instance by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a oci oke kubernetes runtime instance.",
+                "operationId": "delete-v0-ociOkeKubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a oci oke kubernetes runtime instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating oci oke kubernetes runtime instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing oci oke kubernetes runtime instance.",
+                "operationId": "update-v0-ociOkeKubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "OciOkeKubernetesRuntimeInstance object",
+                        "name": "ociOkeKubernetesRuntimeInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.OciOkeKubernetesRuntimeInstance"
                         }
                     }
                 ],
@@ -13601,6 +14498,9 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "datatypes.JSON": {
+            "type": "object"
+        },
         "v0.ApiObjectVersions": {
             "type": "object",
             "required": [
@@ -13649,184 +14549,13 @@ const docTemplate = `{
             }
         },
         "v0.AwsAccount": {
-            "type": "object",
-            "required": [
-                "AccountID",
-                "DefaultRegion",
-                "Name"
-            ],
-            "properties": {
-                "AccessKeyID": {
-                    "description": "The access key ID credentials for the AWS account.",
-                    "type": "string"
-                },
-                "AccountID": {
-                    "description": "The account ID for the AWS account.",
-                    "type": "string"
-                },
-                "AwsEksKubernetesRuntimeDefinitions": {
-                    "description": "The cluster instances deployed in this AWS account.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeDefinition"
-                    }
-                },
-                "DefaultAccount": {
-                    "description": "If true is the AWS Account used if none specified in a definition.",
-                    "type": "boolean"
-                },
-                "DefaultRegion": {
-                    "description": "The region to use for AWS managed services if not specified.",
-                    "type": "string"
-                },
-                "ExternalId": {
-                    "description": "The ExternalId to use when assuming a RoleArn for the AWS account. This is\nautomatically generated by the API server if RoleArn is set.",
-                    "type": "string"
-                },
-                "Name": {
-                    "description": "The unique name of an AWS account.",
-                    "type": "string"
-                },
-                "RoleArn": {
-                    "description": "The RoleArn to assume for the AWS account.",
-                    "type": "string"
-                },
-                "SecretAccessKey": {
-                    "description": "The secret key credentials for the AWS account.",
-                    "type": "string"
-                }
-            }
+            "type": "object"
         },
         "v0.AwsEksKubernetesRuntimeDefinition": {
-            "type": "object",
-            "required": [
-                "AWSAccountID",
-                "DefaultNodeGroupInitialSize",
-                "DefaultNodeGroupInstanceType",
-                "DefaultNodeGroupMaximumSize",
-                "DefaultNodeGroupMinimumSize",
-                "KubernetesRuntimeDefinitionID",
-                "Name",
-                "ZoneCount"
-            ],
-            "properties": {
-                "AWSAccountID": {
-                    "description": "The AWS account in which the EKS cluster is provisioned.",
-                    "type": "integer"
-                },
-                "AwsEksKubernetesRuntimeInstances": {
-                    "description": "The AWS EKS kubernetes runtime instances derived from this definition.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeInstance"
-                    }
-                },
-                "DefaultNodeGroupInitialSize": {
-                    "description": "The number of nodes in the default initial node group.",
-                    "type": "integer"
-                },
-                "DefaultNodeGroupInstanceType": {
-                    "description": "The AWS instance type for the default initial node group.",
-                    "type": "string"
-                },
-                "DefaultNodeGroupMaximumSize": {
-                    "description": "The maximum number of nodes the default initial node group should have.",
-                    "type": "integer"
-                },
-                "DefaultNodeGroupMinimumSize": {
-                    "description": "The minimum number of nodes the default initial node group should have.",
-                    "type": "integer"
-                },
-                "KubernetesRuntimeDefinitionID": {
-                    "description": "The kubernetes runtime definition for an EKS cluster in AWS.",
-                    "type": "integer"
-                },
-                "Name": {
-                    "description": "An arbitrary name for the definition.",
-                    "type": "string"
-                },
-                "ProfileID": {
-                    "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
-                    "type": "integer"
-                },
-                "TierID": {
-                    "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
-                    "type": "integer"
-                },
-                "ZoneCount": {
-                    "description": "The number of zones the cluster should span for availability.",
-                    "type": "integer"
-                }
-            }
+            "type": "object"
         },
         "v0.AwsEksKubernetesRuntimeInstance": {
-            "type": "object",
-            "required": [
-                "AwsEksKubernetesRuntimeDefinitionID",
-                "KubernetesRuntimeInstanceID",
-                "Name"
-            ],
-            "properties": {
-                "AwsEksKubernetesRuntimeDefinitionID": {
-                    "description": "The definition that configures this instance.",
-                    "type": "integer"
-                },
-                "CreationAcknowledged": {
-                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
-                    "type": "string"
-                },
-                "CreationConfirmed": {
-                    "description": "Used by controllers to confirm deletion of an object.",
-                    "type": "string"
-                },
-                "CreationFailed": {
-                    "description": "Gets set to true if creation process fails.",
-                    "type": "boolean"
-                },
-                "DeletionAcknowledged": {
-                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
-                    "type": "string"
-                },
-                "DeletionConfirmed": {
-                    "description": "Used by controllers to confirm deletion of an object.",
-                    "type": "string"
-                },
-                "DeletionScheduled": {
-                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
-                    "type": "string"
-                },
-                "InterruptReconciliation": {
-                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
-                    "type": "boolean"
-                },
-                "KubernetesRuntimeInstanceID": {
-                    "description": "The kubernetes runtime instance associated with the AWS EKS cluster.",
-                    "type": "integer"
-                },
-                "Name": {
-                    "description": "An arbitrary name the instance",
-                    "type": "string"
-                },
-                "Reconciled": {
-                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
-                    "type": "boolean"
-                },
-                "Region": {
-                    "description": "The AWS Region in which the cluster is provisioned.  This field is\nstored in the instance (as well as definition) since a change to the\ndefinition will not move a cluster.",
-                    "type": "string"
-                },
-                "ResourceInventory": {
-                    "description": "An inventory of all AWS resources for the EKS cluster.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "Status": {
-                    "description": "The status of the instance.\nTODO: use a custom type",
-                    "type": "string"
-                }
-            }
+            "type": "object"
         },
         "v0.AwsObjectStorageBucketDefinition": {
             "type": "object",
@@ -13924,10 +14653,11 @@ const docTemplate = `{
                 },
                 "ResourceInventory": {
                     "description": "An inventory of all AWS resources for the S3 bucket.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -14060,10 +14790,11 @@ const docTemplate = `{
                 },
                 "ResourceInventory": {
                     "description": "An inventory of all AWS resources for the EKS cluster.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "Status": {
                     "description": "The status of the instance.\nTODO: use a custom type",
@@ -14084,24 +14815,27 @@ const docTemplate = `{
             "properties": {
                 "AdditionalEnvRef": {
                     "description": "The additional env reference to be added to the environment variables of the component",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "AdditionalVolumeMounts": {
                     "description": "The additional volume mounts to be added to the deployment spec of the component",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "AdditionalVolumes": {
                     "description": "The additional volumes to be added to the deployment spec of the component",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "BinaryName": {
                     "description": "The binary name of the component",
@@ -14501,47 +15235,6 @@ const docTemplate = `{
                 }
             }
         },
-        "v0.ExtensionApi": {
-            "type": "object",
-            "required": [
-                "Endpoint",
-                "Name"
-            ],
-            "properties": {
-                "Endpoint": {
-                    "description": "The extension API server's endpoint to proxy requests to for extension\nobjects.",
-                    "type": "string"
-                },
-                "ExtensionApiRoutes": {
-                    "description": "The routes as URL paths to proxy requests to the API server's endpoint.\nAll supported routes for an extension API should be added so that it is\nproxied.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.ExtensionApiRoute"
-                    }
-                },
-                "Name": {
-                    "description": "An arbitrary name for the extension API.",
-                    "type": "string"
-                }
-            }
-        },
-        "v0.ExtensionApiRoute": {
-            "type": "object",
-            "required": [
-                "ExtensionApiId",
-                "Path"
-            ],
-            "properties": {
-                "ExtensionApiId": {
-                    "description": "The extension Api this route belongs to.",
-                    "type": "integer"
-                },
-                "Path": {
-                    "description": "The URL path supported by the extension API.",
-                    "type": "string"
-                }
-            }
-        },
         "v0.GatewayDefinition": {
             "type": "object",
             "required": [
@@ -14756,10 +15449,7 @@ const docTemplate = `{
                     "description": "Complete kubernetes resources that will be appended to the provided\nhelm chart.",
                     "type": "array",
                     "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
+                        "$ref": "#/definitions/datatypes.JSON"
                     }
                 },
                 "Chart": {
@@ -14843,10 +15533,7 @@ const docTemplate = `{
                     "description": "Complete kubernetes resources that will be appended to the provided\nhelm chart.",
                     "type": "array",
                     "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
+                        "$ref": "#/definitions/datatypes.JSON"
                     }
                 },
                 "CreationAcknowledged": {
@@ -15511,6 +16198,47 @@ const docTemplate = `{
                 }
             }
         },
+        "v0.ModuleApi": {
+            "type": "object",
+            "required": [
+                "Endpoint",
+                "Name"
+            ],
+            "properties": {
+                "Endpoint": {
+                    "description": "The module API server's endpoint to proxy requests to for module\nobjects.",
+                    "type": "string"
+                },
+                "ModuleApiRoutes": {
+                    "description": "The routes as URL paths to proxy requests to the API server's endpoint.\nAll supported routes for an extension API should be added so that it is\nproxied.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.ModuleApiRoute"
+                    }
+                },
+                "Name": {
+                    "description": "An arbitrary name for the module API.",
+                    "type": "string"
+                }
+            }
+        },
+        "v0.ModuleApiRoute": {
+            "type": "object",
+            "required": [
+                "ModuleApiID",
+                "Path"
+            ],
+            "properties": {
+                "ModuleApiID": {
+                    "description": "The module Api this route belongs to.",
+                    "type": "integer"
+                },
+                "Path": {
+                    "description": "The URL path supported by the module API.",
+                    "type": "string"
+                }
+            }
+        },
         "v0.ObservabilityDashboardDefinition": {
             "type": "object",
             "required": [
@@ -15845,6 +16573,183 @@ const docTemplate = `{
                 }
             }
         },
+        "v0.OciAccount": {
+            "type": "object",
+            "required": [
+                "DefaultRegion",
+                "Name",
+                "TenancyID"
+            ],
+            "properties": {
+                "DefaultAccount": {
+                    "description": "If true is the OCI Account used if none specified in a definition.",
+                    "type": "boolean"
+                },
+                "DefaultRegion": {
+                    "description": "The region to use for OCI managed services if not specified.",
+                    "type": "string"
+                },
+                "KeyFingerprint": {
+                    "description": "The fingerprint of the API key for the OCI account.",
+                    "type": "string"
+                },
+                "Name": {
+                    "description": "The unique name of an OCI account.",
+                    "type": "string"
+                },
+                "OciOkeKubernetesRuntimeDefinitions": {
+                    "description": "The cluster instances deployed in this OCI account.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.OciOkeKubernetesRuntimeDefinition"
+                    }
+                },
+                "PrivateKey": {
+                    "description": "The private key for the OCI account.",
+                    "type": "string"
+                },
+                "TenancyID": {
+                    "description": "The tenancy OCID for the OCI account.",
+                    "type": "string"
+                },
+                "UserOCID": {
+                    "description": "The user OCID credentials for the OCI account.",
+                    "type": "string"
+                }
+            }
+        },
+        "v0.OciOkeKubernetesRuntimeDefinition": {
+            "type": "object",
+            "required": [
+                "AvailabilityDomainCount",
+                "KubernetesRuntimeDefinitionID",
+                "Name",
+                "OciAccountID",
+                "WorkerNodeInitialCount",
+                "WorkerNodeMaxCount",
+                "WorkerNodeMinCount",
+                "WorkerNodeShape"
+            ],
+            "properties": {
+                "AvailabilityDomainCount": {
+                    "description": "The number of availability domains the cluster should span.",
+                    "type": "integer"
+                },
+                "KubernetesRuntimeDefinitionID": {
+                    "description": "The kubernetes runtime definition for an OKE cluster in OCI.",
+                    "type": "integer"
+                },
+                "Name": {
+                    "description": "An arbitrary name for the definition.",
+                    "type": "string"
+                },
+                "OciAccountID": {
+                    "description": "The OCI account in which the OKE cluster is provisioned.",
+                    "type": "integer"
+                },
+                "OciOkeKubernetesRuntimeInstances": {
+                    "description": "The OCI OKE kubernetes runtime instances derived from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.OciOkeKubernetesRuntimeInstance"
+                    }
+                },
+                "ProfileID": {
+                    "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
+                    "type": "integer"
+                },
+                "TierID": {
+                    "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
+                    "type": "integer"
+                },
+                "WorkerNodeInitialCount": {
+                    "description": "The number of nodes in the worker node pool.",
+                    "type": "integer"
+                },
+                "WorkerNodeMaxCount": {
+                    "description": "The maximum number of nodes the worker node pool should have.",
+                    "type": "integer"
+                },
+                "WorkerNodeMinCount": {
+                    "description": "The minimum number of nodes the worker node pool should have.",
+                    "type": "integer"
+                },
+                "WorkerNodeShape": {
+                    "description": "The OCI shape for the worker nodes.",
+                    "type": "string"
+                }
+            }
+        },
+        "v0.OciOkeKubernetesRuntimeInstance": {
+            "type": "object",
+            "required": [
+                "KubernetesRuntimeInstanceID",
+                "Name",
+                "OciOkeKubernetesRuntimeDefinitionID"
+            ],
+            "properties": {
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "CreationConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "CreationFailed": {
+                    "description": "Gets set to true if creation process fails.",
+                    "type": "boolean"
+                },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
+                "KubernetesRuntimeInstanceID": {
+                    "description": "The kubernetes runtime instance associated with the OCI OKE cluster.",
+                    "type": "integer"
+                },
+                "Name": {
+                    "description": "An arbitrary name the instance",
+                    "type": "string"
+                },
+                "OciOkeKubernetesRuntimeDefinitionID": {
+                    "description": "The definition that configures this instance.",
+                    "type": "integer"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "Region": {
+                    "description": "The OCI Region in which the cluster is provisioned. This field is\nstored in the instance (as well as definition) since a change to the\ndefinition will not move a cluster.",
+                    "type": "string"
+                },
+                "ResourceInventory": {
+                    "description": "An inventory of all OCI resources for the OKE cluster.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
+                },
+                "Status": {
+                    "description": "The status of the instance.\nTODO: use a custom type",
+                    "type": "string"
+                }
+            }
+        },
         "v0.Profile": {
             "type": "object",
             "required": [
@@ -15914,10 +16819,11 @@ const docTemplate = `{
                 },
                 "Data": {
                     "description": "The secret value to be stored in the provider.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "DeletionAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
@@ -16393,10 +17299,11 @@ const docTemplate = `{
             "properties": {
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "WorkloadDefinitionID": {
                     "description": "The workload definition this resource belongs to.",
@@ -16420,10 +17327,11 @@ const docTemplate = `{
                 },
                 "JSONDefinition": {
                     "description": "The individual manifest in JSON format.  This field is a superset of\nWorkloadResourceDefinition.JSONDefinition in that it has namespace\nmanagement and other configuration - such as resource allocation\nmanagement - added.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "LastOperation": {
                     "description": "The most recent operation performed on a Kubernete resource in the\nkubernetes runtime.",
@@ -16435,10 +17343,11 @@ const docTemplate = `{
                 },
                 "RuntimeDefinition": {
                     "description": "The JSON definition of a Kubernetes resource as stored in etcd in the\nkubernetes runtime.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "ScheduledForDeletion": {
                     "description": "Whether another controller has scheduled this resource for deletion",
@@ -16455,7 +17364,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v0.6.0",
+	Version:          "v0.7.0-dev",
 	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},

@@ -69,6 +69,24 @@ ApiObjectGroups:
       Reconcilable: true
       Tptctl:
         Enabled: true
+- Name: oci
+  Objects:
+    - Name: OciAccount
+      Versions:
+        - v0
+      Tptctl:
+        Enabled: true
+    - Name: OciOkeKubernetesRuntimeDefinition
+      Versions:
+        - v0
+      Tptctl:
+        Enabled: true
+    - Name: OciOkeKubernetesRuntimeInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl:
+        Enabled: true
 - Name: control_plane
   Objects:
     - Name: ControlPlaneDefinition

@@ -19,6 +19,7 @@ const (
 	ThreeportKubernetesRuntimeControllerImage = "threeport-kubernetes-runtime-controller"
 	ThreeportControlPlaneControllerImage      = "threeport-control-plane-controller"
 	ThreeportAwsControllerImage               = "threeport-aws-controller"
+	ThreeportOciControllerImage               = "threeport-oci-controller"
 	ThreeportGatewayControllerImage           = "threeport-gateway-controller"
 	ThreeportHelmWorkloadControllerImage      = "threeport-helm-workload-controller"
 	ThreeportTerraformControllerImage         = "threeport-terraform-controller"
@@ -33,6 +34,7 @@ const (
 	ThreeportKubernetesRuntimeControllerName = "kubernetes-runtime-controller"
 	ThreeportControlPlaneControllerName      = "control-plane-controller"
 	ThreeportAwsControllerName               = "aws-controller"
+	ThreeportOciControllerName               = "oci-controller"
 	ThreeportGatewayControllerName           = "gateway-controller"
 	ThreeportHelmWorkloadControllerName      = "helm-workload-controller"
 	ThreeportTerraformControllerName         = "terraform-controller"
@@ -98,6 +100,15 @@ var ThreeportControllerList []*v0.ControlPlaneComponent = []*v0.ControlPlaneComp
 		Name:               ThreeportAwsControllerName,
 		BinaryName:         ThreeportAwsControllerName,
 		ImageName:          ThreeportAwsControllerImage,
+		ImageRepo:          ThreeportImageRepo,
+		ImageTag:           version.GetVersion(),
+		ServiceAccountName: DefaultServiceAccount,
+		Enabled:            &enabled,
+	},
+	{
+		Name:               ThreeportOciControllerName,
+		BinaryName:         ThreeportOciControllerName,
+		ImageName:          ThreeportOciControllerImage,
 		ImageRepo:          ThreeportImageRepo,
 		ImageTag:           version.GetVersion(),
 		ServiceAccountName: DefaultServiceAccount,
