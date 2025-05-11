@@ -231,6 +231,8 @@ func GetRestConfig(
 						return nil, fmt.Errorf("failed to refresh connection token for EKS cluster: %w", err)
 					}
 					restConfig = *config
+				// TODO: Implement OKE refresh connection token case
+				// case v0.KubernetesRuntimeInfraProviderOKE:
 				default:
 					return nil, errors.New(
 						fmt.Sprintf("unable to refresh connection token for unsupported infra provider %s:", *definition.InfraProvider),

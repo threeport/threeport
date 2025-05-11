@@ -559,7 +559,7 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("no clusters found in kubeconfig")
 	}
 
-	token, err := generateToken(*cluster.Id)
+	token, tokenExpirationTime, err := generateToken(*cluster.Id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
@@ -571,9 +571,10 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 
 	// Create connection info
 	kubeConnInfo := &kube.KubeConnectionInfo{
-		APIEndpoint:   *clusterDetails.Endpoints.PublicEndpoint,
-		CACertificate: string(caCert),
-		Token:         token,
+		APIEndpoint:     *clusterDetails.Endpoints.PublicEndpoint,
+		CACertificate:   string(caCert),
+		Token:           token,
+		TokenExpiration: tokenExpirationTime,
 	}
 
 	return kubeConnInfo, nil
@@ -596,20 +597,20 @@ type KubeConfig struct {
 }
 
 // generateToken generates an authentication token for the OKE cluster
-func generateToken(clusterID string) (string, error) {
+func generateToken(clusterID string) (string, time.Time, error) {
 	// Create a configuration provider from the default config file
 	configProvider := common.DefaultConfigProvider()
 
 	// Get the region from the config
 	region, err := configProvider.Region()
 	if err != nil {
-		return "", fmt.Errorf("failed to get region: %v", err)
+		return "", time.Time{}, fmt.Errorf("failed to get region: %v", err)
 	}
 
 	// Create the container engine client
 	client, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
 	if err != nil {
-		return "", fmt.Errorf("failed to create client: %v", err)
+		return "", time.Time{}, fmt.Errorf("failed to create client: %v", err)
 	}
 
 	// Construct the URL
@@ -618,16 +619,18 @@ func generateToken(clusterID string) (string, error) {
 	// Create the initial request
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %v", err)
+		return "", time.Time{}, fmt.Errorf("failed to create request: %v", err)
 	}
 
 	// Set the date header in RFC1123 format with GMT
-	req.Header.Set("date", time.Now().In(time.FixedZone("GMT", 0)).Format("Mon, 02 Jan 2006 15:04:05 GMT"))
+	tokenExpirationTime := time.Now().In(time.FixedZone("GMT", 0))
+	tokenExpiration := tokenExpirationTime.Format("Mon, 02 Jan 2006 15:04:05 GMT")
+	req.Header.Set("date", tokenExpiration)
 
 	// Sign the request
 	err = client.Signer.Sign(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to sign request: %v", err)
+		return "", time.Time{}, fmt.Errorf("failed to sign request: %v", err)
 	}
 
 	// Get the authorization and date headers
@@ -639,7 +642,7 @@ func generateToken(clusterID string) (string, error) {
 	// Create the token request with the headers as query parameters
 	tokenReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create token request: %v", err)
+		return "", time.Time{}, fmt.Errorf("failed to create token request: %v", err)
 	}
 
 	// Add the headers as query parameters
@@ -652,7 +655,7 @@ func generateToken(clusterID string) (string, error) {
 	// Encode the URL as the token
 	token := base64.URLEncoding.EncodeToString([]byte(tokenReq.URL.String()))
 
-	return token, nil
+	return token, tokenExpirationTime, nil
 }
 
 // loadOCIConfig reads the OCI configuration using the OCI SDK and updates the struct fields
