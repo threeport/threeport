@@ -949,19 +949,17 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 
-		awsAccountName := "default-account"
-		defaultAccount := true
-
-		roleArn := provider.GetResourceManagerRoleArn(
-			cpi.Opts.ControlPlaneName,
-			*callerIdentity.Account,
-		)
 		awsAccount := v0.AwsAccount{
-			Name:           &awsAccountName,
+			Name:           util.Ptr("default-account"),
 			AccountID:      callerIdentity.Account,
-			DefaultAccount: &defaultAccount,
+			DefaultAccount: util.Ptr(true),
 			DefaultRegion:  &awsConfigResourceManager.Region,
-			RoleArn:        &roleArn,
+			RoleArn: util.Ptr(
+				provider.GetResourceManagerRoleArn(
+					cpi.Opts.ControlPlaneName,
+					*callerIdentity.Account,
+				),
+			),
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(
 			apiClient,
@@ -1034,6 +1032,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to create new AWS EKS kubernetes runtime instance for control plane cluster", err)
 		}
+	// case v0.KubernetesRuntimeInfraProviderOKE:
 	}
 
 	reconciled := true
