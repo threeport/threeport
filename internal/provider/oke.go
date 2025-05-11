@@ -387,7 +387,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 
 		// Create Node Pool with explicit dependency on cluster
 		fmt.Printf("Creating node pool with shape: %s, initial count: %d\n", i.WorkerNodeShape, i.WorkerNodeInitialCount)
-		nodePool, err := containerengine.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &containerengine.NodePoolArgs{
+		_, err = containerengine.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &containerengine.NodePoolArgs{
 			ClusterId:         cluster.ID(),
 			CompartmentId:     pulumi.String(i.CompartmentID),
 			Name:              pulumi.String(fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)),
@@ -424,10 +424,10 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 		}
 
 		// Export cluster ID, node pool ID and kubeconfig for later use
-		ctx.Export("clusterId", cluster.ID())
-		ctx.Export("nodePoolId", nodePool.ID())
-		ctx.Export("kubeconfig", cluster.Endpoints.Index(pulumi.Int(0)).PrivateEndpoint())
-
+		// ctx.Export("clusterId", cluster.ID())
+		// ctx.Export("nodePoolId", nodePool.ID())
+		// ctx.Export("APIServer", cluster.Endpoints.Index(pulumi.Int(0)).PublicEndpoint())
+		// ctx.Export("CACert", cluster.CertificateAuthority.Certificate())
 		return nil
 	})
 	if err != nil {
@@ -443,90 +443,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
 	}
 
-	// Get the stack outputs
-	outputs, err := stack.Outputs(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get stack outputs: %w", err)
-	}
-
-	// Extract cluster ID and kubeconfig from outputs
-	clusterIDValue, ok := outputs["clusterId"]
-	if !ok {
-		return nil, fmt.Errorf("failed to get cluster ID from outputs")
-	}
-	clusterID, ok := clusterIDValue.Value.(string)
-	if !ok {
-		return nil, fmt.Errorf("cluster ID output is not a string")
-	}
-
-	kubeconfigValue, ok := outputs["kubeconfig"]
-	if !ok {
-		return nil, fmt.Errorf("failed to get kubeconfig from outputs")
-	}
-	kubeconfig, ok := kubeconfigValue.Value.(string)
-	if !ok {
-		return nil, fmt.Errorf("kubeconfig output is not a string")
-	}
-
-	// Print kubeconfig content for debugging
-	kubeconfigStr := string(kubeconfig)
-	fmt.Printf("Kubeconfig content:\n%s\n", kubeconfigStr)
-
-	// Parse the kubeconfig to extract the CA certificate and client certificate
-	kubeconfigMap := make(map[string]interface{})
-	if err := yaml.Unmarshal([]byte(kubeconfig), &kubeconfigMap); err != nil {
-		return nil, fmt.Errorf("failed to parse kubeconfig: %w", err)
-	}
-
-	clusters, ok := kubeconfigMap["clusters"].([]interface{})
-	if !ok || len(clusters) == 0 {
-		return nil, fmt.Errorf("no clusters found in kubeconfig")
-	}
-
-	cluster0, ok := clusters[0].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid cluster format in kubeconfig")
-	}
-
-	clusterData, ok := cluster0["cluster"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid cluster data format in kubeconfig")
-	}
-
-	caCert, ok := clusterData["certificate-authority-data"].(string)
-	if !ok {
-		return nil, fmt.Errorf("CA certificate not found in kubeconfig")
-	}
-
-	// Extract client certificate data
-	users, ok := kubeconfigMap["users"].([]interface{})
-	if !ok || len(users) == 0 {
-		return nil, fmt.Errorf("no users found in kubeconfig")
-	}
-
-	user0, ok := users[0].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid user format in kubeconfig")
-	}
-
-	userData, ok := user0["user"].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid user data format in kubeconfig")
-	}
-
-	clientCert, ok := userData["client-certificate-data"].(string)
-	if !ok {
-		return nil, fmt.Errorf("client certificate not found in kubeconfig")
-	}
-
-	// Create connection info
-	kubeConnInfo := &kube.KubeConnectionInfo{
-		APIEndpoint:   clusterID,
-		CACertificate: caCert,
-		Certificate:   clientCert,
-	}
-
-	return kubeConnInfo, nil
+	return i.GetConnection()
 }
 
 // Delete deletes an Oracle Cloud OKE cluster.
@@ -656,7 +573,7 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 	kubeConnInfo := &kube.KubeConnectionInfo{
 		APIEndpoint:   *clusterDetails.Endpoints.PublicEndpoint,
 		CACertificate: string(caCert),
-		OKEToken:      token,
+		Token:         token,
 	}
 
 	return kubeConnInfo, nil

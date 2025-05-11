@@ -67,6 +67,7 @@ type GenesisControlPlaneCLIArgs struct {
 	Verbose               bool
 	SkipTeardown          bool
 	ControlPlaneOnly      bool
+	InfraOnly             bool
 	KindInfraPortForward  []string
 	LocalRegistry         bool
 
@@ -180,6 +181,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.LiveReload = false
 	cpi.Opts.CreateOrUpdateKubeResources = false
 	cpi.Opts.ControlPlaneOnly = a.ControlPlaneOnly
+	cpi.Opts.InfraOnly = a.InfraOnly
 	cpi.Opts.RestApiEksLoadBalancer = true
 	cpi.Opts.SkipTeardown = a.SkipTeardown
 	cpi.Opts.LocalRegistry = a.LocalRegistry
@@ -248,7 +250,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 	uninstaller.controlPlane = &controlPlane
 
-	// configure the infra provider
+	// deploy infrastructure
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var threeportAPIEndpoint string
 	var callerIdentity *sts.GetCallerIdentityOutput
@@ -545,10 +547,15 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			CACertificate: util.Base64Encode(kubeConnectionInfo.CACertificate),
 			Certificate:   util.Base64Encode(kubeConnectionInfo.Certificate),
 			Key:           util.Base64Encode(kubeConnectionInfo.Key),
-			EKSToken:      util.Base64Encode(kubeConnectionInfo.EKSToken),
+			Token:         util.Base64Encode(kubeConnectionInfo.Token),
 		}
 	}); err != nil {
 		return uninstaller.cleanOnCreateError("failed to update threeport config", err)
+	}
+
+	// if infra only, do not deploy control plane
+	if cpi.Opts.InfraOnly {
+		return nil
 	}
 
 	// generate encryption key
@@ -626,8 +633,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			ThreeportControlPlaneHost: &controlPlaneHost,
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
-			ConnectionToken:           &kubeConnectionInfo.EKSToken,
-			ConnectionTokenExpiration: &kubeConnectionInfo.EKSTokenExpiration,
+			ConnectionToken:           &kubeConnectionInfo.Token,
+			ConnectionTokenExpiration: &kubeConnectionInfo.TokenExpiration,
 			DefaultRuntime:            &defaultRuntime,
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
@@ -646,7 +653,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			ThreeportControlPlaneHost: &controlPlaneHost,
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
-			ConnectionToken:           &kubeConnectionInfo.OKEToken,
+			ConnectionToken:           &kubeConnectionInfo.Token,
 			DefaultRuntime:            &defaultRuntime,
 			Location:                  &location,
 		}
@@ -1355,7 +1362,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 
 		// update kubernetes runtime instance with latest connection token
-		kubernetesRuntimeInstance.ConnectionToken = &kubeConnection.OKEToken
+		kubernetesRuntimeInstance.ConnectionToken = &kubeConnection.Token
 
 		// create a client and resource mapper to connect to kubernetes cluster
 		// API for deleting resources

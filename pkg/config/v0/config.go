@@ -75,7 +75,7 @@ type KubeAPI struct {
 	CACertificate string `yaml:"CACertificate"`
 	Certificate   string `yaml:"Certificate"`
 	Key           string `yaml:"Key"`
-	EKSToken      string `yaml:"EKSToken"`
+	Token         string `yaml:"Token"`
 }
 
 // EKSProviderConfig is the set of provider config information needed to manage

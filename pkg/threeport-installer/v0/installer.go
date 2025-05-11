@@ -99,6 +99,9 @@ type Options struct {
 	// If true, infrastructure is not provisioned, control plane is installed on existing infra.
 	ControlPlaneOnly bool
 
+	// If true, only infrastructure is provisioned.
+	InfraOnly bool
+
 	// Port forwards for kind infra provider
 	KindInfraPortForward []string
 

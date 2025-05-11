@@ -134,6 +134,10 @@ func init() {
 		"control-plane-only", false, "Deploy the control plane on an existing runtime. Defaults to false.",
 	)
 	UpCmd.Flags().BoolVar(
+		&cliArgs.InfraOnly,
+		"infra-only", false, "Deploy only the infrastructure without the control plane. Defaults to false.",
+	)
+	UpCmd.Flags().BoolVar(
 		&cliArgs.LocalRegistry,
 		"local-registry", false, "Connects a local container registry to Threeport control plane cluster.  Only applicable with provider 'kind'.",
 	)

@@ -43,4 +43,8 @@ func init() {
 		&cliArgs.ControlPlaneOnly,
 		"control-plane-only", false, "Tear down the control plane and leave runtime intact. Defaults to false.",
 	)
+	downCmd.Flags().BoolVar(
+		&cliArgs.InfraOnly,
+		"infra-only", false, "Tear down only the infrastructure without the control plane. Defaults to false.",
+	)
 }

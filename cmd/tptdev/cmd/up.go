@@ -89,6 +89,10 @@ func init() {
 		"control-plane-only", false, "Deploy the control plane on an existing runtime. Defaults to false.",
 	)
 	upCmd.Flags().BoolVar(
+		&cliArgs.InfraOnly,
+		"infra-only", false, "Deploy only the infrastructure without the control plane. Defaults to false.",
+	)
+	upCmd.Flags().BoolVar(
 		&cliArgs.Debug,
 		"debug", false, "Debug threeport control plane components.",
 	)
