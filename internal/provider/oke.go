@@ -961,15 +961,6 @@ func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) 
 		return "", fmt.Errorf("no OKE worker node images found")
 	}
 
-	// Print out all available images
-	fmt.Println("\nAvailable OKE worker node images:")
-	for _, source := range response.Sources {
-		// Try to get the concrete type
-		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok {
-			fmt.Printf("- Name: %s, OCID: %s\n", *sourceType.SourceName, *sourceType.ImageId)
-		}
-	}
-
 	// Find an image with the latest Kubernetes version
 	for _, source := range response.Sources {
 		// Try to get the concrete type
