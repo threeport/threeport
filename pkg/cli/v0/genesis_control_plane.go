@@ -497,7 +497,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 	// if the control plane is not kind, get the threeport API's public endpoint
 	if controlPlane.InfraProvider != v0.KubernetesRuntimeInfraProviderKind {
-		*threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+		threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
 		}
@@ -540,7 +540,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// wait for the API before installing the rest of the control plane, however
 	// it is helpful for dev environments and harmless otherwise since the
 	// controllers need the API to be running in order to start
-	Info(fmt.Sprintf("Waiting for threeport API to start running at %s", threeportAPIEndpoint))
+	Info(fmt.Sprintf("Waiting for threeport API to start running at %s", *threeportAPIEndpoint))
 	attemptsMax := 150
 	waitDurationSeconds := 2
 	if err = util.Retry(attemptsMax, waitDurationSeconds, func() error {
