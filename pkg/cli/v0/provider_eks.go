@@ -14,13 +14,16 @@ import (
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/nukleros/aws-builder/pkg/eks"
 	builder_iam "github.com/nukleros/aws-builder/pkg/iam"
+	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	"github.com/threeport/threeport/internal/provider"
+	v0 "github.com/threeport/threeport/pkg/api/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// DeployEksInfra deploys the EKS infrastructure for the control plane.
 func DeployEksInfra(
 	cpi *threeport.ControlPlaneInstaller,
 	threeportControlPlaneConfig *config.ControlPlane,
@@ -205,5 +208,64 @@ func DeployEksInfra(
 			return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
 		}
 	}
+	return nil
+}
+
+// ConfigureEksKubernetesRuntimeInstance configures the kubernetes runtime instance for the eks provider.
+func ConfigureEksKubernetesRuntimeInstance(
+	cpi *threeport.ControlPlaneInstaller,
+	kubeConnectionInfo *kube.KubeConnectionInfo,
+	uninstaller *Uninstaller,
+	awsConfigUser *aws.Config,
+	callerIdentity *sts.GetCallerIdentityOutput,
+	awsConfigResourceManager *aws.Config,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	kubernetesRuntimeInstName string,
+	instReconciled bool,
+	controlPlaneHost bool,
+	defaultRuntime bool,
+) error {
+	var err error
+
+	// update resource manager role to allow pods to assume it
+	var inventory eks.EksInventory
+	if err := inventory.Load(
+		provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
+	); err != nil {
+		return uninstaller.cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err)
+	}
+	if err = provider.UpdateResourceManagerRoleTrustPolicy(
+		cpi.Opts.Namespace,
+		cpi.Opts.ControlPlaneName,
+		*callerIdentity.Account,
+		"",
+		inventory.Cluster.OidcProviderUrl,
+		*awsConfigUser,
+		cpi.Opts.AdditionalAwsIrsaConditions,
+	); err != nil {
+		return uninstaller.cleanOnCreateError("failed to update resource manager role", err)
+	}
+
+	location, err := mapping.GetLocationForAwsRegion(awsConfigResourceManager.Region)
+	if err != nil {
+		return uninstaller.cleanOnCreateError(fmt.Sprintf("failed to get threeport location for AWS region %s", awsConfigResourceManager.Region), err)
+	}
+
+	kubernetesRuntimeInstance = &v0.KubernetesRuntimeInstance{
+		Instance: v0.Instance{
+			Name: &kubernetesRuntimeInstName,
+		},
+		Reconciliation: v0.Reconciliation{
+			Reconciled: &instReconciled,
+		},
+		Location:                  &location,
+		ThreeportControlPlaneHost: &controlPlaneHost,
+		APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
+		CACertificate:             &kubeConnectionInfo.CACertificate,
+		ConnectionToken:           &kubeConnectionInfo.Token,
+		ConnectionTokenExpiration: &kubeConnectionInfo.TokenExpiration,
+		DefaultRuntime:            &defaultRuntime,
+	}
+
 	return nil
 }

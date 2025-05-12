@@ -345,11 +345,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	controlPlaneHost := true
 	defaultRuntime := true
 	instReconciled := true // this instance exists already - we don't need the k8s runtime instance doing anything
-	var kubernetesRuntimeInstance v0.KubernetesRuntimeInstance
+	var kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 		location := "Local"
-		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
+		kubernetesRuntimeInstance = &v0.KubernetesRuntimeInstance{
 			Instance: v0.Instance{
 				Name: &kubernetesRuntimeInstName,
 			},
@@ -365,45 +365,20 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			Location:                  &location,
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
-
-		// update resource manager role to allow pods to assume it
-		var inventory eks.EksInventory
-		if err := inventory.Load(
-			provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
+		if err := ConfigureEksKubernetesRuntimeInstance(
+			cpi,
+			kubeConnectionInfo,
+			uninstaller,
+			&awsConfigUser,
+			callerIdentity,
+			awsConfigResourceManager,
+			kubernetesRuntimeInstance,
+			kubernetesRuntimeInstName,
+			instReconciled,
+			controlPlaneHost,
+			defaultRuntime,
 		); err != nil {
-			return uninstaller.cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err)
-		}
-		if err = provider.UpdateResourceManagerRoleTrustPolicy(
-			cpi.Opts.Namespace,
-			cpi.Opts.ControlPlaneName,
-			*callerIdentity.Account,
-			"",
-			inventory.Cluster.OidcProviderUrl,
-			awsConfigUser,
-			cpi.Opts.AdditionalAwsIrsaConditions,
-		); err != nil {
-			return uninstaller.cleanOnCreateError("failed to update resource manager role", err)
-		}
-
-		location, err := mapping.GetLocationForAwsRegion(awsConfigResourceManager.Region)
-		if err != nil {
-			return uninstaller.cleanOnCreateError(fmt.Sprintf("failed to get threeport location for AWS region %s", awsConfigResourceManager.Region), err)
-		}
-
-		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
-			Instance: v0.Instance{
-				Name: &kubernetesRuntimeInstName,
-			},
-			Reconciliation: v0.Reconciliation{
-				Reconciled: &instReconciled,
-			},
-			Location:                  &location,
-			ThreeportControlPlaneHost: &controlPlaneHost,
-			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
-			CACertificate:             &kubeConnectionInfo.CACertificate,
-			ConnectionToken:           &kubeConnectionInfo.Token,
-			ConnectionTokenExpiration: &kubeConnectionInfo.TokenExpiration,
-			DefaultRuntime:            &defaultRuntime,
+			return uninstaller.cleanOnCreateError("failed to configure eks kubernetes runtime instance", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		kubernetesRuntimeInfraOKE := (*kubernetesRuntimeInfra).(*provider.KubernetesRuntimeInfraOKE)
@@ -411,7 +386,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err != nil {
 			return uninstaller.cleanOnCreateError(fmt.Sprintf("failed to get threeport location for OKE region %s", "us-phoenix-1"), err)
 		}
-		kubernetesRuntimeInstance = v0.KubernetesRuntimeInstance{
+		kubernetesRuntimeInstance = &v0.KubernetesRuntimeInstance{
 			Instance: v0.Instance{
 				Name: &kubernetesRuntimeInstName,
 			},
@@ -431,7 +406,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// we don't have a client or endpoint for threeport API yet - but those are
 	// only used when a token refresh is needed and that should not be necessary
 	dynamicKubeClient, mapper, err := kube.GetClient(
-		&kubernetesRuntimeInstance,
+		kubernetesRuntimeInstance,
 		false,
 		nil,
 		"",
@@ -509,7 +484,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return uninstaller.cleanOnCreateError("failed to get threeport certificates from config", err)
 	}
 
-	err = cpi.Opts.PreInstallFunction(&kubernetesRuntimeInstance, cpi)
+	err = cpi.Opts.PreInstallFunction(kubernetesRuntimeInstance, cpi)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to run custom preInstall function", err)
 	}
@@ -620,7 +595,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return uninstaller.cleanOnCreateError("failed to install threeport controllers", err)
 	}
 
-	err = cpi.Opts.PostInstallFunction(&kubernetesRuntimeInstance, cpi)
+	err = cpi.Opts.PostInstallFunction(kubernetesRuntimeInstance, cpi)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to run custom postInstall function", err)
 	}
@@ -646,7 +621,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// support services operator install includes one of those custom resources
 	time.Sleep(time.Second * 10)
 	dynamicKubeClient, mapper, err = kube.GetClient(
-		&kubernetesRuntimeInstance,
+		kubernetesRuntimeInstance,
 		false,
 		nil,
 		"",
@@ -702,7 +677,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	kubernetesRuntimeInstResult, err := client.CreateKubernetesRuntimeInstance(
 		apiClient,
 		*threeportAPIEndpoint,
-		&kubernetesRuntimeInstance,
+		kubernetesRuntimeInstance,
 	)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to create new kubernetes runtime instance for default compute space", err)
