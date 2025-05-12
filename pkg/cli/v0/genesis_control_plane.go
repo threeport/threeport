@@ -839,6 +839,33 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
 	}
 
+	// check for workload instances on non-kind kubernetes runtimes - halt delete if
+	// any are present
+	if threeportControlPlaneConfig.Provider != v0.KubernetesRuntimeInfraProviderKind {
+		workloadInstances, err := client.GetWorkloadInstances(
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve workload instances from threeport API: %w", err)
+		}
+		if len(*workloadInstances) > 0 {
+			return errors.New("found workload instances that could prevent control plane deletion - delete all workload instances before deleting control plane")
+		}
+
+		// get control plane instances
+		controlPlaneInstances, err := client.GetControlPlaneInstances(
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve control plane instances from threeport API: %w", err)
+		}
+		if len(*controlPlaneInstances) > 1 {
+			return errors.New("found non-genesis control plane instance(s) that could prevent control plane deletion - delete all non-genesis control plane instances before deleting genesis control plane")
+		}
+	}
+
 	// if provider is EKS we need to delete the threeport API service to
 	// remove the AWS load balancer before deleting the rest of the infra and
 	// check for existing workload instances that may prevent deletion
@@ -871,31 +898,6 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			}
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		// check for workload instances on non-kind kubernetes runtimes - halt delete if
-		// any are present
-		workloadInstances, err := client.GetWorkloadInstances(
-			apiClient,
-			threeportControlPlaneConfig.APIServer,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve workload instances from threeport API: %w", err)
-		}
-		if len(*workloadInstances) > 0 {
-			return errors.New("found workload instances that could prevent control plane deletion - delete all workload instances before deleting control plane")
-		}
-
-		// get control plane instances
-		controlPlaneInstances, err := client.GetControlPlaneInstances(
-			apiClient,
-			threeportControlPlaneConfig.APIServer,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve control plane instances from threeport API: %w", err)
-		}
-		if len(*controlPlaneInstances) > 1 {
-			return errors.New("found non-genesis control plane instance(s) that could prevent control plane deletion - delete all non-genesis control plane instances before deleting genesis control plane")
-		}
-
 		updatedKubernetesRuntimeInstance, err := RefreshEKSConnectionWithLocalConfig(awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, threeportControlPlaneConfig.APIServer)
 		if err != nil {
 			return fmt.Errorf("failed to refresh EKS connection with local config: %w", err)
@@ -939,31 +941,6 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			}
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
-		// check for workload instances on non-kind kubernetes runtimes - halt delete if
-		// any are present
-		workloadInstances, err := client.GetWorkloadInstances(
-			apiClient,
-			threeportControlPlaneConfig.APIServer,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve workload instances from threeport API: %w", err)
-		}
-		if len(*workloadInstances) > 0 {
-			return errors.New("found workload instances that could prevent control plane deletion - delete all workload instances before deleting control plane")
-		}
-
-		// get control plane instances
-		controlPlaneInstances, err := client.GetControlPlaneInstances(
-			apiClient,
-			threeportControlPlaneConfig.APIServer,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve control plane instances from threeport API: %w", err)
-		}
-		if len(*controlPlaneInstances) > 1 {
-			return errors.New("found non-genesis control plane instance(s) that could prevent control plane deletion - delete all non-genesis control plane instances before deleting genesis control plane")
-		}
-
 		// update kubernetes runtime instance with latest connection token
 		kubernetesRuntimeInstance.ConnectionToken = &kubeConnection.Token
 
