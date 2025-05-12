@@ -14,7 +14,6 @@ import (
 	builder_client "github.com/nukleros/aws-builder/pkg/client"
 	"github.com/nukleros/aws-builder/pkg/eks"
 	"github.com/nukleros/aws-builder/pkg/eks/connection"
-	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
 
@@ -665,99 +664,21 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return uninstaller.cleanOnCreateError("failed to create new kubernetes runtime instance for default compute space", err)
 	}
 
-	// for eks clusters:
-	// * create aws account
-	// * set region in threeport config
-	// * create aws eks k8s runtime definition
-	// * create aws eks k8s runtime instance
-	// * copy aws eks resource inventory to cluster
+	// configure control plane with provider-specific details
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-
-		awsAccount := v0.AwsAccount{
-			Name:           util.Ptr("default-account"),
-			AccountID:      callerIdentity.Account,
-			DefaultAccount: util.Ptr(true),
-			DefaultRegion:  &awsConfigResourceManager.Region,
-			RoleArn: util.Ptr(
-				provider.GetResourceManagerRoleArn(
-					cpi.Opts.ControlPlaneName,
-					*callerIdentity.Account,
-				),
-			),
-		}
-		createdAwsAccount, err := client.CreateAwsAccount(
+		ConfigureControlPlaneWithEksConfig(
+			cpi,
+			uninstaller,
+			&awsConfigUser,
+			callerIdentity,
+			awsConfigResourceManager,
 			apiClient,
-			*threeportAPIEndpoint,
-			&awsAccount,
+			threeportAPIEndpoint,
+			kubernetesRuntimeInfra,
+			kubernetesRuntimeDefResult,
+			kubernetesRuntimeInstResult,
 		)
-		if err != nil {
-			return uninstaller.cleanOnCreateError("failed to create new default AWS account", err)
-		}
-
-		// create aws eks k8s runtime definition
-		eksRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
-		kubernetesRuntimeInfraEKS := (*kubernetesRuntimeInfra).(*provider.KubernetesRuntimeInfraEKS)
-		zoneCount := int(kubernetesRuntimeInfraEKS.ZoneCount)
-		defaultNodeGroupInitialSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)
-		defaultNodeGroupMinSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)
-		defaultNodeGroupMaxSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)
-		awsEksKubernetesRuntimeDef := v0.AwsEksKubernetesRuntimeDefinition{
-			Definition: v0.Definition{
-				Name: &eksRuntimeDefName,
-			},
-			AwsAccountID:                  createdAwsAccount.ID,
-			ZoneCount:                     &zoneCount,
-			DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfraEKS.DefaultNodeGroupInstanceType,
-			DefaultNodeGroupInitialSize:   &defaultNodeGroupInitialSize,
-			DefaultNodeGroupMinimumSize:   &defaultNodeGroupMinSize,
-			DefaultNodeGroupMaximumSize:   &defaultNodeGroupMaxSize,
-			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
-		}
-		createdAwsEksKubernetesRuntimeDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(
-			apiClient,
-			*threeportAPIEndpoint,
-			&awsEksKubernetesRuntimeDef,
-		)
-		if err != nil {
-			return uninstaller.cleanOnCreateError("failed to create new AWS EKS kubernetes runtime definition for control plane cluster", err)
-		}
-
-		// create aws eks k8s runtime instance
-		var inventory eks.EksInventory
-		if err := inventory.Load(
-			provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-		); err != nil {
-			return uninstaller.cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err)
-		}
-		inventoryJson, err := inventory.Marshal()
-		if err != nil {
-			return uninstaller.cleanOnCreateError("failed to marshal eks kubernetes runtime inventory for inventory update", err)
-		}
-		dbInventory := datatypes.JSON(inventoryJson)
-		eksRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
-		reconciled := true
-		awsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
-			Instance: v0.Instance{
-				Name: &eksRuntimeInstName,
-			},
-			Reconciliation: v0.Reconciliation{
-				Reconciled: &reconciled,
-			},
-			Region:                              &awsConfigResourceManager.Region,
-			AwsEksKubernetesRuntimeDefinitionID: createdAwsEksKubernetesRuntimeDef.ID,
-			KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
-			ResourceInventory:                   &dbInventory,
-		}
-		_, err = client.CreateAwsEksKubernetesRuntimeInstance(
-			apiClient,
-			*threeportAPIEndpoint,
-			&awsEksKubernetesRuntimeInstance,
-		)
-		if err != nil {
-			return uninstaller.cleanOnCreateError("failed to create new AWS EKS kubernetes runtime instance for control plane cluster", err)
-		}
-		// case v0.KubernetesRuntimeInfraProviderOKE:
 	}
 
 	reconciled := true

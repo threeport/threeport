@@ -2,6 +2,7 @@ package v0
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,10 +18,12 @@ import (
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	config "github.com/threeport/threeport/pkg/config/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
+	"gorm.io/datatypes"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
 )
@@ -295,6 +298,106 @@ func InstallEksKubernetesResources(
 		if err := cpi.CreateOrUpdateKubeResource(serviceAccount, *dynamicKubeClient, mapper); err != nil {
 			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
 		}
+	}
+	return nil
+}
+
+//ConfigureControlPlaneWithEksConfig
+func ConfigureControlPlaneWithEksConfig(
+	cpi *threeport.ControlPlaneInstaller,
+	uninstaller *Uninstaller,
+	awsConfigUser *aws.Config,
+	callerIdentity *sts.GetCallerIdentityOutput,
+	awsConfigResourceManager *aws.Config,
+	apiClient *http.Client,
+	threeportAPIEndpoint *string,
+	kubernetesRuntimeInfra *provider.KubernetesRuntimeInfra,
+	kubernetesRuntimeDefResult *v0.KubernetesRuntimeDefinition,
+	kubernetesRuntimeInstResult *v0.KubernetesRuntimeInstance,
+) error {
+
+	awsAccount := v0.AwsAccount{
+		Name:           util.Ptr("default-account"),
+		AccountID:      callerIdentity.Account,
+		DefaultAccount: util.Ptr(true),
+		DefaultRegion:  &awsConfigResourceManager.Region,
+		RoleArn: util.Ptr(
+			provider.GetResourceManagerRoleArn(
+				cpi.Opts.ControlPlaneName,
+				*callerIdentity.Account,
+			),
+		),
+	}
+	createdAwsAccount, err := client.CreateAwsAccount(
+		apiClient,
+		*threeportAPIEndpoint,
+		&awsAccount,
+	)
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to create new default AWS account", err)
+	}
+
+	// create aws eks k8s runtime definition
+	eksRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
+	kubernetesRuntimeInfraEKS := (*kubernetesRuntimeInfra).(*provider.KubernetesRuntimeInfraEKS)
+	zoneCount := int(kubernetesRuntimeInfraEKS.ZoneCount)
+	defaultNodeGroupInitialSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)
+	defaultNodeGroupMinSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)
+	defaultNodeGroupMaxSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)
+	awsEksKubernetesRuntimeDef := v0.AwsEksKubernetesRuntimeDefinition{
+		Definition: v0.Definition{
+			Name: &eksRuntimeDefName,
+		},
+		AwsAccountID:                  createdAwsAccount.ID,
+		ZoneCount:                     &zoneCount,
+		DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfraEKS.DefaultNodeGroupInstanceType,
+		DefaultNodeGroupInitialSize:   &defaultNodeGroupInitialSize,
+		DefaultNodeGroupMinimumSize:   &defaultNodeGroupMinSize,
+		DefaultNodeGroupMaximumSize:   &defaultNodeGroupMaxSize,
+		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
+	}
+	createdAwsEksKubernetesRuntimeDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(
+		apiClient,
+		*threeportAPIEndpoint,
+		&awsEksKubernetesRuntimeDef,
+	)
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to create new AWS EKS kubernetes runtime definition for control plane cluster", err)
+	}
+
+	// create aws eks k8s runtime instance
+	var inventory eks.EksInventory
+	if err := inventory.Load(
+		provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
+	); err != nil {
+		return uninstaller.cleanOnCreateError("failed to read eks kubernetes runtime inventory for inventory update", err)
+	}
+	inventoryJson, err := inventory.Marshal()
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to marshal eks kubernetes runtime inventory for inventory update", err)
+	}
+	dbInventory := datatypes.JSON(inventoryJson)
+	eksRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
+	reconciled := true
+	awsEksKubernetesRuntimeInstance := v0.AwsEksKubernetesRuntimeInstance{
+		Instance: v0.Instance{
+			Name: &eksRuntimeInstName,
+		},
+		Reconciliation: v0.Reconciliation{
+			Reconciled: &reconciled,
+		},
+		Region:                              &awsConfigResourceManager.Region,
+		AwsEksKubernetesRuntimeDefinitionID: createdAwsEksKubernetesRuntimeDef.ID,
+		KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
+		ResourceInventory:                   &dbInventory,
+	}
+	_, err = client.CreateAwsEksKubernetesRuntimeInstance(
+		apiClient,
+		*threeportAPIEndpoint,
+		&awsEksKubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to create new AWS EKS kubernetes runtime instance for control plane cluster", err)
 	}
 	return nil
 }
