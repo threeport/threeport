@@ -866,6 +866,17 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	}
 
+	// for providers that use auth tokens, ensure we have the latest token
+	switch threeportControlPlaneConfig.Provider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		kubernetesRuntimeInstance, err = RefreshEKSConnectionWithLocalConfig(awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, threeportControlPlaneConfig.APIServer)
+		if err != nil {
+			return fmt.Errorf("failed to refresh EKS connection with local config: %w", err)
+		}
+	case v0.KubernetesRuntimeInfraProviderOKE:
+		kubernetesRuntimeInstance.ConnectionToken = &kubeConnection.Token
+	}
+
 	// if provider is EKS we need to delete the threeport API service to
 	// remove the AWS load balancer before deleting the rest of the infra and
 	// check for existing workload instances that may prevent deletion
@@ -899,17 +910,12 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to delete control plane infra: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		updatedKubernetesRuntimeInstance, err := RefreshEKSConnectionWithLocalConfig(awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, threeportControlPlaneConfig.APIServer)
-		if err != nil {
-			return fmt.Errorf("failed to refresh EKS connection with local config: %w", err)
-		}
-
 		// create a client and resource mapper to connect to kubernetes cluster
 		// API for deleting resources
 		var dynamicKubeClient dynamic.Interface
 		var mapper *meta.RESTMapper
 		dynamicKubeClient, mapper, err = kube.GetClient(
-			updatedKubernetesRuntimeInstance,
+			kubernetesRuntimeInstance,
 			false,
 			apiClient,
 			threeportControlPlaneConfig.APIServer,
@@ -944,9 +950,6 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
-		// update kubernetes runtime instance with latest connection token
-		kubernetesRuntimeInstance.ConnectionToken = &kubeConnection.Token
-
 		// create a client and resource mapper to connect to kubernetes cluster
 		// API for deleting resources
 		var dynamicKubeClient dynamic.Interface
