@@ -240,7 +240,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 	uninstaller.controlPlane = &controlPlane
 
-	var kubernetesRuntimeInfra *provider.KubernetesRuntimeInfra
+	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var threeportAPIEndpoint *string
 	var callerIdentity *sts.GetCallerIdentityOutput
 	var kubeConnectionInfo *kube.KubeConnectionInfo
@@ -256,7 +256,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			threeportAPIEndpoint,
 			threeportControlPlaneConfig,
 			threeportConfig,
-			kubernetesRuntimeInfra,
+			&kubernetesRuntimeInfra,
 			kubeConnectionInfo,
 			uninstaller,
 		); err != nil {
@@ -267,7 +267,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			cpi,
 			threeportControlPlaneConfig,
 			threeportConfig,
-			kubernetesRuntimeInfra,
+			&kubernetesRuntimeInfra,
 			kubeConnectionInfo,
 			uninstaller,
 			&awsConfigUser,
@@ -289,8 +289,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			WorkerNodeMinCount:      cpi.Opts.OracleWorkerNodeMinCount,
 			WorkerNodeMaxCount:      cpi.Opts.OracleWorkerNodeMaxCount,
 		}
-		*kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
-		uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
+		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
 
 		if cpi.Opts.ControlPlaneOnly {
 			kubeConnectionInfo, err = kubernetesRuntimeInfraOKE.GetConnection()
@@ -298,7 +298,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				return fmt.Errorf("failed to get connection info for OKE kubernetes runtime: %w", err)
 			}
 		} else {
-			kubeConnectionInfo, err = (*kubernetesRuntimeInfra).Create()
+			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
 			if err != nil {
 				return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
 			}
@@ -378,7 +378,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return uninstaller.cleanOnCreateError("failed to configure eks kubernetes runtime instance", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
-		kubernetesRuntimeInfraOKE := (*kubernetesRuntimeInfra).(*provider.KubernetesRuntimeInfraOKE)
+		kubernetesRuntimeInfraOKE := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraOKE)
 		location, err := mapping.GetLocationForAwsRegion(kubernetesRuntimeInfraOKE.Region)
 		if err != nil {
 			return uninstaller.cleanOnCreateError(fmt.Sprintf("failed to get threeport location for OKE region %s", "us-phoenix-1"), err)
@@ -673,7 +673,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			awsConfigResourceManager,
 			apiClient,
 			threeportAPIEndpoint,
-			kubernetesRuntimeInfra,
+			&kubernetesRuntimeInfra,
 			kubernetesRuntimeDefResult,
 			kubernetesRuntimeInstResult,
 		); err != nil {
@@ -687,7 +687,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			threeportAPIEndpoint,
 			kubernetesRuntimeDefResult,
 			kubernetesRuntimeInstResult,
-			kubernetesRuntimeInfra,
+			&kubernetesRuntimeInfra,
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to configure control plane with oke config", err)
 		}
