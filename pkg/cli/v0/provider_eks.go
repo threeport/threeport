@@ -21,6 +21,8 @@ import (
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/dynamic"
 )
 
 // DeployEksInfra deploys the EKS infrastructure for the control plane.
@@ -267,5 +269,32 @@ func ConfigureEksKubernetesRuntimeInstance(
 		DefaultRuntime:            &defaultRuntime,
 	}
 
+	return nil
+}
+
+// InstallEksKubernetesResources installs the kubernetes resources for the eks provider.
+func InstallEksKubernetesResources(
+	cpi *threeport.ControlPlaneInstaller,
+	uninstaller *Uninstaller,
+	callerIdentity *sts.GetCallerIdentityOutput,
+	dynamicKubeClient *dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	// create and configure service accounts for workload and aws controllers,
+	// which will be used to authenticate to AWS via IRSA
+
+	// configure IRSA controllers to use appropriate service account names
+	provider.UpdateIrsaControllerList(cpi.Opts.ControllerList)
+
+	// create IRSA service accounts
+	for _, serviceAccount := range provider.GetIrsaServiceAccounts(
+		cpi.Opts.Namespace,
+		*callerIdentity.Account,
+		provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
+	) {
+		if err := cpi.CreateOrUpdateKubeResource(serviceAccount, *dynamicKubeClient, mapper); err != nil {
+			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
+		}
+	}
 	return nil
 }

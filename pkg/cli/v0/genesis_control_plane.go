@@ -498,48 +498,30 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return uninstaller.cleanOnCreateError("failed to install threeport API server", err)
 	}
 
-	// for a cloud provider installed control plane:
-	// * determine the threeport API's remote endpoint to add to the threeport
-	//   config and to add to the server certificate's alt names when TLS
-	//   assets are installed
-	// * install provider-specific kubernetes resources
+	// if the control plane is not kind, get the threeport API's public endpoint
+	if controlPlane.InfraProvider != v0.KubernetesRuntimeInfraProviderKind {
+		*threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+		if err != nil {
+			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
+		}
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
+		}); err != nil {
+			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
+		}
+	}
+
+	// install provider-specific kubernetes resources
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		*threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
-		if err != nil {
-			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
-		}
-		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
-			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
-		}); err != nil {
-			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
-		}
-
-		// create and configure service accounts for workload and aws controllers,
-		// which will be used to authenticate to AWS via IRSA
-
-		// configure IRSA controllers to use appropriate service account names
-		provider.UpdateIrsaControllerList(cpi.Opts.ControllerList)
-
-		// create IRSA service accounts
-		for _, serviceAccount := range provider.GetIrsaServiceAccounts(
-			cpi.Opts.Namespace,
-			*callerIdentity.Account,
-			provider.GetResourceManagerRoleName(cpi.Opts.ControlPlaneName),
-		) {
-			if err := cpi.CreateOrUpdateKubeResource(serviceAccount, dynamicKubeClient, mapper); err != nil {
-				return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
-			}
-		}
-	case v0.KubernetesRuntimeInfraProviderOKE:
-		*threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
-		if err != nil {
-			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
-		}
-		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
-			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
-		}); err != nil {
-			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
+		if err := InstallEksKubernetesResources(
+			cpi,
+			uninstaller,
+			callerIdentity,
+			&dynamicKubeClient,
+			mapper,
+		); err != nil {
+			return uninstaller.cleanOnCreateError("failed to install eks kubernetes resources", err)
 		}
 	}
 
@@ -637,9 +619,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return uninstaller.cleanOnCreateError("failed to install threeport support services operator", err)
 	}
 
+	// install provider-specific system services
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		// install system services incl cluster autoscaler
 		if err := threeport.InstallThreeportSystemServices(
 			dynamicKubeClient,
 			mapper,
