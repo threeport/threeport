@@ -86,7 +86,6 @@ type OciOkeKubernetesRuntimeInstanceValues struct {
 func (o *OciAccountValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.OciAccount, error) {
 	ociAccount := v0.OciAccount{
 		Name:           o.Name,
-		AccountID:      o.AccountID,
 		TenancyID:      o.TenancyID,
 		DefaultAccount: o.DefaultAccount,
 		DefaultRegion:  o.DefaultRegion,

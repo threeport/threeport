@@ -11,8 +11,8 @@ type OciAccount struct {
 	// The unique name of an OCI account.
 	Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
-	// The account ID for the OCI account.
-	AccountID *string `json:"AccountID,omitempty" query:"accountid" gorm:"not null" validate:"required"`
+	// The user OCID credentials for the OCI account.
+	UserOCID *string `json:"UserOCID,omitempty" validate:"optional" encrypt:"true"`
 
 	// The tenancy OCID for the OCI account.
 	TenancyID *string `json:"TenancyID,omitempty" query:"tenancyid" gorm:"not null" validate:"required"`
@@ -22,9 +22,6 @@ type OciAccount struct {
 
 	// The region to use for OCI managed services if not specified.
 	DefaultRegion *string `json:"DefaultRegion,omitempty" query:"defaultregion" gorm:"not null" validate:"required"`
-
-	// The user OCID credentials for the OCI account.
-	UserOCID *string `json:"UserOCID,omitempty" validate:"optional" encrypt:"true"`
 
 	// The fingerprint of the API key for the OCI account.
 	KeyFingerprint *string `json:"KeyFingerprint,omitempty" validate:"optional" encrypt:"true"`

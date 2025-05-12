@@ -300,9 +300,22 @@ func refreshOKEConnection(
 		return nil, fmt.Errorf("failed to AWS EKS kubernetes runtime definition by ID %d: %w", okeRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID, err)
 	}
 
+	// get OCI account
+	var ociAccount *v0.OciAccount
+	if ociAccount, err = client.GetOciAccountByID(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		*okeRuntimeDefinition.OciAccountID,
+	); err != nil {
+		return nil, fmt.Errorf("failed to get OCI account by ID %d: %w", *okeRuntimeDefinition.OciAccountID, err)
+	}
+
 	var token string
 	var tokenExpirationTime time.Time
-	if token, tokenExpirationTime, err = generateToken(*okeRuntimeInstance.ClusterOCID); err != nil {
+	if token, tokenExpirationTime, err = generateToken(
+		*okeRuntimeInstance.ClusterOCID,
+		ociAccount,
+	); err != nil {
 		return nil, fmt.Errorf("failed to generate token for OKE cluster: %w", err)
 	}
 
@@ -318,11 +331,11 @@ func refreshOKEConnection(
 
 	// generate updated rest config
 	restConfig := rest.Config{
-		// Host:        eksClusterConn.APIEndpoint,
-		// BearerToken: eksClusterConn.Token,
-		// TLSClientConfig: rest.TLSClientConfig{
-		// 	CAData: []byte(eksClusterConn.CACertificate),
-		// },
+		Host:        *runtimeInstance.APIEndpoint,
+		BearerToken: token,
+		TLSClientConfig: rest.TLSClientConfig{
+			CAData: []byte(*runtimeInstance.CACertificate),
+		},
 	}
 
 	// update threeport API with new connection info
@@ -489,11 +502,17 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 	return awsConfig, nil
 }
 
-//TODO: deduplicate and move elsewhere to avoid import loop
+// TODO: deduplicate and move elsewhere to avoid import loop
 // generateToken generates a token for an OKE cluster.
-func generateToken(clusterID string) (string, time.Time, error) {
-	// Create a configuration provider from the default config file
-	configProvider := common.DefaultConfigProvider()
+func generateToken(clusterID string, ociAccount *v0.OciAccount) (string, time.Time, error) {
+	configProvider := common.NewRawConfigurationProvider(
+		*ociAccount.TenancyID,
+		*ociAccount.UserOCID,
+		*ociAccount.DefaultRegion,
+		*ociAccount.KeyFingerprint,
+		*ociAccount.PrivateKey,
+		nil,
+	)
 
 	// Get the region from the config
 	region, err := configProvider.Region()
