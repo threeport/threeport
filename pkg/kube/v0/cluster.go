@@ -2,6 +2,7 @@ package v0
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/nukleros/aws-builder/pkg/eks/connection"
+	"github.com/oracle/oci-go-sdk/v65/common"
+	ocicontainerengine "github.com/oracle/oci-go-sdk/v65/containerengine"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -269,6 +272,8 @@ func checkTokenExpiring(
 
 	return expiring, nil
 }
+
+// refreshOKEConnection refreshes the connection token for an OKE cluster.
 func refreshOKEConnection(
 	runtimeInstance *v0.KubernetesRuntimeInstance,
 	threeportAPIClient *http.Client,
@@ -276,7 +281,7 @@ func refreshOKEConnection(
 	encryptionKey string,
 ) (*rest.Config, error) {
 	// get EKS runtime instance
-	eksRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(
+	okeRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
 		threeportAPIClient,
 		threeportAPIEndpoint,
 		*runtimeInstance.ID,
@@ -285,51 +290,44 @@ func refreshOKEConnection(
 		return nil, fmt.Errorf("failed to get AWS EKS kubernetes runtime instance by kubernetes runtime instance ID %d: %w", runtimeInstance.ID, err)
 	}
 
-	// get EKS runtime definition
-	eksRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
+	// get OKE runtime definition
+	okeRuntimeDefinition, err := client.GetOciOkeKubernetesRuntimeDefinitionByID(
 		threeportAPIClient,
 		threeportAPIEndpoint,
-		*eksRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
+		*okeRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to AWS EKS kubernetes runtime definition by ID %d: %w", eksRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID, err)
+		return nil, fmt.Errorf("failed to AWS EKS kubernetes runtime definition by ID %d: %w", okeRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID, err)
+	}
+
+	var token string
+	var tokenExpirationTime time.Time
+	if token, tokenExpirationTime, err = generateToken(*okeRuntimeInstance.ClusterOCID); err != nil {
+		return nil, fmt.Errorf("failed to generate token for OKE cluster: %w", err)
 	}
 
 	// get AWS account
-	awsAccount, err := client.GetAwsAccountByID(
+	_, err = client.GetOciAccountByID(
 		threeportAPIClient,
 		threeportAPIEndpoint,
-		*eksRuntimeDefinition.AwsAccountID,
+		*okeRuntimeDefinition.OciAccountID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get AWS account by ID %d: %w", *eksRuntimeDefinition.AwsAccountID, err)
-	}
-
-	awsConfig, err := GetAwsConfigFromAwsAccount(encryptionKey, *eksRuntimeInstance.Region, awsAccount)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create AWS config for EKS cluster token refresh: %w", err)
-	}
-
-	// get connection info from AWS
-	eksClusterConn := connection.EksClusterConnectionInfo{ClusterName: *eksRuntimeInstance.Name}
-	if err := eksClusterConn.Get(awsConfig); err != nil {
-		return nil, fmt.Errorf("failed to get EKS cluster connection info for token refresh: %w", err)
+		return nil, fmt.Errorf("failed to get AWS account by ID %d: %w", *okeRuntimeDefinition.OciAccountID, err)
 	}
 
 	// generate updated rest config
-	tlsConfig := rest.TLSClientConfig{
-		CAData: []byte(eksClusterConn.CACertificate),
-	}
 	restConfig := rest.Config{
-		Host:            eksClusterConn.APIEndpoint,
-		BearerToken:     eksClusterConn.Token,
-		TLSClientConfig: tlsConfig,
+		// Host:        eksClusterConn.APIEndpoint,
+		// BearerToken: eksClusterConn.Token,
+		// TLSClientConfig: rest.TLSClientConfig{
+		// 	CAData: []byte(eksClusterConn.CACertificate),
+		// },
 	}
 
 	// update threeport API with new connection info
-	runtimeInstance.CACertificate = &eksClusterConn.CACertificate
-	runtimeInstance.ConnectionToken = &eksClusterConn.Token
-	runtimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
+	runtimeInstance.ConnectionToken = &token
+	runtimeInstance.ConnectionTokenExpiration = &tokenExpirationTime
 	_, err = client.UpdateKubernetesRuntimeInstance(
 		threeportAPIClient,
 		threeportAPIEndpoint,
@@ -391,13 +389,12 @@ func refreshEKSConnection(
 	}
 
 	// generate updated rest config
-	tlsConfig := rest.TLSClientConfig{
-		CAData: []byte(eksClusterConn.CACertificate),
-	}
 	restConfig := rest.Config{
-		Host:            eksClusterConn.APIEndpoint,
-		BearerToken:     eksClusterConn.Token,
-		TLSClientConfig: tlsConfig,
+		Host:        eksClusterConn.APIEndpoint,
+		BearerToken: eksClusterConn.Token,
+		TLSClientConfig: rest.TLSClientConfig{
+			CAData: []byte(eksClusterConn.CACertificate),
+		},
 	}
 
 	// update threeport API with new connection info
@@ -490,4 +487,67 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 	}
 
 	return awsConfig, nil
+}
+
+//TODO: deduplicate and move elsewhere to avoid import loop
+// generateToken generates a token for an OKE cluster.
+func generateToken(clusterID string) (string, time.Time, error) {
+	// Create a configuration provider from the default config file
+	configProvider := common.DefaultConfigProvider()
+
+	// Get the region from the config
+	region, err := configProvider.Region()
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to get region: %v", err)
+	}
+
+	// Create the container engine client
+	client, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to create client: %v", err)
+	}
+
+	// Construct the URL
+	url := fmt.Sprintf("https://containerengine.%s.oraclecloud.com/cluster_request/%s", region, clusterID)
+
+	// Create the initial request
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	// Set the date header in RFC1123 format with GMT
+	tokenExpirationTime := time.Now().In(time.FixedZone("GMT", 0))
+	tokenExpiration := tokenExpirationTime.Format("Mon, 02 Jan 2006 15:04:05 GMT")
+	req.Header.Set("date", tokenExpiration)
+
+	// Sign the request
+	err = client.Signer.Sign(req)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to sign request: %v", err)
+	}
+
+	// Get the authorization and date headers
+	headerParams := map[string]string{
+		"authorization": req.Header.Get("authorization"),
+		"date":          req.Header.Get("date"),
+	}
+
+	// Create the token request with the headers as query parameters
+	tokenReq, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to create token request: %v", err)
+	}
+
+	// Add the headers as query parameters
+	q := tokenReq.URL.Query()
+	for key, value := range headerParams {
+		q.Add(key, value)
+	}
+	tokenReq.URL.RawQuery = q.Encode()
+
+	// Encode the URL as the token
+	token := base64.URLEncoding.EncodeToString([]byte(tokenReq.URL.String()))
+
+	return token, tokenExpirationTime, nil
 }
