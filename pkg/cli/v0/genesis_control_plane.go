@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 	"unicode/utf8"
@@ -251,8 +249,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	uninstaller.controlPlane = &controlPlane
 
 	// deploy infrastructure
-	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
-	var threeportAPIEndpoint string
+	var kubernetesRuntimeInfra *provider.KubernetesRuntimeInfra
+	var threeportAPIEndpoint *string
 	var callerIdentity *sts.GetCallerIdentityOutput
 	var kubeConnectionInfo *kube.KubeConnectionInfo
 	awsConfigUser := aws.Config{}
@@ -260,82 +258,16 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	awsConfigResourceManager := &aws.Config{}
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderKind:
-
-		portForwards := make(map[int32]int32)
-		for _, mapping := range cpi.Opts.KindInfraPortForward {
-			split := strings.Split(mapping, ":")
-			if len(split) != 2 {
-				return fmt.Errorf("failed to parse kind port forward %s", mapping)
-			}
-
-			containerPort, err := strconv.ParseInt(split[0], 10, 32)
-			if err != nil {
-				return fmt.Errorf("failed to parse container port: %s as int32", split[0])
-			}
-
-			hostPort, err := strconv.ParseInt(split[1], 10, 32)
-			if err != nil {
-				return fmt.Errorf("failed to parse host port: %s as int32", split[0])
-			}
-
-			portForwards[int32(containerPort)] = int32(hostPort)
-		}
-
-		// construct kind infra provider object
-		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
-			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
-			KubeconfigPath:      cpi.Opts.KubeconfigPath,
-			DevEnvironment:      cpi.Opts.DevEnvironment,
-			ThreeportPath:       cpi.Opts.ThreeportPath,
-			NumWorkerNodes:      cpi.Opts.NumWorkerNodes,
-			AuthEnabled:         cpi.Opts.AuthEnabled,
-			PortForwards:        portForwards,
-		}
-
-		// update threeport config with api endpoint
-		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(cpi.Opts.AuthEnabled)
-		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
-			c.APIServer = threeportAPIEndpoint
-		}); err != nil {
-			return fmt.Errorf("failed to update threeport config: %w", err)
-		}
-
-		// delete kind kubernetes runtime if interrupted
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-		go func() {
-			<-sigs
-			Warning("received Ctrl+C, removing kind kubernetes runtime...")
-			// first update the threeport config so the Delete method has
-			// something to reference
-			threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {})
-			if err := DeleteGenesisControlPlane(cpi); err != nil {
-				Error("failed to delete kind kubernetes runtime", err)
-			}
-			os.Exit(1)
-		}()
-
-		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
-		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfra
-		if cpi.Opts.ControlPlaneOnly {
-			kubeConnectionInfo, err = kube.GetConnectionInfoFromKubeconfig(kubernetesRuntimeInfraKind.KubeconfigPath)
-			if err != nil {
-				return fmt.Errorf("failed to get connection info for kind kubernetes runtime: %w", err)
-			}
-		} else {
-			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
-			if err != nil {
-				return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
-			}
-		}
-
-		// connect local registry if requested
-		if cpi.Opts.LocalRegistry {
-			if err := tptdev.ConnectLocalRegistry(
-				provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
-			); err != nil {
-				return uninstaller.cleanOnCreateError("failed to connect local container registry to Threeport control plane cluster", err)
-			}
+		if err := DeployKindInfra(
+			cpi,
+			threeportAPIEndpoint,
+			threeportControlPlaneConfig,
+			threeportConfig,
+			kubernetesRuntimeInfra,
+			kubeConnectionInfo,
+			uninstaller,
+		); err != nil {
+			return fmt.Errorf("failed to deploy kind infrastructure: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		// create AWS config
@@ -465,8 +397,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			DefaultNodeGroupMinNodes:     int32(3),
 			DefaultNodeGroupMaxNodes:     int32(250),
 		}
-		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
-		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfra
+		*kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
+		uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra
 
 		// capture messages as resources are created and return to user
 		go func() {
@@ -506,7 +438,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				return fmt.Errorf("failed to get connection info for eks kubernetes runtime: %w", err)
 			}
 		} else {
-			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
+			kubeConnectionInfo, err = (*kubernetesRuntimeInfra).Create()
 			if err != nil {
 				return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
 			}
@@ -524,8 +456,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			WorkerNodeMinCount:      cpi.Opts.OracleWorkerNodeMinCount,
 			WorkerNodeMaxCount:      cpi.Opts.OracleWorkerNodeMaxCount,
 		}
-		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
-		uninstaller.kubernetesRuntimeInfra = kubernetesRuntimeInfra
+		*kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
+		uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra
 
 		if cpi.Opts.ControlPlaneOnly {
 			kubeConnectionInfo, err = kubernetesRuntimeInfraOKE.GetConnection()
@@ -533,7 +465,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				return fmt.Errorf("failed to get connection info for OKE kubernetes runtime: %w", err)
 			}
 		} else {
-			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
+			kubeConnectionInfo, err = (*kubernetesRuntimeInfra).Create()
 			if err != nil {
 				return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
 			}
@@ -638,7 +570,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			DefaultRuntime:            &defaultRuntime,
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
-		kubernetesRuntimeInfraOKE := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraOKE)
+		kubernetesRuntimeInfraOKE := (*kubernetesRuntimeInfra).(*provider.KubernetesRuntimeInfraOKE)
 		location, err := mapping.GetLocationForAwsRegion(kubernetesRuntimeInfraOKE.Region)
 		if err != nil {
 			return uninstaller.cleanOnCreateError(fmt.Sprintf("failed to get threeport location for OKE region %s", "us-phoenix-1"), err)
@@ -762,7 +694,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// * install provider-specific kubernetes resources
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+		*threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
 		}
@@ -789,7 +721,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			}
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
-		threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
+		*threeportAPIEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
 		}
@@ -808,7 +740,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			dynamicKubeClient,
 			mapper,
 			authConfig,
-			threeportAPIEndpoint,
+			*threeportAPIEndpoint,
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to install threeport API TLS assets", err)
 		}
@@ -922,7 +854,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 	kubernetesRuntimeDefResult, err := client.CreateKubernetesRuntimeDefinition(
 		apiClient,
-		threeportAPIEndpoint,
+		*threeportAPIEndpoint,
 		&kubernetesRuntimeDefinition,
 	)
 	if err != nil {
@@ -933,7 +865,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = kubernetesRuntimeDefResult.ID
 	kubernetesRuntimeInstResult, err := client.CreateKubernetesRuntimeInstance(
 		apiClient,
-		threeportAPIEndpoint,
+		*threeportAPIEndpoint,
 		&kubernetesRuntimeInstance,
 	)
 	if err != nil {
@@ -963,7 +895,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 		createdAwsAccount, err := client.CreateAwsAccount(
 			apiClient,
-			threeportAPIEndpoint,
+			*threeportAPIEndpoint,
 			&awsAccount,
 		)
 		if err != nil {
@@ -972,7 +904,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 		// create aws eks k8s runtime definition
 		eksRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
-		kubernetesRuntimeInfraEKS := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraEKS)
+		kubernetesRuntimeInfraEKS := (*kubernetesRuntimeInfra).(*provider.KubernetesRuntimeInfraEKS)
 		zoneCount := int(kubernetesRuntimeInfraEKS.ZoneCount)
 		defaultNodeGroupInitialSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)
 		defaultNodeGroupMinSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)
@@ -991,7 +923,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 		createdAwsEksKubernetesRuntimeDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(
 			apiClient,
-			threeportAPIEndpoint,
+			*threeportAPIEndpoint,
 			&awsEksKubernetesRuntimeDef,
 		)
 		if err != nil {
@@ -1026,13 +958,13 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 		_, err = client.CreateAwsEksKubernetesRuntimeInstance(
 			apiClient,
-			threeportAPIEndpoint,
+			*threeportAPIEndpoint,
 			&awsEksKubernetesRuntimeInstance,
 		)
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to create new AWS EKS kubernetes runtime instance for control plane cluster", err)
 		}
-	// case v0.KubernetesRuntimeInfraProviderOKE:
+		// case v0.KubernetesRuntimeInfraProviderOKE:
 	}
 
 	reconciled := true
@@ -1046,7 +978,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		},
 		AuthEnabled: &cpi.Opts.AuthEnabled,
 	}
-	_, err = client.CreateControlPlaneDefinition(apiClient, threeportAPIEndpoint, &controlPlaneDefinition)
+	_, err = client.CreateControlPlaneDefinition(apiClient, *threeportAPIEndpoint, &controlPlaneDefinition)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to create control plane definition in threeport API", err)
 	}
@@ -1081,7 +1013,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		Genesis:                     &genesis,
 		IsSelf:                      &selfInstance,
-		ApiServerEndpoint:           &threeportAPIEndpoint,
+		ApiServerEndpoint:           threeportAPIEndpoint,
 		CACert:                      caCert,
 		ClientCert:                  clientCert,
 		ClientKey:                   clientKey,
@@ -1090,7 +1022,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// create control plane instance
-	_, err = client.CreateControlPlaneInstance(apiClient, threeportAPIEndpoint, &controlPlaneInstance)
+	_, err = client.CreateControlPlaneInstance(apiClient, *threeportAPIEndpoint, &controlPlaneInstance)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to create control plane instance in threeport API", err)
 	}
