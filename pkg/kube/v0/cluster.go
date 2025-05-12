@@ -219,20 +219,28 @@ func GetRestConfig(
 					return nil, fmt.Errorf("failed to get kubernetes runtime definition by ID %d: %w", runtime.KubernetesRuntimeDefinitionID, err)
 				}
 
+				var config *rest.Config
 				switch *definition.InfraProvider {
 				case v0.KubernetesRuntimeInfraProviderEKS:
-					config, err := refreshEKSConnection(
+					if config, err = refreshEKSConnection(
 						runtime,
 						threeportAPIClient,
 						threeportAPIEndpoint,
 						encryptionKey,
-					)
-					if err != nil {
+					); err != nil {
 						return nil, fmt.Errorf("failed to refresh connection token for EKS cluster: %w", err)
 					}
 					restConfig = *config
-				// TODO: Implement OKE refresh connection token case
-				// case v0.KubernetesRuntimeInfraProviderOKE:
+				case v0.KubernetesRuntimeInfraProviderOKE:
+					if config, err = refreshOKEConnection(
+						runtime,
+						threeportAPIClient,
+						threeportAPIEndpoint,
+						encryptionKey,
+					); err != nil {
+						return nil, fmt.Errorf("failed to refresh connection token for OKE cluster: %w", err)
+					}
+					restConfig = *config
 				default:
 					return nil, errors.New(
 						fmt.Sprintf("unable to refresh connection token for unsupported infra provider %s:", *definition.InfraProvider),
@@ -260,6 +268,78 @@ func checkTokenExpiring(
 	expiring := runtimeInstance.ConnectionTokenExpiration.Before(expiration)
 
 	return expiring, nil
+}
+func refreshOKEConnection(
+	runtimeInstance *v0.KubernetesRuntimeInstance,
+	threeportAPIClient *http.Client,
+	threeportAPIEndpoint string,
+	encryptionKey string,
+) (*rest.Config, error) {
+	// get EKS runtime instance
+	eksRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		*runtimeInstance.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AWS EKS kubernetes runtime instance by kubernetes runtime instance ID %d: %w", runtimeInstance.ID, err)
+	}
+
+	// get EKS runtime definition
+	eksRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		*eksRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to AWS EKS kubernetes runtime definition by ID %d: %w", eksRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID, err)
+	}
+
+	// get AWS account
+	awsAccount, err := client.GetAwsAccountByID(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		*eksRuntimeDefinition.AwsAccountID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AWS account by ID %d: %w", *eksRuntimeDefinition.AwsAccountID, err)
+	}
+
+	awsConfig, err := GetAwsConfigFromAwsAccount(encryptionKey, *eksRuntimeInstance.Region, awsAccount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AWS config for EKS cluster token refresh: %w", err)
+	}
+
+	// get connection info from AWS
+	eksClusterConn := connection.EksClusterConnectionInfo{ClusterName: *eksRuntimeInstance.Name}
+	if err := eksClusterConn.Get(awsConfig); err != nil {
+		return nil, fmt.Errorf("failed to get EKS cluster connection info for token refresh: %w", err)
+	}
+
+	// generate updated rest config
+	tlsConfig := rest.TLSClientConfig{
+		CAData: []byte(eksClusterConn.CACertificate),
+	}
+	restConfig := rest.Config{
+		Host:            eksClusterConn.APIEndpoint,
+		BearerToken:     eksClusterConn.Token,
+		TLSClientConfig: tlsConfig,
+	}
+
+	// update threeport API with new connection info
+	runtimeInstance.CACertificate = &eksClusterConn.CACertificate
+	runtimeInstance.ConnectionToken = &eksClusterConn.Token
+	runtimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
+	_, err = client.UpdateKubernetesRuntimeInstance(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		runtimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update kubernetes runtime instance kubernetes connection info: %w", err)
+	}
+
+	return &restConfig, nil
 }
 
 // refreshEKSConnection retrieves a new EKS token when it expires.
