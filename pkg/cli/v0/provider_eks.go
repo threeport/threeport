@@ -403,6 +403,73 @@ func ConfigureControlPlaneWithEksConfig(
 	return nil
 }
 
+func PrepForEksDeletion(
+	cpi *threeport.ControlPlaneInstaller,
+	threeportControlPlaneConfig *config.ControlPlane,
+	threeportConfig *config.ThreeportConfig,
+	awsConfigUser *aws.Config,
+	awsConfigResourceManager *aws.Config,
+	requestedControlPlane string,
+) (*provider.KubernetesRuntimeInfraEKS, error) {
+	// create AWS config
+	// * AwsConfigEnv is always passed in from CLI args as it is not
+	//   persisted in threeport config
+	// * AwsConfigProfile and AwsRegion cannot be passed in through CLI for
+	// deletion opertion as these are stored in threeport config
+	// create a resource client to delete EKS resources
+
+	var accountId string
+	var err error
+	awsConfigUser, awsConfigResourceManager, accountId, err = threeportConfig.GetAwsConfigs(requestedControlPlane)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AWS configs from threeport config: %w", err)
+	}
+
+	eksInventoryChan := make(chan eks.EksInventory)
+	eksClient := eks.EksClient{
+		*builder_client.CreateResourceClient(awsConfigResourceManager),
+		&eksInventoryChan,
+	}
+
+	// capture messages as resources are created and return to user
+	go func() {
+		for msg := range *eksClient.MessageChan {
+			Info(msg)
+		}
+	}()
+
+	// capture inventory and write to file as it is updated
+	go func() {
+		for inventory := range *eksClient.InventoryChan {
+			if err := inventory.Write(
+				provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
+			); err != nil {
+				Error("failed to write inventory file", err)
+			}
+		}
+	}()
+
+	// read inventory to delete
+	var inventory eks.EksInventory
+	if err := inventory.Load(
+		provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
+	); err != nil {
+		return nil, fmt.Errorf("failed to read inventory file for deleting eks kubernetes runtime resources: %w", err)
+	}
+
+	// construct eks kubernetes runtime infra object
+	kubernetesRuntimeInfraEKS := &provider.KubernetesRuntimeInfraEKS{
+		RuntimeInstanceName: provider.ThreeportRuntimeName(threeportControlPlaneConfig.Name),
+		AwsAccountID:        accountId,
+		AwsConfig:           awsConfigResourceManager,
+		ResourceClient:      &eksClient,
+		ResourceInventory:   &inventory,
+	}
+
+	return kubernetesRuntimeInfraEKS, nil
+
+}
+
 // RefreshEKSConnectionWithLocalConfig uses the local AWS config to refresh
 // EKS connection info on the kubernetes runtime instance object
 func RefreshEKSConnectionWithLocalConfig(

@@ -11,7 +11,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	builder_client "github.com/nukleros/aws-builder/pkg/client"
 	"github.com/nukleros/aws-builder/pkg/eks"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
@@ -781,6 +780,8 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	var awsConfigUser *aws.Config
 	var awsConfigResourceManager *aws.Config
 	var kubeConnection *kube.KubeConnectionInfo
+
+	// perform provider-specific deletion prep
 	switch threeportControlPlaneConfig.Provider {
 	case v0.KubernetesRuntimeInfraProviderKind:
 		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
@@ -789,60 +790,18 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		// create AWS config
-		// * AwsConfigEnv is always passed in from CLI args as it is not
-		//   persisted in threeport config
-		// * AwsConfigProfile and AwsRegion cannot be passed in through CLI for
-		// deletion opertion as these are stored in threeport config
-		// create a resource client to delete EKS resources
-
-		var accountId string
-		awsConfigUser, awsConfigResourceManager, accountId, err = threeportConfig.GetAwsConfigs(requestedControlPlane)
-		if err != nil {
-			return fmt.Errorf("failed to get AWS configs from threeport config: %w", err)
-		}
-
-		eksInventoryChan := make(chan eks.EksInventory)
-		eksClient := eks.EksClient{
-			*builder_client.CreateResourceClient(awsConfigResourceManager),
-			&eksInventoryChan,
-		}
-
-		// capture messages as resources are created and return to user
-		go func() {
-			for msg := range *eksClient.MessageChan {
-				Info(msg)
-			}
-		}()
-
-		// capture inventory and write to file as it is updated
-		go func() {
-			for inventory := range *eksClient.InventoryChan {
-				if err := inventory.Write(
-					provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
-				); err != nil {
-					Error("failed to write inventory file", err)
-				}
-			}
-		}()
-
-		// read inventory to delete
-		var inventory eks.EksInventory
-		if err := inventory.Load(
-			provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName),
+		var kubernetesRuntimeInfraEKS *provider.KubernetesRuntimeInfraEKS
+		if kubernetesRuntimeInfraEKS, err = PrepForEksDeletion(
+			cpi,
+			threeportControlPlaneConfig,
+			threeportConfig,
+			awsConfigUser,
+			awsConfigResourceManager,
+			requestedControlPlane,
 		); err != nil {
-			return fmt.Errorf("failed to read inventory file for deleting eks kubernetes runtime resources: %w", err)
+			return fmt.Errorf("")
 		}
-
-		// construct eks kubernetes runtime infra object
-		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
-			RuntimeInstanceName: provider.ThreeportRuntimeName(threeportControlPlaneConfig.Name),
-			AwsAccountID:        accountId,
-			AwsConfig:           awsConfigResourceManager,
-			ResourceClient:      &eksClient,
-			ResourceInventory:   &inventory,
-		}
-		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
+		kubernetesRuntimeInfra = kubernetesRuntimeInfraEKS
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
 			RuntimeInstanceName:     provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
