@@ -207,7 +207,7 @@ NATS_PORT=4222
 		map[string]interface{}{
 			"name":            "db-init",
 			"image":           dbMigratorImage,
-			"imagePullPolicy": "IfNotPresent",
+			"imagePullPolicy": cpi.getImagePullPolicy(),
 			"command": []interface{}{
 				fmt.Sprintf("/%s", cpi.Opts.DatabaseMigratorInfo.BinaryName),
 			},
