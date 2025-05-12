@@ -896,50 +896,29 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
 	}
 
-	// if provider is EKS we need to delete the threeport API service to
-	// remove the AWS load balancer before deleting the rest of the infra and
-	// check for existing workload instances that may prevent deletion
-	switch threeportControlPlaneConfig.Provider {
-	case v0.KubernetesRuntimeInfraProviderKind:
-		if cpi.Opts.ControlPlaneOnly {
-			break
-		}
-
-		// delete control plane infra
-		if err := kubernetesRuntimeInfra.Delete(); err != nil {
-			return fmt.Errorf("failed to delete control plane infra: %w", err)
-		}
-	case v0.KubernetesRuntimeInfraProviderEKS:
-
-		if cpi.Opts.ControlPlaneOnly {
-			break
-		}
-
+	if cpi.Opts.ControlPlaneOnly {
+		Info("Skipping infra teardown")
+	} else {
 		// delete control plane infra
 		if err := kubernetesRuntimeInfra.Delete(); err != nil {
 			return fmt.Errorf("failed to delete control plane infra: %w", err)
 		}
 
-		// remove inventory file
-		invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName)
-		if err := os.Remove(invFile); err != nil {
-			Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
-		}
+		// delete provider-specific resources
+		switch threeportControlPlaneConfig.Provider {
+		case v0.KubernetesRuntimeInfraProviderEKS:
 
-		// delete AWS IAM resources
-		err = provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
-		if err != nil {
-			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
-		}
-	case v0.KubernetesRuntimeInfraProviderOKE:
-		if cpi.Opts.ControlPlaneOnly {
-			break
+			// remove inventory file
+			invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName)
+			if err := os.Remove(invFile); err != nil {
+				Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
+			}
 
-		}
-
-		// delete control plane infra
-		if err := kubernetesRuntimeInfra.Delete(); err != nil {
-			return fmt.Errorf("failed to delete control plane infra: %w", err)
+			// delete AWS IAM resources
+			err = provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
+			if err != nil {
+				return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
+			}
 		}
 	}
 

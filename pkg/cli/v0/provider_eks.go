@@ -403,6 +403,9 @@ func ConfigureControlPlaneWithEksConfig(
 	return nil
 }
 
+// PrepForEksDeletion prepares the control plane for deletion by deleting
+// the EKS kubernetes runtime instance and the AWS EKS kubernetes runtime
+// definition.
 func PrepForEksDeletion(
 	cpi *threeport.ControlPlaneInstaller,
 	threeportControlPlaneConfig *config.ControlPlane,
