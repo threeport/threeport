@@ -342,9 +342,6 @@ func ConfigureControlPlaneWithEksConfig(
 	eksRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	kubernetesRuntimeInfraEKS := (*kubernetesRuntimeInfra).(*provider.KubernetesRuntimeInfraEKS)
 	zoneCount := int(kubernetesRuntimeInfraEKS.ZoneCount)
-	defaultNodeGroupInitialSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)
-	defaultNodeGroupMinSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)
-	defaultNodeGroupMaxSize := int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)
 	awsEksKubernetesRuntimeDef := v0.AwsEksKubernetesRuntimeDefinition{
 		Definition: v0.Definition{
 			Name: &eksRuntimeDefName,
@@ -352,9 +349,9 @@ func ConfigureControlPlaneWithEksConfig(
 		AwsAccountID:                  createdAwsAccount.ID,
 		ZoneCount:                     &zoneCount,
 		DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfraEKS.DefaultNodeGroupInstanceType,
-		DefaultNodeGroupInitialSize:   &defaultNodeGroupInitialSize,
-		DefaultNodeGroupMinimumSize:   &defaultNodeGroupMinSize,
-		DefaultNodeGroupMaximumSize:   &defaultNodeGroupMaxSize,
+		DefaultNodeGroupInitialSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)),
+		DefaultNodeGroupMinimumSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMinNodes)),
+		DefaultNodeGroupMaximumSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupMaxNodes)),
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdAwsEksKubernetesRuntimeDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(

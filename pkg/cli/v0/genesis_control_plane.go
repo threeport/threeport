@@ -665,7 +665,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// configure control plane with provider-specific details
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		ConfigureControlPlaneWithEksConfig(
+		if err := ConfigureControlPlaneWithEksConfig(
 			cpi,
 			uninstaller,
 			&awsConfigUser,
@@ -676,7 +676,21 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			kubernetesRuntimeInfra,
 			kubernetesRuntimeDefResult,
 			kubernetesRuntimeInstResult,
-		)
+		); err != nil {
+			return uninstaller.cleanOnCreateError("failed to configure control plane with eks config", err)
+		}
+	case v0.KubernetesRuntimeInfraProviderOKE:
+		if err := ConfigureControlPlaneWithOkeConfig(
+			cpi,
+			uninstaller,
+			apiClient,
+			threeportAPIEndpoint,
+			kubernetesRuntimeDefResult,
+			kubernetesRuntimeInstResult,
+			kubernetesRuntimeInfra,
+		); err != nil {
+			return uninstaller.cleanOnCreateError("failed to configure control plane with oke config", err)
+		}
 	}
 
 	reconciled := true
