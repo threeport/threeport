@@ -871,31 +871,32 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// check for existing workload instances that may prevent deletion
 	switch threeportControlPlaneConfig.Provider {
 	case v0.KubernetesRuntimeInfraProviderKind:
+
+		// create a client and resource mapper to connect to kubernetes cluster
+		// API for deleting resources
+		var dynamicKubeClient dynamic.Interface
+		var mapper *meta.RESTMapper
+		dynamicKubeClient, mapper, err = kube.GetClient(
+			kubernetesRuntimeInstance,
+			false,
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+			threeportControlPlaneConfig.EncryptionKey,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
+		}
+
+		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
+			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
+		}
 		if cpi.Opts.ControlPlaneOnly {
+			break
+		}
 
-			// create a client and resource mapper to connect to kubernetes cluster
-			// API for deleting resources
-			var dynamicKubeClient dynamic.Interface
-			var mapper *meta.RESTMapper
-			dynamicKubeClient, mapper, err = kube.GetClient(
-				kubernetesRuntimeInstance,
-				false,
-				apiClient,
-				threeportControlPlaneConfig.APIServer,
-				threeportControlPlaneConfig.EncryptionKey,
-			)
-			if err != nil {
-				return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
-			}
-
-			if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
-				return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
-			}
-		} else {
-			// delete control plane infra
-			if err := kubernetesRuntimeInfra.Delete(); err != nil {
-				return fmt.Errorf("failed to delete control plane infra: %w", err)
-			}
+		// delete control plane infra
+		if err := kubernetesRuntimeInfra.Delete(); err != nil {
+			return fmt.Errorf("failed to delete control plane infra: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		updatedKubernetesRuntimeInstance, err := RefreshEKSConnectionWithLocalConfig(awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, threeportControlPlaneConfig.APIServer)
@@ -922,23 +923,25 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
 		}
 
-		if !cpi.Opts.ControlPlaneOnly {
-			// delete control plane infra
-			if err := kubernetesRuntimeInfra.Delete(); err != nil {
-				return fmt.Errorf("failed to delete control plane infra: %w", err)
-			}
+		if cpi.Opts.ControlPlaneOnly {
+			break
+		}
 
-			// remove inventory file
-			invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName)
-			if err := os.Remove(invFile); err != nil {
-				Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
-			}
+		// delete control plane infra
+		if err := kubernetesRuntimeInfra.Delete(); err != nil {
+			return fmt.Errorf("failed to delete control plane infra: %w", err)
+		}
 
-			// delete AWS IAM resources
-			err = provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
-			if err != nil {
-				return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
-			}
+		// remove inventory file
+		invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName)
+		if err := os.Remove(invFile); err != nil {
+			Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
+		}
+
+		// delete AWS IAM resources
+		err = provider.DeleteResourceManagerRole(cpi.Opts.ControlPlaneName, *awsConfigUser)
+		if err != nil {
+			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		// update kubernetes runtime instance with latest connection token
@@ -964,7 +967,8 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 
 		if cpi.Opts.ControlPlaneOnly {
-			return nil
+			break
+
 		}
 
 		// delete control plane infra
