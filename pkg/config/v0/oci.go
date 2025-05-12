@@ -27,6 +27,60 @@ type OciAccountValues struct {
 	LocalProfile   *string `yaml:"LocalProfile"`
 }
 
+// OciOkeKubernetesRuntimeConfig contains the config for an OCI OKE
+// kubernetes runtime which is an abstraction of an OCI OKE kubernetes runtime
+// definition and instance.
+type OciOkeKubernetesRuntimeConfig struct {
+	OciOkeKubernetesRuntime OciOkeKubernetesRuntimeValues `yaml:"OciOkeKubernetesRuntime"`
+}
+
+// OciOkeKubernetesRuntimeValues contains the attributes needed to
+// manage an OCI OKE kubernetes runtime definition and instance.
+type OciOkeKubernetesRuntimeValues struct {
+	Name                    *string `yaml:"Name"`
+	OciAccountName          *string `yaml:"OciAccountName"`
+	AvailabilityDomainCount *int    `yaml:"AvailabilityDomainCount"`
+	WorkerNodeShape         *string `yaml:"WorkerNodeShape"`
+	WorkerNodeInitialCount  *int    `yaml:"WorkerNodeInitialCount"`
+	WorkerNodeMinCount      *int    `yaml:"WorkerNodeMinCount"`
+	WorkerNodeMaxCount      *int    `yaml:"WorkerNodeMaxCount"`
+	Region                  *string `yaml:"Region"`
+}
+
+// OciOkeKubernetesRuntimeDefinitionConfig contains the config for an OCI OKE
+// kubernetes runtime definition.
+type OciOkeKubernetesRuntimeDefinitionConfig struct {
+	OciOkeKubernetesRuntimeDefinition OciOkeKubernetesRuntimeDefinitionValues `yaml:"OciOkeKubernetesRuntimeDefinition"`
+}
+
+// OciOkeKubernetesRuntimeDefinitionValues contains the attributes needed to
+// manage an OCI OKE kubernetes runtime definition.
+type OciOkeKubernetesRuntimeDefinitionValues struct {
+	Name                    *string `yaml:"Name"`
+	OciAccountName          *string `yaml:"OciAccountName"`
+	AvailabilityDomainCount *int    `yaml:"AvailabilityDomainCount"`
+	WorkerNodeShape         *string `yaml:"WorkerNodeShape"`
+	WorkerNodeInitialCount  *int    `yaml:"WorkerNodeInitialCount"`
+	WorkerNodeMinCount      *int    `yaml:"WorkerNodeMinCount"`
+	WorkerNodeMaxCount      *int    `yaml:"WorkerNodeMaxCount"`
+}
+
+// OciOkeKubernetesRuntimeInstanceConfig contains the config for an OCI OKE
+// kubernetes runtime instance.
+type OciOkeKubernetesRuntimeInstanceConfig struct {
+	OciOkeKubernetesRuntimeInstance OciOkeKubernetesRuntimeInstanceValues `yaml:"OciOkeKubernetesRuntimeInstance"`
+}
+
+// OciOkeKubernetesRuntimeInstanceValues contains the attributes needed to
+// manage an OCI OKE kubernetes runtime instance.
+type OciOkeKubernetesRuntimeInstanceValues struct {
+	Name                              *string                                  `yaml:"Name"`
+	Region                            *string                                  `yaml:"Region"`
+	OciOkeKubernetesRuntimeDefinition *OciOkeKubernetesRuntimeDefinitionValues `yaml:"OciOkeKubernetesRuntimeDefinition"`
+}
+
+// Methods for OciAccountValues
+
 // Create creates a new OCI account in the Threeport API.
 func (o *OciAccountValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.OciAccount, error) {
 	ociAccount := v0.OciAccount{
@@ -62,25 +116,7 @@ func (o *OciAccountValues) Delete(apiClient *http.Client, apiEndpoint string) (v
 	return *deletedAccount, nil
 }
 
-// OciOkeKubernetesRuntimeConfig contains the config for an OCI OKE
-// kubernetes runtime which is an abstraction of an OCI OKE kubernetes runtime
-// definition and instance.
-type OciOkeKubernetesRuntimeConfig struct {
-	OciOkeKubernetesRuntime OciOkeKubernetesRuntimeValues `yaml:"OciOkeKubernetesRuntime"`
-}
-
-// OciOkeKubernetesRuntimeValues contains the attributes needed to
-// manage an OCI OKE kubernetes runtime definition and instance.
-type OciOkeKubernetesRuntimeValues struct {
-	Name                    *string `yaml:"Name"`
-	OciAccountName          *string `yaml:"OciAccountName"`
-	AvailabilityDomainCount *int    `yaml:"AvailabilityDomainCount"`
-	WorkerNodeShape         *string `yaml:"WorkerNodeShape"`
-	WorkerNodeInitialCount  *int    `yaml:"WorkerNodeInitialCount"`
-	WorkerNodeMinCount      *int    `yaml:"WorkerNodeMinCount"`
-	WorkerNodeMaxCount      *int    `yaml:"WorkerNodeMaxCount"`
-	Region                  *string `yaml:"Region"`
-}
+// Methods for OciOkeKubernetesRuntimeValues
 
 // Create creates a new OCI OKE kubernetes runtime in the Threeport API.
 func (o *OciOkeKubernetesRuntimeValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.OciOkeKubernetesRuntimeDefinition, *v0.OciOkeKubernetesRuntimeInstance, error) {
@@ -148,23 +184,7 @@ func (o *OciOkeKubernetesRuntimeValues) Delete(apiClient *http.Client, apiEndpoi
 	return deletedDefinition, deletedInstance, nil
 }
 
-// OciOkeKubernetesRuntimeDefinitionConfig contains the config for an OCI OKE
-// kubernetes runtime definition.
-type OciOkeKubernetesRuntimeDefinitionConfig struct {
-	OciOkeKubernetesRuntimeDefinition OciOkeKubernetesRuntimeDefinitionValues `yaml:"OciOkeKubernetesRuntimeDefinition"`
-}
-
-// OciOkeKubernetesRuntimeDefinitionValues contains the attributes needed to
-// manage an OCI OKE kubernetes runtime definition.
-type OciOkeKubernetesRuntimeDefinitionValues struct {
-	Name                    *string `yaml:"Name"`
-	OciAccountName          *string `yaml:"OciAccountName"`
-	AvailabilityDomainCount *int    `yaml:"AvailabilityDomainCount"`
-	WorkerNodeShape         *string `yaml:"WorkerNodeShape"`
-	WorkerNodeInitialCount  *int    `yaml:"WorkerNodeInitialCount"`
-	WorkerNodeMinCount      *int    `yaml:"WorkerNodeMinCount"`
-	WorkerNodeMaxCount      *int    `yaml:"WorkerNodeMaxCount"`
-}
+// Methods for OciOkeKubernetesRuntimeDefinitionValues
 
 // Create creates a new OCI OKE kubernetes runtime definition in the Threeport API.
 func (o *OciOkeKubernetesRuntimeDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.OciOkeKubernetesRuntimeDefinition, error) {
@@ -203,19 +223,7 @@ func (o *OciOkeKubernetesRuntimeDefinitionValues) Delete(apiClient *http.Client,
 	return *deletedDefinition, nil
 }
 
-// OciOkeKubernetesRuntimeInstanceConfig contains the config for an OCI OKE
-// kubernetes runtime instance.
-type OciOkeKubernetesRuntimeInstanceConfig struct {
-	OciOkeKubernetesRuntimeInstance OciOkeKubernetesRuntimeInstanceValues `yaml:"OciOkeKubernetesRuntimeInstance"`
-}
-
-// OciOkeKubernetesRuntimeInstanceValues contains the attributes needed to
-// manage an OCI OKE kubernetes runtime instance.
-type OciOkeKubernetesRuntimeInstanceValues struct {
-	Name                              *string                                  `yaml:"Name"`
-	Region                            *string                                  `yaml:"Region"`
-	OciOkeKubernetesRuntimeDefinition *OciOkeKubernetesRuntimeDefinitionValues `yaml:"OciOkeKubernetesRuntimeDefinition"`
-}
+// Methods for OciOkeKubernetesRuntimeInstanceValues
 
 // Create creates a new OCI OKE kubernetes runtime instance in the Threeport API.
 func (o *OciOkeKubernetesRuntimeInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.OciOkeKubernetesRuntimeInstance, error) {
