@@ -877,30 +877,30 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		kubernetesRuntimeInstance.ConnectionToken = &kubeConnection.Token
 	}
 
+	// create a client and resource mapper to connect to kubernetes cluster
+	// API for deleting resources
+	var dynamicKubeClient dynamic.Interface
+	var mapper *meta.RESTMapper
+	dynamicKubeClient, mapper, err = kube.GetClient(
+		kubernetesRuntimeInstance,
+		false,
+		apiClient,
+		threeportControlPlaneConfig.APIServer,
+		threeportControlPlaneConfig.EncryptionKey,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
+	}
+
+	if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
+		return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
+	}
+
 	// if provider is EKS we need to delete the threeport API service to
 	// remove the AWS load balancer before deleting the rest of the infra and
 	// check for existing workload instances that may prevent deletion
 	switch threeportControlPlaneConfig.Provider {
 	case v0.KubernetesRuntimeInfraProviderKind:
-
-		// create a client and resource mapper to connect to kubernetes cluster
-		// API for deleting resources
-		var dynamicKubeClient dynamic.Interface
-		var mapper *meta.RESTMapper
-		dynamicKubeClient, mapper, err = kube.GetClient(
-			kubernetesRuntimeInstance,
-			false,
-			apiClient,
-			threeportControlPlaneConfig.APIServer,
-			threeportControlPlaneConfig.EncryptionKey,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
-		}
-
-		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
-		}
 		if cpi.Opts.ControlPlaneOnly {
 			break
 		}
@@ -910,24 +910,6 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to delete control plane infra: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		// create a client and resource mapper to connect to kubernetes cluster
-		// API for deleting resources
-		var dynamicKubeClient dynamic.Interface
-		var mapper *meta.RESTMapper
-		dynamicKubeClient, mapper, err = kube.GetClient(
-			kubernetesRuntimeInstance,
-			false,
-			apiClient,
-			threeportControlPlaneConfig.APIServer,
-			threeportControlPlaneConfig.EncryptionKey,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
-		}
-
-		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
-		}
 
 		if cpi.Opts.ControlPlaneOnly {
 			break
@@ -950,25 +932,6 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
-		// create a client and resource mapper to connect to kubernetes cluster
-		// API for deleting resources
-		var dynamicKubeClient dynamic.Interface
-		var mapper *meta.RESTMapper
-		dynamicKubeClient, mapper, err = kube.GetClient(
-			kubernetesRuntimeInstance,
-			false,
-			apiClient,
-			threeportControlPlaneConfig.APIServer,
-			"", // no encryption key for OKE token since we set it locally
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
-		}
-
-		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
-			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
-		}
-
 		if cpi.Opts.ControlPlaneOnly {
 			break
 
