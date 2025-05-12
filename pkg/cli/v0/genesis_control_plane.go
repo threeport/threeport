@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	builder_client "github.com/nukleros/aws-builder/pkg/client"
 	"github.com/nukleros/aws-builder/pkg/eks"
-	"github.com/nukleros/aws-builder/pkg/eks/connection"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
 
@@ -1045,33 +1044,6 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	Complete(fmt.Sprintf("Threeport control plane %s deleted", cpi.Opts.ControlPlaneName))
 
 	return nil
-}
-
-// RefreshEKSConnectionWithLocalConfig uses the local AWS config to refresh
-// EKS connection info on the kubernetes runtime instance object
-func RefreshEKSConnectionWithLocalConfig(
-	awsConfig *aws.Config,
-	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
-	apiClient *http.Client,
-	threeportAPIEndpoint string,
-) (*v0.KubernetesRuntimeInstance, error) {
-	// use local AWS config to get EKS cluster connection info
-	eksClusterConn := connection.EksClusterConnectionInfo{ClusterName: *kubernetesRuntimeInstance.Name}
-	if err := eksClusterConn.Get(awsConfig); err != nil {
-		return nil, fmt.Errorf("failed to get EKS cluster connection info: %w", err)
-	}
-
-	kubernetesRuntimeInstance.ConnectionToken = &eksClusterConn.Token
-	kubernetesRuntimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
-	updatedKubernetesRuntimeInst, err := client.UpdateKubernetesRuntimeInstance(
-		apiClient,
-		threeportAPIEndpoint,
-		kubernetesRuntimeInstance,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update EKS token on kubernetes runtime instance: %w", err)
-	}
-	return updatedKubernetesRuntimeInst, nil
 }
 
 // validateCreateControlPlaneFlags validates flag inputs as needed

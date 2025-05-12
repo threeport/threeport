@@ -14,6 +14,7 @@ import (
 	builder_client "github.com/nukleros/aws-builder/pkg/client"
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/nukleros/aws-builder/pkg/eks"
+	"github.com/nukleros/aws-builder/pkg/eks/connection"
 	builder_iam "github.com/nukleros/aws-builder/pkg/iam"
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	"github.com/threeport/threeport/internal/provider"
@@ -302,7 +303,7 @@ func InstallEksKubernetesResources(
 	return nil
 }
 
-//ConfigureControlPlaneWithEksConfig
+// ConfigureControlPlaneWithEksConfig
 func ConfigureControlPlaneWithEksConfig(
 	cpi *threeport.ControlPlaneInstaller,
 	uninstaller *Uninstaller,
@@ -400,4 +401,31 @@ func ConfigureControlPlaneWithEksConfig(
 		return uninstaller.cleanOnCreateError("failed to create new AWS EKS kubernetes runtime instance for control plane cluster", err)
 	}
 	return nil
+}
+
+// RefreshEKSConnectionWithLocalConfig uses the local AWS config to refresh
+// EKS connection info on the kubernetes runtime instance object
+func RefreshEKSConnectionWithLocalConfig(
+	awsConfig *aws.Config,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+	apiClient *http.Client,
+	threeportAPIEndpoint string,
+) (*v0.KubernetesRuntimeInstance, error) {
+	// use local AWS config to get EKS cluster connection info
+	eksClusterConn := connection.EksClusterConnectionInfo{ClusterName: *kubernetesRuntimeInstance.Name}
+	if err := eksClusterConn.Get(awsConfig); err != nil {
+		return nil, fmt.Errorf("failed to get EKS cluster connection info: %w", err)
+	}
+
+	kubernetesRuntimeInstance.ConnectionToken = &eksClusterConn.Token
+	kubernetesRuntimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
+	updatedKubernetesRuntimeInst, err := client.UpdateKubernetesRuntimeInstance(
+		apiClient,
+		threeportAPIEndpoint,
+		kubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update EKS token on kubernetes runtime instance: %w", err)
+	}
+	return updatedKubernetesRuntimeInst, nil
 }
