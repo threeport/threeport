@@ -473,18 +473,11 @@ func (i *KubernetesRuntimeInfraOKE) Delete() error {
 	return nil
 }
 
-// GetConnection gets the latest connection info for authentication to an OKE cluster.
-func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, error) {
-	// Load OCI configuration first
-	if err := i.loadOCIConfig(); err != nil {
-		return nil, fmt.Errorf("failed to load OCI configuration: %w", err)
-	}
+func (i *KubernetesRuntimeInfraOKE) GetClusterOCID(configProvider common.ConfigurationProvider) (string, error) {
 
-	// Create a new container engine client
-	configProvider := common.DefaultConfigProvider()
 	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create container engine client: %w", err)
+		return "", fmt.Errorf("failed to create container engine client: %w", err)
 	}
 
 	// Set the region for the client
@@ -501,21 +494,43 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 
 	response, err := containerClient.ListClusters(context.Background(), request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list clusters: %w", err)
+		return "", fmt.Errorf("failed to list clusters: %w", err)
 	}
 
 	if len(response.Items) == 0 {
-		return nil, fmt.Errorf("no active cluster found with name %s", i.RuntimeInstanceName)
+		return "", fmt.Errorf("no active cluster found with name %s", i.RuntimeInstanceName)
 	}
 
 	cluster := response.Items[0]
 	if cluster.Id == nil {
-		return nil, fmt.Errorf("cluster ID is nil")
+		return "", fmt.Errorf("cluster ID is nil")
+	}
+
+	return *cluster.Id, nil
+}
+
+// GetConnection gets the latest connection info for authentication to an OKE cluster.
+func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, error) {
+	// Load OCI configuration first
+	if err := i.loadOCIConfig(); err != nil {
+		return nil, fmt.Errorf("failed to load OCI configuration: %w", err)
+	}
+
+	// Create a new container engine client
+	configProvider := common.DefaultConfigProvider()
+	clusterOCID, err := i.GetClusterOCID(configProvider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster OCID: %w", err)
+	}
+
+	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create container engine client: %w", err)
 	}
 
 	// Get cluster details to get the API endpoint
 	getClusterRequest := ocicontainerengine.GetClusterRequest{
-		ClusterId: cluster.Id,
+		ClusterId: &clusterOCID,
 	}
 
 	clusterDetails, err := containerClient.GetCluster(context.Background(), getClusterRequest)
@@ -529,7 +544,7 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 
 	// Get the kubeconfig which contains the CA certificate
 	kubeconfigRequest := ocicontainerengine.CreateKubeconfigRequest{
-		ClusterId: cluster.Id,
+		ClusterId: &clusterOCID,
 		CreateClusterKubeconfigContentDetails: ocicontainerengine.CreateClusterKubeconfigContentDetails{
 			TokenVersion: common.String("2.0.0"),
 			Expiration:   common.Int(86400),
@@ -559,7 +574,7 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("no clusters found in kubeconfig")
 	}
 
-	token, tokenExpirationTime, err := generateToken(*cluster.Id)
+	token, tokenExpirationTime, err := generateToken(clusterOCID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}

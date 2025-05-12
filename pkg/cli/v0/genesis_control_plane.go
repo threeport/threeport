@@ -283,11 +283,11 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			TenancyID:               cpi.Opts.OracleTenancyID,
 			CompartmentID:           cpi.Opts.OracleCompartmentID,
 			Region:                  cpi.Opts.OracleRegion,
-			AvailabilityDomainCount: cpi.Opts.OracleAvailabilityDomainCount,
-			WorkerNodeShape:         cpi.Opts.OracleWorkerNodeShape,
-			WorkerNodeInitialCount:  cpi.Opts.OracleWorkerNodeInitialCount,
-			WorkerNodeMinCount:      cpi.Opts.OracleWorkerNodeMinCount,
-			WorkerNodeMaxCount:      cpi.Opts.OracleWorkerNodeMaxCount,
+			AvailabilityDomainCount: int32(2),
+			WorkerNodeShape:         "VM.Standard.A1.Flex",
+			WorkerNodeInitialCount:  int32(2),
+			WorkerNodeMinCount:      int32(1),
+			WorkerNodeMaxCount:      int32(2),
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
 		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
@@ -502,7 +502,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
 		}
 		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
-			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
+			c.APIServer = fmt.Sprintf("%s:%d", *threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
 		}); err != nil {
 			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
 		}

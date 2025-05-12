@@ -99,11 +99,12 @@ func ConfigureControlPlaneWithOkeConfig(
 		Definition: v0.Definition{
 			Name: &eksRuntimeDefName,
 		},
-		// AwsAccountID:                  createdOciAccount.ID,
-		// DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfraOKE.DefaultNodeGroupInstanceType,
-		// DefaultNodeGroupInitialSize:   util.Ptr(int(kubernetesRuntimeInfraOKE.DefaultNodeGroupInitialNodes)),
-		// DefaultNodeGroupMinimumSize:   util.Ptr(int(kubernetesRuntimeInfraOKE.DefaultNodeGroupMinNodes)),
-		// DefaultNodeGroupMaximumSize:   util.Ptr(int(kubernetesRuntimeInfraOKE.DefaultNodeGroupMaOKEdes)),
+		OciAccountID:                  ociAccount.ID,
+		WorkerNodeShape:               &kubernetesRuntimeInfraOKE.WorkerNodeShape,
+		WorkerNodeInitialCount:        util.Ptr(int32(kubernetesRuntimeInfraOKE.WorkerNodeInitialCount)),
+		WorkerNodeMinCount:            util.Ptr(int32(kubernetesRuntimeInfraOKE.WorkerNodeMinCount)),
+		WorkerNodeMaxCount:            util.Ptr(int32(kubernetesRuntimeInfraOKE.WorkerNodeMaxCount)),
+		AvailabilityDomainCount:       util.Ptr(int32(kubernetesRuntimeInfraOKE.AvailabilityDomainCount)),
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdociOkeKubernetesRuntimeDef, err := client.CreateOciOkeKubernetesRuntimeDefinition(
@@ -112,11 +113,17 @@ func ConfigureControlPlaneWithOkeConfig(
 		&ociOkeKubernetesRuntimeDef,
 	)
 	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to create new AWS EKS kubernetes runtime definition for control plane cluster", err)
+		return uninstaller.cleanOnCreateError("failed to create new OCI OKEkubernetes runtime definition for control plane cluster", err)
 	}
 
 	eksRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	reconciled := true
+
+	clusterOCID, err := kubernetesRuntimeInfraOKE.GetClusterOCID(configProvider)
+	if err != nil {
+		return fmt.Errorf("failed to get cluster OCID: %w", err)
+	}
+
 	ociOkeKubernetesRuntimeInstance := v0.OciOkeKubernetesRuntimeInstance{
 		Instance: v0.Instance{
 			Name: &eksRuntimeInstName,
@@ -126,7 +133,7 @@ func ConfigureControlPlaneWithOkeConfig(
 		},
 		OciOkeKubernetesRuntimeDefinitionID: createdociOkeKubernetesRuntimeDef.ID,
 		KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
-		// ResourceInventory:                   &dbInventory,
+		ClusterOCID:                         &clusterOCID,
 	}
 	_, err = client.CreateOciOkeKubernetesRuntimeInstance(
 		apiClient,
@@ -134,7 +141,7 @@ func ConfigureControlPlaneWithOkeConfig(
 		&ociOkeKubernetesRuntimeInstance,
 	)
 	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to create new AWS EKS kubernetes runtime instance for control plane cluster", err)
+		return uninstaller.cleanOnCreateError("failed to create new OCI OKEkubernetes runtime instance for control plane cluster", err)
 	}
 	return nil
 }
