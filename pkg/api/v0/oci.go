@@ -11,6 +11,9 @@ type OciAccount struct {
 	// The unique name of an OCI account.
 	Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
+	// The account ID for the OCI account.
+	AccountID *string `json:"AccountID,omitempty" query:"accountid" gorm:"not null" validate:"required"`
+
 	// The tenancy OCID for the OCI account.
 	TenancyID *string `json:"TenancyID,omitempty" query:"tenancyid" gorm:"not null" validate:"required"`
 

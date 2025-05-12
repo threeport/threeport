@@ -17,6 +17,7 @@ type OciAccountConfig struct {
 // OciAccountValues contains the attributes needed to manage an OCI account.
 type OciAccountValues struct {
 	Name           *string `yaml:"Name"`
+	AccountID      *string `yaml:"AccountID"`
 	TenancyID      *string `yaml:"TenancyID"`
 	DefaultAccount *bool   `yaml:"DefaultAccount"`
 	DefaultRegion  *string `yaml:"DefaultRegion"`
@@ -85,6 +86,7 @@ type OciOkeKubernetesRuntimeInstanceValues struct {
 func (o *OciAccountValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.OciAccount, error) {
 	ociAccount := v0.OciAccount{
 		Name:           o.Name,
+		AccountID:      o.AccountID,
 		TenancyID:      o.TenancyID,
 		DefaultAccount: o.DefaultAccount,
 		DefaultRegion:  o.DefaultRegion,
