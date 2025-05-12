@@ -546,7 +546,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err = util.Retry(attemptsMax, waitDurationSeconds, func() error {
 		_, err := client_lib.GetResponse(
 			apiClient,
-			fmt.Sprintf("%s/version", threeportAPIEndpoint),
+			fmt.Sprintf("%s/version", *threeportAPIEndpoint),
 			http.MethodGet,
 			new(bytes.Buffer),
 			map[string]string{},
