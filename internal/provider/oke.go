@@ -643,7 +643,10 @@ func generateToken(clusterID string) (string, time.Time, error) {
 	req.Header.Set("date", tokenTimeString)
 
 	// calculate token expiration time
-	tokenExpirationTime := tokenTime.Add(time.Minute * 60)
+	// value is inferred by output of:
+	// oci ce cluster generate-token --cluster-id <cluster-id> --region <region>
+	// and is not configurable via API
+	tokenExpirationTime := tokenTime.Add(time.Minute * 4)
 
 	// Sign the request
 	err = client.Signer.Sign(req)
