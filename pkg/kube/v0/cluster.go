@@ -287,7 +287,7 @@ func refreshOKEConnection(
 		*runtimeInstance.ID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get AWS EKS kubernetes runtime instance by kubernetes runtime instance ID %d: %w", runtimeInstance.ID, err)
+		return nil, fmt.Errorf("failed to get OCI OKE kubernetes runtime instance by kubernetes runtime instance ID %d: %w", runtimeInstance.ID, err)
 	}
 
 	// get OKE runtime definition
@@ -297,7 +297,7 @@ func refreshOKEConnection(
 		*okeRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to AWS EKS kubernetes runtime definition by ID %d: %w", okeRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID, err)
+		return nil, fmt.Errorf("failed to OCI OKE kubernetes runtime definition by ID %d: %w", okeRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID, err)
 	}
 
 	// get OCI account
@@ -326,7 +326,7 @@ func refreshOKEConnection(
 		*okeRuntimeDefinition.OciAccountID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get AWS account by ID %d: %w", *okeRuntimeDefinition.OciAccountID, err)
+		return nil, fmt.Errorf("failed to get OCI account by ID %d: %w", *okeRuntimeDefinition.OciAccountID, err)
 	}
 
 	// generate updated rest config

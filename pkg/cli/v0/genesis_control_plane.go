@@ -596,41 +596,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return uninstaller.cleanOnCreateError("failed to install threeport support services CRDs", err)
 	}
 
-	// wait for kube API to persist the change and refresh the client and mapper
-	// this is necessary to have the updated REST mapping for the CRDs as the
-	// support services operator install includes one of those custom resources
-	time.Sleep(time.Second * 10)
-	dynamicKubeClient, mapper, err = kube.GetClient(
-		kubernetesRuntimeInstance,
-		false,
-		nil,
-		"",
-		"",
-	)
-	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to refresh the Kubernetes client and mapper", err)
-	}
-
-	// install the support services operator
-	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
-	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to install threeport support services operator", err)
-	}
-
-	// install provider-specific system services
-	switch controlPlane.InfraProvider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		if err := threeport.InstallThreeportSystemServices(
-			dynamicKubeClient,
-			mapper,
-			cpi.Opts.InfraProvider,
-			cpi.Opts.Name+"-"+cpi.Opts.ControlPlaneName,
-			*callerIdentity.Account,
-		); err != nil {
-			return uninstaller.cleanOnCreateError("failed to install system services", err)
-		}
-	}
-
 	// create the default compute space kubernetes runtime definition in threeport API
 	kubernetesRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	defReconciled := true // this definition for the bootstrap cluster does not require reconcilation
@@ -691,6 +656,44 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			&kubernetesRuntimeInfra,
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to configure control plane with oke config", err)
+		}
+	}
+
+	// wait for kube API to persist the change and refresh the client and mapper
+	// this is necessary to have the updated REST mapping for the CRDs as the
+	// support services operator install includes one of those custom resources
+	// NOTE: creating the k8s runtime instances and definitions (above) must happen
+	// before this step as kube.GetClient() may require a refresh of the connection
+	// token, which depends on those objects existing in the Threeport API
+	time.Sleep(time.Second * 10)
+	dynamicKubeClient, mapper, err = kube.GetClient(
+		kubernetesRuntimeInstResult,
+		false,
+		apiClient,
+		*threeportAPIEndpoint,
+		encryptionKey,
+	)
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to refresh the Kubernetes client and mapper", err)
+	}
+
+	// install the support services operator
+	err = threeport.InstallThreeportSupportServicesOperator(dynamicKubeClient, mapper)
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to install threeport support services operator", err)
+	}
+
+	// install provider-specific system services
+	switch controlPlane.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		if err := threeport.InstallThreeportSystemServices(
+			dynamicKubeClient,
+			mapper,
+			cpi.Opts.InfraProvider,
+			cpi.Opts.Name+"-"+cpi.Opts.ControlPlaneName,
+			*callerIdentity.Account,
+		); err != nil {
+			return uninstaller.cleanOnCreateError("failed to install system services", err)
 		}
 	}
 
