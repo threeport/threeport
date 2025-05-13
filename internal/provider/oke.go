@@ -637,10 +637,13 @@ func generateToken(clusterID string) (string, time.Time, error) {
 		return "", time.Time{}, fmt.Errorf("failed to create request: %v", err)
 	}
 
-	// Set the date header in RFC1123 format with GMT
-	tokenExpirationTime := time.Now().In(time.FixedZone("GMT", 0))
-	tokenExpiration := tokenExpirationTime.Format("Mon, 02 Jan 2006 15:04:05 GMT")
-	req.Header.Set("date", tokenExpiration)
+	// set token time parameter
+	tokenTime := time.Now().In(time.FixedZone("GMT", 0))
+	tokenTimeString := tokenTime.Format("Mon, 02 Jan 2006 15:04:05 GMT")
+	req.Header.Set("date", tokenTimeString)
+
+	// calculate token expiration time
+	tokenExpirationTime := tokenTime.Add(time.Minute * 60)
 
 	// Sign the request
 	err = client.Signer.Sign(req)

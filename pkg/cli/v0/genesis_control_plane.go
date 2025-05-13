@@ -394,6 +394,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
 			CACertificate:             &kubeConnectionInfo.CACertificate,
 			ConnectionToken:           &kubeConnectionInfo.Token,
+			ConnectionTokenExpiration: &kubeConnectionInfo.TokenExpiration,
 			DefaultRuntime:            &defaultRuntime,
 			Location:                  &location,
 		}
@@ -889,6 +890,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		kubernetesRuntimeInstance.ConnectionToken = &kubeConnection.Token
+		kubernetesRuntimeInstance.ConnectionTokenExpiration = &kubeConnection.TokenExpiration
 	}
 
 	// create a client and resource mapper to connect to kubernetes cluster
