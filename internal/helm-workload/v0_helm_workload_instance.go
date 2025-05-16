@@ -78,10 +78,10 @@ func v0HelmWorkloadInstanceCreated(
 
 	// if the chart is not an OCI chart, set the version if it is supplied by
 	// the workload definition
-	if !registry.IsOCI(*helmWorkloadDefinition.Repo) {
-		if helmWorkloadDefinition.ChartVersion != nil && *helmWorkloadDefinition.ChartVersion != "" {
-			install.Version = *helmWorkloadDefinition.ChartVersion
-		}
+	if !registry.IsOCI(*helmWorkloadDefinition.Repo) &&
+		helmWorkloadDefinition.ChartVersion != nil &&
+		*helmWorkloadDefinition.ChartVersion != "" {
+		install.Version = *helmWorkloadDefinition.ChartVersion
 	}
 
 	// configure release name and namespace
@@ -546,6 +546,10 @@ func configureChart(
 	var chartPath string
 	if registry.IsOCI(*helmWorkloadDefinition.Repo) {
 		var ociChart string
+
+		// an OCI chart may be specified by the repo path, in which case the
+		// Chart field is not set. Otherwise, an OCI path may also specify a
+		// chart repo, in which case the Chart field is set
 		if *helmWorkloadDefinition.Chart == "" {
 			ociChart = *helmWorkloadDefinition.Repo
 		} else {
