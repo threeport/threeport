@@ -379,9 +379,12 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		kubernetesRuntimeInfraOKE := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraOKE)
-		location, err := mapping.GetLocationForAwsRegion(kubernetesRuntimeInfraOKE.Region)
+		location, err := mapping.GetLocationForOciRegion(kubernetesRuntimeInfraOKE.Region)
 		if err != nil {
-			return uninstaller.cleanOnCreateError(fmt.Sprintf("failed to get threeport location for OKE region %s", "us-phoenix-1"), err)
+			return uninstaller.cleanOnCreateError(
+				fmt.Sprintf("failed to get threeport location for OKE region %s", kubernetesRuntimeInfraOKE.Region),
+				err,
+			)
 		}
 		kubernetesRuntimeInstance = &v0.KubernetesRuntimeInstance{
 			Instance: v0.Instance{
@@ -894,6 +897,14 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		kubernetesRuntimeInstance.ConnectionToken = &kubeConnection.Token
 		kubernetesRuntimeInstance.ConnectionTokenExpiration = &kubeConnection.TokenExpiration
+		kubernetesRuntimeInstance, err = client.UpdateKubernetesRuntimeInstance(
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+			kubernetesRuntimeInstance,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to update OKE token on kubernetes runtime instance: %w", err)
+		}
 	}
 
 	// create a client and resource mapper to connect to kubernetes cluster
