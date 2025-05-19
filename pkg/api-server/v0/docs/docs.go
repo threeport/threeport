@@ -16578,7 +16578,8 @@ const docTemplate = `{
             "required": [
                 "DefaultRegion",
                 "Name",
-                "TenancyID"
+                "TenancyOCID",
+                "UserOCID"
             ],
             "properties": {
                 "DefaultAccount": {
@@ -16608,7 +16609,7 @@ const docTemplate = `{
                     "description": "The private key for the OCI account.",
                     "type": "string"
                 },
-                "TenancyID": {
+                "TenancyOCID": {
                     "description": "The tenancy OCID for the OCI account.",
                     "type": "string"
                 },
@@ -16621,20 +16622,13 @@ const docTemplate = `{
         "v0.OciOkeKubernetesRuntimeDefinition": {
             "type": "object",
             "required": [
-                "AvailabilityDomainCount",
                 "KubernetesRuntimeDefinitionID",
                 "Name",
                 "OciAccountID",
                 "WorkerNodeInitialCount",
-                "WorkerNodeMaxCount",
-                "WorkerNodeMinCount",
                 "WorkerNodeShape"
             ],
             "properties": {
-                "AvailabilityDomainCount": {
-                    "description": "The number of availability domains the cluster should span.",
-                    "type": "integer"
-                },
                 "KubernetesRuntimeDefinitionID": {
                     "description": "The kubernetes runtime definition for an OKE cluster in OCI.",
                     "type": "integer"
@@ -16644,7 +16638,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "OciAccountID": {
-                    "description": "The OCI account in which the OKE cluster is provisioned.",
+                    "description": "The OCI account in which the OKE cluster is provisioned. This is the\nThreeport-managed OCI account ID, not the OCI account OCID.",
                     "type": "integer"
                 },
                 "OciOkeKubernetesRuntimeInstances": {
@@ -16666,14 +16660,6 @@ const docTemplate = `{
                     "description": "The number of nodes in the worker node pool.",
                     "type": "integer"
                 },
-                "WorkerNodeMaxCount": {
-                    "description": "The maximum number of nodes the worker node pool should have.",
-                    "type": "integer"
-                },
-                "WorkerNodeMinCount": {
-                    "description": "The minimum number of nodes the worker node pool should have.",
-                    "type": "integer"
-                },
                 "WorkerNodeShape": {
                     "description": "The OCI shape for the worker nodes.",
                     "type": "string"
@@ -16683,11 +16669,16 @@ const docTemplate = `{
         "v0.OciOkeKubernetesRuntimeInstance": {
             "type": "object",
             "required": [
+                "ClusterOCID",
                 "KubernetesRuntimeInstanceID",
                 "Name",
                 "OciOkeKubernetesRuntimeDefinitionID"
             ],
             "properties": {
+                "ClusterOCID": {
+                    "description": "The OCID for the OKE cluster.",
+                    "type": "string"
+                },
                 "CreationAcknowledged": {
                     "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
                     "type": "string"

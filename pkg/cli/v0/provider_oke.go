@@ -38,7 +38,6 @@ func ConfigureControlPlaneWithOkeConfig(
 
 	// Path to OCI config file
 	ociConfigPath := filepath.Join(homeDir, ".oci", "config")
-	fmt.Printf("Loading OCI config from: %s\n", ociConfigPath)
 
 	// Check if config file exists
 	if _, err := os.Stat(ociConfigPath); os.IsNotExist(err) {
@@ -76,7 +75,7 @@ func ConfigureControlPlaneWithOkeConfig(
 	ociAccount := v0.OciAccount{
 		Name:           util.Ptr("default-account"),
 		UserOCID:       &userOCID,
-		TenancyID:      &tenancyOCID,
+		TenancyOCID:    &tenancyOCID,
 		DefaultAccount: util.Ptr(true),
 		DefaultRegion:  &kubernetesRuntimeInfraOKE.Region,
 		KeyFingerprint: &keyFingerprint,
@@ -101,10 +100,7 @@ func ConfigureControlPlaneWithOkeConfig(
 		},
 		OciAccountID:                  ociAccount.ID,
 		WorkerNodeShape:               &kubernetesRuntimeInfraOKE.WorkerNodeShape,
-		WorkerNodeInitialCount:        util.Ptr(int32(kubernetesRuntimeInfraOKE.WorkerNodeInitialCount)),
-		WorkerNodeMinCount:            util.Ptr(int32(kubernetesRuntimeInfraOKE.WorkerNodeMinCount)),
-		WorkerNodeMaxCount:            util.Ptr(int32(kubernetesRuntimeInfraOKE.WorkerNodeMaxCount)),
-		AvailabilityDomainCount:       util.Ptr(int32(kubernetesRuntimeInfraOKE.AvailabilityDomainCount)),
+		WorkerNodeInitialCount:        util.Ptr(kubernetesRuntimeInfraOKE.WorkerNodeInitialCount),
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
 	createdociOkeKubernetesRuntimeDef, err := client.CreateOciOkeKubernetesRuntimeDefinition(

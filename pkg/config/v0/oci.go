@@ -18,7 +18,7 @@ type OciAccountConfig struct {
 type OciAccountValues struct {
 	Name           *string `yaml:"Name"`
 	AccountID      *string `yaml:"AccountID"`
-	TenancyID      *string `yaml:"TenancyID"`
+	TenancyOCID    *string `yaml:"TenancyOCID"`
 	DefaultAccount *bool   `yaml:"DefaultAccount"`
 	DefaultRegion  *string `yaml:"DefaultRegion"`
 	UserID         *string `yaml:"UserID"`
@@ -86,7 +86,7 @@ type OciOkeKubernetesRuntimeInstanceValues struct {
 func (o *OciAccountValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.OciAccount, error) {
 	ociAccount := v0.OciAccount{
 		Name:           o.Name,
-		TenancyID:      o.TenancyID,
+		TenancyOCID:    o.TenancyOCID,
 		DefaultAccount: o.DefaultAccount,
 		DefaultRegion:  o.DefaultRegion,
 		PrivateKey:     o.PrivateKey,
@@ -127,11 +127,8 @@ func (o *OciOkeKubernetesRuntimeValues) Create(apiClient *http.Client, apiEndpoi
 			Name: o.Name,
 		},
 		OciAccountID:            nil, // TODO: Get this from OciAccountName
-		AvailabilityDomainCount: util.Ptr(int32(*o.AvailabilityDomainCount)),
 		WorkerNodeShape:         o.WorkerNodeShape,
 		WorkerNodeInitialCount:  util.Ptr(int32(*o.WorkerNodeInitialCount)),
-		WorkerNodeMinCount:      util.Ptr(int32(*o.WorkerNodeMinCount)),
-		WorkerNodeMaxCount:      util.Ptr(int32(*o.WorkerNodeMaxCount)),
 	}
 
 	createdDefinition, err := client.CreateOciOkeKubernetesRuntimeDefinition(apiClient, apiEndpoint, &definition)

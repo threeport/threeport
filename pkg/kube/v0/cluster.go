@@ -506,7 +506,7 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 // generateToken generates a token for an OKE cluster.
 func generateToken(clusterID string, ociAccount *v0.OciAccount) (string, time.Time, error) {
 	configProvider := common.NewRawConfigurationProvider(
-		*ociAccount.TenancyID,
+		*ociAccount.TenancyOCID,
 		*ociAccount.UserOCID,
 		*ociAccount.DefaultRegion,
 		*ociAccount.KeyFingerprint,

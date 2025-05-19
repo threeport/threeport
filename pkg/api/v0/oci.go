@@ -12,10 +12,10 @@ type OciAccount struct {
 	Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
 	// The user OCID credentials for the OCI account.
-	UserOCID *string `json:"UserOCID,omitempty" validate:"optional" encrypt:"true"`
+	UserOCID *string `json:"UserOCID,omitempty" query:"userocid" gorm:"not null" validate:"required"`
 
 	// The tenancy OCID for the OCI account.
-	TenancyID *string `json:"TenancyID,omitempty" query:"tenancyid" gorm:"not null" validate:"required"`
+	TenancyOCID *string `json:"TenancyOCID,omitempty" query:"tenancyocid" gorm:"not null" validate:"required"`
 
 	// If true is the OCI Account used if none specified in a definition.
 	DefaultAccount *bool `json:"DefaultAccount,omitempty" query:"defaultaccount" gorm:"default:false" validate:"optional"`
@@ -38,23 +38,15 @@ type OciOkeKubernetesRuntimeDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
-	// The OCI account in which the OKE cluster is provisioned.
+	// The OCI account in which the OKE cluster is provisioned. This is the
+	// Threeport-managed OCI account ID, not the OCI account OCID.
 	OciAccountID *uint `json:"OciAccountID,omitempty" query:"ociaccountid" gorm:"not null" validate:"required"`
-
-	// The number of availability domains the cluster should span.
-	AvailabilityDomainCount *int32 `json:"AvailabilityDomainCount,omitempty" query:"availabilitydomaincount" gorm:"not null" validate:"required"`
 
 	// The OCI shape for the worker nodes.
 	WorkerNodeShape *string `json:"WorkerNodeShape,omitempty" query:"workernodeshape" gorm:"not null" validate:"required"`
 
 	// The number of nodes in the worker node pool.
 	WorkerNodeInitialCount *int32 `json:"WorkerNodeInitialCount,omitempty" query:"workernodeinitialcount" gorm:"not null" validate:"required"`
-
-	// The minimum number of nodes the worker node pool should have.
-	WorkerNodeMinCount *int32 `json:"WorkerNodeMinCount,omitempty" query:"workernodemincount" gorm:"not null" validate:"required"`
-
-	// The maximum number of nodes the worker node pool should have.
-	WorkerNodeMaxCount *int32 `json:"WorkerNodeMaxCount,omitempty" query:"workernodemaxcount" gorm:"not null" validate:"required"`
 
 	// The OCI OKE kubernetes runtime instances derived from this definition.
 	OciOkeKubernetesRuntimeInstances []*OciOkeKubernetesRuntimeInstance `json:"OciOkeKubernetesRuntimeInstances,omitempty" validate:"optional,association"`

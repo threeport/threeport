@@ -280,14 +280,12 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		// Create OKE infrastructure
 		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
 			RuntimeInstanceName:     provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
-			TenancyID:               cpi.Opts.OracleTenancyID,
-			CompartmentID:           cpi.Opts.OracleCompartmentID,
+			TenancyOCID:             cpi.Opts.OracleTenancyID,
+			CompartmentOCID:         cpi.Opts.OracleCompartmentID,
 			Region:                  cpi.Opts.OracleRegion,
 			AvailabilityDomainCount: int32(2),
 			WorkerNodeShape:         "VM.Standard.A1.Flex",
 			WorkerNodeInitialCount:  int32(2),
-			WorkerNodeMinCount:      int32(1),
-			WorkerNodeMaxCount:      int32(2),
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
 		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
@@ -826,14 +824,12 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
 			RuntimeInstanceName:     provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
-			TenancyID:               cpi.Opts.OracleTenancyID,
-			CompartmentID:           cpi.Opts.OracleCompartmentID,
+			TenancyOCID:             cpi.Opts.OracleTenancyID,
+			CompartmentOCID:         cpi.Opts.OracleCompartmentID,
 			Region:                  cpi.Opts.OracleRegion,
 			AvailabilityDomainCount: cpi.Opts.OracleAvailabilityDomainCount,
 			WorkerNodeShape:         cpi.Opts.OracleWorkerNodeShape,
 			WorkerNodeInitialCount:  cpi.Opts.OracleWorkerNodeInitialCount,
-			WorkerNodeMinCount:      cpi.Opts.OracleWorkerNodeMinCount,
-			WorkerNodeMaxCount:      cpi.Opts.OracleWorkerNodeMaxCount,
 		}
 		if kubeConnection, err = kubernetesRuntimeInfraOKE.GetConnection(); err != nil {
 			return fmt.Errorf("failed to get connection for OKE kubernetes runtime infra: %w", err)
@@ -841,89 +837,95 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
 	}
 
-	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.ControlPlaneName)
-	if err != nil {
-		return fmt.Errorf("failed to get threeport certificates from config: %w", err)
-	}
-	apiClient, err := client_lib.GetHTTPClient(threeportControlPlaneConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
-	if err != nil {
-		return fmt.Errorf("failed to create http client: %w", err)
-	}
+	// Only tear down control plane first if not infra-only
+	if !cpi.Opts.InfraOnly {
 
-	// get the kubernetes runtime instance object
-	var kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance
-	kubernetesRuntimeInstance, err = client.GetThreeportControlPlaneKubernetesRuntimeInstance(
-		apiClient,
-		threeportControlPlaneConfig.APIServer,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
-	}
+		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.ControlPlaneName)
+		if err != nil {
+			return fmt.Errorf("failed to get threeport certificates from config: %w", err)
+		}
+		apiClient, err := client_lib.GetHTTPClient(threeportControlPlaneConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
+		if err != nil {
+			return fmt.Errorf("failed to create http client: %w", err)
+		}
 
-	// check for workload instances on non-kind kubernetes runtimes - halt delete if
-	// any are present
-	if threeportControlPlaneConfig.Provider != v0.KubernetesRuntimeInfraProviderKind {
-		workloadInstances, err := client.GetWorkloadInstances(
+		// get the kubernetes runtime instance object
+		var kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance
+		kubernetesRuntimeInstance, err = client.GetThreeportControlPlaneKubernetesRuntimeInstance(
 			apiClient,
 			threeportControlPlaneConfig.APIServer,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to retrieve workload instances from threeport API: %w", err)
-		}
-		if len(*workloadInstances) > 0 {
-			return errors.New("found workload instances that could prevent control plane deletion - delete all workload instances before deleting control plane")
+			return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
 		}
 
-		// get control plane instances
-		controlPlaneInstances, err := client.GetControlPlaneInstances(
-			apiClient,
-			threeportControlPlaneConfig.APIServer,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve control plane instances from threeport API: %w", err)
-		}
-		if len(*controlPlaneInstances) > 1 {
-			return errors.New("found non-genesis control plane instance(s) that could prevent control plane deletion - delete all non-genesis control plane instances before deleting genesis control plane")
-		}
-	}
+		// check for workload instances on non-kind kubernetes runtimes - halt delete if
+		// any are present
+		if threeportControlPlaneConfig.Provider != v0.KubernetesRuntimeInfraProviderKind {
+			workloadInstances, err := client.GetWorkloadInstances(
+				apiClient,
+				threeportControlPlaneConfig.APIServer,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve workload instances from threeport API: %w", err)
+			}
+			if len(*workloadInstances) > 0 {
+				return errors.New("found workload instances that could prevent control plane deletion - delete all workload instances before deleting control plane")
+			}
 
-	// for providers that use auth tokens, ensure we have the latest token
-	switch threeportControlPlaneConfig.Provider {
-	case v0.KubernetesRuntimeInfraProviderEKS:
-		kubernetesRuntimeInstance, err = RefreshEKSConnectionWithLocalConfig(awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, threeportControlPlaneConfig.APIServer)
-		if err != nil {
-			return fmt.Errorf("failed to refresh EKS connection with local config: %w", err)
+			// get control plane instances
+			controlPlaneInstances, err := client.GetControlPlaneInstances(
+				apiClient,
+				threeportControlPlaneConfig.APIServer,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve control plane instances from threeport API: %w", err)
+			}
+			if len(*controlPlaneInstances) > 1 {
+				return errors.New("found non-genesis control plane instance(s) that could prevent control plane deletion - delete all non-genesis control plane instances before deleting genesis control plane")
+			}
 		}
-	case v0.KubernetesRuntimeInfraProviderOKE:
-		kubernetesRuntimeInstance.ConnectionToken = &kubeConnection.Token
-		kubernetesRuntimeInstance.ConnectionTokenExpiration = &kubeConnection.TokenExpiration
-		kubernetesRuntimeInstance, err = client.UpdateKubernetesRuntimeInstance(
-			apiClient,
-			threeportControlPlaneConfig.APIServer,
+
+		// for providers that use auth tokens, ensure we have the latest token
+		switch threeportControlPlaneConfig.Provider {
+		case v0.KubernetesRuntimeInfraProviderEKS:
+			kubernetesRuntimeInstance, err = RefreshEKSConnectionWithLocalConfig(awsConfigResourceManager, kubernetesRuntimeInstance, apiClient, threeportControlPlaneConfig.APIServer)
+			if err != nil {
+				return fmt.Errorf("failed to refresh EKS connection with local config: %w", err)
+			}
+		case v0.KubernetesRuntimeInfraProviderOKE:
+			kubernetesRuntimeInstance.ConnectionToken = &kubeConnection.Token
+			kubernetesRuntimeInstance.ConnectionTokenExpiration = &kubeConnection.TokenExpiration
+			kubernetesRuntimeInstance, err = client.UpdateKubernetesRuntimeInstance(
+				apiClient,
+				threeportControlPlaneConfig.APIServer,
+				kubernetesRuntimeInstance,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to update OKE token on kubernetes runtime instance: %w", err)
+			}
+		}
+
+		// create a client and resource mapper to connect to kubernetes cluster
+		// API for deleting resources
+		var dynamicKubeClient dynamic.Interface
+		var mapper *meta.RESTMapper
+		dynamicKubeClient, mapper, err = kube.GetClient(
 			kubernetesRuntimeInstance,
+			false,
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+			threeportControlPlaneConfig.EncryptionKey,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to update OKE token on kubernetes runtime instance: %w", err)
+			return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
 		}
-	}
 
-	// create a client and resource mapper to connect to kubernetes cluster
-	// API for deleting resources
-	var dynamicKubeClient dynamic.Interface
-	var mapper *meta.RESTMapper
-	dynamicKubeClient, mapper, err = kube.GetClient(
-		kubernetesRuntimeInstance,
-		false,
-		apiClient,
-		threeportControlPlaneConfig.APIServer,
-		threeportControlPlaneConfig.EncryptionKey,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get a Kubernetes client and mapper: %w", err)
-	}
-
-	if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
+		if err := cpi.UnInstallThreeportControlPlaneComponents(dynamicKubeClient, mapper); err != nil {
+			return fmt.Errorf("failed to delete control plane components for threeport: %w", err)
+		}
+	} else {
+		Info("Skipping control plane teardown")
 	}
 
 	if cpi.Opts.ControlPlaneOnly {

@@ -2042,7 +2042,7 @@ definitions:
       PrivateKey:
         description: The private key for the OCI account.
         type: string
-      TenancyID:
+      TenancyOCID:
         description: The tenancy OCID for the OCI account.
         type: string
       UserOCID:
@@ -2051,13 +2051,11 @@ definitions:
     required:
     - DefaultRegion
     - Name
-    - TenancyID
+    - TenancyOCID
+    - UserOCID
     type: object
   v0.OciOkeKubernetesRuntimeDefinition:
     properties:
-      AvailabilityDomainCount:
-        description: The number of availability domains the cluster should span.
-        type: integer
       KubernetesRuntimeDefinitionID:
         description: The kubernetes runtime definition for an OKE cluster in OCI.
         type: integer
@@ -2065,7 +2063,9 @@ definitions:
         description: An arbitrary name for the definition.
         type: string
       OciAccountID:
-        description: The OCI account in which the OKE cluster is provisioned.
+        description: |-
+          The OCI account in which the OKE cluster is provisioned. This is the
+          Threeport-managed OCI account ID, not the OCI account OCID.
         type: integer
       OciOkeKubernetesRuntimeInstances:
         description: The OCI OKE kubernetes runtime instances derived from this definition.
@@ -2085,27 +2085,21 @@ definitions:
       WorkerNodeInitialCount:
         description: The number of nodes in the worker node pool.
         type: integer
-      WorkerNodeMaxCount:
-        description: The maximum number of nodes the worker node pool should have.
-        type: integer
-      WorkerNodeMinCount:
-        description: The minimum number of nodes the worker node pool should have.
-        type: integer
       WorkerNodeShape:
         description: The OCI shape for the worker nodes.
         type: string
     required:
-    - AvailabilityDomainCount
     - KubernetesRuntimeDefinitionID
     - Name
     - OciAccountID
     - WorkerNodeInitialCount
-    - WorkerNodeMaxCount
-    - WorkerNodeMinCount
     - WorkerNodeShape
     type: object
   v0.OciOkeKubernetesRuntimeInstance:
     properties:
+      ClusterOCID:
+        description: The OCID for the OKE cluster.
+        type: string
       CreationAcknowledged:
         description: |-
           Used by controllers to acknowledge deletion and indicate that deletion
@@ -2168,6 +2162,7 @@ definitions:
           TODO: use a custom type
         type: string
     required:
+    - ClusterOCID
     - KubernetesRuntimeInstanceID
     - Name
     - OciOkeKubernetesRuntimeDefinitionID
