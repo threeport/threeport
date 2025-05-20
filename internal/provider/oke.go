@@ -54,9 +54,6 @@ type KubernetesRuntimeInfraOKE struct {
 
 	// The path to the Pulumi state directory
 	stateDir string
-
-	// The Pulumi workspace for the OKE cluster
-	workspace *auto.Workspace
 }
 
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
@@ -307,7 +304,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 				},
 				// Allow TCP from load balancer subnet to k8s node ports
 				&core.SecurityListIngressSecurityRuleArgs{
-					Protocol:  pulumi.String("6"), // TCP
+					Protocol:  pulumi.String("all"),
 					Source:    pulumi.String(loadBalancerSubnetCidrBlock),
 					Stateless: pulumi.Bool(false),
 					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
@@ -417,7 +414,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
 				// Allow TCP from load balancer subnet to k8s node ports
 				&core.SecurityListEgressSecurityRuleArgs{
-					Protocol:    pulumi.String("6"), // TCP
+					Protocol:    pulumi.String("all"),
 					Destination: pulumi.String(privateSubnetCidrBlock),
 					Stateless:   pulumi.Bool(false),
 					TcpOptions: &core.SecurityListEgressSecurityRuleTcpOptionsArgs{
@@ -1084,7 +1081,30 @@ func (i *KubernetesRuntimeInfraOKE) GetStackState() (*datatypes.JSON, error) {
 	ctx := context.Background()
 	stackName := fmt.Sprintf("organization/oke/%s", i.RuntimeInstanceName)
 
-	stack, err := auto.SelectStack(ctx, stackName, *i.workspace)
+	// Set up state directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get home directory: %w", err)
+	}
+	i.stateDir = filepath.Join(homeDir, ".threeport", "pulumi-state", i.RuntimeInstanceName)
+
+	// Create a new workspace with local state backend
+	workspace, err := auto.NewLocalWorkspace(ctx,
+		auto.WorkDir(i.stateDir),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Set environment variables for Pulumi configuration
+	os.Setenv("PULUMI_BACKEND_URL", "file://"+i.stateDir)
+	os.Setenv("PULUMI_HOME", i.stateDir)
+	os.Setenv("PULUMI_ORGANIZATION", "organization")
+	os.Setenv("PULUMI_PROJECT", "oke")
+	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "threeport")
+
+	// load stack from workspace
+	stack, err := auto.SelectStack(ctx, stackName, workspace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to select stack: %w", err)
 	}
