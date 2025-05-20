@@ -60,16 +60,6 @@ type GenesisControlPlaneCLIArgs struct {
 	InfraOnly             bool
 	KindInfraPortForward  []string
 	LocalRegistry         bool
-
-	// Oracle Cloud Infrastructure (OCI) specific options
-	OracleTenancyID               string
-	OracleCompartmentID           string
-	OracleRegion                  string
-	OracleAvailabilityDomainCount int32
-	OracleWorkerNodeShape         string
-	OracleWorkerNodeInitialCount  int32
-	OracleWorkerNodeMinCount      int32
-	OracleWorkerNodeMaxCount      int32
 }
 
 // Uninstaller contains the necessary information to uninstall a control plane
@@ -279,13 +269,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		// Create OKE infrastructure
 		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
-			RuntimeInstanceName:     provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
-			TenancyOCID:             cpi.Opts.OracleTenancyID,
-			CompartmentOCID:         cpi.Opts.OracleCompartmentID,
-			Region:                  cpi.Opts.OracleRegion,
-			AvailabilityDomainCount: int32(2),
-			WorkerNodeShape:         "VM.Standard.A1.Flex",
-			WorkerNodeInitialCount:  int32(2),
+			RuntimeInstanceName:    provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			WorkerNodeShape:        "VM.Standard.A1.Flex",
+			WorkerNodeInitialCount: int32(2),
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
 		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
@@ -822,13 +808,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		kubernetesRuntimeInfra = kubernetesRuntimeInfraEKS
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
-			RuntimeInstanceName:     provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
-			TenancyOCID:             cpi.Opts.OracleTenancyID,
-			CompartmentOCID:         cpi.Opts.OracleCompartmentID,
-			Region:                  cpi.Opts.OracleRegion,
-			AvailabilityDomainCount: cpi.Opts.OracleAvailabilityDomainCount,
-			WorkerNodeShape:         cpi.Opts.OracleWorkerNodeShape,
-			WorkerNodeInitialCount:  cpi.Opts.OracleWorkerNodeInitialCount,
+			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 		}
 		if kubeConnection, err = kubernetesRuntimeInfraOKE.GetConnection(); err != nil {
 			return fmt.Errorf("failed to get connection for OKE kubernetes runtime infra: %w", err)

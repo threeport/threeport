@@ -47,20 +47,11 @@ type KubernetesRuntimeInfraOKE struct {
 	// The Oracle Cloud region where resources will be created.
 	Region string
 
-	// The number of availability domains the OKE cluster will be deployed across.
-	AvailabilityDomainCount int32
-
 	// The Oracle Cloud shape used for the worker nodes.
 	WorkerNodeShape string
 
 	// The number of nodes initially created for the worker node pool.
 	WorkerNodeInitialCount int32
-
-	// The minimum number of nodes to maintain in the worker node pool.
-	WorkerNodeMinCount int32
-
-	// The maximum number of nodes allowed in the worker node pool.
-	WorkerNodeMaxCount int32
 
 	// The path to the Pulumi state directory
 	stateDir string

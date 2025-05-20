@@ -38,14 +38,11 @@ type OciOkeKubernetesRuntimeConfig struct {
 // OciOkeKubernetesRuntimeValues contains the attributes needed to
 // manage an OCI OKE kubernetes runtime definition and instance.
 type OciOkeKubernetesRuntimeValues struct {
-	Name                    *string `yaml:"Name"`
-	OciAccountName          *string `yaml:"OciAccountName"`
-	AvailabilityDomainCount *int    `yaml:"AvailabilityDomainCount"`
-	WorkerNodeShape         *string `yaml:"WorkerNodeShape"`
-	WorkerNodeInitialCount  *int    `yaml:"WorkerNodeInitialCount"`
-	WorkerNodeMinCount      *int    `yaml:"WorkerNodeMinCount"`
-	WorkerNodeMaxCount      *int    `yaml:"WorkerNodeMaxCount"`
-	Region                  *string `yaml:"Region"`
+	Name                   *string `yaml:"Name"`
+	OciAccountName         *string `yaml:"OciAccountName"`
+	WorkerNodeShape        *string `yaml:"WorkerNodeShape"`
+	WorkerNodeInitialCount *int    `yaml:"WorkerNodeInitialCount"`
+	Region                 *string `yaml:"Region"`
 }
 
 // OciOkeKubernetesRuntimeDefinitionConfig contains the config for an OCI OKE
@@ -57,13 +54,10 @@ type OciOkeKubernetesRuntimeDefinitionConfig struct {
 // OciOkeKubernetesRuntimeDefinitionValues contains the attributes needed to
 // manage an OCI OKE kubernetes runtime definition.
 type OciOkeKubernetesRuntimeDefinitionValues struct {
-	Name                    *string `yaml:"Name"`
-	OciAccountName          *string `yaml:"OciAccountName"`
-	AvailabilityDomainCount *int    `yaml:"AvailabilityDomainCount"`
-	WorkerNodeShape         *string `yaml:"WorkerNodeShape"`
-	WorkerNodeInitialCount  *int    `yaml:"WorkerNodeInitialCount"`
-	WorkerNodeMinCount      *int    `yaml:"WorkerNodeMinCount"`
-	WorkerNodeMaxCount      *int    `yaml:"WorkerNodeMaxCount"`
+	Name                   *string `yaml:"Name"`
+	OciAccountName         *string `yaml:"OciAccountName"`
+	WorkerNodeShape        *string `yaml:"WorkerNodeShape"`
+	WorkerNodeInitialCount *int    `yaml:"WorkerNodeInitialCount"`
 }
 
 // OciOkeKubernetesRuntimeInstanceConfig contains the config for an OCI OKE
@@ -126,9 +120,9 @@ func (o *OciOkeKubernetesRuntimeValues) Create(apiClient *http.Client, apiEndpoi
 		Definition: v0.Definition{
 			Name: o.Name,
 		},
-		OciAccountID:            nil, // TODO: Get this from OciAccountName
-		WorkerNodeShape:         o.WorkerNodeShape,
-		WorkerNodeInitialCount:  util.Ptr(int32(*o.WorkerNodeInitialCount)),
+		OciAccountID:           nil, // TODO: Get this from OciAccountName
+		WorkerNodeShape:        o.WorkerNodeShape,
+		WorkerNodeInitialCount: util.Ptr(int32(*o.WorkerNodeInitialCount)),
 	}
 
 	createdDefinition, err := client.CreateOciOkeKubernetesRuntimeDefinition(apiClient, apiEndpoint, &definition)
@@ -189,11 +183,8 @@ func (o *OciOkeKubernetesRuntimeDefinitionValues) Create(apiClient *http.Client,
 	ociOkeKubernetesRuntimeDefinition := v0.OciOkeKubernetesRuntimeDefinition{
 		// Name:                    o.Name,
 		// OciAccountName:          o.OciAccountName,
-		// AvailabilityDomainCount: o.AvailabilityDomainCount,
 		WorkerNodeShape: o.WorkerNodeShape,
 		// WorkerNodeInitialCount:  o.WorkerNodeInitialCount,
-		// WorkerNodeMinCount:      o.WorkerNodeMinCount,
-		// WorkerNodeMaxCount:      o.WorkerNodeMaxCount,
 	}
 
 	createdDefinition, err := client.CreateOciOkeKubernetesRuntimeDefinition(apiClient, apiEndpoint, &ociOkeKubernetesRuntimeDefinition)

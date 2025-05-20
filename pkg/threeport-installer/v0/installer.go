@@ -123,31 +123,6 @@ type Options struct {
 	// Create and connect local container registry for local control plane
 	// clusters.
 	LocalRegistry bool
-
-	// Oracle Cloud Infrastructure (OCI) specific options
-	// The Oracle Cloud tenancy ID where the cluster infra is provisioned.
-	OracleTenancyID string
-
-	// The Oracle Cloud compartment ID where resources will be created.
-	OracleCompartmentID string
-
-	// The Oracle Cloud region where resources will be created.
-	OracleRegion string
-
-	// The number of availability domains the OKE cluster will be deployed across.
-	OracleAvailabilityDomainCount int32
-
-	// The Oracle Cloud shape used for the worker nodes.
-	OracleWorkerNodeShape string
-
-	// The number of nodes initially created for the worker node pool.
-	OracleWorkerNodeInitialCount int32
-
-	// The minimum number of nodes to maintain in the worker node pool.
-	OracleWorkerNodeMinCount int32
-
-	// The maximum number of nodes allowed in the worker node pool.
-	OracleWorkerNodeMaxCount int32
 }
 
 type ControlPlaneInstaller struct {

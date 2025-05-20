@@ -15,11 +15,8 @@ type OracleCloudAccount struct {
 type OracleCloudOKEKubernetesRuntimeDefinition struct {
 	Definition
 	OracleCloudAccountID          *uint   `json:"oracleCloudAccountId,omitempty"`
-	AvailabilityDomainCount       *int32  `json:"availabilityDomainCount,omitempty"`
 	WorkerNodeShape               *string `json:"workerNodeShape,omitempty"`
 	WorkerNodeInitialCount        *int32  `json:"workerNodeInitialCount,omitempty"`
-	WorkerNodeMinCount            *int32  `json:"workerNodeMinCount,omitempty"`
-	WorkerNodeMaxCount            *int32  `json:"workerNodeMaxCount,omitempty"`
 	KubernetesRuntimeDefinitionID *uint   `json:"kubernetesRuntimeDefinitionId,omitempty"`
 }
 
