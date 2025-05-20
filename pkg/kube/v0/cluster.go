@@ -326,16 +326,6 @@ func refreshOKEConnection(
 		return nil, fmt.Errorf("failed to generate token for OKE cluster: %w", err)
 	}
 
-	// get AWS account
-	_, err = client.GetOciAccountByID(
-		threeportAPIClient,
-		threeportAPIEndpoint,
-		*okeRuntimeDefinition.OciAccountID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get OCI account by ID %d: %w", *okeRuntimeDefinition.OciAccountID, err)
-	}
-
 	// generate updated rest config
 	restConfig := rest.Config{
 		Host:        *runtimeInstance.APIEndpoint,
