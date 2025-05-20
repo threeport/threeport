@@ -687,10 +687,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// install provider-specific system services
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		if err := threeport.InstallThreeportSystemServices(
+		if err := threeport.InstallEksThreeportSystemServices(
 			dynamicKubeClient,
 			mapper,
-			cpi.Opts.InfraProvider,
 			cpi.Opts.Name+"-"+cpi.Opts.ControlPlaneName,
 			*callerIdentity.Account,
 		); err != nil {
