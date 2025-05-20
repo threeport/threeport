@@ -15,6 +15,7 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
+	"gorm.io/datatypes"
 )
 
 // ConfigureControlPlaneWithOkeConfig configures the control plane with the OKE config.
@@ -119,6 +120,12 @@ func ConfigureControlPlaneWithOkeConfig(
 		return fmt.Errorf("failed to get cluster OCID: %w", err)
 	}
 
+	// get resource inventory from Pulumi state
+	var resourceInventory *datatypes.JSON
+	if resourceInventory, err = kubernetesRuntimeInfraOKE.GetStackState(); err != nil {
+		return fmt.Errorf("failed to get stack state: %w", err)
+	}
+
 	ociOkeKubernetesRuntimeInstance := v0.OciOkeKubernetesRuntimeInstance{
 		Instance: v0.Instance{
 			Name: &okeRuntimeInstName,
@@ -129,6 +136,7 @@ func ConfigureControlPlaneWithOkeConfig(
 		OciOkeKubernetesRuntimeDefinitionID: createdociOkeKubernetesRuntimeDef.ID,
 		KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
 		ClusterOCID:                         &clusterOCID,
+		ResourceInventory:                   resourceInventory,
 	}
 	_, err = client.CreateOciOkeKubernetesRuntimeInstance(
 		apiClient,

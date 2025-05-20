@@ -2,11 +2,8 @@ package provider
 
 import (
 	"context"
-	"crypto/rsa"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
@@ -1192,8 +1189,8 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 	return stack, nil
 }
 
-// getStackState returns the state of the OKE stack as a JSON object
-func (i *KubernetesRuntimeInfraOKE) getStackState() (*datatypes.JSON, error) {
+// GetStackState returns the state of the OKE stack as a JSON object
+func (i *KubernetesRuntimeInfraOKE) GetStackState() (*datatypes.JSON, error) {
 
 	ctx := context.Background()
 	stackName := fmt.Sprintf("organization/oke/%s", i.RuntimeInstanceName)
