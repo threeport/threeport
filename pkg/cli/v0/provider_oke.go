@@ -91,12 +91,11 @@ func ConfigureControlPlaneWithOkeConfig(
 		return uninstaller.cleanOnCreateError("failed to create new default OCI account", err)
 	}
 
-	// create aws eks k8s runtime definition
-	eksRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
-	// kubernetesRuntimeInfraOKE := (*kubernetesRuntimeInfra).(*provider.KubernetesRuntimeInfraOKE)
+	// create oci oke k8s runtime definition
+	okeRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	ociOkeKubernetesRuntimeDef := v0.OciOkeKubernetesRuntimeDefinition{
 		Definition: v0.Definition{
-			Name: &eksRuntimeDefName,
+			Name: &okeRuntimeDefName,
 		},
 		OciAccountID:                  ociAccount.ID,
 		WorkerNodeShape:               &kubernetesRuntimeInfraOKE.WorkerNodeShape,
@@ -112,7 +111,7 @@ func ConfigureControlPlaneWithOkeConfig(
 		return uninstaller.cleanOnCreateError("failed to create new OCI OKEkubernetes runtime definition for control plane cluster", err)
 	}
 
-	eksRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
+	okeRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	reconciled := true
 
 	clusterOCID, err := kubernetesRuntimeInfraOKE.GetClusterOCID(configProvider)
@@ -122,7 +121,7 @@ func ConfigureControlPlaneWithOkeConfig(
 
 	ociOkeKubernetesRuntimeInstance := v0.OciOkeKubernetesRuntimeInstance{
 		Instance: v0.Instance{
-			Name: &eksRuntimeInstName,
+			Name: &okeRuntimeInstName,
 		},
 		Reconciliation: v0.Reconciliation{
 			Reconciled: &reconciled,
