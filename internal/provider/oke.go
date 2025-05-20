@@ -921,23 +921,6 @@ func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
 	return nil
 }
 
-// privateKeyToPEM converts an RSA private key to a PEM-encoded string
-func privateKeyToPEM(privateKey *rsa.PrivateKey) string {
-	// Marshal the private key to PKCS#1 format
-	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
-
-	// Create a PEM block
-	privateKeyPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: privateKeyBytes,
-		},
-	)
-
-	// Convert to string
-	return string(privateKeyPEM)
-}
-
 // createDNSLabel creates a valid DNS label that meets OCI requirements:
 // - Must be 15 characters or less
 // - Must contain only lowercase alphanumeric characters
