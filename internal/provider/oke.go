@@ -433,7 +433,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create load balancer security list: %w", err)
 		}
 
-		// Update public subnet (control plane) to use security list
+		// Create public subnet
 		publicSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-public-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
 			CidrBlock:              pulumi.String(publicSubnetCidrBlock),
 			CompartmentId:          pulumi.String(i.CompartmentOCID),
@@ -449,7 +449,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create public subnet: %w", err)
 		}
 
-		// Update private subnet (worker nodes) to use security list
+		// Create private subnet
 		privateSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-private-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
 			CidrBlock:              pulumi.String(privateSubnetCidrBlock),
 			CompartmentId:          pulumi.String(i.CompartmentOCID),
@@ -465,7 +465,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create private subnet: %w", err)
 		}
 
-		// Create load balancer subnet (public)
+		// Create load balancer subnet
 		loadBalancerSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-lb-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
 			CidrBlock:              pulumi.String(loadBalancerSubnetCidrBlock),
 			CompartmentId:          pulumi.String(i.CompartmentOCID),
@@ -520,7 +520,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to get OKE worker node image OCID: %w", err)
 		}
 
-		// Create Node Pool with explicit dependency on cluster
+		// Create node pool
 		_, err = containerengine.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &containerengine.NodePoolArgs{
 			ClusterId:         cluster.ID(),
 			CompartmentId:     pulumi.String(i.CompartmentOCID),
@@ -556,12 +556,6 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			fmt.Printf("Failed to create node pool: %v\n", err)
 			return fmt.Errorf("failed to create node pool: %w", err)
 		}
-
-		// Export cluster ID, node pool ID and kubeconfig for later use
-		// ctx.Export("clusterId", cluster.ID())
-		// ctx.Export("nodePoolId", nodePool.ID())
-		// ctx.Export("APIServer", cluster.Endpoints.Index(pulumi.Int(0)).PublicEndpoint())
-		// ctx.Export("CACert", cluster.CertificateAuthority.Certificate())
 		return nil
 	})
 	if err != nil {
@@ -607,7 +601,11 @@ func (i *KubernetesRuntimeInfraOKE) Delete() error {
 	return nil
 }
 
-func (i *KubernetesRuntimeInfraOKE) GetClusterOCID(configProvider common.ConfigurationProvider) (string, error) {
+// GetClusterOCID gets the OCID of the OKE cluster.
+func (i *KubernetesRuntimeInfraOKE) GetClusterOCID(
+	okeClusterName string,
+	configProvider common.ConfigurationProvider,
+) (string, error) {
 
 	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
 	if err != nil {
@@ -631,16 +629,14 @@ func (i *KubernetesRuntimeInfraOKE) GetClusterOCID(configProvider common.Configu
 		return "", fmt.Errorf("failed to list clusters: %w", err)
 	}
 
-	if len(response.Items) == 0 {
-		return "", fmt.Errorf("no active cluster found with name %s", i.RuntimeInstanceName)
+	// Find the cluster with the matching name
+	for _, cluster := range response.Items {
+		if cluster.Name != nil && *cluster.Name == okeClusterName {
+			return *cluster.Id, nil
+		}
 	}
 
-	cluster := response.Items[0]
-	if cluster.Id == nil {
-		return "", fmt.Errorf("cluster ID is nil")
-	}
-
-	return *cluster.Id, nil
+	return "", fmt.Errorf("no active cluster found with name %s", okeClusterName)
 }
 
 // GetConnection gets the latest connection info for authentication to an OKE cluster.
@@ -652,7 +648,7 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 
 	// Create a new container engine client
 	configProvider := common.DefaultConfigProvider()
-	clusterOCID, err := i.GetClusterOCID(configProvider)
+	clusterOCID, err := i.GetClusterOCID(i.RuntimeInstanceName, configProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster OCID: %w", err)
 	}
@@ -1086,7 +1082,7 @@ func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) 
 		return "", fmt.Errorf("no OKE worker node images found")
 	}
 
-	// Find an image with the latest Kubernetes version
+	// Find an image with the specified Kubernetes version
 	for _, source := range response.Sources {
 		// Try to get the concrete type
 		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok {
@@ -1099,7 +1095,7 @@ func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) 
 		}
 	}
 
-	return "", fmt.Errorf("no suitable OKE worker node images found with Kubernetes version %s", latestVersion)
+	return "", fmt.Errorf("no suitable OKE worker node images found with Kubernetes version %s", i.Version)
 }
 
 // setupPulumiWorkspace sets up the Pulumi workspace and environment for OKE operations

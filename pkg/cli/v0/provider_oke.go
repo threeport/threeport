@@ -115,7 +115,10 @@ func ConfigureControlPlaneWithOkeConfig(
 	okeRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	reconciled := true
 
-	clusterOCID, err := kubernetesRuntimeInfraOKE.GetClusterOCID(configProvider)
+	clusterOCID, err := kubernetesRuntimeInfraOKE.GetClusterOCID(
+		okeRuntimeInstName,
+		configProvider,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to get cluster OCID: %w", err)
 	}
