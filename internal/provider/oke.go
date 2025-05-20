@@ -769,32 +769,11 @@ func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
 		return fmt.Errorf("failed to get tenancy OCID: %w", err)
 	}
 
-	// // Get the user OCID
-	// userOCID, err := configProvider.UserOCID()
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get user OCID: %w", err)
-	// }
-
 	// Get the region
 	region, err := configProvider.Region()
 	if err != nil {
 		return fmt.Errorf("failed to get region: %w", err)
 	}
-
-	// // Get the fingerprint
-	// fingerprint, err := configProvider.KeyFingerprint()
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get key fingerprint: %w", err)
-	// }
-
-	// // Get the private key
-	// privateKey, err := configProvider.PrivateRSAKey()
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get private key: %w", err)
-	// }
-
-	// // Convert private key to PEM-encoded string
-	// privateKeyPEM := privateKeyToPEM(privateKey)
 
 	// Read the config file to get the compartment OCID
 	cfg, err := ini.Load(ociConfigPath)
@@ -819,14 +798,6 @@ func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
 	if i.Region == "" {
 		i.Region = region
 	}
-
-	// // Set environment variables for OCI authentication
-	// os.Setenv("OCI_TENANCY_OCID", tenancyOCID)
-	// os.Setenv("OCI_USER_OCID", userOCID)
-	// os.Setenv("OCI_REGION", region)
-	// os.Setenv("OCI_KEY_FINGERPRINT", fingerprint)
-	// os.Setenv("OCI_PRIVATE_KEY", privateKeyPEM)
-	// os.Setenv("OCI_COMPARTMENT_OCID", compartmentOCID)
 
 	// Validate required fields
 	if i.TenancyOCID == "" {
