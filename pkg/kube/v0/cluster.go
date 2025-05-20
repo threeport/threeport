@@ -2,7 +2,6 @@ package v0
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,7 +13,6 @@ import (
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/nukleros/aws-builder/pkg/eks/connection"
 	"github.com/oracle/oci-go-sdk/v65/common"
-	ocicontainerengine "github.com/oracle/oci-go-sdk/v65/containerengine"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -28,6 +26,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // GetInClusterKubeClient creates a kubernetes clientset for an in cluster configuration
@@ -312,9 +311,17 @@ func refreshOKEConnection(
 
 	var token string
 	var tokenExpirationTime time.Time
-	if token, tokenExpirationTime, err = generateToken(
+
+	if token, tokenExpirationTime, err = util.GenerateOkeToken(
 		*okeRuntimeInstance.ClusterOCID,
-		ociAccount,
+		common.NewRawConfigurationProvider(
+			*ociAccount.TenancyOCID,
+			*ociAccount.UserOCID,
+			*ociAccount.DefaultRegion,
+			*ociAccount.KeyFingerprint,
+			*ociAccount.PrivateKey,
+			nil,
+		),
 	); err != nil {
 		return nil, fmt.Errorf("failed to generate token for OKE cluster: %w", err)
 	}
@@ -500,73 +507,4 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 	}
 
 	return awsConfig, nil
-}
-
-// TODO: deduplicate and move elsewhere to avoid import loop
-// generateToken generates a token for an OKE cluster.
-func generateToken(clusterID string, ociAccount *v0.OciAccount) (string, time.Time, error) {
-	configProvider := common.NewRawConfigurationProvider(
-		*ociAccount.TenancyOCID,
-		*ociAccount.UserOCID,
-		*ociAccount.DefaultRegion,
-		*ociAccount.KeyFingerprint,
-		*ociAccount.PrivateKey,
-		nil,
-	)
-
-	// Get the region from the config
-	region, err := configProvider.Region()
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to get region: %v", err)
-	}
-
-	// Create the container engine client
-	client, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to create client: %v", err)
-	}
-
-	// Construct the URL
-	url := fmt.Sprintf("https://containerengine.%s.oraclecloud.com/cluster_request/%s", region, clusterID)
-
-	// Create the initial request
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to create request: %v", err)
-	}
-
-	// Set the date header in RFC1123 format with GMT
-	tokenExpirationTime := time.Now().In(time.FixedZone("GMT", 0))
-	tokenExpiration := tokenExpirationTime.Format("Mon, 02 Jan 2006 15:04:05 GMT")
-	req.Header.Set("date", tokenExpiration)
-
-	// Sign the request
-	err = client.Signer.Sign(req)
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to sign request: %v", err)
-	}
-
-	// Get the authorization and date headers
-	headerParams := map[string]string{
-		"authorization": req.Header.Get("authorization"),
-		"date":          req.Header.Get("date"),
-	}
-
-	// Create the token request with the headers as query parameters
-	tokenReq, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to create token request: %v", err)
-	}
-
-	// Add the headers as query parameters
-	q := tokenReq.URL.Query()
-	for key, value := range headerParams {
-		q.Add(key, value)
-	}
-	tokenReq.URL.RawQuery = q.Encode()
-
-	// Encode the URL as the token
-	token := base64.URLEncoding.EncodeToString([]byte(tokenReq.URL.String()))
-
-	return token, tokenExpirationTime, nil
 }

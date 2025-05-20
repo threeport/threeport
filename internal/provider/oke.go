@@ -6,11 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/oracle/oci-go-sdk/v65/common"
 	ocicontainerengine "github.com/oracle/oci-go-sdk/v65/containerengine"
@@ -24,6 +22,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v2"
 	"gorm.io/datatypes"
@@ -704,7 +703,8 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("no clusters found in kubeconfig")
 	}
 
-	token, tokenExpirationTime, err := generateToken(clusterOCID)
+	// token, tokenExpirationTime, err := generateToken(clusterOCID)
+	token, tokenExpirationTime, err := util.GenerateOkeToken(clusterOCID, configProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
@@ -739,74 +739,6 @@ type KubeConfig struct {
 			CertificateAuthorityData string `yaml:"certificate-authority-data"`
 		} `yaml:"cluster"`
 	} `yaml:"clusters"`
-}
-
-// generateToken generates an authentication token for the OKE cluster
-func generateToken(clusterID string) (string, time.Time, error) {
-	// Create a configuration provider from the default config file
-	configProvider := common.DefaultConfigProvider()
-
-	// Get the region from the config
-	region, err := configProvider.Region()
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to get region: %v", err)
-	}
-
-	// Create the container engine client
-	client, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to create client: %v", err)
-	}
-
-	// Construct the URL
-	url := fmt.Sprintf("https://containerengine.%s.oraclecloud.com/cluster_request/%s", region, clusterID)
-
-	// Create the initial request
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to create request: %v", err)
-	}
-
-	// set token time parameter
-	tokenTime := time.Now().In(time.FixedZone("GMT", 0))
-	tokenTimeString := tokenTime.Format("Mon, 02 Jan 2006 15:04:05 GMT")
-	req.Header.Set("date", tokenTimeString)
-
-	// calculate token expiration time
-	// value is inferred by output of:
-	// oci ce cluster generate-token --cluster-id <cluster-id> --region <region>
-	// and is not configurable via API
-	tokenExpirationTime := tokenTime.Add(time.Minute * 4)
-
-	// Sign the request
-	err = client.Signer.Sign(req)
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to sign request: %v", err)
-	}
-
-	// Get the authorization and date headers
-	headerParams := map[string]string{
-		"authorization": req.Header.Get("authorization"),
-		"date":          req.Header.Get("date"),
-	}
-
-	// Create the token request with the headers as query parameters
-	tokenReq, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to create token request: %v", err)
-	}
-
-	// Add the headers as query parameters
-	q := tokenReq.URL.Query()
-	for key, value := range headerParams {
-		q.Add(key, value)
-	}
-	tokenReq.URL.RawQuery = q.Encode()
-
-	// Encode the URL as the token
-	token := base64.URLEncoding.EncodeToString([]byte(tokenReq.URL.String()))
-
-	return token, tokenExpirationTime, nil
 }
 
 // loadOCIConfig reads the OCI configuration using the OCI SDK and updates the struct fields
