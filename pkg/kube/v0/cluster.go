@@ -212,6 +212,13 @@ func GetRestConfig(
 
 			// if it is expired, or will within 3 minutes, get a new token
 			if expiring {
+
+				// check if KRD is set
+				if runtime.KubernetesRuntimeDefinitionID == nil {
+					return nil, errors.New("kubernetes runtime definition ID is not set, refresh token from config if bootstrapping a control plane")
+				}
+
+				// get kubernetes runtime definition
 				definition, err := client.GetKubernetesRuntimeDefinitionByID(
 					threeportAPIClient,
 					threeportAPIEndpoint,
