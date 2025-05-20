@@ -322,25 +322,15 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 					},
 					Stateless: pulumi.Bool(false),
 				},
-				// Allow 443 from load balancer subnet
+				// Allow TCP from load balancer subnet to k8s node ports
 				&core.SecurityListIngressSecurityRuleArgs{
-					Protocol: pulumi.String("6"), // TCP
-					Source:   pulumi.String(loadBalancerSubnetCidrBlock),
-					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
-						Max: pulumi.Int(443),
-						Min: pulumi.Int(443),
-					},
+					Protocol:  pulumi.String("6"), // TCP
+					Source:    pulumi.String(loadBalancerSubnetCidrBlock),
 					Stateless: pulumi.Bool(false),
-				},
-				// Allow 80 from load balancer subnet
-				&core.SecurityListIngressSecurityRuleArgs{
-					Protocol: pulumi.String("6"), // TCP
-					Source:   pulumi.String(loadBalancerSubnetCidrBlock),
 					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
-						Max: pulumi.Int(80),
-						Min: pulumi.Int(80),
+						Max: pulumi.Int(30000),
+						Min: pulumi.Int(32768),
 					},
-					Stateless: pulumi.Bool(false),
 				},
 			},
 			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
@@ -350,7 +340,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 					Destination: pulumi.String(privateSubnetCidrBlock),
 					Stateless:   pulumi.Bool(false),
 				},
-				// Allow TCP ports 6443 and 12250 to public subnet
+				// Allow Kubernetes API server traffic to public subnet
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("6"), // TCP
 					Destination: pulumi.String(publicSubnetCidrBlock),
@@ -360,6 +350,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 					},
 					Stateless: pulumi.Bool(false),
 				},
+				// Allow TCP port 12250 to public subnet
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("6"), // TCP
 					Destination: pulumi.String(publicSubnetCidrBlock),
@@ -441,11 +432,15 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 				},
 			},
 			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
-				// Allow all traffic to private subnet
+				// Allow TCP from load balancer subnet to k8s node ports
 				&core.SecurityListEgressSecurityRuleArgs{
-					Protocol:    pulumi.String("all"),
+					Protocol:    pulumi.String("6"), // TCP
 					Destination: pulumi.String(privateSubnetCidrBlock),
 					Stateless:   pulumi.Bool(false),
+					TcpOptions: &core.SecurityListEgressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(30000),
+						Min: pulumi.Int(32768),
+					},
 				},
 			},
 		}, pulumi.Provider(ociProvider),
