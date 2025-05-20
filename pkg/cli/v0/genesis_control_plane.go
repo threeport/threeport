@@ -271,6 +271,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
 			RuntimeInstanceName:    provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 			WorkerNodeShape:        "VM.Standard.A1.Flex",
+			Version:                "1.33.0",
 			WorkerNodeInitialCount: int32(2),
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE

@@ -35,6 +35,9 @@ type KubernetesRuntimeInfraOKE struct {
 	// The unique name of the kubernetes runtime instance managed by threeport.
 	RuntimeInstanceName string
 
+	// Version of the OKE cluster.
+	Version string
+
 	// The Oracle Cloud tenancy ID where the cluster infra is provisioned.
 	TenancyOCID string
 
@@ -61,12 +64,6 @@ type KubernetesRuntimeInfraOKE struct {
 func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 	// Set up Pulumi workspace and get stack
 	stack, err := i.setupPulumiWorkspace(func(ctx *pulumi.Context) error {
-
-		// Get the latest OKE version
-		latestVersion, err := i.getLatestOKEVersion()
-		if err != nil {
-			return fmt.Errorf("failed to get latest OKE version: %w", err)
-		}
 
 		// Get the availability domain name
 		availabilityDomain, err := i.getAvailabilityDomainName()
@@ -490,7 +487,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			CompartmentId:     pulumi.String(i.CompartmentOCID),
 			Name:              pulumi.String(i.RuntimeInstanceName),
 			VcnId:             vcn.ID(),
-			KubernetesVersion: pulumi.String(latestVersion),
+			KubernetesVersion: pulumi.String(i.Version),
 			EndpointConfig: &containerengine.ClusterEndpointConfigArgs{
 				IsPublicIpEnabled: pulumi.Bool(true),
 				SubnetId:          publicSubnet.ID(),
@@ -530,7 +527,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			CompartmentId:     pulumi.String(i.CompartmentOCID),
 			Name:              pulumi.String(fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)),
 			NodeShape:         pulumi.String(i.WorkerNodeShape),
-			KubernetesVersion: pulumi.String(latestVersion),
+			KubernetesVersion: pulumi.String(i.Version),
 			InitialNodeLabels: containerengine.NodePoolInitialNodeLabelArray{
 				&containerengine.NodePoolInitialNodeLabelArgs{
 					Key:   pulumi.String("threeport.io/managed"),
@@ -1063,12 +1060,6 @@ func (i *KubernetesRuntimeInfraOKE) getLatestOKEVersion() (string, error) {
 
 // getOKEWorkerNodeImageOCID returns the OCID of the specified OKE worker node image
 func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) {
-	// Get the latest OKE version
-	latestVersion, err := i.getLatestOKEVersion()
-	if err != nil {
-		return "", fmt.Errorf("failed to get latest OKE version: %w", err)
-	}
-
 	// Create a new container engine client
 	configProvider := common.DefaultConfigProvider()
 	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
@@ -1102,7 +1093,7 @@ func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) 
 		if sourceType, ok := source.(ocicontainerengine.NodeSourceViaImageOption); ok {
 			name := *sourceType.SourceName
 			// Remove leading 'v' from version for image search
-			versionWithoutV := strings.TrimPrefix(latestVersion, "v")
+			versionWithoutV := strings.TrimPrefix(i.Version, "v")
 			if strings.Contains(name, fmt.Sprintf("OKE-%s", versionWithoutV)) {
 				return *sourceType.ImageId, nil
 			}
