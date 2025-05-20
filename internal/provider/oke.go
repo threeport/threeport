@@ -181,8 +181,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create private route table: %w", err)
 		}
 
-		// Define the subnets, will be referenced by the security lists
-		// and the OKE cluster
+		// Define subnets to be used by security lists, cluster, and load balancer
 		publicSubnetCidrBlock := "10.0.0.0/28"
 		privateSubnetCidrBlock := "10.0.10.0/24"
 		loadBalancerSubnetCidrBlock := "10.0.20.0/24"
