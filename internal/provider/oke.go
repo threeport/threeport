@@ -198,9 +198,9 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 
 		// Define the subnets, will be referenced by the security lists
 		// and the OKE cluster
-		publicSubnetCidrBlock := "10.0.1.0/24"
-		privateSubnetCidrBlock := "10.0.2.0/24"
-		loadBalancerSubnetCidrBlock := "10.0.3.0/24"
+		publicSubnetCidrBlock := "10.0.0.0/28"
+		privateSubnetCidrBlock := "10.0.10.0/24"
+		loadBalancerSubnetCidrBlock := "10.0.20.0/24"
 
 		// Create security list for public subnet
 		publicSecList, err := core.NewSecurityList(ctx, fmt.Sprintf("%s-public-seclist", i.RuntimeInstanceName), &core.SecurityListArgs{
@@ -218,31 +218,64 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 					},
 					Stateless: pulumi.Bool(false),
 				},
-				// Allow traffic from other control plane nodes
+				// Allow Kubernetes API server traffic from private subnet
 				&core.SecurityListIngressSecurityRuleArgs{
-					Protocol:  pulumi.String("all"),
-					Source:    pulumi.String(publicSubnetCidrBlock),
+					Protocol: pulumi.String("6"), // TCP
+					Source:   pulumi.String(privateSubnetCidrBlock),
+					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(6443),
+						Min: pulumi.Int(6443),
+					},
+					Stateless: pulumi.Bool(false),
+				},
+				// Allow port 12250 from private subnet
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol: pulumi.String("6"), // TCP
+					Source:   pulumi.String(privateSubnetCidrBlock),
+					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(12250),
+						Min: pulumi.Int(12250),
+					},
+					Stateless: pulumi.Bool(false),
+				},
+				// Allow ICMP types 3 and 4 from private subnet
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol: pulumi.String("1"), // ICMP
+					Source:   pulumi.String(privateSubnetCidrBlock),
+					IcmpOptions: &core.SecurityListIngressSecurityRuleIcmpOptionsArgs{
+						Type: pulumi.Int(3),
+						Code: pulumi.Int(4),
+					},
 					Stateless: pulumi.Bool(false),
 				},
 			},
 			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
-				// Allow traffic to worker nodes
+				// Allow traffic to Oracle Services Network
 				&core.SecurityListEgressSecurityRuleArgs{
-					Protocol:    pulumi.String("all"),
+					Protocol:        pulumi.String("6"), // TCP
+					Destination:     pulumi.String("all-phx-services-in-oracle-services-network"),
+					DestinationType: pulumi.String("SERVICE_CIDR_BLOCK"),
+					TcpOptions: &core.SecurityListEgressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(443),
+						Min: pulumi.Int(443),
+					},
+					Stateless: pulumi.Bool(false),
+				},
+				// Allow all TCP traffic to private subnet
+				&core.SecurityListEgressSecurityRuleArgs{
+					Protocol:    pulumi.String("6"), // TCP
 					Destination: pulumi.String(privateSubnetCidrBlock),
 					Stateless:   pulumi.Bool(false),
 				},
-				// Allow traffic to other control plane nodes
+				// Allow ICMP types 3 and 4 to private subnet
 				&core.SecurityListEgressSecurityRuleArgs{
-					Protocol:    pulumi.String("all"),
-					Destination: pulumi.String(publicSubnetCidrBlock),
-					Stateless:   pulumi.Bool(false),
-				},
-				// Allow all outbound traffic to internet
-				&core.SecurityListEgressSecurityRuleArgs{
-					Protocol:    pulumi.String("all"),
-					Destination: pulumi.String("0.0.0.0/0"),
-					Stateless:   pulumi.Bool(false),
+					Protocol:    pulumi.String("1"), // ICMP
+					Destination: pulumi.String(privateSubnetCidrBlock),
+					IcmpOptions: &core.SecurityListEgressSecurityRuleIcmpOptionsArgs{
+						Type: pulumi.Int(3),
+						Code: pulumi.Int(4),
+					},
+					Stateless: pulumi.Bool(false),
 				},
 			},
 		}, pulumi.Provider(ociProvider),
@@ -251,39 +284,73 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create public security list: %w", err)
 		}
 
-		// Create security list for worker nodes subnet
+		// Create security list for worker nodes subnet (private)
 		workerNodesSecList, err := core.NewSecurityList(ctx, fmt.Sprintf("%s-worker-nodes-seclist", i.RuntimeInstanceName), &core.SecurityListArgs{
 			CompartmentId: pulumi.String(i.CompartmentOCID),
 			VcnId:         vcn.ID(),
 			DisplayName:   pulumi.String(fmt.Sprintf("%s-worker-nodes-seclist", i.RuntimeInstanceName)),
 			IngressSecurityRules: core.SecurityListIngressSecurityRuleArray{
-				// Allow traffic from public subnet (control plane)
-				&core.SecurityListIngressSecurityRuleArgs{
-					Protocol:  pulumi.String("6"), // TCP
-					Source:    pulumi.String(publicSubnetCidrBlock),
-					Stateless: pulumi.Bool(false),
-				},
-				// Allow traffic from load balancer subnet
-				&core.SecurityListIngressSecurityRuleArgs{
-					Protocol:  pulumi.String("6"), // TCP
-					Source:    pulumi.String(loadBalancerSubnetCidrBlock),
-					Stateless: pulumi.Bool(false),
-				},
-				// Allow UDP traffic from load balancer subnet
-				&core.SecurityListIngressSecurityRuleArgs{
-					Protocol:  pulumi.String("17"), // UDP
-					Source:    pulumi.String(loadBalancerSubnetCidrBlock),
-					Stateless: pulumi.Bool(false),
-				},
-				// Allow traffic from other worker nodes (for pod-to-pod communication)
+				// Allow all traffic from private subnet
 				&core.SecurityListIngressSecurityRuleArgs{
 					Protocol:  pulumi.String("all"),
 					Source:    pulumi.String(privateSubnetCidrBlock),
 					Stateless: pulumi.Bool(false),
 				},
+				// Allow ICMP types 3 and 4 from public subnet
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol: pulumi.String("1"), // ICMP
+					Source:   pulumi.String(publicSubnetCidrBlock),
+					IcmpOptions: &core.SecurityListIngressSecurityRuleIcmpOptionsArgs{
+						Type: pulumi.Int(3),
+						Code: pulumi.Int(4),
+					},
+					Stateless: pulumi.Bool(false),
+				},
+				// Allow all TCP traffic from public subnet
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol:  pulumi.String("6"), // TCP
+					Source:    pulumi.String(publicSubnetCidrBlock),
+					Stateless: pulumi.Bool(false),
+				},
+				// Allow SSH from anywhere
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol: pulumi.String("6"), // TCP
+					Source:   pulumi.String("0.0.0.0/0"),
+					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(22),
+						Min: pulumi.Int(22),
+					},
+					Stateless: pulumi.Bool(false),
+				},
+				// Allow 443 from load balancer subnet
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol: pulumi.String("6"), // TCP
+					Source:   pulumi.String(loadBalancerSubnetCidrBlock),
+					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(443),
+						Min: pulumi.Int(443),
+					},
+					Stateless: pulumi.Bool(false),
+				},
+				// Allow 80 from load balancer subnet
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol: pulumi.String("6"), // TCP
+					Source:   pulumi.String(loadBalancerSubnetCidrBlock),
+					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(80),
+						Min: pulumi.Int(80),
+					},
+					Stateless: pulumi.Bool(false),
+				},
 			},
 			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
-				// Allow traffic to control plane (Kubernetes API server)
+				// Allow all traffic to private subnet
+				&core.SecurityListEgressSecurityRuleArgs{
+					Protocol:    pulumi.String("all"),
+					Destination: pulumi.String(privateSubnetCidrBlock),
+					Stateless:   pulumi.Bool(false),
+				},
+				// Allow TCP ports 6443 and 12250 to public subnet
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("6"), // TCP
 					Destination: pulumi.String(publicSubnetCidrBlock),
@@ -293,13 +360,47 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 					},
 					Stateless: pulumi.Bool(false),
 				},
-				// Allow traffic to other worker nodes
 				&core.SecurityListEgressSecurityRuleArgs{
-					Protocol:    pulumi.String("all"),
-					Destination: pulumi.String(privateSubnetCidrBlock),
-					Stateless:   pulumi.Bool(false),
+					Protocol:    pulumi.String("6"), // TCP
+					Destination: pulumi.String(publicSubnetCidrBlock),
+					TcpOptions: &core.SecurityListEgressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(12250),
+						Min: pulumi.Int(12250),
+					},
+					Stateless: pulumi.Bool(false),
 				},
-				// Allow all outbound traffic to internet
+				// Allow ICMP types 3 and 4 to public subnet
+				&core.SecurityListEgressSecurityRuleArgs{
+					Protocol:    pulumi.String("1"), // ICMP
+					Destination: pulumi.String(publicSubnetCidrBlock),
+					IcmpOptions: &core.SecurityListEgressSecurityRuleIcmpOptionsArgs{
+						Type: pulumi.Int(3),
+						Code: pulumi.Int(4),
+					},
+					Stateless: pulumi.Bool(false),
+				},
+				// Allow TCP port 443 to Oracle Services Network
+				&core.SecurityListEgressSecurityRuleArgs{
+					Protocol:        pulumi.String("6"), // TCP
+					Destination:     pulumi.String("all-phx-services-in-oracle-services-network"),
+					DestinationType: pulumi.String("SERVICE_CIDR_BLOCK"),
+					TcpOptions: &core.SecurityListEgressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(443),
+						Min: pulumi.Int(443),
+					},
+					Stateless: pulumi.Bool(false),
+				},
+				// Allow ICMP types 3 and 4 to anywhere
+				&core.SecurityListEgressSecurityRuleArgs{
+					Protocol:    pulumi.String("1"), // ICMP
+					Destination: pulumi.String("0.0.0.0/0"),
+					IcmpOptions: &core.SecurityListEgressSecurityRuleIcmpOptionsArgs{
+						Type: pulumi.Int(3),
+						Code: pulumi.Int(4),
+					},
+					Stateless: pulumi.Bool(false),
+				},
+				// Allow all traffic to anywhere
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("all"),
 					Destination: pulumi.String("0.0.0.0/0"),
@@ -312,37 +413,37 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create worker nodes security list: %w", err)
 		}
 
-		// Create security list for load balancer subnet
+		// Create load balancer security list
 		loadBalancerSecList, err := core.NewSecurityList(ctx, fmt.Sprintf("%s-load-balancer-seclist", i.RuntimeInstanceName), &core.SecurityListArgs{
 			CompartmentId: pulumi.String(i.CompartmentOCID),
 			VcnId:         vcn.ID(),
 			DisplayName:   pulumi.String(fmt.Sprintf("%s-load-balancer-seclist", i.RuntimeInstanceName)),
 			IngressSecurityRules: core.SecurityListIngressSecurityRuleArray{
-				// Allow incoming HTTP traffic
+				// Allow 443 from anywhere
 				&core.SecurityListIngressSecurityRuleArgs{
-					Protocol: pulumi.String("6"), // TCP
-					Source:   pulumi.String("0.0.0.0/0"),
-					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
-						Max: pulumi.Int(80),
-						Min: pulumi.Int(80),
-					},
+					Protocol:  pulumi.String("6"), // TCP
+					Source:    pulumi.String("0.0.0.0/0"),
 					Stateless: pulumi.Bool(false),
-				},
-				// Allow incoming HTTPS traffic
-				&core.SecurityListIngressSecurityRuleArgs{
-					Protocol: pulumi.String("6"), // TCP
-					Source:   pulumi.String("0.0.0.0/0"),
 					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
 						Max: pulumi.Int(443),
 						Min: pulumi.Int(443),
 					},
+				},
+				// Allow 80 from anywhere
+				&core.SecurityListIngressSecurityRuleArgs{
+					Protocol:  pulumi.String("6"), // TCP
+					Source:    pulumi.String("0.0.0.0/0"),
 					Stateless: pulumi.Bool(false),
+					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
+						Max: pulumi.Int(80),
+						Min: pulumi.Int(80),
+					},
 				},
 			},
 			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
-				// Allow all outbound traffic to worker nodes
+				// Allow all traffic to private subnet
 				&core.SecurityListEgressSecurityRuleArgs{
-					Protocol:    pulumi.String("6"), // TCP
+					Protocol:    pulumi.String("all"),
 					Destination: pulumi.String(privateSubnetCidrBlock),
 					Stateless:   pulumi.Bool(false),
 				},
