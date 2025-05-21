@@ -795,12 +795,14 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 	// get the kubernetes runtime instance object
 	var kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance
-	kubernetesRuntimeInstance, err = client.GetThreeportControlPlaneKubernetesRuntimeInstance(
-		apiClient,
-		threeportControlPlaneConfig.APIServer,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
+	if !cpi.Opts.InfraOnly {
+		kubernetesRuntimeInstance, err = client.GetThreeportControlPlaneKubernetesRuntimeInstance(
+			apiClient,
+			threeportControlPlaneConfig.APIServer,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
+		}
 	}
 
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra

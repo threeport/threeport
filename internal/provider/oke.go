@@ -1157,6 +1157,8 @@ func (i *KubernetesRuntimeInfraOKE) setPulumiEnvVars() error {
 	os.Setenv("PULUMI_HOME", i.stateDir)
 	os.Setenv("PULUMI_ORGANIZATION", "organization") // TODO: update these?
 	os.Setenv("PULUMI_PROJECT", "oke")
+	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "threeport")
+
 	// Set plugin path to the default location
 	userHomeDir, err := os.UserHomeDir()
 	if err != nil {
