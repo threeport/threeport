@@ -693,7 +693,6 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("no clusters found in kubeconfig")
 	}
 
-	// token, tokenExpirationTime, err := generateToken(clusterOCID)
 	token, tokenExpirationTime, err := util.GenerateOkeToken(clusterOCID, configProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
