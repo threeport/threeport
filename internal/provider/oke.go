@@ -20,6 +20,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -807,6 +808,11 @@ func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
 		return fmt.Errorf("region not found in OCI config")
 	}
 
+	// // Set OCI environment variables
+	// os.Setenv("OCI_REGION", i.Region)
+	// os.Setenv("OCI_TENANCY_OCID", i.TenancyOCID)
+	// os.Setenv("OCI_COMPARTMENT_OCID", i.CompartmentOCID)
+
 	return nil
 }
 
@@ -1000,21 +1006,20 @@ func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) 
 
 // setupPulumiWorkspace sets up the Pulumi workspace and environment for OKE operations
 func (i *KubernetesRuntimeInfraOKE) setupPulumiWorkspace(program pulumi.RunFunc) (auto.Stack, error) {
+
+	// Set up state directory
+	if err := i.setStateDir(); err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to set state directory: %w", err)
+	}
+
+	// Set environment variables for Pulumi configuration
+	if err := i.setPulumiEnvVars(); err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to set Pulumi environment variables: %w", err)
+	}
+
 	// Load OCI configuration
 	if err := i.loadOCIConfig(); err != nil {
 		return auto.Stack{}, fmt.Errorf("failed to load OCI configuration: %w", err)
-	}
-
-	// Set up state directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to get home directory: %w", err)
-	}
-	i.stateDir = filepath.Join(homeDir, ".threeport", "pulumi-state", i.RuntimeInstanceName)
-
-	// Ensure state directory exists
-	if err := os.MkdirAll(i.stateDir, 0755); err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to create state directory: %w", err)
 	}
 
 	// Create Pulumi.yaml project file
@@ -1027,26 +1032,11 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 		return auto.Stack{}, fmt.Errorf("failed to create Pulumi.yaml: %w", err)
 	}
 
-	// Set environment variables for Pulumi configuration
-	os.Setenv("PULUMI_BACKEND_URL", "file://"+i.stateDir)
-	os.Setenv("PULUMI_HOME", i.stateDir)
-	os.Setenv("PULUMI_ORGANIZATION", "organization")
-	os.Setenv("PULUMI_PROJECT", "oke")
-	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "threeport") // Set a default passphrase for state encryption
-
-	// Set plugin path to the default location
-	userHomeDir, err := os.UserHomeDir()
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to get home directory: %w", err)
-	}
-	defaultPluginPath := filepath.Join(userHomeDir, ".pulumi", "plugins")
-	os.Setenv("PULUMI_PLUGIN_PATH", defaultPluginPath)
-
-	// Create a context for the automation API
 	ctx := context.Background()
 
 	// Create a new workspace with local state backend
-	workspace, err := auto.NewLocalWorkspace(ctx,
+	workspace, err := auto.NewLocalWorkspace(
+		ctx,
 		auto.Program(program),
 		auto.WorkDir(i.stateDir),
 	)
@@ -1055,8 +1045,7 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 	}
 
 	// Create or select a stack with fully qualified name
-	stackName := fmt.Sprintf("organization/oke/%s", i.RuntimeInstanceName)
-	stack, err := auto.UpsertStack(ctx, stackName, workspace)
+	stack, err := auto.UpsertStack(ctx, i.getStackName(), workspace)
 	if err != nil {
 		return auto.Stack{}, fmt.Errorf("failed to create/select stack: %w", err)
 	}
@@ -1067,44 +1056,35 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 		return auto.Stack{}, fmt.Errorf("failed to set region config: %w", err)
 	}
 
-	// Set OCI environment variables
-	os.Setenv("OCI_REGION", i.Region)
-	os.Setenv("OCI_TENANCY_OCID", i.TenancyOCID)
-	os.Setenv("OCI_COMPARTMENT_OCID", i.CompartmentOCID)
-
 	return stack, nil
 }
 
 // GetStackState returns the state of the OKE stack as a JSON object
 func (i *KubernetesRuntimeInfraOKE) GetStackState() (*datatypes.JSON, error) {
 
-	ctx := context.Background()
-	stackName := fmt.Sprintf("organization/oke/%s", i.RuntimeInstanceName)
-
 	// Set up state directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
+	if err := i.setStateDir(); err != nil {
+		return nil, fmt.Errorf("failed to set state directory: %w", err)
 	}
-	i.stateDir = filepath.Join(homeDir, ".threeport", "pulumi-state", i.RuntimeInstanceName)
+
+	// Set environment variables for Pulumi configuration
+	if err := i.setPulumiEnvVars(); err != nil {
+		return nil, fmt.Errorf("failed to set Pulumi environment variables: %w", err)
+	}
+
+	ctx := context.Background()
 
 	// Create a new workspace with local state backend
-	workspace, err := auto.NewLocalWorkspace(ctx,
+	workspace, err := auto.NewLocalWorkspace(
+		ctx,
 		auto.WorkDir(i.stateDir),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workspace: %w", err)
 	}
 
-	// Set environment variables for Pulumi configuration
-	os.Setenv("PULUMI_BACKEND_URL", "file://"+i.stateDir)
-	os.Setenv("PULUMI_HOME", i.stateDir)
-	os.Setenv("PULUMI_ORGANIZATION", "organization")
-	os.Setenv("PULUMI_PROJECT", "oke")
-	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "threeport")
-
 	// load stack from workspace
-	stack, err := auto.SelectStack(ctx, stackName, workspace)
+	stack, err := auto.SelectStack(ctx, i.getStackName(), workspace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to select stack: %w", err)
 	}
@@ -1123,4 +1103,89 @@ func (i *KubernetesRuntimeInfraOKE) GetStackState() (*datatypes.JSON, error) {
 
 	jsonState := datatypes.JSON(stateJSON)
 	return &jsonState, nil
+}
+
+// SetStackState sets the state of the OKE stack from a JSON object
+func (i *KubernetesRuntimeInfraOKE) SetStackState(state *datatypes.JSON) error {
+
+	// Set up state directory
+	if err := i.setStateDir(); err != nil {
+		return fmt.Errorf("failed to set state directory: %w", err)
+	}
+
+	// Set environment variables for Pulumi configuration
+	if err := i.setPulumiEnvVars(); err != nil {
+		return fmt.Errorf("failed to set Pulumi environment variables: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// Create a new workspace with local state backend
+	workspace, err := auto.NewLocalWorkspace(
+		ctx,
+		auto.WorkDir(i.stateDir),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// load stack from workspace
+	stack, err := auto.UpsertStack(ctx, i.getStackName(), workspace)
+	if err != nil {
+		return fmt.Errorf("failed to create/select stack: %w", err)
+	}
+
+	// Unmarshal state
+	var pulumiState apitype.UntypedDeployment
+	err = json.Unmarshal(*state, &pulumiState)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal state from JSON: %w", err)
+	}
+
+	// Set the stack's state
+	err = stack.Import(ctx, pulumiState)
+	if err != nil {
+		return fmt.Errorf("failed to import stack state: %w", err)
+	}
+
+	return nil
+}
+
+// setPulumiEnvVars sets the environment variables for Pulumi
+func (i *KubernetesRuntimeInfraOKE) setPulumiEnvVars() error {
+	os.Setenv("PULUMI_BACKEND_URL", "file://"+i.stateDir)
+	os.Setenv("PULUMI_HOME", i.stateDir)
+	os.Setenv("PULUMI_ORGANIZATION", "organization") // TODO: update these?
+	os.Setenv("PULUMI_PROJECT", "oke")
+	// Set plugin path to the default location
+	userHomeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+	defaultPluginPath := filepath.Join(userHomeDir, ".pulumi", "plugins")
+	os.Setenv("PULUMI_PLUGIN_PATH", defaultPluginPath)
+
+	return nil
+}
+
+// setStateDir sets the state directory for the OKE stack
+func (i *KubernetesRuntimeInfraOKE) setStateDir() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	i.stateDir = filepath.Join(homeDir, ".threeport", "pulumi-state", i.RuntimeInstanceName)
+
+	// Ensure state directory exists
+	if err := os.MkdirAll(i.stateDir, 0755); err != nil {
+		return fmt.Errorf("failed to create state directory: %w", err)
+	}
+
+	return nil
+}
+
+// getStackName returns the name of the OKE stack
+func (i *KubernetesRuntimeInfraOKE) getStackName() string {
+	return fmt.Sprintf("organization/oke/%s", i.RuntimeInstanceName)
 }

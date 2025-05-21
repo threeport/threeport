@@ -781,6 +781,28 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return fmt.Errorf("failed to get threeport control plane config: %w", err)
 	}
 
+	// get threeport certificates
+	ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.ControlPlaneName)
+	if err != nil {
+		return fmt.Errorf("failed to get threeport certificates from config: %w", err)
+	}
+
+	// get http client
+	apiClient, err := client_lib.GetHTTPClient(threeportControlPlaneConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
+	if err != nil {
+		return fmt.Errorf("failed to create http client: %w", err)
+	}
+
+	// get the kubernetes runtime instance object
+	var kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance
+	kubernetesRuntimeInstance, err = client.GetThreeportControlPlaneKubernetesRuntimeInstance(
+		apiClient,
+		threeportControlPlaneConfig.APIServer,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
+	}
+
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var awsConfigUser *aws.Config
 	var awsConfigResourceManager *aws.Config
@@ -815,29 +837,34 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to get connection for OKE kubernetes runtime infra: %w", err)
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
+
+		// pull OKE stack state from OKE runtime instance
+		// if not infra-only, as this flag implies the user
+		// does not want to depend on control plane state
+		if !cpi.Opts.InfraOnly {
+			// pull OKE stack state from OKE runtime instance
+			// and save to local pulumi state directory
+			okeRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
+				apiClient,
+				threeportControlPlaneConfig.APIServer,
+				*kubernetesRuntimeInstance.ID,
+			)
+			if err != nil {
+				return fmt.Errorf(
+					"failed to get OCI OKE kubernetes runtime instance by kubernetes runtime instance ID %d: %w",
+					*kubernetesRuntimeInstance.ID,
+					err,
+				)
+			}
+
+			if err := kubernetesRuntimeInfraOKE.SetStackState(okeRuntimeInstance.ResourceInventory); err != nil {
+				return fmt.Errorf("failed to set OKE stack state: %w", err)
+			}
+		}
 	}
 
 	// Only tear down control plane first if not infra-only
 	if !cpi.Opts.InfraOnly {
-
-		ca, clientCertificate, clientPrivateKey, err := threeportConfig.GetThreeportCertificatesForControlPlane(cpi.Opts.ControlPlaneName)
-		if err != nil {
-			return fmt.Errorf("failed to get threeport certificates from config: %w", err)
-		}
-		apiClient, err := client_lib.GetHTTPClient(threeportControlPlaneConfig.AuthEnabled, ca, clientCertificate, clientPrivateKey, "")
-		if err != nil {
-			return fmt.Errorf("failed to create http client: %w", err)
-		}
-
-		// get the kubernetes runtime instance object
-		var kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance
-		kubernetesRuntimeInstance, err = client.GetThreeportControlPlaneKubernetesRuntimeInstance(
-			apiClient,
-			threeportControlPlaneConfig.APIServer,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve kubernetes runtime instance from threeport API: %w", err)
-		}
 
 		// check for workload instances on non-kind kubernetes runtimes - halt delete if
 		// any are present
@@ -911,12 +938,13 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if cpi.Opts.ControlPlaneOnly {
 		Info("Skipping infra teardown")
 	} else {
+
 		// delete control plane infra
 		if err := kubernetesRuntimeInfra.Delete(); err != nil {
 			return fmt.Errorf("failed to delete control plane infra: %w", err)
 		}
 
-		// delete provider-specific resources
+		// perform provider-specfic post-deletion cleanup
 		switch threeportControlPlaneConfig.Provider {
 		case v0.KubernetesRuntimeInfraProviderEKS:
 

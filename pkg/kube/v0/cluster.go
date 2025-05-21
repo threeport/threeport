@@ -286,7 +286,7 @@ func refreshOKEConnection(
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (*rest.Config, error) {
-	// get EKS runtime instance
+	// get OKE runtime instance
 	okeRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
 		threeportAPIClient,
 		threeportAPIEndpoint,
