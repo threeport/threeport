@@ -277,7 +277,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 					Source:    pulumi.String(privateSubnetCidrBlock),
 					Stateless: pulumi.Bool(false),
 				},
-				// Allow ICMP types 3 and 4 from public subnet
+				// Allow ICMP type 3 code 4 from public subnet
 				&core.SecurityListIngressSecurityRuleArgs{
 					Protocol: pulumi.String("1"), // ICMP
 					Source:   pulumi.String(publicSubnetCidrBlock),
@@ -337,7 +337,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 					},
 					Stateless: pulumi.Bool(false),
 				},
-				// Allow ICMP types 3 and 4 to public subnet
+				// Allow ICMP type 3 code 4 to public subnet
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("1"), // ICMP
 					Destination: pulumi.String(publicSubnetCidrBlock),
@@ -358,7 +358,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 					},
 					Stateless: pulumi.Bool(false),
 				},
-				// Allow ICMP types 3 and 4 to anywhere
+				// Allow ICMP type 3 code 4 to anywhere
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:    pulumi.String("1"), // ICMP
 					Destination: pulumi.String("0.0.0.0/0"),
