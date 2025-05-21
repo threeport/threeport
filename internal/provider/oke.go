@@ -934,7 +934,8 @@ func (i *KubernetesRuntimeInfraOKE) getLatestOKEVersion() (string, error) {
 	return latestVersion, nil
 }
 
-// getOKEWorkerNodeImageOCID returns the OCID of the specified OKE worker node image
+// getOKEWorkerNodeImageOCID returns the OCID of the OKE worker node image
+// with version specified in struct
 func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) {
 	// Create a new container engine client
 	configProvider := common.DefaultConfigProvider()
