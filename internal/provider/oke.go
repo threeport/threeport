@@ -1121,7 +1121,7 @@ func (i *KubernetesRuntimeInfraOKE) SetStackState(state *datatypes.JSON) error {
 		return fmt.Errorf("failed to create workspace: %w", err)
 	}
 
-	// load stack from workspace
+	// create/select stack
 	stack, err := auto.UpsertStack(ctx, i.getStackName(), workspace)
 	if err != nil {
 		return fmt.Errorf("failed to create/select stack: %w", err)
@@ -1134,7 +1134,7 @@ func (i *KubernetesRuntimeInfraOKE) SetStackState(state *datatypes.JSON) error {
 		return fmt.Errorf("failed to unmarshal state from JSON: %w", err)
 	}
 
-	// Set the stack's state
+	// Set the stack's state and persist to disk
 	err = stack.Import(ctx, pulumiState)
 	if err != nil {
 		return fmt.Errorf("failed to import stack state: %w", err)
