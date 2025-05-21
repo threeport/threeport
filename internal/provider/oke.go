@@ -723,7 +723,8 @@ type KubeConfig struct {
 	} `yaml:"clusters"`
 }
 
-// loadOCIConfig reads the OCI configuration using the OCI SDK and updates the struct fields
+// loadOCIConfig reads the OCI configuration using the OCI SDK and
+// populates KubernetesRuntimeInfraOKE struct fields
 func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
 	// Get user's home directory
 	homeDir, err := os.UserHomeDir()
