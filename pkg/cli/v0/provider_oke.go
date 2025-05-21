@@ -113,7 +113,6 @@ func ConfigureControlPlaneWithOkeConfig(
 	}
 
 	okeRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
-	reconciled := true
 
 	clusterOCID, err := kubernetesRuntimeInfraOKE.GetClusterOCID(
 		okeRuntimeInstName,
@@ -134,7 +133,7 @@ func ConfigureControlPlaneWithOkeConfig(
 			Name: &okeRuntimeInstName,
 		},
 		Reconciliation: v0.Reconciliation{
-			Reconciled: &reconciled,
+			Reconciled: util.Ptr(true),
 		},
 		OciOkeKubernetesRuntimeDefinitionID: createdociOkeKubernetesRuntimeDef.ID,
 		KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,

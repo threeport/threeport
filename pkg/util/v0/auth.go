@@ -10,7 +10,6 @@ import (
 	ocicontainerengine "github.com/oracle/oci-go-sdk/v65/containerengine"
 )
 
-// TODO: deduplicate and move elsewhere to avoid import loop
 // generateToken generates a token for an OKE cluster.
 func GenerateOkeToken(
 	clusterID string,

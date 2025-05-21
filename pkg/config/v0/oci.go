@@ -24,8 +24,6 @@ type OciAccountValues struct {
 	UserID         *string `yaml:"UserID"`
 	Fingerprint    *string `yaml:"Fingerprint"`
 	PrivateKey     *string `yaml:"PrivateKey"`
-	LocalConfig    *string `yaml:"LocalConfig"`
-	LocalProfile   *string `yaml:"LocalProfile"`
 }
 
 // OciOkeKubernetesRuntimeConfig contains the config for an OCI OKE
@@ -114,7 +112,11 @@ func (o *OciAccountValues) Delete(apiClient *http.Client, apiEndpoint string) (v
 // Methods for OciOkeKubernetesRuntimeValues
 
 // Create creates a new OCI OKE kubernetes runtime in the Threeport API.
-func (o *OciOkeKubernetesRuntimeValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.OciOkeKubernetesRuntimeDefinition, *v0.OciOkeKubernetesRuntimeInstance, error) {
+func (o *OciOkeKubernetesRuntimeValues) Create(apiClient *http.Client, apiEndpoint string) (
+	*v0.OciOkeKubernetesRuntimeDefinition,
+	*v0.OciOkeKubernetesRuntimeInstance,
+	error,
+) {
 	// Create the definition first
 	definition := v0.OciOkeKubernetesRuntimeDefinition{
 		Definition: v0.Definition{
@@ -148,7 +150,11 @@ func (o *OciOkeKubernetesRuntimeValues) Create(apiClient *http.Client, apiEndpoi
 }
 
 // Delete deletes an OCI OKE kubernetes runtime from the Threeport API.
-func (o *OciOkeKubernetesRuntimeValues) Delete(apiClient *http.Client, apiEndpoint string) (*v0.OciOkeKubernetesRuntimeDefinition, *v0.OciOkeKubernetesRuntimeInstance, error) {
+func (o *OciOkeKubernetesRuntimeValues) Delete(apiClient *http.Client, apiEndpoint string) (
+	*v0.OciOkeKubernetesRuntimeDefinition,
+	*v0.OciOkeKubernetesRuntimeInstance,
+	error,
+) {
 	// First get the instance by name to get its ID
 	instance, err := client.GetOciOkeKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *o.Name)
 	if err != nil {

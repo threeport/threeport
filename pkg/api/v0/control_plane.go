@@ -19,8 +19,6 @@ type ControlPlaneDefinition struct {
 }
 
 // ControlPlaneInstance is the instance for a deployed Control Plane.
-// TODO: Should these be called Environments? Confusing with k8s control plane auth info
-// stored in KRI
 type ControlPlaneInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Instance       `mapstructure:",squash"`
