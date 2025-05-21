@@ -714,13 +714,6 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 	return kubeConnInfo, nil
 }
 
-// OKEInventoryFilepath returns a standardized filename and path for the OKE
-// inventory file.
-func OKEInventoryFilepath(providerConfigDir, instanceName string) string {
-	inventoryFilename := fmt.Sprintf("oke-inventory-%s.json", instanceName)
-	return filepath.Join(providerConfigDir, inventoryFilename)
-}
-
 // KubeConfig represents the structure of the kubeconfig file
 type KubeConfig struct {
 	Clusters []struct {
