@@ -308,10 +308,6 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 					Protocol:  pulumi.String("all"),
 					Source:    pulumi.String(loadBalancerSubnetCidrBlock),
 					Stateless: pulumi.Bool(false),
-					TcpOptions: &core.SecurityListIngressSecurityRuleTcpOptionsArgs{
-						Min: pulumi.Int(30000),
-						Max: pulumi.Int(32768),
-					},
 				},
 			},
 			EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
@@ -418,10 +414,6 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 					Protocol:    pulumi.String("all"),
 					Destination: pulumi.String(privateSubnetCidrBlock),
 					Stateless:   pulumi.Bool(false),
-					TcpOptions: &core.SecurityListEgressSecurityRuleTcpOptionsArgs{
-						Min: pulumi.Int(30000),
-						Max: pulumi.Int(32768),
-					},
 				},
 			},
 		}, pulumi.Provider(ociProvider),
