@@ -750,12 +750,16 @@ func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
 	tenancyOCID, err := configProvider.TenancyOCID()
 	if err != nil {
 		return fmt.Errorf("failed to get tenancy OCID: %w", err)
+	} else if tenancyOCID == "" {
+		return fmt.Errorf("tenancy OCID not found in OCI config")
 	}
 
 	// Get the region
 	region, err := configProvider.Region()
 	if err != nil {
 		return fmt.Errorf("failed to get region: %w", err)
+	} else if region == "" {
+		return fmt.Errorf("region not found in OCI config")
 	}
 
 	// Read the config file to get the compartment OCID
@@ -769,6 +773,8 @@ func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
 	if compartmentOCID == "" {
 		// If no compartment_id is specified, use the tenancy OCID as the root compartment
 		compartmentOCID = tenancyOCID
+	} else if compartmentOCID == "" {
+		return fmt.Errorf("compartment OCID not found in OCI config")
 	}
 
 	// Update struct fields with values from config
@@ -781,22 +787,6 @@ func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
 	if i.Region == "" {
 		i.Region = region
 	}
-
-	// Validate required fields
-	if i.TenancyOCID == "" {
-		return fmt.Errorf("tenancy ID not found in OCI config")
-	}
-	if i.CompartmentOCID == "" {
-		return fmt.Errorf("compartment ID not found in OCI config")
-	}
-	if i.Region == "" {
-		return fmt.Errorf("region not found in OCI config")
-	}
-
-	// // Set OCI environment variables
-	// os.Setenv("OCI_REGION", i.Region)
-	// os.Setenv("OCI_TENANCY_OCID", i.TenancyOCID)
-	// os.Setenv("OCI_COMPARTMENT_OCID", i.CompartmentOCID)
 
 	return nil
 }
