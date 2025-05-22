@@ -971,13 +971,14 @@ func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) 
 			name := *sourceType.SourceName
 			// remove leading 'v' from version for image search
 			versionWithoutV := strings.TrimPrefix(i.Version, "v")
-			if strings.Contains(name, fmt.Sprintf("OKE-%s", versionWithoutV)) {
+			if strings.Contains(name, fmt.Sprintf("OKE-%s", versionWithoutV)) &&
+				strings.Contains(name, "aarch64") {
 				return *sourceType.ImageId, nil
 			}
 		}
 	}
 
-	return "", fmt.Errorf("no suitable OKE worker node images found with Kubernetes version %s", i.Version)
+	return "", fmt.Errorf("no suitable OKE worker node images found with aarch64 architecture and Kubernetes version %s", i.Version)
 }
 
 // setupPulumiWorkspace sets up the Pulumi workspace and environment for OKE operations
