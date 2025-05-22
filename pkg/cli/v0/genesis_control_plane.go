@@ -530,8 +530,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// it is helpful for dev environments and harmless otherwise since the
 	// controllers need the API to be running in order to start
 	Info(fmt.Sprintf("Waiting for threeport API to start running at %s", *threeportAPIEndpoint))
-	attemptsMax := 150
-	waitDurationSeconds := 2
+	attemptsMax := 60
+	waitDurationSeconds := 5
 	if err = util.Retry(attemptsMax, waitDurationSeconds, func() error {
 		_, err := client_lib.GetResponse(
 			apiClient,
@@ -542,7 +542,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			http.StatusOK,
 		)
 		if err != nil {
-			fmt.Println("err", err)
+			Info(fmt.Sprintf("Connection attempt result: %s", err))
 			return fmt.Errorf("failed to get threeport API version: %w", err)
 		}
 		return nil
