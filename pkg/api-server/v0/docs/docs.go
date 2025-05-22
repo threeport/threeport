@@ -16577,7 +16577,9 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "DefaultRegion",
+                "KeyFingerprint",
                 "Name",
+                "PrivateKey",
                 "TenancyOCID",
                 "UserOCID"
             ],

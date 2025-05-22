@@ -2050,7 +2050,9 @@ definitions:
         type: string
     required:
     - DefaultRegion
+    - KeyFingerprint
     - Name
+    - PrivateKey
     - TenancyOCID
     - UserOCID
     type: object

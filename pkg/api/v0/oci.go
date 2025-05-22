@@ -24,10 +24,10 @@ type OciAccount struct {
 	DefaultRegion *string `json:"DefaultRegion,omitempty" query:"defaultregion" gorm:"not null" validate:"required"`
 
 	// The fingerprint of the API key for the OCI account.
-	KeyFingerprint *string `json:"KeyFingerprint,omitempty" validate:"optional" encrypt:"true"`
+	KeyFingerprint *string `json:"KeyFingerprint,omitempty" gorm:"not null" validate:"required"`
 
 	// The private key for the OCI account.
-	PrivateKey *string `json:"PrivateKey,omitempty" validate:"optional" encrypt:"true"`
+	PrivateKey *string `json:"PrivateKey,omitempty" gorm:"not null" validate:"required" encrypt:"true"`
 
 	// The cluster instances deployed in this OCI account.
 	OciOkeKubernetesRuntimeDefinitions []*OciOkeKubernetesRuntimeDefinition `json:"OciOkeKubernetesRuntimeDefinitions,omitempty" validate:"optional,association"`
