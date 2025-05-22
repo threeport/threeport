@@ -27,8 +27,8 @@ func DeployKindInfra(
 	uninstaller *Uninstaller,
 ) error {
 
-	portForwards := make(map[int32]int32)
-	for _, mapping := range cpi.Opts.KindInfraPortForward {
+	portMappings := make(map[int32]int32)
+	for _, mapping := range cpi.Opts.KindPortMappings {
 		split := strings.Split(mapping, ":")
 		if len(split) != 2 {
 			return fmt.Errorf("failed to parse kind port forward %s", mapping)
@@ -44,7 +44,7 @@ func DeployKindInfra(
 			return fmt.Errorf("failed to parse host port: %s as int32", split[0])
 		}
 
-		portForwards[int32(containerPort)] = int32(hostPort)
+		portMappings[int32(containerPort)] = int32(hostPort)
 	}
 
 	// construct kind infra provider object
@@ -55,7 +55,7 @@ func DeployKindInfra(
 		ThreeportPath:       cpi.Opts.ThreeportPath,
 		NumWorkerNodes:      cpi.Opts.NumWorkerNodes,
 		AuthEnabled:         cpi.Opts.AuthEnabled,
-		PortForwards:        portForwards,
+		PortForwards:        portMappings,
 	}
 
 	// update threeport config with api endpoint

@@ -102,8 +102,8 @@ type Options struct {
 	// If true, only infrastructure is provisioned.
 	InfraOnly bool
 
-	// Port forwards for kind infra provider
-	KindInfraPortForward []string
+	// Port mappings for kind infra provider
+	KindPortMappings []string
 
 	// If true, an EKS load balancer is provisioned for the threeport API.
 	RestApiEksLoadBalancer bool

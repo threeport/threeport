@@ -38,6 +38,7 @@ var UpCmd = &cobra.Command{
 			cliArgs.InfraProvider,
 			cliArgs.CreateRootDomain,
 			cliArgs.AuthEnabled,
+			cliArgs.KindPortMappings,
 		); err != nil {
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
@@ -140,5 +141,9 @@ func init() {
 	UpCmd.Flags().BoolVar(
 		&cliArgs.LocalRegistry,
 		"local-registry", false, "Connects a local container registry to Threeport control plane cluster.  Only applicable with provider 'kind'.",
+	)
+	UpCmd.Flags().StringSliceVar(
+		&cliArgs.KindPortMappings,
+		"kind-port-mappings", []string{}, "Port mappings for kind provider. Format: <container-port>:<host-port>,<container-port>:<host-port>,...",
 	)
 }

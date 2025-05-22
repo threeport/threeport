@@ -58,7 +58,7 @@ type GenesisControlPlaneCLIArgs struct {
 	SkipTeardown          bool
 	ControlPlaneOnly      bool
 	InfraOnly             bool
-	KindInfraPortForward  []string
+	KindPortMappings      []string
 	LocalRegistry         bool
 }
 
@@ -165,6 +165,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.RestApiEksLoadBalancer = true
 	cpi.Opts.SkipTeardown = a.SkipTeardown
 	cpi.Opts.LocalRegistry = a.LocalRegistry
+	cpi.Opts.KindPortMappings = a.KindPortMappings
 
 	return cpi, nil
 }
@@ -979,6 +980,7 @@ func ValidateCreateGenesisControlPlaneFlags(
 	infraProvider string,
 	createRootDomain string,
 	authEnabled bool,
+	kindPortMappings []string,
 ) error {
 	// ensure name length doesn't exceed maximum
 	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
@@ -1006,6 +1008,11 @@ func ValidateCreateGenesisControlPlaneFlags(
 				infraProvider, allowedInfraProviders,
 			),
 		)
+	}
+
+	// return an error if kind port mappings are provided for a non-kind provider
+	if infraProvider != v0.KubernetesRuntimeInfraProviderKind && len(kindPortMappings) > 0 {
+		return errors.New("kind port mappings are only supported for infrastructure provider 'kind'")
 	}
 
 	// TODO: We are currently deploying on EKS without internal auth enabled.
