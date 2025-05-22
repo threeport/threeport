@@ -484,7 +484,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			Options: &containerengine.ClusterOptionsArgs{
 				KubernetesNetworkConfig: &containerengine.ClusterOptionsKubernetesNetworkConfigArgs{
 					PodsCidr:     pulumi.String("10.244.0.0/16"),
-					ServicesCidr: pulumi.String("10.96.0.0/12"),
+					ServicesCidr: pulumi.String("10.96.0.0/16"),
 				},
 				ServiceLbSubnetIds: pulumi.StringArray{loadBalancerSubnet.ID()},
 			},
