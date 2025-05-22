@@ -311,7 +311,7 @@ func ConfigureControlPlaneWithEksConfig(
 	callerIdentity *sts.GetCallerIdentityOutput,
 	awsConfigResourceManager *aws.Config,
 	apiClient *http.Client,
-	threeportAPIEndpoint *string,
+	threeportAPIEndpoint string,
 	kubernetesRuntimeInfra *provider.KubernetesRuntimeInfra,
 	kubernetesRuntimeDefResult *v0.KubernetesRuntimeDefinition,
 	kubernetesRuntimeInstResult *v0.KubernetesRuntimeInstance,
@@ -331,7 +331,7 @@ func ConfigureControlPlaneWithEksConfig(
 	}
 	createdAwsAccount, err := client.CreateAwsAccount(
 		apiClient,
-		*threeportAPIEndpoint,
+		threeportAPIEndpoint,
 		&awsAccount,
 	)
 	if err != nil {
@@ -356,7 +356,7 @@ func ConfigureControlPlaneWithEksConfig(
 	}
 	createdAwsEksKubernetesRuntimeDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(
 		apiClient,
-		*threeportAPIEndpoint,
+		threeportAPIEndpoint,
 		&awsEksKubernetesRuntimeDef,
 	)
 	if err != nil {
@@ -391,7 +391,7 @@ func ConfigureControlPlaneWithEksConfig(
 	}
 	_, err = client.CreateAwsEksKubernetesRuntimeInstance(
 		apiClient,
-		*threeportAPIEndpoint,
+		threeportAPIEndpoint,
 		&awsEksKubernetesRuntimeInstance,
 	)
 	if err != nil {

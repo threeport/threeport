@@ -231,7 +231,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	uninstaller.controlPlane = &controlPlane
 
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
-	var threeportAPIEndpoint *string
+	var threeportAPIEndpoint string
 	var callerIdentity *sts.GetCallerIdentityOutput
 	var kubeConnectionInfo *kube.KubeConnectionInfo
 	awsConfigUser := aws.Config{}
@@ -243,7 +243,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	case v0.KubernetesRuntimeInfraProviderKind:
 		if err := DeployKindInfra(
 			cpi,
-			threeportAPIEndpoint,
+			&threeportAPIEndpoint,
 			threeportControlPlaneConfig,
 			threeportConfig,
 			&kubernetesRuntimeInfra,
@@ -491,7 +491,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
 		}
 		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
-			c.APIServer = fmt.Sprintf("%s:%d", *threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
+			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
 		}); err != nil {
 			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
 		}
@@ -519,7 +519,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			dynamicKubeClient,
 			mapper,
 			authConfig,
-			*threeportAPIEndpoint,
+			threeportAPIEndpoint,
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to install threeport API TLS assets", err)
 		}
@@ -529,13 +529,13 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// wait for the API before installing the rest of the control plane, however
 	// it is helpful for dev environments and harmless otherwise since the
 	// controllers need the API to be running in order to start
-	Info(fmt.Sprintf("Waiting for threeport API to start running at %s", *threeportAPIEndpoint))
+	Info(fmt.Sprintf("Waiting for threeport API to start running at %s", threeportAPIEndpoint))
 	attemptsMax := 60
 	waitDurationSeconds := 5
 	if err = util.Retry(attemptsMax, waitDurationSeconds, func() error {
 		_, err := client_lib.GetResponse(
 			apiClient,
-			fmt.Sprintf("%s/version", *threeportAPIEndpoint),
+			fmt.Sprintf("%s/version", threeportAPIEndpoint),
 			http.MethodGet,
 			new(bytes.Buffer),
 			map[string]string{},
@@ -598,7 +598,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 	kubernetesRuntimeDefResult, err := client.CreateKubernetesRuntimeDefinition(
 		apiClient,
-		*threeportAPIEndpoint,
+		threeportAPIEndpoint,
 		&kubernetesRuntimeDefinition,
 	)
 	if err != nil {
@@ -609,7 +609,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = kubernetesRuntimeDefResult.ID
 	kubernetesRuntimeInstResult, err := client.CreateKubernetesRuntimeInstance(
 		apiClient,
-		*threeportAPIEndpoint,
+		threeportAPIEndpoint,
 		kubernetesRuntimeInstance,
 	)
 	if err != nil {
@@ -658,7 +658,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		kubernetesRuntimeInstResult,
 		false,
 		apiClient,
-		*threeportAPIEndpoint,
+		threeportAPIEndpoint,
 		encryptionKey,
 	)
 	if err != nil {
@@ -695,7 +695,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		},
 		AuthEnabled: &cpi.Opts.AuthEnabled,
 	}
-	_, err = client.CreateControlPlaneDefinition(apiClient, *threeportAPIEndpoint, &controlPlaneDefinition)
+	_, err = client.CreateControlPlaneDefinition(apiClient, threeportAPIEndpoint, &controlPlaneDefinition)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to create control plane definition in threeport API", err)
 	}
@@ -730,7 +730,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		Genesis:                     &genesis,
 		IsSelf:                      &selfInstance,
-		ApiServerEndpoint:           threeportAPIEndpoint,
+		ApiServerEndpoint:           &threeportAPIEndpoint,
 		CACert:                      caCert,
 		ClientCert:                  clientCert,
 		ClientKey:                   clientKey,
@@ -739,7 +739,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// create control plane instance
-	_, err = client.CreateControlPlaneInstance(apiClient, *threeportAPIEndpoint, &controlPlaneInstance)
+	_, err = client.CreateControlPlaneInstance(apiClient, threeportAPIEndpoint, &controlPlaneInstance)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to create control plane instance in threeport API", err)
 	}

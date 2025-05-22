@@ -10,7 +10,7 @@ import (
 	ocicontainerengine "github.com/oracle/oci-go-sdk/v65/containerengine"
 )
 
-// generateToken generates a token for an OKE cluster.
+// GenerateOkeToken generates a token for an OKE cluster.
 func GenerateOkeToken(
 	clusterID string,
 	configProvider common.ConfigurationProvider,

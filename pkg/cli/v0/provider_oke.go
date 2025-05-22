@@ -23,7 +23,7 @@ func ConfigureControlPlaneWithOkeConfig(
 	cpi *threeport.ControlPlaneInstaller,
 	uninstaller *Uninstaller,
 	apiClient *http.Client,
-	threeportAPIEndpoint *string,
+	threeportAPIEndpoint string,
 	kubernetesRuntimeDefResult *v0.KubernetesRuntimeDefinition,
 	kubernetesRuntimeInstResult *v0.KubernetesRuntimeInstance,
 	kubernetesRuntimeInfra *provider.KubernetesRuntimeInfra,
@@ -85,7 +85,7 @@ func ConfigureControlPlaneWithOkeConfig(
 
 	_, err = client.CreateOciAccount(
 		apiClient,
-		*threeportAPIEndpoint,
+		threeportAPIEndpoint,
 		&ociAccount,
 	)
 	if err != nil {
@@ -105,7 +105,7 @@ func ConfigureControlPlaneWithOkeConfig(
 	}
 	createdociOkeKubernetesRuntimeDef, err := client.CreateOciOkeKubernetesRuntimeDefinition(
 		apiClient,
-		*threeportAPIEndpoint,
+		threeportAPIEndpoint,
 		&ociOkeKubernetesRuntimeDef,
 	)
 	if err != nil {
@@ -142,7 +142,7 @@ func ConfigureControlPlaneWithOkeConfig(
 	}
 	_, err = client.CreateOciOkeKubernetesRuntimeInstance(
 		apiClient,
-		*threeportAPIEndpoint,
+		threeportAPIEndpoint,
 		&ociOkeKubernetesRuntimeInstance,
 	)
 	if err != nil {

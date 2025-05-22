@@ -1250,7 +1250,7 @@ func DeleteNamespaces(
 func (cpi *ControlPlaneInstaller) GetThreeportAPIEndpoint(
 	kubeClient dynamic.Interface,
 	mapper meta.RESTMapper,
-) (*string, error) {
+) (string, error) {
 	var apiEndpoint string
 
 	maxAttempts := 12
@@ -1300,10 +1300,10 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIEndpoint(
 			"timed out after %d seconds trying to retrieve threeport API load balancer endpoint",
 			maxAttempts*waitSeconds,
 		)
-		return nil, fmt.Errorf("%s: %w", msg, err)
+		return "", fmt.Errorf("%s: %w", msg, err)
 	}
 
-	return &apiEndpoint, nil
+	return apiEndpoint, nil
 }
 
 func (cpi *ControlPlaneInstaller) isThreeportManagedController(info v0.ControlPlaneComponent) bool {
