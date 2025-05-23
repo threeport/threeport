@@ -55,7 +55,7 @@ func DeployKindInfra(
 		ThreeportPath:       cpi.Opts.ThreeportPath,
 		NumWorkerNodes:      cpi.Opts.NumWorkerNodes,
 		AuthEnabled:         cpi.Opts.AuthEnabled,
-		PortForwards:        portMappings,
+		PortMappings:        portMappings,
 	}
 
 	// update threeport config with api endpoint
