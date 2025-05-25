@@ -234,7 +234,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
 	var threeportAPIEndpoint string
 	var callerIdentity *sts.GetCallerIdentityOutput
-	var kubeConnectionInfo *kube.KubeConnectionInfo
+	kubeConnectionInfo := &kube.KubeConnectionInfo{}
 	awsConfigUser := aws.Config{}
 	uninstaller.awsConfig = &awsConfigUser
 	awsConfigResourceManager := &aws.Config{}
@@ -244,7 +244,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	case v0.KubernetesRuntimeInfraProviderKind:
 		if err := DeployKindInfra(
 			cpi,
-			&threeportAPIEndpoint,
 			threeportControlPlaneConfig,
 			threeportConfig,
 			&kubernetesRuntimeInfra,
@@ -496,6 +495,16 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}); err != nil {
 			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
 		}
+	} else {
+		// update threeport config with api endpoint
+		var err error
+		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(cpi.Opts.AuthEnabled)
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+			c.APIServer = threeportAPIEndpoint
+		}); err != nil {
+			return fmt.Errorf("failed to update threeport config: %w", err)
+		}
+
 	}
 
 	// install provider-specific kubernetes resources

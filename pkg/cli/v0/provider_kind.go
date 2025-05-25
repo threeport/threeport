@@ -13,13 +13,11 @@ import (
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // DeployKindInfra deploys kind infrastructure for the control plane.
 func DeployKindInfra(
 	cpi *threeport.ControlPlaneInstaller,
-	threeportAPIEndpoint *string,
 	threeportControlPlaneConfig *config.ControlPlane,
 	threeportConfig *config.ThreeportConfig,
 	kubernetesRuntimeInfra *provider.KubernetesRuntimeInfra,
@@ -58,15 +56,6 @@ func DeployKindInfra(
 		PortMappings:        portMappings,
 	}
 
-	// update threeport config with api endpoint
-	var err error
-	threeportAPIEndpoint = util.Ptr(threeport.GetLocalThreeportAPIEndpoint(cpi.Opts.AuthEnabled))
-	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
-		c.APIServer = *threeportAPIEndpoint
-	}); err != nil {
-		return fmt.Errorf("failed to update threeport config: %w", err)
-	}
-
 	// delete kind kubernetes runtime if interrupted
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -85,15 +74,17 @@ func DeployKindInfra(
 	*kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
 	uninstaller.kubernetesRuntimeInfra = *kubernetesRuntimeInfra
 	if cpi.Opts.ControlPlaneOnly {
-		kubeConnectionInfo, err = kube.GetConnectionInfoFromKubeconfig(kubernetesRuntimeInfraKind.KubeconfigPath)
+		connectionInfo, err := kube.GetConnectionInfoFromKubeconfig(kubernetesRuntimeInfraKind.KubeconfigPath)
 		if err != nil {
 			return fmt.Errorf("failed to get connection info for kind kubernetes runtime: %w", err)
 		}
+		*kubeConnectionInfo = *connectionInfo
 	} else {
-		kubeConnectionInfo, err = (*kubernetesRuntimeInfra).Create()
+		connectionInfo, err := (*kubernetesRuntimeInfra).Create()
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
 		}
+		*kubeConnectionInfo = *connectionInfo
 	}
 
 	// connect local registry if requested
