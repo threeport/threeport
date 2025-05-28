@@ -20,6 +20,9 @@ type AwsAccount struct {
 	// The region to use for AWS managed services if not specified.
 	DefaultRegion *string `json:"DefaultRegion,omitempty" query:"defaultregion" gorm:"not null" validate:"required"`
 
+	// See pkg/api/v0/aws_validate.go for validation logic
+	// of the AccessKeyID and SecretAccessKey fields.
+
 	// The access key ID credentials for the AWS account.
 	AccessKeyID *string `json:"AccessKeyID,omitempty" validate:"optional" encrypt:"true"`
 

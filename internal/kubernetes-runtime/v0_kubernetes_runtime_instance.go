@@ -185,10 +185,9 @@ func v0KubernetesRuntimeInstanceUpdated(
 		}
 
 		// system components e.g. cluster-autoscaler
-		if err := threeport.InstallThreeportSystemServices(
+		if err := threeport.InstallEksThreeportSystemServices(
 			dynamicKubeClient,
 			mapper,
-			*kubernetesRuntimeDefinition.InfraProvider,
 			*kubernetesRuntimeInstance.Name,
 			*awsAccount.AccountID,
 		); err != nil {

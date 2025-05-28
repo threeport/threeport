@@ -11,6 +11,7 @@ import (
 	helmworkload_notif "github.com/threeport/threeport/internal/helm-workload/notif"
 	kubernetesruntime_notif "github.com/threeport/threeport/internal/kubernetes-runtime/notif"
 	observability_notif "github.com/threeport/threeport/internal/observability/notif"
+	notif "github.com/threeport/threeport/internal/oci/notif"
 	secret_notif "github.com/threeport/threeport/internal/secret/notif"
 	terraform_notif "github.com/threeport/threeport/internal/terraform/notif"
 	workload_notif "github.com/threeport/threeport/internal/workload/notif"
@@ -38,6 +39,14 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", aws_notif.AwsStreamName, err)
+	}
+
+	_, err = js.AddStream(&nats.StreamConfig{
+		Name:     notif.OciStreamName,
+		Subjects: notif.GetOciSubjects(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not add stream %s: %w", notif.OciStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{

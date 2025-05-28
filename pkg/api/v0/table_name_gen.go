@@ -192,6 +192,21 @@ func (ObservabilityStackInstance) TableName() string {
 	return "v0_observability_stack_instances"
 }
 
+// TableName sets the name of the table for the OciAccount objects in the database.
+func (OciAccount) TableName() string {
+	return "v0_oci_accounts"
+}
+
+// TableName sets the name of the table for the OciOkeKubernetesRuntimeDefinition objects in the database.
+func (OciOkeKubernetesRuntimeDefinition) TableName() string {
+	return "v0_oci_oke_kubernetes_runtime_definitions"
+}
+
+// TableName sets the name of the table for the OciOkeKubernetesRuntimeInstance objects in the database.
+func (OciOkeKubernetesRuntimeInstance) TableName() string {
+	return "v0_oci_oke_kubernetes_runtime_instances"
+}
+
 // TableName sets the name of the table for the Profile objects in the database.
 func (Profile) TableName() string {
 	return "v0_profiles"

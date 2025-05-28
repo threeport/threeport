@@ -207,7 +207,7 @@ NATS_PORT=4222
 		map[string]interface{}{
 			"name":            "db-init",
 			"image":           dbMigratorImage,
-			"imagePullPolicy": "IfNotPresent",
+			"imagePullPolicy": cpi.getImagePullPolicy(),
 			"command": []interface{}{
 				fmt.Sprintf("/%s", cpi.Opts.DatabaseMigratorInfo.BinaryName),
 			},
@@ -1279,9 +1279,18 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIEndpoint(
 			}
 
 			firstIngress := ingress[0].(map[string]interface{})
-			apiEndpoint, found, err = unstructured.NestedString(firstIngress, "hostname")
-			if err != nil || !found {
-				return fmt.Errorf("failed to retrieve threeport API load balancer hostname: %w", err)
+
+			switch cpi.Opts.InfraProvider {
+			case v0.KubernetesRuntimeInfraProviderEKS:
+				if apiEndpoint, found, err = unstructured.NestedString(firstIngress, "hostname"); err != nil || !found {
+					return fmt.Errorf("failed to retrieve threeport API load balancer hostname: %w", err)
+				}
+			case v0.KubernetesRuntimeInfraProviderOKE:
+				if apiEndpoint, found, err = unstructured.NestedString(firstIngress, "ip"); err != nil || !found {
+					return fmt.Errorf("failed to retrieve threeport API load balancer ip: %w", err)
+				}
+			default:
+				return fmt.Errorf("unsupported infrastructure provider: %s", cpi.Opts.InfraProvider)
 			}
 
 			return nil
@@ -1718,9 +1727,14 @@ func (cpi *ControlPlaneInstaller) getAPIServiceType() string {
 // getAPIServiceAnnotations returns the threeport API's service annotation based
 // on infra provider to provision the correct load balancer.
 func (cpi *ControlPlaneInstaller) getAPIServiceAnnotations() map[string]interface{} {
-	if cpi.Opts.InfraProvider == "eks" && cpi.Opts.RestApiEksLoadBalancer {
+	switch {
+	case cpi.Opts.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS && cpi.Opts.RestApiEksLoadBalancer:
 		return map[string]interface{}{
 			"service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
+		}
+	case cpi.Opts.InfraProvider == v0.KubernetesRuntimeInfraProviderOKE:
+		return map[string]interface{}{
+			"oci.oraclecloud.com/load-balancer-type": "nlb",
 		}
 	}
 
@@ -1736,15 +1750,13 @@ func (cpi *ControlPlaneInstaller) GetAPIServicePort() (string, int32) {
 			return "https", 443
 		}
 		return "http", 80
-	} else if cpi.Opts.InfraProvider == "eks" {
-		if cpi.Opts.AuthEnabled {
-			return "https", 443
-		}
-
-		return "http", 80
 	}
 
-	return "", 0
+	if cpi.Opts.AuthEnabled {
+		return "https", 443
+	}
+
+	return "http", 80
 }
 
 // getAgentArgs returns the args that are passed to the threeport agent.  In

@@ -113,6 +113,15 @@ builds:
       - amd64
     main: cmd/secret-controller/main_gen.go
     binary: secret-controller
+  - id: threeport-oci-controller
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+    main: cmd/oci-controller/main_gen.go
+    binary: oci-controller
   - id: threeport-agent
     env:
       - CGO_ENABLED=0
@@ -296,6 +305,19 @@ dockers:
       - 'ghcr.io/threeport/threeport-secret-controller:v{{ .Version }}'
       - 'ghcr.io/threeport/threeport-secret-controller:latest'
     dockerfile: cmd/secret-controller/image/Dockerfile-goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.licenses=Apache2"
+      - "--label=VERSION={{.Version}}"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - 'ghcr.io/threeport/threeport-oci-controller:v{{ .Version }}'
+      - 'ghcr.io/threeport/threeport-oci-controller:latest'
+    dockerfile: cmd/oci-controller/image/Dockerfile-goreleaser
     build_flag_templates:
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.name={{.ProjectName}}"

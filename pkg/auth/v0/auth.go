@@ -127,12 +127,22 @@ func GenerateCertificate(
 		"threeport-api-server.threeport-control-plane.svc.cluster",
 		"threeport-api-server.threeport-control-plane.svc.cluster.local",
 	}
-	dnsNames = append(dnsNames, altNames...)
+	ipAddresses := []net.IP{net.ParseIP("127.0.0.1")}
+
+	// Process altNames to separate IPs and DNS names
+	for _, altName := range altNames {
+		if ip := net.ParseIP(altName); ip != nil {
+			ipAddresses = append(ipAddresses, ip)
+		} else {
+			dnsNames = append(dnsNames, altName)
+		}
+	}
+
 	cert := &x509.Certificate{
 		SerialNumber: randomNumber,
 		URIs:         []*url.URL{{Scheme: "https", Host: "localhost"}},
 		DNSNames:     dnsNames,
-		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+		IPAddresses:  ipAddresses,
 		Subject: pkix.Name{
 			CommonName:   commonName,
 			Organization: []string{"Threeport"},

@@ -76,8 +76,11 @@ func v0HelmWorkloadInstanceCreated(
 	// install the chart
 	install := action.NewInstall(actionConf)
 
-	// configure version if it is supplied by the workload definition
-	if helmWorkloadDefinition.ChartVersion != nil && *helmWorkloadDefinition.ChartVersion != "" {
+	// if the chart is not an OCI chart, set the version if it is supplied by
+	// the workload definition
+	if !registry.IsOCI(*helmWorkloadDefinition.Repo) &&
+		helmWorkloadDefinition.ChartVersion != nil &&
+		*helmWorkloadDefinition.ChartVersion != "" {
 		install.Version = *helmWorkloadDefinition.ChartVersion
 	}
 
@@ -544,7 +547,16 @@ func configureChart(
 ) (*chart.Chart, map[string]interface{}, error) {
 	var chartPath string
 	if registry.IsOCI(*helmWorkloadDefinition.Repo) {
-		ociChart := fmt.Sprintf("%s/%s", *helmWorkloadDefinition.Repo, *helmWorkloadDefinition.Chart)
+		var ociChart string
+
+		// an OCI chart may be specified by the repo path, in which case the
+		// Chart field is not set. Otherwise, an OCI path may also specify a
+		// chart repo, in which case the Chart field is set
+		if *helmWorkloadDefinition.Chart == "" {
+			ociChart = *helmWorkloadDefinition.Repo
+		} else {
+			ociChart = fmt.Sprintf("%s/%s", *helmWorkloadDefinition.Repo, *helmWorkloadDefinition.Chart)
+		}
 		chart, err := locater.LocateChart(ociChart, settings)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to set oci helm chart path: %w", err)

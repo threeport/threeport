@@ -13,12 +13,12 @@ import (
 // KubeConnectionInfo contains the necessary info to connect to a Kubernetes
 // API.
 type KubeConnectionInfo struct {
-	APIEndpoint        string
-	CACertificate      string
-	Certificate        string
-	Key                string
-	EKSToken           string
-	EKSTokenExpiration time.Time
+	APIEndpoint     string
+	CACertificate   string
+	Certificate     string
+	Key             string
+	Token           string
+	TokenExpiration time.Time
 }
 
 // DefaultKubeconfig returns the path to the user's default kubeconfig.

@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/nukleros/aws-builder/pkg/eks/connection"
+	"github.com/oracle/oci-go-sdk/v65/common"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -25,6 +26,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // GetInClusterKubeClient creates a kubernetes clientset for an in cluster configuration
@@ -210,6 +212,13 @@ func GetRestConfig(
 
 			// if it is expired, or will within 3 minutes, get a new token
 			if expiring {
+
+				// check if KRD is set
+				if runtime.KubernetesRuntimeDefinitionID == nil {
+					return nil, errors.New("kubernetes runtime definition ID is not set, refresh token from config if bootstrapping a control plane")
+				}
+
+				// get kubernetes runtime definition
 				definition, err := client.GetKubernetesRuntimeDefinitionByID(
 					threeportAPIClient,
 					threeportAPIEndpoint,
@@ -219,16 +228,26 @@ func GetRestConfig(
 					return nil, fmt.Errorf("failed to get kubernetes runtime definition by ID %d: %w", runtime.KubernetesRuntimeDefinitionID, err)
 				}
 
+				var config *rest.Config
 				switch *definition.InfraProvider {
 				case v0.KubernetesRuntimeInfraProviderEKS:
-					config, err := refreshEKSConnection(
+					if config, err = refreshEKSConnection(
 						runtime,
 						threeportAPIClient,
 						threeportAPIEndpoint,
 						encryptionKey,
-					)
-					if err != nil {
+					); err != nil {
 						return nil, fmt.Errorf("failed to refresh connection token for EKS cluster: %w", err)
+					}
+					restConfig = *config
+				case v0.KubernetesRuntimeInfraProviderOKE:
+					if config, err = refreshOKEConnection(
+						runtime,
+						threeportAPIClient,
+						threeportAPIEndpoint,
+						encryptionKey,
+					); err != nil {
+						return nil, fmt.Errorf("failed to refresh connection token for OKE cluster: %w", err)
 					}
 					restConfig = *config
 				default:
@@ -258,6 +277,84 @@ func checkTokenExpiring(
 	expiring := runtimeInstance.ConnectionTokenExpiration.Before(expiration)
 
 	return expiring, nil
+}
+
+// refreshOKEConnection refreshes the connection token for an OKE cluster.
+func refreshOKEConnection(
+	runtimeInstance *v0.KubernetesRuntimeInstance,
+	threeportAPIClient *http.Client,
+	threeportAPIEndpoint string,
+	encryptionKey string,
+) (*rest.Config, error) {
+	// get OKE runtime instance
+	okeRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		*runtimeInstance.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OCI OKE kubernetes runtime instance by kubernetes runtime instance ID %d: %w", runtimeInstance.ID, err)
+	}
+
+	// get OKE runtime definition
+	okeRuntimeDefinition, err := client.GetOciOkeKubernetesRuntimeDefinitionByID(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		*okeRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to OCI OKE kubernetes runtime definition by ID %d: %w", okeRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID, err)
+	}
+
+	// get OCI account
+	var ociAccount *v0.OciAccount
+	if ociAccount, err = client.GetOciAccountByID(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		*okeRuntimeDefinition.OciAccountID,
+	); err != nil {
+		return nil, fmt.Errorf("failed to get OCI account by ID %d: %w", *okeRuntimeDefinition.OciAccountID, err)
+	}
+
+	var token string
+	var tokenExpirationTime time.Time
+
+	if token, tokenExpirationTime, err = util.GenerateOkeToken(
+		*okeRuntimeInstance.ClusterOCID,
+		common.NewRawConfigurationProvider(
+			*ociAccount.TenancyOCID,
+			*ociAccount.UserOCID,
+			*ociAccount.DefaultRegion,
+			*ociAccount.KeyFingerprint,
+			*ociAccount.PrivateKey,
+			nil,
+		),
+	); err != nil {
+		return nil, fmt.Errorf("failed to generate token for OKE cluster: %w", err)
+	}
+
+	// generate updated rest config
+	restConfig := rest.Config{
+		Host:        *runtimeInstance.APIEndpoint,
+		BearerToken: token,
+		TLSClientConfig: rest.TLSClientConfig{
+			CAData: []byte(*runtimeInstance.CACertificate),
+		},
+	}
+
+	// update threeport API with new connection info
+	runtimeInstance.ConnectionToken = &token
+	runtimeInstance.ConnectionTokenExpiration = &tokenExpirationTime
+	_, err = client.UpdateKubernetesRuntimeInstance(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		runtimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update kubernetes runtime instance kubernetes connection info: %w", err)
+	}
+
+	return &restConfig, nil
 }
 
 // refreshEKSConnection retrieves a new EKS token when it expires.
@@ -309,13 +406,12 @@ func refreshEKSConnection(
 	}
 
 	// generate updated rest config
-	tlsConfig := rest.TLSClientConfig{
-		CAData: []byte(eksClusterConn.CACertificate),
-	}
 	restConfig := rest.Config{
-		Host:            eksClusterConn.APIEndpoint,
-		BearerToken:     eksClusterConn.Token,
-		TLSClientConfig: tlsConfig,
+		Host:        eksClusterConn.APIEndpoint,
+		BearerToken: eksClusterConn.Token,
+		TLSClientConfig: rest.TLSClientConfig{
+			CAData: []byte(eksClusterConn.CACertificate),
+		},
 	}
 
 	// update threeport API with new connection info

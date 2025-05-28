@@ -11,6 +11,7 @@ import (
 type RegionMap struct {
 	Location  string
 	AwsRegion string
+	OciRegion string
 	//GcpRegion string  // future use
 }
 
@@ -72,6 +73,10 @@ func getRegionMap() *[]RegionMap {
 		{
 			Location:  "NorthAmerica:Toronto",
 			AwsRegion: "ca-central-1",
+		},
+		{
+			Location:  "NorthAmerica:Phoenix",
+			OciRegion: "us-phoenix-1",
 		},
 		{
 			Location:  "Asia:HongKong",
@@ -186,6 +191,8 @@ func GetProviderRegionForLocation(provider, location string) (string, error) {
 			switch provider {
 			case util.AwsProvider:
 				return r.AwsRegion, nil
+			case util.OciProvider:
+				return r.OciRegion, nil
 			default:
 				msg := fmt.Sprintf("provider %s not supported", provider)
 				return "", &ProviderError{Message: msg}
@@ -207,5 +214,18 @@ func GetLocationForAwsRegion(awsRegion string) (string, error) {
 	}
 
 	msg := fmt.Sprintf("AWS region %s not supported", awsRegion)
+	return "", &RegionError{Message: msg}
+}
+
+// GetLocationForOciRegion returns the threeport location for a given OCI
+// region.
+func GetLocationForOciRegion(ociRegion string) (string, error) {
+	for _, r := range *getRegionMap() {
+		if r.OciRegion == ociRegion {
+			return r.Location, nil
+		}
+	}
+
+	msg := fmt.Sprintf("OCI region %s not supported", ociRegion)
 	return "", &RegionError{Message: msg}
 }
