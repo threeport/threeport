@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/action"
@@ -404,6 +405,11 @@ func getHelmActionConfig(
 	// create env settings and set repo config
 	settings := cli.New()
 	settings.RepositoryConfig = HelmRepoConfigFile
+
+	// ensure helm repo config directory exists
+	if err := os.MkdirAll(filepath.Dir(settings.RepositoryConfig), 0755); err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to create helm repo config directory: %w", err)
+	}
 
 	// ensure helm repo config exists
 	if _, err := os.Stat(settings.RepositoryConfig); os.IsNotExist(err) {

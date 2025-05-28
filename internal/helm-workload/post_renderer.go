@@ -70,6 +70,11 @@ func (p *ThreeportPostRenderer) Run(renderedManifests *bytes.Buffer) (*bytes.Buf
 			return nil, fmt.Errorf("invalid Kubernetes manifest: missing Kind or apiVersion")
 		}
 
+		// Set the namespace - SetNamespace will only set it for namespaced resources
+		if p.HelmWorkloadInstance.ReleaseNamespace != nil {
+			kubeObject.SetNamespace(*p.HelmWorkloadInstance.ReleaseNamespace)
+		}
+
 		// set label metadata on object to signal threeport agent
 		kubeObject, err = kube.AddLabels(
 			kubeObject,
