@@ -43,7 +43,7 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	moduleNameLowerCamel := strcase.ToLowerCamel(sdkConfig.ModuleName)
 
 	f.Const().Defs(
-		Id("ReleaseImageRepo").Op("=").Lit(fmt.Sprintf("%s/%s", sdkConfig.ImageRepo, moduleNameKebab)),
+		Id("ReleaseImageRepo").Op("=").Lit(fmt.Sprintf("%s/%s-threeport-module", sdkConfig.ImageRepo, moduleNameKebab)),
 		Id("DevImageRepo").Op("=").Lit("localhost:5001"),
 		Id("DbInitFilename").Op("=").Lit("db.sql"),
 		Id("DbInitLocation").Op("=").Lit("/etc/threeport/db-create"),
