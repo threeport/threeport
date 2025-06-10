@@ -549,6 +549,12 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 										continue
 									}
 									fieldName := field.Names[0].Name
+									if field.Tag == nil {
+										return fmt.Errorf(
+											"field %s in object %s has no struct tags defined",
+											fieldName, objectName,
+										)
+									}
 									tagMap := util.ParseStructTag(field.Tag.Value)
 									structTags[objectName][fieldName] = tagMap
 								}

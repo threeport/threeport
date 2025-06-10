@@ -266,7 +266,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									"github.com/threeport/threeport/pkg/cli/v0",
 									"Error",
 								).Call(Lit("failed to produce output: %s"), Err()),
-								Qual("os", "Exit").Call(Lit(0)),
+								Qual("os", "Exit").Call(Lit(1)),
 							)
 						}),
 					})
@@ -696,7 +696,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						getCmdOutputFunc,
 					)
 					getOutputCode.Commentf(
-						"'tptctl get %s' command.",
+						"'get %s' command.",
 						pluralize.Pluralize(rootCmdStr, 2, false),
 					)
 					objParams := &Statement{}
@@ -872,7 +872,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											"github.com/threeport/threeport/pkg/cli/v0",
 											"Error",
 										).Call(Lit("failed to produce output"), Err()),
-										Qual("os", "Exit").Call(Lit(0)),
+										Qual("os", "Exit").Call(Lit(1)),
 									),
 								)
 							}
@@ -1790,7 +1790,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					getCmdOutputFunc,
 				)
 				getOutputCode.Commentf(
-					"'tptctl get %s' command.",
+					"'get %s' command.",
 					pluralize.Pluralize(cmdStr, 2, false),
 				)
 				getOutputCode.Func().Id(getCmdOutputFunc).Params(
@@ -1837,7 +1837,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					describeCmdOutputFunc,
 				))
 				describeOutputCode.Comment(fmt.Sprintf(
-					"output for the 'tptctl describe %s' command",
+					"output for the 'describe %s' command",
 					cmdStr,
 				))
 				describeOutputCode.Func().Id(describeCmdOutputFunc).Params(
