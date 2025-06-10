@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/gertd/go-pluralize"
@@ -59,18 +60,22 @@ func GenTableNames(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			f.Line()
 		}
 
-		// write code to file
+		// write code to file if not excluded by SDK config
 		genFilepath := filepath.Join(
 			"pkg",
 			"api",
 			version.VersionName,
 			"table_name_gen.go",
 		)
-		_, err := util.WriteCodeToFile(f, genFilepath, true)
-		if err != nil {
-			return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+		if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+			cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
+		} else {
+			_, err := util.WriteCodeToFile(f, genFilepath, true)
+			if err != nil {
+				return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+			}
+			cli.Info(fmt.Sprintf("source code for API object DB table names written to %s", genFilepath))
 		}
-		cli.Info(fmt.Sprintf("source code for API object DB table names written to %s", genFilepath))
 	}
 
 	return nil

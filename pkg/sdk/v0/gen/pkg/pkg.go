@@ -32,12 +32,12 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	// generate function to add all generated routes in api-server package
-	if err := apiserver.GenAddGenRoutes(generator); err != nil {
+	if err := apiserver.GenAddGenRoutes(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate function to add API server generated routes: %w", err)
 	}
 
 	// generate function to add all custom routes in api-server package
-	if err := apiserver.GenAddCustomRoutes(generator); err != nil {
+	if err := apiserver.GenAddCustomRoutes(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate function to add API server custom routes: %w", err)
 	}
 
@@ -48,13 +48,13 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// generate API handler wrapper for Threeport extensions
 	if generator.Module {
-		if err := apiserver.GenHandlerWrapper(generator); err != nil {
+		if err := apiserver.GenHandlerWrapper(generator, sdkConfig); err != nil {
 			return fmt.Errorf("failed to generate API handler wrapper: %w", err)
 		}
 	}
 
 	// add API object field validation and versions to API server
-	if err := apiserver.GenObjValidationVersions(generator); err != nil {
+	if err := apiserver.GenObjValidationVersions(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate API object validation, versions: %w", err)
 	}
 
@@ -64,24 +64,24 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	// tagged feilds vars for each API object
-	if err := apiserver.GenObjectTaggedFields(generator); err != nil {
+	if err := apiserver.GenObjectTaggedFields(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate object tagged fields vars: %w", err)
 	}
 
 	// add the functions to add API object versions to the API server
-	if err := apiserver.GenAddVersionsFuncs(generator); err != nil {
+	if err := apiserver.GenAddVersionsFuncs(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate functions to add API object versions to API server: %w", err)
 	}
 
 	////////////////////////////// pkg/client //////////////////////////////////
-	if err := client.GenClientLib(generator); err != nil {
+	if err := client.GenClientLib(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate API client library: %w", err)
 	}
 
 	// generate custom function to delete by object type and ID for
 	// threeport/threeport only
 	if !generator.Module {
-		if err := client.GenDeleteObjByTypeAndId(generator); err != nil {
+		if err := client.GenDeleteObjByTypeAndId(generator, sdkConfig); err != nil {
 			return fmt.Errorf("failed to generate custom delete function: %w", err)
 		}
 	}
@@ -90,7 +90,7 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	// TODO: remove generator.Module if-statement to apply to core threeport
 	// as well.  Complete codegen for config package.
 	if generator.Module {
-		if err := config.GenConfig(generator); err != nil {
+		if err := config.GenConfig(generator, sdkConfig); err != nil {
 			return fmt.Errorf("failed to generate config package: %w", err)
 		}
 	}

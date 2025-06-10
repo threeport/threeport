@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	. "github.com/dave/jennifer/jen"
@@ -1882,65 +1883,77 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			if gen.Module {
 				commandsDir = filepath.Join("cmd", strcase.ToSnake(sdkConfig.ModuleName), "cmd")
 			}
-			// write commands code to file
+			// write commands code to file if not excluded by SDK config
 			genFilepath := filepath.Join(
 				commandsDir,
 				fmt.Sprintf("%s_gen.go", util.FilenameSansExt(apiObjGroup.ModelFilename)),
 			)
-			_, err := util.WriteCodeToFile(commandCode, genFilepath, true)
-			if err != nil {
-				return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+			if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+				cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
+			} else {
+				_, err := util.WriteCodeToFile(commandCode, genFilepath, true)
+				if err != nil {
+					return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+				}
+				cli.Info(fmt.Sprintf(
+					"source code for %s tptctl commands written to %s",
+					apiObjGroup.ControllerDomainLower,
+					genFilepath,
+				))
 			}
-			cli.Info(fmt.Sprintf(
-				"source code for %s tptctl commands written to %s",
-				apiObjGroup.ControllerDomainLower,
-				genFilepath,
-			))
 
-			// write get output code to file if it doesn't already exist
+			// write get output code to file if it doesn't already exist and not excluded by SDK config
 			genFilepath = filepath.Join(
 				commandsDir,
 				fmt.Sprintf("%s_get_output.go", util.FilenameSansExt(apiObjGroup.ModelFilename)),
 			)
-			fileWritten, err := util.WriteCodeToFile(getOutputCode, genFilepath, false)
-			if err != nil {
-				return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
-			}
-			if fileWritten {
-				cli.Info(fmt.Sprintf(
-					"source code for %s tptctl get command output written to %s",
-					apiObjGroup.ControllerDomainLower,
-					genFilepath,
-				))
+			if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+				cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
 			} else {
-				cli.Info(fmt.Sprintf(
-					"source code for %s tptctl get command output already exists at %s - not overwritten",
-					apiObjGroup.ControllerDomainLower,
-					genFilepath,
-				))
+				fileWritten, err := util.WriteCodeToFile(getOutputCode, genFilepath, false)
+				if err != nil {
+					return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+				}
+				if fileWritten {
+					cli.Info(fmt.Sprintf(
+						"source code for %s tptctl get command output written to %s",
+						apiObjGroup.ControllerDomainLower,
+						genFilepath,
+					))
+				} else {
+					cli.Info(fmt.Sprintf(
+						"source code for %s tptctl get command output already exists at %s - not overwritten",
+						apiObjGroup.ControllerDomainLower,
+						genFilepath,
+					))
+				}
 			}
 
-			// write describe output code to file if it doesn't already exist
+			// write describe output code to file if it doesn't already exist and not excluded by SDK config
 			genFilepath = filepath.Join(
 				commandsDir,
 				fmt.Sprintf("%s_describe_output.go", util.FilenameSansExt(apiObjGroup.ModelFilename)),
 			)
-			fileWritten, err = util.WriteCodeToFile(describeOutputCode, genFilepath, false)
-			if err != nil {
-				return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
-			}
-			if fileWritten {
-				cli.Info(fmt.Sprintf(
-					"source code for %s tptctl describe command output written to %s",
-					apiObjGroup.ControllerDomainLower,
-					genFilepath,
-				))
+			if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+				cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
 			} else {
-				cli.Info(fmt.Sprintf(
-					"source code for %s tptctl describe command output already exists at %s - not overwritten",
-					apiObjGroup.ControllerDomainLower,
-					genFilepath,
-				))
+				fileWritten, err := util.WriteCodeToFile(describeOutputCode, genFilepath, false)
+				if err != nil {
+					return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+				}
+				if fileWritten {
+					cli.Info(fmt.Sprintf(
+						"source code for %s tptctl describe command output written to %s",
+						apiObjGroup.ControllerDomainLower,
+						genFilepath,
+					))
+				} else {
+					cli.Info(fmt.Sprintf(
+						"source code for %s tptctl describe command output already exists at %s - not overwritten",
+						apiObjGroup.ControllerDomainLower,
+						genFilepath,
+					))
+				}
 			}
 		} else if apiObjGroup.ControllerDomainLower != "" {
 			cli.Info(fmt.Sprintf(

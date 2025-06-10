@@ -19,7 +19,7 @@ func GenCmd(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	// generate REST API Dockerfile
-	if err := restapi.GenRestApiDockerfile(generator); err != nil {
+	if err := restapi.GenRestApiDockerfile(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate REST API Dockerfile: %w", err)
 	}
 
@@ -29,7 +29,7 @@ func GenCmd(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	// generate version route in REST API util package
-	if err := restapi.GenUtilVersion(generator); err != nil {
+	if err := restapi.GenUtilVersion(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate version route in REST API util package: %w", err)
 	}
 
@@ -39,27 +39,27 @@ func GenCmd(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	// generate DB migrator Dockerfile
-	if err := dbmigrator.GenDbMigratorDockerfile(generator); err != nil {
+	if err := dbmigrator.GenDbMigratorDockerfile(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate DB migrator Dockerfiles: %w", err)
 	}
 
 	// generate DB migrator migrations utils
-	if err := dbmigrator.GenDbMigratorUtils(generator); err != nil {
+	if err := dbmigrator.GenDbMigratorUtils(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate DB migrator migration utils: %w", err)
 	}
 
 	// generate DB migrator initial DB migration
-	if err := dbmigrator.GenDbMigratorMigration(generator); err != nil {
+	if err := dbmigrator.GenDbMigratorMigration(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate DB migrator migration: %w", err)
 	}
 
 	// generate controller main packages
-	if err := controller.GenControllerMain(generator); err != nil {
+	if err := controller.GenControllerMain(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate controller main packages: %w", err)
 	}
 
 	// generate controller Dockerfiles
-	if err := controller.GenControllerDockerfiles(generator); err != nil {
+	if err := controller.GenControllerDockerfiles(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate controller Dockerfiles: %w", err)
 	}
 
