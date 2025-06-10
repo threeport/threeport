@@ -10,6 +10,7 @@ import (
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	zap "go.uber.org/zap"
 	gorm "gorm.io/gorm"
 	"net/http"
 	"time"
@@ -45,15 +46,18 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, secretDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&secretDefinition); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, secretDefinition, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -65,6 +69,7 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
 		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 	}
@@ -74,6 +79,7 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 
 	// persist to DB
 	if result := h.DB.Create(&secretDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -85,6 +91,7 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.SecretDefinitionCreateSubject, *notifPayload)
@@ -92,6 +99,7 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, secretDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -117,21 +125,25 @@ func (h Handler) GetSecretDefinitions(c echo.Context) error {
 
 	var filter api_v0.SecretDefinition
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Model(&api_v0.SecretDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.SecretDefinition{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -156,11 +168,13 @@ func (h Handler) GetSecretDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, secretDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -191,22 +205,26 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingSecretDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedSecretDefinition api_v0.SecretDefinition
 	if err := c.Bind(&updatedSecretDefinition); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingSecretDefinition).Updates(updatedSecretDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -218,6 +236,7 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.SecretDefinitionUpdateSubject, *notifPayload)
@@ -225,6 +244,7 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, existingSecretDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -256,28 +276,33 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingSecretDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedSecretDefinition api_v0.SecretDefinition
 	if err := c.Bind(&updatedSecretDefinition); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedSecretDefinition, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedSecretDefinition.ID = existingSecretDefinition.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedSecretDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -286,11 +311,13 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingSecretDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -316,6 +343,7 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -338,6 +366,7 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 				Reconciled:        &reconciled,
 			}}
 		if result := h.DB.Model(&secretDefinition).Updates(scheduledSecretDefinition); result.Error != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 		// notify controller
@@ -347,6 +376,7 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.SecretDefinitionDeleteSubject, *notifPayload)
@@ -362,6 +392,7 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
 			if result := h.DB.Delete(&secretDefinition); result.Error != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 			}
 		}
@@ -369,6 +400,7 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, secretDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -405,15 +437,18 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, secretInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&secretInstance); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, secretInstance, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -425,6 +460,7 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
 		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 	}
@@ -434,6 +470,7 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 
 	// persist to DB
 	if result := h.DB.Create(&secretInstance); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -445,6 +482,7 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.SecretInstanceCreateSubject, *notifPayload)
@@ -452,6 +490,7 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, secretInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -477,21 +516,25 @@ func (h Handler) GetSecretInstances(c echo.Context) error {
 
 	var filter api_v0.SecretInstance
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Model(&api_v0.SecretInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.SecretInstance{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -516,11 +559,13 @@ func (h Handler) GetSecretInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, secretInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -551,22 +596,26 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingSecretInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedSecretInstance api_v0.SecretInstance
 	if err := c.Bind(&updatedSecretInstance); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingSecretInstance).Updates(updatedSecretInstance); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -578,6 +627,7 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.SecretInstanceUpdateSubject, *notifPayload)
@@ -585,6 +635,7 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, existingSecretInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -616,28 +667,33 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingSecretInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedSecretInstance api_v0.SecretInstance
 	if err := c.Bind(&updatedSecretInstance); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedSecretInstance, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedSecretInstance.ID = existingSecretInstance.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedSecretInstance); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -646,11 +702,13 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingSecretInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -676,6 +734,7 @@ func (h Handler) DeleteSecretInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -692,6 +751,7 @@ func (h Handler) DeleteSecretInstance(c echo.Context) error {
 				Reconciled:        &reconciled,
 			}}
 		if result := h.DB.Model(&secretInstance).Updates(scheduledSecretInstance); result.Error != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 		// notify controller
@@ -701,6 +761,7 @@ func (h Handler) DeleteSecretInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.SecretInstanceDeleteSubject, *notifPayload)
@@ -716,6 +777,7 @@ func (h Handler) DeleteSecretInstance(c echo.Context) error {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
 			if result := h.DB.Delete(&secretInstance); result.Error != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 			}
 		}
@@ -723,6 +785,7 @@ func (h Handler) DeleteSecretInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, secretInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 

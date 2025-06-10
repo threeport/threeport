@@ -10,6 +10,7 @@ import (
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	zap "go.uber.org/zap"
 	gorm "gorm.io/gorm"
 	clause "gorm.io/gorm/clause"
 	"net/http"
@@ -46,15 +47,18 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, controlPlaneDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&controlPlaneDefinition); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, controlPlaneDefinition, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -66,6 +70,7 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
 		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 	}
@@ -75,6 +80,7 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 
 	// persist to DB
 	if result := h.DB.Create(&controlPlaneDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -86,6 +92,7 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.ControlPlaneDefinitionCreateSubject, *notifPayload)
@@ -93,6 +100,7 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, controlPlaneDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -118,21 +126,25 @@ func (h Handler) GetControlPlaneDefinitions(c echo.Context) error {
 
 	var filter api_v0.ControlPlaneDefinition
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Model(&api_v0.ControlPlaneDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.ControlPlaneDefinition{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -157,11 +169,13 @@ func (h Handler) GetControlPlaneDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, controlPlaneDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -192,22 +206,26 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingControlPlaneDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedControlPlaneDefinition api_v0.ControlPlaneDefinition
 	if err := c.Bind(&updatedControlPlaneDefinition); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingControlPlaneDefinition).Updates(updatedControlPlaneDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -219,6 +237,7 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.ControlPlaneDefinitionUpdateSubject, *notifPayload)
@@ -226,6 +245,7 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, existingControlPlaneDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -257,28 +277,33 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingControlPlaneDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedControlPlaneDefinition api_v0.ControlPlaneDefinition
 	if err := c.Bind(&updatedControlPlaneDefinition); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedControlPlaneDefinition, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedControlPlaneDefinition.ID = existingControlPlaneDefinition.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedControlPlaneDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -287,11 +312,13 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingControlPlaneDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -317,6 +344,7 @@ func (h Handler) DeleteControlPlaneDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -339,6 +367,7 @@ func (h Handler) DeleteControlPlaneDefinition(c echo.Context) error {
 				Reconciled:        &reconciled,
 			}}
 		if result := h.DB.Model(&controlPlaneDefinition).Updates(scheduledControlPlaneDefinition); result.Error != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 		// notify controller
@@ -348,6 +377,7 @@ func (h Handler) DeleteControlPlaneDefinition(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.ControlPlaneDefinitionDeleteSubject, *notifPayload)
@@ -363,6 +393,7 @@ func (h Handler) DeleteControlPlaneDefinition(c echo.Context) error {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
 			if result := h.DB.Delete(&controlPlaneDefinition); result.Error != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 			}
 		}
@@ -370,6 +401,7 @@ func (h Handler) DeleteControlPlaneDefinition(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, controlPlaneDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -406,15 +438,18 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, controlPlaneInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&controlPlaneInstance); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, controlPlaneInstance, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -426,6 +461,7 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
 		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 	}
@@ -435,6 +471,7 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 
 	// persist to DB
 	if result := h.DB.Create(&controlPlaneInstance); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -446,6 +483,7 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.ControlPlaneInstanceCreateSubject, *notifPayload)
@@ -453,6 +491,7 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, controlPlaneInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -478,21 +517,25 @@ func (h Handler) GetControlPlaneInstances(c echo.Context) error {
 
 	var filter api_v0.ControlPlaneInstance
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Preload(clause.Associations).Model(&api_v0.ControlPlaneInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.ControlPlaneInstance{}
 	if result := h.DB.Preload(clause.Associations).Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -517,11 +560,13 @@ func (h Handler) GetControlPlaneInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, controlPlaneInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -552,22 +597,26 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingControlPlaneInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedControlPlaneInstance api_v0.ControlPlaneInstance
 	if err := c.Bind(&updatedControlPlaneInstance); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingControlPlaneInstance).Updates(updatedControlPlaneInstance); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -579,6 +628,7 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.ControlPlaneInstanceUpdateSubject, *notifPayload)
@@ -586,6 +636,7 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, existingControlPlaneInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -617,28 +668,33 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingControlPlaneInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedControlPlaneInstance api_v0.ControlPlaneInstance
 	if err := c.Bind(&updatedControlPlaneInstance); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedControlPlaneInstance, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedControlPlaneInstance.ID = existingControlPlaneInstance.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedControlPlaneInstance); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -647,11 +703,13 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingControlPlaneInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -677,6 +735,7 @@ func (h Handler) DeleteControlPlaneInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -693,6 +752,7 @@ func (h Handler) DeleteControlPlaneInstance(c echo.Context) error {
 				Reconciled:        &reconciled,
 			}}
 		if result := h.DB.Model(&controlPlaneInstance).Updates(scheduledControlPlaneInstance); result.Error != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 		// notify controller
@@ -702,6 +762,7 @@ func (h Handler) DeleteControlPlaneInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.ControlPlaneInstanceDeleteSubject, *notifPayload)
@@ -717,6 +778,7 @@ func (h Handler) DeleteControlPlaneInstance(c echo.Context) error {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
 			if result := h.DB.Delete(&controlPlaneInstance); result.Error != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 			}
 		}
@@ -724,6 +786,7 @@ func (h Handler) DeleteControlPlaneInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, controlPlaneInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 

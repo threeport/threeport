@@ -10,6 +10,7 @@ import (
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	zap "go.uber.org/zap"
 	gorm "gorm.io/gorm"
 	"net/http"
 	"time"
@@ -45,15 +46,18 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, workloadDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&workloadDefinition); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, workloadDefinition, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -65,6 +69,7 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
 		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 	}
@@ -74,6 +79,7 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 
 	// persist to DB
 	if result := h.DB.Create(&workloadDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -85,6 +91,7 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.WorkloadDefinitionCreateSubject, *notifPayload)
@@ -92,6 +99,7 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -117,21 +125,25 @@ func (h Handler) GetWorkloadDefinitions(c echo.Context) error {
 
 	var filter api_v0.WorkloadDefinition
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Model(&api_v0.WorkloadDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.WorkloadDefinition{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -156,11 +168,13 @@ func (h Handler) GetWorkloadDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -191,22 +205,26 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingWorkloadDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedWorkloadDefinition api_v0.WorkloadDefinition
 	if err := c.Bind(&updatedWorkloadDefinition); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingWorkloadDefinition).Updates(updatedWorkloadDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -218,6 +236,7 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.WorkloadDefinitionUpdateSubject, *notifPayload)
@@ -225,6 +244,7 @@ func (h Handler) UpdateWorkloadDefinition(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, existingWorkloadDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -256,28 +276,33 @@ func (h Handler) ReplaceWorkloadDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingWorkloadDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedWorkloadDefinition api_v0.WorkloadDefinition
 	if err := c.Bind(&updatedWorkloadDefinition); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedWorkloadDefinition, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedWorkloadDefinition.ID = existingWorkloadDefinition.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedWorkloadDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -286,11 +311,13 @@ func (h Handler) ReplaceWorkloadDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingWorkloadDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -316,6 +343,7 @@ func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -338,6 +366,7 @@ func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 				Reconciled:        &reconciled,
 			}}
 		if result := h.DB.Model(&workloadDefinition).Updates(scheduledWorkloadDefinition); result.Error != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 		// notify controller
@@ -347,6 +376,7 @@ func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.WorkloadDefinitionDeleteSubject, *notifPayload)
@@ -362,6 +392,7 @@ func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
 			if result := h.DB.Delete(&workloadDefinition); result.Error != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 			}
 		}
@@ -369,6 +400,7 @@ func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -405,25 +437,30 @@ func (h Handler) AddWorkloadEvent(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, workloadEvent); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&workloadEvent); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, workloadEvent, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist to DB
 	if result := h.DB.Create(&workloadEvent); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadEvent, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -449,21 +486,25 @@ func (h Handler) GetWorkloadEvents(c echo.Context) error {
 
 	var filter api_v0.WorkloadEvent
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Model(&api_v0.WorkloadEvent{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.WorkloadEvent{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -488,11 +529,13 @@ func (h Handler) GetWorkloadEvent(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadEvent, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -523,27 +566,32 @@ func (h Handler) UpdateWorkloadEvent(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingWorkloadEvent); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedWorkloadEvent api_v0.WorkloadEvent
 	if err := c.Bind(&updatedWorkloadEvent); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingWorkloadEvent).Updates(updatedWorkloadEvent); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingWorkloadEvent, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -575,28 +623,33 @@ func (h Handler) ReplaceWorkloadEvent(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingWorkloadEvent); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedWorkloadEvent api_v0.WorkloadEvent
 	if err := c.Bind(&updatedWorkloadEvent); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedWorkloadEvent, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedWorkloadEvent.ID = existingWorkloadEvent.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedWorkloadEvent); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -605,11 +658,13 @@ func (h Handler) ReplaceWorkloadEvent(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingWorkloadEvent, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -635,16 +690,19 @@ func (h Handler) DeleteWorkloadEvent(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// delete object
 	if result := h.DB.Delete(&workloadEvent); result.Error != nil {
+		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadEvent, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -681,15 +739,18 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, workloadInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&workloadInstance); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, workloadInstance, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -701,6 +762,7 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
 		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 	}
@@ -710,6 +772,7 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 
 	// persist to DB
 	if result := h.DB.Create(&workloadInstance); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -721,6 +784,7 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.WorkloadInstanceCreateSubject, *notifPayload)
@@ -728,6 +792,7 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -753,21 +818,25 @@ func (h Handler) GetWorkloadInstances(c echo.Context) error {
 
 	var filter api_v0.WorkloadInstance
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Model(&api_v0.WorkloadInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.WorkloadInstance{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -792,11 +861,13 @@ func (h Handler) GetWorkloadInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -827,22 +898,26 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingWorkloadInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedWorkloadInstance api_v0.WorkloadInstance
 	if err := c.Bind(&updatedWorkloadInstance); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingWorkloadInstance).Updates(updatedWorkloadInstance); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -854,6 +929,7 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.WorkloadInstanceUpdateSubject, *notifPayload)
@@ -861,6 +937,7 @@ func (h Handler) UpdateWorkloadInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, existingWorkloadInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -892,28 +969,33 @@ func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingWorkloadInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedWorkloadInstance api_v0.WorkloadInstance
 	if err := c.Bind(&updatedWorkloadInstance); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedWorkloadInstance, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedWorkloadInstance.ID = existingWorkloadInstance.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedWorkloadInstance); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -922,11 +1004,13 @@ func (h Handler) ReplaceWorkloadInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingWorkloadInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -952,6 +1036,7 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -968,6 +1053,7 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 				Reconciled:        &reconciled,
 			}}
 		if result := h.DB.Model(&workloadInstance).Updates(scheduledWorkloadInstance); result.Error != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 		// notify controller
@@ -977,6 +1063,7 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.WorkloadInstanceDeleteSubject, *notifPayload)
@@ -992,6 +1079,7 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
 			if result := h.DB.Delete(&workloadInstance); result.Error != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 			}
 		}
@@ -999,6 +1087,7 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -1035,25 +1124,30 @@ func (h Handler) AddWorkloadResourceDefinition(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, workloadResourceDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&workloadResourceDefinition); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, workloadResourceDefinition, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist to DB
 	if result := h.DB.Create(&workloadResourceDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadResourceDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -1079,21 +1173,25 @@ func (h Handler) GetWorkloadResourceDefinitions(c echo.Context) error {
 
 	var filter api_v0.WorkloadResourceDefinition
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Model(&api_v0.WorkloadResourceDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.WorkloadResourceDefinition{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -1118,11 +1216,13 @@ func (h Handler) GetWorkloadResourceDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadResourceDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -1153,27 +1253,32 @@ func (h Handler) UpdateWorkloadResourceDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingWorkloadResourceDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedWorkloadResourceDefinition api_v0.WorkloadResourceDefinition
 	if err := c.Bind(&updatedWorkloadResourceDefinition); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingWorkloadResourceDefinition).Updates(updatedWorkloadResourceDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingWorkloadResourceDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -1205,28 +1310,33 @@ func (h Handler) ReplaceWorkloadResourceDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingWorkloadResourceDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedWorkloadResourceDefinition api_v0.WorkloadResourceDefinition
 	if err := c.Bind(&updatedWorkloadResourceDefinition); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedWorkloadResourceDefinition, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedWorkloadResourceDefinition.ID = existingWorkloadResourceDefinition.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedWorkloadResourceDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1235,11 +1345,13 @@ func (h Handler) ReplaceWorkloadResourceDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingWorkloadResourceDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -1265,16 +1377,19 @@ func (h Handler) DeleteWorkloadResourceDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// delete object
 	if result := h.DB.Delete(&workloadResourceDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadResourceDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -1311,25 +1426,30 @@ func (h Handler) AddWorkloadResourceInstance(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, workloadResourceInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&workloadResourceInstance); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, workloadResourceInstance, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist to DB
 	if result := h.DB.Create(&workloadResourceInstance); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadResourceInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -1355,21 +1475,25 @@ func (h Handler) GetWorkloadResourceInstances(c echo.Context) error {
 
 	var filter api_v0.WorkloadResourceInstance
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Model(&api_v0.WorkloadResourceInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.WorkloadResourceInstance{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -1394,11 +1518,13 @@ func (h Handler) GetWorkloadResourceInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadResourceInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -1429,27 +1555,32 @@ func (h Handler) UpdateWorkloadResourceInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingWorkloadResourceInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedWorkloadResourceInstance api_v0.WorkloadResourceInstance
 	if err := c.Bind(&updatedWorkloadResourceInstance); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingWorkloadResourceInstance).Updates(updatedWorkloadResourceInstance); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingWorkloadResourceInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -1481,28 +1612,33 @@ func (h Handler) ReplaceWorkloadResourceInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingWorkloadResourceInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedWorkloadResourceInstance api_v0.WorkloadResourceInstance
 	if err := c.Bind(&updatedWorkloadResourceInstance); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedWorkloadResourceInstance, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedWorkloadResourceInstance.ID = existingWorkloadResourceInstance.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedWorkloadResourceInstance); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1511,11 +1647,13 @@ func (h Handler) ReplaceWorkloadResourceInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingWorkloadResourceInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -1541,16 +1679,19 @@ func (h Handler) DeleteWorkloadResourceInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// delete object
 	if result := h.DB.Delete(&workloadResourceInstance); result.Error != nil {
+		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, workloadResourceInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 

@@ -43,7 +43,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		handlerRegistration.Id(fmt.Sprintf("h_%s", versionConf.VersionName)).Op(":=").Qual(
 			fmt.Sprintf("%s/pkg/api-server/%s/handlers", gen.ModulePath, versionConf.VersionName),
 			"New",
-		).Call(List(Id("db"), Id("nc"), Op("*").Id("js")))
+		).Call(List(Id("db"), Id("nc"), Op("*").Id("js"), Op("&").Id("logger")))
 	}
 	handlerRegistration.Line()
 
