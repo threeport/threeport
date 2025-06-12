@@ -75,6 +75,10 @@ func getRegionMap() *[]RegionMap {
 			AwsRegion: "ca-central-1",
 		},
 		{
+			Location:  "NorthAmerica:Ashburn",
+			OciRegion: "us-ashburn-1",
+		},
+		{
 			Location:  "NorthAmerica:Phoenix",
 			OciRegion: "us-phoenix-1",
 		},

@@ -115,8 +115,8 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create NAT Gateway: %w", err)
 		}
 
-		// get the service gateway service ID
-		serviceID, err := getServiceGatewayServiceID(i.Region, i.CompartmentOCID)
+		// get the service gateway service ID and cidr block
+		serviceID, serviceCidrBlock, err := getServiceGatewayServiceIdAndCidrBlock(i.Region, i.CompartmentOCID)
 		if err != nil {
 			return fmt.Errorf("failed to get service gateway service ID: %w", err)
 		}
@@ -167,7 +167,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 					NetworkEntityId: natGateway.ID(),
 				},
 				&core.RouteTableRouteRuleArgs{
-					Destination:     pulumi.String("all-phx-services-in-oracle-services-network"),
+					Destination:     pulumi.String(serviceCidrBlock),
 					DestinationType: pulumi.String("SERVICE_CIDR_BLOCK"),
 					NetworkEntityId: serviceGateway.ID(),
 				},
@@ -234,7 +234,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 				// allow traffic to Oracle Services Network
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:        pulumi.String("6"), // TCP
-					Destination:     pulumi.String("all-phx-services-in-oracle-services-network"),
+					Destination:     pulumi.String(serviceCidrBlock),
 					DestinationType: pulumi.String("SERVICE_CIDR_BLOCK"),
 					TcpOptions: &core.SecurityListEgressSecurityRuleTcpOptionsArgs{
 						Max: pulumi.Int(443),
@@ -350,7 +350,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 				// allow TCP port 443 to Oracle Services Network
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:        pulumi.String("6"), // TCP
-					Destination:     pulumi.String("all-phx-services-in-oracle-services-network"),
+					Destination:     pulumi.String(serviceCidrBlock),
 					DestinationType: pulumi.String("SERVICE_CIDR_BLOCK"),
 					TcpOptions: &core.SecurityListEgressSecurityRuleTcpOptionsArgs{
 						Max: pulumi.Int(443),
@@ -847,14 +847,14 @@ func (i *KubernetesRuntimeInfraOKE) getAvailabilityDomainName() (string, error) 
 	return *response.Items[0].Name, nil
 }
 
-// getServiceGatewayServiceID returns the OCI service ID for the service gateway in a given region.
+// getServiceGatewayServiceIdAndCidrBlock returns the OCI service ID for the service gateway in a given region.
 // This ID is used to identify the Oracle Services Network in the service gateway.
-func getServiceGatewayServiceID(region string, compartmentID string) (string, error) {
+func getServiceGatewayServiceIdAndCidrBlock(region string, compartmentID string) (string, string, error) {
 	// create a new virtual network client
 	configProvider := common.DefaultConfigProvider()
 	vcnClient, err := ocicore.NewVirtualNetworkClientWithConfigurationProvider(configProvider)
 	if err != nil {
-		return "", fmt.Errorf("failed to create virtual network client: %w", err)
+		return "", "", fmt.Errorf("failed to create virtual network client: %w", err)
 	}
 
 	// set the region for the client
@@ -866,18 +866,18 @@ func getServiceGatewayServiceID(region string, compartmentID string) (string, er
 	// call the API to get services
 	response, err := vcnClient.ListServices(context.Background(), request)
 	if err != nil {
-		return "", fmt.Errorf("failed to list services: %w", err)
+		return "", "", fmt.Errorf("failed to list services: %w", err)
 	}
 
 	// find the Oracle Services Network service
 	for _, service := range response.Items {
 		if service.Name != nil && strings.Contains(*service.Name, "Services In Oracle Services Network") {
-			return *service.Id, nil
+			return *service.Id, *service.CidrBlock, nil
 		}
 	}
 
 	// If service not found, return an error
-	return "", fmt.Errorf("Oracle Services Network service not found in region %s", region)
+	return "", "", fmt.Errorf("Oracle Services Network service not found in region %s", region)
 }
 
 // getLatestOKEVersion returns the latest Kubernetes version available in OKE
