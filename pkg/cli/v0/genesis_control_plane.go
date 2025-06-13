@@ -38,8 +38,9 @@ type GenesisControlPlaneCLIArgs struct {
 	AwsConfigProfile      string
 	AwsConfigEnv          bool
 	AwsRegion             string
-	AwsRoleArn            string
-	AwsSerialNumber       string
+	OciRegion             string
+	OciConfigProfile      string
+	OciCompartmentOcid    string
 	CfgFile               string
 	ControlPlaneImageRepo string
 	ControlPlaneImageTag  string
@@ -145,6 +146,9 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.AwsConfigProfile = a.AwsConfigProfile
 	cpi.Opts.AwsConfigEnv = a.AwsConfigEnv
 	cpi.Opts.AwsRegion = a.AwsRegion
+	cpi.Opts.OciRegion = a.OciRegion
+	cpi.Opts.OciConfigProfile = a.OciConfigProfile
+	cpi.Opts.OciCompartmentOcid = a.OciCompartmentOcid
 	cpi.Opts.CfgFile = a.CfgFile
 	cpi.Opts.CreateRootDomain = a.CreateRootDomain
 	cpi.Opts.CreateAdminEmail = a.CreateAdminEmail
@@ -273,6 +277,13 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			WorkerNodeShape:        "VM.Standard.A1.Flex",
 			Version:                "v1.32.1",
 			WorkerNodeInitialCount: int32(2),
+		}
+		if err := kubernetesRuntimeInfraOKE.LoadOCIConfig(
+			cpi.Opts.OciRegion,
+			cpi.Opts.OciConfigProfile,
+			cpi.Opts.OciCompartmentOcid,
+		); err != nil {
+			return fmt.Errorf("failed to load OCI config: %w", err)
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
 		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
@@ -844,6 +855,13 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
 			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+		}
+		if err := kubernetesRuntimeInfraOKE.LoadOCIConfig(
+			cpi.Opts.OciRegion,
+			cpi.Opts.OciConfigProfile,
+			cpi.Opts.OciCompartmentOcid,
+		); err != nil {
+			return fmt.Errorf("failed to load OCI config: %w", err)
 		}
 		if kubeConnection, err = kubernetesRuntimeInfraOKE.GetConnection(); err != nil {
 			return fmt.Errorf("failed to get connection for OKE kubernetes runtime infra: %w", err)
