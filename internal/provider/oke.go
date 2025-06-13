@@ -593,12 +593,9 @@ func (i *KubernetesRuntimeInfraOKE) Delete() error {
 }
 
 // GetClusterOCID gets the OCID of the OKE cluster.
-func (i *KubernetesRuntimeInfraOKE) GetClusterOCID(
-	okeClusterName string,
-	configProvider common.ConfigurationProvider,
-) (string, error) {
+func (i *KubernetesRuntimeInfraOKE) GetClusterOCID(okeClusterName string) (string, error) {
 
-	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(i.ConfigProvider)
 	if err != nil {
 		return "", fmt.Errorf("failed to create container engine client: %w", err)
 	}
@@ -633,7 +630,7 @@ func (i *KubernetesRuntimeInfraOKE) GetClusterOCID(
 // GetConnection gets the latest connection info for authentication to an OKE cluster.
 func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, error) {
 	// create a new container engine client
-	clusterOCID, err := i.GetClusterOCID(i.RuntimeInstanceName, i.ConfigProvider)
+	clusterOCID, err := i.GetClusterOCID(i.RuntimeInstanceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster OCID: %w", err)
 	}
