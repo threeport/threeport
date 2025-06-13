@@ -1,18 +1,19 @@
 <img src="docs/dev/img/threeport-logo-green.jpg">
 
-Threeport is a software delivery platform.
+Threeport is an application platform and platform engineering framework.
 
-Threeport delivers applications into remote runtime environments. Once an application has 
-been built, Threeport is used to deploy and manage it over time.
+An application platform is a system that is used to deliver software to its runtime environment.  Once an application has been built, Threeport is used to deploy and manage it over time.
 
-Threeport consists of two primary components:
-1. A functional core system for application delivery.
-2. A software development kit to add custom modules to the core system.
+Platform engineering is the discipline that builds and delivers application platforms to the teams that use them.
+
+The Threeport project consists of two primary components:
+1. Threeport Core: The foundation of a completed application platform.
+2. Threeport SDK: A software development kit to add custom modules to the core system.
 
 ## Threeport Core
 
-The Threeport core is a software delivery control plane.  You can install the core system
-and immediately start delivering applications to your runtime environments.
+The Threeport Core is a software delivery control plane.  You can install the core system
+and immediately start delivering workloads to your runtime environments.
 
 <img src="docs/docs/img/ThreeportStack.png">
 
@@ -47,7 +48,7 @@ The core control plane has the following features:
 
 ## Software Development Kit
 
-The software development kit enables engineers to extend core Threeport with custom modules. 
+The software development kit is used by platform engineers to extend the Threeport Core with custom modules. 
 These modules can be developed by the open source community, 3rd party providers or in-house 
 teams. Threeport modules can add support for any cloud provider, runtime environment, managed 
 service or support service. This extensibility ensures seamless delivery of complex 
