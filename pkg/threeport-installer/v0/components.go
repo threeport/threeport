@@ -500,7 +500,6 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 	if err := cpi.UpdateThreeportAgentDeployment(
 		kubeClient,
 		mapper,
-		cpi.Opts.ControlPlaneName,
 	); err != nil {
 		return fmt.Errorf("failed to update threeport agent deployment: %w", err)
 	}
@@ -511,7 +510,6 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	threeportInstanceName string,
 ) error {
 
 	agentImage := cpi.getImage(cpi.Opts.AgentInfo.Name, cpi.Opts.AgentInfo.ImageName, cpi.Opts.AgentInfo.ImageRepo, cpi.Opts.AgentInfo.ImageTag)
@@ -635,7 +633,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -657,7 +655,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -797,7 +795,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -828,7 +826,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -873,7 +871,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -907,7 +905,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -940,7 +938,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -973,7 +971,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
@@ -1008,7 +1006,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"metadata": map[string]interface{}{
 				"labels": map[string]interface{}{
 					"app.kubernetes.io/name":       "threeport-agent",
-					"app.kubernetes.io/instance":   "threeport-agent" + threeportInstanceName + "",
+					"app.kubernetes.io/instance":   "threeport-agent" + cpi.Opts.ControlPlaneName + "",
 					"app.kubernetes.io/version":    version.GetVersion(),
 					"app.kubernetes.io/component":  "runtime-agent",
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
