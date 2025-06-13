@@ -354,7 +354,6 @@ func v0ControlPlaneInstanceCreated(
 	if err := cpi.InstallThreeportControlPlaneDependencies(
 		dynamicKubeClient,
 		mapper,
-		*kubernetesRuntimeDefinition.InfraProvider,
 		encryptionKey,
 		dbCreds,
 	); err != nil {
