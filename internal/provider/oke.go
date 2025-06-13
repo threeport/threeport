@@ -770,7 +770,7 @@ func (i *KubernetesRuntimeInfraOKE) LoadOCIConfig(
 		i.Region, err = configProvider.Region()
 		if err != nil {
 			return fmt.Errorf("failed to get region: %w", err)
-		} else if region == "" {
+		} else if i.Region == "" {
 			return fmt.Errorf("region not found in OCI config")
 		}
 	}
