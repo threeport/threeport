@@ -62,15 +62,17 @@ func DeployOkeInfra(
 	}
 
 	if cpi.Opts.ControlPlaneOnly {
-		kubeConnectionInfo, err = kubernetesRuntimeInfraOKE.GetConnection()
+		connectionInfo, err := kubernetesRuntimeInfraOKE.GetConnection()
 		if err != nil {
 			return fmt.Errorf("failed to get connection info for OKE kubernetes runtime: %w", err)
 		}
+		*kubeConnectionInfo = *connectionInfo
 	} else {
-		kubeConnectionInfo, err = (*kubernetesRuntimeInfra).Create()
+		connectionInfo, err := (*kubernetesRuntimeInfra).Create()
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
 		}
+		*kubeConnectionInfo = *connectionInfo
 	}
 
 	return nil
