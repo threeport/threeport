@@ -459,7 +459,6 @@ func (cpi *ControlPlaneInstaller) UpdateControllerDeployment(
 func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
-	threeportInstanceName string,
 	authConfig *auth.AuthConfig,
 ) error {
 
@@ -502,7 +501,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 	if err := cpi.UpdateThreeportAgentDeployment(
 		kubeClient,
 		mapper,
-		threeportInstanceName,
+		cpi.Opts.ControlPlaneName,
 	); err != nil {
 		return fmt.Errorf("failed to update threeport agent deployment: %w", err)
 	}

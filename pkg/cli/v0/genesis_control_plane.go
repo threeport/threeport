@@ -406,7 +406,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err := cpi.InstallThreeportControlPlaneDependencies(
 		dynamicKubeClient,
 		mapper,
-		cpi.Opts.InfraProvider,
 		encryptionKey,
 		dbCreds,
 	); err != nil {
@@ -574,7 +573,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err := cpi.InstallThreeportAgent(
 		dynamicKubeClient,
 		mapper,
-		cpi.Opts.ControlPlaneName,
 		authConfig,
 	); err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport agent", err)
