@@ -13,10 +13,68 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	config "github.com/threeport/threeport/pkg/config/v0"
+	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"gorm.io/datatypes"
 )
+
+// DeployOkeInfra deploys the OKE infrastructure for the control plane.
+func DeployOkeInfra(
+	cpi *threeport.ControlPlaneInstaller,
+	threeportControlPlaneConfig *config.ControlPlane,
+	threeportConfig *config.ThreeportConfig,
+	kubernetesRuntimeInfra *provider.KubernetesRuntimeInfra,
+	kubeConnectionInfo *kube.KubeConnectionInfo,
+	uninstaller *Uninstaller,
+) error {
+	// Create OKE infrastructure
+	kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
+		RuntimeInstanceName:    provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+		WorkerNodeShape:        "VM.Standard.A1.Flex",
+		Version:                "v1.32.1",
+		WorkerNodeInitialCount: int32(2),
+	}
+	*kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
+	uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
+
+	// load OCI config and set overridden values if provided
+	// by a command line flag
+	if err := kubernetesRuntimeInfraOKE.LoadOCIConfig(
+		cpi.Opts.OciRegion,
+		cpi.Opts.OciConfigProfile,
+		cpi.Opts.OciCompartmentOcid,
+	); err != nil {
+		return fmt.Errorf("failed to load OCI config: %w", err)
+	}
+
+	// update threeport config with eks provider info
+	var err error
+	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+		c.OKEProviderConfig = config.OKEProviderConfig{
+			OciRegion:          cpi.Opts.OciRegion,
+			OciConfigProfile:   cpi.Opts.OciConfigProfile,
+			OciCompartmentOcid: cpi.Opts.OciCompartmentOcid,
+		}
+	}); err != nil {
+		return fmt.Errorf("failed to update threeport config: %w", err)
+	}
+
+	if cpi.Opts.ControlPlaneOnly {
+		kubeConnectionInfo, err = kubernetesRuntimeInfraOKE.GetConnection()
+		if err != nil {
+			return fmt.Errorf("failed to get connection info for OKE kubernetes runtime: %w", err)
+		}
+	} else {
+		kubeConnectionInfo, err = (*kubernetesRuntimeInfra).Create()
+		if err != nil {
+			return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
+		}
+	}
+
+	return nil
+}
 
 // ConfigureControlPlaneWithOkeConfig configures the control plane with the OKE config.
 func ConfigureControlPlaneWithOkeConfig(

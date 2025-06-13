@@ -643,6 +643,9 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("failed to create container engine client: %w", err)
 	}
 
+	// set the region for the client
+	containerClient.SetRegion(i.Region)
+
 	// get cluster details to get the API endpoint
 	getClusterRequest := ocicontainerengine.GetClusterRequest{
 		ClusterId: &clusterOCID,
