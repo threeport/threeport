@@ -70,14 +70,21 @@ func GenCmd(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		}
 	}
 
-	// generate extension tptctl plugin plugin root command
+	// generate module tptctl plugin root command
 	if generator.Module {
 		if err := cli.GenPluginRootCmd(generator, sdkConfig); err != nil {
 			return fmt.Errorf("failed to generate module plugin root command: %w", err)
 		}
 	}
 
-	// generate extension tptctl plugin install command
+	// generate module plugin version command
+	if generator.Module {
+		if err := cli.GenPluginVersionCmd(generator, sdkConfig); err != nil {
+			return fmt.Errorf("failed to generate module plugin version command: %w", err)
+		}
+	}
+
+	// generate module tptctl plugin install command
 	if generator.Module {
 		if err := cli.GenPluginInstallCmd(generator, sdkConfig); err != nil {
 			return fmt.Errorf("failed to generate module plugin install command: %w", err)
