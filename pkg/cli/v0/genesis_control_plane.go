@@ -971,9 +971,13 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	}
 
-	// update threeport config to remove deleted threeport instance
-	config.DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)
-	Info("Threeport config updated")
+	// if control plane only flag is set, hold onto the control plane in the threeport
+	// config so we may tear-down with infra-only flag later
+	if !cpi.Opts.ControlPlaneOnly || cpi.Opts.InfraOnly {
+		// update threeport config to remove deleted threeport instance
+		config.DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)
+		Info("Threeport config updated")
+	}
 
 	Complete(fmt.Sprintf("Threeport control plane %s deleted", cpi.Opts.ControlPlaneName))
 
