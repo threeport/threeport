@@ -243,7 +243,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	uninstaller.awsConfig = &awsConfigUser
 	awsConfigResourceManager := &aws.Config{}
 	switch controlPlane.InfraProvider {
-
 	// deploy infrastructure
 	case v0.KubernetesRuntimeInfraProviderKind:
 		if err := DeployKindInfra(
@@ -271,33 +270,15 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to deploy eks infrastructure: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
-		// Create OKE infrastructure
-		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
-			RuntimeInstanceName:    provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
-			WorkerNodeShape:        "VM.Standard.A1.Flex",
-			Version:                "v1.32.1",
-			WorkerNodeInitialCount: int32(2),
-		}
-		if err := kubernetesRuntimeInfraOKE.LoadOCIConfig(
-			cpi.Opts.OciRegion,
-			cpi.Opts.OciConfigProfile,
-			cpi.Opts.OciCompartmentOcid,
+		if err := DeployOkeInfra(
+			cpi,
+			threeportControlPlaneConfig,
+			threeportConfig,
+			&kubernetesRuntimeInfra,
+			kubeConnectionInfo,
+			uninstaller,
 		); err != nil {
-			return fmt.Errorf("failed to load OCI config: %w", err)
-		}
-		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
-		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
-
-		if cpi.Opts.ControlPlaneOnly {
-			kubeConnectionInfo, err = kubernetesRuntimeInfraOKE.GetConnection()
-			if err != nil {
-				return fmt.Errorf("failed to get connection info for OKE kubernetes runtime: %w", err)
-			}
-		} else {
-			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
-			if err != nil {
-				return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
-			}
+			return fmt.Errorf("failed to deploy oke infrastructure: %w", err)
 		}
 	}
 
@@ -857,9 +838,9 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 		}
 		if err := kubernetesRuntimeInfraOKE.LoadOCIConfig(
-			cpi.Opts.OciRegion,
-			cpi.Opts.OciConfigProfile,
-			cpi.Opts.OciCompartmentOcid,
+			threeportControlPlaneConfig.OKEProviderConfig.OciRegion,
+			threeportControlPlaneConfig.OKEProviderConfig.OciConfigProfile,
+			threeportControlPlaneConfig.OKEProviderConfig.OciCompartmentOcid,
 		); err != nil {
 			return fmt.Errorf("failed to load OCI config: %w", err)
 		}
