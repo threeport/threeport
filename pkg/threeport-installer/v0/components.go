@@ -50,7 +50,6 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	if err := cpi.InstallThreeportAgent(
 		kubeClient,
 		mapper,
-		runtimeInstanceName,
 		nil,
 	); err != nil {
 		return fmt.Errorf("failed to install threeport agent: %w", err)

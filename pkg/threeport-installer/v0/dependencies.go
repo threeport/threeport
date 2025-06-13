@@ -538,7 +538,7 @@ store_dir: /data
 						"metadata": map[string]interface{}{
 							"name": "datadir",
 						},
-						"spec": cpi.getVolClaimTemplateSpec(cpi.Opts.InfraProvider, "5Gi"),
+						"spec": cpi.getVolClaimTemplateSpec("5Gi"),
 					},
 				},
 			},
@@ -835,7 +835,7 @@ store_dir: /data
 								"app.kubernetes.io/instance": "crdb",
 							},
 						},
-						"spec": cpi.getVolClaimTemplateSpec(cpi.Opts.InfraProvider, "20Gi"),
+						"spec": cpi.getVolClaimTemplateSpec("20Gi"),
 					},
 				},
 			},
