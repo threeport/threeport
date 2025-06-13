@@ -38,7 +38,7 @@ ApiDocs:
   Description: API server for the Threeport WordPress module.
   ContactName: John Doe
   ContactEmail: john@example.com
-ImageRepo: ghcr.io/myorg/myimage
+ImageRepo: ghcr.io/myorg
 ApiObjectGroups:
 - Name: wordpress
   Objects:
