@@ -204,15 +204,17 @@ func DeployEksInfra(
 	}()
 
 	if cpi.Opts.ControlPlaneOnly {
-		kubeConnectionInfo, err = kubernetesRuntimeInfraEKS.GetConnection()
+		connectionInfo, err := kubernetesRuntimeInfraEKS.GetConnection()
 		if err != nil {
 			return fmt.Errorf("failed to get connection info for eks kubernetes runtime: %w", err)
 		}
+		*kubeConnectionInfo = *connectionInfo
 	} else {
-		kubeConnectionInfo, err = (*kubernetesRuntimeInfra).Create()
+		connectionInfo, err := (*kubernetesRuntimeInfra).Create()
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
 		}
+		*kubeConnectionInfo = *connectionInfo
 	}
 	return nil
 }

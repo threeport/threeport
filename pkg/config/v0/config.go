@@ -61,6 +61,9 @@ type ControlPlane struct {
 	// Provider configuration for EKS-hosted threeport control planes.
 	EKSProviderConfig EKSProviderConfig `yaml:"EKSProviderConfig"`
 
+	// Provider configuration for OKE-hosted threeport control planes.
+	OKEProviderConfig OKEProviderConfig `yaml:"OKEProviderConfig"`
+
 	// Client authentication credentials to threeport API.
 	Credentials []Credential `yaml:"Credentials"`
 
@@ -84,6 +87,14 @@ type EKSProviderConfig struct {
 	AwsConfigProfile string `yaml:"AWSConfigProfile"`
 	AwsRegion        string `yaml:"AWSRegion"`
 	AwsAccountID     string `yaml:"AWSAccountID"`
+}
+
+// OKEProviderConfig is the set of provider config information needed to manage
+// OKE clusters on OCI.
+type OKEProviderConfig struct {
+	OciRegion          string `yaml:"OciRegion"`
+	OciConfigProfile   string `yaml:"OciConfigProfile"`
+	OciCompartmentOcid string `yaml:"OciCompartmentOcid"`
 }
 
 // Credential is a client certificate and key pair for authenticating to a Threeport instance.

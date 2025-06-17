@@ -54,6 +54,15 @@ type Options struct {
 	// AWS region code to install threeport control plane in.
 	AwsRegion string
 
+	// OCI region code to install threeport control plane in.
+	OciRegion string
+
+	// The OCI config profile to draw credentials from when using oke provider.
+	OciConfigProfile string
+
+	// The OCI compartment OCID to install threeport control plane in.
+	OciCompartmentOcid string
+
 	// Path to config file for threeport
 	CfgFile string
 
