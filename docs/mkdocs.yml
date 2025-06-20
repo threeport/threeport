@@ -14,6 +14,8 @@ nav:
   - Concepts:
     - 'Application Orchestration': 'concepts/application-orchestration.md'
     - 'Orchestration Abstractions': 'concepts/orchestration-abstractions.md'
+    - 'Dependencies': 'concepts/dependencies.md'
+    - 'Use Cases': 'concepts/use-cases.md'
     - 'Comparisons': 'concepts/comparisons.md'
     - 'Definitions & Instances': 'concepts/definitions-instances.md'
     - 'Custom Modules': 'concepts/extensions.md'
@@ -58,7 +60,7 @@ nav:
     #- 'Config Tool Abstraction': 'sdk/config-abstraction.md'
     #- 'Advanced Application Abstraction': 'sdk/advanced-app-abstraction.md'
   - Architecture:
-    - 'Overview': 'architecture/overview.md'
+    - 'Threeport Core': 'architecture/threeport-core.md'
     - 'Control Plane': 'architecture/control-plane.md'
     - 'Threeport Controllers': 'architecture/threeport-controllers.md'
     - 'Kubernetes Federation': 'architecture/kubernetes-federation.md'

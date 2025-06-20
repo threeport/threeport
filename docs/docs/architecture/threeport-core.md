@@ -1,7 +1,7 @@
-# Architecture Overview
+# Threeport Core
 
-Threeport is a distributed software system that serves as a software delivery
-platform.  It serves as a unified, global control plane for all cloud
+The Threeport Core is a distributed software system that serves as a software delivery
+platform.  It provices a unified, global control plane for all cloud
 infrastructure, compute environments and the applications that run there.
 
 Users interface with the Threeport RESTful API in the control plane.
@@ -12,6 +12,14 @@ dependencies encompass everything from the cloud infrastructure up to the
 services needed for the application to run successfully.
 
 ![Threeport Stack](../img/ThreeportStack.png)
+
+## Requirements
+
+The following outline the primary requirements used to develop Threeport Core.
+
+* Scalable: All components of Threeport Core are designed to scale to meet the global needs of an organization's software delivery.  The API, and all controllers are horizontally scalable.
+* Resilient: Threeport Core is designed to be installed across multiple regions as as to remain functional in the event of a regional outage.
+* Extensible: The core system is designed to accept module additions so that all common and specialized requirements can be accomodated in a single, coherent system.
 
 ## Foundational Principles
 

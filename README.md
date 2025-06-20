@@ -1,67 +1,30 @@
 <img src="docs/dev/img/threeport-logo-green.jpg">
 
-Threeport is an application platform and platform engineering framework.
+Threeport is an open source application platform and platform engineering framework.
 
-An application platform is a system that is used to deliver software to its runtime environment.  Once an application has been built, Threeport is used to deploy and manage it over time.
+What is an application platform?  It is a system that is used to deliver software into its runtime environment and manage it over time.
 
-Platform engineering is the discipline that builds and delivers application platforms to the teams that use them.
+What is platform engineering?  It is a software engineering discipline focused on the development of application platforms.
 
-The Threeport project consists of two primary components:
-1. Threeport Core: The foundation of a completed application platform.
-2. Threeport SDK: A software development kit to add custom modules to the core system.
+Threeport consists of two parts:
 
-## Threeport Core
+1. Threeport Core: The core components of an application platform.  It includes an API server, database, message broker and core controllers.  For more detail, see the [Threeport Core architecture document](https://threeport.io/architecture/threeport-core).
+2. Threeport SDK: A framework for building independent modules to add to Threeport Core.  The SDK is Ruby on Rails for application platforms.  To learn more about the SDK, see the [Threeport SDK Introduction document](https://threeport.io/sdk/sdk-intro/).
 
-The Threeport Core is a software delivery control plane.  You can install the core system
-and immediately start delivering workloads to your runtime environments.
+## Motivation
 
-<img src="docs/docs/img/ThreeportStack.png">
+Software delivery had been dominated by DevOps practices for the past decade or so.  This is primarily a configuration management practice.  Modern software has become increasingly complex to manage and config management is just no longer sufficient for the task.
 
-The core system provides primitives to manage the following:
-* Runtime Environments: Threeport provisions and manages Kubernetes clusters for your
-  applications to run in.
-* Support Services: Applications running on Kubernetes require support services that are 
-  installed on the cluster to serve the workloads that run there. This includes things like 
-  ingress request routing, TLS asset management, DNS record management, secrets management, 
-  log aggregation, monitoring, etc. Threeport will install these support services and 
-  configure them for your app as needed.
-* Managed Services: Many applications use cloud provider-managed services such as databases 
-  and object storage buckets as dependencies. Using Threeport, you can declare those 
-  dependencies and those services will get provisioned and connected to your workloads when 
-  deployed.
-* Workloads: These are the individual pieces of software that comprise your application. 
-  Threeport installs and manages these tenant workloads with their runtime, support
-  service and managed service dependencies.
+Threeport takes a software engineering approach - rather than a config management approach - to application platforms.  "Application Orchestration" is what we call this approach.
 
-The core control plane has the following features:
-* Orchestration: Provide a concise workload config that declares your app's dependencies and 
-  the Threeport control plane coordinates the deployment of your app and satisfies its 
-  dependencies without the need for multiple tools and 1000's of lines of configuration.
-* Resilience: The control plane can be installed across multiple regions to provide 
-  resilience and availability in the event of a cloud provider regional outage.
-* Scalability: The control plane's API and controllers are massively scalable and can manage 
-  thousands of applications along with their dependencies.
-* Convenience: It is easy to get started and deploy simple applications. Using the Threeport 
-  CLI, you can deploy Threeport locally or to your cloud provider with a single command.
-* Extensibility: The core system is infinitely extensible with custom modules to provide 
-  extremely low configuration overhead, even for the most complex applications.
+To learn more on this topic, see the [Application Orchestration concepts document](https://threeport.io/concepts/application-orchestration).
 
-## Software Development Kit
+Fundamentally, Threeport exists to reduce engineering toil, improve resource
+consumption efficiency, and make the most complex software systems manageable by
+relatively small teams.  This leads to the delivery of more feature-rich and
+more reliable software with lower infrastructure and engineering costs.
 
-The software development kit is used by platform engineers to extend the Threeport Core with custom modules. 
-These modules can be developed by the open source community, 3rd party providers or in-house 
-teams. Threeport modules can add support for any cloud provider, runtime environment, managed 
-service or support service. This extensibility ensures seamless delivery of complex 
-applications while minimizing configuration overhead. Custom modules developed with the SDK 
-enable maximum operational efficiency, even for the most complex applications.
-
-## Application Orchestration vs GitOps
-
-Threeport implements Application Orchestration, an approach that uses software engineering 
-rather than configuration management to handle software delivery. While GitOps (implemented 
-by tools like ArgoCD and Flux) works fine for simple applications, it tends to break down as 
-the applications become more sophisticated. Application Orchestration provides better 
-maintainability as systems grow in complexity.
+Better software.  Lower costs.
 
 ## Resources
 
@@ -72,7 +35,4 @@ If you're interested in contributing to Threeport, please see our
 
 ## Note
 
-Threeport is still in early development. APIs may change without notice until the 1.0 
-release. At this time, do not build any integrations with the Threeport API that are used 
-for critical production systems. With the 1.0 release, APIs will stabilize and backward 
-compatibility will be guaranteed.
+Threeport is still in relatively early development. APIs may change without notice until the 1.0 release. At this time, do not build any integrations with the Threeport API that are used for critical production systems. With the 1.0 release, APIs will stabilize and backward compatibility will be guaranteed.
