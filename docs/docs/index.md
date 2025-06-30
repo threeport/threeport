@@ -15,12 +15,12 @@ Threeport consists of two parts:
 
 Software delivery had been dominated by DevOps practices for the past decade or so.  This is primarily a configuration management practice.  Modern software has become increasingly complex to manage and config management is just no longer sufficient for the task.
 
-Threeport takes a software engineering approach - rather than a config management approach - to application platforms.  "Application Orchestration" is what we call this approach.
+Threeport takes a software engineering - rather than a config management - approach to application platforms.  We call this "Application Orchestration."
 
 To learn more on this topic, see the [Application Orchestration concepts document](./concepts/application-orchestration.md).
 
 Fundamentally, Threeport exists to reduce engineering toil, improve resource
-consumption efficiency, and make the most complex software systems manageable by
+efficiency, and make the most complex software systems manageable by
 relatively small teams.  This leads to the delivery of more feature-rich and
 more reliable software with lower infrastructure and engineering costs.
 
