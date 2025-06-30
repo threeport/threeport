@@ -20,7 +20,7 @@ Threeport takes a software engineering - rather than a config management - appro
 To learn more on this topic, see the [Application Orchestration concepts document](https://threeport.io/concepts/application-orchestration).
 
 Fundamentally, Threeport exists to reduce engineering toil, improve resource
-consumption efficiency, and make the most complex software systems manageable by
+efficiency, and make the most complex software systems manageable by
 relatively small teams.  This leads to the delivery of more feature-rich and
 more reliable software with lower infrastructure and engineering costs.
 
