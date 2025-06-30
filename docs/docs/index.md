@@ -8,7 +8,7 @@ What is platform engineering?  It is a software engineering discipline focused o
 
 Threeport consists of two parts:
 
-1. Threeport Core: The core components of an application platform.  It includes an API server, database and message broker.  For more detail, see the [Threeport Core architecture document](./architecture/threeport-core.md).
+1. Threeport Core: The core components of an application platform.  It includes an API server, database, message broker and core modules.  Modules abstract and automate distinct platform engineering concerns.  For more detail, see the [Threeport Core architecture document](./architecture/threeport-core.md).
 2. Threeport SDK: A framework for building independent modules to add to Threeport Core.  The SDK is Ruby on Rails for application platforms.  To learn more about the SDK, see the [Threeport SDK Introduction document](./sdk/sdk-intro.md).
 
 ## Motivation
