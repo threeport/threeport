@@ -34,7 +34,7 @@ The table below helps illustrate the difference between the approaches.
 |  | **Config Management** | **Application Orchestration** |
 |---|---|---|
 | Team Sepciality | DevOps | Platform engineering |
-| Primary Focus | Text configs, templates, pipelines | Software controllers, Threeport modules |
+| Primary Focus | Text configs, templates, pipelines | Threeport modules (software service or controller) |
 | Skillset | Tools like Helm, Terraform, Crossplane | Software development |
 | Languages | JSON, YAML, HCL, templating languages | Programming languages, primarily Go |
 | Source of Truth | Text files configs in Git | Threeport database |
