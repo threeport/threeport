@@ -25,7 +25,7 @@ The end result of config management systems is a rapid deterioration of maintain
 
 ## Application Orchestration Approach
 
-With Threeport, we use a software engineering approach to solving the challenge of software delivery.  Request-driven, event-driven and service oriented architectures are powerful and effective when executed well.  We are applying these principles to application platforms.
+With Threeport, we use a software engineering approach to solving the challenge of software delivery.  Event-driven and service-oriented architectures are powerful and effective when executed well.  We are applying these principles to application platforms.
 
 One way to think about Threeport is that it is Ruby on Rails for application platforms.
 
