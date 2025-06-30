@@ -19,7 +19,7 @@ The following outline the primary requirements used to develop Threeport Core.
 
 * Scalable: All components of Threeport Core are designed to scale to meet the global needs of an organization's software delivery.  The API, and all controllers are horizontally scalable.
 * Resilient: Threeport Core is designed to be installed across multiple regions to remain functional in the event of a regional outage.
-* Extensible: The core system is designed to accept module additions so that all common and specialized requirements can be accomodated in a single, coherent system.
+* Extensible: Threeport Core is extensible via modules so that all common and specialized requirements can be accommodated in a single, coherent system.
 
 ## Foundational Principles
 
