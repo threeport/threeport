@@ -1,6 +1,6 @@
 # Application Orchestration
 
-Application orchestration is an approach to software delivery that favors software engineering over configuration management.  We employ distributed software systems that incorporate request-driven architecture, event-driven architecture and service-oriented systems to manage the deployment and ongoing management of applications.
+Application orchestration is an approach to software delivery that favors software engineering over configuration management.  Similar to how user-facing applications are often designed, Threeport employs event-driven and service-oriented architecture to manage the deployment and ongoing management of applications.
 
 In order to clarify, let's compare two approaches:
 
