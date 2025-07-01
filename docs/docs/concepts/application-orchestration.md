@@ -1,44 +1,49 @@
 # Application Orchestration
 
-App Orchestration is a programmatic approach to software delivery
-that facilitates the use of software systems to manage the deployment and
-ongoing management of apps.
+Application orchestration is an approach to software delivery that favors software engineering over configuration management.  Similar to how user-facing applications are often designed, Threeport employs event-driven and service-oriented architecture to manage the deployment and ongoing management of applications.
 
-This is the approach used with Threeport.  Applications don't exist in a vacuum.
-They have dependencies.  Threeport manages all the dependencies for an
-application so that a development team can start with absolutely no
-infrastructure or runtime environment and readily deploy their application using
-Threeport.
+In order to clarify, let's compare two approaches:
 
-Threeport treats the following concerns as application dependencies:
+1. Configuration Management Approach:  This is commonly what is used today with DevOps platforms.
+2. Application Orchestration Approach: This is a software engineering approach to  the development of application platforms.
 
-* Cloud Infrastructure: Threeport orchestrates the provisioning, availability
-  and autoscaling of all compute and networking infra needed to run an
-  application.
-* Container Orchestration: Kubernetes is the most capable runtime environment
-  for cloud native software.  Threeport installs and configures Kubernetes
-  environments for the application being deployed.
-* Support Services: Applications need support services installed on Kubernetes
-  to provide things like network connectivity, TLS termination, DNS record
-  management, secrets, metrics and log aggregation.  Threeport installs and
-  configures these support services for each application deployed.
-* Managed Services: Many applications use cloud provider and/or commercial
-  managed services such as databases or observability services as a part of
-  their stack.  Threeport orchestrates the provisioning and connectivity for
-  the application's workloads to make these managed services available.
+## Configuration Management Approach
 
-The ultimate end-user of Threeport is the developer or operator that needs to
-deploy and manage instances of their applications - for development, testing,
-staging or production. The user provides a config for their app that declares
-its dependencies.  Threeport orchestrates the delivery of the application
-workloads along with all their dependencies.
+Before "cloud native" systems we used tools like Ansible, Chef and Puppet to install apps on remote servers.  Because every tool has its limitations, we also developed Continuous Delivery (CD) pipelines to plumb together multiple steps using different tools. Infrastructure-as-Code became a buzz word that applied config management to cloud services.  As Docker and containerization became prevalent, we invented GitOps to implement config management principles to a new abstraction layer: Kubernetes.
 
-![Threeport Developer Experience](../img/ThreeportDevExperience.png)
+Config management deals in large part with data serialization languages, e.g. JSON and YAML to define the desired state of a system.  As systems become more complex, the configuration quickly becomes vast and infeasible to manage as static config assets.
+
+In order to bridge this gap we have used several different workarounds:
+
+1. Domain specific languages: HashiCorp Config Language (HCL) is a good example of this which introduces some control flow constructs to help manage complex configs.
+2. Templating systems: Helm is an example of a system that uses a templating language to produce large static configs.  Again control flow constructs are used to produce conditional and looping logic to manage vast configurations.
+3. Overlay systems: Kustomize is an example of an overlay system that takes a base configuration, then adds, removes or replace elements for different use cases.
+
+The problem with both DSLs, templates and overlays is that they manage logical constructs poorly when compared to general purpose programming languages.
+
+The end result of config management systems is a rapid deterioration of maintainability as complexity grows.  Because of their limitations, they become littered with workarounds, complex combinations and enormous text file configs that are very challenging for humans to manage.
+
+## Application Orchestration Approach
+
+With Threeport, we use a software engineering approach to solving the challenge of software delivery.  Event-driven and service-oriented architectures are powerful and effective when executed well.  We are applying these principles to application platforms.
+
+One way to think about Threeport is that it is Ruby on Rails for application platforms.
+
+The table below helps illustrate the difference between the approaches.
+
+|  | **Config Management** | **Application Orchestration** |
+|---|---|---|
+| Team Sepciality | DevOps | Platform engineering |
+| Primary Focus | Text configs, templates, pipelines | Threeport modules (software service or controller) |
+| Skillset | Tools like Helm, Terraform, Crossplane | Software development |
+| Languages | JSON, YAML, HCL, templating languages | Programming languages, primarily Go |
+| Source of Truth | Text files configs in Git | Threeport database |
+| Tradeoff | Easy to get started, doesn't scale well with complexity | Requires software development, scales well with complexity |
+| Result | Platform teams usually need to execute deployments and upgrades for dev teams | Self-service app platform for dev teams to deploy and upgrade their apps |
 
 ## Continuous Delivery & GitOps
 
-For comparison, let's look at common methods that have been used for software
-delivery in the past.
+This section delves a little deeper into configuration management in its modern forms with CD and GitOps.
 
 CD and GitOps are primarily adaptations using CLI tools that humans use.  They
 were an improvement on run books used by system admins in days gone by, and they
@@ -96,7 +101,9 @@ In summary, GitOps is OK early in early development.  However, it becomes entire
 inelegant as complexity scales up - as it inevitably does when the realities of
 production hit and as requirements for your software accumulate.
 
-## Software Delivery Orchestration with Threeport
+## Threeport
+
+This section dives deeper into the approach taken with Threeport in juxtaposition with CD and GitOps.
 
 In contrast to config languages and templating languages, general purpose
 programming languages like Java, Python and Go are designed to
@@ -176,14 +183,14 @@ through the Threeport control plane.
 
 ## Summary
 
-Software delivery orchestration uses a control plane to manage application
-deployment and management.  It scales well with complex software systems that
+Application orchestration uses a control plane to execute application
+deployment and ongoing management.  It scales well with complex software systems that
 have many dependencies on infrastructure and other services.
 
 Cloud native systems were enabled by container orchestration with Kubernetes.
 It alleviated the need to use config management with tools like Ansible, Chef
 and Puppet because a control plane took responsibility for reconciling state
-across clusters of machines.  Software delivery orchestration removes the need
+across clusters of machines.  App orchestration removes the need
 to use config tools to define our applications and their dependencies
 because a control plane becomes responsible for stitching all these elements
 together to produce a running app.
@@ -193,4 +200,3 @@ together to produce a running app.
 To get a practical understanding of how Threeport manages delivery, check out
 our [Getting Started page](../getting-started.md) which provides the steps to
 install Threeport and use it to deploy a sample application.
-
