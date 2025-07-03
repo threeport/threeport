@@ -23,9 +23,10 @@ type SdkConfig struct {
 	// domain name you own to make it globally unique.
 	ApiNamespace string `yaml:"ApiNamespace"`
 
-	// The image repository that will be used for builds of module
-	// components.
-	ImageRepo string `yaml:"ImageRepo"`
+	// The image namespace that will be used to store images for the module.
+	// Image namespace consists of `registry/namespace`, e.g. `docker.io/threeport`.
+	// A repository for each module will be created in this namespace.
+	ImageNamespace string `yaml:"ImageNamespace"`
 
 	// Details to be displayed with the API swagger docs that are served by the
 	// API server.

@@ -27,8 +27,10 @@ go mod init wordpress-threeport-module
 ## Create SDK Config
 
 Create a new file at the root of the repo called `sdk-config.yaml` with the
-following contents.  Replace the `ImageRepo` value for one that you have access
-to.
+following contents.  Replace the `ImageNamespace` value for one that you have access
+to.  The image namespace consists of the image registry and the namespace - which is usually
+a username or organization name, e.g. `docker.io/myuser`.  Multiple image repos will be
+created in this namespace; one for each module component.
 
 ```yaml
 ModuleName: Wordpress
@@ -38,7 +40,7 @@ ApiDocs:
   Description: API server for the Threeport WordPress module.
   ContactName: John Doe
   ContactEmail: john@example.com
-ImageRepo: ghcr.io/myorg/myimage
+ImageNamespace: ghcr.io/myorg
 ApiObjectGroups:
 - Name: wordpress
   Objects:
