@@ -248,10 +248,10 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("installCmd").Dot("Flags").Call().Dot("StringVarP").Call(
 			Line().Op("&").Id("controlPlaneImageRepo"),
 			Line().List(
-				Lit("control-plane-image-repo"),
+				Lit("control-plane-image-namespace"),
 				Lit("r"),
 				Qual(installerPkg, "ReleaseImageRepo"),
-				Lit("Image repo to pull threeport control plane images from."),
+				Lit("Image namespace to pull threeport control plane images from."),
 			),
 			Line(),
 		),
@@ -264,7 +264,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					fmt.Sprintf("%s/internal/version", gen.ModulePath),
 					"GetVersion",
 				).Call(),
-				Lit("Image tag to pull threeport control plane images from."),
+				Lit("Image tag for threeport control plane images."),
 			),
 			Line(),
 		),

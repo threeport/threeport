@@ -290,7 +290,7 @@ func runTptctlUp() error {
 		threeportName,
 		"--provider",
 		provider,
-		"--control-plane-image-repo",
+		"--control-plane-image-namespace",
 		getImageRepo(imageRepo),
 		"--control-plane-image-tag",
 		imageTag,
