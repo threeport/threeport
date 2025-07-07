@@ -106,18 +106,22 @@ func init() {
 	)
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	cobra.OnInitialize(func() {
-		cli.InitConfig(cliArgs.CfgFile)
 		cli.InitArgs(cliArgs)
 	})
 }
 
+// CommandPreRunFunc is a function that is called before the command is executed.
+// It initializes the config and the command context.
 func CommandPreRunFunc(cmd *cobra.Command, args []string) {
+	cli.InitConfig(cmd, cliArgs.CfgFile)
+
 	if err := initializeCommandContext(cmd); err != nil {
 		cli.Error("could not initialize command in pre run:", err)
 		os.Exit(1)
 	}
 }
 
+// initializeCommandContext initializes the command context.
 func initializeCommandContext(cmd *cobra.Command) error {
 	// get threeport config and extract threeport API endpoint
 	threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
@@ -144,6 +148,7 @@ func initializeCommandContext(cmd *cobra.Command) error {
 	return nil
 }
 
+// GetClientContext gets the client context from the command context.
 func GetClientContext(cmd *cobra.Command) (*http.Client, *config.ThreeportConfig, string, string) {
 	var apiClient *http.Client
 	var threeportConfig *config.ThreeportConfig

@@ -26,6 +26,7 @@ var ConfigCurrentControlPlaneCmd = &cobra.Command{
 	Long: `Set a threeport control plane as the current in-use control plane.  Once set as
 the current control plane all subsequent tptctl commands will apply to that Threeport
 control plane.`,
+	PreRun:       CommandPreRunFunc,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
@@ -183,7 +184,10 @@ func updateThreeportConfigWithControlPlaneInstance(apiClient *http.Client, apiEn
 		}
 	}
 
-	config.UpdateThreeportConfig(threeportConfig, threeportControlPlaneConfig)
+	if err := config.UpdateThreeportConfig(threeportConfig, threeportControlPlaneConfig); err != nil {
+		cli.Error("failed to update threeport config", err)
+		os.Exit(1)
+	}
 }
 
 func init() {

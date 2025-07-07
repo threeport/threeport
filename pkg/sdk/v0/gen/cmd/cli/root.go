@@ -89,17 +89,21 @@ func GenPluginRootCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		),
 		Qual("github.com/spf13/cobra", "OnInitialize").Call(
 			Func().Params().Block(
-				Id("cli").Dot("InitConfig").Call(Id("cliArgs").Dot("CfgFile")),
 				Id("cli").Dot("InitArgs").Call(Id("cliArgs")),
 			),
 		),
 	)
 	f.Line()
 
+	f.Comment("CommandPreRunFunc is a function that is called before the command is executed.")
+	f.Comment("It initializes the config and the command context.")
 	f.Func().Id("CommandPreRunFunc").Params(
 		Id("cmd").Op("*").Qual("github.com/spf13/cobra", "Command"),
 		Id("args").Index().String(),
 	).Block(
+		Id("cli").Dot("InitConfig").Call(Id("cmd"), Id("cliArgs").Dot("CfgFile")),
+		Line(),
+
 		If(
 			Err().Op(":=").Id("initializeCommandContext").Call(Id("cmd")),
 			Err().Op("!=").Nil(),
@@ -110,6 +114,7 @@ func GenPluginRootCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
+	f.Comment("initializeCommandContext initializes the command context.")
 	f.Func().Id("initializeCommandContext").Params(
 		Id("cmd").Op("*").Qual("github.com/spf13/cobra", "Command"),
 	).Params(
