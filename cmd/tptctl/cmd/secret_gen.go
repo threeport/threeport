@@ -55,7 +55,7 @@ var GetSecretDefinitionsCmd = &cobra.Command{
 				apiEndpoint,
 			); err != nil {
 				cli.Error("failed to produce output", err)
-				os.Exit(0)
+				os.Exit(1)
 			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
@@ -464,7 +464,7 @@ var GetSecretsCmd = &cobra.Command{
 			apiEndpoint,
 		); err != nil {
 			cli.Error("failed to produce output: %s", err)
-			os.Exit(0)
+			os.Exit(1)
 		}
 	},
 	Short:        "Get secrets from the system",
@@ -664,7 +664,7 @@ var GetSecretInstancesCmd = &cobra.Command{
 				apiEndpoint,
 			); err != nil {
 				cli.Error("failed to produce output", err)
-				os.Exit(0)
+				os.Exit(1)
 			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
