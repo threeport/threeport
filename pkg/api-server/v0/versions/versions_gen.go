@@ -33,6 +33,8 @@ func AddVersions() {
 	AddMetricsInstanceVersions()
 	AddModuleApiVersions()
 	AddModuleApiRouteVersions()
+	AddModuleControllerVersions()
+	AddModuleObjectVersions()
 	AddObservabilityDashboardDefinitionVersions()
 	AddObservabilityDashboardInstanceVersions()
 	AddObservabilityStackDefinitionVersions()

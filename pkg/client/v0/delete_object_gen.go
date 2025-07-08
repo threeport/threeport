@@ -161,6 +161,16 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 			return fmt.Errorf("failed to delete ModuleApiRoute: %w", err)
 		}
 
+	case "v0.ModuleController":
+		if _, err := DeleteModuleController(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete ModuleController: %w", err)
+		}
+
+	case "v0.ModuleObject":
+		if _, err := DeleteModuleObject(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete ModuleObject: %w", err)
+		}
+
 	case "v0.ObservabilityDashboardDefinition":
 		if _, err := DeleteObservabilityDashboardDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete ObservabilityDashboardDefinition: %w", err)

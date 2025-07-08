@@ -172,6 +172,16 @@ func (ModuleApiRoute) TableName() string {
 	return "v0_module_api_routes"
 }
 
+// TableName sets the name of the table for the ModuleController objects in the database.
+func (ModuleController) TableName() string {
+	return "v0_module_controllers"
+}
+
+// TableName sets the name of the table for the ModuleObject objects in the database.
+func (ModuleObject) TableName() string {
+	return "v0_module_objects"
+}
+
 // TableName sets the name of the table for the ObservabilityDashboardDefinition objects in the database.
 func (ObservabilityDashboardDefinition) TableName() string {
 	return "v0_observability_dashboard_definitions"

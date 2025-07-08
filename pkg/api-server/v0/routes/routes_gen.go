@@ -39,6 +39,8 @@ func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	MetricsInstanceRoutes(e, h)
 	ModuleApiRoutes(e, h)
 	ModuleApiRouteRoutes(e, h)
+	ModuleControllerRoutes(e, h)
+	ModuleObjectRoutes(e, h)
 	ObservabilityDashboardDefinitionRoutes(e, h)
 	ObservabilityDashboardInstanceRoutes(e, h)
 	ObservabilityStackDefinitionRoutes(e, h)

@@ -38,6 +38,8 @@ var (
 	MetricsInstanceTaggedFields                   = make(map[string]*apiserver_lib.FieldsByTag)
 	ModuleApiTaggedFields                         = make(map[string]*apiserver_lib.FieldsByTag)
 	ModuleApiRouteTaggedFields                    = make(map[string]*apiserver_lib.FieldsByTag)
+	ModuleControllerTaggedFields                  = make(map[string]*apiserver_lib.FieldsByTag)
+	ModuleObjectTaggedFields                      = make(map[string]*apiserver_lib.FieldsByTag)
 	ObservabilityDashboardDefinitionTaggedFields  = make(map[string]*apiserver_lib.FieldsByTag)
 	ObservabilityDashboardInstanceTaggedFields    = make(map[string]*apiserver_lib.FieldsByTag)
 	ObservabilityStackDefinitionTaggedFields      = make(map[string]*apiserver_lib.FieldsByTag)

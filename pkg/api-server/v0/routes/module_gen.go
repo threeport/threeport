@@ -31,3 +31,27 @@ func ModuleApiRouteRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.PUT(v0.PathModuleApiRoutes+"/:id", h.ReplaceModuleApiRoute)
 	e.DELETE(v0.PathModuleApiRoutes+"/:id", h.DeleteModuleApiRoute)
 }
+
+// ModuleControllerRoutes sets up all routes for the ModuleController handlers.
+func ModuleControllerRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET(v0.PathModuleControllerVersions, h.GetModuleControllerVersions)
+
+	e.POST(v0.PathModuleControllers, h.AddModuleController)
+	e.GET(v0.PathModuleControllers, h.GetModuleControllers)
+	e.GET(v0.PathModuleControllers+"/:id", h.GetModuleController)
+	e.PATCH(v0.PathModuleControllers+"/:id", h.UpdateModuleController)
+	e.PUT(v0.PathModuleControllers+"/:id", h.ReplaceModuleController)
+	e.DELETE(v0.PathModuleControllers+"/:id", h.DeleteModuleController)
+}
+
+// ModuleObjectRoutes sets up all routes for the ModuleObject handlers.
+func ModuleObjectRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET(v0.PathModuleObjectVersions, h.GetModuleObjectVersions)
+
+	e.POST(v0.PathModuleObjects, h.AddModuleObject)
+	e.GET(v0.PathModuleObjects, h.GetModuleObjects)
+	e.GET(v0.PathModuleObjects+"/:id", h.GetModuleObject)
+	e.PATCH(v0.PathModuleObjects+"/:id", h.UpdateModuleObject)
+	e.PUT(v0.PathModuleObjects+"/:id", h.ReplaceModuleObject)
+	e.DELETE(v0.PathModuleObjects+"/:id", h.DeleteModuleObject)
+}
