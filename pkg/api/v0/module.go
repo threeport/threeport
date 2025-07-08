@@ -59,6 +59,9 @@ type ModuleObject struct {
 	// The name of the API object.
 	Name *string `json:"Name,omitempty" query:"name" validate:"required" gorm:"not null"`
 
+	// The version of the API object, expressed as `v0`, `v1`, `v2`, etc.
+	Version *string `json:"Version,omitempty" query:"version" validate:"required" gorm:"not null"`
+
 	// If true, only accessible to internal controllers that are a part of the
 	// Threeport control plane.  Threeport users cannot access if true.
 	InternalOnly *bool `json:"InternalOnly,omitempty" query:"internalonly" validate:"optional" gorm:"defatul:false"`
