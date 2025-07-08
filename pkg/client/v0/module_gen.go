@@ -482,3 +482,473 @@ func DeleteModuleApiRoute(apiClient *http.Client, apiAddr string, id uint) (*v0.
 
 	return &moduleApiRoute, nil
 }
+
+// GetModuleControllers fetches all module controllers.
+// TODO: implement pagination
+func GetModuleControllers(apiClient *http.Client, apiAddr string) (*[]v0.ModuleController, error) {
+	var moduleControllers []v0.ModuleController
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s", apiAddr, v0.PathModuleControllers),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &moduleControllers, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &moduleControllers, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleControllers); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &moduleControllers, nil
+}
+
+// GetModuleControllerByID fetches a module controller by ID.
+func GetModuleControllerByID(apiClient *http.Client, apiAddr string, id uint) (*v0.ModuleController, error) {
+	var moduleController v0.ModuleController
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleControllers, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &moduleController, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &moduleController, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleController); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &moduleController, nil
+}
+
+// GetModuleControllersByQueryString fetches module controllers by provided query string.
+func GetModuleControllersByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.ModuleController, error) {
+	var moduleControllers []v0.ModuleController
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathModuleControllers, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &moduleControllers, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &moduleControllers, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleControllers); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &moduleControllers, nil
+}
+
+// GetModuleControllerByName fetches a module controller by name.
+func GetModuleControllerByName(apiClient *http.Client, apiAddr, name string) (*v0.ModuleController, error) {
+	var moduleControllers []v0.ModuleController
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathModuleControllers, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.ModuleController{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.ModuleController{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleControllers); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(moduleControllers) < 1:
+		return &v0.ModuleController{}, errors.New(fmt.Sprintf("no module controller with name %s", name))
+	case len(moduleControllers) > 1:
+		return &v0.ModuleController{}, errors.New(fmt.Sprintf("more than one module controller with name %s returned", name))
+	}
+
+	return &moduleControllers[0], nil
+}
+
+// CreateModuleController creates a new module controller.
+func CreateModuleController(apiClient *http.Client, apiAddr string, moduleController *v0.ModuleController) (*v0.ModuleController, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(moduleController)
+	jsonModuleController, err := util.MarshalObject(moduleController)
+	if err != nil {
+		return moduleController, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s", apiAddr, v0.PathModuleControllers),
+		http.MethodPost,
+		bytes.NewBuffer(jsonModuleController),
+		map[string]string{},
+		http.StatusCreated,
+	)
+	if err != nil {
+		return moduleController, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return moduleController, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleController); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return moduleController, nil
+}
+
+// UpdateModuleController updates a module controller.
+func UpdateModuleController(apiClient *http.Client, apiAddr string, moduleController *v0.ModuleController) (*v0.ModuleController, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(moduleController)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	moduleControllerID := *moduleController.ID
+	payloadModuleController := *moduleController
+	payloadModuleController.ID = nil
+	payloadModuleController.CreatedAt = nil
+	payloadModuleController.UpdatedAt = nil
+
+	jsonModuleController, err := util.MarshalObject(payloadModuleController)
+	if err != nil {
+		return moduleController, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleControllers, moduleControllerID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonModuleController),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return moduleController, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return moduleController, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadModuleController); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadModuleController.ID = &moduleControllerID
+	return &payloadModuleController, nil
+}
+
+// DeleteModuleController deletes a module controller by ID.
+func DeleteModuleController(apiClient *http.Client, apiAddr string, id uint) (*v0.ModuleController, error) {
+	var moduleController v0.ModuleController
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleControllers, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &moduleController, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &moduleController, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleController); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &moduleController, nil
+}
+
+// GetModuleObjects fetches all module objects.
+// TODO: implement pagination
+func GetModuleObjects(apiClient *http.Client, apiAddr string) (*[]v0.ModuleObject, error) {
+	var moduleObjects []v0.ModuleObject
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s", apiAddr, v0.PathModuleObjects),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &moduleObjects, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &moduleObjects, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleObjects); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &moduleObjects, nil
+}
+
+// GetModuleObjectByID fetches a module object by ID.
+func GetModuleObjectByID(apiClient *http.Client, apiAddr string, id uint) (*v0.ModuleObject, error) {
+	var moduleObject v0.ModuleObject
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleObjects, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &moduleObject, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &moduleObject, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleObject); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &moduleObject, nil
+}
+
+// GetModuleObjectsByQueryString fetches module objects by provided query string.
+func GetModuleObjectsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.ModuleObject, error) {
+	var moduleObjects []v0.ModuleObject
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathModuleObjects, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &moduleObjects, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &moduleObjects, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleObjects); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &moduleObjects, nil
+}
+
+// GetModuleObjectByName fetches a module object by name.
+func GetModuleObjectByName(apiClient *http.Client, apiAddr, name string) (*v0.ModuleObject, error) {
+	var moduleObjects []v0.ModuleObject
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathModuleObjects, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.ModuleObject{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.ModuleObject{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleObjects); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(moduleObjects) < 1:
+		return &v0.ModuleObject{}, errors.New(fmt.Sprintf("no module object with name %s", name))
+	case len(moduleObjects) > 1:
+		return &v0.ModuleObject{}, errors.New(fmt.Sprintf("more than one module object with name %s returned", name))
+	}
+
+	return &moduleObjects[0], nil
+}
+
+// CreateModuleObject creates a new module object.
+func CreateModuleObject(apiClient *http.Client, apiAddr string, moduleObject *v0.ModuleObject) (*v0.ModuleObject, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(moduleObject)
+	jsonModuleObject, err := util.MarshalObject(moduleObject)
+	if err != nil {
+		return moduleObject, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s", apiAddr, v0.PathModuleObjects),
+		http.MethodPost,
+		bytes.NewBuffer(jsonModuleObject),
+		map[string]string{},
+		http.StatusCreated,
+	)
+	if err != nil {
+		return moduleObject, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return moduleObject, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleObject); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return moduleObject, nil
+}
+
+// UpdateModuleObject updates a module object.
+func UpdateModuleObject(apiClient *http.Client, apiAddr string, moduleObject *v0.ModuleObject) (*v0.ModuleObject, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(moduleObject)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	moduleObjectID := *moduleObject.ID
+	payloadModuleObject := *moduleObject
+	payloadModuleObject.ID = nil
+	payloadModuleObject.CreatedAt = nil
+	payloadModuleObject.UpdatedAt = nil
+
+	jsonModuleObject, err := util.MarshalObject(payloadModuleObject)
+	if err != nil {
+		return moduleObject, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleObjects, moduleObjectID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonModuleObject),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return moduleObject, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return moduleObject, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadModuleObject); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadModuleObject.ID = &moduleObjectID
+	return &payloadModuleObject, nil
+}
+
+// DeleteModuleObject deletes a module object by ID.
+func DeleteModuleObject(apiClient *http.Client, apiAddr string, id uint) (*v0.ModuleObject, error) {
+	var moduleObject v0.ModuleObject
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleObjects, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &moduleObject, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &moduleObject, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleObject); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &moduleObject, nil
+}

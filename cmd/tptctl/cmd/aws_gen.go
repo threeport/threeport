@@ -55,7 +55,7 @@ var GetAwsAccountsCmd = &cobra.Command{
 				apiEndpoint,
 			); err != nil {
 				cli.Error("failed to produce output", err)
-				os.Exit(0)
+				os.Exit(1)
 			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
@@ -466,7 +466,7 @@ var GetAwsEksKubernetesRuntimeDefinitionsCmd = &cobra.Command{
 				apiEndpoint,
 			); err != nil {
 				cli.Error("failed to produce output", err)
-				os.Exit(0)
+				os.Exit(1)
 			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
@@ -873,7 +873,7 @@ var GetAwsEksKubernetesRuntimesCmd = &cobra.Command{
 			apiEndpoint,
 		); err != nil {
 			cli.Error("failed to produce output: %s", err)
-			os.Exit(0)
+			os.Exit(1)
 		}
 	},
 	Short:        "Get aws eks kubernetes runtimes from the system",
@@ -1071,7 +1071,7 @@ var GetAwsEksKubernetesRuntimeInstancesCmd = &cobra.Command{
 				apiEndpoint,
 			); err != nil {
 				cli.Error("failed to produce output", err)
-				os.Exit(0)
+				os.Exit(1)
 			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
@@ -1482,7 +1482,7 @@ var GetAwsObjectStorageBucketDefinitionsCmd = &cobra.Command{
 				apiEndpoint,
 			); err != nil {
 				cli.Error("failed to produce output", err)
-				os.Exit(0)
+				os.Exit(1)
 			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
@@ -1889,7 +1889,7 @@ var GetAwsObjectStorageBucketsCmd = &cobra.Command{
 			apiEndpoint,
 		); err != nil {
 			cli.Error("failed to produce output: %s", err)
-			os.Exit(0)
+			os.Exit(1)
 		}
 	},
 	Short:        "Get aws object storage buckets from the system",
@@ -2087,7 +2087,7 @@ var GetAwsObjectStorageBucketInstancesCmd = &cobra.Command{
 				apiEndpoint,
 			); err != nil {
 				cli.Error("failed to produce output", err)
-				os.Exit(0)
+				os.Exit(1)
 			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
@@ -2498,7 +2498,7 @@ var GetAwsRelationalDatabaseDefinitionsCmd = &cobra.Command{
 				apiEndpoint,
 			); err != nil {
 				cli.Error("failed to produce output", err)
-				os.Exit(0)
+				os.Exit(1)
 			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
@@ -2905,7 +2905,7 @@ var GetAwsRelationalDatabasesCmd = &cobra.Command{
 			apiEndpoint,
 		); err != nil {
 			cli.Error("failed to produce output: %s", err)
-			os.Exit(0)
+			os.Exit(1)
 		}
 	},
 	Short:        "Get aws relational databases from the system",
@@ -3103,7 +3103,7 @@ var GetAwsRelationalDatabaseInstancesCmd = &cobra.Command{
 				apiEndpoint,
 			); err != nil {
 				cli.Error("failed to produce output", err)
-				os.Exit(0)
+				os.Exit(1)
 			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))

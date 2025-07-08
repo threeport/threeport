@@ -290,3 +290,9 @@ ApiObjectGroups:
     - Name: ModuleApiRoute
       Versions:
         - v0
+    - Name: ModuleController
+      Versions:
+        - v0
+    - Name: ModuleObject
+      Versions:
+        - v0

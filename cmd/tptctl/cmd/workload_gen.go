@@ -55,7 +55,7 @@ var GetWorkloadDefinitionsCmd = &cobra.Command{
 				apiEndpoint,
 			); err != nil {
 				cli.Error("failed to produce output", err)
-				os.Exit(0)
+				os.Exit(1)
 			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
@@ -464,7 +464,7 @@ var GetWorkloadsCmd = &cobra.Command{
 			apiEndpoint,
 		); err != nil {
 			cli.Error("failed to produce output: %s", err)
-			os.Exit(0)
+			os.Exit(1)
 		}
 	},
 	Short:        "Get workloads from the system",
@@ -663,7 +663,7 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 				apiEndpoint,
 			); err != nil {
 				cli.Error("failed to produce output", err)
-				os.Exit(0)
+				os.Exit(1)
 			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))

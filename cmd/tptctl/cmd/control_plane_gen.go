@@ -55,7 +55,7 @@ var GetControlPlaneDefinitionsCmd = &cobra.Command{
 				apiEndpoint,
 			); err != nil {
 				cli.Error("failed to produce output", err)
-				os.Exit(0)
+				os.Exit(1)
 			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
@@ -462,7 +462,7 @@ var GetControlPlanesCmd = &cobra.Command{
 			apiEndpoint,
 		); err != nil {
 			cli.Error("failed to produce output: %s", err)
-			os.Exit(0)
+			os.Exit(1)
 		}
 	},
 	Short:        "Get control planes from the system",
@@ -660,7 +660,7 @@ var GetControlPlaneInstancesCmd = &cobra.Command{
 				apiEndpoint,
 			); err != nil {
 				cli.Error("failed to produce output", err)
-				os.Exit(0)
+				os.Exit(1)
 			}
 		default:
 			cli.Error("", errors.New("unrecognized object version"))

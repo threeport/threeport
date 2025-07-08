@@ -631,3 +631,639 @@ func (h Handler) DeleteModuleApiRoute(c echo.Context) error {
 
 	return apiserver_lib.ResponseStatus200(c, *response)
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// ModuleController
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetModuleControllerVersions gets the supported versions for the module controller API.
+// @Description Get the supported API versions for module controllers.
+// @ID moduleController-get-versions
+// @Produce json
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
+// @Router /module-controllers/versions [GET]
+func (h Handler) GetModuleControllerVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeModuleController)])
+}
+
+// @Summary adds a new module controller.
+// @Description Add a new module controller to the Threeport database.
+// @ID add-v0-moduleController
+// @Accept json
+// @Produce json
+// @Param moduleController body api_v0.ModuleController true "ModuleController object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/module-controllers [POST]
+func (h Handler) AddModuleController(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleController
+	var moduleController api_v0.ModuleController
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, moduleController); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&moduleController); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := apiserver_lib.ValidateBoundData(c, moduleController, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingModuleController api_v0.ModuleController
+	nameUsed := true
+	result := h.DB.Where("name = ?", moduleController.Name).First(&existingModuleController)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&moduleController); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, moduleController, objectType)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all module controllers.
+// @Description Get all module controllers from the Threeport database.
+// @ID get-v0-moduleControllers
+// @Accept json
+// @Produce json
+// @Param name query string false "module controller search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/module-controllers [GET]
+func (h Handler) GetModuleControllers(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleController
+	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
+	}
+
+	var filter api_v0.ModuleController
+	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	var totalCount int64
+	if result := h.DB.Model(&api_v0.ModuleController{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	records := &[]api_v0.ModuleController{}
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a module controller.
+// @Description Get a particular module controller from the database.
+// @ID get-v0-moduleController
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/module-controllers/{id} [GET]
+func (h Handler) GetModuleController(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleController
+	moduleControllerID := c.Param("id")
+	var moduleController api_v0.ModuleController
+	if result := h.DB.First(&moduleController, moduleControllerID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, moduleController, objectType)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing module controller.
+// @Description Update a module controller in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating module controller objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-v0-moduleController
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param moduleController body api_v0.ModuleController true "ModuleController object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/module-controllers/{id} [PATCH]
+func (h Handler) UpdateModuleController(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleController
+	moduleControllerID := c.Param("id")
+	var existingModuleController api_v0.ModuleController
+	if result := h.DB.First(&existingModuleController, moduleControllerID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingModuleController); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedModuleController api_v0.ModuleController
+	if err := c.Bind(&updatedModuleController); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingModuleController).Updates(updatedModuleController); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, existingModuleController, objectType)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing module controller by replacing the entire object.
+// @Description Replace a module controller in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating module controller objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-v0-moduleController
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param moduleController body api_v0.ModuleController true "ModuleController object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/module-controllers/{id} [PUT]
+func (h Handler) ReplaceModuleController(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleController
+	moduleControllerID := c.Param("id")
+	var existingModuleController api_v0.ModuleController
+	if result := h.DB.First(&existingModuleController, moduleControllerID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingModuleController); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedModuleController api_v0.ModuleController
+	if err := c.Bind(&updatedModuleController); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := apiserver_lib.ValidateBoundData(c, updatedModuleController, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedModuleController.ID = existingModuleController.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedModuleController); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingModuleController, moduleControllerID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, existingModuleController, objectType)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a module controller.
+// @Description Delete a module controller by ID from the database.
+// @ID delete-v0-moduleController
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/module-controllers/{id} [DELETE]
+func (h Handler) DeleteModuleController(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleController
+	moduleControllerID := c.Param("id")
+	var moduleController api_v0.ModuleController
+	if result := h.DB.First(&moduleController, moduleControllerID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// delete object
+	if result := h.DB.Delete(&moduleController); result.Error != nil {
+		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, moduleController, objectType)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// ModuleObject
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetModuleObjectVersions gets the supported versions for the module object API.
+// @Description Get the supported API versions for module objects.
+// @ID moduleObject-get-versions
+// @Produce json
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
+// @Router /module-objects/versions [GET]
+func (h Handler) GetModuleObjectVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeModuleObject)])
+}
+
+// @Summary adds a new module object.
+// @Description Add a new module object to the Threeport database.
+// @ID add-v0-moduleObject
+// @Accept json
+// @Produce json
+// @Param moduleObject body api_v0.ModuleObject true "ModuleObject object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/module-objects [POST]
+func (h Handler) AddModuleObject(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleObject
+	var moduleObject api_v0.ModuleObject
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, moduleObject); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&moduleObject); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := apiserver_lib.ValidateBoundData(c, moduleObject, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingModuleObject api_v0.ModuleObject
+	nameUsed := true
+	result := h.DB.Where("name = ?", moduleObject.Name).First(&existingModuleObject)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&moduleObject); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, moduleObject, objectType)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all module objects.
+// @Description Get all module objects from the Threeport database.
+// @ID get-v0-moduleObjects
+// @Accept json
+// @Produce json
+// @Param name query string false "module object search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/module-objects [GET]
+func (h Handler) GetModuleObjects(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleObject
+	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
+	}
+
+	var filter api_v0.ModuleObject
+	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	var totalCount int64
+	if result := h.DB.Model(&api_v0.ModuleObject{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	records := &[]api_v0.ModuleObject{}
+	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a module object.
+// @Description Get a particular module object from the database.
+// @ID get-v0-moduleObject
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/module-objects/{id} [GET]
+func (h Handler) GetModuleObject(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleObject
+	moduleObjectID := c.Param("id")
+	var moduleObject api_v0.ModuleObject
+	if result := h.DB.First(&moduleObject, moduleObjectID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, moduleObject, objectType)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing module object.
+// @Description Update a module object in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating module object objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-v0-moduleObject
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param moduleObject body api_v0.ModuleObject true "ModuleObject object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/module-objects/{id} [PATCH]
+func (h Handler) UpdateModuleObject(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleObject
+	moduleObjectID := c.Param("id")
+	var existingModuleObject api_v0.ModuleObject
+	if result := h.DB.First(&existingModuleObject, moduleObjectID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingModuleObject); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedModuleObject api_v0.ModuleObject
+	if err := c.Bind(&updatedModuleObject); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingModuleObject).Updates(updatedModuleObject); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, existingModuleObject, objectType)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing module object by replacing the entire object.
+// @Description Replace a module object in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating module object objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-v0-moduleObject
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param moduleObject body api_v0.ModuleObject true "ModuleObject object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/module-objects/{id} [PUT]
+func (h Handler) ReplaceModuleObject(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleObject
+	moduleObjectID := c.Param("id")
+	var existingModuleObject api_v0.ModuleObject
+	if result := h.DB.First(&existingModuleObject, moduleObjectID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingModuleObject); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedModuleObject api_v0.ModuleObject
+	if err := c.Bind(&updatedModuleObject); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := apiserver_lib.ValidateBoundData(c, updatedModuleObject, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedModuleObject.ID = existingModuleObject.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedModuleObject); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingModuleObject, moduleObjectID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, existingModuleObject, objectType)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a module object.
+// @Description Delete a module object by ID from the database.
+// @ID delete-v0-moduleObject
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/module-objects/{id} [DELETE]
+func (h Handler) DeleteModuleObject(c echo.Context) error {
+	objectType := api_v0.ObjectTypeModuleObject
+	moduleObjectID := c.Param("id")
+	var moduleObject api_v0.ModuleObject
+	if result := h.DB.First(&moduleObject, moduleObjectID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// delete object
+	if result := h.DB.Delete(&moduleObject); result.Error != nil {
+		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(nil, moduleObject, objectType)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}

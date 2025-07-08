@@ -9,13 +9,19 @@ import (
 )
 
 const (
-	ObjectTypeModuleApi      string = "ModuleApi"
-	ObjectTypeModuleApiRoute string = "ModuleApiRoute"
+	ObjectTypeModuleApi        string = "ModuleApi"
+	ObjectTypeModuleApiRoute   string = "ModuleApiRoute"
+	ObjectTypeModuleController string = "ModuleController"
+	ObjectTypeModuleObject     string = "ModuleObject"
 
-	PathModuleApiVersions      = "/module-apis/versions"
-	PathModuleApis             = "/v0/module-apis"
-	PathModuleApiRouteVersions = "/module-api-routes/versions"
-	PathModuleApiRoutes        = "/v0/module-api-routes"
+	PathModuleApiVersions        = "/module-apis/versions"
+	PathModuleApis               = "/v0/module-apis"
+	PathModuleApiRouteVersions   = "/module-api-routes/versions"
+	PathModuleApiRoutes          = "/v0/module-api-routes"
+	PathModuleControllerVersions = "/module-controllers/versions"
+	PathModuleControllers        = "/v0/module-controllers"
+	PathModuleObjectVersions     = "/module-objects/versions"
+	PathModuleObjects            = "/v0/module-objects"
 )
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -123,5 +129,113 @@ func (mar *ModuleApiRoute) GetType() string {
 
 // Version returns the version of the API object.
 func (mar *ModuleApiRoute) GetVersion() string {
+	return "v0"
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (mc *ModuleController) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime:  &creationTime,
+		Object:        mc,
+		ObjectVersion: mc.GetVersion(),
+		Operation:     operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", mc, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (mc *ModuleController) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &mc); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetId returns the unique ID for the object.
+func (mc *ModuleController) GetId() uint {
+	return *mc.ID
+}
+
+// Type returns the object type.
+func (mc *ModuleController) GetType() string {
+	return "ModuleController"
+}
+
+// Version returns the version of the API object.
+func (mc *ModuleController) GetVersion() string {
+	return "v0"
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (mo *ModuleObject) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime:  &creationTime,
+		Object:        mo,
+		ObjectVersion: mo.GetVersion(),
+		Operation:     operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", mo, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (mo *ModuleObject) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &mo); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetId returns the unique ID for the object.
+func (mo *ModuleObject) GetId() uint {
+	return *mo.ID
+}
+
+// Type returns the object type.
+func (mo *ModuleObject) GetType() string {
+	return "ModuleObject"
+}
+
+// Version returns the version of the API object.
+func (mo *ModuleObject) GetVersion() string {
 	return "v0"
 }
