@@ -7,10 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	config "github.com/threeport/threeport/pkg/config/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
@@ -26,12 +30,41 @@ var UpCmd = &cobra.Command{
 	Long:         `Spin up a new deployment of the Threeport control plane.`,
 	SilenceUsage: true,
 	PreRun: func(cmd *cobra.Command, args []string) {
+		// if using eks provider, ensure aws-region is provided
 		switch cliArgs.InfraProvider {
 		case v0.KubernetesRuntimeInfraProviderEKS:
 			cmd.MarkFlagRequired("aws-region")
 		}
+
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		// create a new threeport config file if it doesn't exist
+		cfgFile := config.DetermineThreeportConfigPath(cliArgs.CfgFile)
+		if _, err := os.Stat(cfgFile); errors.Is(err, os.ErrNotExist) {
+			cfgDir := filepath.Dir(cfgFile)
+			if err := os.MkdirAll(cfgDir, os.ModePerm); err != nil {
+				cli.Error("failed to create directory for Threeport config file", err)
+				os.Exit(1)
+			}
+			if err := viper.WriteConfigAs(cfgFile); err != nil {
+				cli.Error("failed to write Threeport config file to disk", err)
+				os.Exit(1)
+			}
+
+			viper.SetConfigFile(cfgFile)
+
+			// ensure config permissions are read/write for user only
+			if err := os.Chmod(cfgFile, 0600); err != nil {
+				cli.Error("failed to set permissions to read/write only", err)
+				os.Exit(1)
+			}
+
+			if err := viper.ReadInConfig(); err != nil {
+				cli.Error("failed to read config", err)
+				os.Exit(1)
+			}
+		}
+
 		// flag validation
 		if err := cli.ValidateCreateGenesisControlPlaneFlags(
 			cliArgs.ControlPlaneName,
@@ -43,6 +76,7 @@ var UpCmd = &cobra.Command{
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
 		}
+
 		cpi, err := cliArgs.CreateInstaller()
 		if err != nil {
 			cli.Error("failed to create threeport control plane installer", err)
