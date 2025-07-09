@@ -73,7 +73,7 @@ func TestWorkloadE2E(t *testing.T) {
 		}
 
 		// initialize config so we can pull credentials from it
-		cli.InitConfig("")
+		cli.InitConfig(nil, "")
 
 		// get threeport config and configure http client for calls to threeport API
 		threeportConfig, _, err := config.GetThreeportConfig("")

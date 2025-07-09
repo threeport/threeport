@@ -16,7 +16,7 @@ func InitConfig(cmd *cobra.Command, cfgFile string) {
 	cfgFile = config.DetermineThreeportConfigPath(cfgFile)
 
 	// ensure config file exists (except for up command which creates it)
-	if cmd.Use != "up" {
+	if cmd != nil && cmd.Use != "up" {
 		if _, err := os.Stat(cfgFile); errors.Is(err, os.ErrNotExist) {
 			Error(fmt.Sprintf("config file %s does not exist", cfgFile), err)
 			os.Exit(1)
