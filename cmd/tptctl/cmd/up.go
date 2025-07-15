@@ -38,8 +38,12 @@ var UpCmd = &cobra.Command{
 
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		// create a new threeport config file if it doesn't exist
+		// set the config file path based on:
+		// 1. the config file path provided with a flag by the user
+		// 2. an environment variable
+		// 3. the default config file path
 		cfgFile := config.DetermineThreeportConfigPath(cliArgs.CfgFile)
+		// create a new threeport config file if it doesn't exist
 		if _, err := os.Stat(cfgFile); errors.Is(err, os.ErrNotExist) {
 			cfgDir := filepath.Dir(cfgFile)
 			if err := os.MkdirAll(cfgDir, os.ModePerm); err != nil {
@@ -50,19 +54,20 @@ var UpCmd = &cobra.Command{
 				cli.Error("failed to write Threeport config file to disk", err)
 				os.Exit(1)
 			}
-
-			viper.SetConfigFile(cfgFile)
-
 			// ensure config permissions are read/write for user only
 			if err := os.Chmod(cfgFile, 0600); err != nil {
 				cli.Error("failed to set permissions to read/write only", err)
 				os.Exit(1)
 			}
+		}
 
-			if err := viper.ReadInConfig(); err != nil {
-				cli.Error("failed to read config", err)
-				os.Exit(1)
-			}
+		// set the config file path
+		viper.SetConfigFile(cfgFile)
+
+		// read the config file
+		if err := viper.ReadInConfig(); err != nil {
+			cli.Error("failed to read config", err)
+			os.Exit(1)
 		}
 
 		// flag validation
