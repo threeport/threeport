@@ -109,6 +109,6 @@ func init() {
 		"local-registry", false, "Connects a local container registry to Threeport control plane cluster.  Only applicable with provider 'kind'.",
 	)
 	cobra.OnInitialize(func() {
-		cli.InitConfig(cliArgs.CfgFile)
+		cli.InitConfig(upCmd, cliArgs.CfgFile)
 	})
 }

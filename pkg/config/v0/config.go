@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	ThreeportConfigName = "config"
-	ThreeportConfigType = "yaml"
+	ThreeportConfigName   = "config"
+	ThreeportConfigType   = "yaml"
+	ThreeportConfigEnvKey = "THREEPORT_CONFIG"
 )
 
 // ThreeportConfig is the client's configuration for connecting to Threeport instances
@@ -341,6 +342,35 @@ func (cfg *ThreeportConfig) SetCurrentInstance(instanceName string) {
 	viper.WriteConfig()
 }
 
+// DetermineThreeportConfigPath determines the path to the threeport config file.
+// It accepts a path to a config file provided by the user (provided by flag) and
+// if this value is received, it is returned.  If not, it checks the environment
+// variable for a config file path.  If neither are provided, it returns the default
+// path to the threeport config file.
+func DetermineThreeportConfigPath(cfgFile string) string {
+	// return config file path if provided
+	if cfgFile != "" {
+		return cfgFile
+	}
+
+	// return config file path if provided in environment variable set
+	envConfig, exists := os.LookupEnv(ThreeportConfigEnvKey)
+	if exists {
+		return envConfig
+	}
+
+	home, err := homedir.Dir()
+	if err != nil {
+		return ""
+	}
+	cfgFile = filepath.Join(
+		DefaultThreeportConfigPath(home),
+		fmt.Sprintf("%s.%s", ThreeportConfigName, ThreeportConfigType),
+	)
+
+	return cfgFile
+}
+
 // GetThreeportConfig retrieves the threeport config and name of the
 // requested control plane.
 func GetThreeportConfig(requestedControlPlane string) (*ThreeportConfig, string, error) {
@@ -371,7 +401,9 @@ func (c *ControlPlane) UpdateThreeportConfigInstance(f func(*ControlPlane)) (*Th
 	}
 
 	// sync threeport instance config changes to disk
-	UpdateThreeportConfig(threeportConfig, c)
+	if err := UpdateThreeportConfig(threeportConfig, c); err != nil {
+		return nil, fmt.Errorf("failed to update threeport config: %w", err)
+	}
 
 	return threeportConfig, nil
 }
@@ -381,7 +413,7 @@ func (c *ControlPlane) UpdateThreeportConfigInstance(f func(*ControlPlane)) (*Th
 func UpdateThreeportConfig(
 	threeportConfig *ThreeportConfig,
 	threeportControlPlaneConfig *ControlPlane,
-) {
+) error {
 	if threeportConfig.CheckThreeportControlPlaneExists(threeportControlPlaneConfig.Name) {
 		for n, instance := range threeportConfig.ControlPlanes {
 			if instance.Name == threeportControlPlaneConfig.Name {
@@ -393,7 +425,11 @@ func UpdateThreeportConfig(
 	}
 	viper.Set("ControlPlanes", threeportConfig.ControlPlanes)
 	viper.Set("CurrentControlPlane", threeportControlPlaneConfig.Name)
-	viper.WriteConfig()
+	if err := viper.WriteConfig(); err != nil {
+		return fmt.Errorf("failed to write config to file: %w", err)
+	}
+
+	return nil
 }
 
 // DeleteThreeportConfigControlPlane updates a threeport config to remove a deleted

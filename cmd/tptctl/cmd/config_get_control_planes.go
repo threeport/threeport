@@ -20,6 +20,7 @@ var ConfigGetControlPlanesCmd = &cobra.Command{
 	Example:      "tptctl config get-control-planes",
 	Short:        "Get a list of threeport control planes in your threeport config",
 	Long:         `Get a list of threeport control planes in your threeport config.`,
+	PreRun:       CommandPreRunFunc,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
