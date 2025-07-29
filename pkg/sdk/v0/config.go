@@ -138,6 +138,10 @@ type ApiObject struct {
 
 	// Tptctl contains sdk configurations related to tptctl
 	Tptctl *Tptctl `yaml:"Tptctl"`
+
+	// InternalOnly indicates whether the object is only used internally by the
+	// controllers and should not be exposed to the user.
+	InternalOnly *bool `yaml:"InternalOnly"`
 }
 
 // Tptctl contains attributes used by the SDK to generate tptctl

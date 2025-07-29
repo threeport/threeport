@@ -204,6 +204,10 @@ type ApiObject struct {
 	PutMiddlewareFuncName    string
 	DeleteHandlerName        string
 	DeleteMiddlewareFuncName string
+
+	// If true, the object is only used internally by the controllers and should
+	// not be exposed to the user.
+	InternalOnly bool
 }
 
 // UnversionedApiObject represents one API object regardless of how many
@@ -455,6 +459,12 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 					if obj.Tptctl.ConfigPath != nil && *obj.Tptctl.ConfigPath {
 						tptctlModelsConfigPath = append(tptctlModelsConfigPath, *obj.Name)
 					}
+				}
+
+				if obj.InternalOnly != nil && *obj.InternalOnly {
+					mc.InternalOnly = true
+				} else {
+					mc.InternalOnly = false
 				}
 
 				// handler names

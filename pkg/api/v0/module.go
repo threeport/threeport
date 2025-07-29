@@ -5,11 +5,14 @@ type ModuleApi struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// An arbitrary name for the module API.
-	Name *string `json:"Name,omitempty" gorm:"not null" query:"name" validate:"required"`
+	Name *string `json:"Name,omitempty" query:"name" validate:"required" gorm:"not null"`
+
+	// If true, represents the core Threeport API.
+	Core *bool `json:"Core,omitempty" query:"core" validate:"optional" gorm:"default:false"`
 
 	// The module API server's endpoint to proxy requests to for module
 	// objects.
-	Endpoint *string `json:"Endpoint,omitempty" gorm:"not null" query:"endpoint" validate:"required"`
+	Endpoint *string `json:"Endpoint,omitempty" query:"endpoint" validate:"required" gorm:"not null"`
 
 	// The routes as URL paths to proxy requests to the API server's endpoint.
 	// All supported routes for an module API should be added so that it is
@@ -64,7 +67,7 @@ type ModuleObject struct {
 
 	// If true, only accessible to internal controllers that are a part of the
 	// Threeport control plane.  Threeport users cannot access if true.
-	InternalOnly *bool `json:"InternalOnly,omitempty" query:"internalonly" validate:"optional" gorm:"defatul:false"`
+	InternalOnly *bool `json:"InternalOnly,omitempty" query:"internalonly" validate:"optional" gorm:"default:false"`
 
 	// The module API this controller is connected to.
 	ModuleApiID *uint `json:"ModuleApiID,omitempty" query:"moduleapiid" validate:"required" gorm:"not null"`

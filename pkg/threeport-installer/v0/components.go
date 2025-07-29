@@ -26,6 +26,7 @@ const (
 	DbInitFilename            = "db.sql"
 	DbInitLocation            = "/etc/threeport/db-create"
 	ThreeportApiCaSecret      = "api-ca"
+	ThreeportApiConfigSecret  = "api-config"
 	dbRootCertSecretName      = "db-root-cert"
 	dbThreeportCertSecretName = "db-threeport-cert"
 )
@@ -159,17 +160,19 @@ GRANT ALL ON DATABASE threeport_api TO threeport;
 			"apiVersion": "v1",
 			"kind":       "Secret",
 			"metadata": map[string]interface{}{
-				"name":      "db-config",
+				"name":      ThreeportApiConfigSecret,
 				"namespace": cpi.Opts.Namespace,
 			},
 			"stringData": map[string]interface{}{
-				"env": fmt.Sprintf(`DB_HOST=%s.%s.svc.cluster.local
-DB_USER=%s
-DB_NAME=%s
-DB_PORT=%s
-DB_SSL_MODE=%s
-NATS_HOST=%s.%s.svc.cluster.local
+				"env": fmt.Sprintf(`DB_HOST=%[1]s.%[2]s.svc.cluster.local
+DB_USER=%[3]s
+DB_NAME=%[4]s
+DB_PORT=%[5]s
+DB_SSL_MODE=%[6]s
+NATS_HOST=%[7]s.%[2]s.svc.cluster.local
 NATS_PORT=4222
+THREEPORT_API_ENDPOINT=%[8]s.%[2]s.svc.cluster.local
+THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 `,
 					database.ThreeportDatabaseHost,
 					cpi.Opts.Namespace,
@@ -178,7 +181,8 @@ NATS_PORT=4222
 					database.ThreeportDatabasePort,
 					database.ThreeportDatabaseSslMode,
 					natsServiceName,
-					cpi.Opts.Namespace),
+					ThreeportAPIServiceResourceName,
+				),
 			},
 		},
 	}
@@ -218,7 +222,7 @@ NATS_PORT=4222
 					"mountPath": "/etc/threeport/db-create",
 				},
 				map[string]interface{}{
-					"name":      "db-config",
+					"name":      ThreeportApiConfigSecret,
 					"mountPath": "/etc/threeport/",
 				},
 				map[string]interface{}{
@@ -237,7 +241,7 @@ NATS_PORT=4222
 			"args": dbMigratorArgs,
 			"volumeMounts": []interface{}{
 				map[string]interface{}{
-					"name":      "db-config",
+					"name":      ThreeportApiConfigSecret,
 					"mountPath": "/etc/threeport/",
 				},
 				map[string]interface{}{
@@ -1475,9 +1479,9 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 			},
 		},
 		map[string]interface{}{
-			"name": "db-config",
+			"name": ThreeportApiConfigSecret,
 			"secret": map[string]interface{}{
-				"secretName": "db-config",
+				"secretName": ThreeportApiConfigSecret,
 			},
 		},
 		map[string]interface{}{
@@ -1490,7 +1494,7 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 
 	volMounts := []interface{}{
 		map[string]interface{}{
-			"name":      "db-config",
+			"name":      ThreeportApiConfigSecret,
 			"mountPath": "/etc/threeport/",
 		},
 		map[string]interface{}{
