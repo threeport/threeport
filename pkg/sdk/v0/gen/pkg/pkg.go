@@ -73,6 +73,24 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		return fmt.Errorf("failed to generate functions to add API object versions to API server: %w", err)
 	}
 
+	// the module registration is different for core threeport and extension modules:
+	// * core threeport registers directly with the database
+	// * extension modules register with the Threeport API server as the objects used for
+	//   registration are core Threeport objects and the dynamic routes must be added for
+	//   extensions to proxy connection from core Threeport API to extension module API.
+
+	if generator.Module {
+		// add the module registration function
+		if err := apiserver.GenModuleRegistration(generator, sdkConfig); err != nil {
+			return fmt.Errorf("failed to generate module registration function: %w", err)
+		}
+	} else {
+		// add the module registration function for core threeport
+		if err := apiserver.GenCoreModuleRegistration(generator, sdkConfig); err != nil {
+			return fmt.Errorf("failed to generate module registration function: %w", err)
+		}
+	}
+
 	////////////////////////////// pkg/client //////////////////////////////////
 	if err := client.GenClientLib(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate API client library: %w", err)

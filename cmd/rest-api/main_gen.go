@@ -108,9 +108,14 @@ func main() {
 		e.Logger.Fatalf("failed to initialize database: %v", err)
 	}
 
+	// register module information in the database as needed
+	if err := apiserver_lib.RegisterModule(db); err != nil {
+		e.Logger.Fatalf("failed to register core module: %v", err)
+	}
+
 	// add module router middleware
 	if err := api_v0.InitModuleRouter(db, e); err != nil {
-		e.Logger.Fatalf("failed to initialize extension proxy router: %v", err)
+		e.Logger.Fatalf("failed to initialize module proxy router: %v", err)
 	}
 
 	// nats connection

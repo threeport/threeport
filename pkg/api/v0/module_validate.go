@@ -44,13 +44,18 @@ func (m *ModuleApiRoute) BeforeCreate(tx *gorm.DB) error {
 	return fmt.Errorf("module API route already exists with path %s", *m.Path)
 }
 
-// AfterCreate updates the module router after new module API routes are
+// AfterCreate updates the module router after new non-coremodule API routes are
 // created.
 func (m *ModuleApiRoute) AfterCreate(tx *gorm.DB) error {
 	// retrieve the API module
 	var modApi ModuleApi
 	if result := tx.Where("id = ?", *m.ModuleApiID).First(&modApi); result.Error != nil {
 		return fmt.Errorf("failed to retrieve module API for route %s: %w", *m.Path, result.Error)
+	}
+
+	// if the module API is core, do not add the route to the module router
+	if *modApi.Core {
+		return nil
 	}
 
 	// add the route path to the module router

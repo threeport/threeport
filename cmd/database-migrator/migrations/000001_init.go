@@ -79,6 +79,8 @@ func dbInterfaces000001() []interface{} {
 		&v0.MetricsInstance{},
 		&v0.ModuleApi{},
 		&v0.ModuleApiRoute{},
+		&v0.ModuleController{},
+		&v0.ModuleObject{},
 		&v0.ObservabilityDashboardDefinition{},
 		&v0.ObservabilityDashboardInstance{},
 		&v0.ObservabilityStackDefinition{},
