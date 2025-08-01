@@ -2,6 +2,10 @@ package v0
 
 import "time"
 
+const (
+	PathEventsJoinAttachedObjectReferences = "/v0/events-join-attached-object-references"
+)
+
 // Event is a record of an event in the system.
 type Event struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`

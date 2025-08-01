@@ -35,6 +35,7 @@ func GenCoreModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) err
 			"api",
 		)
 	}
+	f.ImportAlias("github.com/threeport/threeport/pkg/api-server/v0/routes", "routes")
 
 	var moduleName string
 	var moduleCore bool
@@ -99,7 +100,6 @@ func GenCoreModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) err
 			),
 		),
 		Line(),
-		// asdf
 		Id("moduleApi").Op(":=").Qual("github.com/threeport/threeport/pkg/api/v0", "ModuleApi").Values(Dict{
 			Id("Name"):     Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit(moduleName)),
 			Id("Core"):     Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit(moduleCore)),
@@ -186,6 +186,38 @@ func GenCoreModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) err
 				}
 			}
 		}
+		g.Line()
+		g.Comment("registering custom routes")
+		g.For(List(Id("_"), Id("customRoute")).Op(":=").Range().Qual(
+			"github.com/threeport/threeport/pkg/api-server/v0/routes",
+			"CustomRoutes",
+		).Call(Nil())).Block(
+			Id("route").Op("=").Qual(
+				"github.com/threeport/threeport/pkg/api/v0",
+				"ModuleApiRoute",
+			).Values(Dict{
+				Id("ModuleApiID"): Id("moduleApi").Dot("ID"),
+				Id("Path"): Qual(
+					"github.com/threeport/threeport/pkg/util/v0",
+					"Ptr",
+				).Call(Id("customRoute").Dot("Path")),
+			}),
+			Id("result").Op("=").Id("db").Dot("Where").Call(
+				Qual(
+					"github.com/threeport/threeport/pkg/api/v0",
+					"ModuleApiRoute",
+				).Values(Dict{
+					Id("Path"): Id("route").Dot("Path"),
+				}),
+			).Dot("FirstOrCreate").Call(Op("&").Id("route")),
+			If(Id("result").Dot("Error").Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(
+					Lit("failed to register custom route for %s: %w"),
+					Id("customRoute").Dot("Path"),
+					Id("result").Dot("Error"),
+				)),
+			),
+		)
 		g.Line()
 		g.Return(Nil())
 	})
@@ -314,7 +346,6 @@ func GenCoreModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) err
 	genFilepath := filepath.Join(
 		"pkg",
 		"api-server",
-		"lib",
 		"v0",
 		"module_gen.go",
 	)
@@ -410,6 +441,12 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			}
 			g.Line()
 		})
+		g.For(List(Id("_"), Id("customRoute")).Op(":=").Range().Qual(
+			fmt.Sprintf("%s/pkg/api-server/v0/routes", gen.ModulePath),
+			"CustomRoutes",
+		).Call(Nil())).Block(
+			Id("allRoutePaths").Op("=").Append(Id("allRoutePaths"), Id("customRoute").Dot("Path")),
+		)
 		g.For(List(Id("_"), Id("path")).Op(":=").Range().Id("allRoutePaths")).Block(
 			Comment("check to see if route path exists"),
 			Id("query").Op(":=").Qual("fmt", "Sprintf").Call(
@@ -639,7 +676,6 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	genFilepath := filepath.Join(
 		"pkg",
 		"api-server",
-		"lib",
 		"v0",
 		"module_gen.go",
 	)

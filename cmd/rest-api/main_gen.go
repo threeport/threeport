@@ -15,6 +15,7 @@ import (
 	util "github.com/threeport/threeport/cmd/rest-api/util"
 	version "github.com/threeport/threeport/internal/version"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
+	apiserver_v0 "github.com/threeport/threeport/pkg/api-server/v0"
 	database "github.com/threeport/threeport/pkg/api-server/v0/database"
 	_ "github.com/threeport/threeport/pkg/api-server/v0/docs"
 	handlers_v0 "github.com/threeport/threeport/pkg/api-server/v0/handlers"
@@ -109,7 +110,7 @@ func main() {
 	}
 
 	// register module information in the database as needed
-	if err := apiserver_lib.RegisterModule(db); err != nil {
+	if err := apiserver_v0.RegisterModule(db); err != nil {
 		e.Logger.Fatalf("failed to register core module: %v", err)
 	}
 

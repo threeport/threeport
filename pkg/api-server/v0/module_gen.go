@@ -4,6 +4,7 @@ package v0
 
 import (
 	"fmt"
+	routes "github.com/threeport/threeport/pkg/api-server/v0/routes"
 	api "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	gorm "gorm.io/gorm"
@@ -954,6 +955,18 @@ func upserModuleApiRoutes(db *gorm.DB, moduleApi *api.ModuleApi) error {
 	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register objectroute for ModuleObject: %w", result.Error)
+	}
+
+	// registering custom routes
+	for _, customRoute := range routes.CustomRoutes(nil) {
+		route = api.ModuleApiRoute{
+			ModuleApiID: moduleApi.ID,
+			Path:        util.Ptr(customRoute.Path),
+		}
+		result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
+		if result.Error != nil {
+			return fmt.Errorf("failed to register custom route for %s: %w", customRoute.Path, result.Error)
+		}
 	}
 
 	return nil

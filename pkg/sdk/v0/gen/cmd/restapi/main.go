@@ -142,15 +142,14 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		"tp_apiserver_lib",
 		gen.Module,
 	))
-	if !gen.Module {
-		f.ImportAlias("github.com/threeport/threeport/pkg/api/v0", "api_v0")
-	}
+	f.ImportAlias(
+		fmt.Sprintf("%s/pkg/api-server/v0", gen.ModulePath),
+		"apiserver_v0",
+	)
 	if gen.Module {
-		f.ImportAlias(
-			fmt.Sprintf("%s/pkg/api-server/lib/v0", gen.ModulePath),
-			"apiserver_lib",
-		)
 		f.ImportAlias("github.com/threeport/threeport/pkg/client/lib/v0", "client_lib")
+	} else {
+		f.ImportAlias("github.com/threeport/threeport/pkg/api/v0", "api_v0")
 	}
 	f.Anon("github.com/threeport/threeport/pkg/api-server/v0/docs")
 
@@ -422,7 +421,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("MODULE_NAMESPACE is not set in environment")),
 			)
 			g.If(Err().Op(":=").Qual(
-				fmt.Sprintf("%s/pkg/api-server/lib/v0", gen.ModulePath),
+				fmt.Sprintf("%s/pkg/api-server/v0", gen.ModulePath),
 				"RegisterModule",
 			).Call(
 				Line().Id("tpClient"),
@@ -436,7 +435,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		} else {
 			g.Comment("register module information in the database as needed")
 			g.If(Err().Op(":=").Qual(
-				fmt.Sprintf("%s/pkg/api-server/lib/v0", gen.ModulePath),
+				fmt.Sprintf("%s/pkg/api-server/v0", gen.ModulePath),
 				"RegisterModule",
 			).Call(Id("db"))).Op(";").Err().Op("!=").Nil().Block(
 				Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("failed to register core module: %v"), Err()),
