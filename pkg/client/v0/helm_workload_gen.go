@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetHelmWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name strin
 
 	switch {
 	case len(helmWorkloadDefinitions) < 1:
-		return &v0.HelmWorkloadDefinition{}, errors.New(fmt.Sprintf("no helm workload definition with name %s", name))
+		return &v0.HelmWorkloadDefinition{}, client_lib.ErrObjectNotFound
 	case len(helmWorkloadDefinitions) > 1:
-		return &v0.HelmWorkloadDefinition{}, errors.New(fmt.Sprintf("more than one helm workload definition with name %s returned", name))
+		return &v0.HelmWorkloadDefinition{}, fmt.Errorf("more than one helm workload definition with name %s returned", name)
 	}
 
 	return &helmWorkloadDefinitions[0], nil
@@ -368,9 +367,9 @@ func GetHelmWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string)
 
 	switch {
 	case len(helmWorkloadInstances) < 1:
-		return &v0.HelmWorkloadInstance{}, errors.New(fmt.Sprintf("no helm workload instance with name %s", name))
+		return &v0.HelmWorkloadInstance{}, client_lib.ErrObjectNotFound
 	case len(helmWorkloadInstances) > 1:
-		return &v0.HelmWorkloadInstance{}, errors.New(fmt.Sprintf("more than one helm workload instance with name %s returned", name))
+		return &v0.HelmWorkloadInstance{}, fmt.Errorf("more than one helm workload instance with name %s returned", name)
 	}
 
 	return &helmWorkloadInstances[0], nil

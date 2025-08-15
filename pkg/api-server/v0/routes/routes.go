@@ -11,9 +11,28 @@ import (
 // CustomRoute is a custom route for the API that defines the REST
 // path, HTTP method, and handler function.
 type CustomRoute struct {
-	Path    string
-	Method  string
+	// The API path for the route.
+	Path string
+
+	// The HTTP method for the route.
+	Method string
+
+	// The handler function for the route.
 	Handler func(echo.Context) error
+
+	// The object type/s that the route serves.  This is used to determine
+	// the ModuleObjects-ModuleApiRoute relationship in module registration.
+	// If the route serves multiple objects, all objects must be listed.
+	ApiObjects []ApiObject
+}
+
+// ApiObject is a type that represents an API object.
+type ApiObject struct {
+	// The name of the API object.
+	Name string
+
+	// The version of the API object.
+	Version string
 }
 
 // CustomRoutes returns a list of all custom routes for the API.
@@ -28,14 +47,65 @@ func CustomRoutes(h *handlers.Handler) []CustomRoute {
 
 	return []CustomRoute{
 		// Adds workload resource definitions in bulk.
-		{Path: v0.PathWorkloadResourceDefinitionSets, Method: "POST", Handler: h.AddWorkloadResourceDefinitions},
+		{
+			Path:    v0.PathWorkloadResourceDefinitionSets,
+			Method:  "POST",
+			Handler: h.AddWorkloadResourceDefinitions,
+			ApiObjects: []ApiObject{
+				{
+					Name:    v0.ObjectTypeWorkloadResourceDefinition,
+					Version: "v0",
+				},
+			},
+		},
 
 		// Deletes workload events by query parameter - as opposed to the SDK-generated
 		// route which deletes a single event by ID.
-		{Path: v0.PathWorkloadEvents, Method: "DELETE", Handler: h.DeleteWorkloadEvents},
+		{
+			Path:    v0.PathWorkloadEvents,
+			Method:  "DELETE",
+			Handler: h.DeleteWorkloadEvents,
+			ApiObjects: []ApiObject{
+				{
+					Name:    v0.ObjectTypeWorkloadEvent,
+					Version: "v0",
+				},
+			},
+		},
 
 		// Joins attached object references for events.
-		{Path: v0.PathEventsJoinAttachedObjectReferences, Method: "GET", Handler: h.GetEventsJoinAttachedObjectReferences},
+		{
+			Path:    v0.PathEventsJoinAttachedObjectReferences,
+			Method:  "GET",
+			Handler: h.GetEventsJoinAttachedObjectReferences,
+			ApiObjects: []ApiObject{
+				{
+					Name:    v0.ObjectTypeEvent,
+					Version: "v0",
+				},
+				{
+					Name:    v0.ObjectTypeAttachedObjectReference,
+					Version: "v0",
+				},
+			},
+		},
+
+		// Creates a module api route with a module object reference.
+		{
+			Path:    v0.PathModuleApiRouteWithModuleObjectReferences,
+			Method:  "POST",
+			Handler: h.AddModuleApiRouteWithModuleObjectReferences,
+			ApiObjects: []ApiObject{
+				{
+					Name:    v0.ObjectTypeModuleApiRoute,
+					Version: "v0",
+				},
+				{
+					Name:    v0.ObjectTypeModuleObject,
+					Version: "v0",
+				},
+			},
+		},
 	}
 }
 

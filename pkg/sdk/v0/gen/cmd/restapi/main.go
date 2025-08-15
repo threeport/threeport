@@ -430,7 +430,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Line().Id("moduleNamespace"),
 				Line(),
 			)).Op(";").Err().Op("!=").Nil().Block(
-				Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("failed to register core module: %v"), Err()),
+				Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("failed to register module: %v"), Err()),
 			)
 		} else {
 			g.Comment("register module information in the database as needed")

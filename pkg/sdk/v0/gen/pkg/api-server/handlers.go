@@ -50,13 +50,19 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/api-server/v0/handlers",
 				"handlers_v0",
-				"tp_handlers",
+				"tphandlers_v0",
 				gen.Module,
 			))
 			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/api/v0",
 				"api_v0",
 				"tpapi_v0",
+				gen.Module,
+			))
+			f.ImportAlias(util.SetImportAlias(
+				"github.com/threeport/threeport/pkg/util/v0",
+				"util_v0",
+				"tputil_v0",
 				gen.Module,
 			))
 
@@ -794,6 +800,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
 							)
 						}
+						h.Comment("check if this is a custom HTTP error with specific status code")
+						h.Var().Id("httpErr").Op("*").Qual(
+							"github.com/threeport/threeport/pkg/util/v0",
+							"HttpError",
+						)
+						h.If(Qual("errors", "As").Call(Id("result").Dot("Error"), Op("&").Id("httpErr"))).Block(
+							Return(Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"ResponseStatusErr",
+							).Call(
+								Line().Id("httpErr").Dot("GetStatusCode").Call(),
+								Id("c"),
+								Nil(),
+								Id("result").Dot("Error"),
+								Id("objectType").Op(",").Line(),
+							)),
+						)
 						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",

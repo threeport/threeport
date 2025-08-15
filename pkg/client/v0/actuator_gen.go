@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetProfileByName(apiClient *http.Client, apiAddr, name string) (*v0.Profile
 
 	switch {
 	case len(profiles) < 1:
-		return &v0.Profile{}, errors.New(fmt.Sprintf("no profile with name %s", name))
+		return &v0.Profile{}, client_lib.ErrObjectNotFound
 	case len(profiles) > 1:
-		return &v0.Profile{}, errors.New(fmt.Sprintf("more than one profile with name %s returned", name))
+		return &v0.Profile{}, fmt.Errorf("more than one profile with name %s returned", name)
 	}
 
 	return &profiles[0], nil
@@ -368,9 +367,9 @@ func GetTierByName(apiClient *http.Client, apiAddr, name string) (*v0.Tier, erro
 
 	switch {
 	case len(tiers) < 1:
-		return &v0.Tier{}, errors.New(fmt.Sprintf("no tier with name %s", name))
+		return &v0.Tier{}, client_lib.ErrObjectNotFound
 	case len(tiers) > 1:
-		return &v0.Tier{}, errors.New(fmt.Sprintf("more than one tier with name %s returned", name))
+		return &v0.Tier{}, fmt.Errorf("more than one tier with name %s returned", name)
 	}
 
 	return &tiers[0], nil

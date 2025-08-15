@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetTerraformDefinitionByName(apiClient *http.Client, apiAddr, name string) 
 
 	switch {
 	case len(terraformDefinitions) < 1:
-		return &v0.TerraformDefinition{}, errors.New(fmt.Sprintf("no terraform definition with name %s", name))
+		return &v0.TerraformDefinition{}, client_lib.ErrObjectNotFound
 	case len(terraformDefinitions) > 1:
-		return &v0.TerraformDefinition{}, errors.New(fmt.Sprintf("more than one terraform definition with name %s returned", name))
+		return &v0.TerraformDefinition{}, fmt.Errorf("more than one terraform definition with name %s returned", name)
 	}
 
 	return &terraformDefinitions[0], nil
@@ -368,9 +367,9 @@ func GetTerraformInstanceByName(apiClient *http.Client, apiAddr, name string) (*
 
 	switch {
 	case len(terraformInstances) < 1:
-		return &v0.TerraformInstance{}, errors.New(fmt.Sprintf("no terraform instance with name %s", name))
+		return &v0.TerraformInstance{}, client_lib.ErrObjectNotFound
 	case len(terraformInstances) > 1:
-		return &v0.TerraformInstance{}, errors.New(fmt.Sprintf("more than one terraform instance with name %s returned", name))
+		return &v0.TerraformInstance{}, fmt.Errorf("more than one terraform instance with name %s returned", name)
 	}
 
 	return &terraformInstances[0], nil

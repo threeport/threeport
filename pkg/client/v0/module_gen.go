@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetModuleApiByName(apiClient *http.Client, apiAddr, name string) (*v0.Modul
 
 	switch {
 	case len(moduleApis) < 1:
-		return &v0.ModuleApi{}, errors.New(fmt.Sprintf("no module api with name %s", name))
+		return &v0.ModuleApi{}, client_lib.ErrObjectNotFound
 	case len(moduleApis) > 1:
-		return &v0.ModuleApi{}, errors.New(fmt.Sprintf("more than one module api with name %s returned", name))
+		return &v0.ModuleApi{}, fmt.Errorf("more than one module api with name %s returned", name)
 	}
 
 	return &moduleApis[0], nil
@@ -368,9 +367,9 @@ func GetModuleApiRouteByName(apiClient *http.Client, apiAddr, name string) (*v0.
 
 	switch {
 	case len(moduleApiRoutes) < 1:
-		return &v0.ModuleApiRoute{}, errors.New(fmt.Sprintf("no module api route with name %s", name))
+		return &v0.ModuleApiRoute{}, client_lib.ErrObjectNotFound
 	case len(moduleApiRoutes) > 1:
-		return &v0.ModuleApiRoute{}, errors.New(fmt.Sprintf("more than one module api route with name %s returned", name))
+		return &v0.ModuleApiRoute{}, fmt.Errorf("more than one module api route with name %s returned", name)
 	}
 
 	return &moduleApiRoutes[0], nil
@@ -603,9 +602,9 @@ func GetModuleControllerByName(apiClient *http.Client, apiAddr, name string) (*v
 
 	switch {
 	case len(moduleControllers) < 1:
-		return &v0.ModuleController{}, errors.New(fmt.Sprintf("no module controller with name %s", name))
+		return &v0.ModuleController{}, client_lib.ErrObjectNotFound
 	case len(moduleControllers) > 1:
-		return &v0.ModuleController{}, errors.New(fmt.Sprintf("more than one module controller with name %s returned", name))
+		return &v0.ModuleController{}, fmt.Errorf("more than one module controller with name %s returned", name)
 	}
 
 	return &moduleControllers[0], nil
@@ -838,9 +837,9 @@ func GetModuleObjectByName(apiClient *http.Client, apiAddr, name string) (*v0.Mo
 
 	switch {
 	case len(moduleObjects) < 1:
-		return &v0.ModuleObject{}, errors.New(fmt.Sprintf("no module object with name %s", name))
+		return &v0.ModuleObject{}, client_lib.ErrObjectNotFound
 	case len(moduleObjects) > 1:
-		return &v0.ModuleObject{}, errors.New(fmt.Sprintf("more than one module object with name %s returned", name))
+		return &v0.ModuleObject{}, fmt.Errorf("more than one module object with name %s returned", name)
 	}
 
 	return &moduleObjects[0], nil

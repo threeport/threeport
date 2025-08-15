@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetLogBackendByName(apiClient *http.Client, apiAddr, name string) (*v0.LogB
 
 	switch {
 	case len(logBackends) < 1:
-		return &v0.LogBackend{}, errors.New(fmt.Sprintf("no log backend with name %s", name))
+		return &v0.LogBackend{}, client_lib.ErrObjectNotFound
 	case len(logBackends) > 1:
-		return &v0.LogBackend{}, errors.New(fmt.Sprintf("more than one log backend with name %s returned", name))
+		return &v0.LogBackend{}, fmt.Errorf("more than one log backend with name %s returned", name)
 	}
 
 	return &logBackends[0], nil
@@ -368,9 +367,9 @@ func GetLogStorageDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 	switch {
 	case len(logStorageDefinitions) < 1:
-		return &v0.LogStorageDefinition{}, errors.New(fmt.Sprintf("no log storage definition with name %s", name))
+		return &v0.LogStorageDefinition{}, client_lib.ErrObjectNotFound
 	case len(logStorageDefinitions) > 1:
-		return &v0.LogStorageDefinition{}, errors.New(fmt.Sprintf("more than one log storage definition with name %s returned", name))
+		return &v0.LogStorageDefinition{}, fmt.Errorf("more than one log storage definition with name %s returned", name)
 	}
 
 	return &logStorageDefinitions[0], nil
@@ -603,9 +602,9 @@ func GetLogStorageInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 	switch {
 	case len(logStorageInstances) < 1:
-		return &v0.LogStorageInstance{}, errors.New(fmt.Sprintf("no log storage instance with name %s", name))
+		return &v0.LogStorageInstance{}, client_lib.ErrObjectNotFound
 	case len(logStorageInstances) > 1:
-		return &v0.LogStorageInstance{}, errors.New(fmt.Sprintf("more than one log storage instance with name %s returned", name))
+		return &v0.LogStorageInstance{}, fmt.Errorf("more than one log storage instance with name %s returned", name)
 	}
 
 	return &logStorageInstances[0], nil

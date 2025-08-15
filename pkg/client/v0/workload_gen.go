@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetWorkloadDefinitionByName(apiClient *http.Client, apiAddr, name string) (
 
 	switch {
 	case len(workloadDefinitions) < 1:
-		return &v0.WorkloadDefinition{}, errors.New(fmt.Sprintf("no workload definition with name %s", name))
+		return &v0.WorkloadDefinition{}, client_lib.ErrObjectNotFound
 	case len(workloadDefinitions) > 1:
-		return &v0.WorkloadDefinition{}, errors.New(fmt.Sprintf("more than one workload definition with name %s returned", name))
+		return &v0.WorkloadDefinition{}, fmt.Errorf("more than one workload definition with name %s returned", name)
 	}
 
 	return &workloadDefinitions[0], nil
@@ -368,9 +367,9 @@ func GetWorkloadEventByName(apiClient *http.Client, apiAddr, name string) (*v0.W
 
 	switch {
 	case len(workloadEvents) < 1:
-		return &v0.WorkloadEvent{}, errors.New(fmt.Sprintf("no workload event with name %s", name))
+		return &v0.WorkloadEvent{}, client_lib.ErrObjectNotFound
 	case len(workloadEvents) > 1:
-		return &v0.WorkloadEvent{}, errors.New(fmt.Sprintf("more than one workload event with name %s returned", name))
+		return &v0.WorkloadEvent{}, fmt.Errorf("more than one workload event with name %s returned", name)
 	}
 
 	return &workloadEvents[0], nil
@@ -603,9 +602,9 @@ func GetWorkloadInstanceByName(apiClient *http.Client, apiAddr, name string) (*v
 
 	switch {
 	case len(workloadInstances) < 1:
-		return &v0.WorkloadInstance{}, errors.New(fmt.Sprintf("no workload instance with name %s", name))
+		return &v0.WorkloadInstance{}, client_lib.ErrObjectNotFound
 	case len(workloadInstances) > 1:
-		return &v0.WorkloadInstance{}, errors.New(fmt.Sprintf("more than one workload instance with name %s returned", name))
+		return &v0.WorkloadInstance{}, fmt.Errorf("more than one workload instance with name %s returned", name)
 	}
 
 	return &workloadInstances[0], nil
@@ -838,9 +837,9 @@ func GetWorkloadResourceDefinitionByName(apiClient *http.Client, apiAddr, name s
 
 	switch {
 	case len(workloadResourceDefinitions) < 1:
-		return &v0.WorkloadResourceDefinition{}, errors.New(fmt.Sprintf("no workload resource definition with name %s", name))
+		return &v0.WorkloadResourceDefinition{}, client_lib.ErrObjectNotFound
 	case len(workloadResourceDefinitions) > 1:
-		return &v0.WorkloadResourceDefinition{}, errors.New(fmt.Sprintf("more than one workload resource definition with name %s returned", name))
+		return &v0.WorkloadResourceDefinition{}, fmt.Errorf("more than one workload resource definition with name %s returned", name)
 	}
 
 	return &workloadResourceDefinitions[0], nil
@@ -1073,9 +1072,9 @@ func GetWorkloadResourceInstanceByName(apiClient *http.Client, apiAddr, name str
 
 	switch {
 	case len(workloadResourceInstances) < 1:
-		return &v0.WorkloadResourceInstance{}, errors.New(fmt.Sprintf("no workload resource instance with name %s", name))
+		return &v0.WorkloadResourceInstance{}, client_lib.ErrObjectNotFound
 	case len(workloadResourceInstances) > 1:
-		return &v0.WorkloadResourceInstance{}, errors.New(fmt.Sprintf("more than one workload resource instance with name %s returned", name))
+		return &v0.WorkloadResourceInstance{}, fmt.Errorf("more than one workload resource instance with name %s returned", name)
 	}
 
 	return &workloadResourceInstances[0], nil

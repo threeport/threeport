@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetAwsAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsA
 
 	switch {
 	case len(awsAccounts) < 1:
-		return &v0.AwsAccount{}, errors.New(fmt.Sprintf("no aws account with name %s", name))
+		return &v0.AwsAccount{}, client_lib.ErrObjectNotFound
 	case len(awsAccounts) > 1:
-		return &v0.AwsAccount{}, errors.New(fmt.Sprintf("more than one aws account with name %s returned", name))
+		return &v0.AwsAccount{}, fmt.Errorf("more than one aws account with name %s returned", name)
 	}
 
 	return &awsAccounts[0], nil
@@ -368,9 +367,9 @@ func GetAwsEksKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr,
 
 	switch {
 	case len(awsEksKubernetesRuntimeDefinitions) < 1:
-		return &v0.AwsEksKubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("no aws eks kubernetes runtime definition with name %s", name))
+		return &v0.AwsEksKubernetesRuntimeDefinition{}, client_lib.ErrObjectNotFound
 	case len(awsEksKubernetesRuntimeDefinitions) > 1:
-		return &v0.AwsEksKubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("more than one aws eks kubernetes runtime definition with name %s returned", name))
+		return &v0.AwsEksKubernetesRuntimeDefinition{}, fmt.Errorf("more than one aws eks kubernetes runtime definition with name %s returned", name)
 	}
 
 	return &awsEksKubernetesRuntimeDefinitions[0], nil
@@ -603,9 +602,9 @@ func GetAwsEksKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, n
 
 	switch {
 	case len(awsEksKubernetesRuntimeInstances) < 1:
-		return &v0.AwsEksKubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("no aws eks kubernetes runtime instance with name %s", name))
+		return &v0.AwsEksKubernetesRuntimeInstance{}, client_lib.ErrObjectNotFound
 	case len(awsEksKubernetesRuntimeInstances) > 1:
-		return &v0.AwsEksKubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("more than one aws eks kubernetes runtime instance with name %s returned", name))
+		return &v0.AwsEksKubernetesRuntimeInstance{}, fmt.Errorf("more than one aws eks kubernetes runtime instance with name %s returned", name)
 	}
 
 	return &awsEksKubernetesRuntimeInstances[0], nil
@@ -838,9 +837,9 @@ func GetAwsObjectStorageBucketDefinitionByName(apiClient *http.Client, apiAddr, 
 
 	switch {
 	case len(awsObjectStorageBucketDefinitions) < 1:
-		return &v0.AwsObjectStorageBucketDefinition{}, errors.New(fmt.Sprintf("no aws object storage bucket definition with name %s", name))
+		return &v0.AwsObjectStorageBucketDefinition{}, client_lib.ErrObjectNotFound
 	case len(awsObjectStorageBucketDefinitions) > 1:
-		return &v0.AwsObjectStorageBucketDefinition{}, errors.New(fmt.Sprintf("more than one aws object storage bucket definition with name %s returned", name))
+		return &v0.AwsObjectStorageBucketDefinition{}, fmt.Errorf("more than one aws object storage bucket definition with name %s returned", name)
 	}
 
 	return &awsObjectStorageBucketDefinitions[0], nil
@@ -1073,9 +1072,9 @@ func GetAwsObjectStorageBucketInstanceByName(apiClient *http.Client, apiAddr, na
 
 	switch {
 	case len(awsObjectStorageBucketInstances) < 1:
-		return &v0.AwsObjectStorageBucketInstance{}, errors.New(fmt.Sprintf("no aws object storage bucket instance with name %s", name))
+		return &v0.AwsObjectStorageBucketInstance{}, client_lib.ErrObjectNotFound
 	case len(awsObjectStorageBucketInstances) > 1:
-		return &v0.AwsObjectStorageBucketInstance{}, errors.New(fmt.Sprintf("more than one aws object storage bucket instance with name %s returned", name))
+		return &v0.AwsObjectStorageBucketInstance{}, fmt.Errorf("more than one aws object storage bucket instance with name %s returned", name)
 	}
 
 	return &awsObjectStorageBucketInstances[0], nil
@@ -1308,9 +1307,9 @@ func GetAwsRelationalDatabaseDefinitionByName(apiClient *http.Client, apiAddr, n
 
 	switch {
 	case len(awsRelationalDatabaseDefinitions) < 1:
-		return &v0.AwsRelationalDatabaseDefinition{}, errors.New(fmt.Sprintf("no aws relational database definition with name %s", name))
+		return &v0.AwsRelationalDatabaseDefinition{}, client_lib.ErrObjectNotFound
 	case len(awsRelationalDatabaseDefinitions) > 1:
-		return &v0.AwsRelationalDatabaseDefinition{}, errors.New(fmt.Sprintf("more than one aws relational database definition with name %s returned", name))
+		return &v0.AwsRelationalDatabaseDefinition{}, fmt.Errorf("more than one aws relational database definition with name %s returned", name)
 	}
 
 	return &awsRelationalDatabaseDefinitions[0], nil
@@ -1543,9 +1542,9 @@ func GetAwsRelationalDatabaseInstanceByName(apiClient *http.Client, apiAddr, nam
 
 	switch {
 	case len(awsRelationalDatabaseInstances) < 1:
-		return &v0.AwsRelationalDatabaseInstance{}, errors.New(fmt.Sprintf("no aws relational database instance with name %s", name))
+		return &v0.AwsRelationalDatabaseInstance{}, client_lib.ErrObjectNotFound
 	case len(awsRelationalDatabaseInstances) > 1:
-		return &v0.AwsRelationalDatabaseInstance{}, errors.New(fmt.Sprintf("more than one aws relational database instance with name %s returned", name))
+		return &v0.AwsRelationalDatabaseInstance{}, fmt.Errorf("more than one aws relational database instance with name %s returned", name)
 	}
 
 	return &awsRelationalDatabaseInstances[0], nil

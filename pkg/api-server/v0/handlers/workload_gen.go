@@ -10,6 +10,7 @@ import (
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
 	gorm "gorm.io/gorm"
 	"net/http"
@@ -80,6 +81,13 @@ func (h Handler) AddWorkloadDefinition(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&workloadDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -455,6 +463,13 @@ func (h Handler) AddWorkloadEvent(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&workloadEvent); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -773,6 +788,13 @@ func (h Handler) AddWorkloadInstance(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&workloadInstance); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1142,6 +1164,13 @@ func (h Handler) AddWorkloadResourceDefinition(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&workloadResourceDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1444,6 +1473,13 @@ func (h Handler) AddWorkloadResourceInstance(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&workloadResourceInstance); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 

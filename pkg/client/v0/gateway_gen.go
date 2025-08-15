@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetDomainNameDefinitionByName(apiClient *http.Client, apiAddr, name string)
 
 	switch {
 	case len(domainNameDefinitions) < 1:
-		return &v0.DomainNameDefinition{}, errors.New(fmt.Sprintf("no domain name definition with name %s", name))
+		return &v0.DomainNameDefinition{}, client_lib.ErrObjectNotFound
 	case len(domainNameDefinitions) > 1:
-		return &v0.DomainNameDefinition{}, errors.New(fmt.Sprintf("more than one domain name definition with name %s returned", name))
+		return &v0.DomainNameDefinition{}, fmt.Errorf("more than one domain name definition with name %s returned", name)
 	}
 
 	return &domainNameDefinitions[0], nil
@@ -368,9 +367,9 @@ func GetDomainNameInstanceByName(apiClient *http.Client, apiAddr, name string) (
 
 	switch {
 	case len(domainNameInstances) < 1:
-		return &v0.DomainNameInstance{}, errors.New(fmt.Sprintf("no domain name instance with name %s", name))
+		return &v0.DomainNameInstance{}, client_lib.ErrObjectNotFound
 	case len(domainNameInstances) > 1:
-		return &v0.DomainNameInstance{}, errors.New(fmt.Sprintf("more than one domain name instance with name %s returned", name))
+		return &v0.DomainNameInstance{}, fmt.Errorf("more than one domain name instance with name %s returned", name)
 	}
 
 	return &domainNameInstances[0], nil
@@ -603,9 +602,9 @@ func GetGatewayDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 	switch {
 	case len(gatewayDefinitions) < 1:
-		return &v0.GatewayDefinition{}, errors.New(fmt.Sprintf("no gateway definition with name %s", name))
+		return &v0.GatewayDefinition{}, client_lib.ErrObjectNotFound
 	case len(gatewayDefinitions) > 1:
-		return &v0.GatewayDefinition{}, errors.New(fmt.Sprintf("more than one gateway definition with name %s returned", name))
+		return &v0.GatewayDefinition{}, fmt.Errorf("more than one gateway definition with name %s returned", name)
 	}
 
 	return &gatewayDefinitions[0], nil
@@ -838,9 +837,9 @@ func GetGatewayHttpPortByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	switch {
 	case len(gatewayHttpPorts) < 1:
-		return &v0.GatewayHttpPort{}, errors.New(fmt.Sprintf("no gateway http port with name %s", name))
+		return &v0.GatewayHttpPort{}, client_lib.ErrObjectNotFound
 	case len(gatewayHttpPorts) > 1:
-		return &v0.GatewayHttpPort{}, errors.New(fmt.Sprintf("more than one gateway http port with name %s returned", name))
+		return &v0.GatewayHttpPort{}, fmt.Errorf("more than one gateway http port with name %s returned", name)
 	}
 
 	return &gatewayHttpPorts[0], nil
@@ -1073,9 +1072,9 @@ func GetGatewayInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	switch {
 	case len(gatewayInstances) < 1:
-		return &v0.GatewayInstance{}, errors.New(fmt.Sprintf("no gateway instance with name %s", name))
+		return &v0.GatewayInstance{}, client_lib.ErrObjectNotFound
 	case len(gatewayInstances) > 1:
-		return &v0.GatewayInstance{}, errors.New(fmt.Sprintf("more than one gateway instance with name %s returned", name))
+		return &v0.GatewayInstance{}, fmt.Errorf("more than one gateway instance with name %s returned", name)
 	}
 
 	return &gatewayInstances[0], nil
@@ -1308,9 +1307,9 @@ func GetGatewayTcpPortByName(apiClient *http.Client, apiAddr, name string) (*v0.
 
 	switch {
 	case len(gatewayTcpPorts) < 1:
-		return &v0.GatewayTcpPort{}, errors.New(fmt.Sprintf("no gateway tcp port with name %s", name))
+		return &v0.GatewayTcpPort{}, client_lib.ErrObjectNotFound
 	case len(gatewayTcpPorts) > 1:
-		return &v0.GatewayTcpPort{}, errors.New(fmt.Sprintf("more than one gateway tcp port with name %s returned", name))
+		return &v0.GatewayTcpPort{}, fmt.Errorf("more than one gateway tcp port with name %s returned", name)
 	}
 
 	return &gatewayTcpPorts[0], nil

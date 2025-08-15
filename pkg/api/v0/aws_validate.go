@@ -91,11 +91,13 @@ func (a *AwsRelationalDatabaseDefinition) BeforeCreate(tx *gorm.DB) error {
 		}
 	}
 	if !engineValid {
-		return errors.New(fmt.Sprintf(
-			"%s engine is not supported, valid engines: %s",
-			*a.Engine,
-			supportedEngines,
-		))
+		return util.NewBadRequestError(
+			fmt.Sprintf(
+				"%s engine is not supported, valid engines: %s",
+				*a.Engine,
+				supportedEngines,
+			),
+		)
 	}
 
 	// validate database engine version
@@ -108,12 +110,14 @@ func (a *AwsRelationalDatabaseDefinition) BeforeCreate(tx *gorm.DB) error {
 		}
 	}
 	if !versionValid {
-		return errors.New(fmt.Sprintf(
-			"%s version is not support for engine %s, valid versions: %s",
-			*a.EngineVersion,
-			*a.Engine,
-			supportedVersions,
-		))
+		return util.NewBadRequestError(
+			fmt.Sprintf(
+				"%s version is not supported for engine %s, valid versions: %s",
+				*a.EngineVersion,
+				*a.Engine,
+				supportedVersions,
+			),
+		)
 	}
 
 	return nil
@@ -190,7 +194,9 @@ func (a *AwsAccount) BeforeCreate(tx *gorm.DB) error {
 	// validate access & secret access keys
 	if isAccessKeyIDSet && !isSecretAccessKeySet ||
 		!isAccessKeyIDSet && isSecretAccessKeySet {
-		return errors.New("both access key id and secret access key must be set if one of them is provided")
+		return util.NewBadRequestError(
+			"both access key id and secret access key must be set if one of them is provided",
+		)
 	}
 
 	// generate and set external ID

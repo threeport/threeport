@@ -10,6 +10,7 @@ import (
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
 	gorm "gorm.io/gorm"
 	"net/http"
@@ -80,6 +81,13 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&awsAccount); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -398,6 +406,13 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&awsEksKubernetesRuntimeDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -722,6 +737,13 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&awsEksKubernetesRuntimeInstance); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1107,6 +1129,13 @@ func (h Handler) AddAwsObjectStorageBucketDefinition(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&awsObjectStorageBucketDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1431,6 +1460,13 @@ func (h Handler) AddAwsObjectStorageBucketInstance(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&awsObjectStorageBucketInstance); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1816,6 +1852,13 @@ func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&awsRelationalDatabaseDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -2140,6 +2183,13 @@ func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&awsRelationalDatabaseInstance); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 

@@ -1,5 +1,9 @@
 package v0
 
+const (
+	PathModuleApiRouteWithModuleObjectReferences = "/v0/module-api-route-with-module-object-references"
+)
+
 // ModuleApi represents an API server for a Threeport module.
 type ModuleApi struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
@@ -35,6 +39,9 @@ type ModuleApiRoute struct {
 
 	// The module API this route belongs to.
 	ModuleApiID *uint `json:"ModuleApiID,omitempty" query:"moduleapiid" validate:"required" gorm:"not null"`
+
+	// The module object this route serves.
+	ModuleObjects []*ModuleObject `json:"ModuleObjects,omitempty" gorm:"many2many:v0_module_api_routes_module_objects;" validate:"optional,association"`
 }
 
 // ModuleController represents a distinct controller that is a part of the Threeport control plane.
@@ -75,4 +82,7 @@ type ModuleObject struct {
 	// The controller that reconciles state for this API object, if applicable.  Note: some API objects
 	// do not require reconciliation by a controller - this field will be null in those cases.
 	ModuleControllerID *uint `json:"ModuleControllerID,omitempty" query:"modulecontrollerid" validate:"optional"`
+
+	// The routes that service this module object.
+	ModuleApiRoutes []*ModuleApiRoute `json:"ModuleApiRoutes,omitempty" gorm:"many2many:v0_module_api_routes_module_objects;" validate:"optional,association"`
 }

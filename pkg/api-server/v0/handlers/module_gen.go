@@ -7,6 +7,7 @@ import (
 	echo "github.com/labstack/echo/v4"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
 	gorm "gorm.io/gorm"
 	"net/http"
@@ -76,6 +77,13 @@ func (h Handler) AddModuleApi(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&moduleApi); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -378,6 +386,13 @@ func (h Handler) AddModuleApiRoute(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&moduleApiRoute); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -696,6 +711,13 @@ func (h Handler) AddModuleController(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&moduleController); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -995,25 +1017,16 @@ func (h Handler) AddModuleObject(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	// check for duplicate names
-	var existingModuleObject api_v0.ModuleObject
-	nameUsed := true
-	result := h.DB.Where("name = ?", moduleObject.Name).First(&existingModuleObject)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			nameUsed = false
-		} else {
-			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-		}
-	}
-	if nameUsed {
-		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
-	}
-
 	// persist to DB
 	if result := h.DB.Create(&moduleObject); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 

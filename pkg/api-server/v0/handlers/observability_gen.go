@@ -10,6 +10,7 @@ import (
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 	zap "go.uber.org/zap"
 	gorm "gorm.io/gorm"
 	"net/http"
@@ -80,6 +81,13 @@ func (h Handler) AddLoggingDefinition(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&loggingDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -471,6 +479,13 @@ func (h Handler) AddLoggingInstance(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&loggingInstance); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -856,6 +871,13 @@ func (h Handler) AddMetricsDefinition(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&metricsDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1247,6 +1269,13 @@ func (h Handler) AddMetricsInstance(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&metricsInstance); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1632,6 +1661,13 @@ func (h Handler) AddObservabilityDashboardDefinition(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&observabilityDashboardDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -2023,6 +2059,13 @@ func (h Handler) AddObservabilityDashboardInstance(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&observabilityDashboardInstance); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -2408,6 +2451,13 @@ func (h Handler) AddObservabilityStackDefinition(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&observabilityStackDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -2799,6 +2849,13 @@ func (h Handler) AddObservabilityStackInstance(c echo.Context) error {
 	// persist to DB
 	if result := h.DB.Create(&observabilityStackInstance); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 

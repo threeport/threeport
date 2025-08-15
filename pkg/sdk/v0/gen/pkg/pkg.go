@@ -78,7 +78,6 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	// * extension modules register with the Threeport API server as the objects used for
 	//   registration are core Threeport objects and the dynamic routes must be added for
 	//   extensions to proxy connection from core Threeport API to extension module API.
-
 	if generator.Module {
 		// add the module registration function
 		if err := apiserver.GenModuleRegistration(generator, sdkConfig); err != nil {

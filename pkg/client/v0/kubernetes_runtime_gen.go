@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr, name 
 
 	switch {
 	case len(kubernetesRuntimeDefinitions) < 1:
-		return &v0.KubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("no kubernetes runtime definition with name %s", name))
+		return &v0.KubernetesRuntimeDefinition{}, client_lib.ErrObjectNotFound
 	case len(kubernetesRuntimeDefinitions) > 1:
-		return &v0.KubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("more than one kubernetes runtime definition with name %s returned", name))
+		return &v0.KubernetesRuntimeDefinition{}, fmt.Errorf("more than one kubernetes runtime definition with name %s returned", name)
 	}
 
 	return &kubernetesRuntimeDefinitions[0], nil
@@ -368,9 +367,9 @@ func GetKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, name st
 
 	switch {
 	case len(kubernetesRuntimeInstances) < 1:
-		return &v0.KubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("no kubernetes runtime instance with name %s", name))
+		return &v0.KubernetesRuntimeInstance{}, client_lib.ErrObjectNotFound
 	case len(kubernetesRuntimeInstances) > 1:
-		return &v0.KubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("more than one kubernetes runtime instance with name %s returned", name))
+		return &v0.KubernetesRuntimeInstance{}, fmt.Errorf("more than one kubernetes runtime instance with name %s returned", name)
 	}
 
 	return &kubernetesRuntimeInstances[0], nil

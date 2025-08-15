@@ -5,10 +5,14 @@ package v0
 import (
 	"fmt"
 	routes "github.com/threeport/threeport/pkg/api-server/v0/routes"
-	api "github.com/threeport/threeport/pkg/api/v0"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	gorm "gorm.io/gorm"
 	"os"
+)
+
+const (
+	coreModuleName = "threeport-core-api"
 )
 
 // RegisterModule registers the module information in the database.
@@ -19,13 +23,8 @@ func RegisterModule(db *gorm.DB) error {
 		return fmt.Errorf("failed to ensure ModuleApi object was present in database: %w", err)
 	}
 
-	// register ModuleApiRoute objects
-	if err := upserModuleApiRoutes(db, moduleApi); err != nil {
-		return fmt.Errorf("failed to ensure ModuleApiRoute objects were present in database: %w", err)
-	}
-
-	// register ModuleController and ModuleObject objects
-	if err := upsertModuleControllersObjects(db, moduleApi); err != nil {
+	// register ModuleController, ModuleObject, and ModuleApiRoute objects
+	if err := upsertModuleControllersObjectsRoutes(db, moduleApi); err != nil {
 		return fmt.Errorf("failed to ensure ModuleController and ModuleObject objects were present in database: %w", err)
 	}
 
@@ -33,1692 +32,2404 @@ func RegisterModule(db *gorm.DB) error {
 }
 
 // upsertModuleApi creates or updates the module API object information in the database.
-func upsertModuleApi(db *gorm.DB) (*api.ModuleApi, error) {
+func upsertModuleApi(db *gorm.DB) (*api_v0.ModuleApi, error) {
 	apiEndpoint := os.Getenv("THREEPORT_API_ENDPOINT")
 	if apiEndpoint == "" {
 		return nil, fmt.Errorf("THREEPORT_API_ENDPOINT is not set in environment")
 	}
 
-	moduleApi := api.ModuleApi{
+	moduleApi := api_v0.ModuleApi{
 		Core:     util.Ptr(true),
 		Endpoint: util.Ptr(apiEndpoint),
-		Name:     util.Ptr("threeport-core-api"),
+		Name:     util.Ptr(coreModuleName),
 	}
 
-	if result := db.Where(api.ModuleApi{Name: moduleApi.Name}).FirstOrCreate(&moduleApi); result.Error != nil {
+	if result := db.Where(api_v0.ModuleApi{Name: moduleApi.Name}).FirstOrCreate(&moduleApi); result.Error != nil {
 		return nil, fmt.Errorf("failed to save module API: %w", result.Error)
 	}
 
 	return &moduleApi, nil
 }
 
-// upserModuleApiRoutes creates or updates the module API routes in the database.
-func upserModuleApiRoutes(db *gorm.DB, moduleApi *api.ModuleApi) error {
-	var route api.ModuleApiRoute
-	var result *gorm.DB
-
-	// registering routes for SecretDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathSecretDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for SecretDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathSecretDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for SecretDefinition: %w", result.Error)
-	}
-
-	// registering routes for SecretInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathSecretInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for SecretInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathSecretInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for SecretInstance: %w", result.Error)
-	}
-
-	// registering routes for Profile
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathProfileVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for Profile: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathProfiles),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for Profile: %w", result.Error)
-	}
-
-	// registering routes for Tier
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathTierVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for Tier: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathTiers),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for Tier: %w", result.Error)
-	}
-
-	// registering routes for AwsAccount
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsAccountVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for AwsAccount: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsAccounts),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for AwsAccount: %w", result.Error)
-	}
-
-	// registering routes for AwsEksKubernetesRuntimeDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsEksKubernetesRuntimeDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for AwsEksKubernetesRuntimeDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsEksKubernetesRuntimeDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for AwsEksKubernetesRuntimeDefinition: %w", result.Error)
-	}
-
-	// registering routes for AwsEksKubernetesRuntimeInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsEksKubernetesRuntimeInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for AwsEksKubernetesRuntimeInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsEksKubernetesRuntimeInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for AwsEksKubernetesRuntimeInstance: %w", result.Error)
-	}
-
-	// registering routes for AwsObjectStorageBucketDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsObjectStorageBucketDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for AwsObjectStorageBucketDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsObjectStorageBucketDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for AwsObjectStorageBucketDefinition: %w", result.Error)
-	}
-
-	// registering routes for AwsObjectStorageBucketInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsObjectStorageBucketInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for AwsObjectStorageBucketInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsObjectStorageBucketInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for AwsObjectStorageBucketInstance: %w", result.Error)
-	}
-
-	// registering routes for AwsRelationalDatabaseDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsRelationalDatabaseDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for AwsRelationalDatabaseDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsRelationalDatabaseDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for AwsRelationalDatabaseDefinition: %w", result.Error)
-	}
-
-	// registering routes for AwsRelationalDatabaseInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsRelationalDatabaseInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for AwsRelationalDatabaseInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAwsRelationalDatabaseInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for AwsRelationalDatabaseInstance: %w", result.Error)
-	}
-
-	// registering routes for OciAccount
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathOciAccountVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for OciAccount: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathOciAccounts),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for OciAccount: %w", result.Error)
-	}
-
-	// registering routes for OciOkeKubernetesRuntimeDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathOciOkeKubernetesRuntimeDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for OciOkeKubernetesRuntimeDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathOciOkeKubernetesRuntimeDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for OciOkeKubernetesRuntimeDefinition: %w", result.Error)
-	}
-
-	// registering routes for OciOkeKubernetesRuntimeInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathOciOkeKubernetesRuntimeInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for OciOkeKubernetesRuntimeInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathOciOkeKubernetesRuntimeInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for OciOkeKubernetesRuntimeInstance: %w", result.Error)
-	}
-
-	// registering routes for ControlPlaneDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathControlPlaneDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for ControlPlaneDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathControlPlaneDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for ControlPlaneDefinition: %w", result.Error)
-	}
-
-	// registering routes for ControlPlaneInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathControlPlaneInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for ControlPlaneInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathControlPlaneInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for ControlPlaneInstance: %w", result.Error)
-	}
-
-	// registering routes for Event
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathEventVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for Event: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathEvents),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for Event: %w", result.Error)
-	}
-
-	// registering routes for DomainNameDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathDomainNameDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for DomainNameDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathDomainNameDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for DomainNameDefinition: %w", result.Error)
-	}
-
-	// registering routes for DomainNameInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathDomainNameInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for DomainNameInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathDomainNameInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for DomainNameInstance: %w", result.Error)
-	}
-
-	// registering routes for GatewayDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathGatewayDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for GatewayDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathGatewayDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for GatewayDefinition: %w", result.Error)
-	}
-
-	// registering routes for GatewayHttpPort
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathGatewayHttpPortVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for GatewayHttpPort: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathGatewayHttpPorts),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for GatewayHttpPort: %w", result.Error)
-	}
-
-	// registering routes for GatewayInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathGatewayInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for GatewayInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathGatewayInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for GatewayInstance: %w", result.Error)
-	}
-
-	// registering routes for GatewayTcpPort
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathGatewayTcpPortVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for GatewayTcpPort: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathGatewayTcpPorts),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for GatewayTcpPort: %w", result.Error)
-	}
-
-	// registering routes for HelmWorkloadDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathHelmWorkloadDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for HelmWorkloadDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathHelmWorkloadDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for HelmWorkloadDefinition: %w", result.Error)
-	}
-
-	// registering routes for HelmWorkloadInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathHelmWorkloadInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for HelmWorkloadInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathHelmWorkloadInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for HelmWorkloadInstance: %w", result.Error)
-	}
-
-	// registering routes for KubernetesRuntimeDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathKubernetesRuntimeDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for KubernetesRuntimeDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathKubernetesRuntimeDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for KubernetesRuntimeDefinition: %w", result.Error)
-	}
-
-	// registering routes for KubernetesRuntimeInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathKubernetesRuntimeInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for KubernetesRuntimeInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathKubernetesRuntimeInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for KubernetesRuntimeInstance: %w", result.Error)
-	}
-
-	// registering routes for LogBackend
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathLogBackendVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for LogBackend: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathLogBackends),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for LogBackend: %w", result.Error)
-	}
-
-	// registering routes for LogStorageDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathLogStorageDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for LogStorageDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathLogStorageDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for LogStorageDefinition: %w", result.Error)
-	}
-
-	// registering routes for LogStorageInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathLogStorageInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for LogStorageInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathLogStorageInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for LogStorageInstance: %w", result.Error)
-	}
-
-	// registering routes for LoggingDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathLoggingDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for LoggingDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathLoggingDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for LoggingDefinition: %w", result.Error)
-	}
-
-	// registering routes for LoggingInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathLoggingInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for LoggingInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathLoggingInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for LoggingInstance: %w", result.Error)
-	}
-
-	// registering routes for MetricsDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathMetricsDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for MetricsDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathMetricsDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for MetricsDefinition: %w", result.Error)
-	}
-
-	// registering routes for MetricsInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathMetricsInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for MetricsInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathMetricsInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for MetricsInstance: %w", result.Error)
-	}
-
-	// registering routes for ObservabilityDashboardDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathObservabilityDashboardDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for ObservabilityDashboardDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathObservabilityDashboardDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for ObservabilityDashboardDefinition: %w", result.Error)
-	}
-
-	// registering routes for ObservabilityDashboardInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathObservabilityDashboardInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for ObservabilityDashboardInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathObservabilityDashboardInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for ObservabilityDashboardInstance: %w", result.Error)
-	}
-
-	// registering routes for ObservabilityStackDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathObservabilityStackDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for ObservabilityStackDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathObservabilityStackDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for ObservabilityStackDefinition: %w", result.Error)
-	}
-
-	// registering routes for ObservabilityStackInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathObservabilityStackInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for ObservabilityStackInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathObservabilityStackInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for ObservabilityStackInstance: %w", result.Error)
-	}
-
-	// registering routes for TerraformDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathTerraformDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for TerraformDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathTerraformDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for TerraformDefinition: %w", result.Error)
-	}
-
-	// registering routes for TerraformInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathTerraformInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for TerraformInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathTerraformInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for TerraformInstance: %w", result.Error)
-	}
-
-	// registering routes for WorkloadDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathWorkloadDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for WorkloadDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathWorkloadDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for WorkloadDefinition: %w", result.Error)
-	}
-
-	// registering routes for WorkloadEvent
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathWorkloadEventVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for WorkloadEvent: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathWorkloadEvents),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for WorkloadEvent: %w", result.Error)
-	}
-
-	// registering routes for WorkloadInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathWorkloadInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for WorkloadInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathWorkloadInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for WorkloadInstance: %w", result.Error)
-	}
-
-	// registering routes for WorkloadResourceDefinition
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathWorkloadResourceDefinitionVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for WorkloadResourceDefinition: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathWorkloadResourceDefinitions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for WorkloadResourceDefinition: %w", result.Error)
-	}
-
-	// registering routes for WorkloadResourceInstance
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathWorkloadResourceInstanceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for WorkloadResourceInstance: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathWorkloadResourceInstances),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for WorkloadResourceInstance: %w", result.Error)
-	}
-
-	// registering routes for AttachedObjectReference
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAttachedObjectReferenceVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for AttachedObjectReference: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathAttachedObjectReferences),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for AttachedObjectReference: %w", result.Error)
-	}
-
-	// registering routes for ModuleApi
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathModuleApiVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for ModuleApi: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathModuleApis),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for ModuleApi: %w", result.Error)
-	}
-
-	// registering routes for ModuleApiRoute
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathModuleApiRouteVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for ModuleApiRoute: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathModuleApiRoutes),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for ModuleApiRoute: %w", result.Error)
-	}
-
-	// registering routes for ModuleController
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathModuleControllerVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for ModuleController: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathModuleControllers),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for ModuleController: %w", result.Error)
-	}
-
-	// registering routes for ModuleObject
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathModuleObjectVersions),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for ModuleObject: %w", result.Error)
-	}
-	route = api.ModuleApiRoute{
-		ModuleApiID: moduleApi.ID,
-		Path:        util.Ptr(api.PathModuleObjects),
-	}
-	result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register objectroute for ModuleObject: %w", result.Error)
-	}
-
-	// registering custom routes
-	for _, customRoute := range routes.CustomRoutes(nil) {
-		route = api.ModuleApiRoute{
-			ModuleApiID: moduleApi.ID,
-			Path:        util.Ptr(customRoute.Path),
-		}
-		result = db.Where(api.ModuleApiRoute{Path: route.Path}).FirstOrCreate(&route)
-		if result.Error != nil {
-			return fmt.Errorf("failed to register custom route for %s: %w", customRoute.Path, result.Error)
-		}
-	}
-
-	return nil
-}
-
-// upsertModuleControllersObjects creates or updates the module controllers and objects in the database.
-func upsertModuleControllersObjects(db *gorm.DB, moduleApi *api.ModuleApi) error {
+// upsertModuleControllersObjectsRoutes creates or updates the module controllers, objects, and routes in the database.
+func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleApi) error {
 	threeportNamespace := os.Getenv("THREEPORT_CONTROL_PLANE_NAMESPACE")
 	if threeportNamespace == "" {
 		return fmt.Errorf("THREEPORT_CONTROL_PLANE_NAMESPACE is not set in environment")
 	}
 
-	var controller api.ModuleController
-	var object api.ModuleObject
+	var controller api_v0.ModuleController
+	var object api_v0.ModuleObject
+	var route api_v0.ModuleApiRoute
 	var result *gorm.DB
 
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for Secret object group
+	// registering controllers, objects and routes for Secret object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering secret-controller
-	controller = api.ModuleController{
-		DeploymentName: util.Ptr(fmt.Sprintf("%s/%s", threeportNamespace, "threeport-secret-controller")),
+	// registering controller secret-controller
+	controller = api_v0.ModuleController{
+		DeploymentName: util.Ptr(threeportNamespace + "/threeport-secret-controller"),
 		ModuleApiID:    moduleApi.ID,
 		Name:           util.Ptr("secret-controller"),
 	}
-	result = db.Where(api.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
+	result = db.Where(api_v0.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register secret-controller: %w", result.Error)
 	}
 
-	// registering SecretDefinition
-	object = api.ModuleObject{
+	// registering object SecretDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("SecretDefinition"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register SecretDefinition: %w", result.Error)
 	}
 
-	// registering SecretInstance
-	object = api.ModuleObject{
+	// registering routes for SecretDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathSecretDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for SecretDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathSecretDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for SecretDefinition: %w", result.Error)
+	}
+
+	// registering object SecretInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("SecretInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register SecretInstance: %w", result.Error)
 	}
 
+	// registering routes for SecretInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathSecretInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for SecretInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathSecretInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for SecretInstance: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for Actuator object group
+	// registering controllers, objects and routes for Actuator object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering Profile
-	object = api.ModuleObject{
+	// registering object Profile
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("Profile"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register Profile: %w", result.Error)
 	}
 
-	// registering Tier
-	object = api.ModuleObject{
+	// registering routes for Profile
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathProfileVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for Profile: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathProfiles),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for Profile: %w", result.Error)
+	}
+
+	// registering object Tier
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("Tier"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register Tier: %w", result.Error)
 	}
 
+	// registering routes for Tier
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathTierVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for Tier: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathTiers),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for Tier: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for Aws object group
+	// registering controllers, objects and routes for Aws object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering aws-controller
-	controller = api.ModuleController{
-		DeploymentName: util.Ptr(fmt.Sprintf("%s/%s", threeportNamespace, "threeport-aws-controller")),
+	// registering controller aws-controller
+	controller = api_v0.ModuleController{
+		DeploymentName: util.Ptr(threeportNamespace + "/threeport-aws-controller"),
 		ModuleApiID:    moduleApi.ID,
 		Name:           util.Ptr("aws-controller"),
 	}
-	result = db.Where(api.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
+	result = db.Where(api_v0.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register aws-controller: %w", result.Error)
 	}
 
-	// registering AwsAccount
-	object = api.ModuleObject{
+	// registering object AwsAccount
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("AwsAccount"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register AwsAccount: %w", result.Error)
 	}
 
-	// registering AwsEksKubernetesRuntimeDefinition
-	object = api.ModuleObject{
+	// registering routes for AwsAccount
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsAccountVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for AwsAccount: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsAccounts),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for AwsAccount: %w", result.Error)
+	}
+
+	// registering object AwsEksKubernetesRuntimeDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("AwsEksKubernetesRuntimeDefinition"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register AwsEksKubernetesRuntimeDefinition: %w", result.Error)
 	}
 
-	// registering AwsEksKubernetesRuntimeInstance
-	object = api.ModuleObject{
+	// registering routes for AwsEksKubernetesRuntimeDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsEksKubernetesRuntimeDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for AwsEksKubernetesRuntimeDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsEksKubernetesRuntimeDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for AwsEksKubernetesRuntimeDefinition: %w", result.Error)
+	}
+
+	// registering object AwsEksKubernetesRuntimeInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("AwsEksKubernetesRuntimeInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register AwsEksKubernetesRuntimeInstance: %w", result.Error)
 	}
 
-	// registering AwsObjectStorageBucketDefinition
-	object = api.ModuleObject{
+	// registering routes for AwsEksKubernetesRuntimeInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsEksKubernetesRuntimeInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for AwsEksKubernetesRuntimeInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsEksKubernetesRuntimeInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for AwsEksKubernetesRuntimeInstance: %w", result.Error)
+	}
+
+	// registering object AwsObjectStorageBucketDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("AwsObjectStorageBucketDefinition"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register AwsObjectStorageBucketDefinition: %w", result.Error)
 	}
 
-	// registering AwsObjectStorageBucketInstance
-	object = api.ModuleObject{
+	// registering routes for AwsObjectStorageBucketDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsObjectStorageBucketDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for AwsObjectStorageBucketDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsObjectStorageBucketDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for AwsObjectStorageBucketDefinition: %w", result.Error)
+	}
+
+	// registering object AwsObjectStorageBucketInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("AwsObjectStorageBucketInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register AwsObjectStorageBucketInstance: %w", result.Error)
 	}
 
-	// registering AwsRelationalDatabaseDefinition
-	object = api.ModuleObject{
+	// registering routes for AwsObjectStorageBucketInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsObjectStorageBucketInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for AwsObjectStorageBucketInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsObjectStorageBucketInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for AwsObjectStorageBucketInstance: %w", result.Error)
+	}
+
+	// registering object AwsRelationalDatabaseDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("AwsRelationalDatabaseDefinition"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register AwsRelationalDatabaseDefinition: %w", result.Error)
 	}
 
-	// registering AwsRelationalDatabaseInstance
-	object = api.ModuleObject{
+	// registering routes for AwsRelationalDatabaseDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsRelationalDatabaseDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for AwsRelationalDatabaseDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsRelationalDatabaseDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for AwsRelationalDatabaseDefinition: %w", result.Error)
+	}
+
+	// registering object AwsRelationalDatabaseInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("AwsRelationalDatabaseInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register AwsRelationalDatabaseInstance: %w", result.Error)
 	}
 
+	// registering routes for AwsRelationalDatabaseInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsRelationalDatabaseInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for AwsRelationalDatabaseInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsRelationalDatabaseInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for AwsRelationalDatabaseInstance: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for Oci object group
+	// registering controllers, objects and routes for Oci object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering oci-controller
-	controller = api.ModuleController{
-		DeploymentName: util.Ptr(fmt.Sprintf("%s/%s", threeportNamespace, "threeport-oci-controller")),
+	// registering controller oci-controller
+	controller = api_v0.ModuleController{
+		DeploymentName: util.Ptr(threeportNamespace + "/threeport-oci-controller"),
 		ModuleApiID:    moduleApi.ID,
 		Name:           util.Ptr("oci-controller"),
 	}
-	result = db.Where(api.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
+	result = db.Where(api_v0.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register oci-controller: %w", result.Error)
 	}
 
-	// registering OciAccount
-	object = api.ModuleObject{
+	// registering object OciAccount
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("OciAccount"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register OciAccount: %w", result.Error)
 	}
 
-	// registering OciOkeKubernetesRuntimeDefinition
-	object = api.ModuleObject{
+	// registering routes for OciAccount
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathOciAccountVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for OciAccount: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathOciAccounts),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for OciAccount: %w", result.Error)
+	}
+
+	// registering object OciOkeKubernetesRuntimeDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("OciOkeKubernetesRuntimeDefinition"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register OciOkeKubernetesRuntimeDefinition: %w", result.Error)
 	}
 
-	// registering OciOkeKubernetesRuntimeInstance
-	object = api.ModuleObject{
+	// registering routes for OciOkeKubernetesRuntimeDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathOciOkeKubernetesRuntimeDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for OciOkeKubernetesRuntimeDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathOciOkeKubernetesRuntimeDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for OciOkeKubernetesRuntimeDefinition: %w", result.Error)
+	}
+
+	// registering object OciOkeKubernetesRuntimeInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("OciOkeKubernetesRuntimeInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register OciOkeKubernetesRuntimeInstance: %w", result.Error)
 	}
 
+	// registering routes for OciOkeKubernetesRuntimeInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathOciOkeKubernetesRuntimeInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for OciOkeKubernetesRuntimeInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathOciOkeKubernetesRuntimeInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for OciOkeKubernetesRuntimeInstance: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for ControlPlane object group
+	// registering controllers, objects and routes for ControlPlane object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering control-plane-controller
-	controller = api.ModuleController{
-		DeploymentName: util.Ptr(fmt.Sprintf("%s/%s", threeportNamespace, "threeport-control-plane-controller")),
+	// registering controller control-plane-controller
+	controller = api_v0.ModuleController{
+		DeploymentName: util.Ptr(threeportNamespace + "/threeport-control-plane-controller"),
 		ModuleApiID:    moduleApi.ID,
 		Name:           util.Ptr("control-plane-controller"),
 	}
-	result = db.Where(api.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
+	result = db.Where(api_v0.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register control-plane-controller: %w", result.Error)
 	}
 
-	// registering ControlPlaneDefinition
-	object = api.ModuleObject{
+	// registering object ControlPlaneDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("ControlPlaneDefinition"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register ControlPlaneDefinition: %w", result.Error)
 	}
 
-	// registering ControlPlaneInstance
-	object = api.ModuleObject{
+	// registering routes for ControlPlaneDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathControlPlaneDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for ControlPlaneDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathControlPlaneDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for ControlPlaneDefinition: %w", result.Error)
+	}
+
+	// registering object ControlPlaneInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("ControlPlaneInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register ControlPlaneInstance: %w", result.Error)
 	}
 
+	// registering routes for ControlPlaneInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathControlPlaneInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for ControlPlaneInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathControlPlaneInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for ControlPlaneInstance: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for  object group
+	// registering controllers, objects and routes for  object group
 	// /////////////////////////////////////////////////////////////////////////////
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for  object group
+	// registering controllers, objects and routes for  object group
 	// /////////////////////////////////////////////////////////////////////////////
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for Events object group
+	// registering controllers, objects and routes for Events object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering Event
-	object = api.ModuleObject{
+	// registering object Event
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("Event"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register Event: %w", result.Error)
 	}
 
+	// registering routes for Event
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathEventVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for Event: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathEvents),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for Event: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for Gateway object group
+	// registering controllers, objects and routes for Gateway object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering gateway-controller
-	controller = api.ModuleController{
-		DeploymentName: util.Ptr(fmt.Sprintf("%s/%s", threeportNamespace, "threeport-gateway-controller")),
+	// registering controller gateway-controller
+	controller = api_v0.ModuleController{
+		DeploymentName: util.Ptr(threeportNamespace + "/threeport-gateway-controller"),
 		ModuleApiID:    moduleApi.ID,
 		Name:           util.Ptr("gateway-controller"),
 	}
-	result = db.Where(api.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
+	result = db.Where(api_v0.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register gateway-controller: %w", result.Error)
 	}
 
-	// registering DomainNameDefinition
-	object = api.ModuleObject{
+	// registering object DomainNameDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("DomainNameDefinition"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register DomainNameDefinition: %w", result.Error)
 	}
 
-	// registering DomainNameInstance
-	object = api.ModuleObject{
+	// registering routes for DomainNameDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathDomainNameDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for DomainNameDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathDomainNameDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for DomainNameDefinition: %w", result.Error)
+	}
+
+	// registering object DomainNameInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("DomainNameInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register DomainNameInstance: %w", result.Error)
 	}
 
-	// registering GatewayDefinition
-	object = api.ModuleObject{
+	// registering routes for DomainNameInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathDomainNameInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for DomainNameInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathDomainNameInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for DomainNameInstance: %w", result.Error)
+	}
+
+	// registering object GatewayDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("GatewayDefinition"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register GatewayDefinition: %w", result.Error)
 	}
 
-	// registering GatewayHttpPort
-	object = api.ModuleObject{
+	// registering routes for GatewayDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGatewayDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for GatewayDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGatewayDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for GatewayDefinition: %w", result.Error)
+	}
+
+	// registering object GatewayHttpPort
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("GatewayHttpPort"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register GatewayHttpPort: %w", result.Error)
 	}
 
-	// registering GatewayInstance
-	object = api.ModuleObject{
+	// registering routes for GatewayHttpPort
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGatewayHttpPortVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for GatewayHttpPort: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGatewayHttpPorts),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for GatewayHttpPort: %w", result.Error)
+	}
+
+	// registering object GatewayInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("GatewayInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register GatewayInstance: %w", result.Error)
 	}
 
-	// registering GatewayTcpPort
-	object = api.ModuleObject{
+	// registering routes for GatewayInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGatewayInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for GatewayInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGatewayInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for GatewayInstance: %w", result.Error)
+	}
+
+	// registering object GatewayTcpPort
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("GatewayTcpPort"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register GatewayTcpPort: %w", result.Error)
 	}
 
+	// registering routes for GatewayTcpPort
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGatewayTcpPortVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for GatewayTcpPort: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGatewayTcpPorts),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for GatewayTcpPort: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for HelmWorkload object group
+	// registering controllers, objects and routes for HelmWorkload object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering helm-workload-controller
-	controller = api.ModuleController{
-		DeploymentName: util.Ptr(fmt.Sprintf("%s/%s", threeportNamespace, "threeport-helm-workload-controller")),
+	// registering controller helm-workload-controller
+	controller = api_v0.ModuleController{
+		DeploymentName: util.Ptr(threeportNamespace + "/threeport-helm-workload-controller"),
 		ModuleApiID:    moduleApi.ID,
 		Name:           util.Ptr("helm-workload-controller"),
 	}
-	result = db.Where(api.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
+	result = db.Where(api_v0.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register helm-workload-controller: %w", result.Error)
 	}
 
-	// registering HelmWorkloadDefinition
-	object = api.ModuleObject{
+	// registering object HelmWorkloadDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("HelmWorkloadDefinition"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register HelmWorkloadDefinition: %w", result.Error)
 	}
 
-	// registering HelmWorkloadInstance
-	object = api.ModuleObject{
+	// registering routes for HelmWorkloadDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathHelmWorkloadDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for HelmWorkloadDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathHelmWorkloadDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for HelmWorkloadDefinition: %w", result.Error)
+	}
+
+	// registering object HelmWorkloadInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("HelmWorkloadInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register HelmWorkloadInstance: %w", result.Error)
 	}
 
+	// registering routes for HelmWorkloadInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathHelmWorkloadInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for HelmWorkloadInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathHelmWorkloadInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for HelmWorkloadInstance: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for KubernetesRuntime object group
+	// registering controllers, objects and routes for KubernetesRuntime object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering kubernetes-runtime-controller
-	controller = api.ModuleController{
-		DeploymentName: util.Ptr(fmt.Sprintf("%s/%s", threeportNamespace, "threeport-kubernetes-runtime-controller")),
+	// registering controller kubernetes-runtime-controller
+	controller = api_v0.ModuleController{
+		DeploymentName: util.Ptr(threeportNamespace + "/threeport-kubernetes-runtime-controller"),
 		ModuleApiID:    moduleApi.ID,
 		Name:           util.Ptr("kubernetes-runtime-controller"),
 	}
-	result = db.Where(api.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
+	result = db.Where(api_v0.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register kubernetes-runtime-controller: %w", result.Error)
 	}
 
-	// registering KubernetesRuntimeDefinition
-	object = api.ModuleObject{
+	// registering object KubernetesRuntimeDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("KubernetesRuntimeDefinition"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register KubernetesRuntimeDefinition: %w", result.Error)
 	}
 
-	// registering KubernetesRuntimeInstance
-	object = api.ModuleObject{
+	// registering routes for KubernetesRuntimeDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathKubernetesRuntimeDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for KubernetesRuntimeDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathKubernetesRuntimeDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for KubernetesRuntimeDefinition: %w", result.Error)
+	}
+
+	// registering object KubernetesRuntimeInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("KubernetesRuntimeInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register KubernetesRuntimeInstance: %w", result.Error)
 	}
 
+	// registering routes for KubernetesRuntimeInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathKubernetesRuntimeInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for KubernetesRuntimeInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathKubernetesRuntimeInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for KubernetesRuntimeInstance: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for Log object group
+	// registering controllers, objects and routes for Log object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering LogBackend
-	object = api.ModuleObject{
+	// registering object LogBackend
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("LogBackend"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register LogBackend: %w", result.Error)
 	}
 
-	// registering LogStorageDefinition
-	object = api.ModuleObject{
+	// registering routes for LogBackend
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathLogBackendVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for LogBackend: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathLogBackends),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for LogBackend: %w", result.Error)
+	}
+
+	// registering object LogStorageDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("LogStorageDefinition"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register LogStorageDefinition: %w", result.Error)
 	}
 
-	// registering LogStorageInstance
-	object = api.ModuleObject{
+	// registering routes for LogStorageDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathLogStorageDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for LogStorageDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathLogStorageDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for LogStorageDefinition: %w", result.Error)
+	}
+
+	// registering object LogStorageInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("LogStorageInstance"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register LogStorageInstance: %w", result.Error)
 	}
 
+	// registering routes for LogStorageInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathLogStorageInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for LogStorageInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathLogStorageInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for LogStorageInstance: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for Observability object group
+	// registering controllers, objects and routes for Observability object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering observability-controller
-	controller = api.ModuleController{
-		DeploymentName: util.Ptr(fmt.Sprintf("%s/%s", threeportNamespace, "threeport-observability-controller")),
+	// registering controller observability-controller
+	controller = api_v0.ModuleController{
+		DeploymentName: util.Ptr(threeportNamespace + "/threeport-observability-controller"),
 		ModuleApiID:    moduleApi.ID,
 		Name:           util.Ptr("observability-controller"),
 	}
-	result = db.Where(api.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
+	result = db.Where(api_v0.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register observability-controller: %w", result.Error)
 	}
 
-	// registering LoggingDefinition
-	object = api.ModuleObject{
+	// registering object LoggingDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("LoggingDefinition"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register LoggingDefinition: %w", result.Error)
 	}
 
-	// registering LoggingInstance
-	object = api.ModuleObject{
+	// registering routes for LoggingDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathLoggingDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for LoggingDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathLoggingDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for LoggingDefinition: %w", result.Error)
+	}
+
+	// registering object LoggingInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("LoggingInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register LoggingInstance: %w", result.Error)
 	}
 
-	// registering MetricsDefinition
-	object = api.ModuleObject{
+	// registering routes for LoggingInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathLoggingInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for LoggingInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathLoggingInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for LoggingInstance: %w", result.Error)
+	}
+
+	// registering object MetricsDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("MetricsDefinition"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register MetricsDefinition: %w", result.Error)
 	}
 
-	// registering MetricsInstance
-	object = api.ModuleObject{
+	// registering routes for MetricsDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathMetricsDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for MetricsDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathMetricsDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for MetricsDefinition: %w", result.Error)
+	}
+
+	// registering object MetricsInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("MetricsInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register MetricsInstance: %w", result.Error)
 	}
 
-	// registering ObservabilityDashboardDefinition
-	object = api.ModuleObject{
+	// registering routes for MetricsInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathMetricsInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for MetricsInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathMetricsInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for MetricsInstance: %w", result.Error)
+	}
+
+	// registering object ObservabilityDashboardDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("ObservabilityDashboardDefinition"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register ObservabilityDashboardDefinition: %w", result.Error)
 	}
 
-	// registering ObservabilityDashboardInstance
-	object = api.ModuleObject{
+	// registering routes for ObservabilityDashboardDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathObservabilityDashboardDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for ObservabilityDashboardDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathObservabilityDashboardDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for ObservabilityDashboardDefinition: %w", result.Error)
+	}
+
+	// registering object ObservabilityDashboardInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("ObservabilityDashboardInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register ObservabilityDashboardInstance: %w", result.Error)
 	}
 
-	// registering ObservabilityStackDefinition
-	object = api.ModuleObject{
+	// registering routes for ObservabilityDashboardInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathObservabilityDashboardInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for ObservabilityDashboardInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathObservabilityDashboardInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for ObservabilityDashboardInstance: %w", result.Error)
+	}
+
+	// registering object ObservabilityStackDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("ObservabilityStackDefinition"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register ObservabilityStackDefinition: %w", result.Error)
 	}
 
-	// registering ObservabilityStackInstance
-	object = api.ModuleObject{
+	// registering routes for ObservabilityStackDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathObservabilityStackDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for ObservabilityStackDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathObservabilityStackDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for ObservabilityStackDefinition: %w", result.Error)
+	}
+
+	// registering object ObservabilityStackInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("ObservabilityStackInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register ObservabilityStackInstance: %w", result.Error)
 	}
 
+	// registering routes for ObservabilityStackInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathObservabilityStackInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for ObservabilityStackInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathObservabilityStackInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for ObservabilityStackInstance: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for Terraform object group
+	// registering controllers, objects and routes for Terraform object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering terraform-controller
-	controller = api.ModuleController{
-		DeploymentName: util.Ptr(fmt.Sprintf("%s/%s", threeportNamespace, "threeport-terraform-controller")),
+	// registering controller terraform-controller
+	controller = api_v0.ModuleController{
+		DeploymentName: util.Ptr(threeportNamespace + "/threeport-terraform-controller"),
 		ModuleApiID:    moduleApi.ID,
 		Name:           util.Ptr("terraform-controller"),
 	}
-	result = db.Where(api.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
+	result = db.Where(api_v0.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register terraform-controller: %w", result.Error)
 	}
 
-	// registering TerraformDefinition
-	object = api.ModuleObject{
+	// registering object TerraformDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("TerraformDefinition"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register TerraformDefinition: %w", result.Error)
 	}
 
-	// registering TerraformInstance
-	object = api.ModuleObject{
+	// registering routes for TerraformDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathTerraformDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for TerraformDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathTerraformDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for TerraformDefinition: %w", result.Error)
+	}
+
+	// registering object TerraformInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("TerraformInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register TerraformInstance: %w", result.Error)
 	}
 
+	// registering routes for TerraformInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathTerraformInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for TerraformInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathTerraformInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for TerraformInstance: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for Workload object group
+	// registering controllers, objects and routes for Workload object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering workload-controller
-	controller = api.ModuleController{
-		DeploymentName: util.Ptr(fmt.Sprintf("%s/%s", threeportNamespace, "threeport-workload-controller")),
+	// registering controller workload-controller
+	controller = api_v0.ModuleController{
+		DeploymentName: util.Ptr(threeportNamespace + "/threeport-workload-controller"),
 		ModuleApiID:    moduleApi.ID,
 		Name:           util.Ptr("workload-controller"),
 	}
-	result = db.Where(api.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
+	result = db.Where(api_v0.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register workload-controller: %w", result.Error)
 	}
 
-	// registering WorkloadDefinition
-	object = api.ModuleObject{
+	// registering object WorkloadDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("WorkloadDefinition"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register WorkloadDefinition: %w", result.Error)
 	}
 
-	// registering WorkloadEvent
-	object = api.ModuleObject{
+	// registering routes for WorkloadDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathWorkloadDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for WorkloadDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathWorkloadDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for WorkloadDefinition: %w", result.Error)
+	}
+
+	// registering object WorkloadEvent
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("WorkloadEvent"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register WorkloadEvent: %w", result.Error)
 	}
 
-	// registering WorkloadInstance
-	object = api.ModuleObject{
+	// registering routes for WorkloadEvent
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathWorkloadEventVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for WorkloadEvent: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathWorkloadEvents),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for WorkloadEvent: %w", result.Error)
+	}
+
+	// registering object WorkloadInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("WorkloadInstance"),
 		Version:            util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register WorkloadInstance: %w", result.Error)
 	}
 
-	// registering WorkloadResourceDefinition
-	object = api.ModuleObject{
+	// registering routes for WorkloadInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathWorkloadInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for WorkloadInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathWorkloadInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for WorkloadInstance: %w", result.Error)
+	}
+
+	// registering object WorkloadResourceDefinition
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("WorkloadResourceDefinition"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register WorkloadResourceDefinition: %w", result.Error)
 	}
 
-	// registering WorkloadResourceInstance
-	object = api.ModuleObject{
+	// registering routes for WorkloadResourceDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathWorkloadResourceDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for WorkloadResourceDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathWorkloadResourceDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for WorkloadResourceDefinition: %w", result.Error)
+	}
+
+	// registering object WorkloadResourceInstance
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("WorkloadResourceInstance"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register WorkloadResourceInstance: %w", result.Error)
 	}
 
+	// registering routes for WorkloadResourceInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathWorkloadResourceInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for WorkloadResourceInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathWorkloadResourceInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for WorkloadResourceInstance: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for AttachedObject object group
+	// registering controllers, objects and routes for AttachedObject object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering AttachedObjectReference
-	object = api.ModuleObject{
+	// registering object AttachedObjectReference
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("AttachedObjectReference"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register AttachedObjectReference: %w", result.Error)
 	}
 
+	// registering routes for AttachedObjectReference
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAttachedObjectReferenceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for AttachedObjectReference: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAttachedObjectReferences),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for AttachedObjectReference: %w", result.Error)
+	}
+
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering controllers and objects for Module object group
+	// registering controllers, objects and routes for Module object group
 	// /////////////////////////////////////////////////////////////////////////////
-	// registering ModuleApi
-	object = api.ModuleObject{
+	// registering object ModuleApi
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("ModuleApi"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register ModuleApi: %w", result.Error)
 	}
 
-	// registering ModuleApiRoute
-	object = api.ModuleObject{
+	// registering routes for ModuleApi
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathModuleApiVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for ModuleApi: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathModuleApis),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for ModuleApi: %w", result.Error)
+	}
+
+	// registering object ModuleApiRoute
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("ModuleApiRoute"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register ModuleApiRoute: %w", result.Error)
 	}
 
-	// registering ModuleController
-	object = api.ModuleObject{
+	// registering routes for ModuleApiRoute
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathModuleApiRouteVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for ModuleApiRoute: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathModuleApiRoutes),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for ModuleApiRoute: %w", result.Error)
+	}
+
+	// registering object ModuleController
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("ModuleController"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register ModuleController: %w", result.Error)
 	}
 
-	// registering ModuleObject
-	object = api.ModuleObject{
+	// registering routes for ModuleController
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathModuleControllerVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for ModuleController: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathModuleControllers),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for ModuleController: %w", result.Error)
+	}
+
+	// registering object ModuleObject
+	object = api_v0.ModuleObject{
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("ModuleObject"),
 		Version:     util.Ptr("v0"),
 	}
-	result = db.Where(api.ModuleObject{Name: object.Name}).FirstOrCreate(&object)
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register ModuleObject: %w", result.Error)
+	}
+
+	// registering routes for ModuleObject
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathModuleObjectVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for ModuleObject: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathModuleObjects),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for ModuleObject: %w", result.Error)
+	}
+
+	// registering custom routes
+	for _, customRoute := range routes.CustomRoutes(nil) {
+		// query the module objects for the custom route by name and version
+		moduleObjects := []*api_v0.ModuleObject{}
+		for _, apiObject := range customRoute.ApiObjects {
+			moduleObj := api_v0.ModuleObject{}
+			moduleResult := db.Where(api_v0.ModuleObject{
+				ModuleApiID: moduleApi.ID,
+				Name:        util.Ptr(apiObject.Name),
+				Version:     util.Ptr(apiObject.Version),
+			}).Find(&moduleObj)
+			if moduleResult.Error != nil {
+				return fmt.Errorf("failed to query module object for %s: %w", apiObject.Name, moduleResult.Error)
+			}
+			moduleObjects = append(moduleObjects, &moduleObj)
+		}
+		route = api_v0.ModuleApiRoute{
+			ModuleApiID:   moduleApi.ID,
+			ModuleObjects: moduleObjects,
+			Path:          util.Ptr(customRoute.Path),
+		}
+		result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+			ModuleApiID:   moduleApi.ID,
+			ModuleObjects: moduleObjects,
+			Path:          route.Path,
+		}).FirstOrCreate(&route)
+		if result.Error != nil {
+			return fmt.Errorf("failed to register custom route for %s: %w", customRoute.Path, result.Error)
+		}
 	}
 
 	return nil

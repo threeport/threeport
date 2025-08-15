@@ -345,22 +345,29 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Line(),
 					Switch().Block(
 						Case(Len(Id(pluralize.Pluralize(strcase.ToLowerCamel(apiObject.TypeName), 2, false))).Op("<").Lit(1)).Block(
-							Return().Op("&").Qual(
-								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
-								apiObject.TypeName,
-							).Values().Op(",").Qual("errors", "New").Call(
-								Qual("fmt", "Sprintf").Call(
-									Lit("no "+strcase.ToDelimited(apiObject.TypeName, ' ')+" with name %s").Op(",").Id("name"),
+							Return().List(
+								Op("&").Qual(
+									fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+									apiObject.TypeName,
+								).Values(),
+								Qual(
+									"github.com/threeport/threeport/pkg/client/lib/v0",
+									"ErrObjectNotFound",
 								),
 							),
 						),
 						Case(Len(Id(pluralize.Pluralize(strcase.ToLowerCamel(apiObject.TypeName), 2, false))).Op(">").Lit(1)).Block(
-							Return().Op("&").Qual(
-								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
-								apiObject.TypeName,
-							).Values().Op(",").Qual("errors", "New").Call(
-								Qual("fmt", "Sprintf").Call(
-									Lit("more than one "+strcase.ToDelimited(apiObject.TypeName, ' ')+" with name %s returned").Op(",").Id("name"),
+							Return().List(
+								Op("&").Qual(
+									fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+									apiObject.TypeName,
+								).Values(),
+								Qual("fmt", "Errorf").Call(
+									Lit(fmt.Sprintf(
+										"more than one %s with name %%s returned",
+										strcase.ToDelimited(apiObject.TypeName, ' '),
+									)),
+									Id("name"),
 								),
 							),
 						),
