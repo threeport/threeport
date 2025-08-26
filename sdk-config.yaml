@@ -287,13 +287,21 @@ ApiObjectGroups:
     - Name: ModuleApi
       Versions:
         - v0
+      Tptctl:
+        Enabled: true
     - Name: ModuleApiRoute
       Versions:
         - v0
+      Tptctl:
+        Enabled: true
     - Name: ModuleController
       Versions:
         - v0
+      Tptctl:
+        Enabled: true
     - Name: ModuleObject
       Versions:
         - v0
       AllowDuplicateModelNames: true
+      Tptctl:
+        Enabled: true

@@ -20,14 +20,6 @@ func (e *HttpError) GetStatusCode() int {
 	return e.StatusCode
 }
 
-// NewConflictError creates a new HttpError with status 409 Conflict
-func NewConflictError(message string) *HttpError {
-	return &HttpError{
-		Message:    message,
-		StatusCode: http.StatusConflict,
-	}
-}
-
 // NewBadRequestError creates a new HttpError with status 400 Bad Request
 func NewBadRequestError(message string) *HttpError {
 	return &HttpError{
@@ -36,10 +28,34 @@ func NewBadRequestError(message string) *HttpError {
 	}
 }
 
+// NewUnauthorizedError creates a new HttpError with status 401 Unauthorized
+func NewUnauthorizedError(message string) *HttpError {
+	return &HttpError{
+		Message:    message,
+		StatusCode: http.StatusUnauthorized,
+	}
+}
+
+// NewForbiddenError creates a new HttpError with status 403 Forbidden
+func NewForbiddenError(message string) *HttpError {
+	return &HttpError{
+		Message:    message,
+		StatusCode: http.StatusForbidden,
+	}
+}
+
 // NewNotFoundError creates a new HttpError with status 404 Not Found
 func NewNotFoundError(message string) *HttpError {
 	return &HttpError{
 		Message:    message,
 		StatusCode: http.StatusNotFound,
+	}
+}
+
+// NewConflictError creates a new HttpError with status 409 Conflict
+func NewConflictError(message string) *HttpError {
+	return &HttpError{
+		Message:    message,
+		StatusCode: http.StatusConflict,
 	}
 }

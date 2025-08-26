@@ -51,3 +51,66 @@ func CreateModuleApiRouteWithModuleObjectReferences(
 
 	return moduleApiRoute, nil
 }
+
+// GetModuleObjectsWithModuleApiRoutes fetches all module objects with associated module api routes.
+// TODO: implement pagination
+func GetModuleObjectsWithModuleApiRoutes(apiClient *http.Client, apiAddr string) (*[]v0.ModuleObject, error) {
+	var moduleObjects []v0.ModuleObject
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s", apiAddr, v0.PathModuleObjectsWithModuleApiRoutes),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &moduleObjects, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &moduleObjects, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleObjects); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &moduleObjects, nil
+}
+
+// GetModuleObjectsWithModuleApiRoutesByQueryString fetches all module objects with associated module api routes
+// by provided module object ID.
+// TODO: implement pagination
+func GetModuleObjectWithModuleApiRoutesByID(apiClient *http.Client, apiAddr string, moduleObjectID uint) (*v0.ModuleObject, error) {
+	var moduleObject v0.ModuleObject
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleObjectsWithModuleApiRoutes, moduleObjectID),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &moduleObject, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &moduleObject, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&moduleObject); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &moduleObject, nil
+}

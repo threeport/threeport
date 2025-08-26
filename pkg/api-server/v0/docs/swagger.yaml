@@ -1636,6 +1636,9 @@ definitions:
     type: object
   v0.ModuleApi:
     properties:
+      Core:
+        description: If true, represents the core Threeport API.
+        type: boolean
       Endpoint:
         description: |-
           The module API server's endpoint to proxy requests to for module
@@ -1644,10 +1647,20 @@ definitions:
       ModuleApiRoutes:
         description: |-
           The routes as URL paths to proxy requests to the API server's endpoint.
-          All supported routes for an extension API should be added so that it is
+          All supported routes for an module API should be added so that it is
           proxied.
         items:
           $ref: '#/definitions/v0.ModuleApiRoute'
+        type: array
+      ModuleControllers:
+        description: The controllers that are serviced by this module API.
+        items:
+          $ref: '#/definitions/v0.ModuleController'
+        type: array
+      ModuleObjects:
+        description: The API objects that are handled by this module API.
+        items:
+          $ref: '#/definitions/v0.ModuleObject'
         type: array
       Name:
         description: An arbitrary name for the module API.
@@ -1659,14 +1672,71 @@ definitions:
   v0.ModuleApiRoute:
     properties:
       ModuleApiID:
-        description: The module Api this route belongs to.
+        description: The module API this route belongs to.
         type: integer
+      ModuleObjects:
+        description: The module object this route serves.
+        items:
+          $ref: '#/definitions/v0.ModuleObject'
+        type: array
       Path:
         description: The URL path supported by the module API.
         type: string
     required:
     - ModuleApiID
     - Path
+    type: object
+  v0.ModuleController:
+    properties:
+      DeploymentName:
+        description: |-
+          The K8s deployment name for the controller.  This allows actions to be executed against the
+          the controller workload.  Examples:
+          * disable a controller altogether when the API objects it manages are not in use.
+          * allow the Threeport agent to watch and scale-to-zero the controller.
+        type: string
+      ModuleApiID:
+        description: The module API this controller is connected to.
+        type: integer
+      Name:
+        description: The name of the controller.
+        type: string
+    required:
+    - DeploymentName
+    - ModuleApiID
+    - Name
+    type: object
+  v0.ModuleObject:
+    properties:
+      InternalOnly:
+        description: |-
+          If true, only accessible to internal controllers that are a part of the
+          Threeport control plane.  Threeport users cannot access if true.
+        type: boolean
+      ModuleApiID:
+        description: The module API this controller is connected to.
+        type: integer
+      ModuleApiRoutes:
+        description: The routes that service this module object.
+        items:
+          $ref: '#/definitions/v0.ModuleApiRoute'
+        type: array
+      ModuleControllerID:
+        description: |-
+          The controller that reconciles state for this API object, if applicable.  Note: some API objects
+          do not require reconciliation by a controller - this field will be null in those cases.
+        type: integer
+      Name:
+        description: The name of the API object.
+        type: string
+      Version:
+        description: The version of the API object, expressed as `v0`, `v1`, `v2`,
+          etc.
+        type: string
+    required:
+    - ModuleApiID
+    - Name
+    - Version
     type: object
   v0.ObservabilityDashboardDefinition:
     properties:
@@ -3130,6 +3200,32 @@ paths:
             $ref: '#/definitions/v0.ApiObjectVersions'
       summary: GetModuleApiVersions gets the supported versions for the module api
         API.
+  /module-controllers/versions:
+    get:
+      description: Get the supported API versions for module controllers.
+      operationId: moduleController-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.ApiObjectVersions'
+      summary: GetModuleControllerVersions gets the supported versions for the module
+        controller API.
+  /module-objects/versions:
+    get:
+      description: Get the supported API versions for module objects.
+      operationId: moduleObject-get-versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.ApiObjectVersions'
+      summary: GetModuleObjectVersions gets the supported versions for the module
+        object API.
   /observability-dashboard-definitions/versions:
     get:
       description: Get the supported API versions for observability dashboard definitions.
@@ -8923,6 +9019,39 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing metrics instance by replacing the entire object.
+  /v0/module-api-route-with-module-object-reference:
+    post:
+      consumes:
+      - application/json
+      description: Add a new module api route to the Threeport database with a module
+        object reference.  This allows an API call to create a module api route that
+        also populates the many-to-many relationship between the module api route
+        and the module object.  This handler does not create the module object.  The
+        module object must be created separately.
+      operationId: add-v0-moduleApiRouteWithModuleObjectReference
+      parameters:
+      - description: ModuleApiRoute object
+        in: body
+        name: moduleApiRoute
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ModuleApiRoute'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new module api route with a module object reference.
   /v0/module-api-routes:
     get:
       consumes:
@@ -9321,6 +9450,461 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: updates an existing module api by replacing the entire object.
+  /v0/module-controllers:
+    get:
+      consumes:
+      - application/json
+      description: Get all module controllers from the Threeport database.
+      operationId: get-v0-moduleControllers
+      parameters:
+      - description: module controller search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all module controllers.
+    post:
+      consumes:
+      - application/json
+      description: Add a new module controller to the Threeport database.
+      operationId: add-v0-moduleController
+      parameters:
+      - description: ModuleController object
+        in: body
+        name: moduleController
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ModuleController'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new module controller.
+  /v0/module-controllers/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a module controller by ID from the database.
+      operationId: delete-v0-moduleController
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a module controller.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular module controller from the database.
+      operationId: get-v0-moduleController
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a module controller.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a module controller in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating module controller objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-v0-moduleController
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ModuleController object
+        in: body
+        name: moduleController
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ModuleController'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing module controller.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a module controller in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating module controller objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-v0-moduleController
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ModuleController object
+        in: body
+        name: moduleController
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ModuleController'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing module controller by replacing the entire object.
+  /v0/module-objects:
+    get:
+      consumes:
+      - application/json
+      description: Get all module objects from the Threeport database.
+      operationId: get-v0-moduleObjects
+      parameters:
+      - description: module object search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all module objects.
+    post:
+      consumes:
+      - application/json
+      description: Add a new module object to the Threeport database.
+      operationId: add-v0-moduleObject
+      parameters:
+      - description: ModuleObject object
+        in: body
+        name: moduleObject
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ModuleObject'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: adds a new module object.
+  /v0/module-objects-with-module-api-routes:
+    get:
+      consumes:
+      - application/json
+      description: Get all module objects from the Threeport database with associated
+        module api routes.
+      operationId: get-v0-moduleObjectsModuleApiRoutes
+      parameters:
+      - description: module object search by name
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets all module objects with associated module api routes.
+  /v0/module-objects-with-module-api-routes/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a module object from the Threeport database by ID with associated
+        module api routes.
+      operationId: get-v0-moduleObjectWithModuleApiRoutesByID
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a module object by ID with associated module api routes.
+  /v0/module-objects/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a module object by ID from the database.
+      operationId: delete-v0-moduleObject
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: deletes a module object.
+    get:
+      consumes:
+      - application/json
+      description: Get a particular module object from the database.
+      operationId: get-v0-moduleObject
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: gets a module object.
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Update a module object in the database.  Provide one or more fields to update.
+        Note: This API endpint is for updating module object objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: update-v0-moduleObject
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ModuleObject object
+        in: body
+        name: moduleObject
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ModuleObject'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates specific fields for an existing module object.
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Replace a module object in the database.  All required fields must be provided.
+        If any optional fields are not provided, they will be null post-update.
+        Note: This API endpint is for updating module object objects only.
+        Request bodies that include related objects will be accepted, however
+        the related objects will not be changed.  Call the patch or put method for
+        each particular existing object to change them.
+      operationId: replace-v0-moduleObject
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ModuleObject object
+        in: body
+        name: moduleObject
+        required: true
+        schema:
+          $ref: '#/definitions/v0.ModuleObject'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v0.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v0.Response'
+      summary: updates an existing module object by replacing the entire object.
   /v0/observability-dashboard-definitions:
     get:
       consumes:

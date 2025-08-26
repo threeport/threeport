@@ -106,6 +106,38 @@ func CustomRoutes(h *handlers.Handler) []CustomRoute {
 				},
 			},
 		},
+
+		// Gets module objects with associated module api routes.
+		{
+			Path:    v0.PathModuleObjectsWithModuleApiRoutes,
+			Method:  "GET",
+			Handler: h.GetModuleObjectsWithModuleApiRoutes,
+			ApiObjects: []ApiObject{
+				{
+					Name:    v0.ObjectTypeModuleObject,
+					Version: "v0",
+				},
+				{
+					Name:    v0.ObjectTypeModuleApiRoute,
+					Version: "v0",
+				},
+			},
+		},
+		{
+			Path:    v0.PathModuleObjectsWithModuleApiRoutes + "/:id",
+			Method:  "GET",
+			Handler: h.GetModuleObjectWithModuleApiRoutes,
+			ApiObjects: []ApiObject{
+				{
+					Name:    v0.ObjectTypeModuleObject,
+					Version: "v0",
+				},
+				{
+					Name:    v0.ObjectTypeModuleApiRoute,
+					Version: "v0",
+				},
+			},
+		},
 	}
 }
 

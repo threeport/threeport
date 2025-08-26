@@ -550,6 +550,42 @@
                 }
             }
         },
+        "/module-controllers/versions": {
+            "get": {
+                "description": "Get the supported API versions for module controllers.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetModuleControllerVersions gets the supported versions for the module controller API.",
+                "operationId": "moduleController-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/module-objects/versions": {
+            "get": {
+                "description": "Get the supported API versions for module objects.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetModuleObjectVersions gets the supported versions for the module object API.",
+                "operationId": "moduleObject-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
+                        }
+                    }
+                }
+            }
+        },
         "/observability-dashboard-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for observability dashboard definitions.",
@@ -8693,6 +8729,50 @@
                 }
             }
         },
+        "/v0/module-api-route-with-module-object-reference": {
+            "post": {
+                "description": "Add a new module api route to the Threeport database with a module object reference.  This allows an API call to create a module api route that also populates the many-to-many relationship between the module api route and the module object.  This handler does not create the module object.  The module object must be created separately.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new module api route with a module object reference.",
+                "operationId": "add-v0-moduleApiRouteWithModuleObjectReference",
+                "parameters": [
+                    {
+                        "description": "ModuleApiRoute object",
+                        "name": "moduleApiRoute",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleApiRoute"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/v0/module-api-routes": {
             "get": {
                 "description": "Get all module api routes from the Threeport database.",
@@ -9224,6 +9304,651 @@
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.ModuleApi"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/module-controllers": {
+            "get": {
+                "description": "Get all module controllers from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all module controllers.",
+                "operationId": "get-v0-moduleControllers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "module controller search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new module controller to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new module controller.",
+                "operationId": "add-v0-moduleController",
+                "parameters": [
+                    {
+                        "description": "ModuleController object",
+                        "name": "moduleController",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleController"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/module-controllers/{id}": {
+            "get": {
+                "description": "Get a particular module controller from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a module controller.",
+                "operationId": "get-v0-moduleController",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a module controller in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating module controller objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing module controller by replacing the entire object.",
+                "operationId": "replace-v0-moduleController",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ModuleController object",
+                        "name": "moduleController",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleController"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a module controller by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a module controller.",
+                "operationId": "delete-v0-moduleController",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a module controller in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating module controller objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing module controller.",
+                "operationId": "update-v0-moduleController",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ModuleController object",
+                        "name": "moduleController",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleController"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/module-objects": {
+            "get": {
+                "description": "Get all module objects from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all module objects.",
+                "operationId": "get-v0-moduleObjects",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "module object search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new module object to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new module object.",
+                "operationId": "add-v0-moduleObject",
+                "parameters": [
+                    {
+                        "description": "ModuleObject object",
+                        "name": "moduleObject",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleObject"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/module-objects-with-module-api-routes": {
+            "get": {
+                "description": "Get all module objects from the Threeport database with associated module api routes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all module objects with associated module api routes.",
+                "operationId": "get-v0-moduleObjectsModuleApiRoutes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "module object search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/module-objects-with-module-api-routes/{id}": {
+            "get": {
+                "description": "Get a module object from the Threeport database by ID with associated module api routes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a module object by ID with associated module api routes.",
+                "operationId": "get-v0-moduleObjectWithModuleApiRoutesByID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/module-objects/{id}": {
+            "get": {
+                "description": "Get a particular module object from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a module object.",
+                "operationId": "get-v0-moduleObject",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a module object in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating module object objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing module object by replacing the entire object.",
+                "operationId": "replace-v0-moduleObject",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ModuleObject object",
+                        "name": "moduleObject",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleObject"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a module object by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a module object.",
+                "operationId": "delete-v0-moduleObject",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a module object in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating module object objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing module object.",
+                "operationId": "update-v0-moduleObject",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ModuleObject object",
+                        "name": "moduleObject",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.ModuleObject"
                         }
                     }
                 ],
@@ -16198,15 +16923,33 @@
                 "Name"
             ],
             "properties": {
+                "Core": {
+                    "description": "If true, represents the core Threeport API.",
+                    "type": "boolean"
+                },
                 "Endpoint": {
                     "description": "The module API server's endpoint to proxy requests to for module\nobjects.",
                     "type": "string"
                 },
                 "ModuleApiRoutes": {
-                    "description": "The routes as URL paths to proxy requests to the API server's endpoint.\nAll supported routes for an extension API should be added so that it is\nproxied.",
+                    "description": "The routes as URL paths to proxy requests to the API server's endpoint.\nAll supported routes for an module API should be added so that it is\nproxied.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/v0.ModuleApiRoute"
+                    }
+                },
+                "ModuleControllers": {
+                    "description": "The controllers that are serviced by this module API.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.ModuleController"
+                    }
+                },
+                "ModuleObjects": {
+                    "description": "The API objects that are handled by this module API.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.ModuleObject"
                     }
                 },
                 "Name": {
@@ -16223,11 +16966,77 @@
             ],
             "properties": {
                 "ModuleApiID": {
-                    "description": "The module Api this route belongs to.",
+                    "description": "The module API this route belongs to.",
                     "type": "integer"
+                },
+                "ModuleObjects": {
+                    "description": "The module object this route serves.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.ModuleObject"
+                    }
                 },
                 "Path": {
                     "description": "The URL path supported by the module API.",
+                    "type": "string"
+                }
+            }
+        },
+        "v0.ModuleController": {
+            "type": "object",
+            "required": [
+                "DeploymentName",
+                "ModuleApiID",
+                "Name"
+            ],
+            "properties": {
+                "DeploymentName": {
+                    "description": "The K8s deployment name for the controller.  This allows actions to be executed against the\nthe controller workload.  Examples:\n* disable a controller altogether when the API objects it manages are not in use.\n* allow the Threeport agent to watch and scale-to-zero the controller.",
+                    "type": "string"
+                },
+                "ModuleApiID": {
+                    "description": "The module API this controller is connected to.",
+                    "type": "integer"
+                },
+                "Name": {
+                    "description": "The name of the controller.",
+                    "type": "string"
+                }
+            }
+        },
+        "v0.ModuleObject": {
+            "type": "object",
+            "required": [
+                "ModuleApiID",
+                "Name",
+                "Version"
+            ],
+            "properties": {
+                "InternalOnly": {
+                    "description": "If true, only accessible to internal controllers that are a part of the\nThreeport control plane.  Threeport users cannot access if true.",
+                    "type": "boolean"
+                },
+                "ModuleApiID": {
+                    "description": "The module API this controller is connected to.",
+                    "type": "integer"
+                },
+                "ModuleApiRoutes": {
+                    "description": "The routes that service this module object.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.ModuleApiRoute"
+                    }
+                },
+                "ModuleControllerID": {
+                    "description": "The controller that reconciles state for this API object, if applicable.  Note: some API objects\ndo not require reconciliation by a controller - this field will be null in those cases.",
+                    "type": "integer"
+                },
+                "Name": {
+                    "description": "The name of the API object.",
+                    "type": "string"
+                },
+                "Version": {
+                    "description": "The version of the API object, expressed as `v0`, `v1`, `v2`, etc.",
                     "type": "string"
                 }
             }
