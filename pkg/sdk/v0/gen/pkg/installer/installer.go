@@ -54,13 +54,12 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			moduleNameKebab,
 		)),
 		Id("defaultThreeportNamespace").Op("=").Lit("threeport-control-plane"),
-		Id("defaultThreeportApiServer").Op("=").Lit("threeport-api-server"),
 		Id("apiServerName").Op("=").Lit(fmt.Sprintf(
 			"threeport-%s-api-server",
 			strcase.ToKebab(sdkConfig.ModuleName),
 		)),
 		Id("tpApiCaSecretName").Op("=").Lit("threeport-api-ca"),
-		Id("tpApiCertSecretName").Op("=").Lit("threeport-api-cert"),
+		Id("tpApiCertSecretName").Op("=").Lit("threeport-api-client-cert"),
 	)
 
 	f.Comment("Installer contains the values needed for a module installation.")
@@ -281,7 +280,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 			List(Id("clientCert"), Id("clientKey"), Err()).Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/auth/v0",
 				"GenerateCertificate",
-			).Call(Id("x509CaCert"), Id("rsaCaKey"), Lit("localhost")),
+			).Call(Id("x509CaCert"), Id("rsaCaKey"), Lit(fmt.Sprintf("%s-threeport-module", moduleNameKebab))),
 			If(Err().Op("!=").Nil()).Block(
 				Return(Qual("fmt", "Errorf").Call(Lit(fmt.Sprintf(
 					"failed to generate client cert and key for %s controller: %%w",
@@ -1038,6 +1037,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 			Line().Id("Object"): Map(String()).Interface().Values(Dict{
 				Lit("apiVersion"): Lit("v1"),
 				Lit("kind"):       Lit("Secret"),
+				Lit("type"):       Lit("Opaque"),
 				Lit("metadata"): Map(String()).Interface().Values(Dict{
 					Lit("name"):      Id("tpApiCaSecretName"),
 					Lit("namespace"): Id("i").Dot("ModuleNamespace"),
@@ -1071,6 +1071,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 			Line().Id("Object"): Map(String()).Interface().Values(Dict{
 				Lit("apiVersion"): Lit("v1"),
 				Lit("kind"):       Lit("Secret"),
+				Lit("type"):       Lit("kubernetes.io/tls"),
 				Lit("metadata"): Map(String()).Interface().Values(Dict{
 					Lit("name"):      Id("tpApiCertSecretName"),
 					Lit("namespace"): Id("i").Dot("ModuleNamespace"),
