@@ -105,13 +105,8 @@ func outputGetv0ModuleObjectsCmd(
 	apiEndpoint string,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t VERSION\t MODULE CONTROLLER\t MODULE API\t AGE")
+	fmt.Fprintln(writer, "NAME\t VERSION\t DESCRIPTION\t MODULE CONTROLLER\t MODULE API\t AGE")
 	for _, moduleObject := range *moduleObjects {
-		// skip internal only objects
-		if *moduleObject.InternalOnly {
-			continue
-		}
-
 		// get the module api name
 		moduleApi, err := client.GetModuleApiByID(apiClient, apiEndpoint, *moduleObject.ModuleApiID)
 		if err != nil {
@@ -129,10 +124,16 @@ func outputGetv0ModuleObjectsCmd(
 			moduleControllerName = *moduleController.Name
 		}
 
+		moduleObjectDescription := ""
+		if moduleObject.Description != nil {
+			moduleObjectDescription = *moduleObject.Description
+		}
+
 		fmt.Fprintln(
 			writer,
 			*moduleObject.Name, "\t",
 			*moduleObject.Version, "\t",
+			util.TruncateString(moduleObjectDescription, 40), "\t",
 			moduleControllerName, "\t",
 			moduleApiName, "\t",
 			util.GetAge(moduleObject.CreatedAt),

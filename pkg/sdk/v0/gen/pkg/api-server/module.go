@@ -528,7 +528,7 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.ImportAlias("github.com/threeport/threeport/pkg/api/v0", "tp_api")
 	f.ImportAlias("github.com/threeport/threeport/pkg/client/v0", "tp_client")
 	f.ImportAlias("github.com/threeport/threeport/pkg/client/lib/v0", "tp_client_lib")
-	f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
+	f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "tp_util")
 	f.ImportAlias(fmt.Sprintf("%s/pkg/api-server/v0/routes", gen.ModulePath), "routes")
 
 	// Generate module name constant
@@ -713,10 +713,10 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								"github.com/threeport/threeport/pkg/api/v0",
 								"ModuleObject",
 							).Values(Dict{
-								Id("InternalOnly"): Qual(
+								Id("Description"): Qual(
 									"github.com/threeport/threeport/pkg/util/v0",
 									"Ptr",
-								).Call(Lit(apiObj.InternalOnly)),
+								).Call(Lit(apiObj.Description)),
 								Id("ModuleApiID"):        Id("existingModApi").Dot("ID"),
 								Id("ModuleControllerID"): Id(controllerVar).Dot("ID"),
 								Id("Name"): Qual(
@@ -752,7 +752,6 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							)),
 						)
 						g.Line()
-						// asdf - 01
 						g.Comment(fmt.Sprintf("registering routes for %s", apiObj.TypeName))
 						g.Id(routeVar).Op(":=").Qual(
 							"github.com/threeport/threeport/pkg/api/v0",
@@ -781,13 +780,10 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line().Id("tpApiAddr"),
 							Line().Op("&").Id(routeVar).Op(",").Line(),
 						)
-						g.If(Id(routeErrVar).Op("!=").Nil().Op("&&").Op("!").Qual(
-							"errors",
-							"Is",
-						).Call(Id(routeErrVar), Qual(
-							"github.com/threeport/threeport/pkg/client/lib/v0",
-							"ErrConflict",
-						))).Block(
+						g.If(Id(routeErrVar).Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
+							Id(routeErrVar),
+							Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrConflict"),
+						)).Block(
 							Return(Qual("fmt", "Errorf").Call(
 								Lit(fmt.Sprintf("failed to create module route for %s version in Threeport API: %%w", apiObj.TypeName)),
 								Id(routeErrVar),
@@ -820,13 +816,10 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line().Id("tpApiAddr"),
 							Line().Op("&").Id(routeVar).Op(",").Line(),
 						)
-						g.If(Id(routeErrVar).Op("!=").Nil().Op("&&").Op("!").Qual(
-							"errors",
-							"Is",
-						).Call(Id(routeErrVar), Qual(
-							"github.com/threeport/threeport/pkg/client/lib/v0",
-							"ErrConflict",
-						))).Block(
+						g.If(Id(routeErrVar).Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
+							Id(routeErrVar),
+							Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrConflict"),
+						)).Block(
 							Return(Qual("fmt", "Errorf").Call(
 								Lit(fmt.Sprintf("failed to create module route for %s in Threeport API: %%w", apiObj.TypeName)),
 								Id(routeErrVar),
@@ -862,10 +855,10 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								"github.com/threeport/threeport/pkg/api/v0",
 								"ModuleObject",
 							).Values(Dict{
-								Id("InternalOnly"): Qual(
+								Id("Description"): Qual(
 									"github.com/threeport/threeport/pkg/util/v0",
 									"Ptr",
-								).Call(Lit(apiObj.InternalOnly)),
+								).Call(Lit(apiObj.Description)),
 								Id("ModuleApiID"): Id("existingModApi").Dot("ID"),
 								Id("Name"): Qual(
 									"github.com/threeport/threeport/pkg/util/v0",
@@ -898,7 +891,6 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							)),
 						)
 						g.Line()
-						// asdf - 02
 						g.Comment(fmt.Sprintf("registering routes for %s", apiObj.TypeName))
 						g.Id(routeVar).Op(":=").Qual("github.com/threeport/threeport/pkg/api/v0", "ModuleApiRoute").Values(Dict{
 							Id("ModuleApiID"): Id("existingModApi").Dot("ID"),
@@ -921,13 +913,10 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line().Id("tpApiAddr"),
 							Line().Op("&").Id(routeVar).Op(",").Line(),
 						)
-						g.If(Id(routeErrVar).Op("!=").Nil().Op("&&").Op("!").Qual(
-							"errors",
-							"Is",
-						).Call(Id(routeErrVar), Qual(
-							"github.com/threeport/threeport/pkg/client/lib/v0",
-							"ErrConflict",
-						))).Block(
+						g.If(Id(routeErrVar).Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
+							Id(routeErrVar),
+							Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrConflict"),
+						)).Block(
 							Return(Qual("fmt", "Errorf").Call(
 								Lit(fmt.Sprintf("failed to create module route for %s version in Threeport API: %%w", apiObj.TypeName)),
 								Id(routeErrVar),
@@ -960,10 +949,10 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line().Id("tpApiAddr"),
 							Line().Op("&").Id(routeVar).Op(",").Line(),
 						)
-						g.If(Id(routeErrVar).Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(Id(routeErrVar), Qual(
-							"github.com/threeport/threeport/pkg/client/lib/v0",
-							"ErrConflict",
-						))).Block(
+						g.If(Id(routeErrVar).Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
+							Id(routeErrVar),
+							Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrConflict"),
+						)).Block(
 							Return(Qual("fmt", "Errorf").Call(
 								Lit(fmt.Sprintf("failed to create module route for %s in Threeport API: %%w", apiObj.TypeName)),
 								Id(routeErrVar),
@@ -1004,10 +993,10 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"github.com/threeport/threeport/pkg/api/v0",
 							"ModuleObject",
 						).Values(Dict{
-							Id("InternalOnly"): Qual(
+							Id("Description"): Qual(
 								"github.com/threeport/threeport/pkg/util/v0",
 								"Ptr",
-							).Call(Lit(apiObj.InternalOnly)),
+							).Call(Lit(apiObj.Description)),
 							Id("ModuleApiID"): Id("existingModApi").Dot("ID"),
 							Id("Name"): Qual(
 								"github.com/threeport/threeport/pkg/util/v0",
@@ -1041,7 +1030,6 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						)),
 					)
 					g.Line()
-					// asdf - 03
 					g.Comment(fmt.Sprintf("registering routes for %s", apiObj.TypeName))
 					g.Id(routeVar).Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api/v0",
@@ -1070,13 +1058,10 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line().Id("tpApiAddr"),
 						Line().Op("&").Id(routeVar).Op(",").Line(),
 					)
-					g.If(Id(routeErrVar).Op("!=").Nil().Op("&&").Op("!").Qual(
-						"errors",
-						"Is",
-					).Call(Id(routeErrVar), Qual(
-						"github.com/threeport/threeport/pkg/client/lib/v0",
-						"ErrConflict",
-					))).Block(
+					g.If(Id(routeErrVar).Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
+						Id(routeErrVar),
+						Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrConflict"),
+					)).Block(
 						Return(Qual("fmt", "Errorf").Call(
 							Lit(fmt.Sprintf("failed to create module route for %s version in Threeport API: %%w", apiObj.TypeName)),
 							Id(routeErrVar),
@@ -1109,13 +1094,10 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line().Id("tpApiAddr"),
 						Line().Op("&").Id(routeVar).Op(",").Line(),
 					)
-					g.If(Id(routeErrVar).Op("!=").Nil().Op("&&").Op("!").Qual(
-						"errors",
-						"Is",
-					).Call(Id(routeErrVar), Qual(
-						"github.com/threeport/threeport/pkg/client/lib/v0",
-						"ErrConflict",
-					))).Block(
+					g.If(Id(routeErrVar).Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
+						Id(routeErrVar),
+						Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrConflict"),
+					)).Block(
 						Return(Qual("fmt", "Errorf").Call(
 							Lit(fmt.Sprintf("failed to create module route for %s in Threeport API: %%w", apiObj.TypeName)),
 							Id(routeErrVar),
@@ -1181,13 +1163,10 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Line().Op("&").Id("route"),
 				Line(),
 			)
-			h.If(Id("customRouteErr").Op("!=").Nil().Op("&&").Op("!").Qual(
-				"errors",
-				"Is",
-			).Call(Id("customRouteErr"), Qual(
-				"github.com/threeport/threeport/pkg/client/lib/v0",
-				"ErrConflict",
-			))).Block(
+			h.If(Id("customRouteErr").Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
+				Id("customRouteErr"),
+				Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrConflict"),
+			)).Block(
 				Return(Qual("fmt", "Errorf").Call(
 					Lit("failed to create module route for custom route %s: %w"),
 					Id("customRoute").Dot("Path"),
