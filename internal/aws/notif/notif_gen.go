@@ -9,16 +9,6 @@ const (
 	AwsEksKubernetesRuntimeInstanceCreateSubject = "awsEksKubernetesRuntimeInstance.create"
 	AwsEksKubernetesRuntimeInstanceUpdateSubject = "awsEksKubernetesRuntimeInstance.update"
 	AwsEksKubernetesRuntimeInstanceDeleteSubject = "awsEksKubernetesRuntimeInstance.delete"
-
-	AwsRelationalDatabaseInstanceSubject       = "awsRelationalDatabaseInstance.*"
-	AwsRelationalDatabaseInstanceCreateSubject = "awsRelationalDatabaseInstance.create"
-	AwsRelationalDatabaseInstanceUpdateSubject = "awsRelationalDatabaseInstance.update"
-	AwsRelationalDatabaseInstanceDeleteSubject = "awsRelationalDatabaseInstance.delete"
-
-	AwsObjectStorageBucketInstanceSubject       = "awsObjectStorageBucketInstance.*"
-	AwsObjectStorageBucketInstanceCreateSubject = "awsObjectStorageBucketInstance.create"
-	AwsObjectStorageBucketInstanceUpdateSubject = "awsObjectStorageBucketInstance.update"
-	AwsObjectStorageBucketInstanceDeleteSubject = "awsObjectStorageBucketInstance.delete"
 )
 
 // GetAwsEksKubernetesRuntimeInstanceSubjects returns the NATS subjects
@@ -31,34 +21,12 @@ func GetAwsEksKubernetesRuntimeInstanceSubjects() []string {
 	}
 }
 
-// GetAwsRelationalDatabaseInstanceSubjects returns the NATS subjects
-// for aws relational database instances.
-func GetAwsRelationalDatabaseInstanceSubjects() []string {
-	return []string{
-		AwsRelationalDatabaseInstanceCreateSubject,
-		AwsRelationalDatabaseInstanceUpdateSubject,
-		AwsRelationalDatabaseInstanceDeleteSubject,
-	}
-}
-
-// GetAwsObjectStorageBucketInstanceSubjects returns the NATS subjects
-// for aws object storage bucket instances.
-func GetAwsObjectStorageBucketInstanceSubjects() []string {
-	return []string{
-		AwsObjectStorageBucketInstanceCreateSubject,
-		AwsObjectStorageBucketInstanceUpdateSubject,
-		AwsObjectStorageBucketInstanceDeleteSubject,
-	}
-}
-
 // GetAwsSubjects returns the NATS subjects
 // for all aws objects.
 func GetAwsSubjects() []string {
 	var awsSubjects []string
 
 	awsSubjects = append(awsSubjects, GetAwsEksKubernetesRuntimeInstanceSubjects()...)
-	awsSubjects = append(awsSubjects, GetAwsRelationalDatabaseInstanceSubjects()...)
-	awsSubjects = append(awsSubjects, GetAwsObjectStorageBucketInstanceSubjects()...)
 
 	return awsSubjects
 }

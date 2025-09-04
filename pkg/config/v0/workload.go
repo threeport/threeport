@@ -33,8 +33,6 @@ type WorkloadValues struct {
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	DomainName                *DomainNameDefinitionValues      `yaml:"DomainName"`
 	Gateway                   *GatewayDefinitionValues         `yaml:"Gateway"`
-	AwsRelationalDatabase     *AwsRelationalDatabaseValues     `yaml:"AwsRelationalDatabase"`
-	AwsObjectStorageBucket    *AwsObjectStorageBucketValues    `yaml:"AwsObjectStorageBucket"`
 	Secret                    *SecretValues                    `yaml:"Secret"`
 }
 
@@ -500,73 +498,6 @@ func (w *WorkloadValues) GetOperations(apiClient *http.Client, apiEndpoint strin
 				_, err = gatewayInstanceValues.Delete(apiClient, apiEndpoint)
 				if err != nil {
 					return fmt.Errorf("failed to delete gateway instance with name %s: %w", w.Gateway.Name, err)
-				}
-				return nil
-			},
-		})
-	}
-
-	// add AWS relational database operation
-	if w.AwsRelationalDatabase != nil {
-		awsRelationalDatabase := AwsRelationalDatabaseValues{
-			Name:               w.AwsRelationalDatabase.Name,
-			AwsAccountName:     w.AwsRelationalDatabase.AwsAccountName,
-			Engine:             w.AwsRelationalDatabase.Engine,
-			EngineVersion:      w.AwsRelationalDatabase.EngineVersion,
-			DatabaseName:       w.AwsRelationalDatabase.DatabaseName,
-			DatabasePort:       w.AwsRelationalDatabase.DatabasePort,
-			BackupDays:         w.AwsRelationalDatabase.BackupDays,
-			MachineSize:        w.AwsRelationalDatabase.MachineSize,
-			StorageGb:          w.AwsRelationalDatabase.StorageGb,
-			WorkloadSecretName: w.AwsRelationalDatabase.WorkloadSecretName,
-			WorkloadInstance: &WorkloadInstanceValues{
-				Name: w.Name,
-			},
-		}
-		operations.AppendOperation(util.Operation{
-			Name: "aws relational database",
-			Create: func() error {
-				_, _, err := awsRelationalDatabase.Create(apiClient, apiEndpoint)
-				if err != nil {
-					return fmt.Errorf("failed to create aws relational database with name %s: %w", w.AwsRelationalDatabase.Name, err)
-				}
-				return nil
-			},
-			Delete: func() error {
-				_, _, err = awsRelationalDatabase.Delete(apiClient, apiEndpoint)
-				if err != nil {
-					return fmt.Errorf("failed to delete aws relational database with name %s: %w", w.AwsRelationalDatabase.Name, err)
-				}
-				return nil
-			},
-		})
-	}
-
-	// add AWS object storage bucket operation
-	if w.AwsObjectStorageBucket != nil {
-		awsObjectStorageBucket := AwsObjectStorageBucketValues{
-			Name:                       w.AwsObjectStorageBucket.Name,
-			AwsAccountName:             w.AwsObjectStorageBucket.AwsAccountName,
-			PublicReadAccess:           w.AwsObjectStorageBucket.PublicReadAccess,
-			WorkloadServiceAccountName: w.AwsObjectStorageBucket.WorkloadServiceAccountName,
-			WorkloadBucketEnvVar:       w.AwsObjectStorageBucket.WorkloadBucketEnvVar,
-			WorkloadInstance: &WorkloadInstanceValues{
-				Name: w.Name,
-			},
-		}
-		operations.AppendOperation(util.Operation{
-			Name: "aws object storage bucket",
-			Create: func() error {
-				_, _, err := awsObjectStorageBucket.Create(apiClient, apiEndpoint)
-				if err != nil {
-					return fmt.Errorf("failed to create aws object storage bucket with name %s: %w", w.AwsObjectStorageBucket.Name, err)
-				}
-				return nil
-			},
-			Delete: func() error {
-				_, _, err := awsObjectStorageBucket.Delete(apiClient, apiEndpoint)
-				if err != nil {
-					return fmt.Errorf("failed to delete aws object storage bucket with name %s: %w", w.AwsObjectStorageBucket.Name, err)
 				}
 				return nil
 			},

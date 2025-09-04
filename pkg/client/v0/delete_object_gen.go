@@ -31,26 +31,6 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 			return fmt.Errorf("failed to delete AwsEksKubernetesRuntimeInstance: %w", err)
 		}
 
-	case "v0.AwsObjectStorageBucketDefinition":
-		if _, err := DeleteAwsObjectStorageBucketDefinition(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete AwsObjectStorageBucketDefinition: %w", err)
-		}
-
-	case "v0.AwsObjectStorageBucketInstance":
-		if _, err := DeleteAwsObjectStorageBucketInstance(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete AwsObjectStorageBucketInstance: %w", err)
-		}
-
-	case "v0.AwsRelationalDatabaseDefinition":
-		if _, err := DeleteAwsRelationalDatabaseDefinition(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete AwsRelationalDatabaseDefinition: %w", err)
-		}
-
-	case "v0.AwsRelationalDatabaseInstance":
-		if _, err := DeleteAwsRelationalDatabaseInstance(apiClient, apiAddr, id); err != nil {
-			return fmt.Errorf("failed to delete AwsRelationalDatabaseInstance: %w", err)
-		}
-
 	case "v0.ControlPlaneDefinition":
 		if _, err := DeleteControlPlaneDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete ControlPlaneDefinition: %w", err)

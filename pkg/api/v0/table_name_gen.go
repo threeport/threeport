@@ -27,26 +27,6 @@ func (AwsEksKubernetesRuntimeInstance) TableName() string {
 	return "v0_aws_eks_kubernetes_runtime_instances"
 }
 
-// TableName sets the name of the table for the AwsObjectStorageBucketDefinition objects in the database.
-func (AwsObjectStorageBucketDefinition) TableName() string {
-	return "v0_aws_object_storage_bucket_definitions"
-}
-
-// TableName sets the name of the table for the AwsObjectStorageBucketInstance objects in the database.
-func (AwsObjectStorageBucketInstance) TableName() string {
-	return "v0_aws_object_storage_bucket_instances"
-}
-
-// TableName sets the name of the table for the AwsRelationalDatabaseDefinition objects in the database.
-func (AwsRelationalDatabaseDefinition) TableName() string {
-	return "v0_aws_relational_database_definitions"
-}
-
-// TableName sets the name of the table for the AwsRelationalDatabaseInstance objects in the database.
-func (AwsRelationalDatabaseInstance) TableName() string {
-	return "v0_aws_relational_database_instances"
-}
-
 // TableName sets the name of the table for the ControlPlaneComponent objects in the database.
 func (ControlPlaneComponent) TableName() string {
 	return "v0_control_plane_components"

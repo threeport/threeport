@@ -47,28 +47,6 @@ ApiObjectGroups:
       Reconcilable: true
       Tptctl:
         Enabled: true
-    - Name: AwsRelationalDatabaseDefinition
-      Versions:
-        - v0
-      Tptctl:
-        Enabled: true
-    - Name: AwsRelationalDatabaseInstance
-      Versions:
-        - v0
-      Reconcilable: true
-      Tptctl:
-        Enabled: true
-    - Name: AwsObjectStorageBucketDefinition
-      Versions:
-        - v0
-      Tptctl:
-        Enabled: true
-    - Name: AwsObjectStorageBucketInstance
-      Versions:
-        - v0
-      Reconcilable: true
-      Tptctl:
-        Enabled: true
 - Name: oci
   Objects:
     - Name: OciAccount

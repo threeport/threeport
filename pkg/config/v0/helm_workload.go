@@ -38,8 +38,6 @@ type HelmWorkloadValues struct {
 	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
 	DomainName                *DomainNameDefinitionValues      `yaml:"DomainName"`
 	Gateway                   *GatewayDefinitionValues         `yaml:"Gateway"`
-	AwsRelationalDatabase     *AwsRelationalDatabaseValues     `yaml:"AwsRelationalDatabase"`
-	AwsObjectStorageBucket    *AwsObjectStorageBucketValues    `yaml:"AwsObjectStorageBucket"`
 }
 
 // HelmWorkloadDefinitionConfig contains the config for a helm workload definition.
