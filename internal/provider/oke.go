@@ -24,7 +24,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v2"
 	"gorm.io/datatypes"
 )
@@ -43,6 +42,9 @@ type KubernetesRuntimeInfraOKE struct {
 
 	// The Oracle Cloud compartment ID where resources will be created.
 	CompartmentOCID string
+
+	// The Oracle Cloud config provider.
+	ConfigProvider common.ConfigurationProvider
 
 	// The Oracle Cloud region where resources will be created.
 	Region string
@@ -115,8 +117,8 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create NAT Gateway: %w", err)
 		}
 
-		// get the service gateway service ID
-		serviceID, err := getServiceGatewayServiceID(i.Region, i.CompartmentOCID)
+		// get the service gateway service ID and cidr block
+		serviceID, serviceCidrBlock, err := i.getServiceGatewayServiceIdAndCidrBlock()
 		if err != nil {
 			return fmt.Errorf("failed to get service gateway service ID: %w", err)
 		}
@@ -167,7 +169,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 					NetworkEntityId: natGateway.ID(),
 				},
 				&core.RouteTableRouteRuleArgs{
-					Destination:     pulumi.String("all-phx-services-in-oracle-services-network"),
+					Destination:     pulumi.String(serviceCidrBlock),
 					DestinationType: pulumi.String("SERVICE_CIDR_BLOCK"),
 					NetworkEntityId: serviceGateway.ID(),
 				},
@@ -234,7 +236,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 				// allow traffic to Oracle Services Network
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:        pulumi.String("6"), // TCP
-					Destination:     pulumi.String("all-phx-services-in-oracle-services-network"),
+					Destination:     pulumi.String(serviceCidrBlock),
 					DestinationType: pulumi.String("SERVICE_CIDR_BLOCK"),
 					TcpOptions: &core.SecurityListEgressSecurityRuleTcpOptionsArgs{
 						Max: pulumi.Int(443),
@@ -350,7 +352,7 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 				// allow TCP port 443 to Oracle Services Network
 				&core.SecurityListEgressSecurityRuleArgs{
 					Protocol:        pulumi.String("6"), // TCP
-					Destination:     pulumi.String("all-phx-services-in-oracle-services-network"),
+					Destination:     pulumi.String(serviceCidrBlock),
 					DestinationType: pulumi.String("SERVICE_CIDR_BLOCK"),
 					TcpOptions: &core.SecurityListEgressSecurityRuleTcpOptionsArgs{
 						Max: pulumi.Int(443),
@@ -591,12 +593,9 @@ func (i *KubernetesRuntimeInfraOKE) Delete() error {
 }
 
 // GetClusterOCID gets the OCID of the OKE cluster.
-func (i *KubernetesRuntimeInfraOKE) GetClusterOCID(
-	okeClusterName string,
-	configProvider common.ConfigurationProvider,
-) (string, error) {
+func (i *KubernetesRuntimeInfraOKE) GetClusterOCID(okeClusterName string) (string, error) {
 
-	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(i.ConfigProvider)
 	if err != nil {
 		return "", fmt.Errorf("failed to create container engine client: %w", err)
 	}
@@ -630,22 +629,19 @@ func (i *KubernetesRuntimeInfraOKE) GetClusterOCID(
 
 // GetConnection gets the latest connection info for authentication to an OKE cluster.
 func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, error) {
-	// load OCI configuration first
-	if err := i.loadOCIConfig(); err != nil {
-		return nil, fmt.Errorf("failed to load OCI configuration: %w", err)
-	}
-
 	// create a new container engine client
-	configProvider := common.DefaultConfigProvider()
-	clusterOCID, err := i.GetClusterOCID(i.RuntimeInstanceName, configProvider)
+	clusterOCID, err := i.GetClusterOCID(i.RuntimeInstanceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster OCID: %w", err)
 	}
 
-	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(i.ConfigProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create container engine client: %w", err)
 	}
+
+	// set the region for the client
+	containerClient.SetRegion(i.Region)
 
 	// get cluster details to get the API endpoint
 	getClusterRequest := ocicontainerengine.GetClusterRequest{
@@ -693,7 +689,7 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 		return nil, fmt.Errorf("no clusters found in kubeconfig")
 	}
 
-	token, tokenExpirationTime, err := util.GenerateOkeToken(clusterOCID, configProvider)
+	token, tokenExpirationTime, err := util.GenerateOkeToken(clusterOCID, i.ConfigProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
@@ -725,7 +721,11 @@ type KubeConfig struct {
 
 // loadOCIConfig reads the OCI configuration using the OCI SDK and
 // populates KubernetesRuntimeInfraOKE struct fields
-func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
+func (i *KubernetesRuntimeInfraOKE) LoadOCIConfig(
+	region,
+	ociConfigProfile,
+	compartmentOCID string,
+) error {
 	// get user's home directory
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -741,51 +741,43 @@ func (i *KubernetesRuntimeInfraOKE) loadOCIConfig() error {
 	}
 
 	// load the configuration using the OCI SDK
-	configProvider, err := common.ConfigurationProviderFromFile(ociConfigPath, "")
+	configProvider, err := common.ConfigurationProviderFromFileWithProfile(
+		ociConfigPath,
+		ociConfigProfile,
+		"",
+	)
 	if err != nil {
 		return fmt.Errorf("failed to load OCI configuration: %w", err)
 	}
+	i.ConfigProvider = configProvider
 
 	// get the tenancy OCID
-	tenancyOCID, err := configProvider.TenancyOCID()
+	i.TenancyOCID, err = configProvider.TenancyOCID()
 	if err != nil {
 		return fmt.Errorf("failed to get tenancy OCID: %w", err)
-	} else if tenancyOCID == "" {
+	} else if i.TenancyOCID == "" {
 		return fmt.Errorf("tenancy OCID not found in OCI config")
 	}
 
-	// get the region
-	region, err := configProvider.Region()
-	if err != nil {
-		return fmt.Errorf("failed to get region: %w", err)
-	} else if region == "" {
-		return fmt.Errorf("region not found in OCI config")
-	}
-
-	// read the config file to get the compartment OCID
-	cfg, err := ini.Load(ociConfigPath)
-	if err != nil {
-		return fmt.Errorf("failed to read OCI config file: %w", err)
-	}
-
-	// get the compartment OCID from the DEFAULT section
-	compartmentOCID := cfg.Section("DEFAULT").Key("compartment_id").String()
-	if compartmentOCID == "" {
-		// If no compartment_id is specified, use the tenancy OCID as the root compartment
-		compartmentOCID = tenancyOCID
-	} else if compartmentOCID == "" {
-		return fmt.Errorf("compartment OCID not found in OCI config")
-	}
-
-	// update struct fields with values from config
-	if i.TenancyOCID == "" {
-		i.TenancyOCID = tenancyOCID
-	}
-	if i.CompartmentOCID == "" {
-		i.CompartmentOCID = compartmentOCID
-	}
-	if i.Region == "" {
+	// set the region if it is provided via cli flag,
+	// otherwise get the region from the OCI config
+	if region != "" {
 		i.Region = region
+	} else {
+		i.Region, err = configProvider.Region()
+		if err != nil {
+			return fmt.Errorf("failed to get region: %w", err)
+		} else if i.Region == "" {
+			return fmt.Errorf("region not found in OCI config")
+		}
+	}
+
+	// set the compartment OCID if it is provided via cli flag,
+	// otherwise use the tenancy OCID as the root compartment
+	if compartmentOCID != "" {
+		i.CompartmentOCID = compartmentOCID
+	} else {
+		i.CompartmentOCID = i.TenancyOCID
 	}
 
 	return nil
@@ -818,8 +810,7 @@ func createDNSLabel(name string) string {
 // getAvailabilityDomainName returns the full name of the first availability domain in the region
 func (i *KubernetesRuntimeInfraOKE) getAvailabilityDomainName() (string, error) {
 	// create a new identity client
-	configProvider := common.DefaultConfigProvider()
-	identityClient, err := identity.NewIdentityClientWithConfigurationProvider(configProvider)
+	identityClient, err := identity.NewIdentityClientWithConfigurationProvider(i.ConfigProvider)
 	if err != nil {
 		return "", fmt.Errorf("failed to create identity client: %w", err)
 	}
@@ -847,18 +838,17 @@ func (i *KubernetesRuntimeInfraOKE) getAvailabilityDomainName() (string, error) 
 	return *response.Items[0].Name, nil
 }
 
-// getServiceGatewayServiceID returns the OCI service ID for the service gateway in a given region.
+// getServiceGatewayServiceIdAndCidrBlock returns the OCI service ID for the service gateway in a given region.
 // This ID is used to identify the Oracle Services Network in the service gateway.
-func getServiceGatewayServiceID(region string, compartmentID string) (string, error) {
+func (i *KubernetesRuntimeInfraOKE) getServiceGatewayServiceIdAndCidrBlock() (string, string, error) {
 	// create a new virtual network client
-	configProvider := common.DefaultConfigProvider()
-	vcnClient, err := ocicore.NewVirtualNetworkClientWithConfigurationProvider(configProvider)
+	vcnClient, err := ocicore.NewVirtualNetworkClientWithConfigurationProvider(i.ConfigProvider)
 	if err != nil {
-		return "", fmt.Errorf("failed to create virtual network client: %w", err)
+		return "", "", fmt.Errorf("failed to create virtual network client: %w", err)
 	}
 
 	// set the region for the client
-	vcnClient.SetRegion(region)
+	vcnClient.SetRegion(i.Region)
 
 	// create a request to list services
 	request := ocicore.ListServicesRequest{}
@@ -866,25 +856,24 @@ func getServiceGatewayServiceID(region string, compartmentID string) (string, er
 	// call the API to get services
 	response, err := vcnClient.ListServices(context.Background(), request)
 	if err != nil {
-		return "", fmt.Errorf("failed to list services: %w", err)
+		return "", "", fmt.Errorf("failed to list services: %w", err)
 	}
 
 	// find the Oracle Services Network service
 	for _, service := range response.Items {
 		if service.Name != nil && strings.Contains(*service.Name, "Services In Oracle Services Network") {
-			return *service.Id, nil
+			return *service.Id, *service.CidrBlock, nil
 		}
 	}
 
 	// If service not found, return an error
-	return "", fmt.Errorf("Oracle Services Network service not found in region %s", region)
+	return "", "", fmt.Errorf("Oracle Services Network service not found in region %s", i.Region)
 }
 
 // getLatestOKEVersion returns the latest Kubernetes version available in OKE
 func (i *KubernetesRuntimeInfraOKE) getLatestOKEVersion() (string, error) {
 	// create a new container engine client
-	configProvider := common.DefaultConfigProvider()
-	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(i.ConfigProvider)
 	if err != nil {
 		return "", fmt.Errorf("failed to create container engine client: %w", err)
 	}
@@ -938,8 +927,7 @@ func (i *KubernetesRuntimeInfraOKE) getLatestOKEVersion() (string, error) {
 // with version specified in struct
 func (i *KubernetesRuntimeInfraOKE) getOKEWorkerNodeImageOCID() (string, error) {
 	// create a new container engine client
-	configProvider := common.DefaultConfigProvider()
-	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	containerClient, err := ocicontainerengine.NewContainerEngineClientWithConfigurationProvider(i.ConfigProvider)
 	if err != nil {
 		return "", fmt.Errorf("failed to create container engine client: %w", err)
 	}
@@ -992,11 +980,6 @@ func (i *KubernetesRuntimeInfraOKE) setupPulumiWorkspace(program pulumi.RunFunc)
 	// set environment variables for Pulumi configuration
 	if err := i.setPulumiEnvVars(); err != nil {
 		return auto.Stack{}, fmt.Errorf("failed to set Pulumi environment variables: %w", err)
-	}
-
-	// load OCI configuration
-	if err := i.loadOCIConfig(); err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to load OCI configuration: %w", err)
 	}
 
 	// create Pulumi.yaml project file
