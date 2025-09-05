@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-
 	ghodss_yaml "github.com/ghodss/yaml"
 	cobra "github.com/spf13/cobra"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -17,6 +15,7 @@ import (
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	yaml "gopkg.in/yaml.v2"
+	"os"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
