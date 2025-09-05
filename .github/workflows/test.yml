@@ -23,6 +23,15 @@ jobs:
     - name: Install mage
       run: go install github.com/magefile/mage@latest
 
+    - name: Install threeport-sdk
+      run: mage install:sdk
+
+    - name: Run threeport-sdk
+      run: threeport-sdk gen --config sdk-config.yaml
+
+    - name: Ensure no changes were made
+      run: git diff --exit-code
+
     - name: Create local container registry
       run: mage dev:localRegistryUp
 
