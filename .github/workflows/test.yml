@@ -27,7 +27,7 @@ jobs:
       run: mage install:sdk
 
     - name: Run threeport-sdk
-      run: $GOPATH/bin/threeport-sdk gen --config sdk-config.yaml
+      run: $(go env GOPATH)/bin/threeport-sdk gen --config sdk-config.yaml
 
     - name: Ensure no changes were made
       run: git diff --exit-code
