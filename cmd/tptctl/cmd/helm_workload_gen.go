@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+
 	ghodss_yaml "github.com/ghodss/yaml"
 	cobra "github.com/spf13/cobra"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -15,7 +17,6 @@ import (
 	encryption "github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	yaml "gopkg.in/yaml.v2"
-	"os"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -339,7 +340,7 @@ var DescribeHelmWorkloadDefinitionCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -948,7 +949,7 @@ var DescribeHelmWorkloadInstanceCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)

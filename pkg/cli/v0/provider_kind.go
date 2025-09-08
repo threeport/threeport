@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"github.com/threeport/threeport/internal/provider"
-	config "github.com/threeport/threeport/pkg/config/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
@@ -18,8 +17,8 @@ import (
 // DeployKindInfra deploys kind infrastructure for the control plane.
 func DeployKindInfra(
 	cpi *threeport.ControlPlaneInstaller,
-	threeportControlPlaneConfig *config.ControlPlane,
-	threeportConfig *config.ThreeportConfig,
+	threeportControlPlaneConfig *ControlPlane,
+	threeportConfig *ThreeportConfig,
 	kubernetesRuntimeInfra *provider.KubernetesRuntimeInfra,
 	kubeConnectionInfo *kube.KubeConnectionInfo,
 	uninstaller *Uninstaller,
@@ -64,7 +63,7 @@ func DeployKindInfra(
 		Warning("received Ctrl+C, removing kind kubernetes runtime...")
 		// first update the threeport config so the Delete method has
 		// something to reference
-		threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {})
+		threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {})
 		if err := DeleteGenesisControlPlane(cpi); err != nil {
 			Error("failed to delete kind kubernetes runtime", err)
 		}

@@ -28,13 +28,12 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			f.ImportAlias("github.com/threeport/threeport/pkg/controller/v0", "controller")
 			f.ImportAlias("github.com/threeport/threeport/pkg/runtime/v0", "runtime")
 			f.ImportAlias("github.com/threeport/threeport/pkg/event/v0", "event")
-			f.ImportAlias(fmt.Sprintf("%s/pkg/config/v0", gen.ModulePath), "config")
 
 			concurrencyFlags := &Statement{}
 			for _, obj := range objGroup.ReconciledObjects {
-				concurrencyFlags.Var().Id(fmt.Sprintf(
+				concurrencyFlags.Var().Id(
 					fmt.Sprintf("%sConcurrentReconciles", strcase.ToLowerCamel(obj.Name)),
-				)).Op("=").Qual(
+				).Op("=").Qual(
 					"github.com/namsral/flag",
 					"Int",
 				).Call(

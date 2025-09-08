@@ -13,7 +13,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 var configCurrentControlPlaneName string
@@ -30,7 +29,7 @@ control plane.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
-		threeportConfig, _, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+		threeportConfig, _, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
@@ -38,9 +37,9 @@ control plane.`,
 
 		// We try to find the current control plane in the current config
 		// If found we set and return
-		var genesisControlPlane *config.ControlPlane
-		var anyControlPlane *config.ControlPlane
-		var currentControlPlane *config.ControlPlane
+		var genesisControlPlane *cli.ControlPlane
+		var anyControlPlane *cli.ControlPlane
+		var currentControlPlane *cli.ControlPlane
 		for _, controlPlane := range threeportConfig.ControlPlanes {
 			if controlPlane.Name == configCurrentControlPlaneName {
 				threeportConfig.SetCurrentControlPlane(configCurrentControlPlaneName)
@@ -136,7 +135,7 @@ control plane.`,
 	},
 }
 
-func updateThreeportConfigWithControlPlaneInstance(apiClient *http.Client, apiEndpoint string, controlPlaneInstanceToSet *v0.ControlPlaneInstance, threeportConfig *config.ThreeportConfig) {
+func updateThreeportConfigWithControlPlaneInstance(apiClient *http.Client, apiEndpoint string, controlPlaneInstanceToSet *v0.ControlPlaneInstance, threeportConfig *cli.ThreeportConfig) {
 	// Get the corresponding control plane definition
 	controlPlaneDefinition, err := client.GetControlPlaneDefinitionByID(apiClient, apiEndpoint, *controlPlaneInstanceToSet.ControlPlaneDefinitionID)
 	if err != nil {
@@ -156,10 +155,10 @@ func updateThreeportConfigWithControlPlaneInstance(apiClient *http.Client, apiEn
 		os.Exit(1)
 	}
 
-	var threeportControlPlaneConfig *config.ControlPlane
+	var threeportControlPlaneConfig *cli.ControlPlane
 
 	if !*controlPlaneDefinition.AuthEnabled {
-		threeportControlPlaneConfig = &config.ControlPlane{
+		threeportControlPlaneConfig = &cli.ControlPlane{
 			Name:        *controlPlaneInstanceToSet.Name,
 			APIServer:   *controlPlaneInstanceToSet.ApiServerEndpoint,
 			AuthEnabled: *controlPlaneDefinition.AuthEnabled,
@@ -168,13 +167,13 @@ func updateThreeportConfigWithControlPlaneInstance(apiClient *http.Client, apiEn
 	} else {
 
 		// we construct the instance info for the threeport config and add it
-		threeportControlPlaneConfig = &config.ControlPlane{
+		threeportControlPlaneConfig = &cli.ControlPlane{
 			Name:        *controlPlaneInstanceToSet.Name,
 			APIServer:   *controlPlaneInstanceToSet.ApiServerEndpoint,
 			AuthEnabled: *controlPlaneDefinition.AuthEnabled,
 			CACert:      *controlPlaneInstanceToSet.CACert,
 			Provider:    *kubernetesRuntimeDefinition.InfraProvider,
-			Credentials: []config.Credential{
+			Credentials: []cli.Credential{
 				{
 					Name:       *controlPlaneInstanceToSet.Name,
 					ClientCert: *controlPlaneInstanceToSet.ClientCert,
@@ -184,7 +183,7 @@ func updateThreeportConfigWithControlPlaneInstance(apiClient *http.Client, apiEn
 		}
 	}
 
-	if err := config.UpdateThreeportConfig(threeportConfig, threeportControlPlaneConfig); err != nil {
+	if err := cli.UpdateThreeportConfig(threeportConfig, threeportControlPlaneConfig); err != nil {
 		cli.Error("failed to update threeport config", err)
 		os.Exit(1)
 	}

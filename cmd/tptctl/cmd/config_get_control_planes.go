@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 // ConfigGetControlPlanesCmd represents the get-instances command
@@ -24,7 +23,7 @@ var ConfigGetControlPlanesCmd = &cobra.Command{
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
-		threeportConfig, _, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+		threeportConfig, _, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)

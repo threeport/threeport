@@ -186,7 +186,7 @@ var DescribeModuleApiCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -445,7 +445,7 @@ var DescribeModuleApiRouteCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -704,7 +704,7 @@ var DescribeModuleControllerCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)
@@ -963,7 +963,7 @@ var DescribeModuleObjectCmd = &cobra.Command{
 			}
 			if encrypted {
 				// get encryption key from threeport config
-				threeportConfig, requestedControlPlane, err := config_v0.GetThreeportConfig(cliArgs.ControlPlaneName)
+				threeportConfig, requestedControlPlane, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 				if err != nil {
 					cli.Error("failed to get threeport config: %w", err)
 					os.Exit(1)

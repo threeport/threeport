@@ -21,7 +21,6 @@ import (
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -84,7 +83,7 @@ const tier = threeport.ControlPlaneTierDev
 func InitArgs(args *GenesisControlPlaneCLIArgs) {
 	// provider config dir
 	if args.ProviderConfigDir == "" {
-		providerConf, err := config.DefaultProviderConfigDir()
+		providerConf, err := DefaultProviderConfigDir()
 		if err != nil {
 			Error("failed to set infra provider config directory", err)
 			os.Exit(1)
@@ -174,7 +173,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 // plane.
 func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller) error {
 	// get the threeport config
-	threeportConfig, _, err := config.GetThreeportConfig("")
+	threeportConfig, _, err := GetThreeportConfig("")
 	if err != nil {
 		return fmt.Errorf("failed to get threeport config: %w", err)
 	}
@@ -205,8 +204,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 	genesis := true
 
-	threeportConfig.ControlPlanes = []config.ControlPlane{}
-	threeportControlPlaneConfig := &config.ControlPlane{}
+	threeportConfig.ControlPlanes = []ControlPlane{}
+	threeportControlPlaneConfig := &ControlPlane{}
 
 	// create local registry if requested
 	if cpi.Opts.LocalRegistry {
@@ -216,7 +215,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// create threeport config for new instance
-	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
 		c.Name = cpi.Opts.ControlPlaneName
 		c.Provider = cpi.Opts.InfraProvider
 		c.Genesis = genesis
@@ -291,8 +290,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// update threeport config with kube API info
-	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
-		c.KubeAPI = config.KubeAPI{
+	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+		c.KubeAPI = KubeAPI{
 			APIEndpoint:   kubeConnectionInfo.APIEndpoint,
 			CACertificate: util.Base64Encode(kubeConnectionInfo.CACertificate),
 			Certificate:   util.Base64Encode(kubeConnectionInfo.Certificate),
@@ -315,7 +314,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// update threeport config with encryption key
-	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
 		c.EncryptionKey = encryptionKey
 	}); err != nil {
 		return uninstaller.cleanOnCreateError("failed to update threeport config", err)
@@ -423,7 +422,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 	// if auth is enabled, generate client certificate and add to local config
 	var authConfig *auth.AuthConfig
-	var clientCredentials *config.Credential
+	var clientCredentials *Credential
 	if cpi.Opts.AuthEnabled {
 		// get auth config
 		authConfig, err = auth.GetAuthConfig()
@@ -441,14 +440,14 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return uninstaller.cleanOnCreateError("failed to generate client certificate and private key", err)
 		}
 
-		clientCredentials = &config.Credential{
+		clientCredentials = &Credential{
 			Name:       cpi.Opts.ControlPlaneName,
 			ClientCert: util.Base64Encode(clientCertificate),
 			ClientKey:  util.Base64Encode(clientPrivateKey),
 		}
 
 		// update threeport config with auth info
-		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
 			c.AuthEnabled = true
 			c.Credentials = append(c.Credentials, *clientCredentials)
 			c.CACert = authConfig.CABase64Encoded
@@ -457,7 +456,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	} else {
 		// update threeport config with auth info
-		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
 			c.AuthEnabled = false
 		}); err != nil {
 			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
@@ -490,7 +489,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err != nil {
 			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
 		}
-		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
 			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
 		}); err != nil {
 			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
@@ -499,7 +498,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		// update threeport config with api endpoint
 		var err error
 		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(cpi.Opts.AuthEnabled)
-		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
+		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
 			c.APIServer = threeportAPIEndpoint
 		}); err != nil {
 			return fmt.Errorf("failed to update threeport config: %w", err)
@@ -765,7 +764,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 // DeleteGenesisControlPlane deletes a threeport control plane.
 func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller) error {
 	// get threeport config
-	threeportConfig, requestedControlPlane, err := config.GetThreeportConfig("")
+	threeportConfig, requestedControlPlane, err := GetThreeportConfig("")
 	if err != nil {
 		return fmt.Errorf("failed to get threeport config: %w", err)
 	}
@@ -975,7 +974,7 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	}
 
 	// update threeport config to remove deleted threeport instance
-	config.DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)
+	DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)
 	Info("Threeport config updated")
 
 	Complete(fmt.Sprintf("Threeport control plane %s deleted", cpi.Opts.ControlPlaneName))
@@ -1107,12 +1106,12 @@ func (u *Uninstaller) cleanOnCreateError(
 
 	// remove control plane from Threeport config
 	if *u.cleanConfig {
-		threeportConfig, _, configErr := config.GetThreeportConfig("")
+		threeportConfig, _, configErr := GetThreeportConfig("")
 		if configErr != nil {
 			Warning("Threeport config may contain invalid instance for deleted control plane")
 			return fmt.Errorf("failed to create control plane infra for threeport: %w\nfailed to get threeport config: %w", createErr, configErr)
 		}
-		config.DeleteThreeportConfigControlPlane(threeportConfig, u.cpi.Opts.ControlPlaneName)
+		DeleteThreeportConfigControlPlane(threeportConfig, u.cpi.Opts.ControlPlaneName)
 	}
 
 	return createErr

@@ -14,7 +14,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
@@ -117,7 +116,7 @@ var buildCmd = &cobra.Command{
 						}
 					case load:
 						// get threeport config and extract threeport API endpoint
-						_, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+						_, requestedControlPlane, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 						if err != nil {
 							cli.Error("failed to get threeport config", err)
 							os.Exit(1)

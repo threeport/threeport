@@ -17,7 +17,6 @@ import (
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -76,7 +75,7 @@ func TestWorkloadE2E(t *testing.T) {
 		cli.InitConfig(nil, "")
 
 		// get threeport config and configure http client for calls to threeport API
-		threeportConfig, _, err := config.GetThreeportConfig("")
+		threeportConfig, _, err := cli.GetThreeportConfig("")
 		require.Nil(t, err, "should have no error getting threeport config")
 		apiClient, err := threeportConfig.GetHTTPClient(threeportConfig.CurrentControlPlane)
 		require.Nil(t, err, "should have no error creating http client")

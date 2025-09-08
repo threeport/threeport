@@ -20,7 +20,6 @@ import (
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -32,8 +31,8 @@ import (
 // DeployEksInfra deploys the EKS infrastructure for the control plane.
 func DeployEksInfra(
 	cpi *threeport.ControlPlaneInstaller,
-	threeportControlPlaneConfig *config.ControlPlane,
-	threeportConfig *config.ThreeportConfig,
+	threeportControlPlaneConfig *ControlPlane,
+	threeportConfig *ThreeportConfig,
 	kubernetesRuntimeInfra *provider.KubernetesRuntimeInfra,
 	kubeConnectionInfo *kube.KubeConnectionInfo,
 	uninstaller *Uninstaller,
@@ -62,8 +61,8 @@ func DeployEksInfra(
 	Info(fmt.Sprintf("Successfully authenticated to account %s as %s", *callerIdentity.Account, *callerIdentity.Arn))
 
 	// update threeport config with eks provider info
-	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *config.ControlPlane) {
-		c.EKSProviderConfig = config.EKSProviderConfig{
+	if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
+		c.EKSProviderConfig = EKSProviderConfig{
 			AwsConfigProfile: cpi.Opts.AwsConfigProfile,
 			AwsRegion:        cpi.Opts.AwsRegion,
 			AwsAccountID:     *callerIdentity.Account,
@@ -405,8 +404,8 @@ func ConfigureControlPlaneWithEksConfig(
 // definition.
 func PrepForEksDeletion(
 	cpi *threeport.ControlPlaneInstaller,
-	threeportControlPlaneConfig *config.ControlPlane,
-	threeportConfig *config.ThreeportConfig,
+	threeportControlPlaneConfig *ControlPlane,
+	threeportConfig *ThreeportConfig,
 	awsConfigUser *aws.Config,
 	awsConfigResourceManager *aws.Config,
 	requestedControlPlane string,

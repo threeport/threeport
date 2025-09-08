@@ -16,7 +16,7 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
-// GenCliCommands generates commands for the tptctl CLI tool.
+// GenCliCommands generates commands for the tptctl CLI tool and its module plugins.
 func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	pluralize := pluralize.NewClient()
 
@@ -63,9 +63,9 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		commandCode.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
 		if gen.Module {
 			commandCode.ImportAlias("github.com/threeport/threeport/cmd/tptctl/cmd", "tptctl_cmd")
-			commandCode.ImportAlias("github.com/threeport/threeport/pkg/config/v0", "tptctl_config")
+			commandCode.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "tptctl_cli")
 		} else {
-			commandCode.ImportAlias("github.com/threeport/threeport/pkg/config/v0", "config")
+			commandCode.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
 		}
 
 		// getOutputCode contains the customized output for `tptctl get` commands
@@ -1586,7 +1586,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Id("requestedControlPlane"),
 									Err(),
 								).Op(":=").Qual(
-									"github.com/threeport/threeport/pkg/config/v0",
+									"github.com/threeport/threeport/pkg/cli/v0",
 									"GetThreeportConfig",
 								).Call(
 									Id("cliArgs").Dot("ControlPlaneName"),
@@ -1879,6 +1879,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		}
 
 		if commandsGenerated {
+			// write commands code to file if not excluded by SDK config
 			commandsDir := filepath.Join("cmd", "tptctl", "cmd")
 			if gen.Module {
 				commandsDir = filepath.Join("cmd", strcase.ToSnake(sdkConfig.ModuleName), "cmd")

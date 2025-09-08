@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
 )
 
 var cliArgs = &cli.GenesisControlPlaneCLIArgs{}
@@ -43,7 +42,7 @@ func Execute() {
 	// find installed plugins
 	pluginDir, ok := os.LookupEnv("THREEPORT_PLUGIN_DIR")
 	if !ok {
-		p, err := config.DefaultPluginDir()
+		p, err := cli.DefaultPluginDir()
 		if err != nil {
 			cli.Error("failed to determine default tptctl plugin directory", err)
 			os.Exit(1)
@@ -124,7 +123,7 @@ func CommandPreRunFunc(cmd *cobra.Command, args []string) {
 // initializeCommandContext initializes the command context.
 func initializeCommandContext(cmd *cobra.Command) error {
 	// get threeport config and extract threeport API endpoint
-	threeportConfig, requestedControlPlane, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+	threeportConfig, requestedControlPlane, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 	if err != nil {
 		return fmt.Errorf("failed to get threeport config: %w", err)
 	}
@@ -149,9 +148,9 @@ func initializeCommandContext(cmd *cobra.Command) error {
 }
 
 // GetClientContext gets the client context from the command context.
-func GetClientContext(cmd *cobra.Command) (*http.Client, *config.ThreeportConfig, string, string) {
+func GetClientContext(cmd *cobra.Command) (*http.Client, *cli.ThreeportConfig, string, string) {
 	var apiClient *http.Client
-	var threeportConfig *config.ThreeportConfig
+	var threeportConfig *cli.ThreeportConfig
 	var apiEndpoint string
 	var requestedControlPlane string
 
@@ -164,7 +163,7 @@ func GetClientContext(cmd *cobra.Command) (*http.Client, *config.ThreeportConfig
 
 	contextThreeportConfig := cmd.Context().Value("config")
 	if contextThreeportConfig != nil {
-		if config, ok := contextThreeportConfig.(*config.ThreeportConfig); ok {
+		if config, ok := contextThreeportConfig.(*cli.ThreeportConfig); ok {
 			threeportConfig = config
 		}
 	}

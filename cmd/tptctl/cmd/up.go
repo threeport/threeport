@@ -14,7 +14,6 @@ import (
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
@@ -42,7 +41,7 @@ var UpCmd = &cobra.Command{
 		// 1. the config file path provided with a flag by the user
 		// 2. an environment variable
 		// 3. the default config file path
-		cfgFile := config.DetermineThreeportConfigPath(cliArgs.CfgFile)
+		cfgFile := cli.DetermineThreeportConfigPath(cliArgs.CfgFile)
 		// create a new threeport config file if it doesn't exist
 		if _, err := os.Stat(cfgFile); errors.Is(err, os.ErrNotExist) {
 			cfgDir := filepath.Dir(cfgFile)

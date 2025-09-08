@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
-	config "github.com/threeport/threeport/pkg/config/v0"
 	"github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -29,12 +28,12 @@ var getCredsCmd = &cobra.Command{
 	Long:  `Get user client client cert, key and server CA for threeport instance API.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get threeport config
-		threeportConfig, _, err := config.GetThreeportConfig(cliArgs.ControlPlaneName)
+		threeportConfig, _, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 		if err != nil {
 			cli.Error("failed to get threeport config", err)
 			os.Exit(1)
 		}
-		var threeportControlPlaneConfig config.ControlPlane
+		var threeportControlPlaneConfig cli.ControlPlane
 		instanceConfigFound := false
 		for i, instance := range threeportConfig.ControlPlanes {
 			if instance.Name == getCredsThreeportName {

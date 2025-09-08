@@ -25,7 +25,6 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.ImportAlias("github.com/threeport/threeport/cmd/tptctl/cmd", "tptctl_cmd")
 	f.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
 	f.ImportAlias("github.com/threeport/threeport/pkg/client/v0", "client")
-	f.ImportAlias("github.com/threeport/threeport/pkg/config/v0", "config")
 	f.ImportAlias("github.com/threeport/threeport/pkg/kube/v0", "kube")
 	f.ImportAlias(installerPkg, "installer")
 
@@ -96,7 +95,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 			Comment("get threeport config"),
 			Id("threeportConfig").Op(",").Id("_").Op(",").Id("err").Op(":=").Qual(
-				"github.com/threeport/threeport/pkg/config/v0",
+				"github.com/threeport/threeport/pkg/cli/v0",
 				"GetThreeportConfig",
 			).Call(Id("requestedControlPlane")),
 			If(Id("err").Op("!=").Nil()).Block(
