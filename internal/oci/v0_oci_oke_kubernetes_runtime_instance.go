@@ -3,9 +3,16 @@
 package oci
 
 import (
+	"fmt"
+
 	logr "github.com/go-logr/logr"
+	"github.com/oracle/oci-go-sdk/v65/common"
+	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // v0OciOkeKubernetesRuntimeInstanceCreated performs reconciliation when a v0 OciOkeKubernetesRuntimeInstance
@@ -15,6 +22,118 @@ func v0OciOkeKubernetesRuntimeInstanceCreated(
 	ociOkeKubernetesRuntimeInstance *v0.OciOkeKubernetesRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// get the OCI OKE kubernetes runtime definition
+	ociOkeKubernetesRuntimeDefinition, err := client.GetOciOkeKubernetesRuntimeDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*ociOkeKubernetesRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get OCI OKE kubernetes runtime definition: %w", err)
+	}
+
+	// get the kubernetes runtime instance
+	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
+		r.APIClient,
+		r.APIServer,
+		*ociOkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+
+	// get the OCI account
+	ociAccount, err := client.GetOciAccountByID(
+		r.APIClient,
+		r.APIServer,
+		*ociOkeKubernetesRuntimeDefinition.OciAccountID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get OCI account: %w", err)
+	}
+
+	// decrypt the private key
+	privateKey, err := encryption.Decrypt(*ociAccount.PrivateKey, r.EncryptionKey)
+	if err != nil {
+		return 0, fmt.Errorf("failed to decrypt OCI private key: %w", err)
+	}
+
+	// create OCI configuration provider
+	configProvider := common.NewRawConfigurationProvider(
+		*ociAccount.TenancyOCID,
+		*ociAccount.UserOCID,
+		*ociAccount.DefaultRegion,
+		*ociAccount.KeyFingerprint,
+		string(privateKey),
+		util.Ptr(""), // passphrase
+	)
+
+	// get the tenancy OCID for compartment (if not specified, use tenancy as root compartment)
+	compartmentOCID := *ociAccount.TenancyOCID
+
+	// create the OKE infrastructure manager
+	okeInfra := &provider.KubernetesRuntimeInfraOKE{
+		RuntimeInstanceName:    *ociOkeKubernetesRuntimeInstance.Name,
+		Version:                "v1.32.1",
+		TenancyOCID:            *ociAccount.TenancyOCID,
+		CompartmentOCID:        compartmentOCID,
+		Region:                 *ociAccount.DefaultRegion,
+		WorkerNodeShape:        *ociOkeKubernetesRuntimeDefinition.WorkerNodeShape,
+		WorkerNodeInitialCount: *ociOkeKubernetesRuntimeDefinition.WorkerNodeInitialCount,
+	}
+
+	// create the OKE cluster using Pulumi
+	log.Info("creating OKE cluster", "clusterName", *ociOkeKubernetesRuntimeInstance.Name)
+	kubeConnectionInfo, err := okeInfra.Create()
+	if err != nil {
+		return 0, fmt.Errorf("failed to create OKE cluster: %w", err)
+	}
+
+	// get the cluster OCID
+	clusterOCID, err := okeInfra.GetClusterOCID(
+		*ociOkeKubernetesRuntimeInstance.Name,
+		configProvider,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get cluster OCID: %w", err)
+	}
+
+	// get the resource inventory from Pulumi state
+	resourceInventory, err := okeInfra.GetStackState()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get stack state: %w", err)
+	}
+
+	// update the OCI OKE kubernetes runtime instance with cluster info
+	ociOkeKubernetesRuntimeInstance.ClusterOCID = &clusterOCID
+	ociOkeKubernetesRuntimeInstance.ResourceInventory = resourceInventory
+	ociOkeKubernetesRuntimeInstance.Region = ociAccount.DefaultRegion
+	ociOkeKubernetesRuntimeInstance.Reconciled = util.Ptr(true)
+
+	_, err = client.UpdateOciOkeKubernetesRuntimeInstance(
+		r.APIClient,
+		r.APIServer,
+		ociOkeKubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to update OCI OKE kubernetes runtime instance: %w", err)
+	}
+
+	// update the kubernetes runtime instance with connection info
+	kubernetesRuntimeInstance.APIEndpoint = &kubeConnectionInfo.APIEndpoint
+	kubernetesRuntimeInstance.CACertificate = &kubeConnectionInfo.CACertificate
+	kubernetesRuntimeInstance.Reconciled = util.Ptr(true)
+
+	_, err = client.UpdateKubernetesRuntimeInstance(
+		r.APIClient,
+		r.APIServer,
+		kubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to update kubernetes runtime instance: %w", err)
+	}
+
+	log.Info("successfully created OKE cluster", "clusterName", *ociOkeKubernetesRuntimeInstance.Name, "clusterOCID", clusterOCID)
 	return 0, nil
 }
 
@@ -25,6 +144,9 @@ func v0OciOkeKubernetesRuntimeInstanceUpdated(
 	ociOkeKubernetesRuntimeInstance *v0.OciOkeKubernetesRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// for now, we don't support updating OKE clusters
+	// this would require implementing cluster upgrade logic using Pulumi
+	log.Info("OKE cluster update requested but not yet implemented", "clusterName", *ociOkeKubernetesRuntimeInstance.Name)
 	return 0, nil
 }
 
@@ -35,5 +157,59 @@ func v0OciOkeKubernetesRuntimeInstanceDeleted(
 	ociOkeKubernetesRuntimeInstance *v0.OciOkeKubernetesRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// check if cluster OCID is present
+	if ociOkeKubernetesRuntimeInstance.ClusterOCID == nil {
+		log.Info("no cluster OCID found, nothing to delete", "instanceName", *ociOkeKubernetesRuntimeInstance.Name)
+		return 0, nil
+	}
+
+	// get the OCI OKE kubernetes runtime definition
+	ociOkeKubernetesRuntimeDefinition, err := client.GetOciOkeKubernetesRuntimeDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*ociOkeKubernetesRuntimeInstance.OciOkeKubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get OCI OKE kubernetes runtime definition: %w", err)
+	}
+
+	// get the OCI account
+	ociAccount, err := client.GetOciAccountByID(
+		r.APIClient,
+		r.APIServer,
+		*ociOkeKubernetesRuntimeDefinition.OciAccountID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get OCI account: %w", err)
+	}
+
+	// get the tenancy OCID for compartment
+	compartmentOCID := *ociAccount.TenancyOCID
+
+	// create the OKE infrastructure manager for deletion
+	okeInfra := &provider.KubernetesRuntimeInfraOKE{
+		RuntimeInstanceName:    *ociOkeKubernetesRuntimeInstance.Name,
+		TenancyOCID:            *ociAccount.TenancyOCID,
+		CompartmentOCID:        compartmentOCID,
+		Region:                 *ociAccount.DefaultRegion,
+		WorkerNodeShape:        *ociOkeKubernetesRuntimeDefinition.WorkerNodeShape,
+		WorkerNodeInitialCount: *ociOkeKubernetesRuntimeDefinition.WorkerNodeInitialCount,
+	}
+
+	// restore the Pulumi state if available
+	if ociOkeKubernetesRuntimeInstance.ResourceInventory != nil {
+		if err := okeInfra.SetStackState(ociOkeKubernetesRuntimeInstance.ResourceInventory); err != nil {
+			log.Error(err, "failed to restore Pulumi state, attempting deletion anyway")
+		}
+	}
+
+	// delete the OKE cluster using Pulumi
+	log.Info("deleting OKE cluster", "clusterName", *ociOkeKubernetesRuntimeInstance.Name, "clusterOCID", *ociOkeKubernetesRuntimeInstance.ClusterOCID)
+	err = okeInfra.Delete()
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete OKE cluster: %w", err)
+	}
+
+	log.Info("successfully deleted OKE cluster", "clusterName", *ociOkeKubernetesRuntimeInstance.Name)
 	return 0, nil
 }
