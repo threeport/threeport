@@ -144,7 +144,7 @@ func init() {
 	)
 	UpCmd.Flags().StringVar(
 		&cliArgs.OciCompartmentOcid,
-		"oci-compartment-ocid", "", "The OCI compartment OCID to install threeport in when using oke provider.",
+		"oci-compartment-ocid", "", "The OCI compartment OCID to install threeport in when using oke provider. Defaults to the tenancy OCID.",
 	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ForceOverwriteConfig,
