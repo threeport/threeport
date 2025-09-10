@@ -87,7 +87,6 @@ var DebugCmd = &cobra.Command{
 				if err := cpi.UpdateThreeportAgentDeployment(
 					dynamicKubeClient,
 					&mapper,
-					controlPlaneNamespace,
 				); err != nil {
 					cli.Error("failed to apply threeport agent", err)
 					os.Exit(1)
