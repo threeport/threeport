@@ -117,12 +117,18 @@ func (o *OciOkeKubernetesRuntimeValues) Create(apiClient *http.Client, apiEndpoi
 	*v0.OciOkeKubernetesRuntimeInstance,
 	error,
 ) {
+	// Get OCI account by name to get its ID
+	ociAccount, err := client.GetOciAccountByName(apiClient, apiEndpoint, *o.OciAccountName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get OCI account by name '%s': %w", *o.OciAccountName, err)
+	}
+
 	// Create the definition first
 	definition := v0.OciOkeKubernetesRuntimeDefinition{
 		Definition: v0.Definition{
 			Name: o.Name,
 		},
-		OciAccountID:           nil, // TODO: Get this from OciAccountName
+		OciAccountID:           ociAccount.ID,
 		WorkerNodeShape:        o.WorkerNodeShape,
 		WorkerNodeInitialCount: util.Ptr(int32(*o.WorkerNodeInitialCount)),
 	}
@@ -186,11 +192,19 @@ func (o *OciOkeKubernetesRuntimeValues) Delete(apiClient *http.Client, apiEndpoi
 
 // Create creates a new OCI OKE kubernetes runtime definition in the Threeport API.
 func (o *OciOkeKubernetesRuntimeDefinitionValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.OciOkeKubernetesRuntimeDefinition, error) {
+	// Get OCI account by name to get its ID
+	ociAccount, err := client.GetOciAccountByName(apiClient, apiEndpoint, *o.OciAccountName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OCI account by name '%s': %w", *o.OciAccountName, err)
+	}
+
 	ociOkeKubernetesRuntimeDefinition := v0.OciOkeKubernetesRuntimeDefinition{
-		// Name:                    o.Name,
-		// OciAccountName:          o.OciAccountName,
-		WorkerNodeShape: o.WorkerNodeShape,
-		// WorkerNodeInitialCount:  o.WorkerNodeInitialCount,
+		Definition: v0.Definition{
+			Name: o.Name,
+		},
+		OciAccountID:           ociAccount.ID,
+		WorkerNodeShape:        o.WorkerNodeShape,
+		WorkerNodeInitialCount: util.Ptr(int32(*o.WorkerNodeInitialCount)),
 	}
 
 	createdDefinition, err := client.CreateOciOkeKubernetesRuntimeDefinition(apiClient, apiEndpoint, &ociOkeKubernetesRuntimeDefinition)
@@ -222,10 +236,18 @@ func (o *OciOkeKubernetesRuntimeDefinitionValues) Delete(apiClient *http.Client,
 
 // Create creates a new OCI OKE kubernetes runtime instance in the Threeport API.
 func (o *OciOkeKubernetesRuntimeInstanceValues) Create(apiClient *http.Client, apiEndpoint string) (*v0.OciOkeKubernetesRuntimeInstance, error) {
+	// Get OCI OKE kubernetes runtime definition by name to get its ID
+	definition, err := client.GetOciOkeKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *o.OciOkeKubernetesRuntimeDefinition.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OCI OKE kubernetes runtime definition by name '%s': %w", *o.OciOkeKubernetesRuntimeDefinition.Name, err)
+	}
+
 	ociOkeKubernetesRuntimeInstance := v0.OciOkeKubernetesRuntimeInstance{
-		// Name:                              o.Name,
-		Region: o.Region,
-		// OciOkeKubernetesRuntimeDefinition: o.OciOkeKubernetesRuntimeDefinition,
+		Instance: v0.Instance{
+			Name: o.Name,
+		},
+		Region:                              o.Region,
+		OciOkeKubernetesRuntimeDefinitionID: definition.ID,
 	}
 
 	createdInstance, err := client.CreateOciOkeKubernetesRuntimeInstance(apiClient, apiEndpoint, &ociOkeKubernetesRuntimeInstance)
