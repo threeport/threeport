@@ -60,21 +60,22 @@ POLICY_ID=$(oci iam policy create \
     --description "Policy for managing OKE clusters for Threeport" \
     --compartment-id $COMPARTMENT_ID \
     --statements '[
-        "Allow group threeport-admins to manage cluster-family in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage virtual-network-family in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage instance-family in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage volume-family in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage load-balancers in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage security-lists in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage subnets in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage vcns in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage network-security-groups in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage object-family in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage tag-namespaces in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage tag-defaults in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage tag-definitions in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage tags in compartment id ${COMPARTMENT_ID}",
-        "Allow group threeport-admins to manage all-resources in compartment id ${COMPARTMENT_ID} where all {target.resource.type = 'Cluster', target.resource.type = 'NodePool'}"
+        "Allow group threeport-admins to inspect compartments in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to manage cluster-family in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to manage virtual-network-family in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to manage instance-family in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to manage volume-family in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to manage load-balancers in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to use vnics in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to use network-security-groups in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to use private-ips in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to manage public-ips in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to manage object-family in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to manage tag-namespaces in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to manage tag-defaults in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to use tag-namespaces in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to inspect availability-domains in compartment id '${COMPARTMENT_ID}'",
+        "Allow group threeport-admins to read services in tenancy"
     ]' \
     --query 'data.id' \
     --raw-output)
@@ -87,31 +88,31 @@ echo "Created policy with ID: $POLICY_ID"
 The policy above grants the following permissions:
 
 1. **OKE Cluster Management**
-   - Create and manage OKE clusters
-   - Manage node pools
+   - Create and manage OKE clusters and node pools (`cluster-family`)
+   - Inspect compartments for resource organization
    - Scale clusters and node pools
 
 2. **Networking**
-   - Create and manage VCNs
-   - Create and manage subnets
-   - Configure security lists
-   - Manage network security groups
+   - Create and manage VCNs, subnets, gateways, route tables, and security lists (`virtual-network-family`)
+   - Use and manage network security groups
+   - Use VNICs (Virtual Network Interface Cards)
+   - Use private IPs and manage public IPs
    - Configure load balancers
 
 3. **Compute Resources**
-   - Manage compute instances
-   - Manage block volumes
+   - Manage compute instances for worker nodes (`instance-family`)
+   - Manage block volumes for persistent storage (`volume-family`)
    - Manage instance configurations
 
 4. **Object Storage**
    - Create and manage buckets
-   - Manage objects
-   - Manage object lifecycle policies
+   - Manage objects and lifecycle policies (`object-family`)
 
-5. **Tagging**
-   - Create and manage tag namespaces
-   - Create and manage tag definitions
-   - Apply tags to resources
+5. **Identity and Tagging**
+   - Manage and use tag namespaces for resource organization
+   - Manage tag defaults
+   - Inspect availability domains for resource placement
+   - Read OCI services information (required for service gateways)
 
 ## Add Users to the Group
 
