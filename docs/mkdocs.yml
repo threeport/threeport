@@ -20,7 +20,8 @@ nav:
   - Install:
     - 'Threeport CLI': 'install/install-tptctl.md'
     - 'Local Threeport': 'install/install-threeport-local.md'
-    - 'Remote Threeport': 'install/install-threeport-aws.md'
+    - 'Threeport on AWS': 'install/install-threeport-aws.md'
+    - 'Threeport on OCI': 'install/install-threeport-oci.md'
   - Threeport Objects:
     - Kubernetes Runtimes:
       - 'Introduction': 'kubernetes-runtime/kubernetes-intro.md'
@@ -38,6 +39,9 @@ nav:
       - 'IAM Permissions': 'aws/aws-iam.md'
       - 'Basic AWS Setup': 'aws/basic-aws-setup.md'
       - 'Advanced AWS Setup': 'aws/advanced-aws-setup.md'
+    - OCI:
+      - 'Introduction': 'oci/oci-intro.md'
+      - 'IAM Permissions': 'oci/oci-iam.md'
     - Terraform:
       - 'Introduction': 'terraform/terraform-intro.md'
       - 'AWS RDS Database': 'terraform/rds-database.md'

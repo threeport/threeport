@@ -12,6 +12,9 @@ Threeport Locally](install-threeport-local.md)
 Note: this guide requires you have our tptctl command line tool installed.  See
 our [Install tptctl guide](install-tptctl.md) to install if you haven't already.
 
+**Before proceeding, ensure you have the required AWS IAM permissions configured.** 
+See our [AWS Permissions guide](../aws/aws-iam.md) to set up the necessary permissions for your AWS user.
+
 ## Install Threeport
 
 This section assumes you already have an AWS account and credentials configured on
@@ -24,7 +27,7 @@ file system, you're likely already set up.
 
 Also, ensure you have the required permissions to create the necessary resources
 in AWS.  If your user has the built-in `AdministratorAccess` policy attached, you can
-continue.  Otherwise, check out our [AWS Permissions guide](../aws/aws-iam.md)
+continue.  Otherwise, refer to our [AWS Permissions guide](../aws/aws-iam.md) referenced above
 to make sure you can create the resources required to run a Threeport core system.
 
 You also will need your AWS account ID.  It can be found in the AWS console.
