@@ -148,7 +148,7 @@ charts are available and it is already in extensive use by many teams.
 
 Although we prefer Go to manage Kubernetes resources, we recognize there are
 use-cases where it is more appropriate to use Helm. Threeport's implementation
-of the [Observability Stack](../../observability/observability-intro/) is one
+of the [Observability Stack](../observability/observability-intro.md) is one
 example.  The requirements for observability line up well with what is already
 provided by open-source Helm charts, so it made more sense to implement this
 controller with Threeport's Helm integration.

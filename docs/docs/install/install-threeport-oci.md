@@ -70,8 +70,10 @@ kubectl get pods -n threeport-control-plane
 ## Next Steps
 
 Next, we suggest you deploy a sample workload to OCI using Threeport.  It will
-give you clear idea of Threeport's dependency management capabilities.  See our
-[Deploy Workload on OCI guide](../workloads/deploy-workload-oci.md) for instructions.
+give you clear idea of Threeport's dependency management capabilities.
+
+Note: A dedicated OCI workload deployment guide is coming soon. For now, you can adapt the
+[Deploy Workload on AWS guide](../workloads/deploy-workload-aws.md) principles for OCI usage.
 
 ## Clean Up
 
