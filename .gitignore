@@ -4,4 +4,4 @@ samples/draft
 __debug_bin*
 .envrc
 **/.DS_Store
-docs/venv
+docs/docs/venv
