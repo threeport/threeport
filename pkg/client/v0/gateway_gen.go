@@ -174,7 +174,7 @@ func CreateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 	return domainNameDefinition, nil
 }
 
-// UpdateDomainNameDefinition updates a domain name definition.
+// UpdateDomainNameDefinition updates a domain name definition with a PATCH request.
 func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNameDefinition *v0.DomainNameDefinition) (*v0.DomainNameDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(domainNameDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathDomainNameDefinitions, domainNameDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonDomainNameDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return domainNameDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return domainNameDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadDomainNameDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadDomainNameDefinition.ID = &domainNameDefinitionID
+	return &payloadDomainNameDefinition, nil
+}
+
+// ReplaceDomainNameDefinition updates a domain name definition with a PUT request.
+func ReplaceDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNameDefinition *v0.DomainNameDefinition) (*v0.DomainNameDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(domainNameDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	domainNameDefinitionID := *domainNameDefinition.ID
+	payloadDomainNameDefinition := *domainNameDefinition
+	payloadDomainNameDefinition.ID = nil
+	payloadDomainNameDefinition.CreatedAt = nil
+	payloadDomainNameDefinition.UpdatedAt = nil
+
+	jsonDomainNameDefinition, err := util.MarshalObject(payloadDomainNameDefinition)
+	if err != nil {
+		return domainNameDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathDomainNameDefinitions, domainNameDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonDomainNameDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -409,7 +452,7 @@ func CreateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 	return domainNameInstance, nil
 }
 
-// UpdateDomainNameInstance updates a domain name instance.
+// UpdateDomainNameInstance updates a domain name instance with a PATCH request.
 func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainNameInstance *v0.DomainNameInstance) (*v0.DomainNameInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(domainNameInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -429,6 +472,49 @@ func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathDomainNameInstances, domainNameInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonDomainNameInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return domainNameInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return domainNameInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadDomainNameInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadDomainNameInstance.ID = &domainNameInstanceID
+	return &payloadDomainNameInstance, nil
+}
+
+// ReplaceDomainNameInstance updates a domain name instance with a PUT request.
+func ReplaceDomainNameInstance(apiClient *http.Client, apiAddr string, domainNameInstance *v0.DomainNameInstance) (*v0.DomainNameInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(domainNameInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	domainNameInstanceID := *domainNameInstance.ID
+	payloadDomainNameInstance := *domainNameInstance
+	payloadDomainNameInstance.ID = nil
+	payloadDomainNameInstance.CreatedAt = nil
+	payloadDomainNameInstance.UpdatedAt = nil
+
+	jsonDomainNameInstance, err := util.MarshalObject(payloadDomainNameInstance)
+	if err != nil {
+		return domainNameInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathDomainNameInstances, domainNameInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonDomainNameInstance),
 		map[string]string{},
 		http.StatusOK,
@@ -644,7 +730,7 @@ func CreateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 	return gatewayDefinition, nil
 }
 
-// UpdateGatewayDefinition updates a gateway definition.
+// UpdateGatewayDefinition updates a gateway definition with a PATCH request.
 func UpdateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefinition *v0.GatewayDefinition) (*v0.GatewayDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(gatewayDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -664,6 +750,49 @@ func UpdateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayDefinitions, gatewayDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonGatewayDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return gatewayDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return gatewayDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadGatewayDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadGatewayDefinition.ID = &gatewayDefinitionID
+	return &payloadGatewayDefinition, nil
+}
+
+// ReplaceGatewayDefinition updates a gateway definition with a PUT request.
+func ReplaceGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefinition *v0.GatewayDefinition) (*v0.GatewayDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(gatewayDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	gatewayDefinitionID := *gatewayDefinition.ID
+	payloadGatewayDefinition := *gatewayDefinition
+	payloadGatewayDefinition.ID = nil
+	payloadGatewayDefinition.CreatedAt = nil
+	payloadGatewayDefinition.UpdatedAt = nil
+
+	jsonGatewayDefinition, err := util.MarshalObject(payloadGatewayDefinition)
+	if err != nil {
+		return gatewayDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayDefinitions, gatewayDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonGatewayDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -879,7 +1008,7 @@ func CreateGatewayHttpPort(apiClient *http.Client, apiAddr string, gatewayHttpPo
 	return gatewayHttpPort, nil
 }
 
-// UpdateGatewayHttpPort updates a gateway http port.
+// UpdateGatewayHttpPort updates a gateway http port with a PATCH request.
 func UpdateGatewayHttpPort(apiClient *http.Client, apiAddr string, gatewayHttpPort *v0.GatewayHttpPort) (*v0.GatewayHttpPort, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(gatewayHttpPort)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -899,6 +1028,49 @@ func UpdateGatewayHttpPort(apiClient *http.Client, apiAddr string, gatewayHttpPo
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayHttpPorts, gatewayHttpPortID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonGatewayHttpPort),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return gatewayHttpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return gatewayHttpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadGatewayHttpPort); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadGatewayHttpPort.ID = &gatewayHttpPortID
+	return &payloadGatewayHttpPort, nil
+}
+
+// ReplaceGatewayHttpPort updates a gateway http port with a PUT request.
+func ReplaceGatewayHttpPort(apiClient *http.Client, apiAddr string, gatewayHttpPort *v0.GatewayHttpPort) (*v0.GatewayHttpPort, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(gatewayHttpPort)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	gatewayHttpPortID := *gatewayHttpPort.ID
+	payloadGatewayHttpPort := *gatewayHttpPort
+	payloadGatewayHttpPort.ID = nil
+	payloadGatewayHttpPort.CreatedAt = nil
+	payloadGatewayHttpPort.UpdatedAt = nil
+
+	jsonGatewayHttpPort, err := util.MarshalObject(payloadGatewayHttpPort)
+	if err != nil {
+		return gatewayHttpPort, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayHttpPorts, gatewayHttpPortID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonGatewayHttpPort),
 		map[string]string{},
 		http.StatusOK,
@@ -1114,7 +1286,7 @@ func CreateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 	return gatewayInstance, nil
 }
 
-// UpdateGatewayInstance updates a gateway instance.
+// UpdateGatewayInstance updates a gateway instance with a PATCH request.
 func UpdateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstance *v0.GatewayInstance) (*v0.GatewayInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(gatewayInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -1134,6 +1306,49 @@ func UpdateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayInstances, gatewayInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonGatewayInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return gatewayInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return gatewayInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadGatewayInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadGatewayInstance.ID = &gatewayInstanceID
+	return &payloadGatewayInstance, nil
+}
+
+// ReplaceGatewayInstance updates a gateway instance with a PUT request.
+func ReplaceGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstance *v0.GatewayInstance) (*v0.GatewayInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(gatewayInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	gatewayInstanceID := *gatewayInstance.ID
+	payloadGatewayInstance := *gatewayInstance
+	payloadGatewayInstance.ID = nil
+	payloadGatewayInstance.CreatedAt = nil
+	payloadGatewayInstance.UpdatedAt = nil
+
+	jsonGatewayInstance, err := util.MarshalObject(payloadGatewayInstance)
+	if err != nil {
+		return gatewayInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayInstances, gatewayInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonGatewayInstance),
 		map[string]string{},
 		http.StatusOK,
@@ -1349,7 +1564,7 @@ func CreateGatewayTcpPort(apiClient *http.Client, apiAddr string, gatewayTcpPort
 	return gatewayTcpPort, nil
 }
 
-// UpdateGatewayTcpPort updates a gateway tcp port.
+// UpdateGatewayTcpPort updates a gateway tcp port with a PATCH request.
 func UpdateGatewayTcpPort(apiClient *http.Client, apiAddr string, gatewayTcpPort *v0.GatewayTcpPort) (*v0.GatewayTcpPort, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(gatewayTcpPort)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -1369,6 +1584,49 @@ func UpdateGatewayTcpPort(apiClient *http.Client, apiAddr string, gatewayTcpPort
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayTcpPorts, gatewayTcpPortID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonGatewayTcpPort),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return gatewayTcpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return gatewayTcpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadGatewayTcpPort); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadGatewayTcpPort.ID = &gatewayTcpPortID
+	return &payloadGatewayTcpPort, nil
+}
+
+// ReplaceGatewayTcpPort updates a gateway tcp port with a PUT request.
+func ReplaceGatewayTcpPort(apiClient *http.Client, apiAddr string, gatewayTcpPort *v0.GatewayTcpPort) (*v0.GatewayTcpPort, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(gatewayTcpPort)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	gatewayTcpPortID := *gatewayTcpPort.ID
+	payloadGatewayTcpPort := *gatewayTcpPort
+	payloadGatewayTcpPort.ID = nil
+	payloadGatewayTcpPort.CreatedAt = nil
+	payloadGatewayTcpPort.UpdatedAt = nil
+
+	jsonGatewayTcpPort, err := util.MarshalObject(payloadGatewayTcpPort)
+	if err != nil {
+		return gatewayTcpPort, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGatewayTcpPorts, gatewayTcpPortID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonGatewayTcpPort),
 		map[string]string{},
 		http.StatusOK,

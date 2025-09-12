@@ -174,7 +174,7 @@ func CreateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 	return profile, nil
 }
 
-// UpdateProfile updates a profile.
+// UpdateProfile updates a profile with a PATCH request.
 func UpdateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) (*v0.Profile, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(profile)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) 
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathProfiles, profileID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonProfile),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return profile, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return profile, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadProfile); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadProfile.ID = &profileID
+	return &payloadProfile, nil
+}
+
+// ReplaceProfile updates a profile with a PUT request.
+func ReplaceProfile(apiClient *http.Client, apiAddr string, profile *v0.Profile) (*v0.Profile, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(profile)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	profileID := *profile.ID
+	payloadProfile := *profile
+	payloadProfile.ID = nil
+	payloadProfile.CreatedAt = nil
+	payloadProfile.UpdatedAt = nil
+
+	jsonProfile, err := util.MarshalObject(payloadProfile)
+	if err != nil {
+		return profile, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathProfiles, profileID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonProfile),
 		map[string]string{},
 		http.StatusOK,
@@ -409,7 +452,7 @@ func CreateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 	return tier, nil
 }
 
-// UpdateTier updates a tier.
+// UpdateTier updates a tier with a PATCH request.
 func UpdateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(tier)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -429,6 +472,49 @@ func UpdateTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTiers, tierID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonTier),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return tier, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return tier, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadTier); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadTier.ID = &tierID
+	return &payloadTier, nil
+}
+
+// ReplaceTier updates a tier with a PUT request.
+func ReplaceTier(apiClient *http.Client, apiAddr string, tier *v0.Tier) (*v0.Tier, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(tier)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	tierID := *tier.ID
+	payloadTier := *tier
+	payloadTier.ID = nil
+	payloadTier.CreatedAt = nil
+	payloadTier.UpdatedAt = nil
+
+	jsonTier, err := util.MarshalObject(payloadTier)
+	if err != nil {
+		return tier, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTiers, tierID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonTier),
 		map[string]string{},
 		http.StatusOK,

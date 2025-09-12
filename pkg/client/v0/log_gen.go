@@ -174,7 +174,7 @@ func CreateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.Log
 	return logBackend, nil
 }
 
-// UpdateLogBackend updates a log backend.
+// UpdateLogBackend updates a log backend with a PATCH request.
 func UpdateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.LogBackend) (*v0.LogBackend, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(logBackend)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.Log
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLogBackends, logBackendID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonLogBackend),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return logBackend, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return logBackend, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadLogBackend); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadLogBackend.ID = &logBackendID
+	return &payloadLogBackend, nil
+}
+
+// ReplaceLogBackend updates a log backend with a PUT request.
+func ReplaceLogBackend(apiClient *http.Client, apiAddr string, logBackend *v0.LogBackend) (*v0.LogBackend, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(logBackend)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	logBackendID := *logBackend.ID
+	payloadLogBackend := *logBackend
+	payloadLogBackend.ID = nil
+	payloadLogBackend.CreatedAt = nil
+	payloadLogBackend.UpdatedAt = nil
+
+	jsonLogBackend, err := util.MarshalObject(payloadLogBackend)
+	if err != nil {
+		return logBackend, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLogBackends, logBackendID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonLogBackend),
 		map[string]string{},
 		http.StatusOK,
@@ -409,7 +452,7 @@ func CreateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStora
 	return logStorageDefinition, nil
 }
 
-// UpdateLogStorageDefinition updates a log storage definition.
+// UpdateLogStorageDefinition updates a log storage definition with a PATCH request.
 func UpdateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStorageDefinition *v0.LogStorageDefinition) (*v0.LogStorageDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(logStorageDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -429,6 +472,49 @@ func UpdateLogStorageDefinition(apiClient *http.Client, apiAddr string, logStora
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLogStorageDefinitions, logStorageDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonLogStorageDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return logStorageDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return logStorageDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadLogStorageDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadLogStorageDefinition.ID = &logStorageDefinitionID
+	return &payloadLogStorageDefinition, nil
+}
+
+// ReplaceLogStorageDefinition updates a log storage definition with a PUT request.
+func ReplaceLogStorageDefinition(apiClient *http.Client, apiAddr string, logStorageDefinition *v0.LogStorageDefinition) (*v0.LogStorageDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(logStorageDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	logStorageDefinitionID := *logStorageDefinition.ID
+	payloadLogStorageDefinition := *logStorageDefinition
+	payloadLogStorageDefinition.ID = nil
+	payloadLogStorageDefinition.CreatedAt = nil
+	payloadLogStorageDefinition.UpdatedAt = nil
+
+	jsonLogStorageDefinition, err := util.MarshalObject(payloadLogStorageDefinition)
+	if err != nil {
+		return logStorageDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLogStorageDefinitions, logStorageDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonLogStorageDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -644,7 +730,7 @@ func CreateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorage
 	return logStorageInstance, nil
 }
 
-// UpdateLogStorageInstance updates a log storage instance.
+// UpdateLogStorageInstance updates a log storage instance with a PATCH request.
 func UpdateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorageInstance *v0.LogStorageInstance) (*v0.LogStorageInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(logStorageInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -664,6 +750,49 @@ func UpdateLogStorageInstance(apiClient *http.Client, apiAddr string, logStorage
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLogStorageInstances, logStorageInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonLogStorageInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return logStorageInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return logStorageInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadLogStorageInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadLogStorageInstance.ID = &logStorageInstanceID
+	return &payloadLogStorageInstance, nil
+}
+
+// ReplaceLogStorageInstance updates a log storage instance with a PUT request.
+func ReplaceLogStorageInstance(apiClient *http.Client, apiAddr string, logStorageInstance *v0.LogStorageInstance) (*v0.LogStorageInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(logStorageInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	logStorageInstanceID := *logStorageInstance.ID
+	payloadLogStorageInstance := *logStorageInstance
+	payloadLogStorageInstance.ID = nil
+	payloadLogStorageInstance.CreatedAt = nil
+	payloadLogStorageInstance.UpdatedAt = nil
+
+	jsonLogStorageInstance, err := util.MarshalObject(payloadLogStorageInstance)
+	if err != nil {
+		return logStorageInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLogStorageInstances, logStorageInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonLogStorageInstance),
 		map[string]string{},
 		http.StatusOK,

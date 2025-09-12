@@ -174,7 +174,7 @@ func CreateControlPlaneDefinition(apiClient *http.Client, apiAddr string, contro
 	return controlPlaneDefinition, nil
 }
 
-// UpdateControlPlaneDefinition updates a control plane definition.
+// UpdateControlPlaneDefinition updates a control plane definition with a PATCH request.
 func UpdateControlPlaneDefinition(apiClient *http.Client, apiAddr string, controlPlaneDefinition *v0.ControlPlaneDefinition) (*v0.ControlPlaneDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(controlPlaneDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateControlPlaneDefinition(apiClient *http.Client, apiAddr string, contro
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathControlPlaneDefinitions, controlPlaneDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonControlPlaneDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return controlPlaneDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return controlPlaneDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadControlPlaneDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadControlPlaneDefinition.ID = &controlPlaneDefinitionID
+	return &payloadControlPlaneDefinition, nil
+}
+
+// ReplaceControlPlaneDefinition updates a control plane definition with a PUT request.
+func ReplaceControlPlaneDefinition(apiClient *http.Client, apiAddr string, controlPlaneDefinition *v0.ControlPlaneDefinition) (*v0.ControlPlaneDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(controlPlaneDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	controlPlaneDefinitionID := *controlPlaneDefinition.ID
+	payloadControlPlaneDefinition := *controlPlaneDefinition
+	payloadControlPlaneDefinition.ID = nil
+	payloadControlPlaneDefinition.CreatedAt = nil
+	payloadControlPlaneDefinition.UpdatedAt = nil
+
+	jsonControlPlaneDefinition, err := util.MarshalObject(payloadControlPlaneDefinition)
+	if err != nil {
+		return controlPlaneDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathControlPlaneDefinitions, controlPlaneDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonControlPlaneDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -409,7 +452,7 @@ func CreateControlPlaneInstance(apiClient *http.Client, apiAddr string, controlP
 	return controlPlaneInstance, nil
 }
 
-// UpdateControlPlaneInstance updates a control plane instance.
+// UpdateControlPlaneInstance updates a control plane instance with a PATCH request.
 func UpdateControlPlaneInstance(apiClient *http.Client, apiAddr string, controlPlaneInstance *v0.ControlPlaneInstance) (*v0.ControlPlaneInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(controlPlaneInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -429,6 +472,49 @@ func UpdateControlPlaneInstance(apiClient *http.Client, apiAddr string, controlP
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathControlPlaneInstances, controlPlaneInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonControlPlaneInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return controlPlaneInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return controlPlaneInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadControlPlaneInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadControlPlaneInstance.ID = &controlPlaneInstanceID
+	return &payloadControlPlaneInstance, nil
+}
+
+// ReplaceControlPlaneInstance updates a control plane instance with a PUT request.
+func ReplaceControlPlaneInstance(apiClient *http.Client, apiAddr string, controlPlaneInstance *v0.ControlPlaneInstance) (*v0.ControlPlaneInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(controlPlaneInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	controlPlaneInstanceID := *controlPlaneInstance.ID
+	payloadControlPlaneInstance := *controlPlaneInstance
+	payloadControlPlaneInstance.ID = nil
+	payloadControlPlaneInstance.CreatedAt = nil
+	payloadControlPlaneInstance.UpdatedAt = nil
+
+	jsonControlPlaneInstance, err := util.MarshalObject(payloadControlPlaneInstance)
+	if err != nil {
+		return controlPlaneInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathControlPlaneInstances, controlPlaneInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonControlPlaneInstance),
 		map[string]string{},
 		http.StatusOK,

@@ -174,7 +174,7 @@ func CreateSecretDefinition(apiClient *http.Client, apiAddr string, secretDefini
 	return secretDefinition, nil
 }
 
-// UpdateSecretDefinition updates a secret definition.
+// UpdateSecretDefinition updates a secret definition with a PATCH request.
 func UpdateSecretDefinition(apiClient *http.Client, apiAddr string, secretDefinition *v0.SecretDefinition) (*v0.SecretDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(secretDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateSecretDefinition(apiClient *http.Client, apiAddr string, secretDefini
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathSecretDefinitions, secretDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonSecretDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return secretDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return secretDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadSecretDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadSecretDefinition.ID = &secretDefinitionID
+	return &payloadSecretDefinition, nil
+}
+
+// ReplaceSecretDefinition updates a secret definition with a PUT request.
+func ReplaceSecretDefinition(apiClient *http.Client, apiAddr string, secretDefinition *v0.SecretDefinition) (*v0.SecretDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(secretDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	secretDefinitionID := *secretDefinition.ID
+	payloadSecretDefinition := *secretDefinition
+	payloadSecretDefinition.ID = nil
+	payloadSecretDefinition.CreatedAt = nil
+	payloadSecretDefinition.UpdatedAt = nil
+
+	jsonSecretDefinition, err := util.MarshalObject(payloadSecretDefinition)
+	if err != nil {
+		return secretDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathSecretDefinitions, secretDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonSecretDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -409,7 +452,7 @@ func CreateSecretInstance(apiClient *http.Client, apiAddr string, secretInstance
 	return secretInstance, nil
 }
 
-// UpdateSecretInstance updates a secret instance.
+// UpdateSecretInstance updates a secret instance with a PATCH request.
 func UpdateSecretInstance(apiClient *http.Client, apiAddr string, secretInstance *v0.SecretInstance) (*v0.SecretInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(secretInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -429,6 +472,49 @@ func UpdateSecretInstance(apiClient *http.Client, apiAddr string, secretInstance
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathSecretInstances, secretInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonSecretInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return secretInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return secretInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadSecretInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadSecretInstance.ID = &secretInstanceID
+	return &payloadSecretInstance, nil
+}
+
+// ReplaceSecretInstance updates a secret instance with a PUT request.
+func ReplaceSecretInstance(apiClient *http.Client, apiAddr string, secretInstance *v0.SecretInstance) (*v0.SecretInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(secretInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	secretInstanceID := *secretInstance.ID
+	payloadSecretInstance := *secretInstance
+	payloadSecretInstance.ID = nil
+	payloadSecretInstance.CreatedAt = nil
+	payloadSecretInstance.UpdatedAt = nil
+
+	jsonSecretInstance, err := util.MarshalObject(payloadSecretInstance)
+	if err != nil {
+		return secretInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathSecretInstances, secretInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonSecretInstance),
 		map[string]string{},
 		http.StatusOK,

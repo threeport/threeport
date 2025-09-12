@@ -174,7 +174,7 @@ func CreateTerraformDefinition(apiClient *http.Client, apiAddr string, terraform
 	return terraformDefinition, nil
 }
 
-// UpdateTerraformDefinition updates a terraform definition.
+// UpdateTerraformDefinition updates a terraform definition with a PATCH request.
 func UpdateTerraformDefinition(apiClient *http.Client, apiAddr string, terraformDefinition *v0.TerraformDefinition) (*v0.TerraformDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(terraformDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateTerraformDefinition(apiClient *http.Client, apiAddr string, terraform
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTerraformDefinitions, terraformDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonTerraformDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return terraformDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return terraformDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadTerraformDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadTerraformDefinition.ID = &terraformDefinitionID
+	return &payloadTerraformDefinition, nil
+}
+
+// ReplaceTerraformDefinition updates a terraform definition with a PUT request.
+func ReplaceTerraformDefinition(apiClient *http.Client, apiAddr string, terraformDefinition *v0.TerraformDefinition) (*v0.TerraformDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(terraformDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	terraformDefinitionID := *terraformDefinition.ID
+	payloadTerraformDefinition := *terraformDefinition
+	payloadTerraformDefinition.ID = nil
+	payloadTerraformDefinition.CreatedAt = nil
+	payloadTerraformDefinition.UpdatedAt = nil
+
+	jsonTerraformDefinition, err := util.MarshalObject(payloadTerraformDefinition)
+	if err != nil {
+		return terraformDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTerraformDefinitions, terraformDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonTerraformDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -409,7 +452,7 @@ func CreateTerraformInstance(apiClient *http.Client, apiAddr string, terraformIn
 	return terraformInstance, nil
 }
 
-// UpdateTerraformInstance updates a terraform instance.
+// UpdateTerraformInstance updates a terraform instance with a PATCH request.
 func UpdateTerraformInstance(apiClient *http.Client, apiAddr string, terraformInstance *v0.TerraformInstance) (*v0.TerraformInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(terraformInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -429,6 +472,49 @@ func UpdateTerraformInstance(apiClient *http.Client, apiAddr string, terraformIn
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTerraformInstances, terraformInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonTerraformInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return terraformInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return terraformInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadTerraformInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadTerraformInstance.ID = &terraformInstanceID
+	return &payloadTerraformInstance, nil
+}
+
+// ReplaceTerraformInstance updates a terraform instance with a PUT request.
+func ReplaceTerraformInstance(apiClient *http.Client, apiAddr string, terraformInstance *v0.TerraformInstance) (*v0.TerraformInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(terraformInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	terraformInstanceID := *terraformInstance.ID
+	payloadTerraformInstance := *terraformInstance
+	payloadTerraformInstance.ID = nil
+	payloadTerraformInstance.CreatedAt = nil
+	payloadTerraformInstance.UpdatedAt = nil
+
+	jsonTerraformInstance, err := util.MarshalObject(payloadTerraformInstance)
+	if err != nil {
+		return terraformInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathTerraformInstances, terraformInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonTerraformInstance),
 		map[string]string{},
 		http.StatusOK,

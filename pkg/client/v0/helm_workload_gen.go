@@ -174,7 +174,7 @@ func CreateHelmWorkloadDefinition(apiClient *http.Client, apiAddr string, helmWo
 	return helmWorkloadDefinition, nil
 }
 
-// UpdateHelmWorkloadDefinition updates a helm workload definition.
+// UpdateHelmWorkloadDefinition updates a helm workload definition with a PATCH request.
 func UpdateHelmWorkloadDefinition(apiClient *http.Client, apiAddr string, helmWorkloadDefinition *v0.HelmWorkloadDefinition) (*v0.HelmWorkloadDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(helmWorkloadDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateHelmWorkloadDefinition(apiClient *http.Client, apiAddr string, helmWo
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathHelmWorkloadDefinitions, helmWorkloadDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonHelmWorkloadDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return helmWorkloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return helmWorkloadDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadHelmWorkloadDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadHelmWorkloadDefinition.ID = &helmWorkloadDefinitionID
+	return &payloadHelmWorkloadDefinition, nil
+}
+
+// ReplaceHelmWorkloadDefinition updates a helm workload definition with a PUT request.
+func ReplaceHelmWorkloadDefinition(apiClient *http.Client, apiAddr string, helmWorkloadDefinition *v0.HelmWorkloadDefinition) (*v0.HelmWorkloadDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(helmWorkloadDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	helmWorkloadDefinitionID := *helmWorkloadDefinition.ID
+	payloadHelmWorkloadDefinition := *helmWorkloadDefinition
+	payloadHelmWorkloadDefinition.ID = nil
+	payloadHelmWorkloadDefinition.CreatedAt = nil
+	payloadHelmWorkloadDefinition.UpdatedAt = nil
+
+	jsonHelmWorkloadDefinition, err := util.MarshalObject(payloadHelmWorkloadDefinition)
+	if err != nil {
+		return helmWorkloadDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathHelmWorkloadDefinitions, helmWorkloadDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonHelmWorkloadDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -409,7 +452,7 @@ func CreateHelmWorkloadInstance(apiClient *http.Client, apiAddr string, helmWork
 	return helmWorkloadInstance, nil
 }
 
-// UpdateHelmWorkloadInstance updates a helm workload instance.
+// UpdateHelmWorkloadInstance updates a helm workload instance with a PATCH request.
 func UpdateHelmWorkloadInstance(apiClient *http.Client, apiAddr string, helmWorkloadInstance *v0.HelmWorkloadInstance) (*v0.HelmWorkloadInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(helmWorkloadInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -429,6 +472,49 @@ func UpdateHelmWorkloadInstance(apiClient *http.Client, apiAddr string, helmWork
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathHelmWorkloadInstances, helmWorkloadInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonHelmWorkloadInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return helmWorkloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return helmWorkloadInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadHelmWorkloadInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadHelmWorkloadInstance.ID = &helmWorkloadInstanceID
+	return &payloadHelmWorkloadInstance, nil
+}
+
+// ReplaceHelmWorkloadInstance updates a helm workload instance with a PUT request.
+func ReplaceHelmWorkloadInstance(apiClient *http.Client, apiAddr string, helmWorkloadInstance *v0.HelmWorkloadInstance) (*v0.HelmWorkloadInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(helmWorkloadInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	helmWorkloadInstanceID := *helmWorkloadInstance.ID
+	payloadHelmWorkloadInstance := *helmWorkloadInstance
+	payloadHelmWorkloadInstance.ID = nil
+	payloadHelmWorkloadInstance.CreatedAt = nil
+	payloadHelmWorkloadInstance.UpdatedAt = nil
+
+	jsonHelmWorkloadInstance, err := util.MarshalObject(payloadHelmWorkloadInstance)
+	if err != nil {
+		return helmWorkloadInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathHelmWorkloadInstances, helmWorkloadInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonHelmWorkloadInstance),
 		map[string]string{},
 		http.StatusOK,

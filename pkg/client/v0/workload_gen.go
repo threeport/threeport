@@ -174,7 +174,7 @@ func CreateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 	return workloadDefinition, nil
 }
 
-// UpdateWorkloadDefinition updates a workload definition.
+// UpdateWorkloadDefinition updates a workload definition with a PATCH request.
 func UpdateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDefinition *v0.WorkloadDefinition) (*v0.WorkloadDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(workloadDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDe
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadDefinitions, workloadDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonWorkloadDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return workloadDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return workloadDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadWorkloadDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadWorkloadDefinition.ID = &workloadDefinitionID
+	return &payloadWorkloadDefinition, nil
+}
+
+// ReplaceWorkloadDefinition updates a workload definition with a PUT request.
+func ReplaceWorkloadDefinition(apiClient *http.Client, apiAddr string, workloadDefinition *v0.WorkloadDefinition) (*v0.WorkloadDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(workloadDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	workloadDefinitionID := *workloadDefinition.ID
+	payloadWorkloadDefinition := *workloadDefinition
+	payloadWorkloadDefinition.ID = nil
+	payloadWorkloadDefinition.CreatedAt = nil
+	payloadWorkloadDefinition.UpdatedAt = nil
+
+	jsonWorkloadDefinition, err := util.MarshalObject(payloadWorkloadDefinition)
+	if err != nil {
+		return workloadDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadDefinitions, workloadDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonWorkloadDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -409,7 +452,7 @@ func CreateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *
 	return workloadEvent, nil
 }
 
-// UpdateWorkloadEvent updates a workload event.
+// UpdateWorkloadEvent updates a workload event with a PATCH request.
 func UpdateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *v0.WorkloadEvent) (*v0.WorkloadEvent, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(workloadEvent)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -429,6 +472,49 @@ func UpdateWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadEvents, workloadEventID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonWorkloadEvent),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return workloadEvent, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return workloadEvent, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadWorkloadEvent); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadWorkloadEvent.ID = &workloadEventID
+	return &payloadWorkloadEvent, nil
+}
+
+// ReplaceWorkloadEvent updates a workload event with a PUT request.
+func ReplaceWorkloadEvent(apiClient *http.Client, apiAddr string, workloadEvent *v0.WorkloadEvent) (*v0.WorkloadEvent, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(workloadEvent)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	workloadEventID := *workloadEvent.ID
+	payloadWorkloadEvent := *workloadEvent
+	payloadWorkloadEvent.ID = nil
+	payloadWorkloadEvent.CreatedAt = nil
+	payloadWorkloadEvent.UpdatedAt = nil
+
+	jsonWorkloadEvent, err := util.MarshalObject(payloadWorkloadEvent)
+	if err != nil {
+		return workloadEvent, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadEvents, workloadEventID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonWorkloadEvent),
 		map[string]string{},
 		http.StatusOK,
@@ -644,7 +730,7 @@ func CreateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 	return workloadInstance, nil
 }
 
-// UpdateWorkloadInstance updates a workload instance.
+// UpdateWorkloadInstance updates a workload instance with a PATCH request.
 func UpdateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInstance *v0.WorkloadInstance) (*v0.WorkloadInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(workloadInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -664,6 +750,49 @@ func UpdateWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInst
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadInstances, workloadInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonWorkloadInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return workloadInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return workloadInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadWorkloadInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadWorkloadInstance.ID = &workloadInstanceID
+	return &payloadWorkloadInstance, nil
+}
+
+// ReplaceWorkloadInstance updates a workload instance with a PUT request.
+func ReplaceWorkloadInstance(apiClient *http.Client, apiAddr string, workloadInstance *v0.WorkloadInstance) (*v0.WorkloadInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(workloadInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	workloadInstanceID := *workloadInstance.ID
+	payloadWorkloadInstance := *workloadInstance
+	payloadWorkloadInstance.ID = nil
+	payloadWorkloadInstance.CreatedAt = nil
+	payloadWorkloadInstance.UpdatedAt = nil
+
+	jsonWorkloadInstance, err := util.MarshalObject(payloadWorkloadInstance)
+	if err != nil {
+		return workloadInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadInstances, workloadInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonWorkloadInstance),
 		map[string]string{},
 		http.StatusOK,
@@ -879,7 +1008,7 @@ func CreateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 	return workloadResourceDefinition, nil
 }
 
-// UpdateWorkloadResourceDefinition updates a workload resource definition.
+// UpdateWorkloadResourceDefinition updates a workload resource definition with a PATCH request.
 func UpdateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, workloadResourceDefinition *v0.WorkloadResourceDefinition) (*v0.WorkloadResourceDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(workloadResourceDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -899,6 +1028,49 @@ func UpdateWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, wo
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadResourceDefinitions, workloadResourceDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonWorkloadResourceDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return workloadResourceDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return workloadResourceDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadWorkloadResourceDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadWorkloadResourceDefinition.ID = &workloadResourceDefinitionID
+	return &payloadWorkloadResourceDefinition, nil
+}
+
+// ReplaceWorkloadResourceDefinition updates a workload resource definition with a PUT request.
+func ReplaceWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, workloadResourceDefinition *v0.WorkloadResourceDefinition) (*v0.WorkloadResourceDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(workloadResourceDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	workloadResourceDefinitionID := *workloadResourceDefinition.ID
+	payloadWorkloadResourceDefinition := *workloadResourceDefinition
+	payloadWorkloadResourceDefinition.ID = nil
+	payloadWorkloadResourceDefinition.CreatedAt = nil
+	payloadWorkloadResourceDefinition.UpdatedAt = nil
+
+	jsonWorkloadResourceDefinition, err := util.MarshalObject(payloadWorkloadResourceDefinition)
+	if err != nil {
+		return workloadResourceDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadResourceDefinitions, workloadResourceDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonWorkloadResourceDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -1114,7 +1286,7 @@ func CreateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 	return workloadResourceInstance, nil
 }
 
-// UpdateWorkloadResourceInstance updates a workload resource instance.
+// UpdateWorkloadResourceInstance updates a workload resource instance with a PATCH request.
 func UpdateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, workloadResourceInstance *v0.WorkloadResourceInstance) (*v0.WorkloadResourceInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(workloadResourceInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -1134,6 +1306,49 @@ func UpdateWorkloadResourceInstance(apiClient *http.Client, apiAddr string, work
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadResourceInstances, workloadResourceInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonWorkloadResourceInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return workloadResourceInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return workloadResourceInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadWorkloadResourceInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadWorkloadResourceInstance.ID = &workloadResourceInstanceID
+	return &payloadWorkloadResourceInstance, nil
+}
+
+// ReplaceWorkloadResourceInstance updates a workload resource instance with a PUT request.
+func ReplaceWorkloadResourceInstance(apiClient *http.Client, apiAddr string, workloadResourceInstance *v0.WorkloadResourceInstance) (*v0.WorkloadResourceInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(workloadResourceInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	workloadResourceInstanceID := *workloadResourceInstance.ID
+	payloadWorkloadResourceInstance := *workloadResourceInstance
+	payloadWorkloadResourceInstance.ID = nil
+	payloadWorkloadResourceInstance.CreatedAt = nil
+	payloadWorkloadResourceInstance.UpdatedAt = nil
+
+	jsonWorkloadResourceInstance, err := util.MarshalObject(payloadWorkloadResourceInstance)
+	if err != nil {
+		return workloadResourceInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathWorkloadResourceInstances, workloadResourceInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonWorkloadResourceInstance),
 		map[string]string{},
 		http.StatusOK,

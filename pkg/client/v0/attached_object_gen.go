@@ -174,7 +174,7 @@ func CreateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 	return attachedObjectReference, nil
 }
 
-// UpdateAttachedObjectReference updates a attached object reference.
+// UpdateAttachedObjectReference updates a attached object reference with a PATCH request.
 func UpdateAttachedObjectReference(apiClient *http.Client, apiAddr string, attachedObjectReference *v0.AttachedObjectReference) (*v0.AttachedObjectReference, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(attachedObjectReference)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAttachedObjectReferences, attachedObjectReferenceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonAttachedObjectReference),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return attachedObjectReference, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return attachedObjectReference, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadAttachedObjectReference); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadAttachedObjectReference.ID = &attachedObjectReferenceID
+	return &payloadAttachedObjectReference, nil
+}
+
+// ReplaceAttachedObjectReference updates a attached object reference with a PUT request.
+func ReplaceAttachedObjectReference(apiClient *http.Client, apiAddr string, attachedObjectReference *v0.AttachedObjectReference) (*v0.AttachedObjectReference, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(attachedObjectReference)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	attachedObjectReferenceID := *attachedObjectReference.ID
+	payloadAttachedObjectReference := *attachedObjectReference
+	payloadAttachedObjectReference.ID = nil
+	payloadAttachedObjectReference.CreatedAt = nil
+	payloadAttachedObjectReference.UpdatedAt = nil
+
+	jsonAttachedObjectReference, err := util.MarshalObject(payloadAttachedObjectReference)
+	if err != nil {
+		return attachedObjectReference, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAttachedObjectReferences, attachedObjectReferenceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonAttachedObjectReference),
 		map[string]string{},
 		http.StatusOK,

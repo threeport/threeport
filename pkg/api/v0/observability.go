@@ -177,7 +177,7 @@ type MetricsInstance struct {
 	KubePrometheusStackHelmValuesDocument *string `json:"KubePrometheusStackHelmValuesDocument,omitempty" query:"kubeprometheusstackhelmvaluesdocument" validate:"optional"`
 }
 
-// MetricsDefinition defines a metrics aggregation layer for a workload.
+// LoggingDefinition defines a logging implementation for a workload.
 type LoggingDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Definition     `mapstructure:",squash"`
@@ -207,7 +207,7 @@ type LoggingDefinition struct {
 	LoggingInstances []*LoggingInstance `json:"LoggingInstances,omitempty" validate:"optional,association"`
 }
 
-// MetricsInstances defines an instance of a metrics aggregation layer for a workload.
+// LoggingInstances defines an instance of a logging implementation for a workload.
 type LoggingInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Instance       `mapstructure:",squash"`

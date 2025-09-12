@@ -174,7 +174,7 @@ func CreateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.Aws
 	return awsAccount, nil
 }
 
-// UpdateAwsAccount updates a aws account.
+// UpdateAwsAccount updates a aws account with a PATCH request.
 func UpdateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.AwsAccount) (*v0.AwsAccount, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(awsAccount)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.Aws
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsAccounts, awsAccountID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonAwsAccount),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadAwsAccount); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadAwsAccount.ID = &awsAccountID
+	return &payloadAwsAccount, nil
+}
+
+// ReplaceAwsAccount updates a aws account with a PUT request.
+func ReplaceAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.AwsAccount) (*v0.AwsAccount, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(awsAccount)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	awsAccountID := *awsAccount.ID
+	payloadAwsAccount := *awsAccount
+	payloadAwsAccount.ID = nil
+	payloadAwsAccount.CreatedAt = nil
+	payloadAwsAccount.UpdatedAt = nil
+
+	jsonAwsAccount, err := util.MarshalObject(payloadAwsAccount)
+	if err != nil {
+		return awsAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsAccounts, awsAccountID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonAwsAccount),
 		map[string]string{},
 		http.StatusOK,
@@ -409,7 +452,7 @@ func CreateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 	return awsEksKubernetesRuntimeDefinition, nil
 }
 
-// UpdateAwsEksKubernetesRuntimeDefinition updates a aws eks kubernetes runtime definition.
+// UpdateAwsEksKubernetesRuntimeDefinition updates a aws eks kubernetes runtime definition with a PATCH request.
 func UpdateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeDefinition *v0.AwsEksKubernetesRuntimeDefinition) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(awsEksKubernetesRuntimeDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -429,6 +472,49 @@ func UpdateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions, awsEksKubernetesRuntimeDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadAwsEksKubernetesRuntimeDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadAwsEksKubernetesRuntimeDefinition.ID = &awsEksKubernetesRuntimeDefinitionID
+	return &payloadAwsEksKubernetesRuntimeDefinition, nil
+}
+
+// ReplaceAwsEksKubernetesRuntimeDefinition updates a aws eks kubernetes runtime definition with a PUT request.
+func ReplaceAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeDefinition *v0.AwsEksKubernetesRuntimeDefinition) (*v0.AwsEksKubernetesRuntimeDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(awsEksKubernetesRuntimeDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	awsEksKubernetesRuntimeDefinitionID := *awsEksKubernetesRuntimeDefinition.ID
+	payloadAwsEksKubernetesRuntimeDefinition := *awsEksKubernetesRuntimeDefinition
+	payloadAwsEksKubernetesRuntimeDefinition.ID = nil
+	payloadAwsEksKubernetesRuntimeDefinition.CreatedAt = nil
+	payloadAwsEksKubernetesRuntimeDefinition.UpdatedAt = nil
+
+	jsonAwsEksKubernetesRuntimeDefinition, err := util.MarshalObject(payloadAwsEksKubernetesRuntimeDefinition)
+	if err != nil {
+		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsEksKubernetesRuntimeDefinitions, awsEksKubernetesRuntimeDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -644,7 +730,7 @@ func CreateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 	return awsEksKubernetesRuntimeInstance, nil
 }
 
-// UpdateAwsEksKubernetesRuntimeInstance updates a aws eks kubernetes runtime instance.
+// UpdateAwsEksKubernetesRuntimeInstance updates a aws eks kubernetes runtime instance with a PATCH request.
 func UpdateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance) (*v0.AwsEksKubernetesRuntimeInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(awsEksKubernetesRuntimeInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -664,6 +750,49 @@ func UpdateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances, awsEksKubernetesRuntimeInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return awsEksKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadAwsEksKubernetesRuntimeInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadAwsEksKubernetesRuntimeInstance.ID = &awsEksKubernetesRuntimeInstanceID
+	return &payloadAwsEksKubernetesRuntimeInstance, nil
+}
+
+// ReplaceAwsEksKubernetesRuntimeInstance updates a aws eks kubernetes runtime instance with a PUT request.
+func ReplaceAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, awsEksKubernetesRuntimeInstance *v0.AwsEksKubernetesRuntimeInstance) (*v0.AwsEksKubernetesRuntimeInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(awsEksKubernetesRuntimeInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	awsEksKubernetesRuntimeInstanceID := *awsEksKubernetesRuntimeInstance.ID
+	payloadAwsEksKubernetesRuntimeInstance := *awsEksKubernetesRuntimeInstance
+	payloadAwsEksKubernetesRuntimeInstance.ID = nil
+	payloadAwsEksKubernetesRuntimeInstance.CreatedAt = nil
+	payloadAwsEksKubernetesRuntimeInstance.UpdatedAt = nil
+
+	jsonAwsEksKubernetesRuntimeInstance, err := util.MarshalObject(payloadAwsEksKubernetesRuntimeInstance)
+	if err != nil {
+		return awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsEksKubernetesRuntimeInstances, awsEksKubernetesRuntimeInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonAwsEksKubernetesRuntimeInstance),
 		map[string]string{},
 		http.StatusOK,

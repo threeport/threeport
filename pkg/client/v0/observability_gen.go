@@ -174,7 +174,7 @@ func CreateLoggingDefinition(apiClient *http.Client, apiAddr string, loggingDefi
 	return loggingDefinition, nil
 }
 
-// UpdateLoggingDefinition updates a logging definition.
+// UpdateLoggingDefinition updates a logging definition with a PATCH request.
 func UpdateLoggingDefinition(apiClient *http.Client, apiAddr string, loggingDefinition *v0.LoggingDefinition) (*v0.LoggingDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(loggingDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateLoggingDefinition(apiClient *http.Client, apiAddr string, loggingDefi
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLoggingDefinitions, loggingDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonLoggingDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return loggingDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return loggingDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadLoggingDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadLoggingDefinition.ID = &loggingDefinitionID
+	return &payloadLoggingDefinition, nil
+}
+
+// ReplaceLoggingDefinition updates a logging definition with a PUT request.
+func ReplaceLoggingDefinition(apiClient *http.Client, apiAddr string, loggingDefinition *v0.LoggingDefinition) (*v0.LoggingDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(loggingDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	loggingDefinitionID := *loggingDefinition.ID
+	payloadLoggingDefinition := *loggingDefinition
+	payloadLoggingDefinition.ID = nil
+	payloadLoggingDefinition.CreatedAt = nil
+	payloadLoggingDefinition.UpdatedAt = nil
+
+	jsonLoggingDefinition, err := util.MarshalObject(payloadLoggingDefinition)
+	if err != nil {
+		return loggingDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLoggingDefinitions, loggingDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonLoggingDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -409,7 +452,7 @@ func CreateLoggingInstance(apiClient *http.Client, apiAddr string, loggingInstan
 	return loggingInstance, nil
 }
 
-// UpdateLoggingInstance updates a logging instance.
+// UpdateLoggingInstance updates a logging instance with a PATCH request.
 func UpdateLoggingInstance(apiClient *http.Client, apiAddr string, loggingInstance *v0.LoggingInstance) (*v0.LoggingInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(loggingInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -429,6 +472,49 @@ func UpdateLoggingInstance(apiClient *http.Client, apiAddr string, loggingInstan
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLoggingInstances, loggingInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonLoggingInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return loggingInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return loggingInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadLoggingInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadLoggingInstance.ID = &loggingInstanceID
+	return &payloadLoggingInstance, nil
+}
+
+// ReplaceLoggingInstance updates a logging instance with a PUT request.
+func ReplaceLoggingInstance(apiClient *http.Client, apiAddr string, loggingInstance *v0.LoggingInstance) (*v0.LoggingInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(loggingInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	loggingInstanceID := *loggingInstance.ID
+	payloadLoggingInstance := *loggingInstance
+	payloadLoggingInstance.ID = nil
+	payloadLoggingInstance.CreatedAt = nil
+	payloadLoggingInstance.UpdatedAt = nil
+
+	jsonLoggingInstance, err := util.MarshalObject(payloadLoggingInstance)
+	if err != nil {
+		return loggingInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathLoggingInstances, loggingInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonLoggingInstance),
 		map[string]string{},
 		http.StatusOK,
@@ -644,7 +730,7 @@ func CreateMetricsDefinition(apiClient *http.Client, apiAddr string, metricsDefi
 	return metricsDefinition, nil
 }
 
-// UpdateMetricsDefinition updates a metrics definition.
+// UpdateMetricsDefinition updates a metrics definition with a PATCH request.
 func UpdateMetricsDefinition(apiClient *http.Client, apiAddr string, metricsDefinition *v0.MetricsDefinition) (*v0.MetricsDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(metricsDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -664,6 +750,49 @@ func UpdateMetricsDefinition(apiClient *http.Client, apiAddr string, metricsDefi
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathMetricsDefinitions, metricsDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonMetricsDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return metricsDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return metricsDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadMetricsDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadMetricsDefinition.ID = &metricsDefinitionID
+	return &payloadMetricsDefinition, nil
+}
+
+// ReplaceMetricsDefinition updates a metrics definition with a PUT request.
+func ReplaceMetricsDefinition(apiClient *http.Client, apiAddr string, metricsDefinition *v0.MetricsDefinition) (*v0.MetricsDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(metricsDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	metricsDefinitionID := *metricsDefinition.ID
+	payloadMetricsDefinition := *metricsDefinition
+	payloadMetricsDefinition.ID = nil
+	payloadMetricsDefinition.CreatedAt = nil
+	payloadMetricsDefinition.UpdatedAt = nil
+
+	jsonMetricsDefinition, err := util.MarshalObject(payloadMetricsDefinition)
+	if err != nil {
+		return metricsDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathMetricsDefinitions, metricsDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonMetricsDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -879,7 +1008,7 @@ func CreateMetricsInstance(apiClient *http.Client, apiAddr string, metricsInstan
 	return metricsInstance, nil
 }
 
-// UpdateMetricsInstance updates a metrics instance.
+// UpdateMetricsInstance updates a metrics instance with a PATCH request.
 func UpdateMetricsInstance(apiClient *http.Client, apiAddr string, metricsInstance *v0.MetricsInstance) (*v0.MetricsInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(metricsInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -899,6 +1028,49 @@ func UpdateMetricsInstance(apiClient *http.Client, apiAddr string, metricsInstan
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathMetricsInstances, metricsInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonMetricsInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return metricsInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return metricsInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadMetricsInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadMetricsInstance.ID = &metricsInstanceID
+	return &payloadMetricsInstance, nil
+}
+
+// ReplaceMetricsInstance updates a metrics instance with a PUT request.
+func ReplaceMetricsInstance(apiClient *http.Client, apiAddr string, metricsInstance *v0.MetricsInstance) (*v0.MetricsInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(metricsInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	metricsInstanceID := *metricsInstance.ID
+	payloadMetricsInstance := *metricsInstance
+	payloadMetricsInstance.ID = nil
+	payloadMetricsInstance.CreatedAt = nil
+	payloadMetricsInstance.UpdatedAt = nil
+
+	jsonMetricsInstance, err := util.MarshalObject(payloadMetricsInstance)
+	if err != nil {
+		return metricsInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathMetricsInstances, metricsInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonMetricsInstance),
 		map[string]string{},
 		http.StatusOK,
@@ -1114,7 +1286,7 @@ func CreateObservabilityDashboardDefinition(apiClient *http.Client, apiAddr stri
 	return observabilityDashboardDefinition, nil
 }
 
-// UpdateObservabilityDashboardDefinition updates a observability dashboard definition.
+// UpdateObservabilityDashboardDefinition updates a observability dashboard definition with a PATCH request.
 func UpdateObservabilityDashboardDefinition(apiClient *http.Client, apiAddr string, observabilityDashboardDefinition *v0.ObservabilityDashboardDefinition) (*v0.ObservabilityDashboardDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(observabilityDashboardDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -1134,6 +1306,49 @@ func UpdateObservabilityDashboardDefinition(apiClient *http.Client, apiAddr stri
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityDashboardDefinitions, observabilityDashboardDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonObservabilityDashboardDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return observabilityDashboardDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return observabilityDashboardDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadObservabilityDashboardDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadObservabilityDashboardDefinition.ID = &observabilityDashboardDefinitionID
+	return &payloadObservabilityDashboardDefinition, nil
+}
+
+// ReplaceObservabilityDashboardDefinition updates a observability dashboard definition with a PUT request.
+func ReplaceObservabilityDashboardDefinition(apiClient *http.Client, apiAddr string, observabilityDashboardDefinition *v0.ObservabilityDashboardDefinition) (*v0.ObservabilityDashboardDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(observabilityDashboardDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	observabilityDashboardDefinitionID := *observabilityDashboardDefinition.ID
+	payloadObservabilityDashboardDefinition := *observabilityDashboardDefinition
+	payloadObservabilityDashboardDefinition.ID = nil
+	payloadObservabilityDashboardDefinition.CreatedAt = nil
+	payloadObservabilityDashboardDefinition.UpdatedAt = nil
+
+	jsonObservabilityDashboardDefinition, err := util.MarshalObject(payloadObservabilityDashboardDefinition)
+	if err != nil {
+		return observabilityDashboardDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityDashboardDefinitions, observabilityDashboardDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonObservabilityDashboardDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -1349,7 +1564,7 @@ func CreateObservabilityDashboardInstance(apiClient *http.Client, apiAddr string
 	return observabilityDashboardInstance, nil
 }
 
-// UpdateObservabilityDashboardInstance updates a observability dashboard instance.
+// UpdateObservabilityDashboardInstance updates a observability dashboard instance with a PATCH request.
 func UpdateObservabilityDashboardInstance(apiClient *http.Client, apiAddr string, observabilityDashboardInstance *v0.ObservabilityDashboardInstance) (*v0.ObservabilityDashboardInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(observabilityDashboardInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -1369,6 +1584,49 @@ func UpdateObservabilityDashboardInstance(apiClient *http.Client, apiAddr string
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityDashboardInstances, observabilityDashboardInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonObservabilityDashboardInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return observabilityDashboardInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return observabilityDashboardInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadObservabilityDashboardInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadObservabilityDashboardInstance.ID = &observabilityDashboardInstanceID
+	return &payloadObservabilityDashboardInstance, nil
+}
+
+// ReplaceObservabilityDashboardInstance updates a observability dashboard instance with a PUT request.
+func ReplaceObservabilityDashboardInstance(apiClient *http.Client, apiAddr string, observabilityDashboardInstance *v0.ObservabilityDashboardInstance) (*v0.ObservabilityDashboardInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(observabilityDashboardInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	observabilityDashboardInstanceID := *observabilityDashboardInstance.ID
+	payloadObservabilityDashboardInstance := *observabilityDashboardInstance
+	payloadObservabilityDashboardInstance.ID = nil
+	payloadObservabilityDashboardInstance.CreatedAt = nil
+	payloadObservabilityDashboardInstance.UpdatedAt = nil
+
+	jsonObservabilityDashboardInstance, err := util.MarshalObject(payloadObservabilityDashboardInstance)
+	if err != nil {
+		return observabilityDashboardInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityDashboardInstances, observabilityDashboardInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonObservabilityDashboardInstance),
 		map[string]string{},
 		http.StatusOK,
@@ -1584,7 +1842,7 @@ func CreateObservabilityStackDefinition(apiClient *http.Client, apiAddr string, 
 	return observabilityStackDefinition, nil
 }
 
-// UpdateObservabilityStackDefinition updates a observability stack definition.
+// UpdateObservabilityStackDefinition updates a observability stack definition with a PATCH request.
 func UpdateObservabilityStackDefinition(apiClient *http.Client, apiAddr string, observabilityStackDefinition *v0.ObservabilityStackDefinition) (*v0.ObservabilityStackDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(observabilityStackDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -1604,6 +1862,49 @@ func UpdateObservabilityStackDefinition(apiClient *http.Client, apiAddr string, 
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityStackDefinitions, observabilityStackDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonObservabilityStackDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return observabilityStackDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return observabilityStackDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadObservabilityStackDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadObservabilityStackDefinition.ID = &observabilityStackDefinitionID
+	return &payloadObservabilityStackDefinition, nil
+}
+
+// ReplaceObservabilityStackDefinition updates a observability stack definition with a PUT request.
+func ReplaceObservabilityStackDefinition(apiClient *http.Client, apiAddr string, observabilityStackDefinition *v0.ObservabilityStackDefinition) (*v0.ObservabilityStackDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(observabilityStackDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	observabilityStackDefinitionID := *observabilityStackDefinition.ID
+	payloadObservabilityStackDefinition := *observabilityStackDefinition
+	payloadObservabilityStackDefinition.ID = nil
+	payloadObservabilityStackDefinition.CreatedAt = nil
+	payloadObservabilityStackDefinition.UpdatedAt = nil
+
+	jsonObservabilityStackDefinition, err := util.MarshalObject(payloadObservabilityStackDefinition)
+	if err != nil {
+		return observabilityStackDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityStackDefinitions, observabilityStackDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonObservabilityStackDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -1819,7 +2120,7 @@ func CreateObservabilityStackInstance(apiClient *http.Client, apiAddr string, ob
 	return observabilityStackInstance, nil
 }
 
-// UpdateObservabilityStackInstance updates a observability stack instance.
+// UpdateObservabilityStackInstance updates a observability stack instance with a PATCH request.
 func UpdateObservabilityStackInstance(apiClient *http.Client, apiAddr string, observabilityStackInstance *v0.ObservabilityStackInstance) (*v0.ObservabilityStackInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(observabilityStackInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -1839,6 +2140,49 @@ func UpdateObservabilityStackInstance(apiClient *http.Client, apiAddr string, ob
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityStackInstances, observabilityStackInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonObservabilityStackInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return observabilityStackInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return observabilityStackInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadObservabilityStackInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadObservabilityStackInstance.ID = &observabilityStackInstanceID
+	return &payloadObservabilityStackInstance, nil
+}
+
+// ReplaceObservabilityStackInstance updates a observability stack instance with a PUT request.
+func ReplaceObservabilityStackInstance(apiClient *http.Client, apiAddr string, observabilityStackInstance *v0.ObservabilityStackInstance) (*v0.ObservabilityStackInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(observabilityStackInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	observabilityStackInstanceID := *observabilityStackInstance.ID
+	payloadObservabilityStackInstance := *observabilityStackInstance
+	payloadObservabilityStackInstance.ID = nil
+	payloadObservabilityStackInstance.CreatedAt = nil
+	payloadObservabilityStackInstance.UpdatedAt = nil
+
+	jsonObservabilityStackInstance, err := util.MarshalObject(payloadObservabilityStackInstance)
+	if err != nil {
+		return observabilityStackInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathObservabilityStackInstances, observabilityStackInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonObservabilityStackInstance),
 		map[string]string{},
 		http.StatusOK,

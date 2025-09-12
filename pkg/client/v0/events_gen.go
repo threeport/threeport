@@ -174,7 +174,7 @@ func CreateEvent(apiClient *http.Client, apiAddr string, event *v0.Event) (*v0.E
 	return event, nil
 }
 
-// UpdateEvent updates a event.
+// UpdateEvent updates a event with a PATCH request.
 func UpdateEvent(apiClient *http.Client, apiAddr string, event *v0.Event) (*v0.Event, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(event)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateEvent(apiClient *http.Client, apiAddr string, event *v0.Event) (*v0.E
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathEvents, eventID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonEvent),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return event, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return event, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadEvent); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadEvent.ID = &eventID
+	return &payloadEvent, nil
+}
+
+// ReplaceEvent updates a event with a PUT request.
+func ReplaceEvent(apiClient *http.Client, apiAddr string, event *v0.Event) (*v0.Event, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(event)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	eventID := *event.ID
+	payloadEvent := *event
+	payloadEvent.ID = nil
+	payloadEvent.CreatedAt = nil
+	payloadEvent.UpdatedAt = nil
+
+	jsonEvent, err := util.MarshalObject(payloadEvent)
+	if err != nil {
+		return event, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathEvents, eventID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonEvent),
 		map[string]string{},
 		http.StatusOK,

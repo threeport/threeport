@@ -174,7 +174,7 @@ func CreateOciAccount(apiClient *http.Client, apiAddr string, ociAccount *v0.Oci
 	return ociAccount, nil
 }
 
-// UpdateOciAccount updates a oci account.
+// UpdateOciAccount updates a oci account with a PATCH request.
 func UpdateOciAccount(apiClient *http.Client, apiAddr string, ociAccount *v0.OciAccount) (*v0.OciAccount, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(ociAccount)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateOciAccount(apiClient *http.Client, apiAddr string, ociAccount *v0.Oci
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathOciAccounts, ociAccountID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonOciAccount),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return ociAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return ociAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadOciAccount); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadOciAccount.ID = &ociAccountID
+	return &payloadOciAccount, nil
+}
+
+// ReplaceOciAccount updates a oci account with a PUT request.
+func ReplaceOciAccount(apiClient *http.Client, apiAddr string, ociAccount *v0.OciAccount) (*v0.OciAccount, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(ociAccount)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	ociAccountID := *ociAccount.ID
+	payloadOciAccount := *ociAccount
+	payloadOciAccount.ID = nil
+	payloadOciAccount.CreatedAt = nil
+	payloadOciAccount.UpdatedAt = nil
+
+	jsonOciAccount, err := util.MarshalObject(payloadOciAccount)
+	if err != nil {
+		return ociAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathOciAccounts, ociAccountID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonOciAccount),
 		map[string]string{},
 		http.StatusOK,
@@ -409,7 +452,7 @@ func CreateOciOkeKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 	return ociOkeKubernetesRuntimeDefinition, nil
 }
 
-// UpdateOciOkeKubernetesRuntimeDefinition updates a oci oke kubernetes runtime definition.
+// UpdateOciOkeKubernetesRuntimeDefinition updates a oci oke kubernetes runtime definition with a PATCH request.
 func UpdateOciOkeKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, ociOkeKubernetesRuntimeDefinition *v0.OciOkeKubernetesRuntimeDefinition) (*v0.OciOkeKubernetesRuntimeDefinition, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(ociOkeKubernetesRuntimeDefinition)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -429,6 +472,49 @@ func UpdateOciOkeKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathOciOkeKubernetesRuntimeDefinitions, ociOkeKubernetesRuntimeDefinitionID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonOciOkeKubernetesRuntimeDefinition),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return ociOkeKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return ociOkeKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadOciOkeKubernetesRuntimeDefinition); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadOciOkeKubernetesRuntimeDefinition.ID = &ociOkeKubernetesRuntimeDefinitionID
+	return &payloadOciOkeKubernetesRuntimeDefinition, nil
+}
+
+// ReplaceOciOkeKubernetesRuntimeDefinition updates a oci oke kubernetes runtime definition with a PUT request.
+func ReplaceOciOkeKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr string, ociOkeKubernetesRuntimeDefinition *v0.OciOkeKubernetesRuntimeDefinition) (*v0.OciOkeKubernetesRuntimeDefinition, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(ociOkeKubernetesRuntimeDefinition)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	ociOkeKubernetesRuntimeDefinitionID := *ociOkeKubernetesRuntimeDefinition.ID
+	payloadOciOkeKubernetesRuntimeDefinition := *ociOkeKubernetesRuntimeDefinition
+	payloadOciOkeKubernetesRuntimeDefinition.ID = nil
+	payloadOciOkeKubernetesRuntimeDefinition.CreatedAt = nil
+	payloadOciOkeKubernetesRuntimeDefinition.UpdatedAt = nil
+
+	jsonOciOkeKubernetesRuntimeDefinition, err := util.MarshalObject(payloadOciOkeKubernetesRuntimeDefinition)
+	if err != nil {
+		return ociOkeKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathOciOkeKubernetesRuntimeDefinitions, ociOkeKubernetesRuntimeDefinitionID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonOciOkeKubernetesRuntimeDefinition),
 		map[string]string{},
 		http.StatusOK,
@@ -644,7 +730,7 @@ func CreateOciOkeKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 	return ociOkeKubernetesRuntimeInstance, nil
 }
 
-// UpdateOciOkeKubernetesRuntimeInstance updates a oci oke kubernetes runtime instance.
+// UpdateOciOkeKubernetesRuntimeInstance updates a oci oke kubernetes runtime instance with a PATCH request.
 func UpdateOciOkeKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, ociOkeKubernetesRuntimeInstance *v0.OciOkeKubernetesRuntimeInstance) (*v0.OciOkeKubernetesRuntimeInstance, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(ociOkeKubernetesRuntimeInstance)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -664,6 +750,49 @@ func UpdateOciOkeKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathOciOkeKubernetesRuntimeInstances, ociOkeKubernetesRuntimeInstanceID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonOciOkeKubernetesRuntimeInstance),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return ociOkeKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return ociOkeKubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadOciOkeKubernetesRuntimeInstance); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadOciOkeKubernetesRuntimeInstance.ID = &ociOkeKubernetesRuntimeInstanceID
+	return &payloadOciOkeKubernetesRuntimeInstance, nil
+}
+
+// ReplaceOciOkeKubernetesRuntimeInstance updates a oci oke kubernetes runtime instance with a PUT request.
+func ReplaceOciOkeKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string, ociOkeKubernetesRuntimeInstance *v0.OciOkeKubernetesRuntimeInstance) (*v0.OciOkeKubernetesRuntimeInstance, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(ociOkeKubernetesRuntimeInstance)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	ociOkeKubernetesRuntimeInstanceID := *ociOkeKubernetesRuntimeInstance.ID
+	payloadOciOkeKubernetesRuntimeInstance := *ociOkeKubernetesRuntimeInstance
+	payloadOciOkeKubernetesRuntimeInstance.ID = nil
+	payloadOciOkeKubernetesRuntimeInstance.CreatedAt = nil
+	payloadOciOkeKubernetesRuntimeInstance.UpdatedAt = nil
+
+	jsonOciOkeKubernetesRuntimeInstance, err := util.MarshalObject(payloadOciOkeKubernetesRuntimeInstance)
+	if err != nil {
+		return ociOkeKubernetesRuntimeInstance, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathOciOkeKubernetesRuntimeInstances, ociOkeKubernetesRuntimeInstanceID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonOciOkeKubernetesRuntimeInstance),
 		map[string]string{},
 		http.StatusOK,

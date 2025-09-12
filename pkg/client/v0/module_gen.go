@@ -174,7 +174,7 @@ func CreateModuleApi(apiClient *http.Client, apiAddr string, moduleApi *v0.Modul
 	return moduleApi, nil
 }
 
-// UpdateModuleApi updates a module api.
+// UpdateModuleApi updates a module api with a PATCH request.
 func UpdateModuleApi(apiClient *http.Client, apiAddr string, moduleApi *v0.ModuleApi) (*v0.ModuleApi, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(moduleApi)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -194,6 +194,49 @@ func UpdateModuleApi(apiClient *http.Client, apiAddr string, moduleApi *v0.Modul
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleApis, moduleApiID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonModuleApi),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return moduleApi, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return moduleApi, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadModuleApi); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadModuleApi.ID = &moduleApiID
+	return &payloadModuleApi, nil
+}
+
+// ReplaceModuleApi updates a module api with a PUT request.
+func ReplaceModuleApi(apiClient *http.Client, apiAddr string, moduleApi *v0.ModuleApi) (*v0.ModuleApi, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(moduleApi)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	moduleApiID := *moduleApi.ID
+	payloadModuleApi := *moduleApi
+	payloadModuleApi.ID = nil
+	payloadModuleApi.CreatedAt = nil
+	payloadModuleApi.UpdatedAt = nil
+
+	jsonModuleApi, err := util.MarshalObject(payloadModuleApi)
+	if err != nil {
+		return moduleApi, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleApis, moduleApiID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonModuleApi),
 		map[string]string{},
 		http.StatusOK,
@@ -409,7 +452,7 @@ func CreateModuleApiRoute(apiClient *http.Client, apiAddr string, moduleApiRoute
 	return moduleApiRoute, nil
 }
 
-// UpdateModuleApiRoute updates a module api route.
+// UpdateModuleApiRoute updates a module api route with a PATCH request.
 func UpdateModuleApiRoute(apiClient *http.Client, apiAddr string, moduleApiRoute *v0.ModuleApiRoute) (*v0.ModuleApiRoute, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(moduleApiRoute)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -429,6 +472,49 @@ func UpdateModuleApiRoute(apiClient *http.Client, apiAddr string, moduleApiRoute
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleApiRoutes, moduleApiRouteID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonModuleApiRoute),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return moduleApiRoute, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return moduleApiRoute, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadModuleApiRoute); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadModuleApiRoute.ID = &moduleApiRouteID
+	return &payloadModuleApiRoute, nil
+}
+
+// ReplaceModuleApiRoute updates a module api route with a PUT request.
+func ReplaceModuleApiRoute(apiClient *http.Client, apiAddr string, moduleApiRoute *v0.ModuleApiRoute) (*v0.ModuleApiRoute, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(moduleApiRoute)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	moduleApiRouteID := *moduleApiRoute.ID
+	payloadModuleApiRoute := *moduleApiRoute
+	payloadModuleApiRoute.ID = nil
+	payloadModuleApiRoute.CreatedAt = nil
+	payloadModuleApiRoute.UpdatedAt = nil
+
+	jsonModuleApiRoute, err := util.MarshalObject(payloadModuleApiRoute)
+	if err != nil {
+		return moduleApiRoute, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleApiRoutes, moduleApiRouteID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonModuleApiRoute),
 		map[string]string{},
 		http.StatusOK,
@@ -644,7 +730,7 @@ func CreateModuleController(apiClient *http.Client, apiAddr string, moduleContro
 	return moduleController, nil
 }
 
-// UpdateModuleController updates a module controller.
+// UpdateModuleController updates a module controller with a PATCH request.
 func UpdateModuleController(apiClient *http.Client, apiAddr string, moduleController *v0.ModuleController) (*v0.ModuleController, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(moduleController)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -664,6 +750,49 @@ func UpdateModuleController(apiClient *http.Client, apiAddr string, moduleContro
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleControllers, moduleControllerID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonModuleController),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return moduleController, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return moduleController, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadModuleController); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadModuleController.ID = &moduleControllerID
+	return &payloadModuleController, nil
+}
+
+// ReplaceModuleController updates a module controller with a PUT request.
+func ReplaceModuleController(apiClient *http.Client, apiAddr string, moduleController *v0.ModuleController) (*v0.ModuleController, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(moduleController)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	moduleControllerID := *moduleController.ID
+	payloadModuleController := *moduleController
+	payloadModuleController.ID = nil
+	payloadModuleController.CreatedAt = nil
+	payloadModuleController.UpdatedAt = nil
+
+	jsonModuleController, err := util.MarshalObject(payloadModuleController)
+	if err != nil {
+		return moduleController, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleControllers, moduleControllerID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonModuleController),
 		map[string]string{},
 		http.StatusOK,
@@ -879,7 +1008,7 @@ func CreateModuleObject(apiClient *http.Client, apiAddr string, moduleObject *v0
 	return moduleObject, nil
 }
 
-// UpdateModuleObject updates a module object.
+// UpdateModuleObject updates a module object with a PATCH request.
 func UpdateModuleObject(apiClient *http.Client, apiAddr string, moduleObject *v0.ModuleObject) (*v0.ModuleObject, error) {
 	client_lib.ReplaceAssociatedObjectsWithNil(moduleObject)
 	// capture the object ID, make a copy of the object, then remove fields that
@@ -899,6 +1028,49 @@ func UpdateModuleObject(apiClient *http.Client, apiAddr string, moduleObject *v0
 		apiClient,
 		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleObjects, moduleObjectID),
 		http.MethodPatch,
+		bytes.NewBuffer(jsonModuleObject),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return moduleObject, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return moduleObject, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadModuleObject); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadModuleObject.ID = &moduleObjectID
+	return &payloadModuleObject, nil
+}
+
+// ReplaceModuleObject updates a module object with a PUT request.
+func ReplaceModuleObject(apiClient *http.Client, apiAddr string, moduleObject *v0.ModuleObject) (*v0.ModuleObject, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(moduleObject)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	moduleObjectID := *moduleObject.ID
+	payloadModuleObject := *moduleObject
+	payloadModuleObject.ID = nil
+	payloadModuleObject.CreatedAt = nil
+	payloadModuleObject.UpdatedAt = nil
+
+	jsonModuleObject, err := util.MarshalObject(payloadModuleObject)
+	if err != nil {
+		return moduleObject, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathModuleObjects, moduleObjectID),
+		http.MethodPut,
 		bytes.NewBuffer(jsonModuleObject),
 		map[string]string{},
 		http.StatusOK,
