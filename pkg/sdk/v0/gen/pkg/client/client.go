@@ -468,7 +468,7 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				// update object
 				updateFuncName := fmt.Sprintf("Update%s", apiObject.TypeName)
 				f.Comment(fmt.Sprintf(
-					"%s updates a %s.",
+					"%s updates a %s with a PATCH request.",
 					updateFuncName,
 					strcase.ToDelimited(apiObject.TypeName, ' '),
 				))
@@ -525,6 +525,106 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Id(fmt.Sprintf("%sID", strcase.ToLowerCamel(apiObject.TypeName))),
 						),
 						Line().Qual("net/http", "MethodPatch"),
+						Line().Qual("bytes", "NewBuffer").Call(Id(
+							fmt.Sprintf("json%s", apiObject.TypeName),
+						)),
+						Line().Map(String()).String().Block(),
+						Line().Qual("net/http", "StatusOK"),
+						Line(),
+					),
+					If(Id("err").Op("!=").Nil().Block(
+						Return().Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Qual(
+							"fmt", "Errorf",
+						).Call(Lit(ResponseErr).Op(",").Id("err")),
+					)),
+					Line(),
+					Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
+						Id("response").Dot("Data").Index(Lit(0)),
+					),
+					If(Id("err").Op("!=").Nil().Block(
+						Return().Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Qual(
+							"fmt", "Errorf",
+						).Call(Lit(MarshalResponseDataErr).Op(",").Id("err")),
+					)),
+					Line(),
+					Id("decoder").Op(":=").Qual(
+						"encoding/json", "NewDecoder",
+					).Call(Qual(
+						"bytes", "NewReader",
+					).Call(Id("jsonData"))),
+					Id("decoder").Dot("UseNumber").Call(),
+					If(Id("err").Op(":=").Id("decoder").Dot("Decode").Call(
+						Op("&").Id(fmt.Sprintf("payload%s", apiObject.TypeName)),
+					).Op(";").Id("err").Op("!=").Nil()).Block(
+						Return().Nil().Op(",").Qual(
+							"fmt", "Errorf",
+						).Call(Lit("failed to decode object in response data from threeport API: %w").Op(",").Id("err")),
+					),
+					Line(),
+					Id(fmt.Sprintf("payload%s", apiObject.TypeName)).Dot("ID").Op("=").Op("&").Id(fmt.Sprintf("%sID", strcase.ToLowerCamel(apiObject.TypeName))),
+					Return().Op("&").Id(fmt.Sprintf("payload%s", apiObject.TypeName)).Op(",").Nil(),
+				)
+				f.Line()
+				// replace object
+				replaceFuncName := fmt.Sprintf("Replace%s", apiObject.TypeName)
+				f.Comment(fmt.Sprintf(
+					"%s updates a %s with a PUT request.",
+					replaceFuncName,
+					strcase.ToDelimited(apiObject.TypeName, ' '),
+				))
+				f.Func().Id(replaceFuncName).Params(
+					Id("apiClient").Op("*").Qual("net/http", "Client"),
+					Id("apiAddr").String(),
+					Id(strcase.ToLowerCamel(apiObject.TypeName)).Op("*").Qual(
+						fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+						apiObject.TypeName,
+					),
+				).Parens(List(
+					Op("*").Qual(
+						fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+						apiObject.TypeName,
+					),
+					Error(),
+				)).Block(
+					Qual(
+						"github.com/threeport/threeport/pkg/client/lib/v0",
+						"ReplaceAssociatedObjectsWithNil",
+					).Call(Id(strcase.ToLowerCamel(apiObject.TypeName))),
+					Comment("capture the object ID, make a copy of the object, then remove fields that"),
+					Comment("cannot be updated in the API"),
+					Id(
+						fmt.Sprintf("%sID", strcase.ToLowerCamel(apiObject.TypeName)),
+					).Op(":=").Op("*").Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("ID"),
+					Id(fmt.Sprintf("payload%s", apiObject.TypeName)).Op(":=").Op("*").Id(strcase.ToLowerCamel(apiObject.TypeName)),
+					Id(fmt.Sprintf("payload%s", apiObject.TypeName)).Dot("ID").Op("=").Nil(),
+					Id(fmt.Sprintf("payload%s", apiObject.TypeName)).Dot("CreatedAt").Op("=").Nil(),
+					Id(fmt.Sprintf("payload%s", apiObject.TypeName)).Dot("UpdatedAt").Op("=").Nil(),
+					Line(),
+					Id(fmt.Sprintf("json%s", apiObject.TypeName)).Op(",").Id("err").Op(":=").Qual(
+						"github.com/threeport/threeport/pkg/util/v0",
+						"MarshalObject",
+					).Call(Id(fmt.Sprintf("payload%s", apiObject.TypeName))),
+					If(Id("err").Op("!=").Nil().Block(
+						Return().Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Qual(
+							"fmt", "Errorf",
+						).Call(Lit(MarshalObjectErr).Op(",").Id("err")),
+					)),
+					Line(),
+					Id("response").Op(",").Id("err").Op(":=").Qual(
+						"github.com/threeport/threeport/pkg/client/lib/v0",
+						"GetResponse",
+					).Call(
+						Line().Id("apiClient"),
+						Line().Qual("fmt", "Sprintf").Call(
+							Lit("%s%s/%d"),
+							Id("apiAddr"),
+							Qual(
+								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+								fmt.Sprintf("Path%s", pluralize.Pluralize(apiObject.TypeName, 2, false)),
+							),
+							Id(fmt.Sprintf("%sID", strcase.ToLowerCamel(apiObject.TypeName))),
+						),
+						Line().Qual("net/http", "MethodPut"),
 						Line().Qual("bytes", "NewBuffer").Call(Id(
 							fmt.Sprintf("json%s", apiObject.TypeName),
 						)),
@@ -640,7 +740,6 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Return().Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Nil(),
 				)
 				f.Line()
-				// TODO: replace object
 			}
 
 			// write code to file if not excluded by SDK config

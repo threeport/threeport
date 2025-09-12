@@ -26,9 +26,13 @@ ApiObjectGroups:
     - Name: Profile
       Versions:
         - v0
+      Tptctl:
+        Enabled: true
     - Name: Tier
       Versions:
         - v0
+      Tptctl:
+        Enabled: true
 - Name: aws
   Objects:
     - Name: AwsAccount

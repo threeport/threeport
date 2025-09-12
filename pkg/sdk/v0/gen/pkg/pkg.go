@@ -104,12 +104,8 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	////////////////////////////// pkg/config //////////////////////////////////
-	// TODO: remove generator.Module if-statement to apply to core threeport
-	// as well.  Complete codegen for config package.
-	if generator.Module {
-		if err := config.GenConfig(generator, sdkConfig); err != nil {
-			return fmt.Errorf("failed to generate config package: %w", err)
-		}
+	if err := config.GenConfig(generator, sdkConfig); err != nil {
+		return fmt.Errorf("failed to generate config package: %w", err)
 	}
 
 	//////////////////////////// pkg/installer /////////////////////////////////

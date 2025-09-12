@@ -4,12 +4,13 @@ import (
 	"fmt"
 )
 
-// Operation contains a create, update and delete function for a Threeport API object.
+// Operation contains a create, replace and delete function for a Threeport API object.
 type Operation struct {
-	Name   string
-	Create func() error
-	Update func() error
-	Delete func() error
+	Name    string
+	Get     func() error
+	Create  func() error
+	Replace func(string) error
+	Delete  func() error
 }
 
 // Operations contains a list of operations that have been
@@ -23,18 +24,40 @@ func (r *Operations) AppendOperation(operation Operation) {
 	r.Operations = append(r.Operations, &operation)
 }
 
-// Create executes all create operations in the operation stack.
-func (r *Operations) Create() error {
-	for index, operation := range r.Operations {
-		err := operation.Create()
+// Get executes all get operations in the operation stack.
+func (r *Operations) Get() error {
+	for _, operation := range r.Operations {
+		err := operation.Get()
 		if err != nil {
-			return r.cleanOnCreateError(index-1, fmt.Errorf("failed to create %s:\n%w", operation.Name, err))
+			return fmt.Errorf("failed to get %s: %w", operation.Name, err)
 		}
 	}
 	return nil
 }
 
-// ExecuteUpdateOperations executes all delete operations in the operation stack.
+// Create executes all create operations in the operation stack.
+func (r *Operations) Create() error {
+	for index, operation := range r.Operations {
+		err := operation.Create()
+		if err != nil {
+			return r.cleanOnCreateError(index-1, fmt.Errorf("failed to create %s: %w", operation.Name, err))
+		}
+	}
+	return nil
+}
+
+// Replace executes all replace operations in the operation stack.
+func (r *Operations) Replace(name string) error {
+	for _, operation := range r.Operations {
+		err := operation.Replace(name)
+		if err != nil {
+			return fmt.Errorf("failed to replace %s: %w", operation.Name, err)
+		}
+	}
+	return nil
+}
+
+// Delete executes all delete operations in the operation stack.
 func (r *Operations) Delete() error {
 	return r.delete(len(r.Operations) - 1)
 }
