@@ -40,8 +40,8 @@ func (c *ControlPlaneInstanceValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ControlPlaneInstanceConfig, error) {
-	var controlPlaneInstanceConfigs []ControlPlaneInstanceConfig
-
+	// get API objects
+	var controlPlaneInstances *[]api_v0.ControlPlaneInstance
 	switch {
 	// if name is provided, get control plane instance by name
 	case c.Name != nil:
@@ -49,32 +49,53 @@ func (c *ControlPlaneInstanceValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get control plane instance with name %s: %w", *c.Name, err)
 		}
-		controlPlaneInstanceConfig := ControlPlaneInstanceConfig{
-			ControlPlaneInstance: ControlPlaneInstanceValues{
-				Age:                 util.Ptr(util.GetAgeFormatted(controlPlaneInstance.CreatedAt)),
-				Name:                controlPlaneInstance.Name,
-				Namespace:           controlPlaneInstance.Namespace,
-				CustomComponentInfo: controlPlaneInstance.CustomComponentInfo,
-			},
-		}
-		controlPlaneInstanceConfigs = append(controlPlaneInstanceConfigs, controlPlaneInstanceConfig)
+		controlPlaneInstances = &[]api_v0.ControlPlaneInstance{*controlPlaneInstance}
 	// get all control plane instances
 	default:
-		controlPlaneInstances, err := client_v0.GetControlPlaneInstances(apiClient, apiEndpoint)
+		allControlPlaneInstances, err := client_v0.GetControlPlaneInstances(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get control plane instances from Threeport API: %w", err)
 		}
-		for _, controlPlaneInstance := range *controlPlaneInstances {
-			controlPlaneInstanceConfig := ControlPlaneInstanceConfig{
-				ControlPlaneInstance: ControlPlaneInstanceValues{
-					Age:                 util.Ptr(util.GetAgeFormatted(controlPlaneInstance.CreatedAt)),
-					Name:                controlPlaneInstance.Name,
-					Namespace:           controlPlaneInstance.Namespace,
-					CustomComponentInfo: controlPlaneInstance.CustomComponentInfo,
-				},
+		controlPlaneInstances = allControlPlaneInstances
+	}
+
+	var controlPlaneInstanceConfigs []ControlPlaneInstanceConfig
+	for _, controlPlaneInstance := range *controlPlaneInstances {
+		// related objects
+		var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+		var controlPlaneDefinition *ControlPlaneDefinitionValues
+
+		// get kubernetes runtime instance
+		if controlPlaneInstance.KubernetesRuntimeInstanceID != nil {
+			kri, err := client_v0.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *controlPlaneInstance.KubernetesRuntimeInstanceID)
+			if err == nil {
+				kubernetesRuntimeInstance = &KubernetesRuntimeInstanceValues{
+					Name: kri.Name,
+				}
 			}
-			controlPlaneInstanceConfigs = append(controlPlaneInstanceConfigs, controlPlaneInstanceConfig)
 		}
+
+		// get control plane definition
+		if controlPlaneInstance.ControlPlaneDefinitionID != nil {
+			cpd, err := client_v0.GetControlPlaneDefinitionByID(apiClient, apiEndpoint, *controlPlaneInstance.ControlPlaneDefinitionID)
+			if err == nil {
+				controlPlaneDefinition = &ControlPlaneDefinitionValues{
+					Name: cpd.Name,
+				}
+			}
+		}
+
+		controlPlaneInstanceConfig := ControlPlaneInstanceConfig{
+			ControlPlaneInstance: ControlPlaneInstanceValues{
+				Name:                      controlPlaneInstance.Name,
+				Namespace:                 controlPlaneInstance.Namespace,
+				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
+				ControlPlaneDefinition:    controlPlaneDefinition,
+				CustomComponentInfo:       controlPlaneInstance.CustomComponentInfo,
+				Age:                       util.Ptr(util.GetAgeFormatted(controlPlaneInstance.CreatedAt)),
+			},
+		}
+		controlPlaneInstanceConfigs = append(controlPlaneInstanceConfigs, controlPlaneInstanceConfig)
 	}
 
 	return &controlPlaneInstanceConfigs, nil
@@ -90,25 +111,14 @@ func (c *ControlPlaneInstanceValues) Create(
 		return nil, fmt.Errorf("failed to validate values for control plane instance with name %s: %w", *c.Name, err)
 	}
 
-	// get kubernetes runtime instance API object
-	var kubernetesRuntimeInstance api_v0.KubernetesRuntimeInstance
-	if c.KubernetesRuntimeInstance == nil {
-		// get default kubernetes runtime instance
-		kubernetesRuntimeInst, err := client_v0.GetDefaultKubernetesRuntimeInstance(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("kubernetes runtime instance not provided and failed to find default kubernetes runtime instance: %w", err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
-	} else {
-		kubernetesRuntimeInst, err := client_v0.GetKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*c.KubernetesRuntimeInstance.Name,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find kubernetes runtime instance by name %s: %w", *c.KubernetesRuntimeInstance.Name, err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
+	// get kubernetes runtime instance
+	kubernetesRuntimeInstance, err := getKubernetesRuntimeInstanceByNameOrDefault(
+		apiClient,
+		apiEndpoint,
+		c.KubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
 	// get control plane definition by name

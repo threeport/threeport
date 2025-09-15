@@ -47,8 +47,8 @@ func (o *ObservabilityStackInstanceValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ObservabilityStackInstanceConfig, error) {
-	var observabilityStackInstanceConfigs []ObservabilityStackInstanceConfig
-
+	// get API objects
+	var observabilityStackInstances *[]api_v0.ObservabilityStackInstance
 	switch {
 	// if name is provided, get observability stack instance by name
 	case o.Name != nil:
@@ -56,45 +56,61 @@ func (o *ObservabilityStackInstanceValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get observability stack instance with name %s: %w", *o.Name, err)
 		}
-		observabilityStackInstanceConfig := ObservabilityStackInstanceConfig{
-			ObservabilityStackInstance: ObservabilityStackInstanceValues{
-				Age:                                   util.Ptr(util.GetAgeFormatted(observabilityStackInstance.CreatedAt)),
-				Name:                                  observabilityStackInstance.Name,
-				MetricsEnabled:                        observabilityStackInstance.MetricsEnabled,
-				LoggingEnabled:                        observabilityStackInstance.LoggingEnabled,
-				GrafanaHelmValues:                     o.GrafanaHelmValues,
-				GrafanaHelmValuesDocument:             observabilityStackInstance.GrafanaHelmValuesDocument,
-				LokiHelmValues:                        o.LokiHelmValues,
-				LokiHelmValuesDocument:                observabilityStackInstance.LokiHelmValuesDocument,
-				PromtailHelmValues:                    o.PromtailHelmValues,
-				PromtailHelmValuesDocument:            observabilityStackInstance.PromtailHelmValuesDocument,
-				KubePrometheusStackHelmValues:         o.KubePrometheusStackHelmValues,
-				KubePrometheusStackHelmValuesDocument: observabilityStackInstance.KubePrometheusStackHelmValuesDocument,
-				ObservabilityConfigPath:               o.ObservabilityConfigPath,
-			},
-		}
-		observabilityStackInstanceConfigs = append(observabilityStackInstanceConfigs, observabilityStackInstanceConfig)
+		observabilityStackInstances = &[]api_v0.ObservabilityStackInstance{*observabilityStackInstance}
 	// get all observability stack instances
 	default:
-		observabilityStackInstances, err := client_v0.GetObservabilityStackInstances(apiClient, apiEndpoint)
+		allObservabilityStackInstances, err := client_v0.GetObservabilityStackInstances(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get observability stack instances from Threeport API: %w", err)
 		}
-		for _, observabilityStackInstance := range *observabilityStackInstances {
-			observabilityStackInstanceConfig := ObservabilityStackInstanceConfig{
-				ObservabilityStackInstance: ObservabilityStackInstanceValues{
-					Age:                                   util.Ptr(util.GetAgeFormatted(observabilityStackInstance.CreatedAt)),
-					Name:                                  observabilityStackInstance.Name,
-					MetricsEnabled:                        observabilityStackInstance.MetricsEnabled,
-					LoggingEnabled:                        observabilityStackInstance.LoggingEnabled,
-					GrafanaHelmValuesDocument:             observabilityStackInstance.GrafanaHelmValuesDocument,
-					LokiHelmValuesDocument:                observabilityStackInstance.LokiHelmValuesDocument,
-					PromtailHelmValuesDocument:            observabilityStackInstance.PromtailHelmValuesDocument,
-					KubePrometheusStackHelmValuesDocument: observabilityStackInstance.KubePrometheusStackHelmValuesDocument,
-				},
+		observabilityStackInstances = allObservabilityStackInstances
+	}
+
+	var observabilityStackInstanceConfigs []ObservabilityStackInstanceConfig
+	for _, observabilityStackInstance := range *observabilityStackInstances {
+		// related objects
+		var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+		var observabilityStackDefinition *ObservabilityStackDefinitionValues
+
+		// get kubernetes runtime instance
+		if observabilityStackInstance.KubernetesRuntimeInstanceID != nil {
+			kri, err := client_v0.GetKubernetesRuntimeInstanceByID(
+				apiClient,
+				apiEndpoint,
+				*observabilityStackInstance.KubernetesRuntimeInstanceID,
+			)
+			if err == nil {
+				kubernetesRuntimeInstance = &KubernetesRuntimeInstanceValues{
+					Name: kri.Name,
+				}
 			}
-			observabilityStackInstanceConfigs = append(observabilityStackInstanceConfigs, observabilityStackInstanceConfig)
 		}
+
+		// get observability stack definition
+		if observabilityStackInstance.ObservabilityStackDefinitionID != nil {
+			osd, err := client_v0.GetObservabilityStackDefinitionByID(apiClient, apiEndpoint, *observabilityStackInstance.ObservabilityStackDefinitionID)
+			if err == nil {
+				observabilityStackDefinition = &ObservabilityStackDefinitionValues{
+					Name: osd.Name,
+				}
+			}
+		}
+
+		observabilityStackInstanceConfig := ObservabilityStackInstanceConfig{
+			ObservabilityStackInstance: ObservabilityStackInstanceValues{
+				Name:                                  observabilityStackInstance.Name,
+				KubernetesRuntimeInstance:             kubernetesRuntimeInstance,
+				MetricsEnabled:                        observabilityStackInstance.MetricsEnabled,
+				LoggingEnabled:                        observabilityStackInstance.LoggingEnabled,
+				GrafanaHelmValuesDocument:             observabilityStackInstance.GrafanaHelmValuesDocument,
+				LokiHelmValuesDocument:                observabilityStackInstance.LokiHelmValuesDocument,
+				PromtailHelmValuesDocument:            observabilityStackInstance.PromtailHelmValuesDocument,
+				KubePrometheusStackHelmValuesDocument: observabilityStackInstance.KubePrometheusStackHelmValuesDocument,
+				ObservabilityStackDefinition:          observabilityStackDefinition,
+				Age:                                   util.Ptr(util.GetAgeFormatted(observabilityStackInstance.CreatedAt)),
+			},
+		}
+		observabilityStackInstanceConfigs = append(observabilityStackInstanceConfigs, observabilityStackInstanceConfig)
 	}
 
 	return &observabilityStackInstanceConfigs, nil
@@ -110,28 +126,14 @@ func (o *ObservabilityStackInstanceValues) Create(
 		return nil, fmt.Errorf("failed to validate values for observability stack instance with name %s: %w", *o.Name, err)
 	}
 
-	// inline kubernetes runtime instance resolution logic
-	var kri *api_v0.KubernetesRuntimeInstance
-	var err error
-	if o.KubernetesRuntimeInstance != nil && o.KubernetesRuntimeInstance.Name != nil {
-		kri, err = client_v0.GetKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*o.KubernetesRuntimeInstance.Name,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-		}
-	} else {
-		// get default kubernetes runtime instance if none specified
-		kubernetesRuntimeInstances, err := client_v0.GetKubernetesRuntimeInstancesByQueryString(apiClient, apiEndpoint, "defaultruntime=true")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get default kubernetes runtime instance: %w", err)
-		}
-		if len(*kubernetesRuntimeInstances) == 0 {
-			return nil, fmt.Errorf("no default kubernetes runtime instance found - one must be configured with DefaultRuntime=true")
-		}
-		kri = &(*kubernetesRuntimeInstances)[0]
+	// get kubernetes runtime instance
+	kubernetesRuntimeInstance, err := getKubernetesRuntimeInstanceByNameOrDefault(
+		apiClient,
+		apiEndpoint,
+		o.KubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
 	// get observability stack definition
@@ -154,7 +156,7 @@ func (o *ObservabilityStackInstanceValues) Create(
 			Name: o.Name,
 		},
 		ObservabilityStackDefinitionID: osd.ID,
-		KubernetesRuntimeInstanceID:    kri.ID,
+		KubernetesRuntimeInstanceID:    kubernetesRuntimeInstance.ID,
 		MetricsEnabled:                 o.MetricsEnabled,
 		LoggingEnabled:                 o.LoggingEnabled,
 	}
@@ -259,34 +261,21 @@ func (o *ObservabilityStackInstanceValues) Replace(
 		return nil, fmt.Errorf("failed to find observability stack instance with name %s: %w", name, err)
 	}
 
-	// inline kubernetes runtime instance resolution logic
-	var kri *api_v0.KubernetesRuntimeInstance
-	if o.KubernetesRuntimeInstance != nil && o.KubernetesRuntimeInstance.Name != nil {
-		kri, err = client_v0.GetKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*o.KubernetesRuntimeInstance.Name,
+	// ensure user is not trying to move the observability stack to a different runtime
+	kubernetesRuntimeInstance, moved, err := getKubernetesRuntimeInstanceAndCheckId(
+		apiClient,
+		apiEndpoint,
+		o.KubernetesRuntimeInstance,
+		existingObservabilityStackInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+	if moved {
+		return nil, fmt.Errorf(
+			"an observability stack may not be moved from its current runtime to %s - if %[1]s runtime needs an observability stack, create a new one there instead",
+			*kubernetesRuntimeInstance.Name,
 		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-		}
-		// ensure the replacement runtime is the same as the existing runtime
-		if kri.ID != existingObservabilityStackInstance.KubernetesRuntimeInstanceID {
-			return nil, fmt.Errorf(
-				"an observability stack may not be moved from its current runtime to %s - if %[1]s runtime needs an observability stack, create a new one there instead",
-				*kri.Name,
-			)
-		}
-	} else {
-		// use the existing runtime
-		kri, err = client_v0.GetKubernetesRuntimeInstanceByID(
-			apiClient,
-			apiEndpoint,
-			*existingObservabilityStackInstance.KubernetesRuntimeInstanceID,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get kubernetes runtime instance for observability stack instance: %w", err)
-		}
 	}
 
 	// get observability stack definition
@@ -312,7 +301,7 @@ func (o *ObservabilityStackInstanceValues) Replace(
 			Name: o.Name,
 		},
 		ObservabilityStackDefinitionID: osd.ID,
-		KubernetesRuntimeInstanceID:    kri.ID,
+		KubernetesRuntimeInstanceID:    kubernetesRuntimeInstance.ID,
 		MetricsEnabled:                 o.MetricsEnabled,
 		LoggingEnabled:                 o.LoggingEnabled,
 	}

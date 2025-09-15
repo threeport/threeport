@@ -39,8 +39,8 @@ func (s *SecretInstanceValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]SecretInstanceConfig, error) {
-	var secretInstanceConfigs []SecretInstanceConfig
-
+	// get API objects
+	var secretInstances *[]api_v0.SecretInstance
 	switch {
 	// if name is provided, get secret instance by name
 	case s.Name != nil:
@@ -48,7 +48,19 @@ func (s *SecretInstanceValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get secret instance with name %s: %w", *s.Name, err)
 		}
-		// get related objects
+		secretInstances = &[]api_v0.SecretInstance{*secretInstance}
+	// get all secret instances
+	default:
+		allSecretInstances, err := client_v0.GetSecretInstances(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get secret instances from Threeport API: %w", err)
+		}
+		secretInstances = allSecretInstances
+	}
+
+	var secretInstanceConfigs []SecretInstanceConfig
+	for _, secretInstance := range *secretInstances {
+		// related objects
 		var secretDefinition *SecretDefinitionValues
 		var workloadInstance *WorkloadInstanceValues
 		var helmWorkloadInstance *HelmWorkloadInstanceValues
@@ -105,71 +117,6 @@ func (s *SecretInstanceValues) Get(
 			},
 		}
 		secretInstanceConfigs = append(secretInstanceConfigs, secretInstanceConfig)
-	// get all secret instances
-	default:
-		secretInstances, err := client_v0.GetSecretInstances(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get secret instances from Threeport API: %w", err)
-		}
-		for _, secretInstance := range *secretInstances {
-			// get related objects (simplified for list view)
-			var secretDefinition *SecretDefinitionValues
-			var workloadInstance *WorkloadInstanceValues
-			var helmWorkloadInstance *HelmWorkloadInstanceValues
-			var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
-
-			// get secret definition
-			if secretInstance.SecretDefinitionID != nil {
-				secretDef, err := client_v0.GetSecretDefinitionByID(apiClient, apiEndpoint, *secretInstance.SecretDefinitionID)
-				if err == nil {
-					secretDefinition = &SecretDefinitionValues{
-						Name: secretDef.Name,
-					}
-				}
-			}
-
-			// get workload instance
-			if secretInstance.WorkloadInstanceID != nil {
-				workloadInst, err := client_v0.GetWorkloadInstanceByID(apiClient, apiEndpoint, *secretInstance.WorkloadInstanceID)
-				if err == nil {
-					workloadInstance = &WorkloadInstanceValues{
-						Name: workloadInst.Name,
-					}
-				}
-			}
-
-			// get helm workload instance
-			if secretInstance.HelmWorkloadInstanceID != nil {
-				helmWorkloadInst, err := client_v0.GetHelmWorkloadInstanceByID(apiClient, apiEndpoint, *secretInstance.HelmWorkloadInstanceID)
-				if err == nil {
-					helmWorkloadInstance = &HelmWorkloadInstanceValues{
-						Name: helmWorkloadInst.Name,
-					}
-				}
-			}
-
-			// get kubernetes runtime instance
-			if secretInstance.KubernetesRuntimeInstanceID != nil {
-				kubernetesRuntimeInst, err := client_v0.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *secretInstance.KubernetesRuntimeInstanceID)
-				if err == nil {
-					kubernetesRuntimeInstance = &KubernetesRuntimeInstanceValues{
-						Name: kubernetesRuntimeInst.Name,
-					}
-				}
-			}
-
-			secretInstanceConfig := SecretInstanceConfig{
-				SecretInstance: SecretInstanceValues{
-					Name:                      secretInstance.Name,
-					SecretDefinition:          secretDefinition,
-					WorkloadInstance:          workloadInstance,
-					HelmWorkloadInstance:      helmWorkloadInstance,
-					KubernetesRuntimeInstance: kubernetesRuntimeInstance,
-					Age:                       util.Ptr(util.GetAgeFormatted(secretInstance.CreatedAt)),
-				},
-			}
-			secretInstanceConfigs = append(secretInstanceConfigs, secretInstanceConfig)
-		}
 	}
 
 	return &secretInstanceConfigs, nil
@@ -185,28 +132,14 @@ func (s *SecretInstanceValues) Create(
 		return nil, fmt.Errorf("failed to validate values for secret instance with name %s: %w", *s.Name, err)
 	}
 
-	// inline kubernetes runtime instance resolution logic
-	var kri *api_v0.KubernetesRuntimeInstance
-	var err error
-	if s.KubernetesRuntimeInstance != nil && s.KubernetesRuntimeInstance.Name != nil {
-		kri, err = client_v0.GetKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*s.KubernetesRuntimeInstance.Name,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-		}
-	} else {
-		// get default kubernetes runtime instance if none specified
-		kubernetesRuntimeInstances, err := client_v0.GetKubernetesRuntimeInstancesByQueryString(apiClient, apiEndpoint, "defaultruntime=true")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get default kubernetes runtime instance: %w", err)
-		}
-		if len(*kubernetesRuntimeInstances) == 0 {
-			return nil, fmt.Errorf("no default kubernetes runtime instance found - one must be configured with DefaultRuntime=true")
-		}
-		kri = &(*kubernetesRuntimeInstances)[0]
+	// get kubernetes runtime instance
+	kubernetesRuntimeInstance, err := getKubernetesRuntimeInstanceByNameOrDefault(
+		apiClient,
+		apiEndpoint,
+		s.KubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
 	// get secret definition
@@ -224,7 +157,7 @@ func (s *SecretInstanceValues) Create(
 		Instance: api_v0.Instance{
 			Name: s.Name,
 		},
-		KubernetesRuntimeInstanceID: kri.ID,
+		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		SecretDefinitionID:          secretDefinition.ID,
 	}
 
@@ -301,27 +234,21 @@ func (s *SecretInstanceValues) Replace(
 		return nil, fmt.Errorf("failed to find secret instance with name %s: %w", name, err)
 	}
 
-	// inline kubernetes runtime instance resolution logic
-	var kri *api_v0.KubernetesRuntimeInstance
-	if s.KubernetesRuntimeInstance != nil && s.KubernetesRuntimeInstance.Name != nil {
-		kri, err = client_v0.GetKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*s.KubernetesRuntimeInstance.Name,
+	// ensure user is not trying to move the secret to a different runtime
+	kubernetesRuntimeInstance, moved, err := getKubernetesRuntimeInstanceAndCheckId(
+		apiClient,
+		apiEndpoint,
+		s.KubernetesRuntimeInstance,
+		existingSecretInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+	if moved {
+		return nil, fmt.Errorf(
+			"a secret may not be moved from its current runtime to %s - if %[1]s runtime needs this secret, create a new instance there instead",
+			*kubernetesRuntimeInstance.Name,
 		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-		}
-	} else {
-		// get default kubernetes runtime instance if none specified
-		kubernetesRuntimeInstances, err := client_v0.GetKubernetesRuntimeInstancesByQueryString(apiClient, apiEndpoint, "defaultruntime=true")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get default kubernetes runtime instance: %w", err)
-		}
-		if len(*kubernetesRuntimeInstances) == 0 {
-			return nil, fmt.Errorf("no default kubernetes runtime instance found - one must be configured with DefaultRuntime=true")
-		}
-		kri = &(*kubernetesRuntimeInstances)[0]
 	}
 
 	// get secret definition
@@ -342,7 +269,7 @@ func (s *SecretInstanceValues) Replace(
 		Instance: api_v0.Instance{
 			Name: s.Name,
 		},
-		KubernetesRuntimeInstanceID: kri.ID,
+		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		SecretDefinitionID:          secretDefinition.ID,
 	}
 

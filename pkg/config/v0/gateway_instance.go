@@ -37,8 +37,8 @@ func (g *GatewayInstanceValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]GatewayInstanceConfig, error) {
-	var gatewayInstanceConfigs []GatewayInstanceConfig
-
+	// get API objects
+	var gatewayInstances *[]api_v0.GatewayInstance
 	switch {
 	// if name is provided, get gateway instance by name
 	case g.Name != nil:
@@ -46,28 +46,63 @@ func (g *GatewayInstanceValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get gateway instance with name %s: %w", *g.Name, err)
 		}
-		gatewayInstanceConfig := GatewayInstanceConfig{
-			GatewayInstance: GatewayInstanceValues{
-				Age:  util.Ptr(util.GetAgeFormatted(gatewayInstance.CreatedAt)),
-				Name: g.Name,
-			},
-		}
-		gatewayInstanceConfigs = append(gatewayInstanceConfigs, gatewayInstanceConfig)
+		gatewayInstances = &[]api_v0.GatewayInstance{*gatewayInstance}
 	// get all gateway instances
 	default:
-		gatewayInstances, err := client_v0.GetGatewayInstances(apiClient, apiEndpoint)
+		allGatewayInstances, err := client_v0.GetGatewayInstances(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get gateway instances from Threeport API: %w", err)
 		}
-		for _, gatewayInstance := range *gatewayInstances {
-			gatewayInstanceConfig := GatewayInstanceConfig{
-				GatewayInstance: GatewayInstanceValues{
-					Age:  util.Ptr(util.GetAgeFormatted(gatewayInstance.CreatedAt)),
-					Name: gatewayInstance.Name,
-				},
+		gatewayInstances = allGatewayInstances
+	}
+
+	var gatewayInstanceConfigs []GatewayInstanceConfig
+	for _, gatewayInstance := range *gatewayInstances {
+		// related objects
+		var gatewayDefinition *GatewayDefinitionValues
+		var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+		var workloadInstance *WorkloadInstanceValues
+
+		// get gateway definition
+		if gatewayInstance.GatewayDefinitionID != nil {
+			gd, err := client_v0.GetGatewayDefinitionByID(apiClient, apiEndpoint, *gatewayInstance.GatewayDefinitionID)
+			if err == nil {
+				gatewayDefinition = &GatewayDefinitionValues{
+					Name: gd.Name,
+				}
 			}
-			gatewayInstanceConfigs = append(gatewayInstanceConfigs, gatewayInstanceConfig)
 		}
+
+		// get kubernetes runtime instance
+		if gatewayInstance.KubernetesRuntimeInstanceID != nil {
+			kri, err := client_v0.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *gatewayInstance.KubernetesRuntimeInstanceID)
+			if err == nil {
+				kubernetesRuntimeInstance = &KubernetesRuntimeInstanceValues{
+					Name: kri.Name,
+				}
+			}
+		}
+
+		// get workload instance
+		if gatewayInstance.WorkloadInstanceID != nil {
+			wi, err := client_v0.GetWorkloadInstanceByID(apiClient, apiEndpoint, *gatewayInstance.WorkloadInstanceID)
+			if err == nil {
+				workloadInstance = &WorkloadInstanceValues{
+					Name: wi.Name,
+				}
+			}
+		}
+
+		gatewayInstanceConfig := GatewayInstanceConfig{
+			GatewayInstance: GatewayInstanceValues{
+				Name:                      gatewayInstance.Name,
+				GatewayDefinition:         gatewayDefinition,
+				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
+				WorkloadInstance:          workloadInstance,
+				Age:                       util.Ptr(util.GetAgeFormatted(gatewayInstance.CreatedAt)),
+			},
+		}
+		gatewayInstanceConfigs = append(gatewayInstanceConfigs, gatewayInstanceConfig)
 	}
 
 	return &gatewayInstanceConfigs, nil
@@ -83,25 +118,14 @@ func (g *GatewayInstanceValues) Create(
 		return nil, fmt.Errorf("failed to validate values for gateway instance with name %s: %w", *g.Name, err)
 	}
 
-	// get kubernetes runtime instance API object
-	var kubernetesRuntimeInstance api_v0.KubernetesRuntimeInstance
-	if g.KubernetesRuntimeInstance == nil {
-		// get default kubernetes runtime instance
-		kubernetesRuntimeInst, err := client_v0.GetDefaultKubernetesRuntimeInstance(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("kubernetes runtime instance not provided and failed to find default kubernetes runtime instance: %w", err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
-	} else {
-		kubernetesRuntimeInst, err := client_v0.GetKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*g.KubernetesRuntimeInstance.Name,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find kubernetes runtime instance by name %s: %w", *g.KubernetesRuntimeInstance.Name, err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
+	// get kubernetes runtime instance
+	kubernetesRuntimeInstance, err := getKubernetesRuntimeInstanceByNameOrDefault(
+		apiClient,
+		apiEndpoint,
+		g.KubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
 	// get workload instance
@@ -171,25 +195,21 @@ func (g *GatewayInstanceValues) Replace(
 		return nil, fmt.Errorf("failed to find gateway instance with name %s: %w", name, err)
 	}
 
-	// get kubernetes runtime instance API object for update
-	var kubernetesRuntimeInstance api_v0.KubernetesRuntimeInstance
-	if g.KubernetesRuntimeInstance == nil {
-		// get default kubernetes runtime instance
-		kubernetesRuntimeInst, err := client_v0.GetDefaultKubernetesRuntimeInstance(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("kubernetes runtime instance not provided and failed to find default kubernetes runtime instance: %w", err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
-	} else {
-		kubernetesRuntimeInst, err := client_v0.GetKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*g.KubernetesRuntimeInstance.Name,
+	// ensure user is not trying to move the gateway to a different runtime
+	kubernetesRuntimeInstance, moved, err := getKubernetesRuntimeInstanceAndCheckId(
+		apiClient,
+		apiEndpoint,
+		g.KubernetesRuntimeInstance,
+		existingGatewayInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+	if moved {
+		return nil, fmt.Errorf(
+			"a gateway may not be moved from its current runtime to %s - if %[1]s runtime needs this gateway, create a new instance there instead",
+			*kubernetesRuntimeInstance.Name,
 		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find kubernetes runtime instance by name %s: %w", *g.KubernetesRuntimeInstance.Name, err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
 	}
 
 	// get workload instance for update

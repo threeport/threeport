@@ -39,8 +39,8 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]AwsEksKubernetesRuntimeInstanceConfig, error) {
-	var awsEksKubernetesRuntimeInstanceConfigs []AwsEksKubernetesRuntimeInstanceConfig
-
+	// get API objects
+	var awsEksKubernetesRuntimeInstances *[]api_v0.AwsEksKubernetesRuntimeInstance
 	switch {
 	// if name is provided, get aws eks kubernetes runtime instance by name
 	case a.Name != nil:
@@ -48,30 +48,57 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get aws eks kubernetes runtime instance with name %s: %w", *a.Name, err)
 		}
-		awsEksKubernetesRuntimeInstanceConfig := AwsEksKubernetesRuntimeInstanceConfig{
-			AwsEksKubernetesRuntimeInstance: AwsEksKubernetesRuntimeInstanceValues{
-				Age:    util.Ptr(util.GetAgeFormatted(awsEksKubernetesRuntimeInstance.CreatedAt)),
-				Name:   awsEksKubernetesRuntimeInstance.Name,
-				Region: awsEksKubernetesRuntimeInstance.Region,
-			},
-		}
-		awsEksKubernetesRuntimeInstanceConfigs = append(awsEksKubernetesRuntimeInstanceConfigs, awsEksKubernetesRuntimeInstanceConfig)
+		awsEksKubernetesRuntimeInstances = &[]api_v0.AwsEksKubernetesRuntimeInstance{*awsEksKubernetesRuntimeInstance}
 	// get all aws eks kubernetes runtime instances
 	default:
-		awsEksKubernetesRuntimeInstances, err := client_v0.GetAwsEksKubernetesRuntimeInstances(apiClient, apiEndpoint)
+		allAwsEksKubernetesRuntimeInstances, err := client_v0.GetAwsEksKubernetesRuntimeInstances(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get aws eks kubernetes runtime instances from Threeport API: %w", err)
 		}
-		for _, awsEksKubernetesRuntimeInstance := range *awsEksKubernetesRuntimeInstances {
-			awsEksKubernetesRuntimeInstanceConfig := AwsEksKubernetesRuntimeInstanceConfig{
-				AwsEksKubernetesRuntimeInstance: AwsEksKubernetesRuntimeInstanceValues{
-					Age:    util.Ptr(util.GetAgeFormatted(awsEksKubernetesRuntimeInstance.CreatedAt)),
-					Name:   awsEksKubernetesRuntimeInstance.Name,
-					Region: awsEksKubernetesRuntimeInstance.Region,
-				},
+		awsEksKubernetesRuntimeInstances = allAwsEksKubernetesRuntimeInstances
+	}
+
+	var awsEksKubernetesRuntimeInstanceConfigs []AwsEksKubernetesRuntimeInstanceConfig
+	for _, awsEksKubernetesRuntimeInstance := range *awsEksKubernetesRuntimeInstances {
+		// related objects
+		var awsEksKubernetesRuntimeDefinition *AwsEksKubernetesRuntimeDefinitionValues
+
+		// get AWS EKS kubernetes runtime definition
+		if awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID != nil {
+			awsEksKubernetesRuntimeDefinitionObj, err := client_v0.GetAwsEksKubernetesRuntimeDefinitionByID(
+				apiClient,
+				apiEndpoint,
+				*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
+			)
+			if err == nil {
+				// get AWS account name
+				var awsAccountName *string
+				if awsEksKubernetesRuntimeDefinitionObj.AwsAccountID != nil {
+					awsAccount, err := client_v0.GetAwsAccountByID(
+						apiClient,
+						apiEndpoint,
+						*awsEksKubernetesRuntimeDefinitionObj.AwsAccountID,
+					)
+					if err == nil {
+						awsAccountName = awsAccount.Name
+					}
+				}
+				awsEksKubernetesRuntimeDefinition = &AwsEksKubernetesRuntimeDefinitionValues{
+					Name:           awsEksKubernetesRuntimeDefinitionObj.Name,
+					AwsAccountName: awsAccountName,
+				}
 			}
-			awsEksKubernetesRuntimeInstanceConfigs = append(awsEksKubernetesRuntimeInstanceConfigs, awsEksKubernetesRuntimeInstanceConfig)
 		}
+
+		awsEksKubernetesRuntimeInstanceConfig := AwsEksKubernetesRuntimeInstanceConfig{
+			AwsEksKubernetesRuntimeInstance: AwsEksKubernetesRuntimeInstanceValues{
+				Name:                              awsEksKubernetesRuntimeInstance.Name,
+				Region:                            awsEksKubernetesRuntimeInstance.Region,
+				AwsEksKubernetesRuntimeDefinition: awsEksKubernetesRuntimeDefinition,
+				Age:                               util.Ptr(util.GetAgeFormatted(awsEksKubernetesRuntimeInstance.CreatedAt)),
+			},
+		}
+		awsEksKubernetesRuntimeInstanceConfigs = append(awsEksKubernetesRuntimeInstanceConfigs, awsEksKubernetesRuntimeInstanceConfig)
 	}
 
 	return &awsEksKubernetesRuntimeInstanceConfigs, nil

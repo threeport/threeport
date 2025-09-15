@@ -41,8 +41,8 @@ func (k *KubernetesRuntimeInstanceValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]KubernetesRuntimeInstanceConfig, error) {
-	var kubernetesRuntimeInstanceConfigs []KubernetesRuntimeInstanceConfig
-
+	// get API objects
+	var kubernetesRuntimeInstances *[]api_v0.KubernetesRuntimeInstance
 	switch {
 	// if name is provided, get kubernetes runtime instance by name
 	case k.Name != nil:
@@ -50,36 +50,43 @@ func (k *KubernetesRuntimeInstanceValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get kubernetes runtime instance with name %s: %w", *k.Name, err)
 		}
-		kubernetesRuntimeInstanceConfig := KubernetesRuntimeInstanceConfig{
-			KubernetesRuntimeInstance: KubernetesRuntimeInstanceValues{
-				Age:                       util.Ptr(util.GetAgeFormatted(kubernetesRuntimeInstance.CreatedAt)),
-				Name:                      k.Name,
-				DefaultRuntime:            kubernetesRuntimeInstance.DefaultRuntime,
-				Location:                  kubernetesRuntimeInstance.Location,
-				ThreeportAgentImage:       kubernetesRuntimeInstance.ThreeportAgentImage,
-				ThreeportControlPlaneHost: kubernetesRuntimeInstance.ThreeportControlPlaneHost,
-			},
-		}
-		kubernetesRuntimeInstanceConfigs = append(kubernetesRuntimeInstanceConfigs, kubernetesRuntimeInstanceConfig)
+		kubernetesRuntimeInstances = &[]api_v0.KubernetesRuntimeInstance{*kubernetesRuntimeInstance}
 	// get all kubernetes runtime instances
 	default:
-		kubernetesRuntimeInstances, err := client_v0.GetKubernetesRuntimeInstances(apiClient, apiEndpoint)
+		allKubernetesRuntimeInstances, err := client_v0.GetKubernetesRuntimeInstances(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get kubernetes runtime instances from Threeport API: %w", err)
 		}
-		for _, kubernetesRuntimeInstance := range *kubernetesRuntimeInstances {
-			kubernetesRuntimeInstanceConfig := KubernetesRuntimeInstanceConfig{
-				KubernetesRuntimeInstance: KubernetesRuntimeInstanceValues{
-					Age:                       util.Ptr(util.GetAgeFormatted(kubernetesRuntimeInstance.CreatedAt)),
-					Name:                      kubernetesRuntimeInstance.Name,
-					DefaultRuntime:            kubernetesRuntimeInstance.DefaultRuntime,
-					Location:                  kubernetesRuntimeInstance.Location,
-					ThreeportAgentImage:       kubernetesRuntimeInstance.ThreeportAgentImage,
-					ThreeportControlPlaneHost: kubernetesRuntimeInstance.ThreeportControlPlaneHost,
-				},
+		kubernetesRuntimeInstances = allKubernetesRuntimeInstances
+	}
+
+	var kubernetesRuntimeInstanceConfigs []KubernetesRuntimeInstanceConfig
+	for _, kubernetesRuntimeInstance := range *kubernetesRuntimeInstances {
+		// related objects
+		var kubernetesRuntimeDefinition *KubernetesRuntimeDefinitionValues
+
+		// get kubernetes runtime definition
+		if kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID != nil {
+			krd, err := client_v0.GetKubernetesRuntimeDefinitionByID(apiClient, apiEndpoint, *kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID)
+			if err == nil {
+				kubernetesRuntimeDefinition = &KubernetesRuntimeDefinitionValues{
+					Name: krd.Name,
+				}
 			}
-			kubernetesRuntimeInstanceConfigs = append(kubernetesRuntimeInstanceConfigs, kubernetesRuntimeInstanceConfig)
 		}
+
+		kubernetesRuntimeInstanceConfig := KubernetesRuntimeInstanceConfig{
+			KubernetesRuntimeInstance: KubernetesRuntimeInstanceValues{
+				Name:                        kubernetesRuntimeInstance.Name,
+				ThreeportControlPlaneHost:   kubernetesRuntimeInstance.ThreeportControlPlaneHost,
+				DefaultRuntime:              kubernetesRuntimeInstance.DefaultRuntime,
+				Location:                    kubernetesRuntimeInstance.Location,
+				ThreeportAgentImage:         kubernetesRuntimeInstance.ThreeportAgentImage,
+				KubernetesRuntimeDefinition: kubernetesRuntimeDefinition,
+				Age:                         util.Ptr(util.GetAgeFormatted(kubernetesRuntimeInstance.CreatedAt)),
+			},
+		}
+		kubernetesRuntimeInstanceConfigs = append(kubernetesRuntimeInstanceConfigs, kubernetesRuntimeInstanceConfig)
 	}
 
 	return &kubernetesRuntimeInstanceConfigs, nil
@@ -291,4 +298,51 @@ func (k *KubernetesRuntimeInstanceValues) Validate() error {
 	}
 
 	return multiError.Error()
+}
+
+// getKubernetesRuntimeInstanceByNameOrDefault retrieves a kubernetes runtime instance by name or,
+// if no name is provided, returns the default kubernetes runtime instance.
+func getKubernetesRuntimeInstanceByNameOrDefault(
+	apiClient *http.Client,
+	apiEndpoint string,
+	kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues,
+) (*api_v0.KubernetesRuntimeInstance, error) {
+	// if no kubernetes runtime instance provided or no name provided, use default
+	if kubernetesRuntimeInstance == nil || kubernetesRuntimeInstance.Name == nil || *kubernetesRuntimeInstance.Name == "" {
+		return client_v0.GetDefaultKubernetesRuntimeInstance(apiClient, apiEndpoint)
+	}
+
+	return client_v0.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *kubernetesRuntimeInstance.Name)
+}
+
+// getKubernetesRuntimeInstanceAndCheckId retrieves a kubernetes runtime instance by name if provided
+// and checks that the ID matches the provided ID.  It returns false if they do not match.
+// If no kubernetes runtime instance name is provided, it returns the kubernetes runtime instance
+// with the provided ID and returns true.
+// This function is intended to be used for Replace operations where the object should not be moved
+// from one runtime to another.
+func getKubernetesRuntimeInstanceAndCheckId(
+	apiClient *http.Client,
+	apiEndpoint string,
+	kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues,
+	id *uint,
+) (*api_v0.KubernetesRuntimeInstance, bool, error) {
+	// get by ID if no name provided
+	if kubernetesRuntimeInstance == nil || kubernetesRuntimeInstance.Name == nil || *kubernetesRuntimeInstance.Name == "" {
+		kri, err := client_v0.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *id)
+		if err != nil {
+			return nil, false, fmt.Errorf("failed to get kubernetes runtime instance by ID: %w", err)
+		}
+		return kri, true, nil
+	}
+
+	// get by name if name provided and check to see if ID matches provided ID
+	kri, err := client_v0.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *kubernetesRuntimeInstance.Name)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to get kubernetes runtime instance by name: %w", err)
+	}
+	if *kri.ID != *id {
+		return nil, false, nil // ID does not match, return false
+	}
+	return kri, true, nil
 }

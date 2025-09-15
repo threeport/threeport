@@ -39,8 +39,8 @@ func (d *DomainNameInstanceValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]DomainNameInstanceConfig, error) {
-	var domainNameInstanceConfigs []DomainNameInstanceConfig
-
+	// get API objects
+	var domainNameInstances *[]api_v0.DomainNameInstance
 	switch {
 	// if name is provided, get domain name instance by name
 	case d.Name != nil:
@@ -48,28 +48,63 @@ func (d *DomainNameInstanceValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get domain name instance with name %s: %w", *d.Name, err)
 		}
-		domainNameInstanceConfig := DomainNameInstanceConfig{
-			DomainNameInstance: DomainNameInstanceValues{
-				Age:  util.Ptr(util.GetAgeFormatted(domainNameInstance.CreatedAt)),
-				Name: d.Name,
-			},
-		}
-		domainNameInstanceConfigs = append(domainNameInstanceConfigs, domainNameInstanceConfig)
+		domainNameInstances = &[]api_v0.DomainNameInstance{*domainNameInstance}
 	// get all domain name instances
 	default:
-		domainNameInstances, err := client_v0.GetDomainNameInstances(apiClient, apiEndpoint)
+		allDomainNameInstances, err := client_v0.GetDomainNameInstances(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get domain name instances from Threeport API: %w", err)
 		}
-		for _, domainNameInstance := range *domainNameInstances {
-			domainNameInstanceConfig := DomainNameInstanceConfig{
-				DomainNameInstance: DomainNameInstanceValues{
-					Age:  util.Ptr(util.GetAgeFormatted(domainNameInstance.CreatedAt)),
-					Name: domainNameInstance.Name,
-				},
+		domainNameInstances = allDomainNameInstances
+	}
+
+	var domainNameInstanceConfigs []DomainNameInstanceConfig
+	for _, domainNameInstance := range *domainNameInstances {
+		// related objects
+		var domainNameDefinition *DomainNameDefinitionValues
+		var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+		var workloadInstance *WorkloadInstanceValues
+
+		// get domain name definition
+		if domainNameInstance.DomainNameDefinitionID != nil {
+			dnd, err := client_v0.GetDomainNameDefinitionByID(apiClient, apiEndpoint, *domainNameInstance.DomainNameDefinitionID)
+			if err == nil {
+				domainNameDefinition = &DomainNameDefinitionValues{
+					Name: dnd.Name,
+				}
 			}
-			domainNameInstanceConfigs = append(domainNameInstanceConfigs, domainNameInstanceConfig)
 		}
+
+		// get kubernetes runtime instance
+		if domainNameInstance.KubernetesRuntimeInstanceID != nil {
+			kri, err := client_v0.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *domainNameInstance.KubernetesRuntimeInstanceID)
+			if err == nil {
+				kubernetesRuntimeInstance = &KubernetesRuntimeInstanceValues{
+					Name: kri.Name,
+				}
+			}
+		}
+
+		// get workload instance
+		if domainNameInstance.WorkloadInstanceID != nil {
+			wi, err := client_v0.GetWorkloadInstanceByID(apiClient, apiEndpoint, *domainNameInstance.WorkloadInstanceID)
+			if err == nil {
+				workloadInstance = &WorkloadInstanceValues{
+					Name: wi.Name,
+				}
+			}
+		}
+
+		domainNameInstanceConfig := DomainNameInstanceConfig{
+			DomainNameInstance: DomainNameInstanceValues{
+				Name:                      domainNameInstance.Name,
+				DomainNameDefinition:      domainNameDefinition,
+				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
+				WorkloadInstance:          workloadInstance,
+				Age:                       util.Ptr(util.GetAgeFormatted(domainNameInstance.CreatedAt)),
+			},
+		}
+		domainNameInstanceConfigs = append(domainNameInstanceConfigs, domainNameInstanceConfig)
 	}
 
 	return &domainNameInstanceConfigs, nil
@@ -85,25 +120,14 @@ func (d *DomainNameInstanceValues) Create(
 		return nil, fmt.Errorf("failed to validate values for domain name instance with name %s: %w", *d.Name, err)
 	}
 
-	// get kubernetes runtime instance API object
-	var kubernetesRuntimeInstance api_v0.KubernetesRuntimeInstance
-	if d.KubernetesRuntimeInstance == nil {
-		// get default kubernetes runtime instance
-		kubernetesRuntimeInst, err := client_v0.GetDefaultKubernetesRuntimeInstance(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("kubernetes runtime instance not provided and failed to find default kubernetes runtime instance: %w", err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
-	} else {
-		kubernetesRuntimeInst, err := client_v0.GetKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*d.KubernetesRuntimeInstance.Name,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find kubernetes runtime instance by name %s: %w", *d.KubernetesRuntimeInstance.Name, err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
+	// get kubernetes runtime instance
+	kubernetesRuntimeInstance, err := getKubernetesRuntimeInstanceByNameOrDefault(
+		apiClient,
+		apiEndpoint,
+		d.KubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
 	// get workload instance

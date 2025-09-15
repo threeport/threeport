@@ -40,8 +40,8 @@ func (h *HelmWorkloadInstanceValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]HelmWorkloadInstanceConfig, error) {
-	var helmWorkloadInstanceConfigs []HelmWorkloadInstanceConfig
-
+	// get API objects
+	var helmWorkloadInstances *[]api_v0.HelmWorkloadInstance
 	switch {
 	// if name is provided, get helm workload instance by name
 	case h.Name != nil:
@@ -49,32 +49,53 @@ func (h *HelmWorkloadInstanceValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get helm workload instance with name %s: %w", *h.Name, err)
 		}
-		helmWorkloadInstanceConfig := HelmWorkloadInstanceConfig{
-			HelmWorkloadInstance: HelmWorkloadInstanceValues{
-				Age:              util.Ptr(util.GetAgeFormatted(helmWorkloadInstance.CreatedAt)),
-				Name:             h.Name,
-				Values:           helmWorkloadInstance.ValuesDocument,
-				ReleaseNamespace: helmWorkloadInstance.ReleaseNamespace,
-			},
-		}
-		helmWorkloadInstanceConfigs = append(helmWorkloadInstanceConfigs, helmWorkloadInstanceConfig)
+		helmWorkloadInstances = &[]api_v0.HelmWorkloadInstance{*helmWorkloadInstance}
 	// get all helm workload instances
 	default:
-		helmWorkloadInstances, err := client_v0.GetHelmWorkloadInstances(apiClient, apiEndpoint)
+		allHelmWorkloadInstances, err := client_v0.GetHelmWorkloadInstances(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get helm workload instances from Threeport API: %w", err)
 		}
-		for _, helmWorkloadInstance := range *helmWorkloadInstances {
-			helmWorkloadInstanceConfig := HelmWorkloadInstanceConfig{
-				HelmWorkloadInstance: HelmWorkloadInstanceValues{
-					Age:              util.Ptr(util.GetAgeFormatted(helmWorkloadInstance.CreatedAt)),
-					Name:             helmWorkloadInstance.Name,
-					Values:           helmWorkloadInstance.ValuesDocument,
-					ReleaseNamespace: helmWorkloadInstance.ReleaseNamespace,
-				},
+		helmWorkloadInstances = allHelmWorkloadInstances
+	}
+
+	var helmWorkloadInstanceConfigs []HelmWorkloadInstanceConfig
+	for _, helmWorkloadInstance := range *helmWorkloadInstances {
+		// related objects
+		var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+		var helmWorkloadDefinition *HelmWorkloadDefinitionValues
+
+		// get kubernetes runtime instance
+		if helmWorkloadInstance.KubernetesRuntimeInstanceID != nil {
+			kri, err := client_v0.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *helmWorkloadInstance.KubernetesRuntimeInstanceID)
+			if err == nil {
+				kubernetesRuntimeInstance = &KubernetesRuntimeInstanceValues{
+					Name: kri.Name,
+				}
 			}
-			helmWorkloadInstanceConfigs = append(helmWorkloadInstanceConfigs, helmWorkloadInstanceConfig)
 		}
+
+		// get helm workload definition
+		if helmWorkloadInstance.HelmWorkloadDefinitionID != nil {
+			hwd, err := client_v0.GetHelmWorkloadDefinitionByID(apiClient, apiEndpoint, *helmWorkloadInstance.HelmWorkloadDefinitionID)
+			if err == nil {
+				helmWorkloadDefinition = &HelmWorkloadDefinitionValues{
+					Name: hwd.Name,
+				}
+			}
+		}
+
+		helmWorkloadInstanceConfig := HelmWorkloadInstanceConfig{
+			HelmWorkloadInstance: HelmWorkloadInstanceValues{
+				Name:                      helmWorkloadInstance.Name,
+				Values:                    helmWorkloadInstance.ValuesDocument,
+				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
+				ReleaseNamespace:          helmWorkloadInstance.ReleaseNamespace,
+				HelmWorkloadDefinition:    helmWorkloadDefinition,
+				Age:                       util.Ptr(util.GetAgeFormatted(helmWorkloadInstance.CreatedAt)),
+			},
+		}
+		helmWorkloadInstanceConfigs = append(helmWorkloadInstanceConfigs, helmWorkloadInstanceConfig)
 	}
 
 	return &helmWorkloadInstanceConfigs, nil
@@ -90,25 +111,14 @@ func (h *HelmWorkloadInstanceValues) Create(
 		return nil, fmt.Errorf("failed to validate values for helm workload instance with name %s: %w", *h.Name, err)
 	}
 
-	// get kubernetes runtime instance API object
-	var kubernetesRuntimeInstance api_v0.KubernetesRuntimeInstance
-	if h.KubernetesRuntimeInstance == nil {
-		// get default kubernetes runtime instance
-		kubernetesRuntimeInst, err := client_v0.GetDefaultKubernetesRuntimeInstance(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("kubernetes runtime instance not provided and failed to find default kubernetes runtime instance: %w", err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
-	} else {
-		kubernetesRuntimeInst, err := client_v0.GetKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*h.KubernetesRuntimeInstance.Name,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find kubernetes runtime instance by name %s: %w", *h.KubernetesRuntimeInstance.Name, err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
+	// get kubernetes runtime instance
+	kubernetesRuntimeInstance, err := getKubernetesRuntimeInstanceByNameOrDefault(
+		apiClient,
+		apiEndpoint,
+		h.KubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
 	// get helm workload definition by name
@@ -191,25 +201,21 @@ func (h *HelmWorkloadInstanceValues) Replace(
 		return nil, fmt.Errorf("failed to find helm workload instance with name %s: %w", name, err)
 	}
 
-	// get kubernetes runtime instance API object for update
-	var kubernetesRuntimeInstance api_v0.KubernetesRuntimeInstance
-	if h.KubernetesRuntimeInstance == nil {
-		// get default kubernetes runtime instance
-		kubernetesRuntimeInst, err := client_v0.GetDefaultKubernetesRuntimeInstance(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("kubernetes runtime instance not provided and failed to find default kubernetes runtime instance: %w", err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
-	} else {
-		kubernetesRuntimeInst, err := client_v0.GetKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*h.KubernetesRuntimeInstance.Name,
+	// ensure user is not trying to move the helm workload to a different runtime
+	kubernetesRuntimeInstance, moved, err := getKubernetesRuntimeInstanceAndCheckId(
+		apiClient,
+		apiEndpoint,
+		h.KubernetesRuntimeInstance,
+		existingHelmWorkloadInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+	if moved {
+		return nil, fmt.Errorf(
+			"a helm workload may not be moved from its current runtime to %s - if %[1]s runtime needs this helm workload, create a new instance there instead",
+			*kubernetesRuntimeInstance.Name,
 		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find kubernetes runtime instance by name %s: %w", *h.KubernetesRuntimeInstance.Name, err)
-		}
-		kubernetesRuntimeInstance = *kubernetesRuntimeInst
 	}
 
 	// get helm workload definition by name for update

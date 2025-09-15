@@ -39,8 +39,8 @@ func (w *WorkloadInstanceValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]WorkloadInstanceConfig, error) {
-	var workloadInstanceConfigs []WorkloadInstanceConfig
-
+	// get API objects
+	var workloadInstances *[]api_v0.WorkloadInstance
 	switch {
 	// if name is provided, get workload instance by name
 	case w.Name != nil:
@@ -48,7 +48,19 @@ func (w *WorkloadInstanceValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *w.Name, err)
 		}
-		// get related objects
+		workloadInstances = &[]api_v0.WorkloadInstance{*workloadInstance}
+	// get all workload instances
+	default:
+		allWorkloadInstances, err := client_v0.GetWorkloadInstances(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workload instances from Threeport API: %w", err)
+		}
+		workloadInstances = allWorkloadInstances
+	}
+
+	var workloadInstanceConfigs []WorkloadInstanceConfig
+	for _, workloadInstance := range *workloadInstances {
+		// related objects
 		var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
 		var workloadDefinition *WorkloadDefinitionValues
 
@@ -81,47 +93,6 @@ func (w *WorkloadInstanceValues) Get(
 			},
 		}
 		workloadInstanceConfigs = append(workloadInstanceConfigs, workloadInstanceConfig)
-	// get all workload instances
-	default:
-		workloadInstances, err := client_v0.GetWorkloadInstances(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workload instances from Threeport API: %w", err)
-		}
-		for _, workloadInstance := range *workloadInstances {
-			// get related objects (simplified for list view)
-			var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
-			var workloadDefinition *WorkloadDefinitionValues
-
-			// get kubernetes runtime instance
-			if workloadInstance.KubernetesRuntimeInstanceID != nil {
-				kri, err := client_v0.GetKubernetesRuntimeInstanceByID(apiClient, apiEndpoint, *workloadInstance.KubernetesRuntimeInstanceID)
-				if err == nil {
-					kubernetesRuntimeInstance = &KubernetesRuntimeInstanceValues{
-						Name: kri.Name,
-					}
-				}
-			}
-
-			// get workload definition
-			if workloadInstance.WorkloadDefinitionID != nil {
-				wd, err := client_v0.GetWorkloadDefinitionByID(apiClient, apiEndpoint, *workloadInstance.WorkloadDefinitionID)
-				if err == nil {
-					workloadDefinition = &WorkloadDefinitionValues{
-						Name: wd.Name,
-					}
-				}
-			}
-
-			workloadInstanceConfig := WorkloadInstanceConfig{
-				WorkloadInstance: WorkloadInstanceValues{
-					Name:                      workloadInstance.Name,
-					KubernetesRuntimeInstance: kubernetesRuntimeInstance,
-					WorkloadDefinition:        workloadDefinition,
-					Age:                       util.Ptr(util.GetAgeFormatted(workloadInstance.CreatedAt)),
-				},
-			}
-			workloadInstanceConfigs = append(workloadInstanceConfigs, workloadInstanceConfig)
-		}
 	}
 
 	return &workloadInstanceConfigs, nil
@@ -137,28 +108,14 @@ func (w *WorkloadInstanceValues) Create(
 		return nil, fmt.Errorf("failed to validate values for workload instance with name %s: %w", *w.Name, err)
 	}
 
-	// inline kubernetes runtime instance resolution logic
-	var kri *api_v0.KubernetesRuntimeInstance
-	var err error
-	if w.KubernetesRuntimeInstance != nil && w.KubernetesRuntimeInstance.Name != nil {
-		kri, err = client_v0.GetKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*w.KubernetesRuntimeInstance.Name,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-		}
-	} else {
-		// get default kubernetes runtime instance if none specified
-		kubernetesRuntimeInstances, err := client_v0.GetKubernetesRuntimeInstancesByQueryString(apiClient, apiEndpoint, "defaultruntime=true")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get default kubernetes runtime instance: %w", err)
-		}
-		if len(*kubernetesRuntimeInstances) == 0 {
-			return nil, fmt.Errorf("no default kubernetes runtime instance found - one must be configured with DefaultRuntime=true")
-		}
-		kri = &(*kubernetesRuntimeInstances)[0]
+	// get kubernetes runtime instance
+	kubernetesRuntimeInstance, err := getKubernetesRuntimeInstanceByNameOrDefault(
+		apiClient,
+		apiEndpoint,
+		w.KubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
 	// get workload definition by name
@@ -215,7 +172,7 @@ func (w *WorkloadInstanceValues) Create(
 		for _, rName := range runtimeNames {
 			// if the workload instance is using a cluster that already has an
 			// instance for this definition, return error
-			if rName == *kri.Name {
+			if rName == *kubernetesRuntimeInstance.Name {
 				return nil, errors.New("only one workload instance per Kubernetes runtime may be deployed when a Kubernetes namespace is included in the workload definition YAMLDocument\nif you would like to deploy this workload to the same Kubernetes runtime (and continue to manage namespaces), you will need a new workload definition that uses a different namespace")
 			}
 		}
@@ -226,7 +183,7 @@ func (w *WorkloadInstanceValues) Create(
 		Instance: api_v0.Instance{
 			Name: w.Name,
 		},
-		KubernetesRuntimeInstanceID: kri.ID,
+		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		WorkloadDefinitionID:        workloadDefinition.ID,
 	}
 
@@ -277,27 +234,21 @@ func (w *WorkloadInstanceValues) Replace(
 		return nil, fmt.Errorf("failed to find workload instance with name %s: %w", name, err)
 	}
 
-	// inline kubernetes runtime instance resolution logic
-	var kri *api_v0.KubernetesRuntimeInstance
-	if w.KubernetesRuntimeInstance != nil && w.KubernetesRuntimeInstance.Name != nil {
-		kri, err = client_v0.GetKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*w.KubernetesRuntimeInstance.Name,
+	// ensure user is not trying to move the workload to a different runtime
+	kubernetesRuntimeInstance, moved, err := getKubernetesRuntimeInstanceAndCheckId(
+		apiClient,
+		apiEndpoint,
+		w.KubernetesRuntimeInstance,
+		existingWorkloadInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
+	}
+	if moved {
+		return nil, fmt.Errorf(
+			"a workload may not be moved from its current runtime to %s - if %[1]s runtime needs this workload, create a new instance there instead",
+			*kubernetesRuntimeInstance.Name,
 		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
-		}
-	} else {
-		// get default kubernetes runtime instance if none specified
-		kubernetesRuntimeInstances, err := client_v0.GetKubernetesRuntimeInstancesByQueryString(apiClient, apiEndpoint, "defaultruntime=true")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get default kubernetes runtime instance: %w", err)
-		}
-		if len(*kubernetesRuntimeInstances) == 0 {
-			return nil, fmt.Errorf("no default kubernetes runtime instance found - one must be configured with DefaultRuntime=true")
-		}
-		kri = &(*kubernetesRuntimeInstances)[0]
 	}
 
 	// get workload definition by name
@@ -318,7 +269,7 @@ func (w *WorkloadInstanceValues) Replace(
 		Instance: api_v0.Instance{
 			Name: w.Name,
 		},
-		KubernetesRuntimeInstanceID: kri.ID,
+		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		WorkloadDefinitionID:        workloadDefinition.ID,
 	}
 

@@ -40,8 +40,8 @@ func (t *TerraformInstanceValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]TerraformInstanceConfig, error) {
-	var terraformInstanceConfigs []TerraformInstanceConfig
-
+	// get API objects
+	var terraformInstances *[]api_v0.TerraformInstance
 	switch {
 	// if name is provided, get terraform instance by name
 	case t.Name != nil:
@@ -49,7 +49,19 @@ func (t *TerraformInstanceValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get terraform instance with name %s: %w", *t.Name, err)
 		}
-		// get related objects
+		terraformInstances = &[]api_v0.TerraformInstance{*terraformInstance}
+	// get all terraform instances
+	default:
+		allTerraformInstances, err := client_v0.GetTerraformInstances(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get terraform instances from Threeport API: %w", err)
+		}
+		terraformInstances = allTerraformInstances
+	}
+
+	var terraformInstanceConfigs []TerraformInstanceConfig
+	for _, terraformInstance := range *terraformInstances {
+		// related objects
 		var awsAccount *AwsAccountValues
 		var terraformDefinition *TerraformDefinitionValues
 
@@ -83,48 +95,6 @@ func (t *TerraformInstanceValues) Get(
 			},
 		}
 		terraformInstanceConfigs = append(terraformInstanceConfigs, terraformInstanceConfig)
-	// get all terraform instances
-	default:
-		terraformInstances, err := client_v0.GetTerraformInstances(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get terraform instances from Threeport API: %w", err)
-		}
-		for _, terraformInstance := range *terraformInstances {
-			// get related objects (simplified for list view)
-			var awsAccount *AwsAccountValues
-			var terraformDefinition *TerraformDefinitionValues
-
-			// get AWS account
-			if terraformInstance.AwsAccountID != nil {
-				awsAcc, err := client_v0.GetAwsAccountByID(apiClient, apiEndpoint, *terraformInstance.AwsAccountID)
-				if err == nil {
-					awsAccount = &AwsAccountValues{
-						Name: awsAcc.Name,
-					}
-				}
-			}
-
-			// get terraform definition
-			if terraformInstance.TerraformDefinitionID != nil {
-				terraformDef, err := client_v0.GetTerraformDefinitionByID(apiClient, apiEndpoint, *terraformInstance.TerraformDefinitionID)
-				if err == nil {
-					terraformDefinition = &TerraformDefinitionValues{
-						Name: terraformDef.Name,
-					}
-				}
-			}
-
-			terraformInstanceConfig := TerraformInstanceConfig{
-				TerraformInstance: TerraformInstanceValues{
-					Name:                terraformInstance.Name,
-					AwsAccount:          awsAccount,
-					VarsDocument:        terraformInstance.VarsDocument,
-					TerraformDefinition: terraformDefinition,
-					Age:                 util.Ptr(util.GetAgeFormatted(terraformInstance.CreatedAt)),
-				},
-			}
-			terraformInstanceConfigs = append(terraformInstanceConfigs, terraformInstanceConfig)
-		}
 	}
 
 	return &terraformInstanceConfigs, nil
