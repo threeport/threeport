@@ -35,46 +35,51 @@ type WorkloadValues struct {
 func (w *WorkloadValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*WorkloadDefinitionConfig, *WorkloadInstanceConfig, error) {
+) (*[]WorkloadConfig, error) {
 	// get operations
-	operations, workloadDefinition, workloadInstance := w.GetOperations(
+	operations, workloadDefinitions, workloadInstances := w.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute get operations
 	if err := operations.Get(); err != nil {
-		return nil, nil, fmt.Errorf(
-			"failed to execute get operations for workload defined instance with name %s: %w",
-			*w.Name,
+		return nil, fmt.Errorf(
+			"failed to execute get operations for workload defined instances: %w",
 			err,
 		)
 	}
 
-	return workloadDefinition, workloadInstance, nil
+	// assemble the defined instances
+	workloadConfigs := mapToWorkloadDefinedInstances(workloadDefinitions, workloadInstances)
+
+	return workloadConfigs, nil
 }
 
 // Create creates a workload definition and instance in the Threeport API.
 func (w *WorkloadValues) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*WorkloadDefinitionConfig, *WorkloadInstanceConfig, error) {
+) (*[]WorkloadConfig, error) {
 	// get operations
-	operations, workloadDefinition, workloadInstance := w.GetOperations(
+	operations, workloadDefinitions, workloadInstances := w.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute create operations for workload defined instance with name %s: %w",
 			*w.Name,
 			err,
 		)
 	}
 
-	return workloadDefinition, workloadInstance, nil
+	// assemble the defined instances
+	workloadConfigs := mapToWorkloadDefinedInstances(workloadDefinitions, workloadInstances)
+
+	return workloadConfigs, nil
 }
 
 // Replace replaces a workload definition and instance in the Threeport API.
@@ -82,30 +87,33 @@ func (w *WorkloadValues) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
-) (*WorkloadDefinitionConfig, *WorkloadInstanceConfig, error) {
+) (*[]WorkloadConfig, error) {
 	// get operations
-	operations, workloadDefinition, workloadInstance := w.GetOperations(
+	operations, workloadDefinitions, workloadInstances := w.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute replace operations
 	if err := operations.Replace(name); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute replace operations for workload defined instance with name %s: %w",
 			name,
 			err,
 		)
 	}
 
-	return workloadDefinition, workloadInstance, nil
+	// assemble the defined instances
+	workloadConfigs := mapToWorkloadDefinedInstances(workloadDefinitions, workloadInstances)
+
+	return workloadConfigs, nil
 }
 
 // Delete deletes a workload definition and instance from the Threeport API.
 func (w *WorkloadValues) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*WorkloadDefinitionConfig, *WorkloadInstanceConfig, error) {
+) (*[]WorkloadConfig, error) {
 	// get operations
 	operations, _, _ := w.GetOperations(
 		apiClient,
@@ -114,14 +122,14 @@ func (w *WorkloadValues) Delete(
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute delete operations for workload defined instance with name %s: %w",
 			*w.Name,
 			err,
 		)
 	}
 
-	return nil, nil, nil
+	return nil, nil
 }
 
 // GetOperations returns a slice of operations used to get, create, replace or delete
@@ -129,10 +137,10 @@ func (w *WorkloadValues) Delete(
 func (w *WorkloadValues) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*util.Operations, *WorkloadDefinitionConfig, *WorkloadInstanceConfig) {
+) (*util.Operations, *[]WorkloadDefinitionConfig, *[]WorkloadInstanceConfig) {
 	var err error
-	var operatedWorkloadDefinition WorkloadDefinitionConfig
-	var operatedWorkloadInstance WorkloadInstanceConfig
+	var operatedWorkloadDefinitions []WorkloadDefinitionConfig
+	var operatedWorkloadInstances []WorkloadInstanceConfig
 
 	operations := util.Operations{}
 
@@ -148,7 +156,7 @@ func (w *WorkloadValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to create workload definition with name %s: %w", *w.Name, err)
 			}
-			operatedWorkloadDefinition = *workloadDefinition
+			operatedWorkloadDefinitions = append(operatedWorkloadDefinitions, *workloadDefinition)
 			return nil
 		},
 		Delete: func() error {
@@ -159,17 +167,14 @@ func (w *WorkloadValues) GetOperations(
 			return nil
 		},
 		Get: func() error {
-			workloadDefinition, err := workloadDefinitionValues.Get(apiClient, apiEndpoint)
+			workloadDefinitions, err := workloadDefinitionValues.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get workload definition with name %s: %w", *w.Name, err)
+				return fmt.Errorf("failed to get workload definitions: %w", err)
 			}
-			if len(*workloadDefinition) == 0 {
-				return fmt.Errorf("failed to find workload definition with name %s: %w", *w.Name, err)
+			if len(*workloadDefinitions) == 0 {
+				return fmt.Errorf("failed to find any workload definitions: %w", err)
 			}
-			if len(*workloadDefinition) > 1 {
-				return fmt.Errorf("multiple workload definitions found with name %s: %w", *w.Name, err)
-			}
-			operatedWorkloadDefinition = (*workloadDefinition)[0]
+			operatedWorkloadDefinitions = append(operatedWorkloadDefinitions, *workloadDefinitions...)
 			return nil
 		},
 		Name: "workload definition",
@@ -178,7 +183,7 @@ func (w *WorkloadValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to replace workload definition with name %s: %w", name, err)
 			}
-			operatedWorkloadDefinition = *workloadDefinition
+			operatedWorkloadDefinitions = append(operatedWorkloadDefinitions, *workloadDefinition)
 			return nil
 		},
 	})
@@ -195,7 +200,7 @@ func (w *WorkloadValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to create workload instance with name %s: %w", *w.Name, err)
 			}
-			operatedWorkloadInstance = *workloadInstance
+			operatedWorkloadInstances = append(operatedWorkloadInstances, *workloadInstance)
 			return nil
 		},
 		Delete: func() error {
@@ -216,7 +221,7 @@ func (w *WorkloadValues) GetOperations(
 			if len(*workloadInstance) > 1 {
 				return fmt.Errorf("multiple workload instances found with name %s: %w", *w.Name, err)
 			}
-			operatedWorkloadInstance = (*workloadInstance)[0]
+			operatedWorkloadInstances = append(operatedWorkloadInstances, (*workloadInstance)[0])
 			return nil
 		},
 		Name: "workload instance",
@@ -225,7 +230,7 @@ func (w *WorkloadValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to replace workload definition with name %s: %w", name, err)
 			}
-			operatedWorkloadInstance = *workloadInstance
+			operatedWorkloadInstances = append(operatedWorkloadInstances, *workloadInstance)
 			return nil
 		},
 	})
@@ -395,14 +400,14 @@ func (w *WorkloadValues) GetOperations(
 		operations.AppendOperation(util.Operation{
 			Name: "secret",
 			Create: func() error {
-				_, _, err := secret.Create(apiClient, apiEndpoint)
+				_, err := secret.Create(apiClient, apiEndpoint)
 				if err != nil {
 					return fmt.Errorf("failed to create secret defined instance with name %s: %w", *w.Secret.Name, err)
 				}
 				return nil
 			},
 			Delete: func() error {
-				_, _, err := secret.Delete(apiClient, apiEndpoint)
+				_, err := secret.Delete(apiClient, apiEndpoint)
 				if err != nil {
 					return fmt.Errorf("failed to delete secret defined instance with name %s: %w", *w.Secret.Name, err)
 				}
@@ -413,7 +418,7 @@ func (w *WorkloadValues) GetOperations(
 				return nil
 			},
 			Replace: func(name string) error {
-				_, _, err := secret.Replace(apiClient, apiEndpoint, name)
+				_, err := secret.Replace(apiClient, apiEndpoint, name)
 				if err != nil {
 					return fmt.Errorf("failed to replace secret defined instance with name %s: %w", name, err)
 				}
@@ -422,5 +427,42 @@ func (w *WorkloadValues) GetOperations(
 		})
 	}
 
-	return &operations, &operatedWorkloadDefinition, &operatedWorkloadInstance
+	return &operations, &operatedWorkloadDefinitions, &operatedWorkloadInstances
+}
+
+// mapToWorkloadDefinedInstances maps a slice of workload definition and instance configs
+// to a slice of workload config objects
+func mapToWorkloadDefinedInstances(
+	workloadDefinitions *[]WorkloadDefinitionConfig,
+	workloadInstances *[]WorkloadInstanceConfig,
+) *[]WorkloadConfig {
+	var workloadConfigs []WorkloadConfig
+	for _, inst := range *workloadInstances {
+		for _, def := range *workloadDefinitions {
+			instName := *inst.WorkloadInstance.Name
+			defName := *def.WorkloadDefinition.Name
+			// a defined instance must have matching names for definition and instance
+			// and the definition must be associated with the instance
+			if instName == defName && *inst.WorkloadInstance.WorkloadDefinition.Name == *def.WorkloadDefinition.Name {
+				workloadConfig := WorkloadConfig{
+					Workload: WorkloadValues{
+						Name:                      inst.WorkloadInstance.Name,
+						YAMLDocument:              def.WorkloadDefinition.YAMLDocument,
+						WorkloadConfigPath:        def.WorkloadDefinition.WorkloadConfigPath,
+						KubernetesRuntimeInstance: inst.WorkloadInstance.KubernetesRuntimeInstance,
+						//DomainName:                inst.WorkloadInstance.DomainName,
+						//Gateway:                   inst.WorkloadInstance.Gateway,
+						//Secret:                    inst.WorkloadInstance.Secret,
+						Age: inst.WorkloadInstance.Age,
+					},
+				}
+				workloadConfigs = append(workloadConfigs, workloadConfig)
+				// an instance can only have one matching definition for a defined instance
+				// we can break out of the loop after finding the first matching definition
+				break
+			}
+		}
+	}
+
+	return &workloadConfigs
 }

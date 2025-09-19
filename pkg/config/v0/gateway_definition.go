@@ -32,6 +32,22 @@ type GatewayDefinitionValues struct {
 	Age                  *string                     `yaml:"Age"`
 }
 
+// GatewayHttpPortValues contains the attributes needed to manage a gateway
+// http port.
+type GatewayHttpPortValues struct {
+	Port          *int    `yaml:"Port"`
+	Path          *string `yaml:"Path"`
+	TLSEnabled    *bool   `yaml:"TLSEnabled"`
+	HTTPSRedirect *bool   `yaml:"HTTPSRedirect"`
+}
+
+// GatewayTcpPortValues contains the attributes needed to manage a gateway
+// tcp port.
+type GatewayTcpPortValues struct {
+	Port       *int  `yaml:"Port"`
+	TLSEnabled *bool `yaml:"TLSEnabled"`
+}
+
 // Get gets gateway definitions from the Threeport API.
 // If the name is set in the GatewayDefinitionValues, it will return the gateway definition with that name.
 // If the name is not set, it will return all gateway definitions.

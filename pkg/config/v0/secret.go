@@ -35,46 +35,51 @@ type SecretValues struct {
 func (s *SecretValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*SecretDefinitionConfig, *SecretInstanceConfig, error) {
+) (*[]SecretConfig, error) {
 	// get operations
-	operations, secretDefinition, secretInstance := s.GetOperations(
+	operations, secretDefinitions, secretInstances := s.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute get operations
 	if err := operations.Get(); err != nil {
-		return nil, nil, fmt.Errorf(
-			"failed to execute get operations for secret defined instance with name %s: %w",
-			*s.Name,
+		return nil, fmt.Errorf(
+			"failed to execute get operations for secret defined instances: %w",
 			err,
 		)
 	}
 
-	return secretDefinition, secretInstance, nil
+	// assemble the defined instances
+	secretConfigs := mapToSecretDefinedInstances(secretDefinitions, secretInstances)
+
+	return secretConfigs, nil
 }
 
 // Create creates a secret definition and instance in the Threeport API.
 func (s *SecretValues) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*SecretDefinitionConfig, *SecretInstanceConfig, error) {
+) (*[]SecretConfig, error) {
 	// get operations
-	operations, secretDefinition, secretInstance := s.GetOperations(
+	operations, secretDefinitions, secretInstances := s.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute create operations for secret defined instance with name %s: %w",
 			*s.Name,
 			err,
 		)
 	}
 
-	return secretDefinition, secretInstance, nil
+	// assemble the defined instances
+	secretConfigs := mapToSecretDefinedInstances(secretDefinitions, secretInstances)
+
+	return secretConfigs, nil
 }
 
 // Replace replaces a secret definition and instance in the Threeport API.
@@ -82,30 +87,33 @@ func (s *SecretValues) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
-) (*SecretDefinitionConfig, *SecretInstanceConfig, error) {
+) (*[]SecretConfig, error) {
 	// get operations
-	operations, secretDefinition, secretInstance := s.GetOperations(
+	operations, secretDefinitions, secretInstances := s.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute replace operations
 	if err := operations.Replace(name); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute replace operations for secret defined instance with name %s: %w",
 			name,
 			err,
 		)
 	}
 
-	return secretDefinition, secretInstance, nil
+	// assemble the defined instances
+	secretConfigs := mapToSecretDefinedInstances(secretDefinitions, secretInstances)
+
+	return secretConfigs, nil
 }
 
 // Delete deletes a secret definition and instance from the Threeport API.
 func (s *SecretValues) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*SecretDefinitionConfig, *SecretInstanceConfig, error) {
+) (*[]SecretConfig, error) {
 	// get operations
 	operations, _, _ := s.GetOperations(
 		apiClient,
@@ -114,14 +122,14 @@ func (s *SecretValues) Delete(
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute delete operations for secret defined instance with name %s: %w",
 			*s.Name,
 			err,
 		)
 	}
 
-	return nil, nil, nil
+	return nil, nil
 }
 
 // GetOperations returns a slice of operations used to get, create, replace or delete
@@ -129,10 +137,10 @@ func (s *SecretValues) Delete(
 func (s *SecretValues) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*util.Operations, *SecretDefinitionConfig, *SecretInstanceConfig) {
+) (*util.Operations, *[]SecretDefinitionConfig, *[]SecretInstanceConfig) {
 	var err error
-	var operatedSecretDefinition SecretDefinitionConfig
-	var operatedSecretInstance SecretInstanceConfig
+	var operatedSecretDefinitions []SecretDefinitionConfig
+	var operatedSecretInstances []SecretInstanceConfig
 
 	operations := util.Operations{}
 
@@ -149,7 +157,7 @@ func (s *SecretValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to create secret definition with name %s: %w", *s.Name, err)
 			}
-			operatedSecretDefinition = *secretDefinition
+			operatedSecretDefinitions = append(operatedSecretDefinitions, *secretDefinition)
 			return nil
 		},
 		Delete: func() error {
@@ -160,17 +168,14 @@ func (s *SecretValues) GetOperations(
 			return nil
 		},
 		Get: func() error {
-			secretDefinition, err := secretDefinitionValues.Get(apiClient, apiEndpoint)
+			secretDefinitions, err := secretDefinitionValues.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get secret definition with name %s: %w", *s.Name, err)
+				return fmt.Errorf("failed to get secret definitions: %w", err)
 			}
-			if len(*secretDefinition) == 0 {
-				return fmt.Errorf("failed to find secret definition with name %s: %w", *s.Name, err)
+			if len(*secretDefinitions) == 0 {
+				return fmt.Errorf("failed to find any secret definitions: %w", err)
 			}
-			if len(*secretDefinition) > 1 {
-				return fmt.Errorf("multiple secret definitions found with name %s: %w", *s.Name, err)
-			}
-			operatedSecretDefinition = (*secretDefinition)[0]
+			operatedSecretDefinitions = append(operatedSecretDefinitions, *secretDefinitions...)
 			return nil
 		},
 		Name: "secret definition",
@@ -179,7 +184,7 @@ func (s *SecretValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to replace secret definition with name %s: %w", name, err)
 			}
-			operatedSecretDefinition = *secretDefinition
+			operatedSecretDefinitions = append(operatedSecretDefinitions, *secretDefinition)
 			return nil
 		},
 	})
@@ -199,7 +204,7 @@ func (s *SecretValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to create secret instance with name %s: %w", *s.Name, err)
 			}
-			operatedSecretInstance = *secretInstance
+			operatedSecretInstances = append(operatedSecretInstances, *secretInstance)
 			return nil
 		},
 		Delete: func() error {
@@ -220,7 +225,7 @@ func (s *SecretValues) GetOperations(
 			if len(*secretInstance) > 1 {
 				return fmt.Errorf("multiple secret instances found with name %s: %w", *s.Name, err)
 			}
-			operatedSecretInstance = (*secretInstance)[0]
+			operatedSecretInstances = append(operatedSecretInstances, (*secretInstance)[0])
 			return nil
 		},
 		Name: "secret instance",
@@ -229,10 +234,47 @@ func (s *SecretValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to replace secret definition with name %s: %w", name, err)
 			}
-			operatedSecretInstance = *secretInstance
+			operatedSecretInstances = append(operatedSecretInstances, *secretInstance)
 			return nil
 		},
 	})
 
-	return &operations, &operatedSecretDefinition, &operatedSecretInstance
+	return &operations, &operatedSecretDefinitions, &operatedSecretInstances
+}
+
+// mapToSecretDefinedInstances maps a slice of secret definition and instance configs
+// to a slice of secret config objects
+func mapToSecretDefinedInstances(
+	secretDefinitions *[]SecretDefinitionConfig,
+	secretInstances *[]SecretInstanceConfig,
+) *[]SecretConfig {
+	var secretConfigs []SecretConfig
+	for _, inst := range *secretInstances {
+		for _, def := range *secretDefinitions {
+			instName := *inst.SecretInstance.Name
+			defName := *def.SecretDefinition.Name
+			// a defined instance must have matching names for definition and instance
+			// and the definition must be associated with the instance
+			if instName == defName && *inst.SecretInstance.SecretDefinition.Name == *def.SecretDefinition.Name {
+				secretConfig := SecretConfig{
+					Secret: SecretValues{
+						Name:                      inst.SecretInstance.Name,
+						Data:                      def.SecretDefinition.Data,
+						AwsAccountName:            def.SecretDefinition.AwsAccountName,
+						SecretConfigPath:          inst.SecretInstance.SecretConfigPath,
+						WorkloadInstance:          inst.SecretInstance.WorkloadInstance,
+						HelmWorkloadInstance:      inst.SecretInstance.HelmWorkloadInstance,
+						KubernetesRuntimeInstance: inst.SecretInstance.KubernetesRuntimeInstance,
+						Age:                       inst.SecretInstance.Age,
+					},
+				}
+				secretConfigs = append(secretConfigs, secretConfig)
+				// an instance can only have one matching definition for a defined instance
+				// we can break out of the loop after finding the first matching definition
+				break
+			}
+		}
+	}
+
+	return &secretConfigs
 }

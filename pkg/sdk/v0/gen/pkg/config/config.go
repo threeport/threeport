@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	. "github.com/dave/jennifer/jen"
+	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
@@ -17,6 +18,7 @@ import (
 
 // GenConfig generates the config package that processes CLI user configs.
 func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
+	pluralize := pluralize.NewClient()
 	for _, objCollection := range gen.VersionedApiObjectCollections {
 		for _, objGroup := range objCollection.VersionedApiObjectGroups {
 			for _, apiObject := range objGroup.ApiObjects {
@@ -32,10 +34,15 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					instObject := fmt.Sprintf("%sInstance", defInstObject)
 					defVar := strcase.ToLowerCamel(defObject)
 					instVar := strcase.ToLowerCamel(instObject)
+					defsVar := pluralize.Pluralize(defVar, 2, false)
+					instsVar := pluralize.Pluralize(instVar, 2, false)
 					defValuesObjectName := fmt.Sprintf("%sValues", defObject)
 					instValuesObjectName := fmt.Sprintf("%sValues", instObject)
 					defValuesVar := strcase.ToLowerCamel(defValuesObjectName)
 					instValuesVar := strcase.ToLowerCamel(instValuesObjectName)
+					operatedDefsVar := pluralize.Pluralize(fmt.Sprintf("operated%s", defObject), 2, false)
+					operatedInstsVar := pluralize.Pluralize(fmt.Sprintf("operated%s", instObject), 2, false)
+					mapToDefInstsFunc := fmt.Sprintf("mapTo%sDefinedInstances", defInstObject)
 
 					f := NewFile(objCollection.Version)
 					f.HeaderComment(util.HeaderCommentGenMod)
@@ -83,11 +90,11 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					)
 					f.Comment("together with a single operation.")
 					f.Type().Id(defInstValuesObjectName).Struct(
-						Comment(fmt.Sprintf(
+						Commentf(
 							"TODO: add fields needed for user to manage a %s and %s together",
 							defObject,
 							instObject,
-						)),
+						),
 						Id("Name").Op("*").String().Tag(map[string]string{"yaml": "Name"}),
 						Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age"}),
 					)
@@ -103,15 +110,14 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line().Id("apiEndpoint").String(),
 						Line(),
 					).Params(
-						Op("*").Id(fmt.Sprintf("%sConfig", defObject)),
-						Op("*").Id(fmt.Sprintf("%sConfig", instObject)),
+						Op("*").Index().Id(defInstConfigObjectName),
 						Error(),
 					).Block(
 						Comment("get operations"),
 						List(
 							Id("operations"),
-							Id(defVar),
-							Id(instVar),
+							Id(defsVar),
+							Id(instsVar),
 						).Op(":=").Id(defInstMethodVar).Dot("GetOperations").Call(
 							Line().Id("apiClient"),
 							Line().Id("apiEndpoint"),
@@ -121,21 +127,26 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 						Comment("execute get operations"),
 						If(Err().Op(":=").Id("operations").Dot("Get").Call(), Err().Op("!=").Nil()).Block(
-							Return(Nil(), Nil(), Qual("fmt", "Errorf").Call(
+							Return(Nil(), Qual("fmt", "Errorf").Call(
 								Line().Lit(fmt.Sprintf(
-									"failed to execute get operations for %s defined instance with name %%s: %%w",
+									"failed to execute get operations for %s defined instances: %%w",
 									defInstObjectHuman,
 								)),
-								Line().Op("*").Id(defInstMethodVar).Dot("Name"),
 								Line().Err(),
 								Line(),
 							)),
 						),
 						Line(),
 
+						Comment("assemble the defined instances"),
+						Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(defInstObject))).Op(":=").Id(mapToDefInstsFunc).Call(
+							Id(defsVar),
+							Id(instsVar),
+						),
+						Line(),
+
 						Return(
-							Id(defVar),
-							Id(instVar),
+							Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(defInstObject))),
 							Nil(),
 						),
 					)
@@ -151,15 +162,14 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line().Id("apiEndpoint").String(),
 						Line(),
 					).Params(
-						Op("*").Id(fmt.Sprintf("%sConfig", defObject)),
-						Op("*").Id(fmt.Sprintf("%sConfig", instObject)),
+						Op("*").Index().Id(defInstConfigObjectName),
 						Error(),
 					).Block(
 						Comment("get operations"),
 						List(
 							Id("operations"),
-							Id(defVar),
-							Id(instVar),
+							Id(defsVar),
+							Id(instsVar),
 						).Op(":=").Id(defInstMethodVar).Dot("GetOperations").Call(
 							Line().Id("apiClient"),
 							Line().Id("apiEndpoint"),
@@ -169,7 +179,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 						Comment("execute create operations"),
 						If(Err().Op(":=").Id("operations").Dot("Create").Call(), Err().Op("!=").Nil()).Block(
-							Return(Nil(), Nil(), Qual("fmt", "Errorf").Call(
+							Return(Nil(), Qual("fmt", "Errorf").Call(
 								Line().Lit(fmt.Sprintf(
 									"failed to execute create operations for %s defined instance with name %%s: %%w",
 									defInstObjectHuman,
@@ -181,9 +191,15 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						),
 						Line(),
 
+						Comment("assemble the defined instances"),
+						Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(defInstObject))).Op(":=").Id(mapToDefInstsFunc).Call(
+							Id(defsVar),
+							Id(instsVar),
+						),
+						Line(),
+
 						Return(
-							Id(defVar),
-							Id(instVar),
+							Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(defInstObject))),
 							Nil(),
 						),
 					)
@@ -200,15 +216,14 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line().Id("name").String(),
 						Line(),
 					).Params(
-						Op("*").Id(fmt.Sprintf("%sConfig", defObject)),
-						Op("*").Id(fmt.Sprintf("%sConfig", instObject)),
+						Op("*").Index().Id(defInstConfigObjectName),
 						Error(),
 					).Block(
 						Comment("get operations"),
 						List(
 							Id("operations"),
-							Id(defVar),
-							Id(instVar),
+							Id(defsVar),
+							Id(instsVar),
 						).Op(":=").Id(defInstMethodVar).Dot("GetOperations").Call(
 							Line().Id("apiClient"),
 							Line().Id("apiEndpoint"),
@@ -218,7 +233,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 						Comment("execute replace operations"),
 						If(Err().Op(":=").Id("operations").Dot("Replace").Call(Id("name")), Err().Op("!=").Nil()).Block(
-							Return(Nil(), Nil(), Qual("fmt", "Errorf").Call(
+							Return(Nil(), Qual("fmt", "Errorf").Call(
 								Line().Lit(fmt.Sprintf(
 									"failed to execute replace operations for %s defined instance with name %%s: %%w",
 									defInstObjectHuman,
@@ -230,9 +245,15 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						),
 						Line(),
 
+						Comment("assemble the defined instances"),
+						Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(defInstObject))).Op(":=").Id(mapToDefInstsFunc).Call(
+							Id(defsVar),
+							Id(instsVar),
+						),
+						Line(),
+
 						Return(
-							Id(defVar),
-							Id(instVar),
+							Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(defInstObject))),
 							Nil(),
 						),
 					)
@@ -248,8 +269,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line().Id("apiEndpoint").String(),
 						Line(),
 					).Params(
-						Op("*").Id(fmt.Sprintf("%sConfig", defObject)),
-						Op("*").Id(fmt.Sprintf("%sConfig", instObject)),
+						Op("*").Index().Id(defInstConfigObjectName),
 						Error(),
 					).Block(
 						Comment("get operations"),
@@ -266,7 +286,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 						Comment("execute delete operations"),
 						If(Err().Op(":=").Id("operations").Dot("Delete").Call(), Err().Op("!=").Nil()).Block(
-							Return(Nil(), Nil(), Qual("fmt", "Errorf").Call(
+							Return(Nil(), Qual("fmt", "Errorf").Call(
 								Line().Lit(fmt.Sprintf(
 									"failed to execute delete operations for %s defined instance with name %%s: %%w",
 									defInstObjectHuman,
@@ -278,7 +298,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						),
 						Line(),
 
-						Return(Nil(), Nil(), Nil()),
+						Return(Nil(), Nil()),
 					)
 					f.Line()
 
@@ -293,12 +313,12 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line(),
 					).Params(
 						Op("*").Qual("github.com/threeport/threeport/pkg/util/v0", "Operations"),
-						Op("*").Id(fmt.Sprintf("%sConfig", defObject)),
-						Op("*").Id(fmt.Sprintf("%sConfig", instObject)),
+						Op("*").Index().Id(fmt.Sprintf("%sConfig", defObject)),
+						Op("*").Index().Id(fmt.Sprintf("%sConfig", instObject)),
 					).Block(
 						Var().Id("err").Error(),
-						Var().Id(fmt.Sprintf("operated%s", defObject)).Id(fmt.Sprintf("%sConfig", defObject)),
-						Var().Id(fmt.Sprintf("operated%s", instObject)).Id(fmt.Sprintf("%sConfig", instObject)),
+						Var().Id(operatedDefsVar).Index().Id(fmt.Sprintf("%sConfig", defObject)),
+						Var().Id(operatedInstsVar).Index().Id(fmt.Sprintf("%sConfig", instObject)),
 						Line(),
 
 						Id("operations").Op(":=").Qual(
@@ -307,7 +327,8 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Values(),
 						Line(),
 
-						Comment(fmt.Sprintf("add %s definition operation", defInstObjectHuman)),
+						Commentf("add %s definition operation", defInstObjectHuman),
+						Comment("TODO: add appropriate fields to definition values object"),
 						Id(defValuesVar).Op(":=").Id(defValuesObjectName).Values(
 							Dict{
 								Line().Id("Name"): Id(defInstMethodVar).Dot("Name").Op(",").Line(),
@@ -320,7 +341,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Dict{
 								Id("Get"): Func().Params().Error().Block(
 									List(
-										Id(defVar),
+										Id(defsVar),
 										Id("err"),
 									).Op(":=").Id(defValuesVar).Dot("Get").Call(
 										Id("apiClient"),
@@ -329,34 +350,25 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									If(Id("err").Op("!=").Nil()).Block(
 										Return(Qual("fmt", "Errorf").Call(
 											Lit(fmt.Sprintf(
-												"failed to get %s definition with name %%s: %%w",
+												"failed to get %s definitions: %%w",
 												defInstObjectHuman,
 											)),
-											Op("*").Id(defInstMethodVar).Dot("Name"),
 											Id("err"),
 										)),
 									),
-									If(Id("len").Call(Op("*").Id(defVar)).Op("==").Lit(0)).Block(
+									If(Id("len").Call(Op("*").Id(defsVar)).Op("==").Lit(0)).Block(
 										Return(Qual("fmt", "Errorf").Call(
 											Lit(fmt.Sprintf(
-												"failed to find %s definition with name %%s: %%w",
+												"failed to find any %s definitions: %%w",
 												defInstObjectHuman,
 											)),
-											Op("*").Id(defInstMethodVar).Dot("Name"),
 											Id("err"),
 										)),
 									),
-									If(Id("len").Call(Op("*").Id(defVar)).Op(">").Lit(1)).Block(
-										Return(Qual("fmt", "Errorf").Call(
-											Lit(fmt.Sprintf(
-												"multiple %s definitions found with name %%s: %%w",
-												defInstObjectHuman,
-											)),
-											Op("*").Id(defInstMethodVar).Dot("Name"),
-											Id("err"),
-										)),
+									Id(operatedDefsVar).Op("=").Id("append").Call(
+										Id(operatedDefsVar),
+										Op("*").Id(defsVar).Op("..."),
 									),
-									Id(fmt.Sprintf("operated%s", defObject)).Op("=").Call(Op("*").Id(defVar)).Index(Lit(0)),
 									Return(Nil()),
 								),
 								Id("Create"): Func().Params().Error().Block(
@@ -377,7 +389,10 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											Id("err"),
 										)),
 									),
-									Id(fmt.Sprintf("operated%s", defObject)).Op("=").Op("*").Id(defVar),
+									Id(operatedDefsVar).Op("=").Id("append").Call(
+										Id(operatedDefsVar),
+										Op("*").Id(defVar),
+									),
 									Return(Nil()),
 								),
 								Id("Replace"): Func().Params(Id("name").String()).Error().Block(
@@ -399,7 +414,10 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											Id("err"),
 										)),
 									),
-									Id(fmt.Sprintf("operated%s", defObject)).Op("=").Op("*").Id(defVar),
+									Id(operatedDefsVar).Op("=").Id("append").Call(
+										Id(operatedDefsVar),
+										Op("*").Id(defVar),
+									),
 									Return(Nil()),
 								),
 								Id("Delete"): Func().Params().Error().Block(
@@ -429,10 +447,12 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						)),
 						Line(),
 
-						Comment(fmt.Sprintf("add %s instance operation", defInstObjectHuman)),
+						Commentf("add %s instance operation", defInstObjectHuman),
+						Comment("TODO: add appropriate fields to instance values object"),
 						Id(instValuesVar).Op(":=").Id(instValuesObjectName).Values(
 							Dict{
-								Line().Id("Name"): Id(defInstMethodVar).Dot("Name").Op(",").Line(),
+								Id("Name"): Id(defInstMethodVar).Dot("Name"),
+								Id("Age"):  Id(defInstMethodVar).Dot("Age"),
 							},
 						),
 						Id("operations").Dot("AppendOperation").Call(Qual(
@@ -442,7 +462,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Dict{
 								Id("Get"): Func().Params().Error().Block(
 									List(
-										Id(instVar),
+										Id(instsVar),
 										Id("err"),
 									).Op(":=").Id(instValuesVar).Dot("Get").Call(
 										Id("apiClient"),
@@ -451,34 +471,25 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									If(Id("err").Op("!=").Nil()).Block(
 										Return(Qual("fmt", "Errorf").Call(
 											Lit(fmt.Sprintf(
-												"failed to get %s instance with name %%s: %%w",
+												"failed to get %s instances: %%w",
 												defInstObjectHuman,
 											)),
-											Op("*").Id(defInstMethodVar).Dot("Name"),
 											Id("err"),
 										)),
 									),
-									If(Id("len").Call(Op("*").Id(instVar)).Op("==").Lit(0)).Block(
+									If(Id("len").Call(Op("*").Id(instsVar)).Op("==").Lit(0)).Block(
 										Return(Qual("fmt", "Errorf").Call(
 											Lit(fmt.Sprintf(
-												"failed to find %s instance with name %%s: %%w",
+												"failed to find any %s instances: %%w",
 												defInstObjectHuman,
 											)),
-											Op("*").Id(defInstMethodVar).Dot("Name"),
 											Id("err"),
 										)),
 									),
-									If(Id("len").Call(Op("*").Id(instVar)).Op(">").Lit(1)).Block(
-										Return(Qual("fmt", "Errorf").Call(
-											Lit(fmt.Sprintf(
-												"multiple %s instances found with name %%s: %%w",
-												defInstObjectHuman,
-											)),
-											Op("*").Id(defInstMethodVar).Dot("Name"),
-											Id("err"),
-										)),
+									Id(operatedInstsVar).Op("=").Id("append").Call(
+										Id(operatedInstsVar),
+										Call(Op("*").Id(instsVar)).Index(Lit(0)),
 									),
-									Id(fmt.Sprintf("operated%s", instObject)).Op("=").Call(Op("*").Id(instVar)).Index(Lit(0)),
 									Return(Nil()),
 								),
 								Id("Create"): Func().Params().Error().Block(
@@ -499,7 +510,10 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											Id("err"),
 										)),
 									),
-									Id(fmt.Sprintf("operated%s", instObject)).Op("=").Op("*").Id(instVar),
+									Id(operatedInstsVar).Op("=").Id("append").Call(
+										Id(operatedInstsVar),
+										Op("*").Id(instVar),
+									),
 									Return(Nil()),
 								),
 								Id("Replace"): Func().Params(Id("name").String()).Error().Block(
@@ -514,14 +528,17 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									If(Id("err").Op("!=").Nil()).Block(
 										Return(Qual("fmt", "Errorf").Call(
 											Lit(fmt.Sprintf(
-												"failed to replace %s definition with name %%s: %%w",
+												"failed to replace %s instances with name %%s: %%w",
 												defInstObjectHuman,
 											)),
 											Id("name"),
 											Id("err"),
 										)),
 									),
-									Id(fmt.Sprintf("operated%s", instObject)).Op("=").Op("*").Id(instVar),
+									Id(operatedInstsVar).Op("=").Id("append").Call(
+										Id(operatedInstsVar),
+										Op("*").Id(instVar),
+									),
 									Return(Nil()),
 								),
 								Id("Delete"): Func().Params().Error().Block(
@@ -551,9 +568,64 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 						Return(
 							Op("&").Id("operations"),
-							Op("&").Id(fmt.Sprintf("operated%s", defObject)),
-							Op("&").Id(fmt.Sprintf("operated%s", instObject)),
+							Op("&").Id(operatedDefsVar),
+							Op("&").Id(operatedInstsVar),
 						),
+					)
+					f.Line()
+
+					// Add mapping function
+					f.Commentf(
+						"mapTo%sDefinedInstances maps a slice of %s definition and instance configs",
+						defInstObject,
+						defInstObjectHuman,
+					)
+					f.Comment(fmt.Sprintf("to a slice of %s config objects", defInstObjectHuman))
+					f.Func().Id(fmt.Sprintf("mapTo%sDefinedInstances", defInstObject)).Params(
+						Line().Id(defsVar).Op("*").Index().Id(fmt.Sprintf("%sConfig", defObject)),
+						Line().Id(instsVar).Op("*").Index().Id(fmt.Sprintf("%sConfig", instObject)),
+						Line(),
+					).Params(
+						Op("*").Index().Id(defInstConfigObjectName),
+					).Block(
+						Var().Id(
+							fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(defInstObject)),
+						).Index().Id(defInstConfigObjectName),
+						For(List(Op("_"), Id("inst")).Op(":=").Range().Op("*").Id(instsVar)).Block(
+							For(List(Op("_"), Id("def")).Op(":=").Range().Op("*").Id(defsVar)).Block(
+								Id("instName").Op(":=").Op("*").Id("inst").Dot(instObject).Dot("Name"),
+								Id("defName").Op(":=").Op("*").Id("def").Dot(defObject).Dot("Name"),
+								Comment("a defined instance must have matching names for definition and instance"),
+								Comment("and the definition must be associated with the instance"),
+								If(Id("instName").Op("==").Id("defName").Op("&&").Op("*").Id("inst").Dot(instObject).Dot(defObject).Dot("Name").Op("==").Op("*").Id("def").Dot(defObject).Dot("Name")).Block(
+									Commentf(
+										"TODO: add fields needed for user to manage a %s and %s together",
+										defObject,
+										instObject,
+									),
+									Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(defInstObject))).Op(":=").Id(defInstConfigObjectName).Values(
+										Dict{
+											Line().Id(defInstObject): Id(defInstValuesObjectName).Values(
+												Dict{
+													Id("Name"): Id("inst").Dot(instObject).Dot("Name"),
+													Id("Age"):  Id("inst").Dot(instObject).Dot("Age"),
+												},
+											).Op(",").Line(),
+										},
+									),
+									Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(defInstObject))).Op("=").Id("append").Call(
+										Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(defInstObject))),
+										Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(defInstObject))),
+									),
+									Comment("an instance can only have one matching definition for a defined instance"),
+									Comment("we can break out of the loop after finding the first matching definition"),
+									Break(),
+								),
+							),
+						),
+						Line(),
+
+						Return(Op("&").Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(defInstObject)))),
 					)
 
 					// write code to file if it doesn't already exist and not excluded by SDK config

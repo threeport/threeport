@@ -104,6 +104,7 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	////////////////////////////// pkg/config //////////////////////////////////
+	// generate config abstractions
 	if err := config.GenConfig(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate config package: %w", err)
 	}

@@ -35,46 +35,51 @@ type ControlPlaneValues struct {
 func (c *ControlPlaneValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*ControlPlaneDefinitionConfig, *ControlPlaneInstanceConfig, error) {
+) (*[]ControlPlaneConfig, error) {
 	// get operations
-	operations, controlPlaneDefinition, controlPlaneInstance := c.GetOperations(
+	operations, controlPlaneDefinitions, controlPlaneInstances := c.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute get operations
 	if err := operations.Get(); err != nil {
-		return nil, nil, fmt.Errorf(
-			"failed to execute get operations for control plane defined instance with name %s: %w",
-			*c.Name,
+		return nil, fmt.Errorf(
+			"failed to execute get operations for control plane defined instances: %w",
 			err,
 		)
 	}
 
-	return controlPlaneDefinition, controlPlaneInstance, nil
+	// assemble the defined instances
+	controlPlaneConfigs := mapToControlPlaneDefinedInstances(controlPlaneDefinitions, controlPlaneInstances)
+
+	return controlPlaneConfigs, nil
 }
 
 // Create creates a control plane definition and instance in the Threeport API.
 func (c *ControlPlaneValues) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*ControlPlaneDefinitionConfig, *ControlPlaneInstanceConfig, error) {
+) (*[]ControlPlaneConfig, error) {
 	// get operations
-	operations, controlPlaneDefinition, controlPlaneInstance := c.GetOperations(
+	operations, controlPlaneDefinitions, controlPlaneInstances := c.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute create operations for control plane defined instance with name %s: %w",
 			*c.Name,
 			err,
 		)
 	}
 
-	return controlPlaneDefinition, controlPlaneInstance, nil
+	// assemble the defined instances
+	controlPlaneConfigs := mapToControlPlaneDefinedInstances(controlPlaneDefinitions, controlPlaneInstances)
+
+	return controlPlaneConfigs, nil
 }
 
 // Replace replaces a control plane definition and instance in the Threeport API.
@@ -82,30 +87,33 @@ func (c *ControlPlaneValues) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
-) (*ControlPlaneDefinitionConfig, *ControlPlaneInstanceConfig, error) {
+) (*[]ControlPlaneConfig, error) {
 	// get operations
-	operations, controlPlaneDefinition, controlPlaneInstance := c.GetOperations(
+	operations, controlPlaneDefinitions, controlPlaneInstances := c.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute replace operations
 	if err := operations.Replace(name); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute replace operations for control plane defined instance with name %s: %w",
 			name,
 			err,
 		)
 	}
 
-	return controlPlaneDefinition, controlPlaneInstance, nil
+	// assemble the defined instances
+	controlPlaneConfigs := mapToControlPlaneDefinedInstances(controlPlaneDefinitions, controlPlaneInstances)
+
+	return controlPlaneConfigs, nil
 }
 
 // Delete deletes a control plane definition and instance from the Threeport API.
 func (c *ControlPlaneValues) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*ControlPlaneDefinitionConfig, *ControlPlaneInstanceConfig, error) {
+) (*[]ControlPlaneConfig, error) {
 	// get operations
 	operations, _, _ := c.GetOperations(
 		apiClient,
@@ -114,14 +122,14 @@ func (c *ControlPlaneValues) Delete(
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute delete operations for control plane defined instance with name %s: %w",
 			*c.Name,
 			err,
 		)
 	}
 
-	return nil, nil, nil
+	return nil, nil
 }
 
 // GetOperations returns a slice of operations used to get, create, replace or delete
@@ -129,10 +137,10 @@ func (c *ControlPlaneValues) Delete(
 func (c *ControlPlaneValues) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*util.Operations, *ControlPlaneDefinitionConfig, *ControlPlaneInstanceConfig) {
+) (*util.Operations, *[]ControlPlaneDefinitionConfig, *[]ControlPlaneInstanceConfig) {
 	var err error
-	var operatedControlPlaneDefinition ControlPlaneDefinitionConfig
-	var operatedControlPlaneInstance ControlPlaneInstanceConfig
+	var operatedControlPlaneDefinitions []ControlPlaneDefinitionConfig
+	var operatedControlPlaneInstances []ControlPlaneInstanceConfig
 
 	operations := util.Operations{}
 
@@ -148,7 +156,7 @@ func (c *ControlPlaneValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to create control plane definition with name %s: %w", *c.Name, err)
 			}
-			operatedControlPlaneDefinition = *controlPlaneDefinition
+			operatedControlPlaneDefinitions = append(operatedControlPlaneDefinitions, *controlPlaneDefinition)
 			return nil
 		},
 		Delete: func() error {
@@ -159,17 +167,14 @@ func (c *ControlPlaneValues) GetOperations(
 			return nil
 		},
 		Get: func() error {
-			controlPlaneDefinition, err := controlPlaneDefinitionValues.Get(apiClient, apiEndpoint)
+			controlPlaneDefinitions, err := controlPlaneDefinitionValues.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get control plane definition with name %s: %w", *c.Name, err)
+				return fmt.Errorf("failed to get control plane definitions: %w", err)
 			}
-			if len(*controlPlaneDefinition) == 0 {
-				return fmt.Errorf("failed to find control plane definition with name %s: %w", *c.Name, err)
+			if len(*controlPlaneDefinitions) == 0 {
+				return fmt.Errorf("failed to find any control plane definitions: %w", err)
 			}
-			if len(*controlPlaneDefinition) > 1 {
-				return fmt.Errorf("multiple control plane definitions found with name %s: %w", *c.Name, err)
-			}
-			operatedControlPlaneDefinition = (*controlPlaneDefinition)[0]
+			operatedControlPlaneDefinitions = append(operatedControlPlaneDefinitions, *controlPlaneDefinitions...)
 			return nil
 		},
 		Name: "control plane definition",
@@ -178,7 +183,7 @@ func (c *ControlPlaneValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to replace control plane definition with name %s: %w", name, err)
 			}
-			operatedControlPlaneDefinition = *controlPlaneDefinition
+			operatedControlPlaneDefinitions = append(operatedControlPlaneDefinitions, *controlPlaneDefinition)
 			return nil
 		},
 	})
@@ -199,7 +204,7 @@ func (c *ControlPlaneValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to create control plane instance with name %s: %w", *c.Name, err)
 			}
-			operatedControlPlaneInstance = *controlPlaneInstance
+			operatedControlPlaneInstances = append(operatedControlPlaneInstances, *controlPlaneInstance)
 			return nil
 		},
 		Delete: func() error {
@@ -220,7 +225,7 @@ func (c *ControlPlaneValues) GetOperations(
 			if len(*controlPlaneInstance) > 1 {
 				return fmt.Errorf("multiple control plane instances found with name %s: %w", *c.Name, err)
 			}
-			operatedControlPlaneInstance = (*controlPlaneInstance)[0]
+			operatedControlPlaneInstances = append(operatedControlPlaneInstances, (*controlPlaneInstance)[0])
 			return nil
 		},
 		Name: "control plane instance",
@@ -229,10 +234,46 @@ func (c *ControlPlaneValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to replace control plane definition with name %s: %w", name, err)
 			}
-			operatedControlPlaneInstance = *controlPlaneInstance
+			operatedControlPlaneInstances = append(operatedControlPlaneInstances, *controlPlaneInstance)
 			return nil
 		},
 	})
 
-	return &operations, &operatedControlPlaneDefinition, &operatedControlPlaneInstance
+	return &operations, &operatedControlPlaneDefinitions, &operatedControlPlaneInstances
+}
+
+// mapToControlPlaneDefinedInstances maps a slice of control plane definition and instance configs
+// to a slice of control plane config objects
+func mapToControlPlaneDefinedInstances(
+	controlPlaneDefinitions *[]ControlPlaneDefinitionConfig,
+	controlPlaneInstances *[]ControlPlaneInstanceConfig,
+) *[]ControlPlaneConfig {
+	var controlPlaneConfigs []ControlPlaneConfig
+	for _, inst := range *controlPlaneInstances {
+		for _, def := range *controlPlaneDefinitions {
+			instName := *inst.ControlPlaneInstance.Name
+			defName := *def.ControlPlaneDefinition.Name
+			// a defined instance must have matching names for definition and instance
+			// and the definition must be associated with the instance
+			if instName == defName && *inst.ControlPlaneInstance.ControlPlaneDefinition.Name == *def.ControlPlaneDefinition.Name {
+				controlPlaneConfig := ControlPlaneConfig{
+					ControlPlane: ControlPlaneValues{
+						Name:                      inst.ControlPlaneInstance.Name,
+						Namespace:                 inst.ControlPlaneInstance.Namespace,
+						AuthEnabled:               def.ControlPlaneDefinition.AuthEnabled,
+						OnboardParent:             def.ControlPlaneDefinition.OnboardParent,
+						KubernetesRuntimeInstance: inst.ControlPlaneInstance.KubernetesRuntimeInstance,
+						CustomComponentInfo:       inst.ControlPlaneInstance.CustomComponentInfo,
+						Age:                       inst.ControlPlaneInstance.Age,
+					},
+				}
+				controlPlaneConfigs = append(controlPlaneConfigs, controlPlaneConfig)
+				// an instance can only have one matching definition for a defined instance
+				// we can break out of the loop after finding the first matching definition
+				break
+			}
+		}
+	}
+
+	return &controlPlaneConfigs
 }

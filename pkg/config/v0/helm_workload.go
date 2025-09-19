@@ -45,14 +45,14 @@ type HelmWorkloadValues struct {
 func (h *HelmWorkloadValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*HelmWorkloadDefinitionConfig, *HelmWorkloadInstanceConfig, error) {
+) (*[]HelmWorkloadConfig, error) {
 	// get operations
-	operations, helmWorkloadDefinition, helmWorkloadInstance, err := h.GetOperations(
+	operations, helmWorkloadDefinitions, helmWorkloadInstances, err := h.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to get operations for helm workload with name %s: %w",
 			*h.Name,
 			err,
@@ -61,24 +61,26 @@ func (h *HelmWorkloadValues) Get(
 
 	// execute get operations
 	if err := operations.Get(); err != nil {
-		return nil, nil, fmt.Errorf(
-			"failed to execute get operations for helm workload defined instance with name %s: %w",
-			*h.Name,
+		return nil, fmt.Errorf(
+			"failed to execute get operations for helm workload defined instances: %w",
 			err,
 		)
 	}
 
-	return helmWorkloadDefinition, helmWorkloadInstance, nil
+	// assemble the defined instances
+	helmWorkloadConfigs := mapToHelmWorkloadDefinedInstances(helmWorkloadDefinitions, helmWorkloadInstances)
+
+	return helmWorkloadConfigs, nil
 }
 
 // Create creates a helm workload definition and instance in the Threeport API.
 func (h *HelmWorkloadValues) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*HelmWorkloadDefinitionConfig, *HelmWorkloadInstanceConfig, error) {
+) (*[]HelmWorkloadConfig, error) {
 	// validate required fields
 	if err := h.Validate(); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to validate values for helm workload with name %s: %w",
 			*h.Name,
 			err,
@@ -86,12 +88,12 @@ func (h *HelmWorkloadValues) Create(
 	}
 
 	// get operations
-	operations, helmWorkloadDefinition, helmWorkloadInstance, err := h.GetOperations(
+	operations, helmWorkloadDefinitions, helmWorkloadInstances, err := h.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to get operations for helm workload with name %s: %w",
 			*h.Name,
 			err,
@@ -100,14 +102,17 @@ func (h *HelmWorkloadValues) Create(
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute create operations for helm workload defined instance with name %s: %w",
 			*h.Name,
 			err,
 		)
 	}
 
-	return helmWorkloadDefinition, helmWorkloadInstance, nil
+	// assemble the defined instances
+	helmWorkloadConfigs := mapToHelmWorkloadDefinedInstances(helmWorkloadDefinitions, helmWorkloadInstances)
+
+	return helmWorkloadConfigs, nil
 }
 
 // Replace replaces a helm workload definition and instance in the Threeport API.
@@ -115,14 +120,14 @@ func (h *HelmWorkloadValues) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
-) (*HelmWorkloadDefinitionConfig, *HelmWorkloadInstanceConfig, error) {
+) (*[]HelmWorkloadConfig, error) {
 	// get operations
-	operations, helmWorkloadDefinition, helmWorkloadInstance, err := h.GetOperations(
+	operations, helmWorkloadDefinitions, helmWorkloadInstances, err := h.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to get operations for helm workload with name %s: %w",
 			name,
 			err,
@@ -131,28 +136,31 @@ func (h *HelmWorkloadValues) Replace(
 
 	// execute replace operations
 	if err := operations.Replace(name); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute replace operations for helm workload defined instance with name %s: %w",
 			name,
 			err,
 		)
 	}
 
-	return helmWorkloadDefinition, helmWorkloadInstance, nil
+	// assemble the defined instances
+	helmWorkloadConfigs := mapToHelmWorkloadDefinedInstances(helmWorkloadDefinitions, helmWorkloadInstances)
+
+	return helmWorkloadConfigs, nil
 }
 
 // Delete deletes a helm workload definition and instance from the Threeport API.
 func (h *HelmWorkloadValues) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*HelmWorkloadDefinitionConfig, *HelmWorkloadInstanceConfig, error) {
+) (*[]HelmWorkloadConfig, error) {
 	// get operations
 	operations, _, _, err := h.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to get operations for helm workload with name %s: %w",
 			*h.Name,
 			err,
@@ -161,14 +169,14 @@ func (h *HelmWorkloadValues) Delete(
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute delete operations for helm workload defined instance with name %s: %w",
 			*h.Name,
 			err,
 		)
 	}
 
-	return nil, nil, nil
+	return nil, nil
 }
 
 // GetOperations returns a slice of operations used to get, create, replace or delete
@@ -176,10 +184,10 @@ func (h *HelmWorkloadValues) Delete(
 func (h *HelmWorkloadValues) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*util.Operations, *HelmWorkloadDefinitionConfig, *HelmWorkloadInstanceConfig, error) {
+) (*util.Operations, *[]HelmWorkloadDefinitionConfig, *[]HelmWorkloadInstanceConfig, error) {
 	var err error
-	var operatedHelmWorkloadDefinition HelmWorkloadDefinitionConfig
-	var operatedHelmWorkloadInstance HelmWorkloadInstanceConfig
+	var operatedHelmWorkloadDefinitions []HelmWorkloadDefinitionConfig
+	var operatedHelmWorkloadInstances []HelmWorkloadInstanceConfig
 
 	operations := util.Operations{}
 
@@ -204,7 +212,7 @@ func (h *HelmWorkloadValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to create helm workload definition with name %s: %w", *h.Name, err)
 			}
-			operatedHelmWorkloadDefinition = *helmWorkloadDefinition
+			operatedHelmWorkloadDefinitions = append(operatedHelmWorkloadDefinitions, *helmWorkloadDefinition)
 			return nil
 		},
 		Delete: func() error {
@@ -225,7 +233,7 @@ func (h *HelmWorkloadValues) GetOperations(
 			if len(*helmWorkloadDefinition) > 1 {
 				return fmt.Errorf("multiple helm workload definitions found with name %s: %w", *h.Name, err)
 			}
-			operatedHelmWorkloadDefinition = (*helmWorkloadDefinition)[0]
+			operatedHelmWorkloadDefinitions = append(operatedHelmWorkloadDefinitions, (*helmWorkloadDefinition)[0])
 			return nil
 		},
 		Name: "helm workload definition",
@@ -234,7 +242,7 @@ func (h *HelmWorkloadValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to replace helm workload definition with name %s: %w", name, err)
 			}
-			operatedHelmWorkloadDefinition = *helmWorkloadDefinition
+			operatedHelmWorkloadDefinitions = append(operatedHelmWorkloadDefinitions, *helmWorkloadDefinition)
 			return nil
 		},
 	})
@@ -262,7 +270,7 @@ func (h *HelmWorkloadValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to create helm workload instance with name %s: %w", *h.Name, err)
 			}
-			operatedHelmWorkloadInstance = *helmWorkloadInstance
+			operatedHelmWorkloadInstances = append(operatedHelmWorkloadInstances, *helmWorkloadInstance)
 			return nil
 		},
 		Delete: func() error {
@@ -283,21 +291,62 @@ func (h *HelmWorkloadValues) GetOperations(
 			if len(*helmWorkloadInstance) > 1 {
 				return fmt.Errorf("multiple helm workload instances found with name %s: %w", *h.Name, err)
 			}
-			operatedHelmWorkloadInstance = (*helmWorkloadInstance)[0]
+			operatedHelmWorkloadInstances = append(operatedHelmWorkloadInstances, (*helmWorkloadInstance)[0])
 			return nil
 		},
 		Name: "helm workload instance",
 		Replace: func(name string) error {
 			helmWorkloadInstance, err := helmWorkloadInstanceValues.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
-				return fmt.Errorf("failed to replace helm workload definition with name %s: %w", name, err)
+				return fmt.Errorf("failed to replace helm workload instance with name %s: %w", name, err)
 			}
-			operatedHelmWorkloadInstance = *helmWorkloadInstance
+			operatedHelmWorkloadInstances = append(operatedHelmWorkloadInstances, *helmWorkloadInstance)
 			return nil
 		},
 	})
 
-	return &operations, &operatedHelmWorkloadDefinition, &operatedHelmWorkloadInstance, nil
+	return &operations, &operatedHelmWorkloadDefinitions, &operatedHelmWorkloadInstances, nil
+}
+
+// mapToHelmWorkloadDefinedInstances maps a slice of helm workload definition and instance configs
+// to a slice of helm workload config objects
+func mapToHelmWorkloadDefinedInstances(
+	helmWorkloadDefinitions *[]HelmWorkloadDefinitionConfig,
+	helmWorkloadInstances *[]HelmWorkloadInstanceConfig,
+) *[]HelmWorkloadConfig {
+	var helmWorkloadConfigs []HelmWorkloadConfig
+	for _, inst := range *helmWorkloadInstances {
+		for _, def := range *helmWorkloadDefinitions {
+			instName := *inst.HelmWorkloadInstance.Name
+			defName := *def.HelmWorkloadDefinition.Name
+			// a defined instance must have matching names for definition and instance
+			// and the definition must be associated with the instance
+			if instName == defName && *inst.HelmWorkloadInstance.HelmWorkloadDefinition.Name == *def.HelmWorkloadDefinition.Name {
+				helmWorkloadConfig := HelmWorkloadConfig{
+					HelmWorkload: HelmWorkloadValues{
+						Name:                      inst.HelmWorkloadInstance.Name,
+						Repo:                      def.HelmWorkloadDefinition.Repo,
+						Chart:                     def.HelmWorkloadDefinition.Chart,
+						ChartVersion:              def.HelmWorkloadDefinition.ChartVersion,
+						DefinitionValues:          def.HelmWorkloadDefinition.Values,
+						DefinitionValuesDocument:  def.HelmWorkloadDefinition.ValuesDocument,
+						InstanceValues:            inst.HelmWorkloadInstance.Values,
+						InstanceValuesDocument:    inst.HelmWorkloadInstance.ValuesDocument,
+						HelmWorkloadConfigPath:    inst.HelmWorkloadInstance.HelmWorkloadConfigPath,
+						ReleaseNamespace:          inst.HelmWorkloadInstance.ReleaseNamespace,
+						KubernetesRuntimeInstance: inst.HelmWorkloadInstance.KubernetesRuntimeInstance,
+						Age:                       inst.HelmWorkloadInstance.Age,
+					},
+				}
+				helmWorkloadConfigs = append(helmWorkloadConfigs, helmWorkloadConfig)
+				// an instance can only have one matching definition for a defined instance
+				// we can break out of the loop after finding the first matching definition
+				break
+			}
+		}
+	}
+
+	return &helmWorkloadConfigs
 }
 
 // Validate validates helm workload values.

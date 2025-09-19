@@ -36,46 +36,51 @@ type AwsEksKubernetesRuntimeValues struct {
 func (a *AwsEksKubernetesRuntimeValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*AwsEksKubernetesRuntimeDefinitionConfig, *AwsEksKubernetesRuntimeInstanceConfig, error) {
+) (*[]AwsEksKubernetesRuntimeConfig, error) {
 	// get operations
-	operations, awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeInstance := a.GetOperations(
+	operations, awsEksKubernetesRuntimeDefinitions, awsEksKubernetesRuntimeInstances := a.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute get operations
 	if err := operations.Get(); err != nil {
-		return nil, nil, fmt.Errorf(
-			"failed to execute get operations for aws eks kubernetes runtime defined instance with name %s: %w",
-			*a.Name,
+		return nil, fmt.Errorf(
+			"failed to execute get operations for aws eks kubernetes runtime defined instances: %w",
 			err,
 		)
 	}
 
-	return awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeInstance, nil
+	// assemble the defined instances
+	awsEksKubernetesRuntimeConfigs := mapToAwsEksKubernetesRuntimeDefinedInstances(awsEksKubernetesRuntimeDefinitions, awsEksKubernetesRuntimeInstances)
+
+	return awsEksKubernetesRuntimeConfigs, nil
 }
 
 // Create creates a aws eks kubernetes runtime definition and instance in the Threeport API.
 func (a *AwsEksKubernetesRuntimeValues) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*AwsEksKubernetesRuntimeDefinitionConfig, *AwsEksKubernetesRuntimeInstanceConfig, error) {
+) (*[]AwsEksKubernetesRuntimeConfig, error) {
 	// get operations
-	operations, awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeInstance := a.GetOperations(
+	operations, awsEksKubernetesRuntimeDefinitions, awsEksKubernetesRuntimeInstances := a.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute create operations for aws eks kubernetes runtime defined instance with name %s: %w",
 			*a.Name,
 			err,
 		)
 	}
 
-	return awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeInstance, nil
+	// assemble the defined instances
+	awsEksKubernetesRuntimeConfigs := mapToAwsEksKubernetesRuntimeDefinedInstances(awsEksKubernetesRuntimeDefinitions, awsEksKubernetesRuntimeInstances)
+
+	return awsEksKubernetesRuntimeConfigs, nil
 }
 
 // Replace replaces a aws eks kubernetes runtime definition and instance in the Threeport API.
@@ -83,30 +88,33 @@ func (a *AwsEksKubernetesRuntimeValues) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
-) (*AwsEksKubernetesRuntimeDefinitionConfig, *AwsEksKubernetesRuntimeInstanceConfig, error) {
+) (*[]AwsEksKubernetesRuntimeConfig, error) {
 	// get operations
-	operations, awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeInstance := a.GetOperations(
+	operations, awsEksKubernetesRuntimeDefinitions, awsEksKubernetesRuntimeInstances := a.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute replace operations
 	if err := operations.Replace(name); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute replace operations for aws eks kubernetes runtime defined instance with name %s: %w",
 			name,
 			err,
 		)
 	}
 
-	return awsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeInstance, nil
+	// assemble the defined instances
+	awsEksKubernetesRuntimeConfigs := mapToAwsEksKubernetesRuntimeDefinedInstances(awsEksKubernetesRuntimeDefinitions, awsEksKubernetesRuntimeInstances)
+
+	return awsEksKubernetesRuntimeConfigs, nil
 }
 
 // Delete deletes a aws eks kubernetes runtime definition and instance from the Threeport API.
 func (a *AwsEksKubernetesRuntimeValues) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*AwsEksKubernetesRuntimeDefinitionConfig, *AwsEksKubernetesRuntimeInstanceConfig, error) {
+) (*[]AwsEksKubernetesRuntimeConfig, error) {
 	// get operations
 	operations, _, _ := a.GetOperations(
 		apiClient,
@@ -115,14 +123,14 @@ func (a *AwsEksKubernetesRuntimeValues) Delete(
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute delete operations for aws eks kubernetes runtime defined instance with name %s: %w",
 			*a.Name,
 			err,
 		)
 	}
 
-	return nil, nil, nil
+	return nil, nil
 }
 
 // GetOperations returns a slice of operations used to get, create, replace or delete
@@ -130,10 +138,10 @@ func (a *AwsEksKubernetesRuntimeValues) Delete(
 func (a *AwsEksKubernetesRuntimeValues) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*util.Operations, *AwsEksKubernetesRuntimeDefinitionConfig, *AwsEksKubernetesRuntimeInstanceConfig) {
+) (*util.Operations, *[]AwsEksKubernetesRuntimeDefinitionConfig, *[]AwsEksKubernetesRuntimeInstanceConfig) {
 	var err error
-	var operatedAwsEksKubernetesRuntimeDefinition AwsEksKubernetesRuntimeDefinitionConfig
-	var operatedAwsEksKubernetesRuntimeInstance AwsEksKubernetesRuntimeInstanceConfig
+	var operatedAwsEksKubernetesRuntimeDefinitions []AwsEksKubernetesRuntimeDefinitionConfig
+	var operatedAwsEksKubernetesRuntimeInstances []AwsEksKubernetesRuntimeInstanceConfig
 
 	operations := util.Operations{}
 
@@ -153,7 +161,7 @@ func (a *AwsEksKubernetesRuntimeValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to create aws eks kubernetes runtime definition with name %s: %w", *a.Name, err)
 			}
-			operatedAwsEksKubernetesRuntimeDefinition = *awsEksKubernetesRuntimeDefinition
+			operatedAwsEksKubernetesRuntimeDefinitions = append(operatedAwsEksKubernetesRuntimeDefinitions, *awsEksKubernetesRuntimeDefinition)
 			return nil
 		},
 		Delete: func() error {
@@ -164,17 +172,14 @@ func (a *AwsEksKubernetesRuntimeValues) GetOperations(
 			return nil
 		},
 		Get: func() error {
-			awsEksKubernetesRuntimeDefinition, err := awsEksKubernetesRuntimeDefinitionValues.Get(apiClient, apiEndpoint)
+			awsEksKubernetesRuntimeDefinitions, err := awsEksKubernetesRuntimeDefinitionValues.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get aws eks kubernetes runtime definition with name %s: %w", *a.Name, err)
+				return fmt.Errorf("failed to get aws eks kubernetes runtime definitions: %w", err)
 			}
-			if len(*awsEksKubernetesRuntimeDefinition) == 0 {
-				return fmt.Errorf("failed to find aws eks kubernetes runtime definition with name %s: %w", *a.Name, err)
+			if len(*awsEksKubernetesRuntimeDefinitions) == 0 {
+				return fmt.Errorf("failed to find any aws eks kubernetes runtime definitions: %w", err)
 			}
-			if len(*awsEksKubernetesRuntimeDefinition) > 1 {
-				return fmt.Errorf("multiple aws eks kubernetes runtime definitions found with name %s: %w", *a.Name, err)
-			}
-			operatedAwsEksKubernetesRuntimeDefinition = (*awsEksKubernetesRuntimeDefinition)[0]
+			operatedAwsEksKubernetesRuntimeDefinitions = append(operatedAwsEksKubernetesRuntimeDefinitions, *awsEksKubernetesRuntimeDefinitions...)
 			return nil
 		},
 		Name: "aws eks kubernetes runtime definition",
@@ -183,7 +188,7 @@ func (a *AwsEksKubernetesRuntimeValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to replace aws eks kubernetes runtime definition with name %s: %w", name, err)
 			}
-			operatedAwsEksKubernetesRuntimeDefinition = *awsEksKubernetesRuntimeDefinition
+			operatedAwsEksKubernetesRuntimeDefinitions = append(operatedAwsEksKubernetesRuntimeDefinitions, *awsEksKubernetesRuntimeDefinition)
 			return nil
 		},
 	})
@@ -202,7 +207,7 @@ func (a *AwsEksKubernetesRuntimeValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to create aws eks kubernetes runtime instance with name %s: %w", *a.Name, err)
 			}
-			operatedAwsEksKubernetesRuntimeInstance = *awsEksKubernetesRuntimeInstance
+			operatedAwsEksKubernetesRuntimeInstances = append(operatedAwsEksKubernetesRuntimeInstances, *awsEksKubernetesRuntimeInstance)
 			return nil
 		},
 		Delete: func() error {
@@ -223,7 +228,7 @@ func (a *AwsEksKubernetesRuntimeValues) GetOperations(
 			if len(*awsEksKubernetesRuntimeInstance) > 1 {
 				return fmt.Errorf("multiple aws eks kubernetes runtime instances found with name %s: %w", *a.Name, err)
 			}
-			operatedAwsEksKubernetesRuntimeInstance = (*awsEksKubernetesRuntimeInstance)[0]
+			operatedAwsEksKubernetesRuntimeInstances = append(operatedAwsEksKubernetesRuntimeInstances, (*awsEksKubernetesRuntimeInstance)[0])
 			return nil
 		},
 		Name: "aws eks kubernetes runtime instance",
@@ -232,10 +237,48 @@ func (a *AwsEksKubernetesRuntimeValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to replace aws eks kubernetes runtime definition with name %s: %w", name, err)
 			}
-			operatedAwsEksKubernetesRuntimeInstance = *awsEksKubernetesRuntimeInstance
+			operatedAwsEksKubernetesRuntimeInstances = append(operatedAwsEksKubernetesRuntimeInstances, *awsEksKubernetesRuntimeInstance)
 			return nil
 		},
 	})
 
-	return &operations, &operatedAwsEksKubernetesRuntimeDefinition, &operatedAwsEksKubernetesRuntimeInstance
+	return &operations, &operatedAwsEksKubernetesRuntimeDefinitions, &operatedAwsEksKubernetesRuntimeInstances
+}
+
+// mapToAwsEksKubernetesRuntimeDefinedInstances maps a slice of aws eks kubernetes runtime definition and instance configs
+// to a slice of aws eks kubernetes runtime config objects
+func mapToAwsEksKubernetesRuntimeDefinedInstances(
+	awsEksKubernetesRuntimeDefinitions *[]AwsEksKubernetesRuntimeDefinitionConfig,
+	awsEksKubernetesRuntimeInstances *[]AwsEksKubernetesRuntimeInstanceConfig,
+) *[]AwsEksKubernetesRuntimeConfig {
+	var awsEksKubernetesRuntimeConfigs []AwsEksKubernetesRuntimeConfig
+	for _, inst := range *awsEksKubernetesRuntimeInstances {
+		for _, def := range *awsEksKubernetesRuntimeDefinitions {
+			instName := *inst.AwsEksKubernetesRuntimeInstance.Name
+			defName := *def.AwsEksKubernetesRuntimeDefinition.Name
+			// a defined instance must have matching names for definition and instance
+			// and the definition must be associated with the instance
+			if instName == defName && *inst.AwsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinition.Name == *def.AwsEksKubernetesRuntimeDefinition.Name {
+				awsEksKubernetesRuntimeConfig := AwsEksKubernetesRuntimeConfig{
+					AwsEksKubernetesRuntime: AwsEksKubernetesRuntimeValues{
+						Name:                         inst.AwsEksKubernetesRuntimeInstance.Name,
+						AwsAccountName:               def.AwsEksKubernetesRuntimeDefinition.AwsAccountName,
+						ZoneCount:                    def.AwsEksKubernetesRuntimeDefinition.ZoneCount,
+						DefaultNodeGroupInstanceType: def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
+						DefaultNodeGroupInitialSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
+						DefaultNodeGroupMinimumSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
+						DefaultNodeGroupMaximumSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+						Region:                       inst.AwsEksKubernetesRuntimeInstance.Region,
+						Age:                          inst.AwsEksKubernetesRuntimeInstance.Age,
+					},
+				}
+				awsEksKubernetesRuntimeConfigs = append(awsEksKubernetesRuntimeConfigs, awsEksKubernetesRuntimeConfig)
+				// an instance can only have one matching definition for a defined instance
+				// we can break out of the loop after finding the first matching definition
+				break
+			}
+		}
+	}
+
+	return &awsEksKubernetesRuntimeConfigs
 }

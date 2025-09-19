@@ -33,46 +33,51 @@ type TerraformValues struct {
 func (t *TerraformValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*TerraformDefinitionConfig, *TerraformInstanceConfig, error) {
+) (*[]TerraformConfig, error) {
 	// get operations
-	operations, terraformDefinition, terraformInstance := t.GetOperations(
+	operations, terraformDefinitions, terraformInstances := t.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute get operations
 	if err := operations.Get(); err != nil {
-		return nil, nil, fmt.Errorf(
-			"failed to execute get operations for terraform defined instance with name %s: %w",
-			*t.Name,
+		return nil, fmt.Errorf(
+			"failed to execute get operations for terraform defined instances: %w",
 			err,
 		)
 	}
 
-	return terraformDefinition, terraformInstance, nil
+	// assemble the defined instances
+	terraformConfigs := mapToTerraformDefinedInstances(terraformDefinitions, terraformInstances)
+
+	return terraformConfigs, nil
 }
 
 // Create creates a terraform definition and instance in the Threeport API.
 func (t *TerraformValues) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*TerraformDefinitionConfig, *TerraformInstanceConfig, error) {
+) (*[]TerraformConfig, error) {
 	// get operations
-	operations, terraformDefinition, terraformInstance := t.GetOperations(
+	operations, terraformDefinitions, terraformInstances := t.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute create operations
 	if err := operations.Create(); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute create operations for terraform defined instance with name %s: %w",
 			*t.Name,
 			err,
 		)
 	}
 
-	return terraformDefinition, terraformInstance, nil
+	// assemble the defined instances
+	terraformConfigs := mapToTerraformDefinedInstances(terraformDefinitions, terraformInstances)
+
+	return terraformConfigs, nil
 }
 
 // Replace replaces a terraform definition and instance in the Threeport API.
@@ -80,30 +85,33 @@ func (t *TerraformValues) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
-) (*TerraformDefinitionConfig, *TerraformInstanceConfig, error) {
+) (*[]TerraformConfig, error) {
 	// get operations
-	operations, terraformDefinition, terraformInstance := t.GetOperations(
+	operations, terraformDefinitions, terraformInstances := t.GetOperations(
 		apiClient,
 		apiEndpoint,
 	)
 
 	// execute replace operations
 	if err := operations.Replace(name); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute replace operations for terraform defined instance with name %s: %w",
 			name,
 			err,
 		)
 	}
 
-	return terraformDefinition, terraformInstance, nil
+	// assemble the defined instances
+	terraformConfigs := mapToTerraformDefinedInstances(terraformDefinitions, terraformInstances)
+
+	return terraformConfigs, nil
 }
 
 // Delete deletes a terraform definition and instance from the Threeport API.
 func (t *TerraformValues) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*TerraformDefinitionConfig, *TerraformInstanceConfig, error) {
+) (*[]TerraformConfig, error) {
 	// get operations
 	operations, _, _ := t.GetOperations(
 		apiClient,
@@ -112,14 +120,14 @@ func (t *TerraformValues) Delete(
 
 	// execute delete operations
 	if err := operations.Delete(); err != nil {
-		return nil, nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to execute delete operations for terraform defined instance with name %s: %w",
 			*t.Name,
 			err,
 		)
 	}
 
-	return nil, nil, nil
+	return nil, nil
 }
 
 // GetOperations returns a slice of operations used to get, create, replace or delete
@@ -127,10 +135,10 @@ func (t *TerraformValues) Delete(
 func (t *TerraformValues) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
-) (*util.Operations, *TerraformDefinitionConfig, *TerraformInstanceConfig) {
+) (*util.Operations, *[]TerraformDefinitionConfig, *[]TerraformInstanceConfig) {
 	var err error
-	var operatedTerraformDefinition TerraformDefinitionConfig
-	var operatedTerraformInstance TerraformInstanceConfig
+	var operatedTerraformDefinitions []TerraformDefinitionConfig
+	var operatedTerraformInstances []TerraformInstanceConfig
 
 	operations := util.Operations{}
 
@@ -146,7 +154,7 @@ func (t *TerraformValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to create terraform definition with name %s: %w", *t.Name, err)
 			}
-			operatedTerraformDefinition = *terraformDefinition
+			operatedTerraformDefinitions = append(operatedTerraformDefinitions, *terraformDefinition)
 			return nil
 		},
 		Delete: func() error {
@@ -157,17 +165,14 @@ func (t *TerraformValues) GetOperations(
 			return nil
 		},
 		Get: func() error {
-			terraformDefinition, err := terraformDefinitionValues.Get(apiClient, apiEndpoint)
+			terraformDefinitions, err := terraformDefinitionValues.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get terraform definition with name %s: %w", *t.Name, err)
+				return fmt.Errorf("failed to get terraform definitions: %w", err)
 			}
-			if len(*terraformDefinition) == 0 {
-				return fmt.Errorf("failed to find terraform definition with name %s: %w", *t.Name, err)
+			if len(*terraformDefinitions) == 0 {
+				return fmt.Errorf("failed to find any terraform definitions: %w", err)
 			}
-			if len(*terraformDefinition) > 1 {
-				return fmt.Errorf("multiple terraform definitions found with name %s: %w", *t.Name, err)
-			}
-			operatedTerraformDefinition = (*terraformDefinition)[0]
+			operatedTerraformDefinitions = append(operatedTerraformDefinitions, *terraformDefinitions...)
 			return nil
 		},
 		Name: "terraform definition",
@@ -176,7 +181,7 @@ func (t *TerraformValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to replace terraform definition with name %s: %w", name, err)
 			}
-			operatedTerraformDefinition = *terraformDefinition
+			operatedTerraformDefinitions = append(operatedTerraformDefinitions, *terraformDefinition)
 			return nil
 		},
 	})
@@ -188,6 +193,7 @@ func (t *TerraformValues) GetOperations(
 		VarsDocument:        t.VarsDocument,
 		TerraformConfigPath: t.TerraformConfigPath,
 		TerraformDefinition: &terraformDefinitionValues,
+		Age:                 t.Age,
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
@@ -195,7 +201,7 @@ func (t *TerraformValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to create terraform instance with name %s: %w", *t.Name, err)
 			}
-			operatedTerraformInstance = *terraformInstance
+			operatedTerraformInstances = append(operatedTerraformInstances, *terraformInstance)
 			return nil
 		},
 		Delete: func() error {
@@ -208,15 +214,12 @@ func (t *TerraformValues) GetOperations(
 		Get: func() error {
 			terraformInstance, err := terraformInstanceValues.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get terraform instance with name %s: %w", *t.Name, err)
+				return fmt.Errorf("failed to get terraform instances: %w", err)
 			}
 			if len(*terraformInstance) == 0 {
-				return fmt.Errorf("failed to find terraform instance with name %s: %w", *t.Name, err)
+				return fmt.Errorf("failed to find any terraform instances: %w", err)
 			}
-			if len(*terraformInstance) > 1 {
-				return fmt.Errorf("multiple terraform instances found with name %s: %w", *t.Name, err)
-			}
-			operatedTerraformInstance = (*terraformInstance)[0]
+			operatedTerraformInstances = append(operatedTerraformInstances, (*terraformInstance)[0])
 			return nil
 		},
 		Name: "terraform instance",
@@ -225,10 +228,45 @@ func (t *TerraformValues) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to replace terraform definition with name %s: %w", name, err)
 			}
-			operatedTerraformInstance = *terraformInstance
+			operatedTerraformInstances = append(operatedTerraformInstances, *terraformInstance)
 			return nil
 		},
 	})
 
-	return &operations, &operatedTerraformDefinition, &operatedTerraformInstance
+	return &operations, &operatedTerraformDefinitions, &operatedTerraformInstances
+}
+
+// mapToTerraformDefinedInstances maps a slice of terraform definition and instance configs
+// to a slice of terraform config objects
+func mapToTerraformDefinedInstances(
+	terraformDefinitions *[]TerraformDefinitionConfig,
+	terraformInstances *[]TerraformInstanceConfig,
+) *[]TerraformConfig {
+	var terraformConfigs []TerraformConfig
+	for _, inst := range *terraformInstances {
+		for _, def := range *terraformDefinitions {
+			instName := *inst.TerraformInstance.Name
+			defName := *def.TerraformDefinition.Name
+			// a defined instance must have matching names for definition and instance
+			// and the definition must be associated with the instance
+			if instName == defName && *inst.TerraformInstance.TerraformDefinition.Name == *def.TerraformDefinition.Name {
+				terraformConfig := TerraformConfig{
+					Terraform: TerraformValues{
+						Name:                inst.TerraformInstance.Name,
+						ConfigDir:           def.TerraformDefinition.ConfigDir,
+						AwsAccount:          inst.TerraformInstance.AwsAccount,
+						VarsDocument:        inst.TerraformInstance.VarsDocument,
+						TerraformConfigPath: inst.TerraformInstance.TerraformConfigPath,
+						Age:                 inst.TerraformInstance.Age,
+					},
+				}
+				terraformConfigs = append(terraformConfigs, terraformConfig)
+				// an instance can only have one matching definition for a defined instance
+				// we can break out of the loop after finding the first matching definition
+				break
+			}
+		}
+	}
+
+	return &terraformConfigs
 }
