@@ -12,8 +12,15 @@ Threeport Locally](install-threeport-local.md)
 Note: this guide requires you have our tptctl command line tool installed.  See
 our [Install tptctl guide](install-tptctl.md) to install if you haven't already.
 
-**Before proceeding, ensure you have the required OCI IAM permissions configured.** 
-See our [OCI IAM Permissions guide](../oci/oci-iam.md) to set up the necessary permissions for your OCI user.
+**Before proceeding, ensure you have the required OCI IAM permissions configured.**
+See our [OCI IAM Permissions guide](../oci/oci-iam.md) to set up the necessary permissions
+for your OCI user.
+
+## Install Pulumi
+
+The Threeport OCI provider uses Pulumi to deploy necessary infrastructure. See the
+[Pulumi documentation](https://www.pulumi.com/docs/iac/download-install/) for your
+system's appropriate installation steps.
 
 ## Install Threeport
 
@@ -55,11 +62,8 @@ Note: if you would like to use
 against the cluster where Threeport is
 running, and you have the [OCI CLI](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm)
 installed, you can update your kubeconfig
-with:
-
-```bash
-oci ce cluster create-kubeconfig --cluster-id [cluster-id] --region [oci region]
-```
+with a command given in the OCI cloud console on the "Clusters" dashboard
+located [here](https://cloud.oracle.com/containers/clusters)
 
 Then, view the Threeport core system pods with kubectl:
 

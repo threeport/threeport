@@ -21,4 +21,4 @@ To get started with Threeport on OCI:
 
 1. Review the [IAM Permissions](oci-iam.md) guide to set up the necessary access
 2. Follow the [Install Threeport on OCI](../install/install-threeport-oci.md) guide to deploy Threeport
-3. Deploy your first workload using Threeport on OCI 
+3. Deploy your first workload using Threeport on OCI
