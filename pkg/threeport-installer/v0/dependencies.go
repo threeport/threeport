@@ -44,6 +44,7 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
+	infraProvider,
 	encryptionKey string,
 	dbCreds *auth.DbCreds,
 ) error {
@@ -538,7 +539,7 @@ store_dir: /data
 						"metadata": map[string]interface{}{
 							"name": "datadir",
 						},
-						"spec": cpi.getVolClaimTemplateSpec("5Gi"),
+						"spec": cpi.getVolClaimTemplateSpec(infraProvider, "5Gi"),
 					},
 				},
 			},
@@ -835,7 +836,7 @@ store_dir: /data
 								"app.kubernetes.io/instance": "crdb",
 							},
 						},
-						"spec": cpi.getVolClaimTemplateSpec("20Gi"),
+						"spec": cpi.getVolClaimTemplateSpec(infraProvider, "20Gi"),
 					},
 				},
 			},
@@ -889,6 +890,7 @@ store_dir: /data
 // getVolClaimTemplateSpec returns the spec for volume claim template for the
 // specified provider with the specified storage amount.
 func (cpi *ControlPlaneInstaller) getVolClaimTemplateSpec(
+	infraProvider string,
 	storage string,
 ) map[string]interface{} {
 	volClaimTemplateSpec := map[string]interface{}{
@@ -902,7 +904,7 @@ func (cpi *ControlPlaneInstaller) getVolClaimTemplateSpec(
 		},
 	}
 
-	if cpi.Opts.InfraProvider == "eks" {
+	if infraProvider == "eks" {
 		volClaimTemplateSpec["storageClassName"] = "gp2"
 	}
 

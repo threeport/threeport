@@ -38,9 +38,8 @@ type GenesisControlPlaneCLIArgs struct {
 	AwsConfigProfile      string
 	AwsConfigEnv          bool
 	AwsRegion             string
-	OciRegion             string
-	OciConfigProfile      string
-	OciCompartmentOcid    string
+	AwsRoleArn            string
+	AwsSerialNumber       string
 	CfgFile               string
 	ControlPlaneImageRepo string
 	ControlPlaneImageTag  string
@@ -146,9 +145,6 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.AwsConfigProfile = a.AwsConfigProfile
 	cpi.Opts.AwsConfigEnv = a.AwsConfigEnv
 	cpi.Opts.AwsRegion = a.AwsRegion
-	cpi.Opts.OciRegion = a.OciRegion
-	cpi.Opts.OciConfigProfile = a.OciConfigProfile
-	cpi.Opts.OciCompartmentOcid = a.OciCompartmentOcid
 	cpi.Opts.CfgFile = a.CfgFile
 	cpi.Opts.CreateRootDomain = a.CreateRootDomain
 	cpi.Opts.CreateAdminEmail = a.CreateAdminEmail
@@ -243,6 +239,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	uninstaller.awsConfig = &awsConfigUser
 	awsConfigResourceManager := &aws.Config{}
 	switch controlPlane.InfraProvider {
+
 	// deploy infrastructure
 	case v0.KubernetesRuntimeInfraProviderKind:
 		if err := DeployKindInfra(
@@ -270,15 +267,26 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to deploy eks infrastructure: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
-		if err := DeployOkeInfra(
-			cpi,
-			threeportControlPlaneConfig,
-			threeportConfig,
-			&kubernetesRuntimeInfra,
-			kubeConnectionInfo,
-			uninstaller,
-		); err != nil {
-			return fmt.Errorf("failed to deploy oke infrastructure: %w", err)
+		// Create OKE infrastructure
+		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
+			RuntimeInstanceName:    provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			WorkerNodeShape:        "VM.Standard.A1.Flex",
+			Version:                "v1.32.1",
+			WorkerNodeInitialCount: int32(2),
+		}
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
+		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
+
+		if cpi.Opts.ControlPlaneOnly {
+			kubeConnectionInfo, err = kubernetesRuntimeInfraOKE.GetConnection()
+			if err != nil {
+				return fmt.Errorf("failed to get connection info for OKE kubernetes runtime: %w", err)
+			}
+		} else {
+			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
+			if err != nil {
+				return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
+			}
 		}
 	}
 
@@ -406,6 +414,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err := cpi.InstallThreeportControlPlaneDependencies(
 		dynamicKubeClient,
 		mapper,
+		cpi.Opts.InfraProvider,
 		encryptionKey,
 		dbCreds,
 	); err != nil {
@@ -573,6 +582,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if err := cpi.InstallThreeportAgent(
 		dynamicKubeClient,
 		mapper,
+		cpi.Opts.ControlPlaneName,
 		authConfig,
 	); err != nil {
 		return uninstaller.cleanOnCreateError("failed to install threeport agent", err)
@@ -835,13 +845,6 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
 			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
 		}
-		if err := kubernetesRuntimeInfraOKE.LoadOCIConfig(
-			threeportControlPlaneConfig.OKEProviderConfig.OciRegion,
-			threeportControlPlaneConfig.OKEProviderConfig.OciConfigProfile,
-			threeportControlPlaneConfig.OKEProviderConfig.OciCompartmentOcid,
-		); err != nil {
-			return fmt.Errorf("failed to load OCI config: %w", err)
-		}
 		if kubeConnection, err = kubernetesRuntimeInfraOKE.GetConnection(); err != nil {
 			return fmt.Errorf("failed to get connection for OKE kubernetes runtime infra: %w", err)
 		}
@@ -971,13 +974,9 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	}
 
-	// if control plane only flag is set, hold onto the control plane in the threeport
-	// config so we may tear-down with infra-only flag later
-	if !cpi.Opts.ControlPlaneOnly || cpi.Opts.InfraOnly {
-		// update threeport config to remove deleted threeport instance
-		config.DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)
-		Info("Threeport config updated")
-	}
+	// update threeport config to remove deleted threeport instance
+	config.DeleteThreeportConfigControlPlane(threeportConfig, cpi.Opts.ControlPlaneName)
+	Info("Threeport config updated")
 
 	Complete(fmt.Sprintf("Threeport control plane %s deleted", cpi.Opts.ControlPlaneName))
 
