@@ -24,6 +24,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
+	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v2"
 	"gorm.io/datatypes"
 )
@@ -60,11 +61,14 @@ type KubernetesRuntimeInfraOKE struct {
 }
 
 // CreateWithBootstrap runs the bootstrap process and then creates the OKE cluster
-func (i *KubernetesRuntimeInfraOKE) CreateWithBootstrap(instanceName, compartmentName string) (*kube.KubeConnectionInfo, error) {
+func (i *KubernetesRuntimeInfraOKE) CreateWithBootstrap() (*kube.KubeConnectionInfo, error) {
 	fmt.Println("Starting OCI bootstrap process...")
 
+	// Use RuntimeInstanceName for both instance and compartment names
+	compartmentName := fmt.Sprintf("%s-compartment", i.RuntimeInstanceName)
+
 	// Run bootstrap process
-	bootstrap, err := NewOCIBootstrap(i.TenancyOCID, i.Region, instanceName, compartmentName)
+	bootstrap, err := NewOCIBootstrap(i.TenancyOCID, i.Region, i.RuntimeInstanceName, compartmentName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bootstrap instance: %w", err)
 	}
@@ -76,10 +80,70 @@ func (i *KubernetesRuntimeInfraOKE) CreateWithBootstrap(instanceName, compartmen
 	// Update the compartment OCID with the newly created one
 	i.CompartmentOCID = bootstrap.createdResources.CompartmentOCID
 
-	fmt.Println("Bootstrap completed, creating OKE cluster...")
+	fmt.Println("Bootstrap completed, updating OCI configuration for cluster creation...")
+
+	// Create a new config provider using the service user profile
+	configPath := filepath.Join(os.Getenv("HOME"), ".oci", "config")
+	configProvider := common.CustomProfileConfigProvider(configPath, bootstrap.GetServiceUserProfileName())
+
+	// Update the OCI client configuration
+	if err := i.updateOCIConfiguration(configProvider); err != nil {
+		return nil, fmt.Errorf("failed to update OCI configuration: %w", err)
+	}
+
+	// Validate service user credentials
+	if err := i.validateServiceUserCredentials(); err != nil {
+		return nil, fmt.Errorf("service user credentials validation failed: %w", err)
+	}
+
+	fmt.Println("Service user credentials validated, creating OKE cluster...")
 
 	// Now create the cluster using the existing Create method
 	return i.Create()
+}
+
+// validateServiceUserCredentials validates that the service user credentials are working
+func (i *KubernetesRuntimeInfraOKE) validateServiceUserCredentials() error {
+	// Create an identity client with the current config provider
+	identityClient, err := identity.NewIdentityClientWithConfigurationProvider(i.ConfigProvider)
+	if err != nil {
+		return fmt.Errorf("failed to create identity client: %w", err)
+	}
+
+	// Try to get the user's own details - this will fail if credentials are invalid
+	userOCID, err := i.ConfigProvider.UserOCID()
+	if err != nil {
+		return fmt.Errorf("failed to get user OCID: %w", err)
+	}
+
+	request := identity.GetUserRequest{
+		UserId: &userOCID,
+	}
+
+	_, err = identityClient.GetUser(context.Background(), request)
+	if err != nil {
+		return fmt.Errorf("failed to validate service user credentials: %w", err)
+	}
+
+	return nil
+}
+
+// updateOCIConfiguration updates the OCI client configuration with the provided config provider
+func (i *KubernetesRuntimeInfraOKE) updateOCIConfiguration(configProvider common.ConfigurationProvider) error {
+	// Validate the config provider
+	if _, err := configProvider.TenancyOCID(); err != nil {
+		return fmt.Errorf("invalid config provider: %w", err)
+	}
+
+	// Update the config provider
+	i.ConfigProvider = configProvider
+
+	// Update the region if it's not already set
+	if region, err := configProvider.Region(); err == nil && region != "" {
+		i.Region = region
+	}
+
+	return nil
 }
 
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
@@ -1037,6 +1101,61 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 	err = stack.SetConfig(ctx, "oci:region", auto.ConfigValue{Value: i.Region})
 	if err != nil {
 		return auto.Stack{}, fmt.Errorf("failed to set region config: %w", err)
+	}
+
+	// Get service user credentials from the config provider
+	tenancyOCID, err := i.ConfigProvider.TenancyOCID()
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to get tenancy OCID: %w", err)
+	}
+
+	userOCID, err := i.ConfigProvider.UserOCID()
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to get user OCID: %w", err)
+	}
+
+	fingerprint, err := i.ConfigProvider.KeyFingerprint()
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to get key fingerprint: %w", err)
+	}
+
+	// Get private key path from the OCI config file
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	configPath := filepath.Join(homeDir, ".oci", "config")
+	cfg, err := ini.Load(configPath)
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to load OCI config: %w", err)
+	}
+
+	section := cfg.Section("THREEPORT_SERVICE")
+	privateKeyPath := section.Key("key_file").String()
+	if privateKeyPath == "" {
+		return auto.Stack{}, fmt.Errorf("private key path not found in OCI config")
+	}
+
+	// Set Pulumi OCI provider configuration
+	err = stack.SetConfig(ctx, "oci:tenancyOcid", auto.ConfigValue{Value: tenancyOCID})
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to set tenancy OCID config: %w", err)
+	}
+
+	err = stack.SetConfig(ctx, "oci:userOcid", auto.ConfigValue{Value: userOCID})
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to set user OCID config: %w", err)
+	}
+
+	err = stack.SetConfig(ctx, "oci:fingerprint", auto.ConfigValue{Value: fingerprint})
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to set fingerprint config: %w", err)
+	}
+
+	err = stack.SetConfig(ctx, "oci:privateKeyPath", auto.ConfigValue{Value: privateKeyPath})
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to set private key path config: %w", err)
 	}
 
 	return stack, nil

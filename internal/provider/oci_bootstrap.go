@@ -15,30 +15,35 @@ import (
 
 // OCIBootstrap handles the bootstrap process for OCI resources
 type OCIBootstrap struct {
-	TenancyOCID                string
-	Region                     string
-	InstanceName               string
-	CompartmentName            string
-	ServiceUserName            string
-	ServiceUserEmail           string
-	BootstrapGroupName         string
-	OperationalGroupName       string
-	DynamicGroupName           string
-	createdResources           *BootstrapResources
-	configProvider             common.ConfigurationProvider
-	identityClient             identity.IdentityClient
+	TenancyOCID          string
+	Region               string
+	InstanceName         string
+	CompartmentName      string
+	ServiceUserName      string
+	ServiceUserEmail     string
+	BootstrapGroupName   string
+	OperationalGroupName string
+	DynamicGroupName     string
+	createdResources     *BootstrapResources
+	configProvider       common.ConfigurationProvider
+	identityClient       identity.IdentityClient
+}
+
+// GetServiceUserProfileName returns the OCI config profile name for the service user
+func (b *OCIBootstrap) GetServiceUserProfileName() string {
+	return "THREEPORT_SERVICE"
 }
 
 // BootstrapResources tracks all resources created during bootstrap
 type BootstrapResources struct {
-	CompartmentOCID     string
-	ServiceUserOCID     string
-	ServiceUserAPIKey   string
-	BootstrapGroupOCID  string
-	OperationalGroupOCID string
-	DynamicGroupOCID    string
-	BootstrapPolicyOCID string
-	OperationalPolicyOCID string
+	CompartmentOCID        string
+	ServiceUserOCID        string
+	ServiceUserAPIKey      string
+	BootstrapGroupOCID     string
+	OperationalGroupOCID   string
+	DynamicGroupOCID       string
+	BootstrapPolicyOCID    string
+	OperationalPolicyOCID  string
 	DynamicGroupPolicyOCID string
 }
 
@@ -53,18 +58,18 @@ func NewOCIBootstrap(tenancyOCID, region, instanceName, compartmentName string) 
 	identityClient.SetRegion(region)
 
 	return &OCIBootstrap{
-		TenancyOCID:                tenancyOCID,
-		Region:                     region,
-		InstanceName:               instanceName,
-		CompartmentName:            compartmentName,
-		ServiceUserName:            fmt.Sprintf("%s-service-user", instanceName),
-		ServiceUserEmail:           "threeport-service@example.com", // Should be updated by user
-		BootstrapGroupName:         fmt.Sprintf("%s-bootstrap-group", instanceName),
-		OperationalGroupName:       fmt.Sprintf("%s-operational-group", instanceName),
-		DynamicGroupName:           fmt.Sprintf("%s-dynamic-group", instanceName),
-		createdResources:           &BootstrapResources{},
-		configProvider:             configProvider,
-		identityClient:             identityClient,
+		TenancyOCID:          tenancyOCID,
+		Region:               region,
+		InstanceName:         instanceName,
+		CompartmentName:      compartmentName,
+		ServiceUserName:      fmt.Sprintf("%s-service-user", instanceName),
+		ServiceUserEmail:     "threeport-service@example.com", // Should be updated by user
+		BootstrapGroupName:   fmt.Sprintf("%s-bootstrap-group", instanceName),
+		OperationalGroupName: fmt.Sprintf("%s-operational-group", instanceName),
+		DynamicGroupName:     fmt.Sprintf("%s-dynamic-group", instanceName),
+		createdResources:     &BootstrapResources{},
+		configProvider:       configProvider,
+		identityClient:       identityClient,
 	}, nil
 }
 
@@ -301,10 +306,10 @@ func (b *OCIBootstrap) createDynamicGroup() error {
 
 	request := identity.CreateDynamicGroupRequest{
 		CreateDynamicGroupDetails: identity.CreateDynamicGroupDetails{
-			CompartmentId:  &b.TenancyOCID,
-			Name:           &b.DynamicGroupName,
-			Description:    common.String("Dynamic group for Threeport compute instances"),
-			MatchingRule:   &matchingRule,
+			CompartmentId: &b.TenancyOCID,
+			Name:          &b.DynamicGroupName,
+			Description:   common.String("Dynamic group for Threeport compute instances"),
+			MatchingRule:  &matchingRule,
 		},
 	}
 
@@ -814,15 +819,15 @@ func DeleteOCIBootstrapResources(instanceName string) error {
 	// Create a minimal bootstrap struct for cleanup operations
 	// We don't need to run full bootstrap, just use the cleanup methods
 	bootstrap := &OCIBootstrap{
-		TenancyOCID:                tenancyOCID,
-		Region:                     region,
-		InstanceName:               instanceName,
-		ServiceUserName:            fmt.Sprintf("%s-service-user", instanceName),
-		BootstrapGroupName:         fmt.Sprintf("%s-bootstrap-group", instanceName),
-		OperationalGroupName:       fmt.Sprintf("%s-operational-group", instanceName),
-		DynamicGroupName:           fmt.Sprintf("%s-dynamic-group", instanceName),
-		configProvider:             configProvider,
-		identityClient:             identityClient,
+		TenancyOCID:          tenancyOCID,
+		Region:               region,
+		InstanceName:         instanceName,
+		ServiceUserName:      fmt.Sprintf("%s-service-user", instanceName),
+		BootstrapGroupName:   fmt.Sprintf("%s-bootstrap-group", instanceName),
+		OperationalGroupName: fmt.Sprintf("%s-operational-group", instanceName),
+		DynamicGroupName:     fmt.Sprintf("%s-dynamic-group", instanceName),
+		configProvider:       configProvider,
+		identityClient:       identityClient,
 	}
 
 	// Run the cleanup process using the existing admin credentials

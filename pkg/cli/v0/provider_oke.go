@@ -68,9 +68,10 @@ func DeployOkeInfra(
 		}
 		*kubeConnectionInfo = *connectionInfo
 	} else {
-		connectionInfo, err := (*kubernetesRuntimeInfra).Create()
+		// Create the cluster with bootstrap process to set up service user and compartment
+		connectionInfo, err := kubernetesRuntimeInfraOKE.CreateWithBootstrap()
 		if err != nil {
-			return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
+			return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport (bootstrap process failed)", err)
 		}
 		*kubeConnectionInfo = *connectionInfo
 	}
