@@ -57,6 +57,29 @@ type KubernetesRuntimeInfraOKE struct {
 	stateDir string
 }
 
+// CreateWithBootstrap runs the bootstrap process and then creates the OKE cluster
+func (i *KubernetesRuntimeInfraOKE) CreateWithBootstrap(instanceName, compartmentName string) (*kube.KubeConnectionInfo, error) {
+	fmt.Println("Starting OCI bootstrap process...")
+
+	// Run bootstrap process
+	bootstrap, err := NewOCIBootstrap(i.TenancyOCID, i.Region, instanceName, compartmentName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create bootstrap instance: %w", err)
+	}
+
+	if err := bootstrap.RunBootstrap(); err != nil {
+		return nil, fmt.Errorf("bootstrap process failed: %w", err)
+	}
+
+	// Update the compartment OCID with the newly created one
+	i.CompartmentOCID = bootstrap.createdResources.CompartmentOCID
+
+	fmt.Println("Bootstrap completed, creating OKE cluster...")
+
+	// Now create the cluster using the existing Create method
+	return i.Create()
+}
+
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
 func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 	// set up Pulumi workspace and get stack

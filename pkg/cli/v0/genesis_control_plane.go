@@ -971,6 +971,17 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			if err != nil {
 				return fmt.Errorf("failed to delete threeport AWS IAM resources: %w", err)
 			}
+		case v0.KubernetesRuntimeInfraProviderOKE:
+			// delete OCI bootstrap resources
+			err = provider.DeleteOCIBootstrapResources(cpi.Opts.ControlPlaneName)
+			if err != nil {
+				return fmt.Errorf("failed to delete OCI bootstrap resources: %w", err)
+			}
+
+			// cleanup local OCI files
+			if err := provider.CleanupOCILocalFiles(); err != nil {
+				Warning(fmt.Sprintf("failed to remove local OCI key files: %v", err))
+			}
 		}
 	}
 
