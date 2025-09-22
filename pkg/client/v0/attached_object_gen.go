@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetAttachedObjectReferenceByName(apiClient *http.Client, apiAddr, name stri
 
 	switch {
 	case len(attachedObjectReferences) < 1:
-		return &v0.AttachedObjectReference{}, errors.New(fmt.Sprintf("no attached object reference with name %s", name))
+		return &v0.AttachedObjectReference{}, client_lib.ErrObjectNotFound
 	case len(attachedObjectReferences) > 1:
-		return &v0.AttachedObjectReference{}, errors.New(fmt.Sprintf("more than one attached object reference with name %s returned", name))
+		return &v0.AttachedObjectReference{}, fmt.Errorf("more than one attached object reference with name %s returned", name)
 	}
 
 	return &attachedObjectReferences[0], nil

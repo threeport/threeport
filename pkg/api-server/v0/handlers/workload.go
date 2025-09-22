@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	echo "github.com/labstack/echo/v4"
+	zap "go.uber.org/zap"
 	gorm "gorm.io/gorm"
 
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -30,15 +31,18 @@ func (h Handler) AddWorkloadResourceDefinitions(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, v0.WorkloadResourceDefinition{}); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&workloadResourceDefinitions); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, workloadResourceDefinitions, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -55,11 +59,13 @@ func (h Handler) AddWorkloadResourceDefinitions(c echo.Context) error {
 		return nil
 	})
 	if err != nil {
+		h.Logger.Error("handler error: error creating workload resource definitions", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, createdWRDs, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -103,12 +109,14 @@ func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
 
 	var filter v0.WorkloadEvent
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	workloadEvents := &[]v0.WorkloadEvent{}
 	if result := h.DB.Where(&filter).Find(workloadEvents).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error getting workload events", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
@@ -118,11 +126,13 @@ func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
 	}
 
 	if result := h.DB.Delete(workloadEvents); result.Error != nil {
+		h.Logger.Error("handler error: error deleting workload events", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *workloadEvents, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 

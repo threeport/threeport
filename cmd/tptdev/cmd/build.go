@@ -175,11 +175,11 @@ func init() {
 	)
 	buildCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageRepo,
-		"control-plane-image-repo", "r", "", "Alternate image repo to pull threeport control plane images from.",
+		"control-plane-image-namespace", "r", "", "Alternate image namespace to pull threeport control plane images from.",
 	)
 	buildCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageTag,
-		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
+		"control-plane-image-tag", "t", "", "Alternate image tag for threeport control plane images.",
 	)
 	buildCmd.Flags().StringVar(
 		&arch,

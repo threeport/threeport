@@ -3,12 +3,14 @@ package client
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	"github.com/threeport/threeport/pkg/sdk/v0/gen"
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
@@ -20,7 +22,7 @@ const (
 )
 
 // GenClientLib generates an the API objects' client library.
-func GenClientLib(gen *gen.Generator) error {
+func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objCollection := range gen.VersionedApiObjectCollections {
 		for _, objGroup := range objCollection.VersionedApiObjectGroups {
 			pluralize := pluralize.NewClient()
@@ -343,22 +345,29 @@ func GenClientLib(gen *gen.Generator) error {
 					Line(),
 					Switch().Block(
 						Case(Len(Id(pluralize.Pluralize(strcase.ToLowerCamel(apiObject.TypeName), 2, false))).Op("<").Lit(1)).Block(
-							Return().Op("&").Qual(
-								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
-								apiObject.TypeName,
-							).Values().Op(",").Qual("errors", "New").Call(
-								Qual("fmt", "Sprintf").Call(
-									Lit("no "+strcase.ToDelimited(apiObject.TypeName, ' ')+" with name %s").Op(",").Id("name"),
+							Return().List(
+								Op("&").Qual(
+									fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+									apiObject.TypeName,
+								).Values(),
+								Qual(
+									"github.com/threeport/threeport/pkg/client/lib/v0",
+									"ErrObjectNotFound",
 								),
 							),
 						),
 						Case(Len(Id(pluralize.Pluralize(strcase.ToLowerCamel(apiObject.TypeName), 2, false))).Op(">").Lit(1)).Block(
-							Return().Op("&").Qual(
-								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
-								apiObject.TypeName,
-							).Values().Op(",").Qual("errors", "New").Call(
-								Qual("fmt", "Sprintf").Call(
-									Lit("more than one "+strcase.ToDelimited(apiObject.TypeName, ' ')+" with name %s returned").Op(",").Id("name"),
+							Return().List(
+								Op("&").Qual(
+									fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+									apiObject.TypeName,
+								).Values(),
+								Qual("fmt", "Errorf").Call(
+									Lit(fmt.Sprintf(
+										"more than one %s with name %%s returned",
+										strcase.ToDelimited(apiObject.TypeName, ' '),
+									)),
+									Id("name"),
 								),
 							),
 						),
@@ -634,18 +643,22 @@ func GenClientLib(gen *gen.Generator) error {
 				// TODO: replace object
 			}
 
-			// write code to file
+			// write code to file if not excluded by SDK config
 			genFilepath := filepath.Join(
 				"pkg",
 				"client",
 				objCollection.Version,
 				fmt.Sprintf("%s_gen.go", strcase.ToSnake(objGroup.Name)),
 			)
-			_, err := util.WriteCodeToFile(f, genFilepath, true)
-			if err != nil {
-				return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+			if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+				cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
+			} else {
+				_, err := util.WriteCodeToFile(f, genFilepath, true)
+				if err != nil {
+					return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+				}
+				cli.Info(fmt.Sprintf("source code for API client library written to %s", genFilepath))
 			}
-			cli.Info(fmt.Sprintf("source code for API client library written to %s", genFilepath))
 		}
 	}
 

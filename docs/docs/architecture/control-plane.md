@@ -79,11 +79,8 @@ The AWS controller is responsible for managing the following managed services in
 AWS:
 
 * Elastic Kubernetes Clusters (EKS): used for Kubernetes Runtime environments to
-  deploy user workloads.
-* Relational Database Service (RDS): available as a dependency when used as a
-  part of an application stack.
-* Simple Storage Service (S3): available as a dependency when used by an
-  application to store objects.
+  deploy user workloads.  The EKS recource along with all the necessary services
+  needed for a working EKS cluster are managed for the user.
 
 We use a library called [aws-builder](https://github.com/nukleros/aws-builder)
 that was developed for use by Threeport.  It uses the [v2

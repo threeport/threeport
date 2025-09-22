@@ -1,7 +1,6 @@
 package gen
 
 import (
-	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -156,6 +155,10 @@ type ApiObject struct {
 	// The version of the API object.
 	Version string
 
+	// The description of the API object as provided in the source code comments for
+	// the API object.
+	Description string
+
 	TypeName              string
 	AllowDuplicateNames   bool
 	AllowCustomMiddleware bool
@@ -252,7 +255,7 @@ type ReconciledObject struct {
 func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 	pluralize := pluralize.NewClient()
 
-	// determine if a module and get module path from go.mod
+	// determine if an extension module and get module path from go.mod
 	module, modulePath, err := sdkutil.IsModule()
 	if err != nil {
 		return fmt.Errorf("could not determine if generating code for a module: %w", err)
@@ -491,6 +494,9 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 				return fmt.Errorf("failed to parse source code file: %w", err)
 			}
 
+			// create a comment map to associate comments with AST nodes
+			commentMap := ast.NewCommentMap(fset, pf, pf.Comments)
+
 			// determine which objects must be reconciled and build a map
 			// of struct tags for each object
 			structTags := make(map[string]map[string]map[string]string)
@@ -516,6 +522,24 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 								for _, c := range apiObjects {
 									if c.TypeName == objectName {
 										mc = c
+									}
+								}
+
+								// extract comment description for the struct type
+								if mc != nil {
+									if commentGroups, exists := commentMap[genDecl]; exists && len(commentGroups) > 0 {
+										// extract the comment text from the first comment group and clean it up
+										commentText := commentGroups[0].Text()
+										commentText = strings.TrimSpace(commentText)
+										// normalize whitespace and remove unnecessary line breaks
+										commentText = strings.ReplaceAll(commentText, "\n", " ")
+										commentText = strings.ReplaceAll(commentText, "\r", " ")
+										// replace multiple consecutive spaces with single space
+										for strings.Contains(commentText, "  ") {
+											commentText = strings.ReplaceAll(commentText, "  ", " ")
+										}
+										commentText = strings.TrimSpace(commentText)
+										mc.Description = commentText
 									}
 								}
 
@@ -549,6 +573,12 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 										continue
 									}
 									fieldName := field.Names[0].Name
+									if field.Tag == nil {
+										return fmt.Errorf(
+											"field %s in object %s has no struct tags defined",
+											fieldName, objectName,
+										)
+									}
 									tagMap := util.ParseStructTag(field.Tag.Value)
 									structTags[objectName][fieldName] = tagMap
 								}
@@ -591,9 +621,9 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 				for i, mc := range genApiObjectGroup.ApiObjects {
 					if rm == mc.TypeName {
 						if !mc.ReconciledField && !module {
-							return errors.New(fmt.Sprintf(
+							return fmt.Errorf(
 								"%s object does not include a Reconciled field - all objects with reconcilers must include this field", rm,
-							))
+							)
 						} else {
 							genApiObjectGroup.ApiObjects[i].Reconciler = true
 						}

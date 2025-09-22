@@ -87,7 +87,6 @@ var DebugCmd = &cobra.Command{
 				if err := cpi.UpdateThreeportAgentDeployment(
 					dynamicKubeClient,
 					&mapper,
-					controlPlaneNamespace,
 				); err != nil {
 					cli.Error("failed to apply threeport agent", err)
 					os.Exit(1)
@@ -115,11 +114,11 @@ func init() {
 	)
 	DebugCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageRepo,
-		"control-plane-image-repo", "r", "", "Alternate image repo to pull threeport control plane images from.",
+		"control-plane-image-namespace", "r", "", "Alternate image namespace to pull threeport control plane images from.",
 	)
 	DebugCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageTag,
-		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
+		"control-plane-image-tag", "t", "", "Alternate image tag for threeport control plane images.",
 	)
 	DebugCmd.Flags().BoolVar(
 		&disable,

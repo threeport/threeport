@@ -3,6 +3,7 @@ package apiserver
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	. "github.com/dave/jennifer/jen"
@@ -49,13 +50,19 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/api-server/v0/handlers",
 				"handlers_v0",
-				"tp_handlers",
+				"tphandlers_v0",
 				gen.Module,
 			))
 			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/api/v0",
 				"api_v0",
 				"tpapi_v0",
+				gen.Module,
+			))
+			f.ImportAlias(util.SetImportAlias(
+				"github.com/threeport/threeport/pkg/util/v0",
+				"util_v0",
+				"tputil_v0",
 				gen.Module,
 			))
 
@@ -92,16 +99,27 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Id("result").Dot("Error"), Qual("gorm.io/gorm", "ErrRecordNotFound"),
 						)).Block(
 							Id("nameUsed").Op("=").Lit(false),
-						).Else().Block(
-							Return(
+						).Else().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error checking for duplicate names"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error checking for duplicate names"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							}
+							h.Return(
 								Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatus500",
 								).Call(
 									Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"),
 								),
-							),
-						),
+							)
+						}),
 					).Line()
 					checkDuplicateNames.If(Id("nameUsed")).Block(
 						Return(
@@ -146,12 +164,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line().Qual("time", "Now").Call().Dot("Unix").Call(),
 							Line(),
 						),
-						If(Id("err").Op("!=").Nil().Block(
-							Return(Qual(
+						If(Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating NATS notification"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating NATS notification"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
-						),
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+						})),
 						Do(func(s *Statement) {
 							if gen.Module {
 								s.Id("h").Dot("Handler")
@@ -181,12 +210,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line().Qual("time", "Now").Call().Dot("Unix").Call(),
 							Line(),
 						),
-						If(Id("err").Op("!=").Nil().Block(
-							Return(Qual(
+						If(Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating NATS notification"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating NATS notification"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))),
-						),
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+						})),
 						Do(func(s *Statement) {
 							if gen.Module {
 								s.Id("h").Dot("Handler")
@@ -243,14 +283,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Id(fmt.Sprintf("scheduled%s", apiObject.TypeName)),
 							),
 							Id("result").Dot("Error").Op("!=").Nil(),
-						).Block(
-							Return(Qual(
+						).BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating scheduled deletion"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating scheduled deletion"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(
-								Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType")),
-							),
-						),
+							).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType")))
+						}),
 						Comment("notify controller"),
 						List(Id("notifPayload"), Id("err")).Op(":=").Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("NotificationPayload").Call(
 							Line().Qual(
@@ -261,12 +310,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line().Qual("time", "Now").Call().Dot("Unix").Call(),
 							Line(),
 						),
-						If(Id("err").Op("!=").Nil()).Block(
-							Return(Qual(
+						If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating NATS notification"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating NATS notification"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c"), Nil(), Id("err"), Id("objectType"))),
-						),
+							).Call(Id("c"), Nil(), Id("err"), Id("objectType")))
+						}),
 						Do(func(s *Statement) {
 							if gen.Module {
 								s.Id("h").Dot("Handler")
@@ -314,12 +374,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									}
 								}).Dot("DB").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))),
 								Id("result").Dot("Error").Op("!=").Nil(),
-							).Block(
-								Return(Qual(
+							).BlockFunc(func(h *Group) {
+								if gen.Module {
+									h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error deleting object"),
+										Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+									)
+								} else {
+									h.Id("h").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error deleting object"),
+										Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+									)
+								}
+								h.Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatus500",
-								).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"))),
-							),
+								).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType")))
+							}),
 						),
 					)
 				} else {
@@ -335,12 +406,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							}
 						}).Dot("DB").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))),
 						Id("result").Dot("Error").Op("!=").Nil(),
-					).Block(
-						Return(Qual(
+					).BlockFunc(func(h *Group) {
+						if gen.Module {
+							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error deleting object"),
+								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+							)
+						} else {
+							h.Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error deleting object"),
+								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+							)
+						}
+						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
-						).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"))),
-					)
+						).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType")))
+					})
 				}
 
 				instanceCheck := false
@@ -363,8 +445,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							strcase.ToLowerCamel(apiObject.TypeName),
 						).Op(",").Id(fmt.Sprintf(
 							"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
-							If(
+						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+							h.If(
 								Id("errors").Dot("Is").Call(Id("result").Dot("Error").Op(",").Qual(
 									"gorm.io/gorm",
 									"ErrRecordNotFound",
@@ -373,13 +455,25 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"github.com/threeport/threeport/pkg/api-server/lib/v0",
 										"ResponseStatus404",
 									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
-									)),
-								Return(Qual(
-									"github.com/threeport/threeport/pkg/api-server/lib/v0",
-									"ResponseStatus500",
-								).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
-							),
-						),
+									),
+								),
+							)
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							}
+							h.Return(Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"ResponseStatus500",
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+						}),
 					).Line()
 					deleteObjectChecks.Line()
 					deleteObjectChecks.Comment("check to make sure no dependent instances exist for this definition")
@@ -413,8 +507,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							strcase.ToLowerCamel(apiObject.TypeName),
 						).Op(",").Id(fmt.Sprintf(
 							"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
-							If(
+						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+							h.If(
 								Id("errors").Dot("Is").Call(Id("result").Dot("Error").Op(",").Qual(
 									"gorm.io/gorm",
 									"ErrRecordNotFound",
@@ -423,13 +517,25 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"github.com/threeport/threeport/pkg/api-server/lib/v0",
 										"ResponseStatus404",
 									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
-									)),
-								Return(Qual(
-									"github.com/threeport/threeport/pkg/api-server/lib/v0",
-									"ResponseStatus500",
-								).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
-							),
-						),
+									),
+								),
+							)
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							}
+							h.Return(Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"ResponseStatus500",
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+						}),
 					).Line()
 				}
 
@@ -573,16 +679,26 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Lit(false),
 							Id("objectType"),
 							Id(strcase.ToLowerCamel(apiObject.TypeName)),
-						)).Op(";").Id("err").Op("!=").Nil()).Block(
-							Return(Qual(
+						)).Op(";").Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error performing payload check"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error performing payload check"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatusErr",
 							).Call(Id("id").Op(",").Id("c").Op(",").Nil(), Qual(
 								"errors",
 								"New",
-							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"),
-							)),
-						)
+							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+						})
 					} else {
 						g.If(Id("id").Op(",").Id("err").Op(":=").Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
@@ -593,26 +709,47 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Lit(false),
 							Id("objectType"),
 							Id(strcase.ToLowerCamel(apiObject.TypeName)),
-						)).Op(";").Id("err").Op("!=").Nil()).Block(
-							Return(Qual(
+						)).Op(";").Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error performing payload check"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error performing payload check"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatusErr",
 							).Call(Id("id").Op(",").Id("c").Op(",").Nil(), Qual(
 								"errors",
 								"New",
-							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"),
-							)),
-						)
+							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+						})
 					}
 					g.Line()
 					g.If(Id("err").Op(":=").Id("c").Dot("Bind").Call(
-						Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))).Op(";").Id("err").Op("!=").Nil().Block(
-						Return(Qual(
+						Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
+					).Op(";").Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+						if gen.Module {
+							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error binding object"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							)
+						} else {
+							h.Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error binding object"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							)
+						}
+						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
-						).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")),
-						),
-					))
+						).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+					}))
 					g.Line()
 					g.Comment("check for missing required fields")
 					g.If(Id("id").Op(",").Id("err").Op(":=").Qual(
@@ -620,15 +757,26 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"ValidateBoundData",
 					).Call(Id("c").Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType")).Op(";").
 						Id("err").Op("!=").Nil(),
-					).Block(
-						Return(Qual(
+					).BlockFunc(func(h *Group) {
+						if gen.Module {
+							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error validating bound data"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							)
+						} else {
+							h.Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error validating bound data"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							)
+						}
+						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatusErr",
 						).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 							"errors",
 							"New",
-						).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
-					)
+						).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+					})
 					g.Line()
 					g.Add(checkDuplicateNames)
 					g.Comment("persist to DB")
@@ -640,13 +788,40 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}
 					}).Dot("DB").Dot("Create").Call(
 						Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
-					).Op(";").Id("result").Dot("Error").Op("!=").Nil()).Block(
-						Return(Qual(
+					).Op(";").Id("result").Dot("Error").Op("!=").Nil()).BlockFunc(func(h *Group) {
+						if gen.Module {
+							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating object"),
+								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+							)
+						} else {
+							h.Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating object"),
+								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+							)
+						}
+						h.Comment("check if this is a custom HTTP error with specific status code")
+						h.Var().Id("httpErr").Op("*").Qual(
+							"github.com/threeport/threeport/pkg/util/v0",
+							"HttpError",
+						)
+						h.If(Qual("errors", "As").Call(Id("result").Dot("Error"), Op("&").Id("httpErr"))).Block(
+							Return(Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"ResponseStatusErr",
+							).Call(
+								Line().Id("httpErr").Dot("GetStatusCode").Call(),
+								Id("c"),
+								Nil(),
+								Id("result").Dot("Error"),
+								Id("objectType").Op(",").Line(),
+							)),
+						)
+						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
-						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
-						),
-					)
+						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+					})
 					g.Line()
 					g.Add(notifyControllersCreateHandler)
 					g.Line()
@@ -654,12 +829,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
 					).Call(Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType"))
-					g.If(Id("err").Op("!=").Nil()).Block(
-						Return(Qual(
+					g.If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
+						if gen.Module {
+							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating response"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							)
+						} else {
+							h.Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating response"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							)
+						}
+						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
-						).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
-					)
+						).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+					})
 					g.Line()
 					g.Return(Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
@@ -744,12 +930,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						),
 						apiObject.TypeName,
 					),
-					If(Id("err").Op(":=").Id("c").Dot("Bind").Call(Op("&").Id("filter")).Op(";").Id("err").Op("!=").Nil().Block(
-						Return(Qual(
+					If(Id("err").Op(":=").Id("c").Dot("Bind").Call(Op("&").Id("filter")).Op(";").Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+						if gen.Module {
+							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error binding filter"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							)
+						} else {
+							h.Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error binding filter"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							)
+						}
+						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
-						).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("err").Op(",").Id("objectType"))),
-					)),
+						).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("err").Op(",").Id("objectType")))
+					})),
 					Line(),
 					Var().Id("totalCount").Int64(),
 					If(Id("result").Op(":=").Do(func(s *Statement) {
@@ -768,12 +965,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							apiObject.TypeName,
 						).Values(),
 					).Dot("Where").Call(Op("&").Id("filter")).Dot("Count").Call(Op("&").Id("totalCount")),
-						Id("result").Dot("Error").Op("!=").Nil().Block(
-							Return(Qual(
+						Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error counting objects"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error counting objects"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
-						),
+							).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+						}),
 					),
 					Line(),
 					Id("records").Op(":=").Op("&").Index().Qual(
@@ -796,12 +1004,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Dot("Offset").Call(Call(
 						Id("params").Dot("Page").Op("-").Lit(1)).Op("*").Id("params").Dot("Size")).
 						// TODO: figure out DB preloads
-						Dot("Find").Call(Id("records")).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
-						Return(Qual(
+						Dot("Find").Call(Id("records")).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+						if gen.Module {
+							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error finding objects"),
+								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+							)
+						} else {
+							h.Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error finding objects"),
+								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+							)
+						}
+						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
-						).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
-						)),
+						).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+					}),
 					),
 					Line(),
 					Id("response").Op(",").Id("err").Op(":=").Qual(
@@ -811,13 +1030,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateMeta",
 					).Call(Id("params").Op(",").Id("totalCount")).Op(",").Op("*").Id("records").Op(",").Id("objectType")),
-					If(Id("err").Op("!=").Nil().Block(
-						Return(Qual(
+					If(Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+						if gen.Module {
+							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating response"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							)
+						} else {
+							h.Id("h").Dot("Logger").Dot("Error").Call(
+								Lit("handler error: error creating response"),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
+							)
+						}
+						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
-						).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("err").Op(",").Id("objectType")),
-						)),
-					),
+						).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("err").Op(",").Id("objectType")))
+					})),
 					Line(),
 					Return(Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
@@ -897,8 +1126,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}).Dot("DB").Add(dbLoadAssociationStatement).
 							Dot("First").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id(fmt.Sprintf(
 							"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
-							If(
+						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+							h.If(
 								Id("errors").Dot("Is").Call(Id("result").Dot("Error").Op(",").Qual(
 									"gorm.io/gorm",
 									"ErrRecordNotFound",
@@ -908,12 +1137,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"ResponseStatus404",
 									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 									)),
-								Return(Qual(
-									"github.com/threeport/threeport/pkg/api-server/lib/v0",
-									"ResponseStatus500",
-								).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
-							),
-						),
+							)
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							}
+							h.Return(Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"ResponseStatus500",
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+						}),
 						Line(),
 						Line(),
 						Id("response").Op(",").Id("err").Op(":=").Qual(
@@ -922,12 +1162,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Call(
 							Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType"),
 						),
-						If(Id("err").Op("!=").Nil().Block(
-							Return(Qual(
+						If(Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating response"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating response"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
-						)),
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+						})),
 						Line(),
 						Line(),
 						Return(Qual(
@@ -1024,8 +1275,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}).Dot("DB").
 							Dot("First").Call(Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id(fmt.Sprintf(
 							"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
-							If(
+						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+							h.If(
 								Id("errors").Dot("Is").Call(Id("result").Dot("Error").Op(",").Qual(
 									"gorm.io/gorm",
 									"ErrRecordNotFound",
@@ -1035,12 +1286,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"ResponseStatus404",
 									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 									)),
-								Return(Qual(
-									"github.com/threeport/threeport/pkg/api-server/lib/v0",
-									"ResponseStatus500",
-								).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
-							),
-						),
+							)
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							}
+							h.Return(Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"ResponseStatus500",
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+						}),
 					)
 					g.Line()
 					g.Comment("check for empty payload, invalid or unsupported fields, optional associations, etc.")
@@ -1055,15 +1317,26 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Lit(true),
 								Id("objectType"),
 								Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-							)).Op(";").Id("err").Op("!=").Nil().Block(
-								Return(Qual(
+							)).Op(";").Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+								if gen.Module {
+									h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error performing payload check"),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
+									)
+								} else {
+									h.Id("h").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error performing payload check"),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
+									)
+								}
+								h.Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatusErr",
 								).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 									"errors",
 									"New",
-								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
-							),
+								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+							}),
 						)
 					} else {
 						g.If(
@@ -1076,15 +1349,26 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Lit(true),
 								Id("objectType"),
 								Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-							)).Op(";").Id("err").Op("!=").Nil().Block(
-								Return(Qual(
+							)).Op(";").Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+								if gen.Module {
+									h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error performing payload check"),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
+									)
+								} else {
+									h.Id("h").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error performing payload check"),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
+									)
+								}
+								h.Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatusErr",
 								).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 									"errors",
 									"New",
-								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
-							),
+								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+							}),
 						)
 					}
 					g.Line()
@@ -1100,12 +1384,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.If(
 						Id("err").Op(":=").Id("c").Dot("Bind").Call(
 							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
-						).Op(";").Id("err").Op("!=").Nil().Block(
-							Return(Qual(
+						).Op(";").Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error binding payload"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error binding payload"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
-						),
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+						}),
 					)
 					g.Line()
 					g.Comment("update object in database")
@@ -1120,12 +1415,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
 						).Dot("Updates").Call(
 							Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
-						).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
-							Return(Qual(
+						).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error updating object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error updating object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
-						),
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+						}),
 					)
 					g.Line()
 					g.Add(notifyControllersUpdateHandler)
@@ -1135,12 +1441,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"CreateResponse",
 					).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id("objectType"))
 					g.If(
-						Id("err").Op("!=").Nil().Block(
-							Return(Qual(
+						Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating response"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating response"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
-						),
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+						}),
 					)
 					g.Line()
 					g.Return(Qual(
@@ -1236,8 +1553,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}).Dot("DB").
 							Dot("First").Call(Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id(fmt.Sprintf(
 							"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
-							If(
+						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+							h.If(
 								Id("errors").Dot("Is").Call(Id("result").Dot("Error").Op(",").Qual(
 									"gorm.io/gorm",
 									"ErrRecordNotFound",
@@ -1247,12 +1564,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"ResponseStatus404",
 									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 									)),
-								Return(Qual(
-									"github.com/threeport/threeport/pkg/api-server/lib/v0",
-									"ResponseStatus500",
-								).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
-							),
-						),
+							)
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							}
+							h.Return(Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"ResponseStatus500",
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+						}),
 					)
 					g.Line()
 					g.Comment("check for empty payload, invalid or unsupported fields, optional associations, etc.")
@@ -1267,15 +1595,26 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Lit(true),
 								Id("objectType"),
 								Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-							)).Op(";").Id("err").Op("!=").Nil().Block(
-								Return(Qual(
+							)).Op(";").Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+								if gen.Module {
+									h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error performing payload check"),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
+									)
+								} else {
+									h.Id("h").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error performing payload check"),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
+									)
+								}
+								h.Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatusErr",
 								).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 									"errors",
 									"New",
-								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
-							),
+								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+							}),
 						)
 					} else {
 						g.If(
@@ -1288,15 +1627,26 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Lit(true),
 								Id("objectType"),
 								Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-							)).Op(";").Id("err").Op("!=").Nil().Block(
-								Return(Qual(
+							)).Op(";").Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+								if gen.Module {
+									h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error performing payload check"),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
+									)
+								} else {
+									h.Id("h").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error performing payload check"),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
+									)
+								}
+								h.Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatusErr",
 								).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 									"errors",
 									"New",
-								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
-							),
+								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+							}),
 						)
 					}
 					g.Line()
@@ -1312,12 +1662,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.If(
 						Id("err").Op(":=").Id("c").Dot("Bind").Call(
 							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
-						).Op(";").Id("err").Op("!=").Nil().Block(
-							Return(Qual(
+						).Op(";").Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error binding payload"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error binding payload"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
-						),
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+						}),
 					)
 					g.Line()
 					g.Comment("check for missing required fields")
@@ -1326,15 +1687,26 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ValidateBoundData",
 						).Call(Id("c").Op(",").Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Op(",").Id("objectType")).
-							Op(";").Id("err").Op("!=").Nil().Block(
-							Return(Qual(
+							Op(";").Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error validating bound data"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error validating bound data"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatusErr",
 							).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 								"errors",
 								"New",
-							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType"))),
-						),
+							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+						}),
 					)
 					g.Line()
 					g.Comment("persist provided data")
@@ -1356,13 +1728,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Lit("CreatedAt").Op(",").Lit("DeletedAt"),
 						).Dot("Save").Call(
 							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
-						).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
-							Return(Qual(
+						).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error persisting object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error persisting object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
-							),
-						),
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+						}),
 					)
 					g.Line()
 					g.Comment("reload updated data from DB")
@@ -1377,8 +1759,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}).Dot("DB").
 							Dot("First").Call(Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id(fmt.Sprintf(
 							"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().Block(
-							If(
+						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+							h.If(
 								Id("errors").Dot("Is").Call(Id("result").Dot("Error").Op(",").Qual(
 									"gorm.io/gorm",
 									"ErrRecordNotFound",
@@ -1388,12 +1770,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"ResponseStatus404",
 									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
 									)),
-								Return(Qual(
-									"github.com/threeport/threeport/pkg/api-server/lib/v0",
-									"ResponseStatus500",
-								).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType"))),
-							),
-						),
+							)
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error finding object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								)
+							}
+							h.Return(Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"ResponseStatus500",
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+						}),
 					)
 					g.Line()
 					g.Id("response").Op(",").Id("err").Op(":=").Qual(
@@ -1401,12 +1794,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"CreateResponse",
 					).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id("objectType"))
 					g.If(
-						Id("err").Op("!=").Nil().Block(
-							Return(Qual(
+						Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating response"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating response"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
-						),
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+						}),
 					)
 					g.Line()
 					g.Return(Qual(
@@ -1487,12 +1891,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"CreateResponse",
 					).Call(Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType")),
 					If(
-						Id("err").Op("!=").Nil().Block(
-							Return(Qual(
+						Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating response"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating response"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							}
+							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType"))),
-						),
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+						}),
 					),
 					Line(),
 					Return(Qual(
@@ -1502,7 +1917,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				)
 			}
 
-			// write code to file
+			// write code to file if not excluded by SDK config
 			genFilepath := filepath.Join(
 				"pkg",
 				"api-server",
@@ -1510,11 +1925,15 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				"handlers",
 				fmt.Sprintf("%s_gen.go", strcase.ToSnake(objGroup.Name)),
 			)
-			_, err := util.WriteCodeToFile(f, genFilepath, true)
-			if err != nil {
-				return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+			if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+				cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
+			} else {
+				_, err := util.WriteCodeToFile(f, genFilepath, true)
+				if err != nil {
+					return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+				}
+				cli.Info(fmt.Sprintf("source code for API object handlers written to %s", genFilepath))
 			}
-			cli.Info(fmt.Sprintf("source code for API object handlers written to %s", genFilepath))
 		}
 	}
 

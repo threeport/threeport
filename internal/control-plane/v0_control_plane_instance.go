@@ -305,7 +305,7 @@ func v0ControlPlaneInstanceCreated(
 		clientCertificate, clientPrivateKey, err := auth.GenerateCertificate(
 			authConfig.CAConfig,
 			&authConfig.CAPrivateKey,
-			"localhost",
+			"threeport-owner",
 		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to generate client certificate and private key: %w", err)
@@ -354,7 +354,6 @@ func v0ControlPlaneInstanceCreated(
 	if err := cpi.InstallThreeportControlPlaneDependencies(
 		dynamicKubeClient,
 		mapper,
-		*kubernetesRuntimeDefinition.InfraProvider,
 		encryptionKey,
 		dbCreds,
 	); err != nil {

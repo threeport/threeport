@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetLoggingDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 	switch {
 	case len(loggingDefinitions) < 1:
-		return &v0.LoggingDefinition{}, errors.New(fmt.Sprintf("no logging definition with name %s", name))
+		return &v0.LoggingDefinition{}, client_lib.ErrObjectNotFound
 	case len(loggingDefinitions) > 1:
-		return &v0.LoggingDefinition{}, errors.New(fmt.Sprintf("more than one logging definition with name %s returned", name))
+		return &v0.LoggingDefinition{}, fmt.Errorf("more than one logging definition with name %s returned", name)
 	}
 
 	return &loggingDefinitions[0], nil
@@ -368,9 +367,9 @@ func GetLoggingInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	switch {
 	case len(loggingInstances) < 1:
-		return &v0.LoggingInstance{}, errors.New(fmt.Sprintf("no logging instance with name %s", name))
+		return &v0.LoggingInstance{}, client_lib.ErrObjectNotFound
 	case len(loggingInstances) > 1:
-		return &v0.LoggingInstance{}, errors.New(fmt.Sprintf("more than one logging instance with name %s returned", name))
+		return &v0.LoggingInstance{}, fmt.Errorf("more than one logging instance with name %s returned", name)
 	}
 
 	return &loggingInstances[0], nil
@@ -603,9 +602,9 @@ func GetMetricsDefinitionByName(apiClient *http.Client, apiAddr, name string) (*
 
 	switch {
 	case len(metricsDefinitions) < 1:
-		return &v0.MetricsDefinition{}, errors.New(fmt.Sprintf("no metrics definition with name %s", name))
+		return &v0.MetricsDefinition{}, client_lib.ErrObjectNotFound
 	case len(metricsDefinitions) > 1:
-		return &v0.MetricsDefinition{}, errors.New(fmt.Sprintf("more than one metrics definition with name %s returned", name))
+		return &v0.MetricsDefinition{}, fmt.Errorf("more than one metrics definition with name %s returned", name)
 	}
 
 	return &metricsDefinitions[0], nil
@@ -838,9 +837,9 @@ func GetMetricsInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0
 
 	switch {
 	case len(metricsInstances) < 1:
-		return &v0.MetricsInstance{}, errors.New(fmt.Sprintf("no metrics instance with name %s", name))
+		return &v0.MetricsInstance{}, client_lib.ErrObjectNotFound
 	case len(metricsInstances) > 1:
-		return &v0.MetricsInstance{}, errors.New(fmt.Sprintf("more than one metrics instance with name %s returned", name))
+		return &v0.MetricsInstance{}, fmt.Errorf("more than one metrics instance with name %s returned", name)
 	}
 
 	return &metricsInstances[0], nil
@@ -1073,9 +1072,9 @@ func GetObservabilityDashboardDefinitionByName(apiClient *http.Client, apiAddr, 
 
 	switch {
 	case len(observabilityDashboardDefinitions) < 1:
-		return &v0.ObservabilityDashboardDefinition{}, errors.New(fmt.Sprintf("no observability dashboard definition with name %s", name))
+		return &v0.ObservabilityDashboardDefinition{}, client_lib.ErrObjectNotFound
 	case len(observabilityDashboardDefinitions) > 1:
-		return &v0.ObservabilityDashboardDefinition{}, errors.New(fmt.Sprintf("more than one observability dashboard definition with name %s returned", name))
+		return &v0.ObservabilityDashboardDefinition{}, fmt.Errorf("more than one observability dashboard definition with name %s returned", name)
 	}
 
 	return &observabilityDashboardDefinitions[0], nil
@@ -1308,9 +1307,9 @@ func GetObservabilityDashboardInstanceByName(apiClient *http.Client, apiAddr, na
 
 	switch {
 	case len(observabilityDashboardInstances) < 1:
-		return &v0.ObservabilityDashboardInstance{}, errors.New(fmt.Sprintf("no observability dashboard instance with name %s", name))
+		return &v0.ObservabilityDashboardInstance{}, client_lib.ErrObjectNotFound
 	case len(observabilityDashboardInstances) > 1:
-		return &v0.ObservabilityDashboardInstance{}, errors.New(fmt.Sprintf("more than one observability dashboard instance with name %s returned", name))
+		return &v0.ObservabilityDashboardInstance{}, fmt.Errorf("more than one observability dashboard instance with name %s returned", name)
 	}
 
 	return &observabilityDashboardInstances[0], nil
@@ -1543,9 +1542,9 @@ func GetObservabilityStackDefinitionByName(apiClient *http.Client, apiAddr, name
 
 	switch {
 	case len(observabilityStackDefinitions) < 1:
-		return &v0.ObservabilityStackDefinition{}, errors.New(fmt.Sprintf("no observability stack definition with name %s", name))
+		return &v0.ObservabilityStackDefinition{}, client_lib.ErrObjectNotFound
 	case len(observabilityStackDefinitions) > 1:
-		return &v0.ObservabilityStackDefinition{}, errors.New(fmt.Sprintf("more than one observability stack definition with name %s returned", name))
+		return &v0.ObservabilityStackDefinition{}, fmt.Errorf("more than one observability stack definition with name %s returned", name)
 	}
 
 	return &observabilityStackDefinitions[0], nil
@@ -1778,9 +1777,9 @@ func GetObservabilityStackInstanceByName(apiClient *http.Client, apiAddr, name s
 
 	switch {
 	case len(observabilityStackInstances) < 1:
-		return &v0.ObservabilityStackInstance{}, errors.New(fmt.Sprintf("no observability stack instance with name %s", name))
+		return &v0.ObservabilityStackInstance{}, client_lib.ErrObjectNotFound
 	case len(observabilityStackInstances) > 1:
-		return &v0.ObservabilityStackInstance{}, errors.New(fmt.Sprintf("more than one observability stack instance with name %s returned", name))
+		return &v0.ObservabilityStackInstance{}, fmt.Errorf("more than one observability stack instance with name %s returned", name)
 	}
 
 	return &observabilityStackInstances[0], nil

@@ -11,6 +11,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-24.04
+    env:
+      GOPATH: /home/runner/go
     steps:
     - name: Check out code
       uses: actions/checkout@v4
@@ -22,6 +24,15 @@ jobs:
 
     - name: Install mage
       run: go install github.com/magefile/mage@latest
+
+    - name: Install threeport-sdk
+      run: mage install:sdk
+
+    - name: Run threeport-sdk
+      run: $(go env GOPATH)/bin/threeport-sdk gen --config sdk-config.yaml
+
+    - name: Ensure no changes were made by threeport-sdk
+      run: git diff --exit-code
 
     - name: Create local container registry
       run: mage dev:localRegistryUp

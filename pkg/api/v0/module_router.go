@@ -32,7 +32,7 @@ func InitModuleRouter(
 	e *echo.Echo,
 ) error {
 	var moduleApis []ModuleApi
-	if result := db.Preload("ModuleApiRoutes").Find(&moduleApis); result.Error != nil {
+	if result := db.Preload("ModuleApiRoutes").Where("core = ?", false).Find(&moduleApis); result.Error != nil {
 		return fmt.Errorf("failed to query module APIs from database: %w", result.Error)
 	}
 

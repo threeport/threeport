@@ -3,17 +3,19 @@ package dbmigrator
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	. "github.com/dave/jennifer/jen"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	"github.com/threeport/threeport/pkg/sdk/v0/gen"
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
 // GenDbMigratorMigration generates the migration used to set the database
 // schema before the API server starts.
-func GenDbMigratorMigration(gen *gen.Generator) error {
+func GenDbMigratorMigration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("migrations")
 	f.HeaderComment(util.HeaderCommentGenMod)
 
@@ -99,21 +101,25 @@ func GenDbMigratorMigration(gen *gen.Generator) error {
 	)
 	f.Line()
 
-	// write code to file
+	// write code to file if not excluded by SDK config
 	genFilepath := filepath.Join(
 		"cmd",
 		"database-migrator",
 		"migrations",
 		fmt.Sprintf("%s_init.go", migrationVersion),
 	)
-	fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
-	if err != nil {
-		return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
-	}
-	if fileWritten {
-		cli.Info(fmt.Sprintf("source code for database migration written to %s", genFilepath))
+	if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+		cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
 	} else {
-		cli.Info(fmt.Sprintf("source code for database migration already exists at %s - not overwritten", genFilepath))
+		fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
+		if err != nil {
+			return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+		}
+		if fileWritten {
+			cli.Info(fmt.Sprintf("source code for database migration written to %s", genFilepath))
+		} else {
+			cli.Info(fmt.Sprintf("source code for database migration already exists at %s - not overwritten", genFilepath))
+		}
 	}
 
 	return nil

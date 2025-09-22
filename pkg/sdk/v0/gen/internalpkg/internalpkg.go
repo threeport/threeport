@@ -17,17 +17,17 @@ func GenInternalPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	// generate controller internal package
-	if err := controller.GenController(generator); err != nil {
+	if err := controller.GenController(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate controller internal package: %w", err)
 	}
 
 	// generate controller reconcilers
-	if err := controller.GenReconcilers(generator); err != nil {
+	if err := controller.GenReconcilers(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate controller reconcilers: %w", err)
 	}
 
 	// generate reconciler operation functions
-	if err := controller.GenReconcilerOperations(generator); err != nil {
+	if err := controller.GenReconcilerOperations(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate reconciler operation functions: %w", err)
 	}
 

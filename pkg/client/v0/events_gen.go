@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetEventByName(apiClient *http.Client, apiAddr, name string) (*v0.Event, er
 
 	switch {
 	case len(events) < 1:
-		return &v0.Event{}, errors.New(fmt.Sprintf("no event with name %s", name))
+		return &v0.Event{}, client_lib.ErrObjectNotFound
 	case len(events) > 1:
-		return &v0.Event{}, errors.New(fmt.Sprintf("more than one event with name %s returned", name))
+		return &v0.Event{}, fmt.Errorf("more than one event with name %s returned", name)
 	}
 
 	return &events[0], nil

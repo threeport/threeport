@@ -74,10 +74,7 @@ func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKe
 		},
 		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
 		Subject: pkix.Name{
-			CommonName:   "localhost",
-			Organization: []string{"Threeport"},
-			Country:      []string{"US"},
-			Locality:     []string{"Tampa"},
+			CommonName: "threeport",
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(10, 0, 0),
@@ -144,10 +141,7 @@ func GenerateCertificate(
 		DNSNames:     dnsNames,
 		IPAddresses:  ipAddresses,
 		Subject: pkix.Name{
-			CommonName:   commonName,
-			Organization: []string{"Threeport"},
-			Country:      []string{"US"},
-			Locality:     []string{"Tampa"},
+			CommonName: commonName,
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(10, 0, 0),

@@ -3,18 +3,20 @@ package config
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/iancoleman/strcase"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	"github.com/threeport/threeport/pkg/sdk/v0/gen"
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
 // GenConfig generates the config package that processes CLI user configs.
-func GenConfig(gen *gen.Generator) error {
+func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objCollection := range gen.VersionedApiObjectCollections {
 		for _, objGroup := range objCollection.VersionedApiObjectGroups {
 			f := NewFile(objCollection.Version)
@@ -485,27 +487,31 @@ func GenConfig(gen *gen.Generator) error {
 				)
 			}
 
-			// write code to file if it doesn't already exist
+			// write code to file if it doesn't already exist and not excluded by SDK config
 			genFilepath := filepath.Join(
 				"pkg",
 				"config",
 				objCollection.Version,
 				fmt.Sprintf("%s.go", strcase.ToSnake(objGroup.Name)),
 			)
-			fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
-			if err != nil {
-				return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
-			}
-			if fileWritten {
-				cli.Info(fmt.Sprintf(
-					"source code for config package written to %s",
-					genFilepath,
-				))
+			if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+				cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
 			} else {
-				cli.Info(fmt.Sprintf(
-					"source code for config package already exists at %s - not overwritten",
-					genFilepath,
-				))
+				fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
+				if err != nil {
+					return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+				}
+				if fileWritten {
+					cli.Info(fmt.Sprintf(
+						"source code for config package written to %s",
+						genFilepath,
+					))
+				} else {
+					cli.Info(fmt.Sprintf(
+						"source code for config package already exists at %s - not overwritten",
+						genFilepath,
+					))
+				}
 			}
 		}
 	}

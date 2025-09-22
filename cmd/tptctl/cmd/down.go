@@ -16,6 +16,7 @@ var DownCmd = &cobra.Command{
 	Example:      "tptctl down --name my-threeport",
 	Short:        "Spin down a deployment of the Threeport control plane",
 	Long:         `Spin down a deployment of the Threeport control plane.`,
+	PreRun:       CommandPreRunFunc,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		cpi, err := cliArgs.CreateInstaller()

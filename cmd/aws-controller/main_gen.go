@@ -31,16 +31,6 @@ func main() {
 		1,
 		"Number of concurrent reconcilers to run for aws eks kubernetes runtime instances",
 	)
-	var awsRelationalDatabaseInstanceConcurrentReconciles = flag.Int(
-		"aws-relational-database-instance-concurrent-reconciles",
-		1,
-		"Number of concurrent reconcilers to run for aws relational database instances",
-	)
-	var awsObjectStorageBucketInstanceConcurrentReconciles = flag.Int(
-		"aws-object-storage-bucket-instance-concurrent-reconciles",
-		1,
-		"Number of concurrent reconcilers to run for aws object storage bucket instances",
-	)
 
 	var apiServer = flag.String("api-server", "threeport-api-server.threeport-control-plane.svc.cluster.local", "Threepoort REST API server endpoint")
 	var msgBrokerHost = flag.String("msg-broker-host", "", "Threeport message broker hostname")
@@ -145,18 +135,6 @@ func main() {
 		Name:                 "AwsEksKubernetesRuntimeInstanceReconciler",
 		NotifSubject:         notif.AwsEksKubernetesRuntimeInstanceSubject,
 		ReconcileFunc:        aws.AwsEksKubernetesRuntimeInstanceReconciler,
-	})
-	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *awsRelationalDatabaseInstanceConcurrentReconciles,
-		Name:                 "AwsRelationalDatabaseInstanceReconciler",
-		NotifSubject:         notif.AwsRelationalDatabaseInstanceSubject,
-		ReconcileFunc:        aws.AwsRelationalDatabaseInstanceReconciler,
-	})
-	reconcilerConfigs = append(reconcilerConfigs, controller.ReconcilerConfig{
-		ConcurrentReconciles: *awsObjectStorageBucketInstanceConcurrentReconciles,
-		Name:                 "AwsObjectStorageBucketInstanceReconciler",
-		NotifSubject:         notif.AwsObjectStorageBucketInstanceSubject,
-		ReconcileFunc:        aws.AwsObjectStorageBucketInstanceReconciler,
 	})
 
 	for _, r := range reconcilerConfigs {

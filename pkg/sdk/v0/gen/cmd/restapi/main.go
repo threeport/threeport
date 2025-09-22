@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	. "github.com/dave/jennifer/jen"
@@ -43,7 +44,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		handlerRegistration.Id(fmt.Sprintf("h_%s", versionConf.VersionName)).Op(":=").Qual(
 			fmt.Sprintf("%s/pkg/api-server/%s/handlers", gen.ModulePath, versionConf.VersionName),
 			"New",
-		).Call(List(Id("db"), Id("nc"), Op("*").Id("js")))
+		).Call(List(Id("db"), Id("nc"), Op("*").Id("js"), Op("&").Id("logger")))
 	}
 	handlerRegistration.Line()
 
@@ -117,7 +118,6 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 	f.ImportAlias("github.com/labstack/echo/v4", "echo")
 	f.ImportAlias("github.com/go-playground/validator/v10", "validator")
-	f.ImportAlias("github.com/threeport/threeport/pkg/api-server/lib/v0", "apiserver_lib")
 	f.ImportAlias(util.SetImportAlias(
 		"github.com/threeport/threeport/pkg/log/v0",
 		"log",
@@ -136,7 +136,19 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		"tp_apiserver",
 		gen.Module,
 	))
-	if !gen.Module {
+	f.ImportAlias(util.SetImportAlias(
+		"github.com/threeport/threeport/pkg/api-server/lib/v0",
+		"apiserver_lib",
+		"tp_apiserver_lib",
+		gen.Module,
+	))
+	f.ImportAlias(
+		fmt.Sprintf("%s/pkg/api-server/v0", gen.ModulePath),
+		"apiserver_v0",
+	)
+	if gen.Module {
+		f.ImportAlias("github.com/threeport/threeport/pkg/client/lib/v0", "client_lib")
+	} else {
 		f.ImportAlias("github.com/threeport/threeport/pkg/api/v0", "api_v0")
 	}
 	f.Anon("github.com/threeport/threeport/pkg/api-server/v0/docs")
@@ -167,16 +179,36 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	f.Func().Id("main").Params().BlockFunc(func(g *Group) {
 		g.Comment("flags")
-		g.Var().Id("envFile").String()
+		if gen.Module {
+			g.Var().Id("threeportEnvFile").String()
+			g.Var().Id("moduleEnvFile").String()
+		} else {
+			g.Var().Id("envFile").String()
+		}
 		g.Var().Id("autoMigrate").Bool()
 		g.Var().Id("verbose").Bool()
 		g.Var().Id("authEnabled").Bool()
-		g.Qual("flag", "StringVar").Call(
-			Id("&envFile"),
-			Lit("env-file"),
-			Lit("/etc/threeport/env"),
-			Lit("File from which to load environment"),
-		)
+		if gen.Module {
+			g.Qual("flag", "StringVar").Call(
+				Id("&threeportEnvFile"),
+				Lit("threeport-env-file"),
+				Lit("/etc/threeport/env"),
+				Lit("File from which to load threeport environment"),
+			)
+			g.Qual("flag", "StringVar").Call(
+				Id("&moduleEnvFile"),
+				Lit("module-env-file"),
+				Lit("/etc/threeport/mod/env"),
+				Lit("File from which to load module environment"),
+			)
+		} else {
+			g.Qual("flag", "StringVar").Call(
+				Id("&envFile"),
+				Lit("env-file"),
+				Lit("/etc/threeport/env"),
+				Lit("File from which to load environment"),
+			)
+		}
 		g.Qual("flag", "BoolVar").Call(
 			Id("&autoMigrate"),
 			Lit("auto-migrate"),
@@ -313,15 +345,35 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 		g.Line()
 
-		g.Comment("env vars for database and nats connection")
-		g.If(Err().Op(":=").Qual(
-			"github.com/joho/godotenv",
-			"Load",
-		).Call(Id("envFile")), Err().Op("!=").Nil()).Block(
-			Id("e").Dot("Logger").Dot("Fatalf").Call(
-				Lit("failed to load environment variables: %v"), Err(),
-			),
-		)
+		if gen.Module {
+			g.Comment("threeport and module environment variables")
+			g.If(Err().Op(":=").Qual(
+				"github.com/joho/godotenv",
+				"Load",
+			).Call(Id("threeportEnvFile")), Err().Op("!=").Nil()).Block(
+				Id("e").Dot("Logger").Dot("Fatalf").Call(
+					Lit("failed to load threeport environment variables: %v"), Err(),
+				),
+			)
+			g.If(Err().Op(":=").Qual(
+				"github.com/joho/godotenv",
+				"Load",
+			).Call(Id("moduleEnvFile")), Err().Op("!=").Nil()).Block(
+				Id("e").Dot("Logger").Dot("Fatalf").Call(
+					Lit("failed to load module environment variables: %v"), Err(),
+				),
+			)
+		} else {
+			g.Comment("env vars for database and nats connection")
+			g.If(Err().Op(":=").Qual(
+				"github.com/joho/godotenv",
+				"Load",
+			).Call(Id("envFile")), Err().Op("!=").Nil()).Block(
+				Id("e").Dot("Logger").Dot("Fatalf").Call(
+					Lit("failed to load environment variables: %v"), Err(),
+				),
+			)
+		}
 		g.Line()
 
 		g.Comment("database connection")
@@ -334,6 +386,63 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 		g.Line()
 
+		if gen.Module {
+			g.Comment("get a client for the core threeport API to use for registering the module")
+			g.Id("tpApiEndpoint").Op(":=").Qual("os", "Getenv").Call(Lit("THREEPORT_API_ENDPOINT"))
+			g.If(Id("tpApiEndpoint").Op("==").Lit("")).Block(
+				Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("THREEPORT_API_ENDPOINT is not set in environment")),
+			)
+			g.Id("tpAuthEnabled").Op(":=").Qual("os", "Getenv").Call(Lit("THREEPORT_AUTH_ENABLED"))
+			g.If(Id("tpAuthEnabled").Op("==").Lit("")).Block(
+				Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("THREEPORT_AUTH_ENABLED is not set in environment")),
+			)
+			g.List(Id("tpClient"), Err()).Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/client/lib/v0",
+				"GetHTTPClient",
+			).Call(
+				Id("tpAuthEnabled").Op("==").Lit("true"),
+				Lit(""),
+				Lit(""),
+				Lit(""),
+				Lit(""),
+			)
+			g.If(Err().Op("!=").Nil()).Block(
+				Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("failed to get core threeport API client: %v"), Err()),
+			)
+			g.Line()
+
+			g.Comment("register module information in the database as needed")
+			g.Id("moduleApiEndpoint").Op(":=").Qual("os", "Getenv").Call(Lit("MODULE_API_ENDPOINT"))
+			g.If(Id("moduleApiEndpoint").Op("==").Lit("")).Block(
+				Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("MODULE_API_ENDPOINT is not set in environment")),
+			)
+			g.Id("moduleNamespace").Op(":=").Qual("os", "Getenv").Call(Lit("MODULE_NAMESPACE"))
+			g.If(Id("moduleNamespace").Op("==").Lit("")).Block(
+				Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("MODULE_NAMESPACE is not set in environment")),
+			)
+			g.If(Err().Op(":=").Qual(
+				fmt.Sprintf("%s/pkg/api-server/v0", gen.ModulePath),
+				"RegisterModule",
+			).Call(
+				Line().Id("tpClient"),
+				Line().Id("tpApiEndpoint"),
+				Line().Id("moduleApiEndpoint"),
+				Line().Id("moduleNamespace"),
+				Line(),
+			)).Op(";").Err().Op("!=").Nil().Block(
+				Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("failed to register module: %v"), Err()),
+			)
+		} else {
+			g.Comment("register module information in the database as needed")
+			g.If(Err().Op(":=").Qual(
+				fmt.Sprintf("%s/pkg/api-server/v0", gen.ModulePath),
+				"RegisterModule",
+			).Call(Id("db"))).Op(";").Err().Op("!=").Nil().Block(
+				Id("e").Dot("Logger").Dot("Fatalf").Call(Lit("failed to register core module: %v"), Err()),
+			)
+		}
+		g.Line()
+
 		if !gen.Module {
 			g.Comment("add module router middleware")
 			g.If(
@@ -343,7 +452,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				).Call(List(Id("db"), Id("e"))),
 			).Op(";").Err().Op("!=").Nil().Block(
 				Id("e").Dot("Logger").Dot("Fatalf").Call(
-					Lit("failed to initialize extension proxy router: %v"),
+					Lit("failed to initialize module proxy router: %v"),
 					Err(),
 				),
 			)
@@ -390,9 +499,9 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Add(versionRegistration)
 
 		if gen.Module {
-			// TODO: implement https, authenticaion for extension API server (see commented
+			// TODO: implement https, authenticaion for module API server (see commented
 			// block below).
-			g.Comment("TODO: implement https, authentication for the extension API server")
+			g.Comment("TODO: implement https, authentication for the module API server")
 			g.Comment("configure http server")
 			g.Id("server").Op(":=").Qual("net/http", "Server").Values(Dict{
 				Id("Addr"):    Lit(":1323"),
@@ -494,13 +603,17 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Go().Qual("net/http", "ListenAndServe").Call(Lit(":8081"), Nil()),
 	)
 
-	// write code to file
+	// write code to file if not excluded by SDK config
 	genFilepath := filepath.Join("cmd", "rest-api", "main_gen.go")
-	_, err = util.WriteCodeToFile(f, genFilepath, true)
-	if err != nil {
-		return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+	if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+		cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
+	} else {
+		_, err = util.WriteCodeToFile(f, genFilepath, true)
+		if err != nil {
+			return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+		}
+		cli.Info(fmt.Sprintf("source code for API main package written to %s", genFilepath))
 	}
-	cli.Info(fmt.Sprintf("source code for API main package written to %s", genFilepath))
 
 	return nil
 }

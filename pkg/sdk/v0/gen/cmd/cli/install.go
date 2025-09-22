@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/iancoleman/strcase"
@@ -13,7 +14,7 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
-// GenPluginInstallCmd generates the install command for an extension's tptctl
+// GenPluginInstallCmd generates the install command for an extension module's tptctl
 // plugin.
 func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("cmd")
@@ -171,7 +172,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			),
 			Line(),
 
-			Comment("install extension"),
+			Comment("install extension module"),
 			If(
 				Id("err").Op(":=").Id("inst").Dot(fmt.Sprintf(
 					"Install%sModule",
@@ -184,28 +185,6 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				).Call(
 					Lit(fmt.Sprintf(
 						"failed to install %s module",
-						sdkConfig.ModuleName,
-					)), Id("err"),
-				),
-				Qual("os", "Exit").Call(Lit(1)),
-			),
-			Line(),
-
-			Comment("register extension with Threeport API"),
-			If(Err().Op(":=").Id("inst").Dot(fmt.Sprintf(
-				"Register%sModule",
-				strcase.ToCamel(sdkConfig.ModuleName),
-			))).Call(
-				Line().Id("apiClient"),
-				Line().Id("apiEndpoint"),
-				Line(),
-			).Op(";").Err().Op("!=").Nil().Block(
-				Qual(
-					"github.com/threeport/threeport/pkg/cli/v0",
-					"Error",
-				).Call(
-					Lit(fmt.Sprintf(
-						"failed to register %s module with Threeport API",
 						sdkConfig.ModuleName,
 					)), Id("err"),
 				),
@@ -247,10 +226,10 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("installCmd").Dot("Flags").Call().Dot("StringVarP").Call(
 			Line().Op("&").Id("controlPlaneImageRepo"),
 			Line().List(
-				Lit("control-plane-image-repo"),
+				Lit("control-plane-image-namespace"),
 				Lit("r"),
 				Qual(installerPkg, "ReleaseImageRepo"),
-				Lit("Image repo to pull threeport control plane images from."),
+				Lit("Image namespace to pull threeport control plane images from."),
 			),
 			Line(),
 		),
@@ -263,28 +242,32 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					fmt.Sprintf("%s/internal/version", gen.ModulePath),
 					"GetVersion",
 				).Call(),
-				Lit("Image tag to pull threeport control plane images from."),
+				Lit("Image tag for threeport control plane images."),
 			),
 			Line(),
 		),
 	)
 	f.Line()
 
-	// write code to file
+	// write code to file if not excluded by SDK config
 	genFilepath := filepath.Join(
 		"cmd",
 		strcase.ToSnake(sdkConfig.ModuleName),
 		"cmd",
 		"install.go",
 	)
-	fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
-	if err != nil {
-		return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
-	}
-	if fileWritten {
-		cli.Info(fmt.Sprintf("source code for plugin install command written to %s", genFilepath))
+	if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+		cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
 	} else {
-		cli.Info(fmt.Sprintf("source code for plugin install command already exists at %s - not overwritten", genFilepath))
+		fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
+		if err != nil {
+			return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+		}
+		if fileWritten {
+			cli.Info(fmt.Sprintf("source code for plugin install command written to %s", genFilepath))
+		} else {
+			cli.Info(fmt.Sprintf("source code for plugin install command already exists at %s - not overwritten", genFilepath))
+		}
 	}
 
 	return nil

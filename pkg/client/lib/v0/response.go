@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -61,7 +61,7 @@ func GetResponse(
 	}
 	defer resp.Body.Close()
 
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body from threeport API: %w", err)
 	}
@@ -69,7 +69,7 @@ func GetResponse(
 	var response apiserver_lib.Response
 	if resp.StatusCode != expectedStatusCode {
 		if err := json.Unmarshal(respBody, &response); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal response body from threeport API: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal response body '%s' from threeport API: %w", string(respBody), err)
 		}
 		status, err := json.MarshalIndent(response.Status, "", "  ")
 		if err != nil {

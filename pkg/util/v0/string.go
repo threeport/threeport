@@ -120,3 +120,11 @@ func HyphenDelimitedString(input []string) string {
 func TypeName(in any) string {
 	return reflect.TypeOf(in).String()
 }
+
+// TruncateString truncates a string to a maximum length and adds an ellipsis if it is longer.
+func TruncateString(s string, maxLength int) string {
+	if len(s) > maxLength {
+		return s[:maxLength] + "..."
+	}
+	return s
+}

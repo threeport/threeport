@@ -3,18 +3,20 @@ package controller
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/iancoleman/strcase"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	"github.com/threeport/threeport/pkg/sdk/v0/gen"
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
 // GenReconcilerOperations generates the reconciler create, update and delete
 // operation function scaffolding.
-func GenReconcilerOperations(gen *gen.Generator) error {
+func GenReconcilerOperations(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objGroup := range gen.ApiObjectGroups {
 		for _, obj := range objGroup.ReconciledObjects {
 			for _, version := range obj.Versions {
@@ -91,20 +93,24 @@ func GenReconcilerOperations(gen *gen.Generator) error {
 					Return(Lit(0), Nil()),
 				)
 
-				// write code to file
+				// write code to file if not excluded by SDK config
 				genFilepath := filepath.Join(
 					"internal",
 					objGroup.ControllerShortName,
 					fmt.Sprintf("%s_%s.go", version, strcase.ToSnake(obj.Name)),
 				)
-				fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
-				if err != nil {
-					return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
-				}
-				if fileWritten {
-					cli.Info(fmt.Sprintf("source code for reconciler operation functions written to %s", genFilepath))
+				if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+					cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
 				} else {
-					cli.Info(fmt.Sprintf("source code for reconciler operation functions already exists at %s - not overwritten", genFilepath))
+					fileWritten, err := util.WriteCodeToFile(f, genFilepath, false)
+					if err != nil {
+						return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+					}
+					if fileWritten {
+						cli.Info(fmt.Sprintf("source code for reconciler operation functions written to %s", genFilepath))
+					} else {
+						cli.Info(fmt.Sprintf("source code for reconciler operation functions already exists at %s - not overwritten", genFilepath))
+					}
 				}
 			}
 		}

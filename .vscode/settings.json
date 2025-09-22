@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "dockerfile.go": "go",
+        "*.go.bak": "go"
+    }
+} 

@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetOciAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.OciA
 
 	switch {
 	case len(ociAccounts) < 1:
-		return &v0.OciAccount{}, errors.New(fmt.Sprintf("no oci account with name %s", name))
+		return &v0.OciAccount{}, client_lib.ErrObjectNotFound
 	case len(ociAccounts) > 1:
-		return &v0.OciAccount{}, errors.New(fmt.Sprintf("more than one oci account with name %s returned", name))
+		return &v0.OciAccount{}, fmt.Errorf("more than one oci account with name %s returned", name)
 	}
 
 	return &ociAccounts[0], nil
@@ -368,9 +367,9 @@ func GetOciOkeKubernetesRuntimeDefinitionByName(apiClient *http.Client, apiAddr,
 
 	switch {
 	case len(ociOkeKubernetesRuntimeDefinitions) < 1:
-		return &v0.OciOkeKubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("no oci oke kubernetes runtime definition with name %s", name))
+		return &v0.OciOkeKubernetesRuntimeDefinition{}, client_lib.ErrObjectNotFound
 	case len(ociOkeKubernetesRuntimeDefinitions) > 1:
-		return &v0.OciOkeKubernetesRuntimeDefinition{}, errors.New(fmt.Sprintf("more than one oci oke kubernetes runtime definition with name %s returned", name))
+		return &v0.OciOkeKubernetesRuntimeDefinition{}, fmt.Errorf("more than one oci oke kubernetes runtime definition with name %s returned", name)
 	}
 
 	return &ociOkeKubernetesRuntimeDefinitions[0], nil
@@ -603,9 +602,9 @@ func GetOciOkeKubernetesRuntimeInstanceByName(apiClient *http.Client, apiAddr, n
 
 	switch {
 	case len(ociOkeKubernetesRuntimeInstances) < 1:
-		return &v0.OciOkeKubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("no oci oke kubernetes runtime instance with name %s", name))
+		return &v0.OciOkeKubernetesRuntimeInstance{}, client_lib.ErrObjectNotFound
 	case len(ociOkeKubernetesRuntimeInstances) > 1:
-		return &v0.OciOkeKubernetesRuntimeInstance{}, errors.New(fmt.Sprintf("more than one oci oke kubernetes runtime instance with name %s returned", name))
+		return &v0.OciOkeKubernetesRuntimeInstance{}, fmt.Errorf("more than one oci oke kubernetes runtime instance with name %s returned", name)
 	}
 
 	return &ociOkeKubernetesRuntimeInstances[0], nil

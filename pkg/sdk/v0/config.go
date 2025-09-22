@@ -23,9 +23,10 @@ type SdkConfig struct {
 	// domain name you own to make it globally unique.
 	ApiNamespace string `yaml:"ApiNamespace"`
 
-	// The image repository that will be used for builds of module
-	// components.
-	ImageRepo string `yaml:"ImageRepo"`
+	// The image namespace that will be used to store images for the module.
+	// Image namespace consists of `registry/namespace`, e.g. `docker.io/threeport`.
+	// A repository for each module will be created in this namespace.
+	ImageNamespace string `yaml:"ImageNamespace"`
 
 	// Details to be displayed with the API swagger docs that are served by the
 	// API server.
@@ -33,6 +34,9 @@ type SdkConfig struct {
 
 	// The configuration of API objects used in the module.
 	ApiObjectConfig `yaml:",inline"`
+
+	// The filepaths to files that should be excluded from code generation.
+	ExcludeFiles []string `yaml:"ExcludeFiles"`
 }
 
 // ApiDocs contains the information displayed on the documentation page served
@@ -106,11 +110,12 @@ type ApiObject struct {
 	// defined instance abstractions.
 	DefinedInstance *bool `yaml:"DefinedInstance"`
 
-	// Indicate whether the object will need a controller
+	// Indicates whether the object will need a controller
 	// that is registered with the rest-api for reconciliation.
 	Reconcilable *bool `yaml:"Reconcilable"`
 
-	// Indicate the message will be persisted by NATS
+	// Indicates whether the message will be persisted by NATS.  Set to true for
+	// sensitive information, e.g. passwords or tokens.
 	DisableNotificationPersistence *bool `yaml:"DisableNotificationPersistence"`
 
 	// Indicates whether the route should be exposed on the rest-api for the object
@@ -134,6 +139,10 @@ type ApiObject struct {
 
 	// Tptctl contains sdk configurations related to tptctl
 	Tptctl *Tptctl `yaml:"Tptctl"`
+
+	// InternalOnly indicates whether the object is only used internally by the
+	// controllers and should not be exposed to the user.
+	InternalOnly *bool `yaml:"InternalOnly"`
 }
 
 // Tptctl contains attributes used by the SDK to generate tptctl

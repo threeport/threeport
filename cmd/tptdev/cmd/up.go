@@ -78,11 +78,11 @@ func init() {
 	)
 	upCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageRepo,
-		"control-plane-image-repo", "r", "", "Alternate image repo to pull threeport control plane images from.",
+		"control-plane-image-namespace", "r", "", "Alternate image namespace to pull threeport control plane images from.",
 	)
 	upCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageTag,
-		"control-plane-image-tag", "t", "", "Alternate image tag to pull threeport control plane images from.",
+		"control-plane-image-tag", "t", "", "Alternate image tag for threeport control plane images.",
 	)
 	upCmd.Flags().BoolVar(
 		&cliArgs.ControlPlaneOnly,
@@ -109,6 +109,6 @@ func init() {
 		"local-registry", false, "Connects a local container registry to Threeport control plane cluster.  Only applicable with provider 'kind'.",
 	)
 	cobra.OnInitialize(func() {
-		cli.InitConfig(cliArgs.CfgFile)
+		cli.InitConfig(upCmd, cliArgs.CfgFile)
 	})
 }

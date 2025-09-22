@@ -3,18 +3,20 @@ package apiserver
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/iancoleman/strcase"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	"github.com/threeport/threeport/pkg/sdk/v0/gen"
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
 // GenObjValidationVersions adds object validation and versions to the API
 // server.
-func GenObjValidationVersions(gen *gen.Generator) error {
+func GenObjValidationVersions(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objCollection := range gen.VersionedApiObjectCollections {
 		for _, objGroup := range objCollection.VersionedApiObjectGroups {
 			f := NewFile("versions")
@@ -132,7 +134,7 @@ func GenObjValidationVersions(gen *gen.Generator) error {
 				f.Line()
 			}
 
-			// write code to file
+			// write code to file if not excluded by SDK config
 			genFilepath := filepath.Join(
 				"pkg",
 				"api-server",
@@ -140,11 +142,15 @@ func GenObjValidationVersions(gen *gen.Generator) error {
 				"versions",
 				fmt.Sprintf("%s_gen.go", strcase.ToSnake(objGroup.Name)),
 			)
-			_, err := util.WriteCodeToFile(f, genFilepath, true)
-			if err != nil {
-				return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+			if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+				cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
+			} else {
+				_, err := util.WriteCodeToFile(f, genFilepath, true)
+				if err != nil {
+					return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+				}
+				cli.Info(fmt.Sprintf("source code for API object validation and versions written to %s", genFilepath))
 			}
-			cli.Info(fmt.Sprintf("source code for API object validataion and versions written to %s", genFilepath))
 		}
 	}
 

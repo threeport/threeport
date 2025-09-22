@@ -33,30 +33,6 @@ func SupportedInfraProviders() []KubernetesRuntimeInfraProvider {
 	}
 }
 
-// KubernetesRuntimeDefinitionValidationErr is an error that accepts a custom
-// message when validation errors occur for the KubernetesRuntimeDefinition
-// object.
-type KubernetesRuntimeDefinitionValidationErr struct {
-	Message string
-}
-
-// Error returns the custom message generated during validation.
-func (e *KubernetesRuntimeDefinitionValidationErr) Error() string {
-	return e.Message
-}
-
-// KubernetesRuntimeInstanceValidationErr is an error that accepts a custom
-// message when validation errors occur for the KubernetesRuntimeInstance
-// object.
-type KubernetesRuntimeInstanceValidationErr struct {
-	Message string
-}
-
-// Error returns the custom message generated during validation.
-func (e *KubernetesRuntimeInstanceValidationErr) Error() string {
-	return e.Message
-}
-
 // BeforeCreate validates a KubernetesRuntimeDefinition object before creating
 // in the database.
 func (k *KubernetesRuntimeDefinition) BeforeCreate(tx *gorm.DB) error {
@@ -70,12 +46,13 @@ func (k *KubernetesRuntimeDefinition) BeforeCreate(tx *gorm.DB) error {
 		}
 	}
 	if !providerValid {
-		msg := fmt.Sprintf(
-			"%s provider is not valid, valid providers: %s",
-			*k.InfraProvider,
-			infraProviders,
+		return util.NewBadRequestError(
+			fmt.Sprintf(
+				"%s provider is not valid, valid providers: %s",
+				*k.InfraProvider,
+				infraProviders,
+			),
 		)
-		return &KubernetesRuntimeDefinitionValidationErr{msg}
 	}
 
 	return nil
@@ -86,8 +63,12 @@ func (k *KubernetesRuntimeDefinition) BeforeCreate(tx *gorm.DB) error {
 func (k *KubernetesRuntimeInstance) BeforeCreate(tx *gorm.DB) error {
 	// validate location
 	if !mapping.ValidLocation(*k.Location) {
-		msg := fmt.Sprintf("location %s is not a supported threeport location for a kubernetes runtime instance", *k.Location)
-		return &KubernetesRuntimeInstanceValidationErr{msg}
+		return util.NewBadRequestError(
+			fmt.Sprintf(
+				"location %s is not supported for a kubernetes runtime instance",
+				*k.Location,
+			),
+		)
 	}
 
 	// encrypt sensitive values
@@ -133,8 +114,12 @@ func (k *KubernetesRuntimeInstance) BeforeCreate(tx *gorm.DB) error {
 func (k *KubernetesRuntimeInstance) BeforeUpdate(tx *gorm.DB) error {
 	// ensure runtime location is not changed
 	if tx.Statement.Changed("Location") {
-		msg := fmt.Sprintf("kubernetes runtime instances cannot be moved - location %s is immutable", *k.Location)
-		return &KubernetesRuntimeInstanceValidationErr{msg}
+		return util.NewBadRequestError(
+			fmt.Sprintf(
+				"kubernetes runtime instances cannot be moved - location %s is immutable",
+				*k.Location,
+			),
+		)
 	}
 
 	// encrypt sensitive values
@@ -179,17 +164,22 @@ func (k *KubernetesRuntimeInstance) BeforeUpdate(tx *gorm.DB) error {
 func (k *KubernetesRuntimeInstance) BeforeDelete(tx *gorm.DB) error {
 	// validate that no workloads exist or that ForceDelete is true
 	var workloadInstances []WorkloadInstance
-	if result := tx.Where(&WorkloadInstance{KubernetesRuntimeInstanceID: k.ID}).Find(&workloadInstances); result.Error != nil {
-		msg := fmt.Sprintf("failed to query workload instances for kubernetes runtime instance %s", *k.Name)
-		return &KubernetesRuntimeInstanceValidationErr{msg}
+	if result := tx.Where(
+		&WorkloadInstance{KubernetesRuntimeInstanceID: k.ID},
+	).Find(&workloadInstances); result.Error != nil {
+		return fmt.Errorf(
+			"failed to query workload instances for kubernetes runtime instance %s",
+			*k.Name,
+		)
 	}
 
 	if len(workloadInstances) > 0 {
-		msg := fmt.Sprintf(
-			"kubernetes runtime instance %s cannot be deleted until workloads are removed",
-			*k.Name,
+		return util.NewBadRequestError(
+			fmt.Sprintf(
+				"kubernetes runtime instance %s cannot be deleted until workloads are removed",
+				*k.Name,
+			),
 		)
-		return &KubernetesRuntimeInstanceValidationErr{msg}
 	}
 
 	return nil

@@ -10,6 +10,8 @@ import (
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
+	util_v0 "github.com/threeport/threeport/pkg/util/v0"
+	zap "go.uber.org/zap"
 	gorm "gorm.io/gorm"
 	"net/http"
 	"time"
@@ -45,15 +47,18 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsAccount); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&awsAccount); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, awsAccount, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -65,6 +70,7 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
 		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 	}
@@ -74,11 +80,20 @@ func (h Handler) AddAwsAccount(c echo.Context) error {
 
 	// persist to DB
 	if result := h.DB.Create(&awsAccount); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, awsAccount, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -104,21 +119,25 @@ func (h Handler) GetAwsAccounts(c echo.Context) error {
 
 	var filter api_v0.AwsAccount
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Model(&api_v0.AwsAccount{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.AwsAccount{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -143,11 +162,13 @@ func (h Handler) GetAwsAccount(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, awsAccount, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -178,27 +199,32 @@ func (h Handler) UpdateAwsAccount(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsAccount); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedAwsAccount api_v0.AwsAccount
 	if err := c.Bind(&updatedAwsAccount); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingAwsAccount).Updates(updatedAwsAccount); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingAwsAccount, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -230,28 +256,33 @@ func (h Handler) ReplaceAwsAccount(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsAccount); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedAwsAccount api_v0.AwsAccount
 	if err := c.Bind(&updatedAwsAccount); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedAwsAccount, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedAwsAccount.ID = existingAwsAccount.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsAccount); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -260,11 +291,13 @@ func (h Handler) ReplaceAwsAccount(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingAwsAccount, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -290,16 +323,19 @@ func (h Handler) DeleteAwsAccount(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// delete object
 	if result := h.DB.Delete(&awsAccount); result.Error != nil {
+		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, awsAccount, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -336,15 +372,18 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsEksKubernetesRuntimeDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&awsEksKubernetesRuntimeDefinition); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, awsEksKubernetesRuntimeDefinition, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -356,6 +395,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
 		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 	}
@@ -365,11 +405,20 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 
 	// persist to DB
 	if result := h.DB.Create(&awsEksKubernetesRuntimeDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, awsEksKubernetesRuntimeDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -395,21 +444,25 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinitions(c echo.Context) error {
 
 	var filter api_v0.AwsEksKubernetesRuntimeDefinition
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Model(&api_v0.AwsEksKubernetesRuntimeDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.AwsEksKubernetesRuntimeDefinition{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -434,11 +487,13 @@ func (h Handler) GetAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, awsEksKubernetesRuntimeDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -469,27 +524,32 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsEksKubernetesRuntimeDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedAwsEksKubernetesRuntimeDefinition api_v0.AwsEksKubernetesRuntimeDefinition
 	if err := c.Bind(&updatedAwsEksKubernetesRuntimeDefinition); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingAwsEksKubernetesRuntimeDefinition).Updates(updatedAwsEksKubernetesRuntimeDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingAwsEksKubernetesRuntimeDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -521,28 +581,33 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeDefinition(c echo.Context) error 
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsEksKubernetesRuntimeDefinition); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedAwsEksKubernetesRuntimeDefinition api_v0.AwsEksKubernetesRuntimeDefinition
 	if err := c.Bind(&updatedAwsEksKubernetesRuntimeDefinition); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedAwsEksKubernetesRuntimeDefinition, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedAwsEksKubernetesRuntimeDefinition.ID = existingAwsEksKubernetesRuntimeDefinition.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsEksKubernetesRuntimeDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -551,11 +616,13 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeDefinition(c echo.Context) error 
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingAwsEksKubernetesRuntimeDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -581,6 +648,7 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -592,11 +660,13 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 
 	// delete object
 	if result := h.DB.Delete(&awsEksKubernetesRuntimeDefinition); result.Error != nil {
+		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, awsEksKubernetesRuntimeDefinition, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -633,15 +703,18 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsEksKubernetesRuntimeInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	if err := c.Bind(&awsEksKubernetesRuntimeInstance); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, awsEksKubernetesRuntimeInstance, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
@@ -653,6 +726,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			nameUsed = false
 		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 	}
@@ -662,6 +736,14 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 
 	// persist to DB
 	if result := h.DB.Create(&awsEksKubernetesRuntimeInstance); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -673,6 +755,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.AwsEksKubernetesRuntimeInstanceCreateSubject, *notifPayload)
@@ -680,6 +763,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, awsEksKubernetesRuntimeInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -705,21 +789,25 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstances(c echo.Context) error {
 
 	var filter api_v0.AwsEksKubernetesRuntimeInstance
 	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
 	var totalCount int64
 	if result := h.DB.Model(&api_v0.AwsEksKubernetesRuntimeInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
+		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	records := &[]api_v0.AwsEksKubernetesRuntimeInstance{}
 	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
+		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
 	}
 
@@ -744,11 +832,13 @@ func (h Handler) GetAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, awsEksKubernetesRuntimeInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -779,22 +869,26 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsEksKubernetesRuntimeInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedAwsEksKubernetesRuntimeInstance api_v0.AwsEksKubernetesRuntimeInstance
 	if err := c.Bind(&updatedAwsEksKubernetesRuntimeInstance); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// update object in database
 	if result := h.DB.Model(&existingAwsEksKubernetesRuntimeInstance).Updates(updatedAwsEksKubernetesRuntimeInstance); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -806,6 +900,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.AwsEksKubernetesRuntimeInstanceUpdateSubject, *notifPayload)
@@ -813,6 +908,7 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, existingAwsEksKubernetesRuntimeInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -844,28 +940,33 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsEksKubernetesRuntimeInstance); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// bind payload
 	var updatedAwsEksKubernetesRuntimeInstance api_v0.AwsEksKubernetesRuntimeInstance
 	if err := c.Bind(&updatedAwsEksKubernetesRuntimeInstance); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, updatedAwsEksKubernetesRuntimeInstance, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
 	// persist provided data
 	updatedAwsEksKubernetesRuntimeInstance.ID = existingAwsEksKubernetesRuntimeInstance.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsEksKubernetesRuntimeInstance); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -874,11 +975,13 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(nil, existingAwsEksKubernetesRuntimeInstance, objectType)
 	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
@@ -904,6 +1007,7 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
 		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -920,6 +1024,7 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 				Reconciled:        &reconciled,
 			}}
 		if result := h.DB.Model(&awsEksKubernetesRuntimeInstance).Updates(scheduledAwsEksKubernetesRuntimeInstance); result.Error != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
 		// notify controller
@@ -929,6 +1034,7 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 			time.Now().Unix(),
 		)
 		if err != nil {
+			h.Logger.Error("handler error: error creating NATS notification", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		h.JS.Publish(notif.AwsEksKubernetesRuntimeInstanceDeleteSubject, *notifPayload)
@@ -944,6 +1050,7 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
 			if result := h.DB.Delete(&awsEksKubernetesRuntimeInstance); result.Error != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
 				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 			}
 		}
@@ -951,1308 +1058,7 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 
 	response, err := apiserver_lib.CreateResponse(nil, awsEksKubernetesRuntimeInstance, objectType)
 	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// AwsObjectStorageBucketDefinition
-///////////////////////////////////////////////////////////////////////////////
-
-// @Summary GetAwsObjectStorageBucketDefinitionVersions gets the supported versions for the aws object storage bucket definition API.
-// @Description Get the supported API versions for aws object storage bucket definitions.
-// @ID awsObjectStorageBucketDefinition-get-versions
-// @Produce json
-// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
-// @Router /aws-object-storage-bucket-definitions/versions [GET]
-func (h Handler) GetAwsObjectStorageBucketDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAwsObjectStorageBucketDefinition)])
-}
-
-// @Summary adds a new aws object storage bucket definition.
-// @Description Add a new aws object storage bucket definition to the Threeport database.
-// @ID add-v0-awsObjectStorageBucketDefinition
-// @Accept json
-// @Produce json
-// @Param awsObjectStorageBucketDefinition body api_v0.AwsObjectStorageBucketDefinition true "AwsObjectStorageBucketDefinition object"
-// @Success 201 {object} v0.Response "Created"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-definitions [POST]
-func (h Handler) AddAwsObjectStorageBucketDefinition(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsObjectStorageBucketDefinition
-	var awsObjectStorageBucketDefinition api_v0.AwsObjectStorageBucketDefinition
-
-	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsObjectStorageBucketDefinition); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	if err := c.Bind(&awsObjectStorageBucketDefinition); err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, awsObjectStorageBucketDefinition, objectType); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// check for duplicate names
-	var existingAwsObjectStorageBucketDefinition api_v0.AwsObjectStorageBucketDefinition
-	nameUsed := true
-	result := h.DB.Where("name = ?", awsObjectStorageBucketDefinition.Name).First(&existingAwsObjectStorageBucketDefinition)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			nameUsed = false
-		} else {
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-		}
-	}
-	if nameUsed {
-		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
-	}
-
-	// persist to DB
-	if result := h.DB.Create(&awsObjectStorageBucketDefinition); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, awsObjectStorageBucketDefinition, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus201(c, *response)
-}
-
-// @Summary gets all aws object storage bucket definitions.
-// @Description Get all aws object storage bucket definitions from the Threeport database.
-// @ID get-v0-awsObjectStorageBucketDefinitions
-// @Accept json
-// @Produce json
-// @Param name query string false "aws object storage bucket definition search by name"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-definitions [GET]
-func (h Handler) GetAwsObjectStorageBucketDefinitions(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsObjectStorageBucketDefinition
-	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
-	if err != nil {
-		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
-	}
-
-	var filter api_v0.AwsObjectStorageBucketDefinition
-	if err := c.Bind(&filter); err != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
-	}
-
-	var totalCount int64
-	if result := h.DB.Model(&api_v0.AwsObjectStorageBucketDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
-	}
-
-	records := &[]api_v0.AwsObjectStorageBucketDefinition{}
-	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary gets a aws object storage bucket definition.
-// @Description Get a particular aws object storage bucket definition from the database.
-// @ID get-v0-awsObjectStorageBucketDefinition
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-definitions/{id} [GET]
-func (h Handler) GetAwsObjectStorageBucketDefinition(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsObjectStorageBucketDefinition
-	awsObjectStorageBucketDefinitionID := c.Param("id")
-	var awsObjectStorageBucketDefinition api_v0.AwsObjectStorageBucketDefinition
-	if result := h.DB.First(&awsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, awsObjectStorageBucketDefinition, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary updates specific fields for an existing aws object storage bucket definition.
-// @Description Update a aws object storage bucket definition in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating aws object storage bucket definition objects only.
-// @Description Request bodies that include related objects will be accepted, however
-// @Description the related objects will not be changed.  Call the patch or put method for
-// @Description each particular existing object to change them.
-// @ID update-v0-awsObjectStorageBucketDefinition
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Param awsObjectStorageBucketDefinition body api_v0.AwsObjectStorageBucketDefinition true "AwsObjectStorageBucketDefinition object"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-definitions/{id} [PATCH]
-func (h Handler) UpdateAwsObjectStorageBucketDefinition(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsObjectStorageBucketDefinition
-	awsObjectStorageBucketDefinitionID := c.Param("id")
-	var existingAwsObjectStorageBucketDefinition api_v0.AwsObjectStorageBucketDefinition
-	if result := h.DB.First(&existingAwsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsObjectStorageBucketDefinition); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// bind payload
-	var updatedAwsObjectStorageBucketDefinition api_v0.AwsObjectStorageBucketDefinition
-	if err := c.Bind(&updatedAwsObjectStorageBucketDefinition); err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// update object in database
-	if result := h.DB.Model(&existingAwsObjectStorageBucketDefinition).Updates(updatedAwsObjectStorageBucketDefinition); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, existingAwsObjectStorageBucketDefinition, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary updates an existing aws object storage bucket definition by replacing the entire object.
-// @Description Replace a aws object storage bucket definition in the database.  All required fields must be provided.
-// @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating aws object storage bucket definition objects only.
-// @Description Request bodies that include related objects will be accepted, however
-// @Description the related objects will not be changed.  Call the patch or put method for
-// @Description each particular existing object to change them.
-// @ID replace-v0-awsObjectStorageBucketDefinition
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Param awsObjectStorageBucketDefinition body api_v0.AwsObjectStorageBucketDefinition true "AwsObjectStorageBucketDefinition object"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-definitions/{id} [PUT]
-func (h Handler) ReplaceAwsObjectStorageBucketDefinition(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsObjectStorageBucketDefinition
-	awsObjectStorageBucketDefinitionID := c.Param("id")
-	var existingAwsObjectStorageBucketDefinition api_v0.AwsObjectStorageBucketDefinition
-	if result := h.DB.First(&existingAwsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsObjectStorageBucketDefinition); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// bind payload
-	var updatedAwsObjectStorageBucketDefinition api_v0.AwsObjectStorageBucketDefinition
-	if err := c.Bind(&updatedAwsObjectStorageBucketDefinition); err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, updatedAwsObjectStorageBucketDefinition, objectType); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// persist provided data
-	updatedAwsObjectStorageBucketDefinition.ID = existingAwsObjectStorageBucketDefinition.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsObjectStorageBucketDefinition); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// reload updated data from DB
-	if result := h.DB.First(&existingAwsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, existingAwsObjectStorageBucketDefinition, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary deletes a aws object storage bucket definition.
-// @Description Delete a aws object storage bucket definition by ID from the database.
-// @ID delete-v0-awsObjectStorageBucketDefinition
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 409 {object} v0.Response "Conflict"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-definitions/{id} [DELETE]
-func (h Handler) DeleteAwsObjectStorageBucketDefinition(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsObjectStorageBucketDefinition
-	awsObjectStorageBucketDefinitionID := c.Param("id")
-	var awsObjectStorageBucketDefinition api_v0.AwsObjectStorageBucketDefinition
-	if result := h.DB.Preload("AwsObjectStorageBucketInstances").First(&awsObjectStorageBucketDefinition, awsObjectStorageBucketDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check to make sure no dependent instances exist for this definition
-	if len(awsObjectStorageBucketDefinition.AwsObjectStorageBucketInstances) != 0 {
-		err := errors.New("aws object storage bucket definition has related aws object storage bucket instances - cannot be deleted")
-		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
-	}
-
-	// delete object
-	if result := h.DB.Delete(&awsObjectStorageBucketDefinition); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, awsObjectStorageBucketDefinition, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// AwsObjectStorageBucketInstance
-///////////////////////////////////////////////////////////////////////////////
-
-// @Summary GetAwsObjectStorageBucketInstanceVersions gets the supported versions for the aws object storage bucket instance API.
-// @Description Get the supported API versions for aws object storage bucket instances.
-// @ID awsObjectStorageBucketInstance-get-versions
-// @Produce json
-// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
-// @Router /aws-object-storage-bucket-instances/versions [GET]
-func (h Handler) GetAwsObjectStorageBucketInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAwsObjectStorageBucketInstance)])
-}
-
-// @Summary adds a new aws object storage bucket instance.
-// @Description Add a new aws object storage bucket instance to the Threeport database.
-// @ID add-v0-awsObjectStorageBucketInstance
-// @Accept json
-// @Produce json
-// @Param awsObjectStorageBucketInstance body api_v0.AwsObjectStorageBucketInstance true "AwsObjectStorageBucketInstance object"
-// @Success 201 {object} v0.Response "Created"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-instances [POST]
-func (h Handler) AddAwsObjectStorageBucketInstance(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsObjectStorageBucketInstance
-	var awsObjectStorageBucketInstance api_v0.AwsObjectStorageBucketInstance
-
-	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsObjectStorageBucketInstance); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	if err := c.Bind(&awsObjectStorageBucketInstance); err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, awsObjectStorageBucketInstance, objectType); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// check for duplicate names
-	var existingAwsObjectStorageBucketInstance api_v0.AwsObjectStorageBucketInstance
-	nameUsed := true
-	result := h.DB.Where("name = ?", awsObjectStorageBucketInstance.Name).First(&existingAwsObjectStorageBucketInstance)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			nameUsed = false
-		} else {
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-		}
-	}
-	if nameUsed {
-		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
-	}
-
-	// persist to DB
-	if result := h.DB.Create(&awsObjectStorageBucketInstance); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*awsObjectStorageBucketInstance.Reconciled {
-		notifPayload, err := awsObjectStorageBucketInstance.NotificationPayload(
-			notifications.NotificationOperationCreated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-		}
-		h.JS.Publish(notif.AwsObjectStorageBucketInstanceCreateSubject, *notifPayload)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, awsObjectStorageBucketInstance, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus201(c, *response)
-}
-
-// @Summary gets all aws object storage bucket instances.
-// @Description Get all aws object storage bucket instances from the Threeport database.
-// @ID get-v0-awsObjectStorageBucketInstances
-// @Accept json
-// @Produce json
-// @Param name query string false "aws object storage bucket instance search by name"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-instances [GET]
-func (h Handler) GetAwsObjectStorageBucketInstances(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsObjectStorageBucketInstance
-	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
-	if err != nil {
-		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
-	}
-
-	var filter api_v0.AwsObjectStorageBucketInstance
-	if err := c.Bind(&filter); err != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
-	}
-
-	var totalCount int64
-	if result := h.DB.Model(&api_v0.AwsObjectStorageBucketInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
-	}
-
-	records := &[]api_v0.AwsObjectStorageBucketInstance{}
-	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary gets a aws object storage bucket instance.
-// @Description Get a particular aws object storage bucket instance from the database.
-// @ID get-v0-awsObjectStorageBucketInstance
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-instances/{id} [GET]
-func (h Handler) GetAwsObjectStorageBucketInstance(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsObjectStorageBucketInstance
-	awsObjectStorageBucketInstanceID := c.Param("id")
-	var awsObjectStorageBucketInstance api_v0.AwsObjectStorageBucketInstance
-	if result := h.DB.First(&awsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, awsObjectStorageBucketInstance, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary updates specific fields for an existing aws object storage bucket instance.
-// @Description Update a aws object storage bucket instance in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating aws object storage bucket instance objects only.
-// @Description Request bodies that include related objects will be accepted, however
-// @Description the related objects will not be changed.  Call the patch or put method for
-// @Description each particular existing object to change them.
-// @ID update-v0-awsObjectStorageBucketInstance
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Param awsObjectStorageBucketInstance body api_v0.AwsObjectStorageBucketInstance true "AwsObjectStorageBucketInstance object"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-instances/{id} [PATCH]
-func (h Handler) UpdateAwsObjectStorageBucketInstance(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsObjectStorageBucketInstance
-	awsObjectStorageBucketInstanceID := c.Param("id")
-	var existingAwsObjectStorageBucketInstance api_v0.AwsObjectStorageBucketInstance
-	if result := h.DB.First(&existingAwsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsObjectStorageBucketInstance); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// bind payload
-	var updatedAwsObjectStorageBucketInstance api_v0.AwsObjectStorageBucketInstance
-	if err := c.Bind(&updatedAwsObjectStorageBucketInstance); err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// update object in database
-	if result := h.DB.Model(&existingAwsObjectStorageBucketInstance).Updates(updatedAwsObjectStorageBucketInstance); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*existingAwsObjectStorageBucketInstance.Reconciled {
-		notifPayload, err := existingAwsObjectStorageBucketInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-		}
-		h.JS.Publish(notif.AwsObjectStorageBucketInstanceUpdateSubject, *notifPayload)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, existingAwsObjectStorageBucketInstance, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary updates an existing aws object storage bucket instance by replacing the entire object.
-// @Description Replace a aws object storage bucket instance in the database.  All required fields must be provided.
-// @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating aws object storage bucket instance objects only.
-// @Description Request bodies that include related objects will be accepted, however
-// @Description the related objects will not be changed.  Call the patch or put method for
-// @Description each particular existing object to change them.
-// @ID replace-v0-awsObjectStorageBucketInstance
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Param awsObjectStorageBucketInstance body api_v0.AwsObjectStorageBucketInstance true "AwsObjectStorageBucketInstance object"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-instances/{id} [PUT]
-func (h Handler) ReplaceAwsObjectStorageBucketInstance(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsObjectStorageBucketInstance
-	awsObjectStorageBucketInstanceID := c.Param("id")
-	var existingAwsObjectStorageBucketInstance api_v0.AwsObjectStorageBucketInstance
-	if result := h.DB.First(&existingAwsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsObjectStorageBucketInstance); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// bind payload
-	var updatedAwsObjectStorageBucketInstance api_v0.AwsObjectStorageBucketInstance
-	if err := c.Bind(&updatedAwsObjectStorageBucketInstance); err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, updatedAwsObjectStorageBucketInstance, objectType); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// persist provided data
-	updatedAwsObjectStorageBucketInstance.ID = existingAwsObjectStorageBucketInstance.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsObjectStorageBucketInstance); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// reload updated data from DB
-	if result := h.DB.First(&existingAwsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, existingAwsObjectStorageBucketInstance, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary deletes a aws object storage bucket instance.
-// @Description Delete a aws object storage bucket instance by ID from the database.
-// @ID delete-v0-awsObjectStorageBucketInstance
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 409 {object} v0.Response "Conflict"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-object-storage-bucket-instances/{id} [DELETE]
-func (h Handler) DeleteAwsObjectStorageBucketInstance(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsObjectStorageBucketInstance
-	awsObjectStorageBucketInstanceID := c.Param("id")
-	var awsObjectStorageBucketInstance api_v0.AwsObjectStorageBucketInstance
-	if result := h.DB.First(&awsObjectStorageBucketInstance, awsObjectStorageBucketInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// schedule for deletion if not already scheduled
-	// if scheduled and reconciled, delete object from DB
-	// if scheduled but not reconciled, return 409 (controller is working on it)
-	if awsObjectStorageBucketInstance.DeletionScheduled == nil {
-		// schedule for deletion
-		reconciled := false
-		timestamp := time.Now().UTC()
-		scheduledAwsObjectStorageBucketInstance := api_v0.AwsObjectStorageBucketInstance{
-			Reconciliation: api_v0.Reconciliation{
-				DeletionScheduled: &timestamp,
-				Reconciled:        &reconciled,
-			}}
-		if result := h.DB.Model(&awsObjectStorageBucketInstance).Updates(scheduledAwsObjectStorageBucketInstance); result.Error != nil {
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-		}
-		// notify controller
-		notifPayload, err := awsObjectStorageBucketInstance.NotificationPayload(
-			notifications.NotificationOperationDeleted,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-		}
-		h.JS.Publish(notif.AwsObjectStorageBucketInstanceDeleteSubject, *notifPayload)
-	} else {
-		if awsObjectStorageBucketInstance.DeletionConfirmed == nil {
-			// if deletion scheduled but not reconciled, return 409 - deletion
-			// already underway
-			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
-				*awsObjectStorageBucketInstance.ID,
-			)), objectType)
-		} else {
-			// object scheduled for deletion and confirmed - it can be deleted
-			// from DB
-			if result := h.DB.Delete(&awsObjectStorageBucketInstance); result.Error != nil {
-				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-			}
-		}
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, awsObjectStorageBucketInstance, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// AwsRelationalDatabaseDefinition
-///////////////////////////////////////////////////////////////////////////////
-
-// @Summary GetAwsRelationalDatabaseDefinitionVersions gets the supported versions for the aws relational database definition API.
-// @Description Get the supported API versions for aws relational database definitions.
-// @ID awsRelationalDatabaseDefinition-get-versions
-// @Produce json
-// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
-// @Router /aws-relational-database-definitions/versions [GET]
-func (h Handler) GetAwsRelationalDatabaseDefinitionVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAwsRelationalDatabaseDefinition)])
-}
-
-// @Summary adds a new aws relational database definition.
-// @Description Add a new aws relational database definition to the Threeport database.
-// @ID add-v0-awsRelationalDatabaseDefinition
-// @Accept json
-// @Produce json
-// @Param awsRelationalDatabaseDefinition body api_v0.AwsRelationalDatabaseDefinition true "AwsRelationalDatabaseDefinition object"
-// @Success 201 {object} v0.Response "Created"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-definitions [POST]
-func (h Handler) AddAwsRelationalDatabaseDefinition(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsRelationalDatabaseDefinition
-	var awsRelationalDatabaseDefinition api_v0.AwsRelationalDatabaseDefinition
-
-	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsRelationalDatabaseDefinition); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	if err := c.Bind(&awsRelationalDatabaseDefinition); err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, awsRelationalDatabaseDefinition, objectType); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// check for duplicate names
-	var existingAwsRelationalDatabaseDefinition api_v0.AwsRelationalDatabaseDefinition
-	nameUsed := true
-	result := h.DB.Where("name = ?", awsRelationalDatabaseDefinition.Name).First(&existingAwsRelationalDatabaseDefinition)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			nameUsed = false
-		} else {
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-		}
-	}
-	if nameUsed {
-		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
-	}
-
-	// persist to DB
-	if result := h.DB.Create(&awsRelationalDatabaseDefinition); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, awsRelationalDatabaseDefinition, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus201(c, *response)
-}
-
-// @Summary gets all aws relational database definitions.
-// @Description Get all aws relational database definitions from the Threeport database.
-// @ID get-v0-awsRelationalDatabaseDefinitions
-// @Accept json
-// @Produce json
-// @Param name query string false "aws relational database definition search by name"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-definitions [GET]
-func (h Handler) GetAwsRelationalDatabaseDefinitions(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsRelationalDatabaseDefinition
-	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
-	if err != nil {
-		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
-	}
-
-	var filter api_v0.AwsRelationalDatabaseDefinition
-	if err := c.Bind(&filter); err != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
-	}
-
-	var totalCount int64
-	if result := h.DB.Model(&api_v0.AwsRelationalDatabaseDefinition{}).Where(&filter).Count(&totalCount); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
-	}
-
-	records := &[]api_v0.AwsRelationalDatabaseDefinition{}
-	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary gets a aws relational database definition.
-// @Description Get a particular aws relational database definition from the database.
-// @ID get-v0-awsRelationalDatabaseDefinition
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-definitions/{id} [GET]
-func (h Handler) GetAwsRelationalDatabaseDefinition(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsRelationalDatabaseDefinition
-	awsRelationalDatabaseDefinitionID := c.Param("id")
-	var awsRelationalDatabaseDefinition api_v0.AwsRelationalDatabaseDefinition
-	if result := h.DB.First(&awsRelationalDatabaseDefinition, awsRelationalDatabaseDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, awsRelationalDatabaseDefinition, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary updates specific fields for an existing aws relational database definition.
-// @Description Update a aws relational database definition in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating aws relational database definition objects only.
-// @Description Request bodies that include related objects will be accepted, however
-// @Description the related objects will not be changed.  Call the patch or put method for
-// @Description each particular existing object to change them.
-// @ID update-v0-awsRelationalDatabaseDefinition
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Param awsRelationalDatabaseDefinition body api_v0.AwsRelationalDatabaseDefinition true "AwsRelationalDatabaseDefinition object"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-definitions/{id} [PATCH]
-func (h Handler) UpdateAwsRelationalDatabaseDefinition(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsRelationalDatabaseDefinition
-	awsRelationalDatabaseDefinitionID := c.Param("id")
-	var existingAwsRelationalDatabaseDefinition api_v0.AwsRelationalDatabaseDefinition
-	if result := h.DB.First(&existingAwsRelationalDatabaseDefinition, awsRelationalDatabaseDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsRelationalDatabaseDefinition); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// bind payload
-	var updatedAwsRelationalDatabaseDefinition api_v0.AwsRelationalDatabaseDefinition
-	if err := c.Bind(&updatedAwsRelationalDatabaseDefinition); err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// update object in database
-	if result := h.DB.Model(&existingAwsRelationalDatabaseDefinition).Updates(updatedAwsRelationalDatabaseDefinition); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, existingAwsRelationalDatabaseDefinition, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary updates an existing aws relational database definition by replacing the entire object.
-// @Description Replace a aws relational database definition in the database.  All required fields must be provided.
-// @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating aws relational database definition objects only.
-// @Description Request bodies that include related objects will be accepted, however
-// @Description the related objects will not be changed.  Call the patch or put method for
-// @Description each particular existing object to change them.
-// @ID replace-v0-awsRelationalDatabaseDefinition
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Param awsRelationalDatabaseDefinition body api_v0.AwsRelationalDatabaseDefinition true "AwsRelationalDatabaseDefinition object"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-definitions/{id} [PUT]
-func (h Handler) ReplaceAwsRelationalDatabaseDefinition(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsRelationalDatabaseDefinition
-	awsRelationalDatabaseDefinitionID := c.Param("id")
-	var existingAwsRelationalDatabaseDefinition api_v0.AwsRelationalDatabaseDefinition
-	if result := h.DB.First(&existingAwsRelationalDatabaseDefinition, awsRelationalDatabaseDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsRelationalDatabaseDefinition); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// bind payload
-	var updatedAwsRelationalDatabaseDefinition api_v0.AwsRelationalDatabaseDefinition
-	if err := c.Bind(&updatedAwsRelationalDatabaseDefinition); err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, updatedAwsRelationalDatabaseDefinition, objectType); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// persist provided data
-	updatedAwsRelationalDatabaseDefinition.ID = existingAwsRelationalDatabaseDefinition.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsRelationalDatabaseDefinition); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// reload updated data from DB
-	if result := h.DB.First(&existingAwsRelationalDatabaseDefinition, awsRelationalDatabaseDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, existingAwsRelationalDatabaseDefinition, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary deletes a aws relational database definition.
-// @Description Delete a aws relational database definition by ID from the database.
-// @ID delete-v0-awsRelationalDatabaseDefinition
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 409 {object} v0.Response "Conflict"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-definitions/{id} [DELETE]
-func (h Handler) DeleteAwsRelationalDatabaseDefinition(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsRelationalDatabaseDefinition
-	awsRelationalDatabaseDefinitionID := c.Param("id")
-	var awsRelationalDatabaseDefinition api_v0.AwsRelationalDatabaseDefinition
-	if result := h.DB.Preload("AwsRelationalDatabaseInstances").First(&awsRelationalDatabaseDefinition, awsRelationalDatabaseDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check to make sure no dependent instances exist for this definition
-	if len(awsRelationalDatabaseDefinition.AwsRelationalDatabaseInstances) != 0 {
-		err := errors.New("aws relational database definition has related aws relational database instances - cannot be deleted")
-		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
-	}
-
-	// delete object
-	if result := h.DB.Delete(&awsRelationalDatabaseDefinition); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, awsRelationalDatabaseDefinition, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// AwsRelationalDatabaseInstance
-///////////////////////////////////////////////////////////////////////////////
-
-// @Summary GetAwsRelationalDatabaseInstanceVersions gets the supported versions for the aws relational database instance API.
-// @Description Get the supported API versions for aws relational database instances.
-// @ID awsRelationalDatabaseInstance-get-versions
-// @Produce json
-// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
-// @Router /aws-relational-database-instances/versions [GET]
-func (h Handler) GetAwsRelationalDatabaseInstanceVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAwsRelationalDatabaseInstance)])
-}
-
-// @Summary adds a new aws relational database instance.
-// @Description Add a new aws relational database instance to the Threeport database.
-// @ID add-v0-awsRelationalDatabaseInstance
-// @Accept json
-// @Produce json
-// @Param awsRelationalDatabaseInstance body api_v0.AwsRelationalDatabaseInstance true "AwsRelationalDatabaseInstance object"
-// @Success 201 {object} v0.Response "Created"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-instances [POST]
-func (h Handler) AddAwsRelationalDatabaseInstance(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsRelationalDatabaseInstance
-	var awsRelationalDatabaseInstance api_v0.AwsRelationalDatabaseInstance
-
-	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsRelationalDatabaseInstance); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	if err := c.Bind(&awsRelationalDatabaseInstance); err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, awsRelationalDatabaseInstance, objectType); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// check for duplicate names
-	var existingAwsRelationalDatabaseInstance api_v0.AwsRelationalDatabaseInstance
-	nameUsed := true
-	result := h.DB.Where("name = ?", awsRelationalDatabaseInstance.Name).First(&existingAwsRelationalDatabaseInstance)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			nameUsed = false
-		} else {
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-		}
-	}
-	if nameUsed {
-		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
-	}
-
-	// persist to DB
-	if result := h.DB.Create(&awsRelationalDatabaseInstance); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*awsRelationalDatabaseInstance.Reconciled {
-		notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(
-			notifications.NotificationOperationCreated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-		}
-		h.JS.Publish(notif.AwsRelationalDatabaseInstanceCreateSubject, *notifPayload)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, awsRelationalDatabaseInstance, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus201(c, *response)
-}
-
-// @Summary gets all aws relational database instances.
-// @Description Get all aws relational database instances from the Threeport database.
-// @ID get-v0-awsRelationalDatabaseInstances
-// @Accept json
-// @Produce json
-// @Param name query string false "aws relational database instance search by name"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-instances [GET]
-func (h Handler) GetAwsRelationalDatabaseInstances(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsRelationalDatabaseInstance
-	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
-	if err != nil {
-		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
-	}
-
-	var filter api_v0.AwsRelationalDatabaseInstance
-	if err := c.Bind(&filter); err != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
-	}
-
-	var totalCount int64
-	if result := h.DB.Model(&api_v0.AwsRelationalDatabaseInstance{}).Where(&filter).Count(&totalCount); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
-	}
-
-	records := &[]api_v0.AwsRelationalDatabaseInstance{}
-	if result := h.DB.Order("ID asc").Where(&filter).Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary gets a aws relational database instance.
-// @Description Get a particular aws relational database instance from the database.
-// @ID get-v0-awsRelationalDatabaseInstance
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-instances/{id} [GET]
-func (h Handler) GetAwsRelationalDatabaseInstance(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsRelationalDatabaseInstance
-	awsRelationalDatabaseInstanceID := c.Param("id")
-	var awsRelationalDatabaseInstance api_v0.AwsRelationalDatabaseInstance
-	if result := h.DB.First(&awsRelationalDatabaseInstance, awsRelationalDatabaseInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, awsRelationalDatabaseInstance, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary updates specific fields for an existing aws relational database instance.
-// @Description Update a aws relational database instance in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating aws relational database instance objects only.
-// @Description Request bodies that include related objects will be accepted, however
-// @Description the related objects will not be changed.  Call the patch or put method for
-// @Description each particular existing object to change them.
-// @ID update-v0-awsRelationalDatabaseInstance
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Param awsRelationalDatabaseInstance body api_v0.AwsRelationalDatabaseInstance true "AwsRelationalDatabaseInstance object"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-instances/{id} [PATCH]
-func (h Handler) UpdateAwsRelationalDatabaseInstance(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsRelationalDatabaseInstance
-	awsRelationalDatabaseInstanceID := c.Param("id")
-	var existingAwsRelationalDatabaseInstance api_v0.AwsRelationalDatabaseInstance
-	if result := h.DB.First(&existingAwsRelationalDatabaseInstance, awsRelationalDatabaseInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsRelationalDatabaseInstance); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// bind payload
-	var updatedAwsRelationalDatabaseInstance api_v0.AwsRelationalDatabaseInstance
-	if err := c.Bind(&updatedAwsRelationalDatabaseInstance); err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// update object in database
-	if result := h.DB.Model(&existingAwsRelationalDatabaseInstance).Updates(updatedAwsRelationalDatabaseInstance); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// notify controller if reconciliation is required
-	if !*existingAwsRelationalDatabaseInstance.Reconciled {
-		notifPayload, err := existingAwsRelationalDatabaseInstance.NotificationPayload(
-			notifications.NotificationOperationUpdated,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-		}
-		h.JS.Publish(notif.AwsRelationalDatabaseInstanceUpdateSubject, *notifPayload)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, existingAwsRelationalDatabaseInstance, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary updates an existing aws relational database instance by replacing the entire object.
-// @Description Replace a aws relational database instance in the database.  All required fields must be provided.
-// @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating aws relational database instance objects only.
-// @Description Request bodies that include related objects will be accepted, however
-// @Description the related objects will not be changed.  Call the patch or put method for
-// @Description each particular existing object to change them.
-// @ID replace-v0-awsRelationalDatabaseInstance
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Param awsRelationalDatabaseInstance body api_v0.AwsRelationalDatabaseInstance true "AwsRelationalDatabaseInstance object"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-instances/{id} [PUT]
-func (h Handler) ReplaceAwsRelationalDatabaseInstance(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsRelationalDatabaseInstance
-	awsRelationalDatabaseInstanceID := c.Param("id")
-	var existingAwsRelationalDatabaseInstance api_v0.AwsRelationalDatabaseInstance
-	if result := h.DB.First(&existingAwsRelationalDatabaseInstance, awsRelationalDatabaseInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsRelationalDatabaseInstance); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// bind payload
-	var updatedAwsRelationalDatabaseInstance api_v0.AwsRelationalDatabaseInstance
-	if err := c.Bind(&updatedAwsRelationalDatabaseInstance); err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, updatedAwsRelationalDatabaseInstance, objectType); err != nil {
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// persist provided data
-	updatedAwsRelationalDatabaseInstance.ID = existingAwsRelationalDatabaseInstance.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsRelationalDatabaseInstance); result.Error != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// reload updated data from DB
-	if result := h.DB.First(&existingAwsRelationalDatabaseInstance, awsRelationalDatabaseInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, existingAwsRelationalDatabaseInstance, objectType)
-	if err != nil {
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary deletes a aws relational database instance.
-// @Description Delete a aws relational database instance by ID from the database.
-// @ID delete-v0-awsRelationalDatabaseInstance
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 409 {object} v0.Response "Conflict"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-relational-database-instances/{id} [DELETE]
-func (h Handler) DeleteAwsRelationalDatabaseInstance(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsRelationalDatabaseInstance
-	awsRelationalDatabaseInstanceID := c.Param("id")
-	var awsRelationalDatabaseInstance api_v0.AwsRelationalDatabaseInstance
-	if result := h.DB.First(&awsRelationalDatabaseInstance, awsRelationalDatabaseInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// schedule for deletion if not already scheduled
-	// if scheduled and reconciled, delete object from DB
-	// if scheduled but not reconciled, return 409 (controller is working on it)
-	if awsRelationalDatabaseInstance.DeletionScheduled == nil {
-		// schedule for deletion
-		reconciled := false
-		timestamp := time.Now().UTC()
-		scheduledAwsRelationalDatabaseInstance := api_v0.AwsRelationalDatabaseInstance{
-			Reconciliation: api_v0.Reconciliation{
-				DeletionScheduled: &timestamp,
-				Reconciled:        &reconciled,
-			}}
-		if result := h.DB.Model(&awsRelationalDatabaseInstance).Updates(scheduledAwsRelationalDatabaseInstance); result.Error != nil {
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-		}
-		// notify controller
-		notifPayload, err := awsRelationalDatabaseInstance.NotificationPayload(
-			notifications.NotificationOperationDeleted,
-			false,
-			time.Now().Unix(),
-		)
-		if err != nil {
-			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-		}
-		h.JS.Publish(notif.AwsRelationalDatabaseInstanceDeleteSubject, *notifPayload)
-	} else {
-		if awsRelationalDatabaseInstance.DeletionConfirmed == nil {
-			// if deletion scheduled but not reconciled, return 409 - deletion
-			// already underway
-			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
-				*awsRelationalDatabaseInstance.ID,
-			)), objectType)
-		} else {
-			// object scheduled for deletion and confirmed - it can be deleted
-			// from DB
-			if result := h.DB.Delete(&awsRelationalDatabaseInstance); result.Error != nil {
-				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-			}
-		}
-	}
-
-	response, err := apiserver_lib.CreateResponse(nil, awsRelationalDatabaseInstance, objectType)
-	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 

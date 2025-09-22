@@ -51,12 +51,12 @@ These constructs allow team leads and domain experts to define the attributes
 for different objects.  Then, individual contributors can rapidly provision instances
 leveraging those detailed configs made available to them in Threeport.
 
-For example, the available definitions for AWS RDS database instances can be
-provided by a database expert for different tiers of usage, i.e. definitions
-for development, staging and production.  Then, when developers who use RDS as a
-part of their app stack need to deploy an application instance, they can
-reference the definition provided for them, rather than determining the config
-details themselves.
+For example, a database specialist can create a Terraform definition for a particular
+database managed service.  They can provide definitions for different tiers
+of deployment and make them available to developers that can derive Terraform
+instances from those provided definitions according to their purposes.  This
+allows experts and specialists to provide definitions while devs can safely
+and easily leverage well configured systems for their applicaitons.
 
 In another example, the platform team may take responsibility for defining the
 Kubernetes cluster attributes that teams may use.  Then when teams need a

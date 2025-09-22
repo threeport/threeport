@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetControlPlaneDefinitionByName(apiClient *http.Client, apiAddr, name strin
 
 	switch {
 	case len(controlPlaneDefinitions) < 1:
-		return &v0.ControlPlaneDefinition{}, errors.New(fmt.Sprintf("no control plane definition with name %s", name))
+		return &v0.ControlPlaneDefinition{}, client_lib.ErrObjectNotFound
 	case len(controlPlaneDefinitions) > 1:
-		return &v0.ControlPlaneDefinition{}, errors.New(fmt.Sprintf("more than one control plane definition with name %s returned", name))
+		return &v0.ControlPlaneDefinition{}, fmt.Errorf("more than one control plane definition with name %s returned", name)
 	}
 
 	return &controlPlaneDefinitions[0], nil
@@ -368,9 +367,9 @@ func GetControlPlaneInstanceByName(apiClient *http.Client, apiAddr, name string)
 
 	switch {
 	case len(controlPlaneInstances) < 1:
-		return &v0.ControlPlaneInstance{}, errors.New(fmt.Sprintf("no control plane instance with name %s", name))
+		return &v0.ControlPlaneInstance{}, client_lib.ErrObjectNotFound
 	case len(controlPlaneInstances) > 1:
-		return &v0.ControlPlaneInstance{}, errors.New(fmt.Sprintf("more than one control plane instance with name %s returned", name))
+		return &v0.ControlPlaneInstance{}, fmt.Errorf("more than one control plane instance with name %s returned", name)
 	}
 
 	return &controlPlaneInstances[0], nil

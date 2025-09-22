@@ -15,6 +15,7 @@ import (
 	util "github.com/threeport/threeport/cmd/rest-api/util"
 	version "github.com/threeport/threeport/internal/version"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
+	apiserver_v0 "github.com/threeport/threeport/pkg/api-server/v0"
 	database "github.com/threeport/threeport/pkg/api-server/v0/database"
 	_ "github.com/threeport/threeport/pkg/api-server/v0/docs"
 	handlers_v0 "github.com/threeport/threeport/pkg/api-server/v0/handlers"
@@ -108,9 +109,14 @@ func main() {
 		e.Logger.Fatalf("failed to initialize database: %v", err)
 	}
 
+	// register module information in the database as needed
+	if err := apiserver_v0.RegisterModule(db); err != nil {
+		e.Logger.Fatalf("failed to register core module: %v", err)
+	}
+
 	// add module router middleware
 	if err := api_v0.InitModuleRouter(db, e); err != nil {
-		e.Logger.Fatalf("failed to initialize extension proxy router: %v", err)
+		e.Logger.Fatalf("failed to initialize module proxy router: %v", err)
 	}
 
 	// nats connection
@@ -135,7 +141,7 @@ func main() {
 
 	// handlers
 	// v0
-	h_v0 := handlers_v0.New(db, nc, *js)
+	h_v0 := handlers_v0.New(db, nc, *js, &logger)
 
 	// routes
 	routes_v0.SwaggerRoutes(e)

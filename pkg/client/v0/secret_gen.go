@@ -5,7 +5,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -133,9 +132,9 @@ func GetSecretDefinitionByName(apiClient *http.Client, apiAddr, name string) (*v
 
 	switch {
 	case len(secretDefinitions) < 1:
-		return &v0.SecretDefinition{}, errors.New(fmt.Sprintf("no secret definition with name %s", name))
+		return &v0.SecretDefinition{}, client_lib.ErrObjectNotFound
 	case len(secretDefinitions) > 1:
-		return &v0.SecretDefinition{}, errors.New(fmt.Sprintf("more than one secret definition with name %s returned", name))
+		return &v0.SecretDefinition{}, fmt.Errorf("more than one secret definition with name %s returned", name)
 	}
 
 	return &secretDefinitions[0], nil
@@ -368,9 +367,9 @@ func GetSecretInstanceByName(apiClient *http.Client, apiAddr, name string) (*v0.
 
 	switch {
 	case len(secretInstances) < 1:
-		return &v0.SecretInstance{}, errors.New(fmt.Sprintf("no secret instance with name %s", name))
+		return &v0.SecretInstance{}, client_lib.ErrObjectNotFound
 	case len(secretInstances) > 1:
-		return &v0.SecretInstance{}, errors.New(fmt.Sprintf("more than one secret instance with name %s returned", name))
+		return &v0.SecretInstance{}, fmt.Errorf("more than one secret instance with name %s returned", name)
 	}
 
 	return &secretInstances[0], nil

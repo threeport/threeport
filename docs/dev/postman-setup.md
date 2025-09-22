@@ -25,7 +25,7 @@ Select "Collections" on left pane and then "Import".
 
 ![postman-import](img/postman-import.png)
 
-Click "UploadFiles" and navigage to the file `internal/api/docs/swagger.json` in
+Click "UploadFiles" and navigate to the file `internal/api/docs/swagger.json` in
 this repo.
 
 ![postman-upload](img/postman-upload.png)
