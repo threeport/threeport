@@ -58,27 +58,24 @@ Now, let's create the necessary policies. We'll create them in the root compartm
 POLICY_ID=$(oci iam policy create \
     --name threeport-oke-policy \
     --description "Policy for managing OKE clusters for Threeport" \
-    --compartment-id $COMPARTMENT_ID \
+    --compartment-id $TENANCY_OCID \
     --statements '[
-        "Allow group threeport-admins to inspect compartments in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to manage cluster-family in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to manage virtual-network-family in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to manage instance-family in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to manage volume-family in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to manage load-balancers in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to use vnics in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to use network-security-groups in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to use private-ips in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to manage public-ips in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to manage object-family in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to manage tag-namespaces in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to manage tag-defaults in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to use tag-namespaces in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to inspect availability-domains in compartment id '${COMPARTMENT_ID}'",
-        "Allow group threeport-admins to read services in tenancy"
-    ]' \
-    --query 'data.id' \
-    --raw-output)
+        "Allow group threeport-admins to inspect compartments in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to manage clusters in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to manage virtual-network-family in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to manage compute-family in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to manage volume-family in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to manage load-balancers in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to use vnics in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to use network-security-groups in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to use private-ips in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to manage public-ips in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to manage object-family in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to manage tag-namespaces in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to manage tag-defaults in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to use tag-namespaces in compartment id '${TENANCY_OCID}'",
+        "Allow group threeport-admins to inspect availability-domains in compartment id '${TENANCY_OCID}'"
+    ]')
 
 echo "Created policy with ID: $POLICY_ID"
 ```
