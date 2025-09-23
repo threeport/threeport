@@ -154,6 +154,7 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 			&core.RouteTableRouteRuleArgs{
 				NetworkEntityId: internetGateway.ID(),
 				Destination:     pulumi.String("0.0.0.0/0"),
+				DestinationType: pulumi.String("CIDR_BLOCK"),
 			},
 		},
 	}, pulumi.Provider(ociProvider))
@@ -170,10 +171,12 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 			&core.RouteTableRouteRuleArgs{
 				NetworkEntityId: natGateway.ID(),
 				Destination:     pulumi.String("0.0.0.0/0"),
+				DestinationType: pulumi.String("CIDR_BLOCK"),
 			},
 			&core.RouteTableRouteRuleArgs{
 				NetworkEntityId: serviceGateway.ID(),
 				Destination:     pulumi.String(serviceCIDR),
+				DestinationType: pulumi.String("SERVICE_CIDR_BLOCK"),
 			},
 		},
 	}, pulumi.Provider(ociProvider))
