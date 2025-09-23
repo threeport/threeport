@@ -6,6 +6,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -110,10 +112,34 @@ func (b *OCIBootstrapPulumi) bootstrapPulumiProgram(ctx *pulumi.Context) error {
 		return fmt.Errorf("failed to create service user: %v", err)
 	}
 
-	// Generate API key pair for service user
-	keyPair, err := generateOCIAPIKeyPair()
+	// Check if we already have a key pair for this instance
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("failed to generate API key pair: %v", err)
+		return fmt.Errorf("failed to get user home directory: %v", err)
+	}
+	privateKeyPath := filepath.Join(homeDir, ".oci", fmt.Sprintf("threeport-service-%s.pem", b.InstanceName))
+
+	var keyPair *APIKeyPair
+	if _, err := os.Stat(privateKeyPath); os.IsNotExist(err) {
+		// No existing key, generate a new one
+		keyPair, err = generateOCIAPIKeyPair()
+		if err != nil {
+			return fmt.Errorf("failed to generate API key pair: %v", err)
+		}
+		fmt.Printf("ℹ️  Generated new API key pair\n")
+	} else {
+		// Existing key found, read it and generate the corresponding public key
+		privateKeyPEM, err := os.ReadFile(privateKeyPath)
+		if err != nil {
+			return fmt.Errorf("failed to read existing private key: %v", err)
+		}
+
+		// Generate the public key and fingerprint from existing private key
+		keyPair, err = getAPIKeyPairFromPrivateKey(string(privateKeyPEM))
+		if err != nil {
+			return fmt.Errorf("failed to generate public key from existing private key: %v", err)
+		}
+		fmt.Printf("ℹ️  Using existing private key: %s\n", privateKeyPath)
 	}
 
 	// Create API key for service user
@@ -365,14 +391,21 @@ key_file=%s
 		}
 	}
 
-	// Save private key to file
+	// Save private key to file only if it doesn't already exist
 	privateKeyPath := filepath.Join(homeDir, ".oci", fmt.Sprintf("threeport-service-%s.pem", b.InstanceName))
-	err = os.WriteFile(privateKeyPath, []byte(outputs.ServiceUserPrivateKey), 0600)
-	if err != nil {
-		return fmt.Errorf("failed to write private key file: %v", err)
+
+	if _, err := os.Stat(privateKeyPath); os.IsNotExist(err) {
+		// File doesn't exist, create it
+		err = os.WriteFile(privateKeyPath, []byte(outputs.ServiceUserPrivateKey), 0600)
+		if err != nil {
+			return fmt.Errorf("failed to write private key file: %v", err)
+		}
+		fmt.Printf("✅ Created private key: %s\n", privateKeyPath)
+	} else {
+		// File exists, don't overwrite
+		fmt.Printf("ℹ️  Private key already exists, not overwriting: %s\n", privateKeyPath)
 	}
 	fmt.Printf("✅ Updated OCI config: %s\n", configPath)
-	fmt.Printf("✅ Saved private key: %s\n", privateKeyPath)
 
 	return nil
 }
@@ -518,4 +551,51 @@ func CleanupOCILocalFiles() error {
 	}
 
 	return nil
+}
+
+// getAPIKeyPairFromPrivateKey generates the public key and fingerprint from an existing private key
+func getAPIKeyPairFromPrivateKey(privateKeyPEM string) (*APIKeyPair, error) {
+	// Parse the private key
+	block, _ := pem.Decode([]byte(privateKeyPEM))
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block")
+	}
+
+	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse private key: %v", err)
+	}
+
+	// Generate public key from private key
+	publicKey := &privateKey.PublicKey
+
+	// Convert public key to PEM format
+	publicKeyDER, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal public key: %v", err)
+	}
+
+	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: publicKeyDER,
+	})
+
+	// Calculate fingerprint (MD5 hash of the public key DER)
+	hash := md5.Sum(publicKeyDER)
+	fingerprint := strings.ToLower(hex.EncodeToString(hash[:]))
+
+	// Format fingerprint with colons
+	var formattedFingerprint strings.Builder
+	for i, char := range fingerprint {
+		if i > 0 && i%2 == 0 {
+			formattedFingerprint.WriteString(":")
+		}
+		formattedFingerprint.WriteRune(char)
+	}
+
+	return &APIKeyPair{
+		PrivateKeyPEM: privateKeyPEM,
+		PublicKeyPEM:  string(publicKeyPEM),
+		Fingerprint:   formattedFingerprint.String(),
+	}, nil
 }
