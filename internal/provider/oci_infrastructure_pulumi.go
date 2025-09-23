@@ -441,6 +441,10 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 			SourceType:          pulumi.String("IMAGE"),
 			BootVolumeSizeInGbs: pulumi.String("50"),
 		},
+		NodeShapeConfig: &containerengine.NodePoolNodeShapeConfigArgs{
+			Ocpus:       pulumi.Float64(2.0),
+			MemoryInGbs: pulumi.Float64(12.0),
+		},
 	}, pulumi.Provider(ociProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create node pool: %v", err)
