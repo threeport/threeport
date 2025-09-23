@@ -18,7 +18,6 @@ import (
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/containerengine"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/core"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
-	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -70,45 +69,6 @@ func (i *KubernetesRuntimeInfraOKE) CreateWithTwoStagePulumi() (*kube.KubeConnec
 	)
 }
 
-// CreateWithBootstrap runs the bootstrap process and then creates the OKE cluster
-func (i *KubernetesRuntimeInfraOKE) CreateWithBootstrap() (*kube.KubeConnectionInfo, error) {
-	fmt.Println("Starting OCI bootstrap process...")
-
-	// Run bootstrap process using Pulumi
-	bootstrap, err := NewOCIBootstrapPulumi(i.RuntimeInstanceName, i.Region)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create bootstrap instance: %w", err)
-	}
-
-	outputs, err := bootstrap.RunStage1Bootstrap()
-	if err != nil {
-		return nil, fmt.Errorf("bootstrap process failed: %w", err)
-	}
-
-	// Update the compartment OCID with the newly created one
-	i.CompartmentOCID = outputs.CompartmentOCID
-
-	fmt.Println("Bootstrap completed, updating OCI configuration for cluster creation...")
-
-	// Create a new config provider using the service user profile
-	configPath := filepath.Join(os.Getenv("HOME"), ".oci", "config")
-	configProvider := common.CustomProfileConfigProvider(configPath, bootstrap.GetServiceUserProfileName())
-
-	// Update the OCI client configuration
-	if err := i.updateOCIConfiguration(configProvider); err != nil {
-		return nil, fmt.Errorf("failed to update OCI configuration: %w", err)
-	}
-
-	// Validate service user credentials
-	if err := i.validateServiceUserCredentials(); err != nil {
-		return nil, fmt.Errorf("service user credentials validation failed: %w", err)
-	}
-
-	fmt.Println("Service user credentials validated, creating OKE cluster...")
-
-	// Now create the cluster using the existing Create method
-	return i.Create()
-}
 
 // validateServiceUserCredentials validates that the service user credentials are working
 func (i *KubernetesRuntimeInfraOKE) validateServiceUserCredentials() error {
@@ -155,6 +115,7 @@ func (i *KubernetesRuntimeInfraOKE) updateOCIConfiguration(configProvider common
 }
 
 // Create installs a Kubernetes cluster using Oracle Cloud OKE for threeport workloads.
+// Deprecated: Use CreateWithTwoStagePulumi instead for better reliability.
 func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 	// set up Pulumi workspace and get stack
 	stack, err := i.setupPulumiWorkspace(func(ctx *pulumi.Context) error {
@@ -660,31 +621,9 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 	return i.GetConnection()
 }
 
-// Delete deletes an Oracle Cloud OKE cluster.
+// Delete deletes an Oracle Cloud OKE cluster using the two-stage approach.
 func (i *KubernetesRuntimeInfraOKE) Delete() error {
-	// set up Pulumi workspace and get stack
-	stack, err := i.setupPulumiWorkspace(func(ctx *pulumi.Context) error {
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to set up Pulumi workspace: %w", err)
-	}
-
-	// create a context for the automation API
-	ctx := context.Background()
-
-	// destroy the stack
-	_, err = stack.Destroy(ctx, optdestroy.ProgressStreams(os.Stdout))
-	if err != nil {
-		return fmt.Errorf("failed to destroy stack: %w", err)
-	}
-
-	// remove the state directory after successful destruction
-	if err := os.RemoveAll(i.stateDir); err != nil {
-		return fmt.Errorf("failed to remove state directory: %w", err)
-	}
-
-	return nil
+	return DeleteOKEWithTwoStagePulumi(i.RuntimeInstanceName)
 }
 
 // GetClusterOCID gets the OCID of the OKE cluster.

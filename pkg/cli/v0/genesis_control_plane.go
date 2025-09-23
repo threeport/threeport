@@ -754,6 +754,18 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 // DeleteGenesisControlPlane deletes a threeport control plane.
 func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller) error {
+	// configure installer
+	cpi := customInstaller
+	if customInstaller == nil {
+		cpi = threeport.NewInstaller()
+	}
+
+	// For infra-only teardown, skip threeport config checks and go straight to infra deletion
+	if cpi.Opts.InfraOnly {
+		Info("Infra-only teardown - skipping control plane checks")
+		return deleteInfrastructureOnly(cpi)
+	}
+
 	// get threeport config
 	threeportConfig, requestedControlPlane, err := config.GetThreeportConfig("")
 	if err != nil {
@@ -767,12 +779,6 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 
 	if !genesis {
 		return errors.New("could not delete current control plane because it is not a genesis control plane")
-	}
-
-	// configure installer
-	cpi := customInstaller
-	if customInstaller == nil {
-		cpi = threeport.NewInstaller()
 	}
 
 	// get threeport control plane config
@@ -1128,4 +1134,70 @@ func (u *Uninstaller) cleanOnCreateError(
 	}
 
 	return createErr
+}
+
+// deleteInfrastructureOnly handles infra-only teardown without requiring threeport config
+func deleteInfrastructureOnly(cpi *threeport.ControlPlaneInstaller) error {
+	var kubernetesRuntimeInfra provider.KubernetesRuntimeInfra
+
+	// Create the appropriate infrastructure provider based on the provider type
+	switch cpi.Opts.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderKind:
+		kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
+			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			KubeconfigPath:      cpi.Opts.KubeconfigPath,
+		}
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraKind
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
+			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+		}
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraEKS
+	case v0.KubernetesRuntimeInfraProviderOKE:
+		kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
+			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+		}
+		if err := kubernetesRuntimeInfraOKE.LoadOCIConfig(
+			cpi.Opts.OciRegion,
+			cpi.Opts.OciConfigProfile,
+			cpi.Opts.OciCompartmentOcid,
+		); err != nil {
+			return fmt.Errorf("failed to load OCI config: %w", err)
+		}
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraOKE
+	default:
+		return fmt.Errorf("unsupported infrastructure provider: %s", cpi.Opts.InfraProvider)
+	}
+
+	// Delete the infrastructure
+	if err := kubernetesRuntimeInfra.Delete(); err != nil {
+		return fmt.Errorf("failed to delete control plane infra: %w", err)
+	}
+
+	// Perform provider-specific post-deletion cleanup
+	switch cpi.Opts.InfraProvider {
+	case v0.KubernetesRuntimeInfraProviderEKS:
+		// Remove inventory file
+		invFile := provider.EKSInventoryFilepath(cpi.Opts.ProviderConfigDir, cpi.Opts.ControlPlaneName)
+		if err := os.Remove(invFile); err != nil {
+			Warning(fmt.Sprintf("failed to remove inventory file %s", invFile))
+		}
+
+		// Note: We can't delete AWS IAM resources without the AWS config, which requires threeport config
+		Warning("AWS IAM resources cleanup skipped in infra-only mode - manual cleanup may be required")
+	case v0.KubernetesRuntimeInfraProviderOKE:
+		// Delete OCI bootstrap resources
+		err := provider.DeleteOCIBootstrapResources(cpi.Opts.ControlPlaneName)
+		if err != nil {
+			return fmt.Errorf("failed to delete OCI bootstrap resources: %w", err)
+		}
+
+		// Cleanup local OCI files
+		if err := provider.CleanupOCILocalFiles(); err != nil {
+			Warning(fmt.Sprintf("failed to remove local OCI key files: %v", err))
+		}
+	}
+
+	Complete(fmt.Sprintf("Infrastructure for %s deleted", cpi.Opts.ControlPlaneName))
+	return nil
 }
