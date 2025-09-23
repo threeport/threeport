@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/containerengine"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/core"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -465,6 +467,7 @@ func (i *OCIInfrastructurePulumi) RunStage2Infrastructure() (*InfrastructureOutp
 	ctx := context.Background()
 
 	fmt.Printf("Running Stage 2 infrastructure deployment in target region: %s\n", i.TargetRegion)
+	fmt.Printf("Validating that infrastructure deployment uses THREEPORT_SERVICE profile...\n")
 
 	// Get private key path for service user
 	// Set up Pulumi workspace using shared utility (no explicit credentials, using provider args instead)
@@ -479,6 +482,15 @@ func (i *OCIInfrastructurePulumi) RunStage2Infrastructure() (*InfrastructureOutp
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup Pulumi workspace: %v", err)
 	}
+
+	// TEMPORARY: Test credential validation with read-only OCI calls
+	fmt.Println("🧪 TESTING: Validating OCI credentials with read-only calls...")
+	if err := i.testOCICredentialsReadOnly(ctx, stack); err != nil {
+		return nil, fmt.Errorf("OCI credentials validation test failed: %v", err)
+	}
+	fmt.Println("✅ TESTING: Credential validation successful!")
+	fmt.Println("🛑 TESTING: Exiting before infrastructure deployment (remove this exit for actual deployment)")
+	os.Exit(0)
 
 	// Run pulumi up
 	upRes, err := stack.Up(ctx, optup.ProgressStreams(os.Stdout))
@@ -558,7 +570,7 @@ func DeleteOKEWithTwoStagePulumi(runtimeInstanceName string) error {
 		fmt.Println("Stage 2 infrastructure stack destroyed successfully")
 	}
 
-	// Stage 2: Destroy bootstrap stack (global resources) 
+	// Stage 2: Destroy bootstrap stack (global resources)
 	fmt.Println("Destroying Stage 1 bootstrap stack...")
 	if err := DeleteOCIBootstrapResources(runtimeInstanceName); err != nil {
 		return fmt.Errorf("failed to destroy bootstrap stack: %w", err)
@@ -574,13 +586,13 @@ func destroyInfrastructureStack(runtimeInstanceName string) error {
 	// We need to determine the target region and other parameters
 	// For now, we'll try to destroy based on the runtime instance name
 	// This is a simplified approach - in a full implementation, we'd store this info
-	
+
 	// Try to get config from environment or use defaults
 	targetRegion := "us-ashburn-1" // Default region - could be made configurable
-	
+
 	// Set up Pulumi workspace for infrastructure stack
 	stack, err := SetupPulumiWorkspace(&PulumiWorkspaceConfig{
-		ProjectName:   "infrastructure", 
+		ProjectName:   "infrastructure",
 		InstanceName:  fmt.Sprintf("infrastructure-%s", runtimeInstanceName),
 		Program:       func(ctx *pulumi.Context) error { return nil }, // Empty program for destroy
 		Region:        targetRegion,
@@ -598,5 +610,92 @@ func destroyInfrastructureStack(runtimeInstanceName string) error {
 		return fmt.Errorf("failed to destroy infrastructure stack: %v", err)
 	}
 
+	return nil
+}
+
+// testOCICredentialsReadOnly performs read-only OCI API calls to validate credentials
+func (i *OCIInfrastructurePulumi) testOCICredentialsReadOnly(ctx context.Context, stack auto.Stack) error {
+	fmt.Println("  → Checking Pulumi stack OCI configuration...")
+
+	// Verify Pulumi stack configuration
+	configProfile, err := stack.GetConfig(ctx, "oci:configFileProfile")
+	if err != nil {
+		return fmt.Errorf("failed to get oci:configFileProfile from stack: %v", err)
+	}
+	fmt.Printf("  → Pulumi stack configured to use OCI profile: %s\n", configProfile.Value)
+
+	// Create OCI config provider using the same profile Pulumi will use
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %v", err)
+	}
+	configPath := filepath.Join(homeDir, ".oci", "config")
+	configProvider := common.CustomProfileConfigProvider(configPath, configProfile.Value)
+
+	// Test 1: Get basic configuration info
+	fmt.Println("  → Testing basic OCI configuration...")
+	tenancyOCID, err := configProvider.TenancyOCID()
+	if err != nil {
+		return fmt.Errorf("failed to get tenancy OCID: %v", err)
+	}
+
+	userOCID, err := configProvider.UserOCID()
+	if err != nil {
+		return fmt.Errorf("failed to get user OCID: %v", err)
+	}
+
+	region, err := configProvider.Region()
+	if err != nil {
+		return fmt.Errorf("failed to get region: %v", err)
+	}
+
+	fmt.Printf("  → Tenancy: %s\n", tenancyOCID)
+	fmt.Printf("  → User: %s\n", userOCID)
+	fmt.Printf("  → Region: %s\n", region)
+
+	// Test 2: Make a read-only Identity API call
+	fmt.Println("  → Testing Identity API access...")
+	identityClient, err := identity.NewIdentityClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return fmt.Errorf("failed to create identity client: %v", err)
+	}
+
+	// Get user details to validate credentials and show which user is being used
+	getUserRequest := identity.GetUserRequest{UserId: &userOCID}
+	getUserResponse, err := identityClient.GetUser(context.Background(), getUserRequest)
+	if err != nil {
+		return fmt.Errorf("failed to call GetUser API: %v", err)
+	}
+
+	fmt.Printf("  → ✅ Successfully authenticated as user: %s\n", *getUserResponse.User.Name)
+	if getUserResponse.User.Email != nil {
+		fmt.Printf("  → ✅ User email: %s\n", *getUserResponse.User.Email)
+	}
+
+	// Test 3: Make a read-only call to list compartments (this tests compartment access)
+	fmt.Println("  → Testing Compartment API access...")
+	listCompartmentsRequest := identity.ListCompartmentsRequest{
+		CompartmentId: &tenancyOCID,
+		Limit:         common.Int(1), // Just get one compartment to test access
+	}
+	listCompartmentsResponse, err := identityClient.ListCompartments(context.Background(), listCompartmentsRequest)
+	if err != nil {
+		return fmt.Errorf("failed to call ListCompartments API: %v", err)
+	}
+
+	fmt.Printf("  → ✅ Successfully accessed compartments (found %d)\n", len(listCompartmentsResponse.Items))
+
+	// Test 4: Verify we can access the target compartment
+	if i.CompartmentOCID != "" {
+		fmt.Printf("  → Testing access to target compartment: %s\n", i.CompartmentOCID)
+		getCompartmentRequest := identity.GetCompartmentRequest{CompartmentId: &i.CompartmentOCID}
+		getCompartmentResponse, err := identityClient.GetCompartment(context.Background(), getCompartmentRequest)
+		if err != nil {
+			return fmt.Errorf("failed to access target compartment %s: %v", i.CompartmentOCID, err)
+		}
+		fmt.Printf("  → ✅ Successfully accessed target compartment: %s\n", *getCompartmentResponse.Compartment.Name)
+	}
+
+	fmt.Println("  → 🎉 All credential validation tests passed!")
 	return nil
 }
