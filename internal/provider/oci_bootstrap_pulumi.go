@@ -472,8 +472,8 @@ func (b *OCIBootstrapPulumi) waitForAPIKeyActive(outputs *BootstrapOutputs) erro
 		return fmt.Errorf("failed to create identity client: %w", err)
 	}
 
-	// Wait for API key to be active (max 2 minutes)
-	maxAttempts := 24 // 24 * 5 seconds = 2 minutes
+	// Wait for API key to be active (max 5 minutes)
+	maxAttempts := 60 // 60 * 5 seconds = 5 minutes
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		// Try to list API keys
 		request := identity.ListApiKeysRequest{

@@ -166,11 +166,19 @@ func (i *OCIInfrastructurePulumi) getAvailabilityDomain() (string, error) {
 
 // infrastructurePulumiProgram defines the Pulumi program for Stage 2 infrastructure
 func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Context) error {
+	// Validate OCI credentials with read-only calls before deployment
+	fmt.Println("🔍 Validating OCI credentials with read-only calls...")
+	if err := i.validateOCICredentialsInProgram(context.Background()); err != nil {
+		return fmt.Errorf("OCI credentials validation failed: %v", err)
+	}
+	fmt.Println("✅ Credential validation successful! Proceeding with infrastructure deployment...")
+
 	// Create OCI provider with target region (credentials come from THREEPORT_SERVICE profile)
 	// Being explicit with ConfigFileProfile to ensure we use the correct profile
 	ociProvider, err := oci.NewProvider(ctx, "oci-provider", &oci.ProviderArgs{
 		Region:            pulumi.String(i.TargetRegion),
 		ConfigFileProfile: pulumi.String("THREEPORT_SERVICE"),
+		TenancyOcid:       pulumi.String(i.TenancyOCID),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create OCI provider: %v", err)
@@ -484,13 +492,6 @@ func (i *OCIInfrastructurePulumi) RunStage2Infrastructure() (*InfrastructureOutp
 		return nil, fmt.Errorf("failed to setup Pulumi workspace: %v", err)
 	}
 
-	// Validate OCI credentials with read-only calls before deployment
-	fmt.Println("🔍 Validating OCI credentials with read-only calls...")
-	if err := i.testOCICredentialsReadOnly(ctx, stack); err != nil {
-		return nil, fmt.Errorf("OCI credentials validation failed: %v", err)
-	}
-	fmt.Println("✅ Credential validation successful! Proceeding with infrastructure deployment...")
-
 	// Run pulumi up
 	upRes, err := stack.Up(ctx, optup.ProgressStreams(os.Stdout))
 	if err != nil {
@@ -760,5 +761,72 @@ func (i *OCIInfrastructurePulumi) verifyOCICredentialsInPulumi() error {
 		fmt.Printf("  → ✅ Confirmed: Using expected service account '%s'\n", expectedServiceAccountName)
 	}
 
+	return nil
+}
+
+// validateOCICredentialsInProgram performs read-only OCI API calls to validate credentials within Pulumi program
+func (i *OCIInfrastructurePulumi) validateOCICredentialsInProgram(ctx context.Context) error {
+	fmt.Println("  → Testing THREEPORT_SERVICE profile credentials...")
+
+	// Create OCI config provider using the THREEPORT_SERVICE profile
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %v", err)
+	}
+	configPath := filepath.Join(homeDir, ".oci", "config")
+	configProvider := common.CustomProfileConfigProvider(configPath, "THREEPORT_SERVICE")
+
+	// Test 1: Get basic configuration info
+	fmt.Println("  → Testing basic OCI configuration...")
+	tenancyOCID, err := configProvider.TenancyOCID()
+	if err != nil {
+		return fmt.Errorf("failed to get tenancy OCID: %v", err)
+	}
+
+	userOCID, err := configProvider.UserOCID()
+	if err != nil {
+		return fmt.Errorf("failed to get user OCID: %v", err)
+	}
+
+	region, err := configProvider.Region()
+	if err != nil {
+		return fmt.Errorf("failed to get region: %v", err)
+	}
+
+	fmt.Printf("  → Tenancy: %s\n", tenancyOCID)
+	fmt.Printf("  → User: %s\n", userOCID)
+	fmt.Printf("  → Region: %s\n", region)
+
+	// Test 2: Make a read-only Identity API call
+	fmt.Println("  → Testing Identity API access...")
+	identityClient, err := identity.NewIdentityClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return fmt.Errorf("failed to create identity client: %v", err)
+	}
+
+	// Get user details to validate credentials and show which user is being used
+	getUserRequest := identity.GetUserRequest{UserId: &userOCID}
+	getUserResponse, err := identityClient.GetUser(context.Background(), getUserRequest)
+	if err != nil {
+		return fmt.Errorf("failed to call GetUser API: %v", err)
+	}
+
+	fmt.Printf("  → ✅ Successfully authenticated as user: %s\n", *getUserResponse.User.Name)
+	if getUserResponse.User.Email != nil {
+		fmt.Printf("  → ✅ User email: %s\n", *getUserResponse.User.Email)
+	}
+
+	// Test 3: Verify we can access the target compartment
+	if i.CompartmentOCID != "" {
+		fmt.Printf("  → Testing access to target compartment: %s\n", i.CompartmentOCID)
+		getCompartmentRequest := identity.GetCompartmentRequest{CompartmentId: &i.CompartmentOCID}
+		getCompartmentResponse, err := identityClient.GetCompartment(context.Background(), getCompartmentRequest)
+		if err != nil {
+			return fmt.Errorf("failed to access target compartment %s: %v", i.CompartmentOCID, err)
+		}
+		fmt.Printf("  → ✅ Successfully accessed target compartment: %s\n", *getCompartmentResponse.Compartment.Name)
+	}
+
+	fmt.Println("  → 🎉 All credential validation tests passed!")
 	return nil
 }

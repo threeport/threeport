@@ -196,11 +196,11 @@ func validateOCIProfileExists(configPath, profileName string) error {
 // validateOCIProfileCredentials validates that the OCI profile credentials work
 func validateOCIProfileCredentials(configPath, profileName string) error {
 	fmt.Printf("  → Validating profile '%s' from config file: %s\n", profileName, configPath)
-	
+
 	// Force re-read the config file from disk to avoid caching issues
 	// Create a fresh config provider that reads from disk each time
 	configProvider := common.CustomProfileConfigProvider(configPath, profileName)
-	
+
 	// Try to get basic info to validate credentials work
 	_, err := configProvider.TenancyOCID()
 	if err != nil {
@@ -211,7 +211,7 @@ func validateOCIProfileCredentials(configPath, profileName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get user OCID from profile '%s': %w", profileName, err)
 	}
-	
+
 	_, err = configProvider.Region()
 	if err != nil {
 		return fmt.Errorf("failed to get region from profile '%s': %w", profileName, err)
@@ -222,7 +222,7 @@ func validateOCIProfileCredentials(configPath, profileName string) error {
 		return fmt.Errorf("failed to get key fingerprint from profile '%s': %w", profileName, err)
 	}
 
-	fmt.Printf("  → Profile '%s' config: user=%s, fingerprint=%s\n", 
+	fmt.Printf("  → Profile '%s' config: user=%s, fingerprint=%s\n",
 		profileName, userOCID, fingerprint)
 
 	// For service user profiles, use retry mechanism for API key propagation
@@ -237,20 +237,20 @@ func validateOCIProfileCredentials(configPath, profileName string) error {
 
 // validateServiceUserWithRetry validates service user credentials with retry for API key propagation
 func validateServiceUserWithRetry(configProvider common.ConfigurationProvider, profileName, userOCID string) error {
-	maxAttempts := 24 // 24 attempts * 5 seconds = 2 minutes max (same as existing logic)
+	maxAttempts := 60 // 60 attempts * 5 seconds = 5 minutes max (increased from 2 minutes)
 	waitSeconds := 5
-	
+
 	fmt.Printf("  → Attempting validation with retry (max %d attempts, %ds intervals)...\n", maxAttempts, waitSeconds)
-	
+
 	err := util.Retry(maxAttempts, waitSeconds, func() error {
 		return validateOCICredentialsOnce(configProvider, profileName, userOCID)
 	})
-	
+
 	if err != nil {
-		return fmt.Errorf("failed to validate service user credentials after %d attempts over %d minutes: %w", 
+		return fmt.Errorf("failed to validate service user credentials after %d attempts over %d minutes: %w",
 			maxAttempts, (maxAttempts*waitSeconds)/60, err)
 	}
-	
+
 	return nil
 }
 
