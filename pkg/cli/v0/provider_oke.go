@@ -68,10 +68,10 @@ func DeployOkeInfra(
 		}
 		*kubeConnectionInfo = *connectionInfo
 	} else {
-		// Create the cluster with bootstrap process to set up service user and compartment
-		connectionInfo, err := kubernetesRuntimeInfraOKE.CreateWithBootstrap()
+		// Create the cluster with two-stage Pulumi approach for consistent deployments
+		connectionInfo, err := kubernetesRuntimeInfraOKE.CreateWithTwoStagePulumi()
 		if err != nil {
-			return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport (bootstrap process failed)", err)
+			return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport (two-stage Pulumi deployment failed)", err)
 		}
 		*kubeConnectionInfo = *connectionInfo
 	}

@@ -24,7 +24,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v2"
 	"gorm.io/datatypes"
 )
@@ -60,25 +59,34 @@ type KubernetesRuntimeInfraOKE struct {
 	stateDir string
 }
 
+// CreateWithTwoStagePulumi runs both bootstrap and infrastructure stages using Pulumi
+func (i *KubernetesRuntimeInfraOKE) CreateWithTwoStagePulumi() (*kube.KubeConnectionInfo, error) {
+	return CreateOKEWithTwoStagePulumi(
+		i.RuntimeInstanceName,
+		i.Version,
+		i.Region,
+		i.WorkerNodeShape,
+		i.WorkerNodeInitialCount,
+	)
+}
+
 // CreateWithBootstrap runs the bootstrap process and then creates the OKE cluster
 func (i *KubernetesRuntimeInfraOKE) CreateWithBootstrap() (*kube.KubeConnectionInfo, error) {
 	fmt.Println("Starting OCI bootstrap process...")
 
-	// Use RuntimeInstanceName for both instance and compartment names
-	compartmentName := fmt.Sprintf("%s-compartment", i.RuntimeInstanceName)
-
-	// Run bootstrap process
-	bootstrap, err := NewOCIBootstrap(i.TenancyOCID, i.Region, i.RuntimeInstanceName, compartmentName)
+	// Run bootstrap process using Pulumi
+	bootstrap, err := NewOCIBootstrapPulumi(i.RuntimeInstanceName, i.Region)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bootstrap instance: %w", err)
 	}
 
-	if err := bootstrap.RunBootstrap(); err != nil {
+	outputs, err := bootstrap.RunStage1Bootstrap()
+	if err != nil {
 		return nil, fmt.Errorf("bootstrap process failed: %w", err)
 	}
 
 	// Update the compartment OCID with the newly created one
-	i.CompartmentOCID = bootstrap.createdResources.CompartmentOCID
+	i.CompartmentOCID = outputs.CompartmentOCID
 
 	fmt.Println("Bootstrap completed, updating OCI configuration for cluster creation...")
 
@@ -1119,23 +1127,8 @@ description: Oracle Kubernetes Engine (OKE) cluster for Threeport
 		return auto.Stack{}, fmt.Errorf("failed to get key fingerprint: %w", err)
 	}
 
-	// Get private key path from the OCI config file
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	configPath := filepath.Join(homeDir, ".oci", "config")
-	cfg, err := ini.Load(configPath)
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to load OCI config: %w", err)
-	}
-
-	section := cfg.Section("THREEPORT_SERVICE")
-	privateKeyPath := section.Key("key_file").String()
-	if privateKeyPath == "" {
-		return auto.Stack{}, fmt.Errorf("private key path not found in OCI config")
-	}
+	// Get private key path from the config provider
+	privateKeyPath := filepath.Join(os.Getenv("HOME"), ".oci", fmt.Sprintf("threeport-service-%s.pem", i.RuntimeInstanceName))
 
 	// Set Pulumi OCI provider configuration
 	err = stack.SetConfig(ctx, "oci:tenancyOcid", auto.ConfigValue{Value: tenancyOCID})
