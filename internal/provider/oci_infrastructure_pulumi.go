@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
 	"time"
 
+	"github.com/oracle/oci-go-sdk/v65/common"
+	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/containerengine"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/core"
@@ -19,19 +22,19 @@ type OCIInfrastructurePulumi struct {
 	RuntimeInstanceName    string
 	Version                string
 	CompartmentOCID        string
-	TenancyOCID           string
-	TargetRegion          string
-	WorkerNodeShape       string
+	TenancyOCID            string
+	TargetRegion           string
+	WorkerNodeShape        string
 	WorkerNodeInitialCount int32
-	bootstrapOutputs      *BootstrapOutputs
+	bootstrapOutputs       *BootstrapOutputs
 }
 
 // InfrastructureOutputs represents the outputs from Stage 2 infrastructure stack
 type InfrastructureOutputs struct {
-	ClusterID     string
-	NodePoolID    string
-	ClusterName   string
-	KubeConfig    string
+	ClusterID   string
+	NodePoolID  string
+	ClusterName string
+	KubeConfig  string
 }
 
 // NewOCIInfrastructurePulumi creates a new infrastructure deployment instance
@@ -40,12 +43,42 @@ func NewOCIInfrastructurePulumi(runtimeInstanceName, version, compartmentOCID, t
 		RuntimeInstanceName:    runtimeInstanceName,
 		Version:                version,
 		CompartmentOCID:        compartmentOCID,
-		TenancyOCID:           tenancyOCID,
-		TargetRegion:          targetRegion,
-		WorkerNodeShape:       workerNodeShape,
+		TenancyOCID:            tenancyOCID,
+		TargetRegion:           targetRegion,
+		WorkerNodeShape:        workerNodeShape,
 		WorkerNodeInitialCount: workerNodeInitialCount,
-		bootstrapOutputs:      bootstrapOutputs,
+		bootstrapOutputs:       bootstrapOutputs,
 	}
+}
+
+// getServiceGatewayID gets the service ID for all services in the target region
+func (i *OCIInfrastructurePulumi) getServiceGatewayID() (string, string, error) {
+	configProvider := common.DefaultConfigProvider()
+	networkClient, err := ociCore.NewVirtualNetworkClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create network client: %v", err)
+	}
+
+	// Set target region for the client
+	networkClient.SetRegion(i.TargetRegion)
+
+	// List services
+	request := ociCore.ListServicesRequest{}
+	response, err := networkClient.ListServices(context.Background(), request)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to list services: %v", err)
+	}
+
+	// Find the "all services" entry using regex pattern
+	pattern := `^All [A-Z]+ Services In Oracle Services Network$`
+	re := regexp.MustCompile(pattern)
+	for _, service := range response.Items {
+		if service.Description != nil && re.MatchString(*service.Description) {
+			return *service.Id, *service.CidrBlock, nil
+		}
+	}
+
+	return "", "", fmt.Errorf("failed to find all services entry in region %s", i.TargetRegion)
 }
 
 // infrastructurePulumiProgram defines the Pulumi program for Stage 2 infrastructure
@@ -91,6 +124,12 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 		return fmt.Errorf("failed to create NAT gateway: %v", err)
 	}
 
+	// Get service gateway ID and CIDR block
+	serviceID, serviceCIDR, err := i.getServiceGatewayID()
+	if err != nil {
+		return fmt.Errorf("failed to get service gateway ID: %v", err)
+	}
+
 	// Create Service Gateway
 	serviceGateway, err := core.NewServiceGateway(ctx, fmt.Sprintf("%s-servicegw", i.RuntimeInstanceName), &core.ServiceGatewayArgs{
 		CompartmentId: pulumi.String(i.CompartmentOCID),
@@ -98,7 +137,7 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 		DisplayName:   pulumi.String(fmt.Sprintf("%s-servicegw", i.RuntimeInstanceName)),
 		Services: core.ServiceGatewayServiceArray{
 			&core.ServiceGatewayServiceArgs{
-				ServiceId: pulumi.String("all-services"), // This would need to be looked up dynamically
+				ServiceId: pulumi.String(serviceID),
 			},
 		},
 	}, pulumi.Provider(ociProvider))
@@ -134,7 +173,7 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 			},
 			&core.RouteTableRouteRuleArgs{
 				NetworkEntityId: serviceGateway.ID(),
-				Destination:     pulumi.String("all-services"), // This would need to be looked up dynamically
+				Destination:     pulumi.String(serviceCIDR),
 			},
 		},
 	}, pulumi.Provider(ociProvider))
@@ -213,13 +252,13 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 
 	// Create Subnets
 	publicSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-public-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
-		CompartmentId:             pulumi.String(i.CompartmentOCID),
-		VcnId:                    vcn.ID(),
-		CidrBlock:                pulumi.String("10.0.10.0/24"),
-		DisplayName:              pulumi.String(fmt.Sprintf("%s-public-subnet", i.RuntimeInstanceName)),
-		DnsLabel:                 pulumi.String("publicsubnet"),
-		ProhibitInternetIngress:  pulumi.Bool(false),
-		ProhibitPublicIpOnVnic:   pulumi.Bool(false),
+		CompartmentId:           pulumi.String(i.CompartmentOCID),
+		VcnId:                   vcn.ID(),
+		CidrBlock:               pulumi.String("10.0.10.0/24"),
+		DisplayName:             pulumi.String(fmt.Sprintf("%s-public-subnet", i.RuntimeInstanceName)),
+		DnsLabel:                pulumi.String("publicsubnet"),
+		ProhibitInternetIngress: pulumi.Bool(false),
+		ProhibitPublicIpOnVnic:  pulumi.Bool(false),
 		RouteTableId:            publicRouteTable.ID(),
 		SecurityListIds:         pulumi.StringArray{workerSecList.ID()},
 	}, pulumi.Provider(ociProvider))
@@ -228,13 +267,13 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 	}
 
 	privateSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-private-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
-		CompartmentId:             pulumi.String(i.CompartmentOCID),
-		VcnId:                    vcn.ID(),
-		CidrBlock:                pulumi.String("10.0.20.0/24"),
-		DisplayName:              pulumi.String(fmt.Sprintf("%s-private-subnet", i.RuntimeInstanceName)),
-		DnsLabel:                 pulumi.String("privatesubnet"),
-		ProhibitInternetIngress:  pulumi.Bool(true),
-		ProhibitPublicIpOnVnic:   pulumi.Bool(true),
+		CompartmentId:           pulumi.String(i.CompartmentOCID),
+		VcnId:                   vcn.ID(),
+		CidrBlock:               pulumi.String("10.0.20.0/24"),
+		DisplayName:             pulumi.String(fmt.Sprintf("%s-private-subnet", i.RuntimeInstanceName)),
+		DnsLabel:                pulumi.String("privatesubnet"),
+		ProhibitInternetIngress: pulumi.Bool(true),
+		ProhibitPublicIpOnVnic:  pulumi.Bool(true),
 		RouteTableId:            privateRouteTable.ID(),
 		SecurityListIds:         pulumi.StringArray{workerSecList.ID()},
 	}, pulumi.Provider(ociProvider))
@@ -243,13 +282,13 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 	}
 
 	loadBalancerSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-lb-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
-		CompartmentId:             pulumi.String(i.CompartmentOCID),
-		VcnId:                    vcn.ID(),
-		CidrBlock:                pulumi.String("10.0.30.0/24"),
-		DisplayName:              pulumi.String(fmt.Sprintf("%s-lb-subnet", i.RuntimeInstanceName)),
-		DnsLabel:                 pulumi.String("lbsubnet"),
-		ProhibitInternetIngress:  pulumi.Bool(false),
-		ProhibitPublicIpOnVnic:   pulumi.Bool(false),
+		CompartmentId:           pulumi.String(i.CompartmentOCID),
+		VcnId:                   vcn.ID(),
+		CidrBlock:               pulumi.String("10.0.30.0/24"),
+		DisplayName:             pulumi.String(fmt.Sprintf("%s-lb-subnet", i.RuntimeInstanceName)),
+		DnsLabel:                pulumi.String("lbsubnet"),
+		ProhibitInternetIngress: pulumi.Bool(false),
+		ProhibitPublicIpOnVnic:  pulumi.Bool(false),
 		RouteTableId:            publicRouteTable.ID(),
 		SecurityListIds:         pulumi.StringArray{loadBalancerSecList.ID()},
 	}, pulumi.Provider(ociProvider))
@@ -261,7 +300,7 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 	cluster, err := containerengine.NewCluster(ctx, i.RuntimeInstanceName, &containerengine.ClusterArgs{
 		CompartmentId:     pulumi.String(i.CompartmentOCID),
 		Name:              pulumi.String(i.RuntimeInstanceName),
-		VcnId:            vcn.ID(),
+		VcnId:             vcn.ID(),
 		KubernetesVersion: pulumi.String(i.Version),
 		EndpointConfig: &containerengine.ClusterEndpointConfigArgs{
 			IsPublicIpEnabled: pulumi.Bool(true),
@@ -303,9 +342,9 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 			},
 		},
 		NodeSourceDetails: &containerengine.NodePoolNodeSourceDetailsArgs{
-			ImageId:                pulumi.String("ocid1.image.oc1..placeholder"), // This would need to be looked up dynamically
-			SourceType:            pulumi.String("IMAGE"),
-			BootVolumeSizeInGbs:   pulumi.String("50"),
+			ImageId:             pulumi.String("ocid1.image.oc1..placeholder"), // This would need to be looked up dynamically
+			SourceType:          pulumi.String("IMAGE"),
+			BootVolumeSizeInGbs: pulumi.String("50"),
 		},
 	}, pulumi.Provider(ociProvider))
 	if err != nil {
@@ -380,7 +419,7 @@ func CreateOKEWithTwoStagePulumi(runtimeInstanceName, version, targetRegion, wor
 		runtimeInstanceName,
 		version,
 		bootstrapOutputs.CompartmentOCID,
-		bootstrap.TenancyOCID,  // Pass the actual tenancy OCID
+		bootstrap.TenancyOCID, // Pass the actual tenancy OCID
 		targetRegion,
 		workerNodeShape,
 		workerNodeInitialCount,

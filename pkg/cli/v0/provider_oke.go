@@ -71,7 +71,8 @@ func DeployOkeInfra(
 		// Create the cluster with two-stage Pulumi approach for consistent deployments
 		connectionInfo, err := kubernetesRuntimeInfraOKE.CreateWithTwoStagePulumi()
 		if err != nil {
-			return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport (two-stage Pulumi deployment failed)", err)
+			// Don't run cleanup for Pulumi errors - let Pulumi handle its own state
+			return fmt.Errorf("failed to create control plane infra for threeport (two-stage Pulumi deployment failed): %w", err)
 		}
 		*kubeConnectionInfo = *connectionInfo
 	}
@@ -150,7 +151,8 @@ func ConfigureControlPlaneWithOkeConfig(
 		&ociAccount,
 	)
 	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to create new default OCI account", err)
+		// API errors shouldn't trigger infrastructure cleanup
+		return fmt.Errorf("failed to create new default OCI account: %w", err)
 	}
 
 	// create oci oke k8s runtime definition
@@ -170,7 +172,8 @@ func ConfigureControlPlaneWithOkeConfig(
 		&ociOkeKubernetesRuntimeDef,
 	)
 	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to create new OCI OKEkubernetes runtime definition for control plane cluster", err)
+		// API errors shouldn't trigger infrastructure cleanup
+		return fmt.Errorf("failed to create new OCI OKE kubernetes runtime definition for control plane cluster: %w", err)
 	}
 
 	okeRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)

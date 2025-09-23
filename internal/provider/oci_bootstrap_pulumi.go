@@ -120,7 +120,7 @@ func (b *OCIBootstrapPulumi) bootstrapPulumiProgram(ctx *pulumi.Context) error {
 	apiKey, err := pulumiIdentity.NewApiKey(ctx, "threeport-service-user-api-key", &pulumiIdentity.ApiKeyArgs{
 		UserId:   serviceUser.ID(),
 		KeyValue: pulumi.String(keyPair.PublicKeyPEM),
-	})
+	}, pulumi.IgnoreChanges([]string{"keyValue"}))
 	if err != nil {
 		return fmt.Errorf("failed to create API key: %v", err)
 	}
@@ -179,9 +179,23 @@ func (b *OCIBootstrapPulumi) bootstrapPulumiProgram(ctx *pulumi.Context) error {
 		Name:          pulumi.String(fmt.Sprintf("threeport-bootstrap-policy-%s", b.InstanceName)),
 		Description:   pulumi.String(fmt.Sprintf("Threeport bootstrap policy for %s", b.InstanceName)),
 		Statements: pulumi.StringArray{
-			pulumi.Sprintf("Allow group %s to manage all-resources in compartment %s", b.BootstrapGroupName, compartment.Name),
+			pulumi.Sprintf("Allow group %s to inspect compartments in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to manage clusters in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to manage virtual-network-family in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to manage instance-family in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to manage volume-family in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to manage load-balancers in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to use vnics in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to use network-security-groups in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to use private-ips in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to manage public-ips in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to manage object-family in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to manage tag-namespaces in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to manage tag-defaults in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to use tag-namespaces in compartment %s", b.BootstrapGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow group %s to use subnets in compartment %s", b.BootstrapGroupName, b.CompartmentName),
 		},
-	})
+	}, pulumi.DeleteBeforeReplace(true), pulumi.DependsOn([]pulumi.Resource{compartment}))
 	if err != nil {
 		return fmt.Errorf("failed to create bootstrap policy: %v", err)
 	}
@@ -192,11 +206,9 @@ func (b *OCIBootstrapPulumi) bootstrapPulumiProgram(ctx *pulumi.Context) error {
 		Name:          pulumi.String(fmt.Sprintf("threeport-operational-policy-%s", b.InstanceName)),
 		Description:   pulumi.String(fmt.Sprintf("Threeport operational policy for %s", b.InstanceName)),
 		Statements: pulumi.StringArray{
-			pulumi.Sprintf("Allow group %s to read all-resources in compartment %s", b.OperationalGroupName, compartment.Name),
-			pulumi.Sprintf("Allow group %s to manage instance-family in compartment %s", b.OperationalGroupName, compartment.Name),
-			pulumi.Sprintf("Allow group %s to manage cluster-family in compartment %s", b.OperationalGroupName, compartment.Name),
+			pulumi.Sprintf("Allow group %s to inspect compartments in compartment %s", b.OperationalGroupName, b.CompartmentName),
 		},
-	})
+	}, pulumi.DeleteBeforeReplace(true), pulumi.DependsOn([]pulumi.Resource{compartment}))
 	if err != nil {
 		return fmt.Errorf("failed to create operational policy: %v", err)
 	}
@@ -207,10 +219,10 @@ func (b *OCIBootstrapPulumi) bootstrapPulumiProgram(ctx *pulumi.Context) error {
 		Name:          pulumi.String(fmt.Sprintf("threeport-dynamic-group-policy-%s", b.InstanceName)),
 		Description:   pulumi.String(fmt.Sprintf("Threeport dynamic group policy for %s", b.InstanceName)),
 		Statements: pulumi.StringArray{
-			pulumi.Sprintf("Allow dynamic-group %s to manage cluster-family in compartment %s", b.DynamicGroupName, compartment.Name),
-			pulumi.Sprintf("Allow dynamic-group %s to manage instance-family in compartment %s", b.DynamicGroupName, compartment.Name),
+			pulumi.Sprintf("Allow dynamic-group %s to manage cluster-family in compartment %s", b.DynamicGroupName, b.CompartmentName),
+			pulumi.Sprintf("Allow dynamic-group %s to manage instance-family in compartment %s", b.DynamicGroupName, b.CompartmentName),
 		},
-	})
+	}, pulumi.DeleteBeforeReplace(true), pulumi.DependsOn([]pulumi.Resource{compartment}))
 	if err != nil {
 		return fmt.Errorf("failed to create dynamic group policy: %v", err)
 	}
@@ -255,7 +267,8 @@ func (b *OCIBootstrapPulumi) RunStage1Bootstrap() (*BootstrapOutputs, error) {
 	fmt.Printf("Running Stage 1 bootstrap in home region: %s\n", b.HomeRegion)
 	upRes, err := stack.Up(ctx, optup.ProgressStreams(os.Stdout))
 	if err != nil {
-		return nil, fmt.Errorf("failed to run pulumi up: %v", err)
+		// Don't trigger cleanup for Pulumi errors - they're handled by Pulumi's own state management
+		return nil, fmt.Errorf("failed to run pulumi up (resources may be partially created): %v", err)
 	}
 
 	// Extract outputs
