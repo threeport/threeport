@@ -167,8 +167,10 @@ func (i *OCIInfrastructurePulumi) getAvailabilityDomain() (string, error) {
 // infrastructurePulumiProgram defines the Pulumi program for Stage 2 infrastructure
 func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Context) error {
 	// Create OCI provider with target region (credentials come from THREEPORT_SERVICE profile)
+	// Being explicit with ConfigFileProfile to ensure we use the correct profile
 	ociProvider, err := oci.NewProvider(ctx, "oci-provider", &oci.ProviderArgs{
-		Region: pulumi.String(i.TargetRegion),
+		Region:            pulumi.String(i.TargetRegion),
+		ConfigFileProfile: pulumi.String("THREEPORT_SERVICE"),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create OCI provider: %v", err)
@@ -467,7 +469,6 @@ func (i *OCIInfrastructurePulumi) RunStage2Infrastructure() (*InfrastructureOutp
 	ctx := context.Background()
 
 	fmt.Printf("Running Stage 2 infrastructure deployment in target region: %s\n", i.TargetRegion)
-	fmt.Printf("Validating that infrastructure deployment uses THREEPORT_SERVICE profile...\n")
 
 	// Get private key path for service user
 	// Set up Pulumi workspace using shared utility (no explicit credentials, using provider args instead)
@@ -483,14 +484,12 @@ func (i *OCIInfrastructurePulumi) RunStage2Infrastructure() (*InfrastructureOutp
 		return nil, fmt.Errorf("failed to setup Pulumi workspace: %v", err)
 	}
 
-	// TEMPORARY: Test credential validation with read-only OCI calls
-	fmt.Println("🧪 TESTING: Validating OCI credentials with read-only calls...")
+	// Validate OCI credentials with read-only calls before deployment
+	fmt.Println("🔍 Validating OCI credentials with read-only calls...")
 	if err := i.testOCICredentialsReadOnly(ctx, stack); err != nil {
-		return nil, fmt.Errorf("OCI credentials validation test failed: %v", err)
+		return nil, fmt.Errorf("OCI credentials validation failed: %v", err)
 	}
-	fmt.Println("✅ TESTING: Credential validation successful!")
-	fmt.Println("🛑 TESTING: Exiting before infrastructure deployment (remove this exit for actual deployment)")
-	os.Exit(0)
+	fmt.Println("✅ Credential validation successful! Proceeding with infrastructure deployment...")
 
 	// Run pulumi up
 	upRes, err := stack.Up(ctx, optup.ProgressStreams(os.Stdout))
@@ -697,5 +696,69 @@ func (i *OCIInfrastructurePulumi) testOCICredentialsReadOnly(ctx context.Context
 	}
 
 	fmt.Println("  → 🎉 All credential validation tests passed!")
+	return nil
+}
+
+// verifyOCICredentialsInPulumi verifies OCI credentials from within the Pulumi program execution
+// This uses the same credentials that Pulumi will use (from the configured profile)
+func (i *OCIInfrastructurePulumi) verifyOCICredentialsInPulumi() error {
+	// Use the default config provider which will respect the Pulumi configuration
+	// This should use the same profile that Pulumi is configured to use (THREEPORT_SERVICE)
+	configProvider := common.DefaultConfigProvider()
+
+	// Test 1: Get basic configuration info
+	fmt.Println("  → Testing basic OCI configuration from Pulumi context...")
+	tenancyOCID, err := configProvider.TenancyOCID()
+	if err != nil {
+		return fmt.Errorf("failed to get tenancy OCID: %v", err)
+	}
+
+	userOCID, err := configProvider.UserOCID()
+	if err != nil {
+		return fmt.Errorf("failed to get user OCID: %v", err)
+	}
+
+	region, err := configProvider.Region()
+	if err != nil {
+		return fmt.Errorf("failed to get region: %v", err)
+	}
+
+	fmt.Printf("  → Pulumi will use - Tenancy: %s\n", tenancyOCID)
+	fmt.Printf("  → Pulumi will use - User OCID: %s\n", userOCID)
+	fmt.Printf("  → Pulumi will use - Region: %s\n", region)
+
+	// Test 2: Make an Identity API call to get the actual user name
+	fmt.Println("  → Making Identity API call to verify user identity...")
+	identityClient, err := identity.NewIdentityClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return fmt.Errorf("failed to create identity client: %v", err)
+	}
+
+	// Set the region for the client
+	identityClient.SetRegion(i.TargetRegion)
+
+	// Get user details to show exactly which user Pulumi will authenticate as
+	getUserRequest := identity.GetUserRequest{UserId: &userOCID}
+	getUserResponse, err := identityClient.GetUser(context.Background(), getUserRequest)
+	if err != nil {
+		return fmt.Errorf("failed to call GetUser API: %v", err)
+	}
+
+	fmt.Printf("  → ✅ Pulumi will authenticate as user: %s\n", *getUserResponse.User.Name)
+	if getUserResponse.User.Email != nil {
+		fmt.Printf("  → ✅ User email: %s\n", *getUserResponse.User.Email)
+	}
+
+	// Verify this matches our expected service account
+	expectedServiceAccountName := "threeport-service-threeport-oke-test"
+	if *getUserResponse.User.Name != expectedServiceAccountName {
+		fmt.Printf("  → ⚠️  WARNING: Expected service account '%s' but found user '%s'\n",
+			expectedServiceAccountName, *getUserResponse.User.Name)
+		fmt.Printf("  → This means Pulumi may not be using the THREEPORT_SERVICE profile as expected\n")
+		// Don't fail here, just warn - let the user decide if this is acceptable
+	} else {
+		fmt.Printf("  → ✅ Confirmed: Using expected service account '%s'\n", expectedServiceAccountName)
+	}
+
 	return nil
 }
