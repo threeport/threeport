@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/oracle/oci-go-sdk/v65/common"
+	ociContainerEngine "github.com/oracle/oci-go-sdk/v65/containerengine"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
+	"github.com/oracle/oci-go-sdk/v65/identity"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/containerengine"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/core"
@@ -79,6 +82,83 @@ func (i *OCIInfrastructurePulumi) getServiceGatewayID() (string, string, error) 
 	}
 
 	return "", "", fmt.Errorf("failed to find all services entry in region %s", i.TargetRegion)
+}
+
+// getOKEWorkerNodeImageOCID returns the OCID of the latest OKE worker node image
+// with version specified in struct
+func (i *OCIInfrastructurePulumi) getOKEWorkerNodeImageOCID() (string, error) {
+	configProvider := common.DefaultConfigProvider()
+	containerClient, err := ociContainerEngine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create container engine client: %v", err)
+	}
+
+	// Set target region for the client
+	containerClient.SetRegion(i.TargetRegion)
+
+	// Create a request to list node pool options
+	request := ociContainerEngine.GetNodePoolOptionsRequest{
+		CompartmentId:    common.String(i.CompartmentOCID),
+		NodePoolOptionId: common.String("all"),
+	}
+
+	// Call the API to get node pool options
+	response, err := containerClient.GetNodePoolOptions(context.Background(), request)
+	if err != nil {
+		return "", fmt.Errorf("failed to get node pool options: %v", err)
+	}
+
+	// Check if we have any images
+	if len(response.Sources) == 0 {
+		return "", fmt.Errorf("no OKE worker node images found")
+	}
+
+	// Find an image with the specified Kubernetes version
+	for _, source := range response.Sources {
+		// Try to get the concrete type
+		if sourceType, ok := source.(ociContainerEngine.NodeSourceViaImageOption); ok {
+			name := *sourceType.SourceName
+			// Remove leading 'v' from version for image search
+			versionWithoutV := strings.TrimPrefix(i.Version, "v")
+			if strings.Contains(name, fmt.Sprintf("OKE-%s", versionWithoutV)) &&
+				strings.Contains(name, "aarch64") {
+				return *sourceType.ImageId, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no suitable OKE worker node images found with aarch64 architecture and Kubernetes version %s", i.Version)
+}
+
+// getAvailabilityDomain returns the first available availability domain in the target region
+func (i *OCIInfrastructurePulumi) getAvailabilityDomain() (string, error) {
+	configProvider := common.DefaultConfigProvider()
+	identityClient, err := identity.NewIdentityClientWithConfigurationProvider(configProvider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create identity client: %v", err)
+	}
+
+	// Set target region for the client
+	identityClient.SetRegion(i.TargetRegion)
+
+	// Create a request to list availability domains
+	request := identity.ListAvailabilityDomainsRequest{
+		CompartmentId: common.String(i.CompartmentOCID),
+	}
+
+	// Call the API to get availability domains
+	response, err := identityClient.ListAvailabilityDomains(context.Background(), request)
+	if err != nil {
+		return "", fmt.Errorf("failed to list availability domains: %v", err)
+	}
+
+	// Check if we have any availability domains
+	if len(response.Items) == 0 {
+		return "", fmt.Errorf("no availability domains found in region %s", i.TargetRegion)
+	}
+
+	// Return the first availability domain
+	return *response.Items[0].Name, nil
 }
 
 // infrastructurePulumiProgram defines the Pulumi program for Stage 2 infrastructure
@@ -322,6 +402,18 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 		return fmt.Errorf("failed to create OKE cluster: %v", err)
 	}
 
+	// Get the OKE worker node image OCID
+	imageOCID, err := i.getOKEWorkerNodeImageOCID()
+	if err != nil {
+		return fmt.Errorf("failed to get OKE worker node image OCID: %v", err)
+	}
+
+	// Get the first available availability domain
+	availabilityDomain, err := i.getAvailabilityDomain()
+	if err != nil {
+		return fmt.Errorf("failed to get availability domain: %v", err)
+	}
+
 	// Create Node Pool
 	nodePool, err := containerengine.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &containerengine.NodePoolArgs{
 		ClusterId:         cluster.ID(),
@@ -339,13 +431,13 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 			Size: pulumi.Int(i.WorkerNodeInitialCount),
 			PlacementConfigs: containerengine.NodePoolNodeConfigDetailsPlacementConfigArray{
 				&containerengine.NodePoolNodeConfigDetailsPlacementConfigArgs{
-					AvailabilityDomain: pulumi.String("AD-1"), // This would need to be looked up dynamically
+					AvailabilityDomain: pulumi.String(availabilityDomain),
 					SubnetId:           privateSubnet.ID(),
 				},
 			},
 		},
 		NodeSourceDetails: &containerengine.NodePoolNodeSourceDetailsArgs{
-			ImageId:             pulumi.String("ocid1.image.oc1..placeholder"), // This would need to be looked up dynamically
+			ImageId:             pulumi.String(imageOCID),
 			SourceType:          pulumi.String("IMAGE"),
 			BootVolumeSizeInGbs: pulumi.String("50"),
 		},
