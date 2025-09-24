@@ -458,7 +458,7 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 			Ocpus:       pulumi.Float64(2.0),
 			MemoryInGbs: pulumi.Float64(12.0),
 		},
-	}, pulumi.Provider(ociProvider))
+	}, pulumi.Provider(ociProvider), pulumi.DependsOn([]pulumi.Resource{cluster}))
 	if err != nil {
 		return fmt.Errorf("failed to create node pool: %v", err)
 	}
