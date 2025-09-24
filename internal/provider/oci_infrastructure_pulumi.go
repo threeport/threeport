@@ -428,7 +428,7 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 	}
 
 	// Create Node Pool
-	nodePool, err := containerengine.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &containerengine.NodePoolArgs{
+	_, err = containerengine.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &containerengine.NodePoolArgs{
 		ClusterId:         cluster.ID(),
 		CompartmentId:     pulumi.String(i.CompartmentOCID),
 		Name:              pulumi.String(fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)),
@@ -464,8 +464,8 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 	}
 
 	// Export outputs
-	ctx.Export("clusterID", cluster.ID())
-	ctx.Export("nodePoolID", nodePool.ID())
+	// ctx.Export("clusterID", cluster.ID())
+	// ctx.Export("nodePoolID", nodePool.ID())
 	ctx.Export("clusterName", cluster.Name)
 	ctx.Export("kubeConfig", pulumi.String("")) // Would need to generate actual kubeconfig
 
