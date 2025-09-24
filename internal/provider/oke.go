@@ -84,7 +84,7 @@ func (i *KubernetesRuntimeInfraOKE) CreateWithTwoStagePulumi() (*kube.KubeConnec
 		Certificate:   "",
 		Key:           "",
 		Token:         "",
-	}, nil
+}, nil
 }
 
 
