@@ -2,12 +2,15 @@ package provider
 
 import (
 	"context"
+	"crypto/md5"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/oracle/oci-go-sdk/v65/common"
 	ociContainerEngine "github.com/oracle/oci-go-sdk/v65/containerengine"
@@ -16,11 +19,10 @@ import (
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/containerengine"
 	"github.com/pulumi/pulumi-oci/sdk/v2/go/oci/core"
-	"github.com/pulumi/pulumi/sdk/v3/go/auto"
-	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
+	pulumiIdentity "github.com/pulumi/pulumi-oci/sdk/v2/go/oci/identity"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	kube "github.com/threeport/threeport/pkg/kube/v0"
+	auth "github.com/threeport/threeport/pkg/auth/v0"
 )
 
 // OCIInfrastructurePulumi handles Stage 2 OKE infrastructure deployment
@@ -55,6 +57,51 @@ func NewOCIInfrastructurePulumi(runtimeInstanceName, version, compartmentOCID, t
 		WorkerNodeInitialCount: workerNodeInitialCount,
 		bootstrapOutputs:       bootstrapOutputs,
 	}
+}
+
+// InfraAPIKeyPair holds the API key pair information (for infrastructure deployment)
+type InfraAPIKeyPair struct {
+	PublicKeyPEM  string
+	PrivateKeyPEM string
+	Fingerprint   string
+}
+
+// generateInfraOCIAPIKeyPair generates a real RSA key pair for OCI API authentication (for infrastructure)
+func generateInfraOCIAPIKeyPair() (*InfraAPIKeyPair, error) {
+	// Generate RSA private key using same approach as auth package
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate RSA private key: %v", err)
+	}
+
+	// Use existing utility to convert private key to PEM
+	privateKeyPEM := auth.GetPrivateKeyPEMEncoding(privateKey)
+
+	// Generate public key PEM
+	publicKey := &privateKey.PublicKey
+	publicKeyDER, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal public key: %v", err)
+	}
+	publicKeyPEM := auth.GetPEMEncoding(publicKeyDER, "PUBLIC KEY")
+
+	// Generate OCI-style MD5 fingerprint
+	fingerprint := generateInfraOCIFingerprint(publicKeyDER)
+
+	return &InfraAPIKeyPair{
+		PublicKeyPEM:  publicKeyPEM,
+		PrivateKeyPEM: privateKeyPEM,
+		Fingerprint:   fingerprint,
+	}, nil
+}
+
+// generateInfraOCIFingerprint generates the MD5 fingerprint for OCI API key (for infrastructure)
+func generateInfraOCIFingerprint(publicKeyDER []byte) string {
+	// OCI expects MD5 hash of the DER-encoded public key
+	hash := md5.Sum(publicKeyDER)
+	return fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
+		hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7],
+		hash[8], hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15])
 }
 
 // getServiceGatewayID gets the service ID for all services in the target region
@@ -166,53 +213,227 @@ func (i *OCIInfrastructurePulumi) getAvailabilityDomain() (string, error) {
 
 // infrastructurePulumiProgram defines the Pulumi program for Stage 2 infrastructure
 func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Context) error {
-	// Validate OCI credentials with read-only calls before deployment
-	fmt.Println("🔍 Validating OCI credentials with read-only calls...")
-	if err := i.validateOCICredentialsInProgram(context.Background()); err != nil {
-		return fmt.Errorf("OCI credentials validation failed: %v", err)
-	}
-	fmt.Println("✅ Credential validation successful! Proceeding with infrastructure deployment...")
+	// =============== BOOTSTRAP RESOURCES (using DEFAULT profile in home region) ===============
 
-	// Create OCI provider with target region (credentials come from THREEPORT_SERVICE profile)
-	// Being explicit with ConfigFileProfile to ensure we use the correct profile
-	ociProvider, err := oci.NewProvider(ctx, "oci-provider", &oci.ProviderArgs{
-		Region:            pulumi.String(i.TargetRegion),
-		ConfigFileProfile: pulumi.String("THREEPORT_SERVICE"),
-		TenancyOcid:       pulumi.String(i.TenancyOCID),
+	// Create OCI provider for bootstrap resources using DEFAULT profile (home region)
+	bootstrapProvider, err := oci.NewProvider(ctx, "oci-bootstrap-provider", &oci.ProviderArgs{
+		Region:            pulumi.String("us-phoenix-1"), // Always use home region for bootstrap
+		ConfigFileProfile: pulumi.String("DEFAULT"),      // Use DEFAULT profile
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create OCI provider: %v", err)
+		return fmt.Errorf("failed to create bootstrap OCI provider: %v", err)
+	}
+
+	// Create compartment
+	compartment, err := pulumiIdentity.NewCompartment(ctx, "threeport-compartment", &pulumiIdentity.CompartmentArgs{
+		CompartmentId: pulumi.String(i.TenancyOCID),
+		Name:          pulumi.String(fmt.Sprintf("threeport-%s", i.RuntimeInstanceName)),
+		Description:   pulumi.String(fmt.Sprintf("Threeport compartment for %s", i.RuntimeInstanceName)),
+	}, pulumi.Provider(bootstrapProvider))
+	if err != nil {
+		return fmt.Errorf("failed to create compartment: %v", err)
+	}
+
+	// Create service user
+	serviceUser, err := pulumiIdentity.NewUser(ctx, "threeport-service-user", &pulumiIdentity.UserArgs{
+		CompartmentId: pulumi.String(i.TenancyOCID),
+		Name:          pulumi.String(fmt.Sprintf("threeport-service-%s", i.RuntimeInstanceName)),
+		Description:   pulumi.String(fmt.Sprintf("Threeport service user for %s", i.RuntimeInstanceName)),
+		Email:         pulumi.String("threeport@example.com"),
+	}, pulumi.Provider(bootstrapProvider))
+	if err != nil {
+		return fmt.Errorf("failed to create service user: %v", err)
+	}
+
+	// Check if we already have a key pair for this instance
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %v", err)
+	}
+	privateKeyPath := filepath.Join(homeDir, ".oci", fmt.Sprintf("threeport-service-%s.pem", i.RuntimeInstanceName))
+	var keyPair *APIKeyPair
+	if _, err := os.Stat(privateKeyPath); os.IsNotExist(err) {
+		// No existing key, generate a new one using bootstrap functions
+		keyPair, err = generateOCIAPIKeyPair()
+		if err != nil {
+			return fmt.Errorf("failed to generate API key pair: %v", err)
+		}
+		fmt.Printf("ℹ️  Generated new API key pair\n")
+	} else {
+		// Existing key found, read it and generate the corresponding public key
+		privateKeyPEM, err := os.ReadFile(privateKeyPath)
+		if err != nil {
+			return fmt.Errorf("failed to read existing private key: %v", err)
+		}
+		// Generate the public key and fingerprint from existing private key using bootstrap functions
+		keyPair, err = getAPIKeyPairFromPrivateKey(string(privateKeyPEM))
+		if err != nil {
+			return fmt.Errorf("failed to generate public key from existing private key: %v", err)
+		}
+		fmt.Printf("ℹ️  Using existing private key: %s\n", privateKeyPath)
+	}
+
+	// Create API key for service user
+	apiKey, err := pulumiIdentity.NewApiKey(ctx, "threeport-service-user-api-key", &pulumiIdentity.ApiKeyArgs{
+		UserId:   serviceUser.ID(),
+		KeyValue: pulumi.String(keyPair.PublicKeyPEM),
+	}, pulumi.Provider(bootstrapProvider), pulumi.IgnoreChanges([]string{"keyValue"}), pulumi.DependsOn([]pulumi.Resource{serviceUser}))
+	if err != nil {
+		return fmt.Errorf("failed to create API key: %v", err)
+	}
+
+	// Create bootstrap group
+	bootstrapGroup, err := pulumiIdentity.NewGroup(ctx, "threeport-bootstrap-group", &pulumiIdentity.GroupArgs{
+		CompartmentId: pulumi.String(i.TenancyOCID),
+		Name:          pulumi.String(fmt.Sprintf("threeport-bootstrap-%s", i.RuntimeInstanceName)),
+		Description:   pulumi.String(fmt.Sprintf("Threeport bootstrap group for %s", i.RuntimeInstanceName)),
+	}, pulumi.Provider(bootstrapProvider))
+	if err != nil {
+		return fmt.Errorf("failed to create bootstrap group: %v", err)
+	}
+
+	// Create operational group
+	operationalGroup, err := pulumiIdentity.NewGroup(ctx, "threeport-operational-group", &pulumiIdentity.GroupArgs{
+		CompartmentId: pulumi.String(i.TenancyOCID),
+		Name:          pulumi.String(fmt.Sprintf("threeport-operational-%s", i.RuntimeInstanceName)),
+		Description:   pulumi.String(fmt.Sprintf("Threeport operational group for %s", i.RuntimeInstanceName)),
+	}, pulumi.Provider(bootstrapProvider))
+	if err != nil {
+		return fmt.Errorf("failed to create operational group: %v", err)
+	}
+
+	// Create dynamic group
+	_, err = pulumiIdentity.NewDynamicGroup(ctx, "threeport-dynamic-group", &pulumiIdentity.DynamicGroupArgs{
+		CompartmentId: pulumi.String(i.TenancyOCID),
+		Name:          pulumi.String(fmt.Sprintf("threeport-dynamic-%s", i.RuntimeInstanceName)),
+		Description:   pulumi.String(fmt.Sprintf("Threeport dynamic group for %s", i.RuntimeInstanceName)),
+		MatchingRule:  pulumi.Sprintf("ALL {instance.compartment.id = '%s'}", compartment.ID()),
+	}, pulumi.Provider(bootstrapProvider), pulumi.DependsOn([]pulumi.Resource{compartment}))
+	if err != nil {
+		return fmt.Errorf("failed to create dynamic group: %v", err)
+	}
+
+	// Add service user to groups
+	_, err = pulumiIdentity.NewUserGroupMembership(ctx, "bootstrap-group-membership", &pulumiIdentity.UserGroupMembershipArgs{
+		UserId:  serviceUser.ID(),
+		GroupId: bootstrapGroup.ID(),
+	}, pulumi.Provider(bootstrapProvider), pulumi.DependsOn([]pulumi.Resource{serviceUser, bootstrapGroup}))
+	if err != nil {
+		return fmt.Errorf("failed to add service user to bootstrap group: %v", err)
+	}
+
+	_, err = pulumiIdentity.NewUserGroupMembership(ctx, "operational-group-membership", &pulumiIdentity.UserGroupMembershipArgs{
+		UserId:  serviceUser.ID(),
+		GroupId: operationalGroup.ID(),
+	}, pulumi.Provider(bootstrapProvider), pulumi.DependsOn([]pulumi.Resource{serviceUser, operationalGroup}))
+	if err != nil {
+		return fmt.Errorf("failed to add service user to operational group: %v", err)
+	}
+
+	// Create bootstrap policy in root compartment
+	_, err = pulumiIdentity.NewPolicy(ctx, "threeport-bootstrap-policy", &pulumiIdentity.PolicyArgs{
+		CompartmentId: pulumi.String(i.TenancyOCID),
+		Name:          pulumi.String(fmt.Sprintf("threeport-bootstrap-policy-%s", i.RuntimeInstanceName)),
+		Description:   pulumi.String(fmt.Sprintf("Threeport bootstrap policy for %s", i.RuntimeInstanceName)),
+		Statements: pulumi.StringArray{
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to inspect compartments in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage clusters in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage virtual-network-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage instance-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage volume-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage load-balancers in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to use vnics in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to use network-security-groups in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to use private-ips in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage public-ips in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage object-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage tag-namespaces in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage tag-defaults in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to use tag-namespaces in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to use subnets in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+		},
+	}, pulumi.Provider(bootstrapProvider), pulumi.DeleteBeforeReplace(true), pulumi.DependsOn([]pulumi.Resource{compartment}))
+	if err != nil {
+		return fmt.Errorf("failed to create bootstrap policy: %v", err)
+	}
+
+	// Create operational policy in root compartment
+	_, err = pulumiIdentity.NewPolicy(ctx, "threeport-operational-policy", &pulumiIdentity.PolicyArgs{
+		CompartmentId: pulumi.String(i.TenancyOCID),
+		Name:          pulumi.String(fmt.Sprintf("threeport-operational-policy-%s", i.RuntimeInstanceName)),
+		Description:   pulumi.String(fmt.Sprintf("Threeport operational policy for %s", i.RuntimeInstanceName)),
+		Statements: pulumi.StringArray{
+			pulumi.Sprintf("Allow group threeport-operational-%s to inspect compartments in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+		},
+	}, pulumi.Provider(bootstrapProvider), pulumi.DeleteBeforeReplace(true), pulumi.DependsOn([]pulumi.Resource{compartment}))
+	if err != nil {
+		return fmt.Errorf("failed to create operational policy: %v", err)
+	}
+
+	// Create dynamic group policy in root compartment
+	_, err = pulumiIdentity.NewPolicy(ctx, "threeport-dynamic-group-policy", &pulumiIdentity.PolicyArgs{
+		CompartmentId: pulumi.String(i.TenancyOCID),
+		Name:          pulumi.String(fmt.Sprintf("threeport-dynamic-group-policy-%s", i.RuntimeInstanceName)),
+		Description:   pulumi.String(fmt.Sprintf("Threeport dynamic group policy for %s", i.RuntimeInstanceName)),
+		Statements: pulumi.StringArray{
+			pulumi.Sprintf("Allow dynamic-group threeport-dynamic-%s to manage cluster-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow dynamic-group threeport-dynamic-%s to manage instance-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+		},
+	}, pulumi.Provider(bootstrapProvider), pulumi.DeleteBeforeReplace(true), pulumi.DependsOn([]pulumi.Resource{compartment}))
+	if err != nil {
+		return fmt.Errorf("failed to create dynamic group policy: %v", err)
+	}
+
+	// Write private key to file for infrastructure provider to use
+	err = os.WriteFile(privateKeyPath, []byte(keyPair.PrivateKeyPEM), 0600)
+	if err != nil {
+		return fmt.Errorf("failed to write private key file: %v", err)
+	}
+
+	// =============== INFRASTRUCTURE RESOURCES (using service user credentials in target region) ===============
+
+	// Create OCI provider for infrastructure resources using service user credentials
+	// Wait for API key to be created before creating the provider that uses it
+	infrastructureProvider, err := oci.NewProvider(ctx, "oci-infrastructure-provider", &oci.ProviderArgs{
+		Region:         pulumi.String(i.TargetRegion),
+		TenancyOcid:    pulumi.String(i.TenancyOCID),
+		UserOcid:       serviceUser.ID(),
+		Fingerprint:    pulumi.String(keyPair.Fingerprint),
+		PrivateKeyPath: pulumi.String(privateKeyPath),
+	}, pulumi.DependsOn([]pulumi.Resource{apiKey}))
+	if err != nil {
+		return fmt.Errorf("failed to create infrastructure OCI provider: %v", err)
 	}
 
 	// Create VCN
 	vcn, err := core.NewVcn(ctx, fmt.Sprintf("%s-vcn", i.RuntimeInstanceName), &core.VcnArgs{
-		CompartmentId: pulumi.String(i.CompartmentOCID),
+		CompartmentId: compartment.ID(),
 		CidrBlocks:    pulumi.StringArray{pulumi.String("10.0.0.0/16")},
 		DisplayName:   pulumi.String(fmt.Sprintf("%s-vcn", i.RuntimeInstanceName)),
 		DnsLabel:      pulumi.String("threeportvcn"),
-	}, pulumi.Provider(ociProvider))
+	}, pulumi.Provider(infrastructureProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create VCN: %v", err)
 	}
 
 	// Create Internet Gateway
 	internetGateway, err := core.NewInternetGateway(ctx, fmt.Sprintf("%s-igw", i.RuntimeInstanceName), &core.InternetGatewayArgs{
-		CompartmentId: pulumi.String(i.CompartmentOCID),
+		CompartmentId: compartment.ID(),
 		VcnId:         vcn.ID(),
 		DisplayName:   pulumi.String(fmt.Sprintf("%s-igw", i.RuntimeInstanceName)),
 		Enabled:       pulumi.Bool(true),
-	}, pulumi.Provider(ociProvider))
+	}, pulumi.Provider(infrastructureProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create internet gateway: %v", err)
 	}
 
 	// Create NAT Gateway
 	natGateway, err := core.NewNatGateway(ctx, fmt.Sprintf("%s-natgw", i.RuntimeInstanceName), &core.NatGatewayArgs{
-		CompartmentId: pulumi.String(i.CompartmentOCID),
+		CompartmentId: compartment.ID(),
 		VcnId:         vcn.ID(),
 		DisplayName:   pulumi.String(fmt.Sprintf("%s-natgw", i.RuntimeInstanceName)),
 		BlockTraffic:  pulumi.Bool(false),
-	}, pulumi.Provider(ociProvider))
+	}, pulumi.Provider(infrastructureProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create NAT gateway: %v", err)
 	}
@@ -225,7 +446,7 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 
 	// Create Service Gateway
 	serviceGateway, err := core.NewServiceGateway(ctx, fmt.Sprintf("%s-servicegw", i.RuntimeInstanceName), &core.ServiceGatewayArgs{
-		CompartmentId: pulumi.String(i.CompartmentOCID),
+		CompartmentId: compartment.ID(),
 		VcnId:         vcn.ID(),
 		DisplayName:   pulumi.String(fmt.Sprintf("%s-servicegw", i.RuntimeInstanceName)),
 		Services: core.ServiceGatewayServiceArray{
@@ -233,14 +454,14 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 				ServiceId: pulumi.String(serviceID),
 			},
 		},
-	}, pulumi.Provider(ociProvider))
+	}, pulumi.Provider(infrastructureProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create service gateway: %v", err)
 	}
 
 	// Create Public Route Table
 	publicRouteTable, err := core.NewRouteTable(ctx, fmt.Sprintf("%s-public-rt", i.RuntimeInstanceName), &core.RouteTableArgs{
-		CompartmentId: pulumi.String(i.CompartmentOCID),
+		CompartmentId: compartment.ID(),
 		VcnId:         vcn.ID(),
 		DisplayName:   pulumi.String(fmt.Sprintf("%s-public-rt", i.RuntimeInstanceName)),
 		RouteRules: core.RouteTableRouteRuleArray{
@@ -250,14 +471,14 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 				DestinationType: pulumi.String("CIDR_BLOCK"),
 			},
 		},
-	}, pulumi.Provider(ociProvider))
+	}, pulumi.Provider(infrastructureProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create public route table: %v", err)
 	}
 
 	// Create Private Route Table
 	privateRouteTable, err := core.NewRouteTable(ctx, fmt.Sprintf("%s-private-rt", i.RuntimeInstanceName), &core.RouteTableArgs{
-		CompartmentId: pulumi.String(i.CompartmentOCID),
+		CompartmentId: compartment.ID(),
 		VcnId:         vcn.ID(),
 		DisplayName:   pulumi.String(fmt.Sprintf("%s-private-rt", i.RuntimeInstanceName)),
 		RouteRules: core.RouteTableRouteRuleArray{
@@ -272,14 +493,14 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 				DestinationType: pulumi.String("SERVICE_CIDR_BLOCK"),
 			},
 		},
-	}, pulumi.Provider(ociProvider))
+	}, pulumi.Provider(infrastructureProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create private route table: %v", err)
 	}
 
 	// Create Security Lists
 	workerSecList, err := core.NewSecurityList(ctx, fmt.Sprintf("%s-worker-seclist", i.RuntimeInstanceName), &core.SecurityListArgs{
-		CompartmentId: pulumi.String(i.CompartmentOCID),
+		CompartmentId: compartment.ID(),
 		VcnId:         vcn.ID(),
 		DisplayName:   pulumi.String(fmt.Sprintf("%s-worker-seclist", i.RuntimeInstanceName)),
 		EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
@@ -305,13 +526,13 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 				Stateless: pulumi.Bool(false),
 			},
 		},
-	}, pulumi.Provider(ociProvider))
+	}, pulumi.Provider(infrastructureProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create worker security list: %v", err)
 	}
 
 	loadBalancerSecList, err := core.NewSecurityList(ctx, fmt.Sprintf("%s-lb-seclist", i.RuntimeInstanceName), &core.SecurityListArgs{
-		CompartmentId: pulumi.String(i.CompartmentOCID),
+		CompartmentId: compartment.ID(),
 		VcnId:         vcn.ID(),
 		DisplayName:   pulumi.String(fmt.Sprintf("%s-lb-seclist", i.RuntimeInstanceName)),
 		EgressSecurityRules: core.SecurityListEgressSecurityRuleArray{
@@ -341,14 +562,14 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 				Stateless: pulumi.Bool(false),
 			},
 		},
-	}, pulumi.Provider(ociProvider))
+	}, pulumi.Provider(infrastructureProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create load balancer security list: %v", err)
 	}
 
 	// Create Subnets
 	publicSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-public-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
-		CompartmentId:           pulumi.String(i.CompartmentOCID),
+		CompartmentId:           compartment.ID(),
 		VcnId:                   vcn.ID(),
 		CidrBlock:               pulumi.String("10.0.10.0/24"),
 		DisplayName:             pulumi.String(fmt.Sprintf("%s-public-subnet", i.RuntimeInstanceName)),
@@ -357,13 +578,13 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 		ProhibitPublicIpOnVnic:  pulumi.Bool(false),
 		RouteTableId:            publicRouteTable.ID(),
 		SecurityListIds:         pulumi.StringArray{workerSecList.ID()},
-	}, pulumi.Provider(ociProvider))
+	}, pulumi.Provider(infrastructureProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create public subnet: %v", err)
 	}
 
 	privateSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-private-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
-		CompartmentId:           pulumi.String(i.CompartmentOCID),
+		CompartmentId:           compartment.ID(),
 		VcnId:                   vcn.ID(),
 		CidrBlock:               pulumi.String("10.0.20.0/24"),
 		DisplayName:             pulumi.String(fmt.Sprintf("%s-private-subnet", i.RuntimeInstanceName)),
@@ -372,13 +593,13 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 		ProhibitPublicIpOnVnic:  pulumi.Bool(true),
 		RouteTableId:            privateRouteTable.ID(),
 		SecurityListIds:         pulumi.StringArray{workerSecList.ID()},
-	}, pulumi.Provider(ociProvider))
+	}, pulumi.Provider(infrastructureProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create private subnet: %v", err)
 	}
 
 	loadBalancerSubnet, err := core.NewSubnet(ctx, fmt.Sprintf("%s-lb-subnet", i.RuntimeInstanceName), &core.SubnetArgs{
-		CompartmentId:           pulumi.String(i.CompartmentOCID),
+		CompartmentId:           compartment.ID(),
 		VcnId:                   vcn.ID(),
 		CidrBlock:               pulumi.String("10.0.30.0/24"),
 		DisplayName:             pulumi.String(fmt.Sprintf("%s-lb-subnet", i.RuntimeInstanceName)),
@@ -387,14 +608,14 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 		ProhibitPublicIpOnVnic:  pulumi.Bool(false),
 		RouteTableId:            publicRouteTable.ID(),
 		SecurityListIds:         pulumi.StringArray{loadBalancerSecList.ID()},
-	}, pulumi.Provider(ociProvider))
+	}, pulumi.Provider(infrastructureProvider))
 	if err != nil {
 		return fmt.Errorf("failed to create load balancer subnet: %v", err)
 	}
 
 	// Create OKE Cluster
 	cluster, err := containerengine.NewCluster(ctx, i.RuntimeInstanceName, &containerengine.ClusterArgs{
-		CompartmentId:     pulumi.String(i.CompartmentOCID),
+		CompartmentId:     compartment.ID(),
 		Name:              pulumi.String(i.RuntimeInstanceName),
 		VcnId:             vcn.ID(),
 		KubernetesVersion: pulumi.String(i.Version),
@@ -410,7 +631,7 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 			},
 			ServiceLbSubnetIds: pulumi.StringArray{loadBalancerSubnet.ID()},
 		},
-	}, pulumi.Provider(ociProvider))
+	}, pulumi.Provider(infrastructureProvider), pulumi.DependsOn([]pulumi.Resource{publicSubnet, loadBalancerSubnet}))
 	if err != nil {
 		return fmt.Errorf("failed to create OKE cluster: %v", err)
 	}
@@ -430,7 +651,7 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 	// Create Node Pool
 	_, err = containerengine.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &containerengine.NodePoolArgs{
 		ClusterId:         cluster.ID(),
-		CompartmentId:     pulumi.String(i.CompartmentOCID),
+		CompartmentId:     compartment.ID(),
 		Name:              pulumi.String(fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)),
 		NodeShape:         pulumi.String(i.WorkerNodeShape),
 		KubernetesVersion: pulumi.String(i.Version),
@@ -458,14 +679,14 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 			Ocpus:       pulumi.Float64(2.0),
 			MemoryInGbs: pulumi.Float64(12.0),
 		},
-	}, pulumi.Provider(ociProvider), pulumi.DependsOn([]pulumi.Resource{cluster}))
+	}, pulumi.Provider(infrastructureProvider), pulumi.DependsOn([]pulumi.Resource{cluster}))
 	if err != nil {
 		return fmt.Errorf("failed to create node pool: %v", err)
 	}
 
 	// Export outputs
-	// ctx.Export("clusterID", cluster.ID())
-	// ctx.Export("nodePoolID", nodePool.ID())
+	ctx.Export("clusterID", cluster.ID())
+	ctx.Export("compartmentID", compartment.ID())
 	ctx.Export("clusterName", cluster.Name)
 	ctx.Export("kubeConfig", pulumi.String("")) // Would need to generate actual kubeconfig
 
@@ -479,13 +700,13 @@ func (i *OCIInfrastructurePulumi) RunStage2Infrastructure() (*InfrastructureOutp
 	fmt.Printf("Running Stage 2 infrastructure deployment in target region: %s\n", i.TargetRegion)
 
 	// Get private key path for service user
-	// Set up Pulumi workspace using shared utility (no explicit credentials, using provider args instead)
+	// Set up Pulumi workspace using DEFAULT profile (providers are explicit in program)
 	stack, err := SetupPulumiWorkspace(&PulumiWorkspaceConfig{
 		ProjectName:   "infrastructure",
 		InstanceName:  fmt.Sprintf("infrastructure-%s", i.RuntimeInstanceName),
 		Program:       i.infrastructurePulumiProgram,
 		Region:        i.TargetRegion,
-		ConfigProfile: "THREEPORT_SERVICE",
+		ConfigProfile: "DEFAULT",
 		TenancyOCID:   i.TenancyOCID,
 	})
 	if err != nil {
@@ -509,262 +730,6 @@ func (i *OCIInfrastructurePulumi) RunStage2Infrastructure() (*InfrastructureOutp
 	return outputs, nil
 }
 
-// CreateWithTwoStagePulumi runs both bootstrap and infrastructure stages using Pulumi
-func CreateOKEWithTwoStagePulumi(runtimeInstanceName, version, targetRegion, workerNodeShape string, workerNodeInitialCount int32) (*kube.KubeConnectionInfo, error) {
-	fmt.Println("Starting two-stage Pulumi OCI deployment...")
-
-	// Stage 1: Bootstrap (global resources in home region)
-	bootstrap, err := NewOCIBootstrapPulumi(runtimeInstanceName, targetRegion)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create bootstrap instance: %w", err)
-	}
-
-	bootstrapOutputs, err := bootstrap.RunStage1Bootstrap()
-	if err != nil {
-		return nil, fmt.Errorf("stage 1 bootstrap failed: %w", err)
-	}
-
-	fmt.Printf("Stage 1 bootstrap completed. Compartment OCID: %s\n", bootstrapOutputs.CompartmentOCID)
-
-	// Stage 2: Infrastructure (regional resources in target region)
-	infrastructure := NewOCIInfrastructurePulumi(
-		runtimeInstanceName,
-		version,
-		bootstrapOutputs.CompartmentOCID,
-		bootstrap.TenancyOCID, // Pass the actual tenancy OCID
-		targetRegion,
-		workerNodeShape,
-		workerNodeInitialCount,
-		bootstrapOutputs,
-	)
-
-	infrastructureOutputs, err := infrastructure.RunStage2Infrastructure()
-	if err != nil {
-		return nil, fmt.Errorf("stage 2 infrastructure deployment failed: %w", err)
-	}
-
-	fmt.Printf("Stage 2 infrastructure deployment completed. Cluster ID: %s\n", infrastructureOutputs.ClusterID)
-
-	// TODO: Generate and return actual KubeConnectionInfo from cluster
-	return &kube.KubeConnectionInfo{
-		APIEndpoint:     fmt.Sprintf("https://cluster-%s.us-ashburn-1.oraclecloud.com", infrastructureOutputs.ClusterID),
-		CACertificate:   "", // Would need to extract from cluster
-		Certificate:     "",
-		Key:             "",
-		Token:           "",
-		TokenExpiration: time.Time{},
-	}, nil
-}
-
-// DeleteOKEWithTwoStagePulumi tears down both infrastructure and bootstrap stacks
-func DeleteOKEWithTwoStagePulumi(runtimeInstanceName string) error {
-	fmt.Println("Starting two-stage Pulumi OCI teardown...")
-
-	// Stage 1: Destroy infrastructure stack (regional resources)
-	fmt.Println("Destroying Stage 2 infrastructure stack...")
-	if err := destroyInfrastructureStack(runtimeInstanceName); err != nil {
-		// Don't fail completely if infrastructure stack fails - continue to bootstrap cleanup
-		fmt.Printf("Warning: failed to destroy infrastructure stack: %v\n", err)
-		fmt.Println("Continuing with bootstrap cleanup...")
-	} else {
-		fmt.Println("Stage 2 infrastructure stack destroyed successfully")
-	}
-
-	// Stage 2: Destroy bootstrap stack (global resources)
-	fmt.Println("Destroying Stage 1 bootstrap stack...")
-	if err := DeleteOCIBootstrapResources(runtimeInstanceName); err != nil {
-		return fmt.Errorf("failed to destroy bootstrap stack: %w", err)
-	}
-	fmt.Println("Stage 1 bootstrap stack destroyed successfully")
-
-	fmt.Println("Two-stage Pulumi OCI teardown completed")
-	return nil
-}
-
-// destroyInfrastructureStack destroys the Stage 2 infrastructure Pulumi stack
-func destroyInfrastructureStack(runtimeInstanceName string) error {
-	// We need to determine the target region and other parameters
-	// For now, we'll try to destroy based on the runtime instance name
-	// This is a simplified approach - in a full implementation, we'd store this info
-
-	// Try to get config from environment or use defaults
-	targetRegion := "us-ashburn-1" // Default region - could be made configurable
-
-	// Set up Pulumi workspace for infrastructure stack
-	stack, err := SetupPulumiWorkspace(&PulumiWorkspaceConfig{
-		ProjectName:   "infrastructure",
-		InstanceName:  fmt.Sprintf("infrastructure-%s", runtimeInstanceName),
-		Program:       func(ctx *pulumi.Context) error { return nil }, // Empty program for destroy
-		Region:        targetRegion,
-		ConfigProfile: "THREEPORT_SERVICE",
-		TenancyOCID:   "", // Not needed for destroy
-	})
-	if err != nil {
-		return fmt.Errorf("failed to setup Pulumi workspace for infrastructure: %v", err)
-	}
-
-	// Destroy the infrastructure stack
-	ctx := context.Background()
-	_, err = stack.Destroy(ctx, optdestroy.ProgressStreams(os.Stdout))
-	if err != nil {
-		return fmt.Errorf("failed to destroy infrastructure stack: %v", err)
-	}
-
-	return nil
-}
-
-// testOCICredentialsReadOnly performs read-only OCI API calls to validate credentials
-func (i *OCIInfrastructurePulumi) testOCICredentialsReadOnly(ctx context.Context, stack auto.Stack) error {
-	fmt.Println("  → Checking Pulumi stack OCI configuration...")
-
-	// Verify Pulumi stack configuration
-	configProfile, err := stack.GetConfig(ctx, "oci:configFileProfile")
-	if err != nil {
-		return fmt.Errorf("failed to get oci:configFileProfile from stack: %v", err)
-	}
-	fmt.Printf("  → Pulumi stack configured to use OCI profile: %s\n", configProfile.Value)
-
-	// Create OCI config provider using the same profile Pulumi will use
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %v", err)
-	}
-	configPath := filepath.Join(homeDir, ".oci", "config")
-	configProvider := common.CustomProfileConfigProvider(configPath, configProfile.Value)
-
-	// Test 1: Get basic configuration info
-	fmt.Println("  → Testing basic OCI configuration...")
-	tenancyOCID, err := configProvider.TenancyOCID()
-	if err != nil {
-		return fmt.Errorf("failed to get tenancy OCID: %v", err)
-	}
-
-	userOCID, err := configProvider.UserOCID()
-	if err != nil {
-		return fmt.Errorf("failed to get user OCID: %v", err)
-	}
-
-	region, err := configProvider.Region()
-	if err != nil {
-		return fmt.Errorf("failed to get region: %v", err)
-	}
-
-	fmt.Printf("  → Tenancy: %s\n", tenancyOCID)
-	fmt.Printf("  → User: %s\n", userOCID)
-	fmt.Printf("  → Region: %s\n", region)
-
-	// Test 2: Make a read-only Identity API call
-	fmt.Println("  → Testing Identity API access...")
-	identityClient, err := identity.NewIdentityClientWithConfigurationProvider(configProvider)
-	if err != nil {
-		return fmt.Errorf("failed to create identity client: %v", err)
-	}
-
-	// Get user details to validate credentials and show which user is being used
-	getUserRequest := identity.GetUserRequest{UserId: &userOCID}
-	getUserResponse, err := identityClient.GetUser(context.Background(), getUserRequest)
-	if err != nil {
-		return fmt.Errorf("failed to call GetUser API: %v", err)
-	}
-
-	fmt.Printf("  → ✅ Successfully authenticated as user: %s\n", *getUserResponse.User.Name)
-	if getUserResponse.User.Email != nil {
-		fmt.Printf("  → ✅ User email: %s\n", *getUserResponse.User.Email)
-	}
-
-	// Test 3: Make a read-only call to list compartments (this tests compartment access)
-	fmt.Println("  → Testing Compartment API access...")
-	listCompartmentsRequest := identity.ListCompartmentsRequest{
-		CompartmentId: &tenancyOCID,
-		Limit:         common.Int(1), // Just get one compartment to test access
-	}
-	listCompartmentsResponse, err := identityClient.ListCompartments(context.Background(), listCompartmentsRequest)
-	if err != nil {
-		return fmt.Errorf("failed to call ListCompartments API: %v", err)
-	}
-
-	fmt.Printf("  → ✅ Successfully accessed compartments (found %d)\n", len(listCompartmentsResponse.Items))
-
-	// Test 4: Verify we can access the target compartment
-	if i.CompartmentOCID != "" {
-		fmt.Printf("  → Testing access to target compartment: %s\n", i.CompartmentOCID)
-		getCompartmentRequest := identity.GetCompartmentRequest{CompartmentId: &i.CompartmentOCID}
-		getCompartmentResponse, err := identityClient.GetCompartment(context.Background(), getCompartmentRequest)
-		if err != nil {
-			return fmt.Errorf("failed to access target compartment %s: %v", i.CompartmentOCID, err)
-		}
-		fmt.Printf("  → ✅ Successfully accessed target compartment: %s\n", *getCompartmentResponse.Compartment.Name)
-	}
-
-	fmt.Println("  → 🎉 All credential validation tests passed!")
-	return nil
-}
-
-// verifyOCICredentialsInPulumi verifies OCI credentials from within the Pulumi program execution
-// This uses the same credentials that Pulumi will use (from the configured profile)
-func (i *OCIInfrastructurePulumi) verifyOCICredentialsInPulumi() error {
-	// Use the default config provider which will respect the Pulumi configuration
-	// This should use the same profile that Pulumi is configured to use (THREEPORT_SERVICE)
-	configProvider := common.DefaultConfigProvider()
-
-	// Test 1: Get basic configuration info
-	fmt.Println("  → Testing basic OCI configuration from Pulumi context...")
-	tenancyOCID, err := configProvider.TenancyOCID()
-	if err != nil {
-		return fmt.Errorf("failed to get tenancy OCID: %v", err)
-	}
-
-	userOCID, err := configProvider.UserOCID()
-	if err != nil {
-		return fmt.Errorf("failed to get user OCID: %v", err)
-	}
-
-	region, err := configProvider.Region()
-	if err != nil {
-		return fmt.Errorf("failed to get region: %v", err)
-	}
-
-	fmt.Printf("  → Pulumi will use - Tenancy: %s\n", tenancyOCID)
-	fmt.Printf("  → Pulumi will use - User OCID: %s\n", userOCID)
-	fmt.Printf("  → Pulumi will use - Region: %s\n", region)
-
-	// Test 2: Make an Identity API call to get the actual user name
-	fmt.Println("  → Making Identity API call to verify user identity...")
-	identityClient, err := identity.NewIdentityClientWithConfigurationProvider(configProvider)
-	if err != nil {
-		return fmt.Errorf("failed to create identity client: %v", err)
-	}
-
-	// Set the region for the client
-	identityClient.SetRegion(i.TargetRegion)
-
-	// Get user details to show exactly which user Pulumi will authenticate as
-	getUserRequest := identity.GetUserRequest{UserId: &userOCID}
-	getUserResponse, err := identityClient.GetUser(context.Background(), getUserRequest)
-	if err != nil {
-		return fmt.Errorf("failed to call GetUser API: %v", err)
-	}
-
-	fmt.Printf("  → ✅ Pulumi will authenticate as user: %s\n", *getUserResponse.User.Name)
-	if getUserResponse.User.Email != nil {
-		fmt.Printf("  → ✅ User email: %s\n", *getUserResponse.User.Email)
-	}
-
-	// Verify this matches our expected service account
-	expectedServiceAccountName := "threeport-service-threeport-oke-test"
-	if *getUserResponse.User.Name != expectedServiceAccountName {
-		fmt.Printf("  → ⚠️  WARNING: Expected service account '%s' but found user '%s'\n",
-			expectedServiceAccountName, *getUserResponse.User.Name)
-		fmt.Printf("  → This means Pulumi may not be using the THREEPORT_SERVICE profile as expected\n")
-		// Don't fail here, just warn - let the user decide if this is acceptable
-	} else {
-		fmt.Printf("  → ✅ Confirmed: Using expected service account '%s'\n", expectedServiceAccountName)
-	}
-
-	return nil
-}
-
-// validateOCICredentialsInProgram performs read-only OCI API calls to validate credentials within Pulumi program
 func (i *OCIInfrastructurePulumi) validateOCICredentialsInProgram(ctx context.Context) error {
 	fmt.Println("  → Testing THREEPORT_SERVICE profile credentials...")
 

@@ -58,15 +58,33 @@ type KubernetesRuntimeInfraOKE struct {
 	stateDir string
 }
 
-// CreateWithTwoStagePulumi runs both bootstrap and infrastructure stages using Pulumi
+// CreateWithTwoStagePulumi now uses single-stack approach with both bootstrap and infrastructure
 func (i *KubernetesRuntimeInfraOKE) CreateWithTwoStagePulumi() (*kube.KubeConnectionInfo, error) {
-	return CreateOKEWithTwoStagePulumi(
+	// Use the single-stack infrastructure approach that includes bootstrap
+	infrastructure := NewOCIInfrastructurePulumi(
 		i.RuntimeInstanceName,
 		i.Version,
+		"", // compartmentOCID not needed - created dynamically
+		i.TenancyOCID,
 		i.Region,
 		i.WorkerNodeShape,
 		i.WorkerNodeInitialCount,
+		nil, // bootstrapOutputs not needed
 	)
+
+	outputs, err := infrastructure.RunStage2Infrastructure()
+	if err != nil {
+		return nil, fmt.Errorf("single-stack deployment failed: %w", err)
+	}
+
+	// Return connection info from outputs
+	return &kube.KubeConnectionInfo{
+		APIEndpoint:   fmt.Sprintf("https://cluster-%s.%s.oraclecloud.com", outputs.ClusterID, i.Region),
+		CACertificate: "", // Would need to extract from cluster
+		Certificate:   "",
+		Key:           "",
+		Token:         "",
+	}, nil
 }
 
 
@@ -621,9 +639,33 @@ func (i *KubernetesRuntimeInfraOKE) Create() (*kube.KubeConnectionInfo, error) {
 	return i.GetConnection()
 }
 
-// Delete deletes an Oracle Cloud OKE cluster using the two-stage approach.
+// Delete deletes an Oracle Cloud OKE cluster using the single-stack approach.
 func (i *KubernetesRuntimeInfraOKE) Delete() error {
-	return DeleteOKEWithTwoStagePulumi(i.RuntimeInstanceName)
+	// Create the infrastructure program function
+	infrastructure := NewOCIInfrastructurePulumi(
+		i.RuntimeInstanceName,
+		i.Version,
+		"", // compartmentOCID not needed
+		i.TenancyOCID,
+		i.Region,
+		i.WorkerNodeShape,
+		i.WorkerNodeInitialCount,
+		nil, // bootstrapOutputs not needed
+	)
+
+	// Use the existing Pulumi stack destruction logic
+	ctx := context.Background()
+	stack, err := i.setupPulumiWorkspace(infrastructure.infrastructurePulumiProgram)
+	if err != nil {
+		return fmt.Errorf("failed to set up Pulumi workspace for deletion: %w", err)
+	}
+
+	_, err = stack.Destroy(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to destroy stack: %w", err)
+	}
+
+	return nil
 }
 
 // GetClusterOCID gets the OCID of the OKE cluster.
