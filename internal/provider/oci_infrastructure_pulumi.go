@@ -286,7 +286,7 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 
 	// Validate API key is working before proceeding with infrastructure resources
 	validatedUserOCID := apiKey.UserId.ApplyT(func(userOCID string) (string, error) {
-		fmt.Printf("🔑 Validating infrastructure provider authentication...\n")
+		fmt.Printf("🔑 Validating infrastructure provider authentication across multiple services...\n")
 		maxAttempts := 60
 		waitSeconds := 5
 		fmt.Printf("  → Attempting authentication validation (max %d attempts, %ds intervals)...\n", maxAttempts, waitSeconds)
@@ -302,22 +302,109 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 				nil,                   // No passphrase
 			)
 
+			// Test Identity Service
+			fmt.Printf("    → Testing Identity service...\n")
 			identityClient, err := identity.NewIdentityClientWithConfigurationProvider(configProvider)
 			if err != nil {
 				return fmt.Errorf("failed to create identity client: %v", err)
 			}
-
-			request := identity.ListCompartmentsRequest{
+			identityRequest := identity.ListCompartmentsRequest{
 				CompartmentId: common.String(i.TenancyOCID),
 				Limit:         common.Int(1),
 			}
-
-			_, err = identityClient.ListCompartments(context.Background(), request)
+			_, err = identityClient.ListCompartments(context.Background(), identityRequest)
 			if err != nil {
-				return fmt.Errorf("authentication test failed: %v", err)
+				return fmt.Errorf("identity service authentication failed: %v", err)
 			}
 
-			fmt.Printf("  → ✅ Authentication successful - API key is ready\n")
+			// Test Core Service (VCN/Networking)
+			fmt.Printf("    → Testing Core service (networking)...\n")
+			coreClient, err := ociCore.NewVirtualNetworkClientWithConfigurationProvider(configProvider)
+			if err != nil {
+				return fmt.Errorf("failed to create core client: %v", err)
+			}
+
+			// Test VCNs
+			vcnRequest := ociCore.ListVcnsRequest{
+				CompartmentId: common.String(i.TenancyOCID),
+				Limit:         common.Int(1),
+			}
+			_, err = coreClient.ListVcns(context.Background(), vcnRequest)
+			if err != nil {
+				return fmt.Errorf("core service VCN authentication failed: %v", err)
+			}
+
+			// Test Security Lists (this is where failures have been occurring)
+			fmt.Printf("      → Testing Security Lists specifically...\n")
+			seclistRequest := ociCore.ListSecurityListsRequest{
+				CompartmentId: common.String(i.TenancyOCID),
+				Limit:         common.Int(1),
+			}
+			_, err = coreClient.ListSecurityLists(context.Background(), seclistRequest)
+			if err != nil {
+				return fmt.Errorf("core service Security Lists authentication failed: %v", err)
+			}
+
+			// Test Route Tables
+			fmt.Printf("      → Testing Route Tables...\n")
+			rtRequest := ociCore.ListRouteTablesRequest{
+				CompartmentId: common.String(i.TenancyOCID),
+				Limit:         common.Int(1),
+			}
+			_, err = coreClient.ListRouteTables(context.Background(), rtRequest)
+			if err != nil {
+				return fmt.Errorf("core service Route Tables authentication failed: %v", err)
+			}
+
+			// Test Subnets
+			fmt.Printf("      → Testing Subnets...\n")
+			subnetRequest := ociCore.ListSubnetsRequest{
+				CompartmentId: common.String(i.TenancyOCID),
+				Limit:         common.Int(1),
+			}
+			_, err = coreClient.ListSubnets(context.Background(), subnetRequest)
+			if err != nil {
+				return fmt.Errorf("core service Subnets authentication failed: %v", err)
+			}
+
+			// Test Internet Gateways
+			fmt.Printf("      → Testing Internet Gateways...\n")
+			igwRequest := ociCore.ListInternetGatewaysRequest{
+				CompartmentId: common.String(i.TenancyOCID),
+				Limit:         common.Int(1),
+			}
+			_, err = coreClient.ListInternetGateways(context.Background(), igwRequest)
+			if err != nil {
+				return fmt.Errorf("core service Internet Gateways authentication failed: %v", err)
+			}
+
+			// Test NAT Gateways
+			fmt.Printf("      → Testing NAT Gateways...\n")
+			natRequest := ociCore.ListNatGatewaysRequest{
+				CompartmentId: common.String(i.TenancyOCID),
+				Limit:         common.Int(1),
+			}
+			_, err = coreClient.ListNatGateways(context.Background(), natRequest)
+			if err != nil {
+				return fmt.Errorf("core service NAT Gateways authentication failed: %v", err)
+			}
+
+			// Test Container Engine Service
+			fmt.Printf("    → Testing Container Engine service...\n")
+			ceClient, err := ociContainerEngine.NewContainerEngineClientWithConfigurationProvider(configProvider)
+			if err != nil {
+				return fmt.Errorf("failed to create container engine client: %v", err)
+			}
+			ceRequest := ociContainerEngine.ListClustersRequest{
+				CompartmentId: common.String(i.TenancyOCID),
+				Limit:         common.Int(1),
+			}
+			_, err = ceClient.ListClusters(context.Background(), ceRequest)
+			if err != nil {
+				return fmt.Errorf("container engine service authentication failed: %v", err)
+			}
+
+			fmt.Printf("  → ✅ Authentication successful across all services - API key is ready\n")
 			return nil
 		})
 
@@ -326,7 +413,8 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 				maxAttempts, (maxAttempts*waitSeconds)/60, err)
 		}
 
-		time.Sleep(5 * time.Second)
+		fmt.Printf("  → Adding 30-second buffer for final service propagation...\n")
+		time.Sleep(30 * time.Second)
 		// Return the validated user OCID on success
 		return userOCID, nil
 	}).(pulumi.StringOutput)
@@ -385,21 +473,22 @@ func (i *OCIInfrastructurePulumi) infrastructurePulumiProgram(ctx *pulumi.Contex
 		Name:          pulumi.String(fmt.Sprintf("threeport-bootstrap-policy-%s", i.RuntimeInstanceName)),
 		Description:   pulumi.String(fmt.Sprintf("Threeport bootstrap policy for %s", i.RuntimeInstanceName)),
 		Statements: pulumi.StringArray{
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to inspect compartments in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage clusters in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage virtual-network-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage instance-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage volume-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage load-balancers in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to use vnics in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to use network-security-groups in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to use private-ips in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage public-ips in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage object-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage tag-namespaces in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage tag-defaults in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to use tag-namespaces in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
-			pulumi.Sprintf("Allow group threeport-bootstrap-%s to use subnets in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage all-resources in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to inspect compartments in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage clusters in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage virtual-network-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage instance-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage volume-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage load-balancers in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to use vnics in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to use network-security-groups in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to use private-ips in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage public-ips in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage object-family in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage tag-namespaces in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to manage tag-defaults in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to use tag-namespaces in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
+			// pulumi.Sprintf("Allow group threeport-bootstrap-%s to use subnets in compartment threeport-%s", i.RuntimeInstanceName, i.RuntimeInstanceName),
 		},
 	}, pulumi.Provider(bootstrapProvider), pulumi.DeleteBeforeReplace(true), pulumi.DependsOn([]pulumi.Resource{compartment}))
 	if err != nil {
