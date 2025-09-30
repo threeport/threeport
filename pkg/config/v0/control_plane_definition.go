@@ -23,10 +23,10 @@ type ControlPlaneDefinitionConfig struct {
 // ControlPlaneDefinitionValues contains all the attributes needed to manage
 // the ControlPlaneDefinition API object.
 type ControlPlaneDefinitionValues struct {
-	Name          *string `yaml:"Name"`
-	AuthEnabled   *bool   `yaml:"AuthEnabled"`
-	OnboardParent *bool   `yaml:"OnboardParent"`
-	Age           *string `yaml:"Age"`
+	Name          *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	AuthEnabled   *bool   `json:"AuthEnabled,omitempty" yaml:"AuthEnabled,omitempty"`
+	OnboardParent *bool   `json:"OnboardParent,omitempty" yaml:"OnboardParent,omitempty"`
+	Age           *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets control plane definitions from the Threeport API.
@@ -36,8 +36,8 @@ func (c *ControlPlaneDefinitionValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ControlPlaneDefinitionConfig, error) {
-	var controlPlaneDefinitionConfigs []ControlPlaneDefinitionConfig
-
+	// get API objects
+	var controlPlaneDefinitions *[]api_v0.ControlPlaneDefinition
 	switch {
 	// if name is provided, get control plane definition by name
 	case c.Name != nil:
@@ -45,32 +45,28 @@ func (c *ControlPlaneDefinitionValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get control plane definition with name %s: %w", *c.Name, err)
 		}
-		controlPlaneDefinitionConfig := ControlPlaneDefinitionConfig{
-			ControlPlaneDefinition: ControlPlaneDefinitionValues{
-				Age:           util.Ptr(util.GetAgeFormatted(controlPlaneDefinition.CreatedAt)),
-				Name:          controlPlaneDefinition.Name,
-				AuthEnabled:   controlPlaneDefinition.AuthEnabled,
-				OnboardParent: controlPlaneDefinition.OnboardParent,
-			},
-		}
-		controlPlaneDefinitionConfigs = append(controlPlaneDefinitionConfigs, controlPlaneDefinitionConfig)
+		controlPlaneDefinitions = &[]api_v0.ControlPlaneDefinition{*controlPlaneDefinition}
 	// get all control plane definitions
 	default:
-		controlPlaneDefinitions, err := client_v0.GetControlPlaneDefinitions(apiClient, apiEndpoint)
+		allControlPlaneDefinitions, err := client_v0.GetControlPlaneDefinitions(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get control plane definitions from Threeport API: %w", err)
 		}
-		for _, controlPlaneDefinition := range *controlPlaneDefinitions {
-			controlPlaneDefinitionConfig := ControlPlaneDefinitionConfig{
-				ControlPlaneDefinition: ControlPlaneDefinitionValues{
-					Age:           util.Ptr(util.GetAgeFormatted(controlPlaneDefinition.CreatedAt)),
-					Name:          controlPlaneDefinition.Name,
-					AuthEnabled:   controlPlaneDefinition.AuthEnabled,
-					OnboardParent: controlPlaneDefinition.OnboardParent,
-				},
-			}
-			controlPlaneDefinitionConfigs = append(controlPlaneDefinitionConfigs, controlPlaneDefinitionConfig)
+		controlPlaneDefinitions = allControlPlaneDefinitions
+	}
+
+	// assemble config objects from API objects
+	var controlPlaneDefinitionConfigs []ControlPlaneDefinitionConfig
+	for _, controlPlaneDefinition := range *controlPlaneDefinitions {
+		controlPlaneDefinitionConfig := ControlPlaneDefinitionConfig{
+			ControlPlaneDefinition: ControlPlaneDefinitionValues{
+				Name:          controlPlaneDefinition.Name,
+				AuthEnabled:   controlPlaneDefinition.AuthEnabled,
+				OnboardParent: controlPlaneDefinition.OnboardParent,
+				Age:           util.Ptr(util.GetAgeFormatted(controlPlaneDefinition.CreatedAt)),
+			},
 		}
+		controlPlaneDefinitionConfigs = append(controlPlaneDefinitionConfigs, controlPlaneDefinitionConfig)
 	}
 
 	return &controlPlaneDefinitionConfigs, nil

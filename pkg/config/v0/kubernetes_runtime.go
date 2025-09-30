@@ -21,15 +21,16 @@ type KubernetesRuntimeConfig struct {
 // KubernetesRuntimeDefinition and KubernetesRuntimeInstance API objects
 // together with a single operation.
 type KubernetesRuntimeValues struct {
-	Name                      *string `yaml:"Name"`
-	InfraProvider             *string `yaml:"InfraProvider"`
-	InfraProviderAccountName  *string `yaml:"InfraProviderAccountName"`
-	HighAvailability          *bool   `yaml:"HighAvailability"`
-	Location                  *string `yaml:"Location"`
-	ThreeportControlPlaneHost *bool   `yaml:"ThreeportControlPlaneHost"`
-	DefaultRuntime            *bool   `yaml:"DefaultRuntime"`
-	ThreeportAgentImage       *string `yaml:"ThreeportAgentImage"`
-	Age                       *string `yaml:"Age"`
+	Name                      *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	InfraProvider             *string `json:"InfraProvider,omitempty" yaml:"InfraProvider,omitempty"`
+	InfraProviderAccountName  *string `json:"InfraProviderAccountName,omitempty" yaml:"InfraProviderAccountName,omitempty"`
+	HighAvailability          *bool   `json:"HighAvailability,omitempty" yaml:"HighAvailability,omitempty"`
+	Location                  *string `json:"Location,omitempty" yaml:"Location,omitempty"`
+	ThreeportControlPlaneHost *bool   `json:"ThreeportControlPlaneHost,omitempty" yaml:"ThreeportControlPlaneHost,omitempty"`
+	DefaultRuntime            *bool   `json:"DefaultRuntime,omitempty" yaml:"DefaultRuntime,omitempty"`
+	ThreeportAgentImage       *string `json:"ThreeportAgentImage,omitempty" yaml:"ThreeportAgentImage,omitempty"`
+	ForceDelete               *bool   `json:"ForceDelete,omitempty" yaml:"ForceDelete,omitempty"`
+	Age                       *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets a kubernetes runtime definition and instance from the Threeport API.
@@ -269,6 +270,7 @@ func mapToKubernetesRuntimeDefinedInstances(
 						Location:                  inst.KubernetesRuntimeInstance.Location,
 						DefaultRuntime:            inst.KubernetesRuntimeInstance.DefaultRuntime,
 						ThreeportAgentImage:       inst.KubernetesRuntimeInstance.ThreeportAgentImage,
+						ForceDelete:               inst.KubernetesRuntimeInstance.ForceDelete,
 						Age:                       inst.KubernetesRuntimeInstance.Age,
 					},
 				}

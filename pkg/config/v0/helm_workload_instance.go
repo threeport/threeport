@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/threeport/threeport/internal/agent"
+	"github.com/threeport/threeport/internal/workload/status"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -23,14 +25,15 @@ type HelmWorkloadInstanceConfig struct {
 // HelmWorkloadInstanceValues contains all the attributes needed to manage
 // the HelmWorkloadInstance API object.
 type HelmWorkloadInstanceValues struct {
-	Name                      *string                          `yaml:"Name"`
-	Values                    *string                          `yaml:"Values"`
-	ValuesDocument            *string                          `yaml:"ValuesDocument"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	ReleaseNamespace          *string                          `yaml:"ReleaseNamespace"`
-	HelmWorkloadDefinition    *HelmWorkloadDefinitionValues    `yaml:"HelmWorkloadDefinition"`
-	HelmWorkloadConfigPath    *string                          `yaml:"HelmWorkloadConfigPath"`
-	Age                       *string                          `yaml:"Age"`
+	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Values                    *string                          `json:"Values,omitempty" yaml:"Values,omitempty"`
+	ValuesDocument            *string                          `json:"ValuesDocument,omitempty" yaml:"ValuesDocument,omitempty"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	ReleaseNamespace          *string                          `json:"ReleaseNamespace,omitempty" yaml:"ReleaseNamespace,omitempty"`
+	HelmWorkloadDefinition    *HelmWorkloadDefinitionValues    `json:"HelmWorkloadDefinition,omitempty" yaml:"HelmWorkloadDefinition,omitempty"`
+	HelmWorkloadConfigPath    *string                          `json:"HelmWorkloadConfigPath,omitempty" yaml:"HelmWorkloadConfigPath,omitempty"`
+	Status                    *string                          `json:"Status,omitempty" yaml:"Status,omitempty"`
+	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets helm workload instances from the Threeport API.
@@ -59,6 +62,7 @@ func (h *HelmWorkloadInstanceValues) Get(
 		helmWorkloadInstances = allHelmWorkloadInstances
 	}
 
+	// assemble config objects from API objects
 	var helmWorkloadInstanceConfigs []HelmWorkloadInstanceConfig
 	for _, helmWorkloadInstance := range *helmWorkloadInstances {
 		// related objects
@@ -85,13 +89,26 @@ func (h *HelmWorkloadInstanceValues) Get(
 			}
 		}
 
+		// get helm workload status
+		instanceStatusDetail := status.GetWorkloadInstanceStatus(
+			apiClient,
+			apiEndpoint,
+			agent.HelmWorkloadInstanceType,
+			*helmWorkloadInstance.ID,
+			*helmWorkloadInstance.Reconciled,
+		)
+		if instanceStatusDetail.Error != nil {
+			return nil, fmt.Errorf("failed to get helm workload instance status: %w", instanceStatusDetail.Error)
+		}
+
 		helmWorkloadInstanceConfig := HelmWorkloadInstanceConfig{
 			HelmWorkloadInstance: HelmWorkloadInstanceValues{
 				Name:                      helmWorkloadInstance.Name,
-				Values:                    helmWorkloadInstance.ValuesDocument,
-				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
+				ValuesDocument:            helmWorkloadInstance.ValuesDocument,
 				ReleaseNamespace:          helmWorkloadInstance.ReleaseNamespace,
+				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
 				HelmWorkloadDefinition:    helmWorkloadDefinition,
+				Status:                    util.Ptr(string(instanceStatusDetail.Status)),
 				Age:                       util.Ptr(util.GetAgeFormatted(helmWorkloadInstance.CreatedAt)),
 			},
 		}

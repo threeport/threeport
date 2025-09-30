@@ -11,6 +11,7 @@ import (
 
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -25,28 +26,30 @@ type AwsAccountConfig struct {
 // AwsAccountValues contains all the attributes needed to manage
 // the AwsAccount API object.
 type AwsAccountValues struct {
-	Name             *string `yaml:"Name"`
-	AccountID        *string `yaml:"AccountID"`
-	DefaultAccount   *bool   `yaml:"DefaultAccount"`
-	DefaultRegion    *string `yaml:"DefaultRegion"`
-	AccessKeyID      *string `yaml:"AccessKeyID"`
-	SecretAccessKey  *string `yaml:"SecretAccessKey"`
-	RoleArn          *string `yaml:"RoleArn"`
-	LocalConfig      *string `yaml:"LocalConfig"`
-	LocalCredentials *string `yaml:"LocalCredentials"`
-	LocalProfile     *string `yaml:"LocalProfile"`
-	Age              *string `yaml:"Age"`
+	Name             *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	AccountID        *string `json:"AccountID,omitempty" yaml:"AccountID,omitempty"`
+	DefaultAccount   *bool   `json:"DefaultAccount,omitempty" yaml:"DefaultAccount,omitempty"`
+	DefaultRegion    *string `json:"DefaultRegion,omitempty" yaml:"DefaultRegion,omitempty"`
+	AccessKeyID      *string `json:"AccessKeyID,omitempty" yaml:"AccessKeyID,omitempty"`
+	SecretAccessKey  *string `json:"SecretAccessKey,omitempty" yaml:"SecretAccessKey,omitempty"`
+	RoleArn          *string `json:"RoleArn,omitempty" yaml:"RoleArn,omitempty"`
+	LocalConfig      *string `json:"LocalConfig,omitempty" yaml:"LocalConfig,omitempty"`
+	LocalCredentials *string `json:"LocalCredentials,omitempty" yaml:"LocalCredentials,omitempty"`
+	LocalProfile     *string `json:"LocalProfile,omitempty" yaml:"LocalProfile,omitempty"`
+	Age              *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets aws accounts from the Threeport API.
 // If the name is set in the AwsAccountValues, it will return the aws account with that name.
 // If the name is not set, it will return all aws accounts.
+// If the encryptionKey is provided, it will decrypt the SecretAccessKey and AccessKeyID fields.
 func (a *AwsAccountValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
+	encryptionKey string,
 ) (*[]AwsAccountConfig, error) {
-	var awsAccountConfigs []AwsAccountConfig
-
+	// get API objects
+	var awsAccounts *[]api_v0.AwsAccount
 	switch {
 	// if name is provided, get aws account by name
 	case a.Name != nil:
@@ -54,36 +57,44 @@ func (a *AwsAccountValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get aws account with name %s: %w", *a.Name, err)
 		}
-		awsAccountConfig := AwsAccountConfig{
-			AwsAccount: AwsAccountValues{
-				Age:            util.Ptr(util.GetAgeFormatted(awsAccount.CreatedAt)),
-				Name:           awsAccount.Name,
-				AccountID:      awsAccount.AccountID,
-				DefaultAccount: awsAccount.DefaultAccount,
-				DefaultRegion:  awsAccount.DefaultRegion,
-				RoleArn:        awsAccount.RoleArn,
-			},
-		}
-		awsAccountConfigs = append(awsAccountConfigs, awsAccountConfig)
+		awsAccounts = &[]api_v0.AwsAccount{*awsAccount}
 	// get all aws accounts
 	default:
-		awsAccounts, err := client_v0.GetAwsAccounts(apiClient, apiEndpoint)
+		allAwsAccounts, err := client_v0.GetAwsAccounts(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get aws accounts from Threeport API: %w", err)
 		}
-		for _, awsAccount := range *awsAccounts {
-			awsAccountConfig := AwsAccountConfig{
-				AwsAccount: AwsAccountValues{
-					Age:            util.Ptr(util.GetAgeFormatted(awsAccount.CreatedAt)),
-					Name:           awsAccount.Name,
-					AccountID:      awsAccount.AccountID,
-					DefaultAccount: awsAccount.DefaultAccount,
-					DefaultRegion:  awsAccount.DefaultRegion,
-					RoleArn:        awsAccount.RoleArn,
-				},
+		awsAccounts = allAwsAccounts
+	}
+
+	// assemble config objects from API objects
+	var awsAccountConfigs []AwsAccountConfig
+	for _, awsAccount := range *awsAccounts {
+		// handle encryption if needed
+		if encryptionKey != "" {
+			a, err := encryption.DecryptValues(&awsAccount, encryptionKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decrypt aws account secret values: %w", err)
 			}
-			awsAccountConfigs = append(awsAccountConfigs, awsAccountConfig)
+			awsAccount = *(a.(*api_v0.AwsAccount))
+		} else {
+			a := encryption.RedactEncryptedValues(&awsAccount)
+			awsAccount = *(a.(*api_v0.AwsAccount))
 		}
+
+		awsAccountConfig := AwsAccountConfig{
+			AwsAccount: AwsAccountValues{
+				Name:            awsAccount.Name,
+				AccountID:       awsAccount.AccountID,
+				DefaultAccount:  awsAccount.DefaultAccount,
+				DefaultRegion:   awsAccount.DefaultRegion,
+				RoleArn:         awsAccount.RoleArn,
+				AccessKeyID:     awsAccount.AccessKeyID,
+				SecretAccessKey: awsAccount.SecretAccessKey,
+				Age:             util.Ptr(util.GetAgeFormatted(awsAccount.CreatedAt)),
+			},
+		}
+		awsAccountConfigs = append(awsAccountConfigs, awsAccountConfig)
 	}
 
 	return &awsAccountConfigs, nil

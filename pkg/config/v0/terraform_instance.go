@@ -11,6 +11,7 @@ import (
 
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -25,12 +26,15 @@ type TerraformInstanceConfig struct {
 // TerraformInstanceValues contains all the attributes needed to manage
 // the TerraformInstance API object.
 type TerraformInstanceValues struct {
-	Name                *string                    `yaml:"Name"`
-	AwsAccount          *AwsAccountValues          `yaml:"AwsAccount"`
-	VarsDocument        *string                    `yaml:"VarsDocument"`
-	TerraformDefinition *TerraformDefinitionValues `yaml:"TerraformDefinition"`
-	TerraformConfigPath *string                    `yaml:"TerraformConfigPath"`
-	Age                 *string                    `yaml:"Age"`
+	Name                *string                    `json:"Name,omitempty" yaml:"Name,omitempty"`
+	AwsAccount          *AwsAccountValues          `json:"AwsAccount,omitempty" yaml:"AwsAccount,omitempty"`
+	VarsDocument        *string                    `json:"VarsDocument,omitempty" yaml:"VarsDocument,omitempty"`
+	StateDocument       *string                    `json:"StateDocument,omitempty" yaml:"StateDocument,omitempty"`
+	Outputs             *string                    `json:"Outputs,omitempty" yaml:"Outputs,omitempty"`
+	TerraformDefinition *TerraformDefinitionValues `json:"TerraformDefinition,omitempty" yaml:"TerraformDefinition,omitempty"`
+	TerraformConfigPath *string                    `json:"TerraformConfigPath,omitempty" yaml:"TerraformConfigPath,omitempty"`
+	Status              *string                    `json:"Status,omitempty" yaml:"Status,omitempty"`
+	Age                 *string                    `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets terraform instances from the Threeport API.
@@ -39,6 +43,7 @@ type TerraformInstanceValues struct {
 func (t *TerraformInstanceValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
+	encryptionKey string,
 ) (*[]TerraformInstanceConfig, error) {
 	// get API objects
 	var terraformInstances *[]api_v0.TerraformInstance
@@ -59,8 +64,21 @@ func (t *TerraformInstanceValues) Get(
 		terraformInstances = allTerraformInstances
 	}
 
+	// assemble config objects from API objects
 	var terraformInstanceConfigs []TerraformInstanceConfig
 	for _, terraformInstance := range *terraformInstances {
+		// handle encryption if needed
+		if encryptionKey != "" {
+			a, err := encryption.DecryptValues(&terraformInstance, encryptionKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decrypt terraform instance secret values: %w", err)
+			}
+			terraformInstance = *(a.(*api_v0.TerraformInstance))
+		} else {
+			a := encryption.RedactEncryptedValues(&terraformInstance)
+			terraformInstance = *(a.(*api_v0.TerraformInstance))
+		}
+
 		// related objects
 		var awsAccount *AwsAccountValues
 		var terraformDefinition *TerraformDefinitionValues
@@ -85,12 +103,22 @@ func (t *TerraformInstanceValues) Get(
 			}
 		}
 
+		// determine the terraform instance status
+		terraformInstanceStatus := "Reconciling"
+		if *terraformInstance.Reconciled {
+			terraformInstanceStatus = "Healthy"
+		}
+		if *terraformInstance.CreationFailed {
+			terraformInstanceStatus = "Failed"
+		}
+
 		terraformInstanceConfig := TerraformInstanceConfig{
 			TerraformInstance: TerraformInstanceValues{
 				Name:                terraformInstance.Name,
 				AwsAccount:          awsAccount,
 				VarsDocument:        terraformInstance.VarsDocument,
 				TerraformDefinition: terraformDefinition,
+				Status:              &terraformInstanceStatus,
 				Age:                 util.Ptr(util.GetAgeFormatted(terraformInstance.CreatedAt)),
 			},
 		}
@@ -172,6 +200,7 @@ func (t *TerraformInstanceValues) Create(
 			VarsDocument:        t.VarsDocument,
 			TerraformDefinition: t.TerraformDefinition,
 			TerraformConfigPath: t.TerraformConfigPath,
+			Status:              util.Ptr(string(*createdTerraformInstance.Status)),
 			Age:                 util.Ptr(util.GetAgeFormatted(createdTerraformInstance.CreatedAt)),
 		},
 	}
@@ -268,6 +297,7 @@ func (t *TerraformInstanceValues) Replace(
 			VarsDocument:        t.VarsDocument,
 			TerraformDefinition: t.TerraformDefinition,
 			TerraformConfigPath: t.TerraformConfigPath,
+			Status:              util.Ptr(string(*replacedTerraformInstance.Status)),
 			Age:                 util.Ptr(util.GetAgeFormatted(replacedTerraformInstance.CreatedAt)),
 		},
 	}

@@ -26,10 +26,10 @@ type TerraformDefinitionConfig struct {
 // TerraformDefinitionValues contains all the attributes needed to manage
 // the TerraformDefinition API object.
 type TerraformDefinitionValues struct {
-	Name                *string `yaml:"Name"`
-	ConfigDir           *string `yaml:"ConfigDir"`
-	TerraformConfigPath *string `yaml:"TerraformConfigPath"`
-	Age                 *string `yaml:"Age"`
+	Name                *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	ConfigDir           *string `json:"ConfigDir,omitempty" yaml:"ConfigDir,omitempty"`
+	TerraformConfigPath *string `json:"TerraformConfigPath,omitempty" yaml:"TerraformConfigPath,omitempty"`
+	Age                 *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets terraform definitions from the Threeport API.
@@ -39,8 +39,8 @@ func (t *TerraformDefinitionValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]TerraformDefinitionConfig, error) {
-	var terraformDefinitionConfigs []TerraformDefinitionConfig
-
+	// get API objects
+	var terraformDefinitions *[]api_v0.TerraformDefinition
 	switch {
 	// if name is provided, get terraform definition by name
 	case t.Name != nil:
@@ -48,28 +48,26 @@ func (t *TerraformDefinitionValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get terraform definition with name %s: %w", *t.Name, err)
 		}
-		terraformDefinitionConfig := TerraformDefinitionConfig{
-			TerraformDefinition: TerraformDefinitionValues{
-				Name: terraformDefinition.Name,
-				Age:  util.Ptr(util.GetAgeFormatted(terraformDefinition.CreatedAt)),
-			},
-		}
-		terraformDefinitionConfigs = append(terraformDefinitionConfigs, terraformDefinitionConfig)
+		terraformDefinitions = &[]api_v0.TerraformDefinition{*terraformDefinition}
 	// get all terraform definitions
 	default:
-		terraformDefinitions, err := client_v0.GetTerraformDefinitions(apiClient, apiEndpoint)
+		allTerraformDefinitions, err := client_v0.GetTerraformDefinitions(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get terraform definitions from Threeport API: %w", err)
 		}
-		for _, terraformDefinition := range *terraformDefinitions {
-			terraformDefinitionConfig := TerraformDefinitionConfig{
-				TerraformDefinition: TerraformDefinitionValues{
-					Name: terraformDefinition.Name,
-					Age:  util.Ptr(util.GetAgeFormatted(terraformDefinition.CreatedAt)),
-				},
-			}
-			terraformDefinitionConfigs = append(terraformDefinitionConfigs, terraformDefinitionConfig)
+		terraformDefinitions = allTerraformDefinitions
+	}
+
+	// assemble config objects from API objects
+	var terraformDefinitionConfigs []TerraformDefinitionConfig
+	for _, terraformDefinition := range *terraformDefinitions {
+		terraformDefinitionConfig := TerraformDefinitionConfig{
+			TerraformDefinition: TerraformDefinitionValues{
+				Age:  util.Ptr(util.GetAgeFormatted(terraformDefinition.CreatedAt)),
+				Name: terraformDefinition.Name,
+			},
 		}
+		terraformDefinitionConfigs = append(terraformDefinitionConfigs, terraformDefinitionConfig)
 	}
 
 	return &terraformDefinitionConfigs, nil

@@ -23,13 +23,13 @@ type SecretInstanceConfig struct {
 // SecretInstanceValues contains all the attributes needed to manage
 // the SecretInstance API object.
 type SecretInstanceValues struct {
-	Name                      *string                          `yaml:"Name"`
-	SecretDefinition          *SecretDefinitionValues          `yaml:"SecretDefinition"`
-	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
-	HelmWorkloadInstance      *HelmWorkloadInstanceValues      `yaml:"HelmWorkloadInstance"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	SecretConfigPath          *string                          `yaml:"SecretConfigPath"`
-	Age                       *string                          `yaml:"Age"`
+	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
+	SecretDefinition          *SecretDefinitionValues          `json:"SecretDefinition,omitempty" yaml:"SecretDefinition,omitempty"`
+	WorkloadInstance          *WorkloadInstanceValues          `json:"WorkloadInstance,omitempty" yaml:"WorkloadInstance,omitempty"`
+	HelmWorkloadInstance      *HelmWorkloadInstanceValues      `json:"HelmWorkloadInstance,omitempty" yaml:"HelmWorkloadInstance,omitempty"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	SecretConfigPath          *string                          `json:"SecretConfigPath,omitempty" yaml:"SecretConfigPath,omitempty"`
+	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets secret instances from the Threeport API.
@@ -58,6 +58,7 @@ func (s *SecretInstanceValues) Get(
 		secretInstances = allSecretInstances
 	}
 
+	// assemble config objects from API objects
 	var secretInstanceConfigs []SecretInstanceConfig
 	for _, secretInstance := range *secretInstances {
 		// related objects

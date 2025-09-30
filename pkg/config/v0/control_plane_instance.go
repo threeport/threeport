@@ -25,12 +25,13 @@ type ControlPlaneInstanceConfig struct {
 // ControlPlaneInstanceValues contains all the attributes needed to manage
 // the ControlPlaneInstance API object.
 type ControlPlaneInstanceValues struct {
-	Name                      *string                          `yaml:"Name"`
-	Namespace                 *string                          `yaml:"Namespace"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	ControlPlaneDefinition    *ControlPlaneDefinitionValues    `yaml:"ControlPlaneDefinition"`
-	CustomComponentInfo       []*api_v0.ControlPlaneComponent  `yaml:"CustomComponentInfo"`
-	Age                       *string                          `yaml:"Age"`
+	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Namespace                 *string                          `json:"Namespace,omitempty" yaml:"Namespace,omitempty"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	ControlPlaneDefinition    *ControlPlaneDefinitionValues    `json:"ControlPlaneDefinition,omitempty" yaml:"ControlPlaneDefinition,omitempty"`
+	CustomComponentInfo       []*api_v0.ControlPlaneComponent  `json:"CustomComponentInfo,omitempty" yaml:"CustomComponentInfo,omitempty"`
+	Genesis                   *bool                            `json:"Genesis,omitempty" yaml:"Genesis,omitempty"`
+	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets control plane instances from the Threeport API.
@@ -59,6 +60,7 @@ func (c *ControlPlaneInstanceValues) Get(
 		controlPlaneInstances = allControlPlaneInstances
 	}
 
+	// assemble config objects from API objects
 	var controlPlaneInstanceConfigs []ControlPlaneInstanceConfig
 	for _, controlPlaneInstance := range *controlPlaneInstances {
 		// related objects
@@ -92,6 +94,7 @@ func (c *ControlPlaneInstanceValues) Get(
 				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
 				ControlPlaneDefinition:    controlPlaneDefinition,
 				CustomComponentInfo:       controlPlaneInstance.CustomComponentInfo,
+				Genesis:                   controlPlaneInstance.Genesis,
 				Age:                       util.Ptr(util.GetAgeFormatted(controlPlaneInstance.CreatedAt)),
 			},
 		}
@@ -161,6 +164,7 @@ func (c *ControlPlaneInstanceValues) Create(
 			KubernetesRuntimeInstance: c.KubernetesRuntimeInstance,
 			ControlPlaneDefinition:    c.ControlPlaneDefinition,
 			CustomComponentInfo:       createdControlPlaneInstance.CustomComponentInfo,
+			Genesis:                   createdControlPlaneInstance.Genesis,
 		},
 	}
 
@@ -224,6 +228,7 @@ func (c *ControlPlaneInstanceValues) Replace(
 			KubernetesRuntimeInstance: c.KubernetesRuntimeInstance,
 			ControlPlaneDefinition:    c.ControlPlaneDefinition,
 			CustomComponentInfo:       replacedControlPlaneInstance.CustomComponentInfo,
+			Genesis:                   replacedControlPlaneInstance.Genesis,
 		},
 	}
 
@@ -292,6 +297,7 @@ func (c *ControlPlaneInstanceValues) Delete(
 			Name:                deletedControlPlaneInstance.Name,
 			Namespace:           deletedControlPlaneInstance.Namespace,
 			CustomComponentInfo: deletedControlPlaneInstance.CustomComponentInfo,
+			Genesis:             deletedControlPlaneInstance.Genesis,
 		},
 	}
 

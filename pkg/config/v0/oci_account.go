@@ -9,6 +9,7 @@ import (
 
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -23,14 +24,14 @@ type OciAccountConfig struct {
 // OciAccountValues contains all the attributes needed to manage
 // the OciAccount API object.
 type OciAccountValues struct {
-	Name           *string `yaml:"Name"`
-	UserOCID       *string `yaml:"UserOCID"`
-	TenancyOCID    *string `yaml:"TenancyOCID"`
-	DefaultAccount *bool   `yaml:"DefaultAccount"`
-	DefaultRegion  *string `yaml:"DefaultRegion"`
-	KeyFingerprint *string `yaml:"KeyFingerprint"`
-	PrivateKey     *string `yaml:"PrivateKey"`
-	Age            *string `yaml:"Age"`
+	Name           *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	UserOCID       *string `json:"UserOCID,omitempty" yaml:"UserOCID,omitempty"`
+	TenancyOCID    *string `json:"TenancyOCID,omitempty" yaml:"TenancyOCID,omitempty"`
+	DefaultAccount *bool   `json:"DefaultAccount,omitempty" yaml:"DefaultAccount,omitempty"`
+	DefaultRegion  *string `json:"DefaultRegion,omitempty" yaml:"DefaultRegion,omitempty"`
+	KeyFingerprint *string `json:"KeyFingerprint,omitempty" yaml:"KeyFingerprint,omitempty"`
+	PrivateKey     *string `json:"PrivateKey,omitempty" yaml:"PrivateKey,omitempty"`
+	Age            *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets oci accounts from the Threeport API.
@@ -39,9 +40,10 @@ type OciAccountValues struct {
 func (o *OciAccountValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
+	encryptionKey string,
 ) (*[]OciAccountConfig, error) {
-	var ociAccountConfigs []OciAccountConfig
-
+	// get API objects
+	var ociAccounts *[]api_v0.OciAccount
 	switch {
 	// if name is provided, get oci account by name
 	case o.Name != nil:
@@ -49,6 +51,31 @@ func (o *OciAccountValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get oci account with name %s: %w", *o.Name, err)
 		}
+		ociAccounts = &[]api_v0.OciAccount{*ociAccount}
+	// get all oci accounts
+	default:
+		allOciAccounts, err := client_v0.GetOciAccounts(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get oci accounts from Threeport API: %w", err)
+		}
+		ociAccounts = allOciAccounts
+	}
+
+	// assemble config objects from API objects
+	var ociAccountConfigs []OciAccountConfig
+	for _, ociAccount := range *ociAccounts {
+		// handle encryption if needed
+		if encryptionKey != "" {
+			a, err := encryption.DecryptValues(&ociAccount, encryptionKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decrypt oci account secret values: %w", err)
+			}
+			ociAccount = *(a.(*api_v0.OciAccount))
+		} else {
+			a := encryption.RedactEncryptedValues(&ociAccount)
+			ociAccount = *(a.(*api_v0.OciAccount))
+		}
+
 		ociAccountConfig := OciAccountConfig{
 			OciAccount: OciAccountValues{
 				Name:           ociAccount.Name,
@@ -62,27 +89,6 @@ func (o *OciAccountValues) Get(
 			},
 		}
 		ociAccountConfigs = append(ociAccountConfigs, ociAccountConfig)
-	// get all oci accounts
-	default:
-		ociAccounts, err := client_v0.GetOciAccounts(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get oci accounts from Threeport API: %w", err)
-		}
-		for _, ociAccount := range *ociAccounts {
-			ociAccountConfig := OciAccountConfig{
-				OciAccount: OciAccountValues{
-					Name:           ociAccount.Name,
-					UserOCID:       ociAccount.UserOCID,
-					TenancyOCID:    ociAccount.TenancyOCID,
-					DefaultAccount: ociAccount.DefaultAccount,
-					DefaultRegion:  ociAccount.DefaultRegion,
-					KeyFingerprint: ociAccount.KeyFingerprint,
-					PrivateKey:     ociAccount.PrivateKey,
-					Age:            util.Ptr(util.GetAgeFormatted(ociAccount.CreatedAt)),
-				},
-			}
-			ociAccountConfigs = append(ociAccountConfigs, ociAccountConfig)
-		}
 	}
 
 	return &ociAccountConfigs, nil

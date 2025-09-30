@@ -21,14 +21,14 @@ type SecretConfig struct {
 // SecretDefinition and SecretInstance API objects
 // together with a single operation.
 type SecretValues struct {
-	Name                      *string                          `yaml:"Name"`
-	Data                      *map[string]string               `yaml:"Data"`
-	AwsAccountName            *string                          `yaml:"AwsAccountName"`
-	SecretConfigPath          *string                          `yaml:"SecretConfigPath"`
-	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
-	HelmWorkloadInstance      *HelmWorkloadInstanceValues      `yaml:"HelmWorkloadInstance"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	Age                       *string                          `yaml:"Age"`
+	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Data                      *map[string]string               `json:"Data,omitempty" yaml:"Data,omitempty"`
+	AwsAccountName            *string                          `json:"AwsAccountName,omitempty" yaml:"AwsAccountName,omitempty"`
+	SecretConfigPath          *string                          `json:"SecretConfigPath,omitempty" yaml:"SecretConfigPath,omitempty"`
+	WorkloadInstance          *WorkloadInstanceValues          `json:"WorkloadInstance,omitempty" yaml:"WorkloadInstance,omitempty"`
+	HelmWorkloadInstance      *HelmWorkloadInstanceValues      `json:"HelmWorkloadInstance,omitempty" yaml:"HelmWorkloadInstance,omitempty"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets a secret definition and instance from the Threeport API.

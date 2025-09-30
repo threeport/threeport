@@ -21,15 +21,16 @@ type AwsEksKubernetesRuntimeConfig struct {
 // AwsEksKubernetesRuntimeDefinition and AwsEksKubernetesRuntimeInstance API objects
 // together with a single operation.
 type AwsEksKubernetesRuntimeValues struct {
-	Name                         *string `yaml:"Name"`
-	AwsAccountName               *string `yaml:"AwsAccountName"`
-	ZoneCount                    *int    `yaml:"ZoneCount"`
-	DefaultNodeGroupInstanceType *string `yaml:"DefaultNodeGroupInstanceType"`
-	DefaultNodeGroupInitialSize  *int    `yaml:"DefaultNodeGroupInitialSize"`
-	DefaultNodeGroupMinimumSize  *int    `yaml:"DefaultNodeGroupMinimumSize"`
-	DefaultNodeGroupMaximumSize  *int    `yaml:"DefaultNodeGroupMaximumSize"`
-	Region                       *string `yaml:"Region"`
-	Age                          *string `yaml:"Age"`
+	Name                         *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	AwsAccountName               *string `json:"AwsAccountName,omitempty" yaml:"AwsAccountName,omitempty"`
+	ZoneCount                    *int    `json:"ZoneCount,omitempty" yaml:"ZoneCount,omitempty"`
+	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" yaml:"DefaultNodeGroupInstanceType,omitempty"`
+	DefaultNodeGroupInitialSize  *int    `json:"DefaultNodeGroupInitialSize,omitempty" yaml:"DefaultNodeGroupInitialSize,omitempty"`
+	DefaultNodeGroupMinimumSize  *int    `json:"DefaultNodeGroupMinimumSize,omitempty" yaml:"DefaultNodeGroupMinimumSize,omitempty"`
+	DefaultNodeGroupMaximumSize  *int    `json:"DefaultNodeGroupMaximumSize,omitempty" yaml:"DefaultNodeGroupMaximumSize,omitempty"`
+	Region                       *string `json:"Region,omitempty" yaml:"Region,omitempty"`
+	Reconciled                   *bool   `json:"Reconciled,omitempty" yaml:"Reconciled,omitempty"`
+	Age                          *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets a aws eks kubernetes runtime definition and instance from the Threeport API.
@@ -269,6 +270,7 @@ func mapToAwsEksKubernetesRuntimeDefinedInstances(
 						DefaultNodeGroupMinimumSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 						DefaultNodeGroupMaximumSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 						Region:                       inst.AwsEksKubernetesRuntimeInstance.Region,
+						Reconciled:                   inst.AwsEksKubernetesRuntimeInstance.Reconciled,
 						Age:                          inst.AwsEksKubernetesRuntimeInstance.Age,
 					},
 				}

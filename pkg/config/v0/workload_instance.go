@@ -9,6 +9,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/threeport/threeport/internal/agent"
+	"github.com/threeport/threeport/internal/workload/status"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
@@ -26,10 +28,11 @@ type WorkloadInstanceConfig struct {
 // WorkloadInstanceValues contains all the attributes needed to manage
 // the WorkloadInstance API object.
 type WorkloadInstanceValues struct {
-	Name                      *string                          `yaml:"Name"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	WorkloadDefinition        *WorkloadDefinitionValues        `yaml:"WorkloadDefinition"`
-	Age                       *string                          `yaml:"Age"`
+	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	WorkloadDefinition        *WorkloadDefinitionValues        `json:"WorkloadDefinition,omitempty" yaml:"WorkloadDefinition,omitempty"`
+	Status                    *string                          `json:"Status,omitempty" yaml:"Status,omitempty"`
+	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets workload instances from the Threeport API.
@@ -58,6 +61,7 @@ func (w *WorkloadInstanceValues) Get(
 		workloadInstances = allWorkloadInstances
 	}
 
+	// assemble config objects from API objects
 	var workloadInstanceConfigs []WorkloadInstanceConfig
 	for _, workloadInstance := range *workloadInstances {
 		// related objects
@@ -84,11 +88,24 @@ func (w *WorkloadInstanceValues) Get(
 			}
 		}
 
+		// determine the workload instance status
+		instanceStatusDetail := status.GetWorkloadInstanceStatus(
+			apiClient,
+			apiEndpoint,
+			agent.WorkloadInstanceType,
+			*workloadInstance.ID,
+			*workloadInstance.Reconciled,
+		)
+		if instanceStatusDetail.Error != nil {
+			return nil, fmt.Errorf("failed to get workload instance status: %w", instanceStatusDetail.Error)
+		}
+
 		workloadInstanceConfig := WorkloadInstanceConfig{
 			WorkloadInstance: WorkloadInstanceValues{
 				Name:                      workloadInstance.Name,
 				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
 				WorkloadDefinition:        workloadDefinition,
+				Status:                    util.Ptr(string(instanceStatusDetail.Status)),
 				Age:                       util.Ptr(util.GetAgeFormatted(workloadInstance.CreatedAt)),
 			},
 		}
@@ -203,6 +220,7 @@ func (w *WorkloadInstanceValues) Create(
 			Name:                      createdWorkloadInstance.Name,
 			KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
 			WorkloadDefinition:        w.WorkloadDefinition,
+			Status:                    util.Ptr(string(*createdWorkloadInstance.Status)),
 			Age:                       util.Ptr(util.GetAgeFormatted(createdWorkloadInstance.CreatedAt)),
 		},
 	}
@@ -289,6 +307,7 @@ func (w *WorkloadInstanceValues) Replace(
 			Name:                      replacedWorkloadInstance.Name,
 			KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
 			WorkloadDefinition:        w.WorkloadDefinition,
+			Status:                    util.Ptr(string(*replacedWorkloadInstance.Status)),
 			Age:                       util.Ptr(util.GetAgeFormatted(replacedWorkloadInstance.CreatedAt)),
 		},
 	}

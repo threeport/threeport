@@ -23,11 +23,11 @@ type OciOkeKubernetesRuntimeDefinitionConfig struct {
 // OciOkeKubernetesRuntimeDefinitionValues contains all the attributes needed to manage
 // the OciOkeKubernetesRuntimeDefinition API object.
 type OciOkeKubernetesRuntimeDefinitionValues struct {
-	Name                   *string `yaml:"Name"`
-	OciAccountName         *string `yaml:"OciAccountName"`
-	WorkerNodeShape        *string `yaml:"WorkerNodeShape"`
-	WorkerNodeInitialCount *int    `yaml:"WorkerNodeInitialCount"`
-	Age                    *string `yaml:"Age"`
+	Name                   *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	OciAccountName         *string `json:"OciAccountName,omitempty" yaml:"OciAccountName,omitempty"`
+	WorkerNodeShape        *string `json:"WorkerNodeShape,omitempty" yaml:"WorkerNodeShape,omitempty"`
+	WorkerNodeInitialCount *int    `json:"WorkerNodeInitialCount,omitempty" yaml:"WorkerNodeInitialCount,omitempty"`
+	Age                    *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets oci oke kubernetes runtime definitions from the Threeport API.
@@ -37,8 +37,8 @@ func (o *OciOkeKubernetesRuntimeDefinitionValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]OciOkeKubernetesRuntimeDefinitionConfig, error) {
-	var ociOkeKubernetesRuntimeDefinitionConfigs []OciOkeKubernetesRuntimeDefinitionConfig
-
+	// get API objects
+	var ociOkeKubernetesRuntimeDefinitions *[]api_v0.OciOkeKubernetesRuntimeDefinition
 	switch {
 	// if name is provided, get oci oke kubernetes runtime definition by name
 	case o.Name != nil:
@@ -46,6 +46,19 @@ func (o *OciOkeKubernetesRuntimeDefinitionValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get oci oke kubernetes runtime definition with name %s: %w", *o.Name, err)
 		}
+		ociOkeKubernetesRuntimeDefinitions = &[]api_v0.OciOkeKubernetesRuntimeDefinition{*ociOkeKubernetesRuntimeDefinition}
+	// get all oci oke kubernetes runtime definitions
+	default:
+		allOciOkeKubernetesRuntimeDefinitions, err := client_v0.GetOciOkeKubernetesRuntimeDefinitions(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get oci oke kubernetes runtime definitions from Threeport API: %w", err)
+		}
+		ociOkeKubernetesRuntimeDefinitions = allOciOkeKubernetesRuntimeDefinitions
+	}
+
+	// assemble config objects from API objects
+	var ociOkeKubernetesRuntimeDefinitionConfigs []OciOkeKubernetesRuntimeDefinitionConfig
+	for _, ociOkeKubernetesRuntimeDefinition := range *ociOkeKubernetesRuntimeDefinitions {
 		// get OCI account name by looking up account ID
 		var ociAccountName *string
 		if ociOkeKubernetesRuntimeDefinition.OciAccountID != nil {
@@ -71,39 +84,6 @@ func (o *OciOkeKubernetesRuntimeDefinitionValues) Get(
 			},
 		}
 		ociOkeKubernetesRuntimeDefinitionConfigs = append(ociOkeKubernetesRuntimeDefinitionConfigs, ociOkeKubernetesRuntimeDefinitionConfig)
-	// get all oci oke kubernetes runtime definitions
-	default:
-		ociOkeKubernetesRuntimeDefinitions, err := client_v0.GetOciOkeKubernetesRuntimeDefinitions(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get oci oke kubernetes runtime definitions from Threeport API: %w", err)
-		}
-		for _, ociOkeKubernetesRuntimeDefinition := range *ociOkeKubernetesRuntimeDefinitions {
-			// get OCI account name by looking up account ID
-			var ociAccountName *string
-			if ociOkeKubernetesRuntimeDefinition.OciAccountID != nil {
-				ociAccount, err := client_v0.GetOciAccountByID(apiClient, apiEndpoint, *ociOkeKubernetesRuntimeDefinition.OciAccountID)
-				if err == nil {
-					ociAccountName = ociAccount.Name
-				}
-			}
-
-			ociOkeKubernetesRuntimeDefinitionConfig := OciOkeKubernetesRuntimeDefinitionConfig{
-				OciOkeKubernetesRuntimeDefinition: OciOkeKubernetesRuntimeDefinitionValues{
-					Name:            ociOkeKubernetesRuntimeDefinition.Name,
-					OciAccountName:  ociAccountName,
-					WorkerNodeShape: ociOkeKubernetesRuntimeDefinition.WorkerNodeShape,
-					WorkerNodeInitialCount: func() *int {
-						if ociOkeKubernetesRuntimeDefinition.WorkerNodeInitialCount != nil {
-							val := int(*ociOkeKubernetesRuntimeDefinition.WorkerNodeInitialCount)
-							return &val
-						}
-						return nil
-					}(),
-					Age: util.Ptr(util.GetAgeFormatted(ociOkeKubernetesRuntimeDefinition.CreatedAt)),
-				},
-			}
-			ociOkeKubernetesRuntimeDefinitionConfigs = append(ociOkeKubernetesRuntimeDefinitionConfigs, ociOkeKubernetesRuntimeDefinitionConfig)
-		}
 	}
 
 	return &ociOkeKubernetesRuntimeDefinitionConfigs, nil

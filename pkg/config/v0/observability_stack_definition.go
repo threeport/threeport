@@ -23,17 +23,17 @@ type ObservabilityStackDefinitionConfig struct {
 // ObservabilityStackDefinitionValues contains all the attributes needed to manage
 // the ObservabilityStackDefinition API object.
 type ObservabilityStackDefinitionValues struct {
-	Name                                  *string `yaml:"Name"`
-	GrafanaHelmValues                     *string `yaml:"GrafanaHelmValues"`
-	GrafanaHelmValuesDocument             *string `yaml:"GrafanaHelmValuesDocument"`
-	LokiHelmValues                        *string `yaml:"LokiHelmValues"`
-	LokiHelmValuesDocument                *string `yaml:"LokiHelmValuesDocument"`
-	PromtailHelmValues                    *string `yaml:"PromtailHelmValues"`
-	PromtailHelmValuesDocument            *string `yaml:"PromtailHelmValuesDocument"`
-	KubePrometheusStackHelmValues         *string `yaml:"KubePrometheusStackHelmValues"`
-	KubePrometheusStackHelmValuesDocument *string `yaml:"KubePrometheusStackHelmValuesDocument"`
-	ObservabilityConfigPath               *string `yaml:"ObservabilityConfigPath"`
-	Age                                   *string `yaml:"Age"`
+	Name                                  *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	GrafanaHelmValues                     *string `json:"GrafanaHelmValues,omitempty" yaml:"GrafanaHelmValues,omitempty"`
+	GrafanaHelmValuesDocument             *string `json:"GrafanaHelmValuesDocument,omitempty" yaml:"GrafanaHelmValuesDocument,omitempty"`
+	LokiHelmValues                        *string `json:"LokiHelmValues,omitempty" yaml:"LokiHelmValues,omitempty"`
+	LokiHelmValuesDocument                *string `json:"LokiHelmValuesDocument,omitempty" yaml:"LokiHelmValuesDocument,omitempty"`
+	PromtailHelmValues                    *string `json:"PromtailHelmValues,omitempty" yaml:"PromtailHelmValues,omitempty"`
+	PromtailHelmValuesDocument            *string `json:"PromtailHelmValuesDocument,omitempty" yaml:"PromtailHelmValuesDocument,omitempty"`
+	KubePrometheusStackHelmValues         *string `json:"KubePrometheusStackHelmValues,omitempty" yaml:"KubePrometheusStackHelmValues,omitempty"`
+	KubePrometheusStackHelmValuesDocument *string `json:"KubePrometheusStackHelmValuesDocument,omitempty" yaml:"KubePrometheusStackHelmValuesDocument,omitempty"`
+	ObservabilityConfigPath               *string `json:"ObservabilityConfigPath,omitempty" yaml:"ObservabilityConfigPath,omitempty"`
+	Age                                   *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets observability stack definitions from the Threeport API.
@@ -43,8 +43,8 @@ func (o *ObservabilityStackDefinitionValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ObservabilityStackDefinitionConfig, error) {
-	var observabilityStackDefinitionConfigs []ObservabilityStackDefinitionConfig
-
+	// get API objects
+	var observabilityStackDefinitions *[]api_v0.ObservabilityStackDefinition
 	switch {
 	// if name is provided, get observability stack definition by name
 	case o.Name != nil:
@@ -52,41 +52,30 @@ func (o *ObservabilityStackDefinitionValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get observability stack definition with name %s: %w", *o.Name, err)
 		}
-		observabilityStackDefinitionConfig := ObservabilityStackDefinitionConfig{
-			ObservabilityStackDefinition: ObservabilityStackDefinitionValues{
-				Age:                                   util.Ptr(util.GetAgeFormatted(observabilityStackDefinition.CreatedAt)),
-				Name:                                  observabilityStackDefinition.Name,
-				GrafanaHelmValues:                     o.GrafanaHelmValues,
-				GrafanaHelmValuesDocument:             observabilityStackDefinition.GrafanaHelmValuesDocument,
-				LokiHelmValues:                        o.LokiHelmValues,
-				LokiHelmValuesDocument:                observabilityStackDefinition.LokiHelmValuesDocument,
-				PromtailHelmValues:                    o.PromtailHelmValues,
-				PromtailHelmValuesDocument:            observabilityStackDefinition.PromtailHelmValuesDocument,
-				KubePrometheusStackHelmValues:         o.KubePrometheusStackHelmValues,
-				KubePrometheusStackHelmValuesDocument: observabilityStackDefinition.KubePrometheusStackHelmValuesDocument,
-				ObservabilityConfigPath:               o.ObservabilityConfigPath,
-			},
-		}
-		observabilityStackDefinitionConfigs = append(observabilityStackDefinitionConfigs, observabilityStackDefinitionConfig)
+		observabilityStackDefinitions = &[]api_v0.ObservabilityStackDefinition{*observabilityStackDefinition}
 	// get all observability stack definitions
 	default:
-		observabilityStackDefinitions, err := client_v0.GetObservabilityStackDefinitions(apiClient, apiEndpoint)
+		allObservabilityStackDefinitions, err := client_v0.GetObservabilityStackDefinitions(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get observability stack definitions from Threeport API: %w", err)
 		}
-		for _, observabilityStackDefinition := range *observabilityStackDefinitions {
-			observabilityStackDefinitionConfig := ObservabilityStackDefinitionConfig{
-				ObservabilityStackDefinition: ObservabilityStackDefinitionValues{
-					Age:                                   util.Ptr(util.GetAgeFormatted(observabilityStackDefinition.CreatedAt)),
-					Name:                                  observabilityStackDefinition.Name,
-					GrafanaHelmValuesDocument:             observabilityStackDefinition.GrafanaHelmValuesDocument,
-					LokiHelmValuesDocument:                observabilityStackDefinition.LokiHelmValuesDocument,
-					PromtailHelmValuesDocument:            observabilityStackDefinition.PromtailHelmValuesDocument,
-					KubePrometheusStackHelmValuesDocument: observabilityStackDefinition.KubePrometheusStackHelmValuesDocument,
-				},
-			}
-			observabilityStackDefinitionConfigs = append(observabilityStackDefinitionConfigs, observabilityStackDefinitionConfig)
+		observabilityStackDefinitions = allObservabilityStackDefinitions
+	}
+
+	// assemble config objects from API objects
+	var observabilityStackDefinitionConfigs []ObservabilityStackDefinitionConfig
+	for _, observabilityStackDefinition := range *observabilityStackDefinitions {
+		observabilityStackDefinitionConfig := ObservabilityStackDefinitionConfig{
+			ObservabilityStackDefinition: ObservabilityStackDefinitionValues{
+				Name:                                  observabilityStackDefinition.Name,
+				GrafanaHelmValuesDocument:             observabilityStackDefinition.GrafanaHelmValuesDocument,
+				LokiHelmValuesDocument:                observabilityStackDefinition.LokiHelmValuesDocument,
+				PromtailHelmValuesDocument:            observabilityStackDefinition.PromtailHelmValuesDocument,
+				KubePrometheusStackHelmValuesDocument: observabilityStackDefinition.KubePrometheusStackHelmValuesDocument,
+				Age:                                   util.Ptr(util.GetAgeFormatted(observabilityStackDefinition.CreatedAt)),
+			},
 		}
+		observabilityStackDefinitionConfigs = append(observabilityStackDefinitionConfigs, observabilityStackDefinitionConfig)
 	}
 
 	return &observabilityStackDefinitionConfigs, nil

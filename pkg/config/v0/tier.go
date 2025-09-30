@@ -5,10 +5,11 @@ package v0
 import (
 	errors "errors"
 	"fmt"
+	"net/http"
+
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"net/http"
 )
 
 // TierConfig is a config abstraction for the Tier API object.
@@ -22,9 +23,9 @@ type TierConfig struct {
 // TierValues contains all the attributes needed to manage
 // the Tier API object.
 type TierValues struct {
-	// TODO: add config abstraction fields needed for user to manage a Tier
-	Name *string `yaml:"Name"`
-	Age  *string `yaml:"Age"`
+	Name        *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Criticality *int    `json:"Criticality,omitempty" yaml:"Criticality,omitempty"`
+	Age         *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets tiers from the Threeport API.
@@ -34,8 +35,8 @@ func (t *TierValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]TierConfig, error) {
-	var tierConfigs []TierConfig
-
+	// get API objects
+	var tiers *[]api_v0.Tier
 	switch {
 	// if name is provided, get tier by name
 	case t.Name != nil:
@@ -43,30 +44,27 @@ func (t *TierValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get tier with name %s: %w", *t.Name, err)
 		}
-		// TODO: add config abstraction fields needed for user to manage a Tier
-		tierConfig := TierConfig{
-			Tier: TierValues{
-				Age:  util.Ptr(util.GetAgeFormatted(tier.CreatedAt)),
-				Name: t.Name,
-			},
-		}
-		tierConfigs = append(tierConfigs, tierConfig)
+		tiers = &[]api_v0.Tier{*tier}
 	// get all tiers
 	default:
-		tiers, err := client_v0.GetTiers(apiClient, apiEndpoint)
+		allTiers, err := client_v0.GetTiers(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get tiers from Threeport API: %w", err)
 		}
-		for _, tier := range *tiers {
-			// TODO: add config abstraction fields needed for user to manage a Tier
-			tierConfig := TierConfig{
-				Tier: TierValues{
-					Age:  util.Ptr(util.GetAgeFormatted(tier.CreatedAt)),
-					Name: tier.Name,
-				},
-			}
-			tierConfigs = append(tierConfigs, tierConfig)
+		tiers = allTiers
+	}
+
+	// assemble config objects from API objects
+	var tierConfigs []TierConfig
+	for _, tier := range *tiers {
+		tierConfig := TierConfig{
+			Tier: TierValues{
+				Age:         util.Ptr(util.GetAgeFormatted(tier.CreatedAt)),
+				Criticality: tier.Criticality,
+				Name:        tier.Name,
+			},
 		}
+		tierConfigs = append(tierConfigs, tierConfig)
 	}
 
 	return &tierConfigs, nil
@@ -83,9 +81,9 @@ func (t *TierValues) Create(
 	}
 
 	// construct tier object
-	// TODO: add API object fields as needed for Tier
 	tier := api_v0.Tier{
-		Name: t.Name,
+		Name:        t.Name,
+		Criticality: t.Criticality,
 	}
 
 	// create tier
@@ -99,11 +97,11 @@ func (t *TierValues) Create(
 	}
 
 	// construct tier config
-	// TODO: add config abstraction fields needed for user to manage a Tier
 	createdTierConfig := &TierConfig{
 		Tier: TierValues{
-			Age:  util.Ptr(util.GetAgeFormatted(createdTier.CreatedAt)),
-			Name: createdTier.Name,
+			Age:         util.Ptr(util.GetAgeFormatted(createdTier.CreatedAt)),
+			Name:        createdTier.Name,
+			Criticality: createdTier.Criticality,
 		},
 	}
 
@@ -135,12 +133,12 @@ func (t *TierValues) Replace(
 	}
 
 	// construct updated tier object
-	// TODO: add API object fields as needed for Tier
 	updatedTier := &api_v0.Tier{
 		Common: api_v0.Common{
 			ID: existingTier.ID,
 		},
-		Name: t.Name,
+		Name:        t.Name,
+		Criticality: t.Criticality,
 	}
 
 	// replace tier
@@ -154,11 +152,11 @@ func (t *TierValues) Replace(
 	}
 
 	// construct updated tier config
-	// TODO: add config abstraction fields needed for user to manage a Tier
 	updatedTierConfig := &TierConfig{
 		Tier: TierValues{
-			Age:  util.Ptr(util.GetAgeFormatted(replacedTier.CreatedAt)),
-			Name: replacedTier.Name,
+			Age:         util.Ptr(util.GetAgeFormatted(replacedTier.CreatedAt)),
+			Name:        replacedTier.Name,
+			Criticality: replacedTier.Criticality,
 		},
 	}
 
@@ -191,10 +189,10 @@ func (t *TierValues) Delete(
 	}
 
 	// construct deleted tier config
-	// TODO: add config abstraction fields needed for user to manage a Tier
 	deletedTierConfig := &TierConfig{
 		Tier: TierValues{
-			Name: deletedTier.Name,
+			Name:        deletedTier.Name,
+			Criticality: deletedTier.Criticality,
 		},
 	}
 
@@ -209,8 +207,6 @@ func (t *TierValues) Validate() error {
 	if t.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
-
-	// TODO: add additional validation as needed
 
 	return multiError.Error()
 }

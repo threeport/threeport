@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -22,8 +23,9 @@ type ModuleControllerConfig struct {
 // the ModuleController API object.
 type ModuleControllerValues struct {
 	// TODO: add config abstraction fields needed for user to manage a ModuleController
-	Name *string `yaml:"Name"`
-	Age  *string `yaml:"Age"`
+	Name      *string          `json:"Name,omitempty" yaml:"Name,omitempty"`
+	ModuleApi *ModuleApiValues `json:"ModuleApi,omitempty" yaml:"ModuleApi,omitempty"`
+	Age       *string          `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets module controllers from the Threeport API.
@@ -33,8 +35,8 @@ func (m *ModuleControllerValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ModuleControllerConfig, error) {
-	var moduleControllerConfigs []ModuleControllerConfig
-
+	// get API objects
+	var moduleControllers *[]api_v0.ModuleController
 	switch {
 	// if name is provided, get module controller by name
 	case m.Name != nil:
@@ -42,28 +44,35 @@ func (m *ModuleControllerValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get module controller with name %s: %w", *m.Name, err)
 		}
-		moduleControllerConfig := ModuleControllerConfig{
-			ModuleController: ModuleControllerValues{
-				Age:  util.Ptr(util.GetAgeFormatted(moduleController.CreatedAt)),
-				Name: m.Name,
-			},
-		}
-		moduleControllerConfigs = append(moduleControllerConfigs, moduleControllerConfig)
+		moduleControllers = &[]api_v0.ModuleController{*moduleController}
 	// get all module controllers
 	default:
-		moduleControllers, err := client_v0.GetModuleControllers(apiClient, apiEndpoint)
+		allModuleControllers, err := client_v0.GetModuleControllers(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get module controllers from Threeport API: %w", err)
 		}
-		for _, moduleController := range *moduleControllers {
-			moduleControllerConfig := ModuleControllerConfig{
-				ModuleController: ModuleControllerValues{
-					Age:  util.Ptr(util.GetAgeFormatted(moduleController.CreatedAt)),
-					Name: moduleController.Name,
-				},
-			}
-			moduleControllerConfigs = append(moduleControllerConfigs, moduleControllerConfig)
+		moduleControllers = allModuleControllers
+	}
+
+	// assemble config objects from API objects
+	var moduleControllerConfigs []ModuleControllerConfig
+	for _, moduleController := range *moduleControllers {
+		// related object
+		moduleApi, err := client_v0.GetModuleApiByID(apiClient, apiEndpoint, *moduleController.ModuleApiID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get module api with id %d: %w", *moduleController.ModuleApiID, err)
 		}
+
+		moduleControllerConfig := ModuleControllerConfig{
+			ModuleController: ModuleControllerValues{
+				Name: moduleController.Name,
+				ModuleApi: &ModuleApiValues{
+					Name: moduleApi.Name,
+				},
+				Age: util.Ptr(util.GetAgeFormatted(moduleController.CreatedAt)),
+			},
+		}
+		moduleControllerConfigs = append(moduleControllerConfigs, moduleControllerConfig)
 	}
 
 	return &moduleControllerConfigs, nil

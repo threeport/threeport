@@ -23,11 +23,11 @@ type DomainNameDefinitionConfig struct {
 // DomainNameDefinitionValues contains all the attributes needed to manage
 // the DomainNameDefinition API object.
 type DomainNameDefinitionValues struct {
-	Name       *string `yaml:"Name"`
-	Domain     *string `yaml:"Domain"`
-	Zone       *string `yaml:"Zone"`
-	AdminEmail *string `yaml:"AdminEmail"`
-	Age        *string `yaml:"Age"`
+	Name       *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Domain     *string `json:"Domain,omitempty" yaml:"Domain,omitempty"`
+	Zone       *string `json:"Zone,omitempty" yaml:"Zone,omitempty"`
+	AdminEmail *string `json:"AdminEmail,omitempty" yaml:"AdminEmail,omitempty"`
+	Age        *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets domain name definitions from the Threeport API.
@@ -37,8 +37,8 @@ func (d *DomainNameDefinitionValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]DomainNameDefinitionConfig, error) {
-	var domainNameDefinitionConfigs []DomainNameDefinitionConfig
-
+	// get API objects
+	var domainNameDefinitions *[]api_v0.DomainNameDefinition
 	switch {
 	// if name is provided, get domain name definition by name
 	case d.Name != nil:
@@ -46,34 +46,29 @@ func (d *DomainNameDefinitionValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *d.Name, err)
 		}
-		domainNameDefinitionConfig := DomainNameDefinitionConfig{
-			DomainNameDefinition: DomainNameDefinitionValues{
-				Age:        util.Ptr(util.GetAgeFormatted(domainNameDefinition.CreatedAt)),
-				Name:       d.Name,
-				Domain:     domainNameDefinition.Domain,
-				Zone:       domainNameDefinition.Zone,
-				AdminEmail: domainNameDefinition.AdminEmail,
-			},
-		}
-		domainNameDefinitionConfigs = append(domainNameDefinitionConfigs, domainNameDefinitionConfig)
+		domainNameDefinitions = &[]api_v0.DomainNameDefinition{*domainNameDefinition}
 	// get all domain name definitions
 	default:
-		domainNameDefinitions, err := client_v0.GetDomainNameDefinitions(apiClient, apiEndpoint)
+		allDomainNameDefinitions, err := client_v0.GetDomainNameDefinitions(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get domain name definitions from Threeport API: %w", err)
 		}
-		for _, domainNameDefinition := range *domainNameDefinitions {
-			domainNameDefinitionConfig := DomainNameDefinitionConfig{
-				DomainNameDefinition: DomainNameDefinitionValues{
-					Age:        util.Ptr(util.GetAgeFormatted(domainNameDefinition.CreatedAt)),
-					Name:       domainNameDefinition.Name,
-					Domain:     domainNameDefinition.Domain,
-					Zone:       domainNameDefinition.Zone,
-					AdminEmail: domainNameDefinition.AdminEmail,
-				},
-			}
-			domainNameDefinitionConfigs = append(domainNameDefinitionConfigs, domainNameDefinitionConfig)
+		domainNameDefinitions = allDomainNameDefinitions
+	}
+
+	// assemble config objects from API objects
+	var domainNameDefinitionConfigs []DomainNameDefinitionConfig
+	for _, domainNameDefinition := range *domainNameDefinitions {
+		domainNameDefinitionConfig := DomainNameDefinitionConfig{
+			DomainNameDefinition: DomainNameDefinitionValues{
+				Name:       domainNameDefinition.Name,
+				Domain:     domainNameDefinition.Domain,
+				Zone:       domainNameDefinition.Zone,
+				AdminEmail: domainNameDefinition.AdminEmail,
+				Age:        util.Ptr(util.GetAgeFormatted(domainNameDefinition.CreatedAt)),
+			},
 		}
+		domainNameDefinitionConfigs = append(domainNameDefinitionConfigs, domainNameDefinitionConfig)
 	}
 
 	return &domainNameDefinitionConfigs, nil

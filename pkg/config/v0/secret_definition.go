@@ -25,11 +25,11 @@ type SecretDefinitionConfig struct {
 // SecretDefinitionValues contains all the attributes needed to manage
 // the SecretDefinition API object.
 type SecretDefinitionValues struct {
-	Name             *string            `yaml:"Name"`
-	AwsAccountName   *string            `yaml:"AwsAccountName"`
-	Data             *map[string]string `yaml:"Data"`
-	SecretConfigPath *string            `yaml:"SecretConfigPath"`
-	Age              *string            `yaml:"Age"`
+	Name             *string            `json:"Name,omitempty" yaml:"Name,omitempty"`
+	AwsAccountName   *string            `json:"AwsAccountName,omitempty" yaml:"AwsAccountName,omitempty"`
+	Data             *map[string]string `json:"Data,omitempty" yaml:"Data,omitempty"`
+	SecretConfigPath *string            `json:"SecretConfigPath,omitempty" yaml:"SecretConfigPath,omitempty"`
+	Age              *string            `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets secret definitions from the Threeport API.
@@ -39,8 +39,8 @@ func (s *SecretDefinitionValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]SecretDefinitionConfig, error) {
-	var secretDefinitionConfigs []SecretDefinitionConfig
-
+	// get API objects
+	var secretDefinitions *[]api_v0.SecretDefinition
 	switch {
 	// if name is provided, get secret definition by name
 	case s.Name != nil:
@@ -48,6 +48,19 @@ func (s *SecretDefinitionValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get secret definition with name %s: %w", *s.Name, err)
 		}
+		secretDefinitions = &[]api_v0.SecretDefinition{*secretDefinition}
+	// get all secret definitions
+	default:
+		allSecretDefinitions, err := client_v0.GetSecretDefinitions(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get secret definitions from Threeport API: %w", err)
+		}
+		secretDefinitions = allSecretDefinitions
+	}
+
+	// assemble config objects from API objects
+	var secretDefinitionConfigs []SecretDefinitionConfig
+	for _, secretDefinition := range *secretDefinitions {
 		// get AWS account name by looking up account ID
 		var awsAccountName *string
 		if secretDefinition.AwsAccountID != nil {
@@ -68,48 +81,13 @@ func (s *SecretDefinitionValues) Get(
 
 		secretDefinitionConfig := SecretDefinitionConfig{
 			SecretDefinition: SecretDefinitionValues{
-				Name:           secretDefinition.Name,
+				Age:            util.Ptr(util.GetAgeFormatted(secretDefinition.CreatedAt)),
 				AwsAccountName: awsAccountName,
 				Data:           data,
-				Age:            util.Ptr(util.GetAgeFormatted(secretDefinition.CreatedAt)),
+				Name:           secretDefinition.Name,
 			},
 		}
 		secretDefinitionConfigs = append(secretDefinitionConfigs, secretDefinitionConfig)
-	// get all secret definitions
-	default:
-		secretDefinitions, err := client_v0.GetSecretDefinitions(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get secret definitions from Threeport API: %w", err)
-		}
-		for _, secretDefinition := range *secretDefinitions {
-			// get AWS account name by looking up account ID
-			var awsAccountName *string
-			if secretDefinition.AwsAccountID != nil {
-				awsAccount, err := client_v0.GetAwsAccountByID(apiClient, apiEndpoint, *secretDefinition.AwsAccountID)
-				if err == nil {
-					awsAccountName = awsAccount.Name
-				}
-			}
-
-			// unmarshal data
-			var data *map[string]string
-			if secretDefinition.Data != nil {
-				var dataMap map[string]string
-				if err := json.Unmarshal(*secretDefinition.Data, &dataMap); err == nil {
-					data = &dataMap
-				}
-			}
-
-			secretDefinitionConfig := SecretDefinitionConfig{
-				SecretDefinition: SecretDefinitionValues{
-					Name:           secretDefinition.Name,
-					AwsAccountName: awsAccountName,
-					Data:           data,
-					Age:            util.Ptr(util.GetAgeFormatted(secretDefinition.CreatedAt)),
-				},
-			}
-			secretDefinitionConfigs = append(secretDefinitionConfigs, secretDefinitionConfig)
-		}
 	}
 
 	return &secretDefinitionConfigs, nil

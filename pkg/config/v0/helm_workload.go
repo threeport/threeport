@@ -25,20 +25,21 @@ type HelmWorkloadConfig struct {
 // HelmWorkloadDefinition and HelmWorkloadInstance API objects
 // together with a single operation.
 type HelmWorkloadValues struct {
-	Name                      *string                          `yaml:"Name"`
-	Repo                      *string                          `yaml:"Repo"`
-	Chart                     *string                          `yaml:"Chart"`
-	ChartVersion              *string                          `yaml:"ChartVersion"`
-	DefinitionValues          *string                          `yaml:"DefinitionValues"`
-	DefinitionValuesDocument  *string                          `yaml:"DefinitionValuesDocument"`
-	InstanceValues            *string                          `yaml:"InstanceValues"`
-	InstanceValuesDocument    *string                          `yaml:"InstanceValuesDocument"`
-	HelmWorkloadConfigPath    *string                          `yaml:"HelmWorkloadConfigPath"`
-	ReleaseNamespace          *string                          `yaml:"ReleaseNamespace"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	// DomainName                *DomainNameDefinitionValues      `yaml:"DomainName"`
-	// Gateway                   *GatewayDefinitionValues         `yaml:"Gateway"`
-	Age *string `yaml:"Age"`
+	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Repo                      *string                          `json:"Repo,omitempty" yaml:"Repo,omitempty"`
+	Chart                     *string                          `json:"Chart,omitempty" yaml:"Chart,omitempty"`
+	ChartVersion              *string                          `json:"ChartVersion,omitempty" yaml:"ChartVersion,omitempty"`
+	DefinitionValues          *string                          `json:"DefinitionValues,omitempty" yaml:"DefinitionValues,omitempty"`
+	DefinitionValuesDocument  *string                          `json:"DefinitionValuesDocument,omitempty" yaml:"DefinitionValuesDocument,omitempty"`
+	InstanceValues            *string                          `json:"InstanceValues,omitempty" yaml:"InstanceValues,omitempty"`
+	InstanceValuesDocument    *string                          `json:"InstanceValuesDocument,omitempty" yaml:"InstanceValuesDocument,omitempty"`
+	HelmWorkloadConfigPath    *string                          `json:"HelmWorkloadConfigPath,omitempty" yaml:"HelmWorkloadConfigPath,omitempty"`
+	ReleaseNamespace          *string                          `json:"ReleaseNamespace,omitempty" yaml:"ReleaseNamespace,omitempty"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	// DomainName                *DomainNameDefinitionValues      `json:"DomainName,omitempty" yaml:"DomainName,omitempty"`
+	// Gateway                   *GatewayDefinitionValues         `json:"Gateway,omitempty" yaml:"Gateway,omitempty"`
+	Status *string `json:"Status,omitempty" yaml:"Status,omitempty"`
+	Age    *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets a helm workload definition and instance from the Threeport API.
@@ -335,6 +336,7 @@ func mapToHelmWorkloadDefinedInstances(
 						HelmWorkloadConfigPath:    inst.HelmWorkloadInstance.HelmWorkloadConfigPath,
 						ReleaseNamespace:          inst.HelmWorkloadInstance.ReleaseNamespace,
 						KubernetesRuntimeInstance: inst.HelmWorkloadInstance.KubernetesRuntimeInstance,
+						Status:                    inst.HelmWorkloadInstance.Status,
 						Age:                       inst.HelmWorkloadInstance.Age,
 					},
 				}

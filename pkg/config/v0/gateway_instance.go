@@ -23,11 +23,11 @@ type GatewayInstanceConfig struct {
 // GatewayInstanceValues contains all the attributes needed to manage
 // the GatewayInstance API object.
 type GatewayInstanceValues struct {
-	Name                      *string                          `yaml:"Name"`
-	GatewayDefinition         *GatewayDefinitionValues         `yaml:"GatewayDefinition"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
-	Age                       *string                          `yaml:"Age"`
+	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
+	GatewayDefinition         *GatewayDefinitionValues         `json:"GatewayDefinition,omitempty" yaml:"GatewayDefinition,omitempty"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	WorkloadInstance          *WorkloadInstanceValues          `json:"WorkloadInstance,omitempty" yaml:"WorkloadInstance,omitempty"`
+	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets gateway instances from the Threeport API.
@@ -56,6 +56,7 @@ func (g *GatewayInstanceValues) Get(
 		gatewayInstances = allGatewayInstances
 	}
 
+	// assemble config objects from API objects
 	var gatewayInstanceConfigs []GatewayInstanceConfig
 	for _, gatewayInstance := range *gatewayInstances {
 		// related objects

@@ -24,14 +24,14 @@ type AwsEksKubernetesRuntimeDefinitionConfig struct {
 // AwsEksKubernetesRuntimeDefinitionValues contains all the attributes needed to manage
 // the AwsEksKubernetesRuntimeDefinition API object.
 type AwsEksKubernetesRuntimeDefinitionValues struct {
-	Name                         *string `yaml:"Name"`
-	AwsAccountName               *string `yaml:"AwsAccountName"`
-	ZoneCount                    *int    `yaml:"ZoneCount"`
-	DefaultNodeGroupInstanceType *string `yaml:"DefaultNodeGroupInstanceType"`
-	DefaultNodeGroupInitialSize  *int    `yaml:"DefaultNodeGroupInitialSize"`
-	DefaultNodeGroupMinimumSize  *int    `yaml:"DefaultNodeGroupMinimumSize"`
-	DefaultNodeGroupMaximumSize  *int    `yaml:"DefaultNodeGroupMaximumSize"`
-	Age                          *string `yaml:"Age"`
+	Name                         *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	AwsAccountName               *string `json:"AwsAccountName,omitempty" yaml:"AwsAccountName,omitempty"`
+	ZoneCount                    *int    `json:"ZoneCount,omitempty" yaml:"ZoneCount,omitempty"`
+	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" yaml:"DefaultNodeGroupInstanceType,omitempty"`
+	DefaultNodeGroupInitialSize  *int    `json:"DefaultNodeGroupInitialSize,omitempty" yaml:"DefaultNodeGroupInitialSize,omitempty"`
+	DefaultNodeGroupMinimumSize  *int    `json:"DefaultNodeGroupMinimumSize,omitempty" yaml:"DefaultNodeGroupMinimumSize,omitempty"`
+	DefaultNodeGroupMaximumSize  *int    `json:"DefaultNodeGroupMaximumSize,omitempty" yaml:"DefaultNodeGroupMaximumSize,omitempty"`
+	Age                          *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets aws eks kubernetes runtime definitions from the Threeport API.
@@ -41,8 +41,8 @@ func (a *AwsEksKubernetesRuntimeDefinitionValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]AwsEksKubernetesRuntimeDefinitionConfig, error) {
-	var awsEksKubernetesRuntimeDefinitionConfigs []AwsEksKubernetesRuntimeDefinitionConfig
-
+	// get API objects
+	var awsEksKubernetesRuntimeDefinitions *[]api_v0.AwsEksKubernetesRuntimeDefinition
 	switch {
 	// if name is provided, get aws eks kubernetes runtime definition by name
 	case a.Name != nil:
@@ -50,38 +50,31 @@ func (a *AwsEksKubernetesRuntimeDefinitionValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get aws eks kubernetes runtime definition with name %s: %w", *a.Name, err)
 		}
+		awsEksKubernetesRuntimeDefinitions = &[]api_v0.AwsEksKubernetesRuntimeDefinition{*awsEksKubernetesRuntimeDefinition}
+	// get all aws eks kubernetes runtime definitions
+	default:
+		allAwsEksKubernetesRuntimeDefinitions, err := client_v0.GetAwsEksKubernetesRuntimeDefinitions(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get aws eks kubernetes runtime definitions from Threeport API: %w", err)
+		}
+		awsEksKubernetesRuntimeDefinitions = allAwsEksKubernetesRuntimeDefinitions
+	}
+
+	// assemble config objects from API objects
+	var awsEksKubernetesRuntimeDefinitionConfigs []AwsEksKubernetesRuntimeDefinitionConfig
+	for _, awsEksKubernetesRuntimeDefinition := range *awsEksKubernetesRuntimeDefinitions {
 		awsEksKubernetesRuntimeDefinitionConfig := AwsEksKubernetesRuntimeDefinitionConfig{
 			AwsEksKubernetesRuntimeDefinition: AwsEksKubernetesRuntimeDefinitionValues{
-				Age:                          util.Ptr(util.GetAgeFormatted(awsEksKubernetesRuntimeDefinition.CreatedAt)),
 				Name:                         awsEksKubernetesRuntimeDefinition.Name,
 				ZoneCount:                    awsEksKubernetesRuntimeDefinition.ZoneCount,
 				DefaultNodeGroupInstanceType: awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 				DefaultNodeGroupInitialSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
 				DefaultNodeGroupMinimumSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 				DefaultNodeGroupMaximumSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+				Age:                          util.Ptr(util.GetAgeFormatted(awsEksKubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
 		awsEksKubernetesRuntimeDefinitionConfigs = append(awsEksKubernetesRuntimeDefinitionConfigs, awsEksKubernetesRuntimeDefinitionConfig)
-	// get all aws eks kubernetes runtime definitions
-	default:
-		awsEksKubernetesRuntimeDefinitions, err := client_v0.GetAwsEksKubernetesRuntimeDefinitions(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get aws eks kubernetes runtime definitions from Threeport API: %w", err)
-		}
-		for _, awsEksKubernetesRuntimeDefinition := range *awsEksKubernetesRuntimeDefinitions {
-			awsEksKubernetesRuntimeDefinitionConfig := AwsEksKubernetesRuntimeDefinitionConfig{
-				AwsEksKubernetesRuntimeDefinition: AwsEksKubernetesRuntimeDefinitionValues{
-					Age:                          util.Ptr(util.GetAgeFormatted(awsEksKubernetesRuntimeDefinition.CreatedAt)),
-					Name:                         awsEksKubernetesRuntimeDefinition.Name,
-					ZoneCount:                    awsEksKubernetesRuntimeDefinition.ZoneCount,
-					DefaultNodeGroupInstanceType: awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
-					DefaultNodeGroupInitialSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
-					DefaultNodeGroupMinimumSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
-					DefaultNodeGroupMaximumSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
-				},
-			}
-			awsEksKubernetesRuntimeDefinitionConfigs = append(awsEksKubernetesRuntimeDefinitionConfigs, awsEksKubernetesRuntimeDefinitionConfig)
-		}
 	}
 
 	return &awsEksKubernetesRuntimeDefinitionConfigs, nil

@@ -26,10 +26,12 @@ type AwsEksKubernetesRuntimeInstanceConfig struct {
 // AwsEksKubernetesRuntimeInstanceValues contains all the attributes needed to manage
 // the AwsEksKubernetesRuntimeInstance API object.
 type AwsEksKubernetesRuntimeInstanceValues struct {
-	Name                              *string                                  `yaml:"Name"`
-	Region                            *string                                  `yaml:"Region"`
-	AwsEksKubernetesRuntimeDefinition *AwsEksKubernetesRuntimeDefinitionValues `yaml:"AwsEksKubernetesRuntimeDefinition"`
-	Age                               *string                                  `yaml:"Age"`
+	Name                              *string                                  `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Region                            *string                                  `json:"Region,omitempty" yaml:"Region,omitempty"`
+	AwsEksKubernetesRuntimeDefinition *AwsEksKubernetesRuntimeDefinitionValues `json:"AwsEksKubernetesRuntimeDefinition,omitempty" yaml:"AwsEksKubernetesRuntimeDefinition,omitempty"`
+	KubernetesRuntimeInstance         *KubernetesRuntimeInstanceValues         `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	Reconciled                        *bool                                    `json:"Reconciled,omitempty" yaml:"Reconciled,omitempty"`
+	Age                               *string                                  `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets aws eks kubernetes runtime instances from the Threeport API.
@@ -58,10 +60,12 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Get(
 		awsEksKubernetesRuntimeInstances = allAwsEksKubernetesRuntimeInstances
 	}
 
+	// assemble config objects from API objects
 	var awsEksKubernetesRuntimeInstanceConfigs []AwsEksKubernetesRuntimeInstanceConfig
 	for _, awsEksKubernetesRuntimeInstance := range *awsEksKubernetesRuntimeInstances {
 		// related objects
 		var awsEksKubernetesRuntimeDefinition *AwsEksKubernetesRuntimeDefinitionValues
+		var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
 
 		// get AWS EKS kubernetes runtime definition
 		if awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID != nil {
@@ -70,23 +74,47 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Get(
 				apiEndpoint,
 				*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
 			)
-			if err == nil {
-				// get AWS account name
-				var awsAccountName *string
-				if awsEksKubernetesRuntimeDefinitionObj.AwsAccountID != nil {
-					awsAccount, err := client_v0.GetAwsAccountByID(
-						apiClient,
-						apiEndpoint,
-						*awsEksKubernetesRuntimeDefinitionObj.AwsAccountID,
-					)
-					if err == nil {
-						awsAccountName = awsAccount.Name
-					}
+			if err != nil {
+				return nil, fmt.Errorf(
+					"failed to get AWS EKS kubernetes runtime definition with ID %s: %w",
+					*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
+					err,
+				)
+			}
+			// get AWS account name
+			var awsAccountName *string
+			if awsEksKubernetesRuntimeDefinitionObj.AwsAccountID != nil {
+				awsAccount, err := client_v0.GetAwsAccountByID(
+					apiClient,
+					apiEndpoint,
+					*awsEksKubernetesRuntimeDefinitionObj.AwsAccountID,
+				)
+				if err == nil {
+					awsAccountName = awsAccount.Name
 				}
-				awsEksKubernetesRuntimeDefinition = &AwsEksKubernetesRuntimeDefinitionValues{
-					Name:           awsEksKubernetesRuntimeDefinitionObj.Name,
-					AwsAccountName: awsAccountName,
-				}
+			}
+			awsEksKubernetesRuntimeDefinition = &AwsEksKubernetesRuntimeDefinitionValues{
+				Name:           awsEksKubernetesRuntimeDefinitionObj.Name,
+				AwsAccountName: awsAccountName,
+			}
+		}
+
+		// get kubernetes runtime instance
+		if awsEksKubernetesRuntimeInstance.KubernetesRuntimeInstanceID != nil {
+			kubernetesRuntimeInstanceObj, err := client_v0.GetKubernetesRuntimeInstanceByID(
+				apiClient,
+				apiEndpoint,
+				*awsEksKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+			)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"failed to get Kubernetes runtime instance with ID %s: %w",
+					*awsEksKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+					err,
+				)
+			}
+			kubernetesRuntimeInstance = &KubernetesRuntimeInstanceValues{
+				Name: kubernetesRuntimeInstanceObj.Name,
 			}
 		}
 
@@ -95,6 +123,8 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Get(
 				Name:                              awsEksKubernetesRuntimeInstance.Name,
 				Region:                            awsEksKubernetesRuntimeInstance.Region,
 				AwsEksKubernetesRuntimeDefinition: awsEksKubernetesRuntimeDefinition,
+				KubernetesRuntimeInstance:         kubernetesRuntimeInstance,
+				Reconciled:                        awsEksKubernetesRuntimeInstance.Reconciled,
 				Age:                               util.Ptr(util.GetAgeFormatted(awsEksKubernetesRuntimeInstance.CreatedAt)),
 			},
 		}
@@ -175,6 +205,7 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Create(
 			Name:                              createdAwsEksKubernetesRuntimeInstance.Name,
 			Region:                            createdAwsEksKubernetesRuntimeInstance.Region,
 			AwsEksKubernetesRuntimeDefinition: a.AwsEksKubernetesRuntimeDefinition,
+			Reconciled:                        createdAwsEksKubernetesRuntimeInstance.Reconciled,
 		},
 	}
 
@@ -235,6 +266,7 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Replace(
 			Name:                              replacedAwsEksKubernetesRuntimeInstance.Name,
 			Region:                            replacedAwsEksKubernetesRuntimeInstance.Region,
 			AwsEksKubernetesRuntimeDefinition: a.AwsEksKubernetesRuntimeDefinition,
+			Reconciled:                        replacedAwsEksKubernetesRuntimeInstance.Reconciled,
 		},
 	}
 
@@ -333,8 +365,9 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Delete(
 	// construct deleted aws eks kubernetes runtime instance config
 	deletedAwsEksKubernetesRuntimeInstanceConfig := &AwsEksKubernetesRuntimeInstanceConfig{
 		AwsEksKubernetesRuntimeInstance: AwsEksKubernetesRuntimeInstanceValues{
-			Name:   deletedAwsEksKubernetesRuntimeInstance.Name,
-			Region: deletedAwsEksKubernetesRuntimeInstance.Region,
+			Name:       deletedAwsEksKubernetesRuntimeInstance.Name,
+			Region:     deletedAwsEksKubernetesRuntimeInstance.Region,
+			Reconciled: deletedAwsEksKubernetesRuntimeInstance.Reconciled,
 		},
 	}
 

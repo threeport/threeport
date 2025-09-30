@@ -25,13 +25,14 @@ type KubernetesRuntimeInstanceConfig struct {
 // KubernetesRuntimeInstanceValues contains all the attributes needed to manage
 // the KubernetesRuntimeInstance API object.
 type KubernetesRuntimeInstanceValues struct {
-	Name                        *string                            `yaml:"Name"`
-	ThreeportControlPlaneHost   *bool                              `yaml:"ThreeportControlPlaneHost"`
-	DefaultRuntime              *bool                              `yaml:"DefaultRuntime"`
-	Location                    *string                            `yaml:"Location"`
-	ThreeportAgentImage         *string                            `yaml:"ThreeportAgentImage"`
-	KubernetesRuntimeDefinition *KubernetesRuntimeDefinitionValues `yaml:"KubernetesRuntimeDefinition"`
-	Age                         *string                            `yaml:"Age"`
+	Name                        *string                            `json:"Name,omitempty" yaml:"Name,omitempty"`
+	ThreeportControlPlaneHost   *bool                              `json:"ThreeportControlPlaneHost,omitempty" yaml:"ThreeportControlPlaneHost,omitempty"`
+	DefaultRuntime              *bool                              `json:"DefaultRuntime,omitempty" yaml:"DefaultRuntime,omitempty"`
+	Location                    *string                            `json:"Location,omitempty" yaml:"Location,omitempty"`
+	ThreeportAgentImage         *string                            `json:"ThreeportAgentImage,omitempty" yaml:"ThreeportAgentImage,omitempty"`
+	KubernetesRuntimeDefinition *KubernetesRuntimeDefinitionValues `json:"KubernetesRuntimeDefinition,omitempty" yaml:"KubernetesRuntimeDefinition,omitempty"`
+	ForceDelete                 *bool                              `json:"ForceDelete,omitempty" yaml:"ForceDelete,omitempty"`
+	Age                         *string                            `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets kubernetes runtime instances from the Threeport API.
@@ -60,6 +61,7 @@ func (k *KubernetesRuntimeInstanceValues) Get(
 		kubernetesRuntimeInstances = allKubernetesRuntimeInstances
 	}
 
+	// assemble config objects from API objects
 	var kubernetesRuntimeInstanceConfigs []KubernetesRuntimeInstanceConfig
 	for _, kubernetesRuntimeInstance := range *kubernetesRuntimeInstances {
 		// related objects
@@ -83,6 +85,7 @@ func (k *KubernetesRuntimeInstanceValues) Get(
 				Location:                    kubernetesRuntimeInstance.Location,
 				ThreeportAgentImage:         kubernetesRuntimeInstance.ThreeportAgentImage,
 				KubernetesRuntimeDefinition: kubernetesRuntimeDefinition,
+				ForceDelete:                 kubernetesRuntimeInstance.ForceDelete,
 				Age:                         util.Ptr(util.GetAgeFormatted(kubernetesRuntimeInstance.CreatedAt)),
 			},
 		}
@@ -143,6 +146,7 @@ func (k *KubernetesRuntimeInstanceValues) Create(
 			Location:                  createdKubernetesRuntimeInstance.Location,
 			ThreeportAgentImage:       createdKubernetesRuntimeInstance.ThreeportAgentImage,
 			ThreeportControlPlaneHost: createdKubernetesRuntimeInstance.ThreeportControlPlaneHost,
+			ForceDelete:               createdKubernetesRuntimeInstance.ForceDelete,
 		},
 	}
 
@@ -217,6 +221,7 @@ func (k *KubernetesRuntimeInstanceValues) Replace(
 			Location:                  replacedKubernetesRuntimeInstance.Location,
 			ThreeportAgentImage:       replacedKubernetesRuntimeInstance.ThreeportAgentImage,
 			ThreeportControlPlaneHost: replacedKubernetesRuntimeInstance.ThreeportControlPlaneHost,
+			ForceDelete:               replacedKubernetesRuntimeInstance.ForceDelete,
 		},
 	}
 
@@ -264,6 +269,7 @@ func (k *KubernetesRuntimeInstanceValues) Delete(
 			Location:                  deletedKubernetesRuntimeInstance.Location,
 			ThreeportAgentImage:       deletedKubernetesRuntimeInstance.ThreeportAgentImage,
 			ThreeportControlPlaneHost: deletedKubernetesRuntimeInstance.ThreeportControlPlaneHost,
+			ForceDelete:               deletedKubernetesRuntimeInstance.ForceDelete,
 		},
 	}
 

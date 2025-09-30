@@ -25,11 +25,11 @@ type KubernetesRuntimeDefinitionConfig struct {
 // KubernetesRuntimeDefinitionValues contains all the attributes needed to manage
 // the KubernetesRuntimeDefinition API object.
 type KubernetesRuntimeDefinitionValues struct {
-	Name                     *string `yaml:"Name"`
-	InfraProvider            *string `yaml:"InfraProvider"`
-	InfraProviderAccountName *string `yaml:"InfraProviderAccountName"`
-	HighAvailability         *bool   `yaml:"HighAvailability"`
-	Age                      *string `yaml:"Age"`
+	Name                     *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	InfraProvider            *string `json:"InfraProvider,omitempty" yaml:"InfraProvider,omitempty"`
+	InfraProviderAccountName *string `json:"InfraProviderAccountName,omitempty" yaml:"InfraProviderAccountName,omitempty"`
+	HighAvailability         *bool   `json:"HighAvailability,omitempty" yaml:"HighAvailability,omitempty"`
+	Age                      *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets kubernetes runtime definitions from the Threeport API.
@@ -39,8 +39,8 @@ func (k *KubernetesRuntimeDefinitionValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]KubernetesRuntimeDefinitionConfig, error) {
-	var kubernetesRuntimeDefinitionConfigs []KubernetesRuntimeDefinitionConfig
-
+	// get API objects
+	var kubernetesRuntimeDefinitions *[]api_v0.KubernetesRuntimeDefinition
 	switch {
 	// if name is provided, get kubernetes runtime definition by name
 	case k.Name != nil:
@@ -48,34 +48,29 @@ func (k *KubernetesRuntimeDefinitionValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get kubernetes runtime definition with name %s: %w", *k.Name, err)
 		}
-		kubernetesRuntimeDefinitionConfig := KubernetesRuntimeDefinitionConfig{
-			KubernetesRuntimeDefinition: KubernetesRuntimeDefinitionValues{
-				Age:                      util.Ptr(util.GetAgeFormatted(kubernetesRuntimeDefinition.CreatedAt)),
-				Name:                     k.Name,
-				InfraProvider:            kubernetesRuntimeDefinition.InfraProvider,
-				InfraProviderAccountName: kubernetesRuntimeDefinition.InfraProviderAccountName,
-				HighAvailability:         kubernetesRuntimeDefinition.HighAvailability,
-			},
-		}
-		kubernetesRuntimeDefinitionConfigs = append(kubernetesRuntimeDefinitionConfigs, kubernetesRuntimeDefinitionConfig)
+		kubernetesRuntimeDefinitions = &[]api_v0.KubernetesRuntimeDefinition{*kubernetesRuntimeDefinition}
 	// get all kubernetes runtime definitions
 	default:
-		kubernetesRuntimeDefinitions, err := client_v0.GetKubernetesRuntimeDefinitions(apiClient, apiEndpoint)
+		allKubernetesRuntimeDefinitions, err := client_v0.GetKubernetesRuntimeDefinitions(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get kubernetes runtime definitions from Threeport API: %w", err)
 		}
-		for _, kubernetesRuntimeDefinition := range *kubernetesRuntimeDefinitions {
-			kubernetesRuntimeDefinitionConfig := KubernetesRuntimeDefinitionConfig{
-				KubernetesRuntimeDefinition: KubernetesRuntimeDefinitionValues{
-					Age:                      util.Ptr(util.GetAgeFormatted(kubernetesRuntimeDefinition.CreatedAt)),
-					Name:                     kubernetesRuntimeDefinition.Name,
-					InfraProvider:            kubernetesRuntimeDefinition.InfraProvider,
-					InfraProviderAccountName: kubernetesRuntimeDefinition.InfraProviderAccountName,
-					HighAvailability:         kubernetesRuntimeDefinition.HighAvailability,
-				},
-			}
-			kubernetesRuntimeDefinitionConfigs = append(kubernetesRuntimeDefinitionConfigs, kubernetesRuntimeDefinitionConfig)
+		kubernetesRuntimeDefinitions = allKubernetesRuntimeDefinitions
+	}
+
+	// assemble config objects from API objects
+	var kubernetesRuntimeDefinitionConfigs []KubernetesRuntimeDefinitionConfig
+	for _, kubernetesRuntimeDefinition := range *kubernetesRuntimeDefinitions {
+		kubernetesRuntimeDefinitionConfig := KubernetesRuntimeDefinitionConfig{
+			KubernetesRuntimeDefinition: KubernetesRuntimeDefinitionValues{
+				Name:                     kubernetesRuntimeDefinition.Name,
+				InfraProvider:            kubernetesRuntimeDefinition.InfraProvider,
+				InfraProviderAccountName: kubernetesRuntimeDefinition.InfraProviderAccountName,
+				HighAvailability:         kubernetesRuntimeDefinition.HighAvailability,
+				Age:                      util.Ptr(util.GetAgeFormatted(kubernetesRuntimeDefinition.CreatedAt)),
+			},
 		}
+		kubernetesRuntimeDefinitionConfigs = append(kubernetesRuntimeDefinitionConfigs, kubernetesRuntimeDefinitionConfig)
 	}
 
 	return &kubernetesRuntimeDefinitionConfigs, nil

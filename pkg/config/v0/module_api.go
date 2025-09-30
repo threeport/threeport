@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -21,9 +22,9 @@ type ModuleApiConfig struct {
 // ModuleApiValues contains all the attributes needed to manage
 // the ModuleApi API object.
 type ModuleApiValues struct {
-	Name *string `yaml:"Name"`
-	Core *bool   `yaml:"Core"`
-	Age  *string `yaml:"Age"`
+	Name *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Core *bool   `json:"Core,omitempty" yaml:"Core,omitempty"`
+	Age  *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets module apis from the Threeport API.
@@ -33,8 +34,8 @@ func (m *ModuleApiValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ModuleApiConfig, error) {
-	var moduleApiConfigs []ModuleApiConfig
-
+	// get API objects
+	var moduleApis *[]api_v0.ModuleApi
 	switch {
 	// if name is provided, get module api by name
 	case m.Name != nil:
@@ -42,30 +43,27 @@ func (m *ModuleApiValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get module api with name %s: %w", *m.Name, err)
 		}
-		moduleApiConfig := ModuleApiConfig{
-			ModuleApi: ModuleApiValues{
-				Age:  util.Ptr(util.GetAgeFormatted(moduleApi.CreatedAt)),
-				Name: m.Name,
-				Core: moduleApi.Core,
-			},
-		}
-		moduleApiConfigs = append(moduleApiConfigs, moduleApiConfig)
+		moduleApis = &[]api_v0.ModuleApi{*moduleApi}
 	// get all module apis
 	default:
-		moduleApis, err := client_v0.GetModuleApis(apiClient, apiEndpoint)
+		allModuleApis, err := client_v0.GetModuleApis(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get module apis from Threeport API: %w", err)
 		}
-		for _, moduleApi := range *moduleApis {
-			moduleApiConfig := ModuleApiConfig{
-				ModuleApi: ModuleApiValues{
-					Age:  util.Ptr(util.GetAgeFormatted(moduleApi.CreatedAt)),
-					Name: moduleApi.Name,
-					Core: moduleApi.Core,
-				},
-			}
-			moduleApiConfigs = append(moduleApiConfigs, moduleApiConfig)
+		moduleApis = allModuleApis
+	}
+
+	// assemble config objects from API objects
+	var moduleApiConfigs []ModuleApiConfig
+	for _, moduleApi := range *moduleApis {
+		moduleApiConfig := ModuleApiConfig{
+			ModuleApi: ModuleApiValues{
+				Name: moduleApi.Name,
+				Core: moduleApi.Core,
+				Age:  util.Ptr(util.GetAgeFormatted(moduleApi.CreatedAt)),
+			},
 		}
+		moduleApiConfigs = append(moduleApiConfigs, moduleApiConfig)
 	}
 
 	return &moduleApiConfigs, nil

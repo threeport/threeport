@@ -95,8 +95,8 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							defObject,
 							instObject,
 						),
-						Id("Name").Op("*").String().Tag(map[string]string{"yaml": "Name"}),
-						Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age"}),
+						Id("Name").Op("*").String().Tag(map[string]string{"yaml": "Name,omitempty", "json": "Name,omitempty"}),
+						Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age,omitempty", "json": "Age,omitempty"}),
 					)
 					f.Line()
 
@@ -711,13 +711,13 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					if apiObject.NameField {
 						f.Type().Id(valuesObjectName).Struct(
 							Comment(configFieldTodoComment),
-							Id("Name").Op("*").String().Tag(map[string]string{"yaml": "Name"}),
-							Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age"}),
+							Id("Name").Op("*").String().Tag(map[string]string{"yaml": "Name,omitempty", "json": "Name,omitempty"}),
+							Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age,omitempty", "json": "Age,omitempty"}),
 						)
 					} else {
 						f.Type().Id(valuesObjectName).Struct(
 							Comment(configFieldTodoComment),
-							Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age"}),
+							Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age,omitempty", "json": "Age,omitempty"}),
 						)
 					}
 					f.Line()
@@ -748,10 +748,13 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Op("*").Index().Id(configObjectName),
 						Error(),
 					).BlockFunc(func(g *Group) {
-						g.Add(Var().Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))).Index().Id(configObjectName))
-						g.Line()
-
+						// Generate first phase: get API objects
+						g.Comment("get API objects")
 						if apiObject.NameField {
+							g.Var().Id(fmt.Sprintf("%ss", strcase.ToLowerCamel(apiObject.TypeName))).Op("*").Index().Qual(
+								apiImportPath,
+								apiObject.TypeName,
+							)
 							g.Switch().Block(
 								Comment(fmt.Sprintf("if name is provided, get %s by name", objectHuman)),
 								Case(Id(methodVar).Dot("Name").Op("!=").Nil()).Block(
@@ -770,29 +773,14 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											Id("err"),
 										)),
 									),
-									Comment(configFieldTodoComment),
-									Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))).Op(":=").Id(configObjectName).Values(
-										Dict{
-											Line().Id(apiObject.TypeName): Id(valuesObjectName).Values(
-												Dict{
-													Id("Name"): Id(methodVar).Dot("Name"),
-													Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
-														Qual("github.com/threeport/threeport/pkg/util/v0", "GetAgeFormatted").Call(
-															Id(objectVar).Dot("CreatedAt"),
-														),
-													),
-												},
-											).Op(",").Line(),
-										},
-									),
-									Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))).Op("=").Id("append").Call(
-										Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))),
-										Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))),
-									),
+									Id(fmt.Sprintf("%ss", strcase.ToLowerCamel(apiObject.TypeName))).Op("=").Op("&").Index().Qual(
+										apiImportPath,
+										apiObject.TypeName,
+									).Values(Op("*").Id(objectVar)),
 								),
 								Comment(fmt.Sprintf("get all %ss", objectHuman)),
 								Default().Block(
-									List(Id(fmt.Sprintf("%ss", strcase.ToLowerCamel(apiObject.TypeName))), Id("err")).Op(":=").Qual(
+									List(Id(fmt.Sprintf("all%ss", apiObject.TypeName)), Id("err")).Op(":=").Qual(
 										clientImportPath,
 										fmt.Sprintf("Get%ss", apiObject.TypeName),
 									).Call(
@@ -805,29 +793,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											Id("err"),
 										)),
 									),
-									For(List(Op("_"), Id(objectVar)).Op(":=").Range().Op("*").Id(
-										fmt.Sprintf("%ss", strcase.ToLowerCamel(apiObject.TypeName)),
-									)).Block(
-										Comment(configFieldTodoComment),
-										Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))).Op(":=").Id(configObjectName).Values(
-											Dict{
-												Line().Id(apiObject.TypeName): Id(valuesObjectName).Values(
-													Dict{
-														Id("Name"): Id(objectVar).Dot("Name"),
-														Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
-															Qual("github.com/threeport/threeport/pkg/util/v0", "GetAgeFormatted").Call(
-																Id(objectVar).Dot("CreatedAt"),
-															),
-														),
-													},
-												).Op(",").Line(),
-											},
-										),
-										Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))).Op("=").Id("append").Call(
-											Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))),
-											Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))),
-										),
-									),
+									Id(fmt.Sprintf("%ss", strcase.ToLowerCamel(apiObject.TypeName))).Op("=").Id(fmt.Sprintf("all%ss", apiObject.TypeName)),
 								),
 							)
 						} else {
@@ -845,12 +811,32 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Id("err"),
 								)),
 							)
-							g.For(List(Op("_"), Id(objectVar)).Op(":=").Range().Op("*").Id(
-								fmt.Sprintf("%ss", strcase.ToLowerCamel(apiObject.TypeName)),
-							)).Block(
-								Comment(configFieldTodoComment),
-								Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))).Op(":=").Id(configObjectName).Values(
-									Dict{
+						}
+						g.Line()
+
+						// Generate second phase: assemble config objects from API objects
+						g.Comment("assemble config objects from API objects")
+						g.Var().Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))).Index().Id(configObjectName)
+						g.For(List(Op("_"), Id(objectVar)).Op(":=").Range().Op("*").Id(
+							fmt.Sprintf("%ss", strcase.ToLowerCamel(apiObject.TypeName)),
+						)).Block(
+							Comment(configFieldTodoComment),
+							Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))).Op(":=").Id(configObjectName).ValuesFunc(func(h *Group) {
+								if apiObject.NameField {
+									h.Add(Dict{
+										Line().Id(apiObject.TypeName): Id(valuesObjectName).Values(
+											Dict{
+												Id("Name"): Id(objectVar).Dot("Name"),
+												Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+													Qual("github.com/threeport/threeport/pkg/util/v0", "GetAgeFormatted").Call(
+														Id(objectVar).Dot("CreatedAt"),
+													),
+												),
+											},
+										).Op(",").Line(),
+									})
+								} else {
+									h.Add(Dict{
 										Line().Id(apiObject.TypeName): Id(valuesObjectName).Values(
 											Dict{
 												Line().Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
@@ -860,14 +846,14 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 												),
 											},
 										).Op(",").Line(),
-									},
-								),
-								Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))).Op("=").Id("append").Call(
-									Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))),
-									Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))),
-								),
-							)
-						}
+									})
+								}
+							}),
+							Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))).Op("=").Id("append").Call(
+								Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))),
+								Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))),
+							),
+						)
 						g.Line()
 
 						g.Return(Op("&").Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))), Nil())

@@ -229,6 +229,11 @@ type UnversionedApiObject struct {
 	// in the SDK config.
 	DefinedInstanceTptctlConfigPath bool
 
+	// Only applied to definition objects - if true, there is a corresponding
+	// instance object.  A defined instance abstraction will be generated.
+	// Ref: https://threeport.io/concepts/definitions-instances/#defined-instance-abstractions
+	DefinedInstanceDefinition bool
+
 	// Only applied to instance objects - if true, there is a corresponding
 	// definition object.  A defined instance abstraction will be generated.
 	// Ref: https://threeport.io/concepts/definitions-instances/#defined-instance-abstractions
@@ -723,7 +728,7 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 		g.ApiObjectGroups = append(g.ApiObjectGroups, genApiObjectGroup)
 	}
 
-	// add unversioned API objects with from API objects with all versions
+	// add `ApiObjects` to `UnversionedApiObjects` with all versions
 	// listed for each.  This is used in tptctl command generation where we need
 	// each unique API object with all its versions listed together.
 	for i, objGroup := range g.ApiObjectGroups {
@@ -746,6 +751,7 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 					TptctlCommands:                  obj.TptctlCommands,
 					TptctlConfigPath:                obj.TptctlConfigPath,
 					DefinedInstanceInstance:         obj.DefinedInstanceInstance,
+					DefinedInstanceDefinition:       obj.DefinedInstanceDefinition,
 					DefinedInstanceTptctlConfigPath: obj.DefinedInstanceTptctlConfigPath,
 				}
 				unversionedObjects = append(

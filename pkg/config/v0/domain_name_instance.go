@@ -25,11 +25,11 @@ type DomainNameInstanceConfig struct {
 // DomainNameInstanceValues contains all the attributes needed to manage
 // the DomainNameInstance API object.
 type DomainNameInstanceValues struct {
-	Name                      *string                          `yaml:"Name"`
-	DomainNameDefinition      *DomainNameDefinitionValues      `yaml:"DomainNameDefinition"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
-	Age                       *string                          `yaml:"Age"`
+	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
+	DomainNameDefinition      *DomainNameDefinitionValues      `json:"DomainNameDefinition,omitempty" yaml:"DomainNameDefinition,omitempty"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	WorkloadInstance          *WorkloadInstanceValues          `json:"WorkloadInstance,omitempty" yaml:"WorkloadInstance,omitempty"`
+	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets domain name instances from the Threeport API.
@@ -58,6 +58,7 @@ func (d *DomainNameInstanceValues) Get(
 		domainNameInstances = allDomainNameInstances
 	}
 
+	// assemble config objects from API objects
 	var domainNameInstanceConfigs []DomainNameInstanceConfig
 	for _, domainNameInstance := range *domainNameInstances {
 		// related objects

@@ -21,12 +21,13 @@ type TerraformConfig struct {
 // TerraformDefinition and TerraformInstance API objects
 // together with a single operation.
 type TerraformValues struct {
-	Name                *string           `yaml:"Name"`
-	ConfigDir           *string           `yaml:"ConfigDir"`
-	AwsAccount          *AwsAccountValues `yaml:"AwsAccount"`
-	VarsDocument        *string           `yaml:"VarsDocument"`
-	TerraformConfigPath *string           `yaml:"TerraformConfigPath"`
-	Age                 *string           `yaml:"Age"`
+	Name                *string           `json:"Name,omitempty" yaml:"Name,omitempty"`
+	ConfigDir           *string           `json:"ConfigDir,omitempty" yaml:"ConfigDir,omitempty"`
+	AwsAccount          *AwsAccountValues `json:"AwsAccount,omitempty" yaml:"AwsAccount,omitempty"`
+	VarsDocument        *string           `json:"VarsDocument,omitempty" yaml:"VarsDocument,omitempty"`
+	TerraformConfigPath *string           `json:"TerraformConfigPath,omitempty" yaml:"TerraformConfigPath,omitempty"`
+	Status              *string           `json:"Status,omitempty" yaml:"Status,omitempty"`
+	Age                 *string           `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets a terraform definition and instance from the Threeport API.
@@ -257,6 +258,7 @@ func mapToTerraformDefinedInstances(
 						AwsAccount:          inst.TerraformInstance.AwsAccount,
 						VarsDocument:        inst.TerraformInstance.VarsDocument,
 						TerraformConfigPath: inst.TerraformInstance.TerraformConfigPath,
+						Status:              inst.TerraformInstance.Status,
 						Age:                 inst.TerraformInstance.Age,
 					},
 				}

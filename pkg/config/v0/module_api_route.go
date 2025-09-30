@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -21,54 +22,61 @@ type ModuleApiRouteConfig struct {
 // ModuleApiRouteValues contains all the attributes needed to manage
 // the ModuleApiRoute API object.
 type ModuleApiRouteValues struct {
-	Path *string `yaml:"Path"`
-	Age  *string `yaml:"Age"`
+	Path      *string          `json:"Path,omitempty" yaml:"Path,omitempty"`
+	ModuleApi *ModuleApiValues `json:"ModuleApi,omitempty" yaml:"ModuleApi,omitempty"`
+	Age       *string          `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets module api routes from the Threeport API.
-// If the path is set in the ModuleApiRouteValues, it will return the module api route with that path.
-// If the path is not set, it will return all module api routes.
 func (m *ModuleApiRouteValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ModuleApiRouteConfig, error) {
-	var moduleApiRouteConfigs []ModuleApiRouteConfig
-
+	// get API objects
+	var moduleApiRoutes *[]api_v0.ModuleApiRoute
 	switch {
-	// if path is provided, get module api route by path
+	// if name is provided, get module api route by name
 	case m.Path != nil:
-		moduleApiRoute, err := client_v0.GetModuleApiRouteByName(apiClient, apiEndpoint, *m.Path)
+		queryString := fmt.Sprintf("path=%s", *m.Path)
+		moduleApiRoutesByName, err := client_v0.GetModuleApiRoutesByQueryString(apiClient, apiEndpoint, queryString)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get module api route with path %s: %w", *m.Path, err)
 		}
-		moduleApiRouteConfig := ModuleApiRouteConfig{
-			ModuleApiRoute: ModuleApiRouteValues{
-				Age:  util.Ptr(util.GetAgeFormatted(moduleApiRoute.CreatedAt)),
-				Path: moduleApiRoute.Path,
-			},
-		}
-		moduleApiRouteConfigs = append(moduleApiRouteConfigs, moduleApiRouteConfig)
+		moduleApiRoutes = moduleApiRoutesByName
 	// get all module api routes
 	default:
-		moduleApiRoutes, err := client_v0.GetModuleApiRoutes(apiClient, apiEndpoint)
+		allModuleApiRoutes, err := client_v0.GetModuleApiRoutes(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get module api routes from Threeport API: %w", err)
 		}
-		for _, moduleApiRoute := range *moduleApiRoutes {
-			moduleApiRouteConfig := ModuleApiRouteConfig{
-				ModuleApiRoute: ModuleApiRouteValues{
-					Age:  util.Ptr(util.GetAgeFormatted(moduleApiRoute.CreatedAt)),
-					Path: moduleApiRoute.Path,
-				},
-			}
-			moduleApiRouteConfigs = append(moduleApiRouteConfigs, moduleApiRouteConfig)
+		moduleApiRoutes = allModuleApiRoutes
+	}
+
+	// assemble config objects from API objects
+	var moduleApiRouteConfigs []ModuleApiRouteConfig
+	for _, moduleApiRoute := range *moduleApiRoutes {
+		// related object
+		moduleApi, err := client_v0.GetModuleApiByID(apiClient, apiEndpoint, *moduleApiRoute.ModuleApiID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get module api with id %d: %w", *moduleApiRoute.ModuleApiID, err)
 		}
+
+		moduleApiRouteConfig := ModuleApiRouteConfig{
+			ModuleApiRoute: ModuleApiRouteValues{
+				Path: moduleApiRoute.Path,
+				ModuleApi: &ModuleApiValues{
+					Name: moduleApi.Name,
+				},
+				Age: util.Ptr(util.GetAgeFormatted(moduleApiRoute.CreatedAt)),
+			},
+		}
+		moduleApiRouteConfigs = append(moduleApiRouteConfigs, moduleApiRouteConfig)
 	}
 
 	return &moduleApiRouteConfigs, nil
 }
 
-// The Threeport end user should never need to create, replace or delete module api routes.
+// The Threeport end user should never need to create, replace or delete module apis.
 // This is done by the modules themselves when they spin up and are registered with the
 // Threeport API.
 
@@ -83,9 +91,8 @@ func (m *ModuleApiRouteValues) Get(
 //	}
 //
 //	// construct module api route object
-//	moduleApiRoute := api_v0.ModuleApiRoute{
-//		Path: m.Path,
-//	}
+//	// TODO: add API object fields as needed for ModuleApiRoute
+//	moduleApiRoute := api_v0.ModuleApiRoute{}
 //
 //	// create module api route
 //	createdModuleApiRoute, err := client_v0.CreateModuleApiRoute(
@@ -98,10 +105,10 @@ func (m *ModuleApiRouteValues) Get(
 //	}
 //
 //	// construct module api route config
+//	// TODO: add config abstraction fields needed for user to manage a ModuleApiRoute
 //	createdModuleApiRouteConfig := &ModuleApiRouteConfig{
 //		ModuleApiRoute: ModuleApiRouteValues{
-//			Age:  util.Ptr(util.GetAgeFormatted(createdModuleApiRoute.CreatedAt)),
-//			Path: createdModuleApiRoute.Path,
+//			Age: util.Ptr(util.GetAgeFormatted(createdModuleApiRoute.CreatedAt)),
 //		},
 //	}
 //
@@ -121,22 +128,23 @@ func (m *ModuleApiRouteValues) Get(
 //		return nil, fmt.Errorf("invalid module api route config: %w", err)
 //	}
 //
-//	// get existing module api route by path
-//	existingModuleApiRoute, err := client_v0.GetModuleApiRouteByName(
+//	// get existing module api route
+//	existingModuleApiRoutes, err := client_v0.GetModuleApiRoutesByQueryString(
 //		apiClient,
 //		apiEndpoint,
-//		name,
+//		fmt.Sprintf("name=%s", name), // TODO: replace name with another parameter that can uniquely identify a module api route,
 //	)
 //	if err != nil {
-//		return nil, fmt.Errorf("failed to find module api route with path %s: %w", name, err)
+//		return nil, fmt.Errorf("failed to find module api route with name %s: %w", name, err)
 //	}
+//	// TODO: add check for zero or multiple module api routes found
 //
 //	// construct updated module api route object
+//	// TODO: add API object fields as needed for ModuleApiRoute
 //	updatedModuleApiRoute := &api_v0.ModuleApiRoute{
 //		Common: api_v0.Common{
-//			ID: existingModuleApiRoute.ID,
+//			ID: (*existingModuleApiRoutes)[0].ID,
 //		},
-//		Path: m.Path,
 //	}
 //
 //	// replace module api route
@@ -150,10 +158,10 @@ func (m *ModuleApiRouteValues) Get(
 //	}
 //
 //	// construct updated module api route config
+//	// TODO: add config abstraction fields needed for user to manage a ModuleApiRoute
 //	updatedModuleApiRouteConfig := &ModuleApiRouteConfig{
 //		ModuleApiRoute: ModuleApiRouteValues{
-//			Age:  util.Ptr(util.GetAgeFormatted(replacedModuleApiRoute.CreatedAt)),
-//			Path: replacedModuleApiRoute.Path,
+//			Age: util.Ptr(util.GetAgeFormatted(replacedModuleApiRoute.CreatedAt)),
 //		},
 //	}
 //
@@ -165,31 +173,31 @@ func (m *ModuleApiRouteValues) Get(
 //	apiClient *http.Client,
 //	apiEndpoint string,
 //) (*ModuleApiRouteConfig, error) {
-//	// get module api route by path
-//	moduleApiRoute, err := client_v0.GetModuleApiRouteByName(
+//	// get module api route
+//	moduleApiRoute, err := client_v0.GetModuleApiRoutesByQueryString(
 //		apiClient,
 //		apiEndpoint,
-//		*m.Path,
+//		fmt.Sprintf("name=%s", "value"), // TODO: replace name with another parameter that can uniquely identify a module api route,
 //	)
 //	if err != nil {
-//		return nil, fmt.Errorf("failed to find module api route with path %s: %w", *m.Path, err)
+//		return nil, fmt.Errorf("failed to find module api route: %w", err)
 //	}
+//	// TODO: add check for zero or multiple module api routes found
 //
 //	// delete module api route
-//	deletedModuleApiRoute, err := client_v0.DeleteModuleApiRoute(
+//	_, err = client_v0.DeleteModuleApiRoute(
 //		apiClient,
 //		apiEndpoint,
-//		*moduleApiRoute.ID,
+//		*(*moduleApiRoute)[0].ID,
 //	)
 //	if err != nil {
 //		return nil, fmt.Errorf("failed to delete module api route from Threeport API: %w", err)
 //	}
 //
 //	// construct deleted module api route config
+//	// TODO: add config abstraction fields needed for user to manage a ModuleApiRoute
 //	deletedModuleApiRouteConfig := &ModuleApiRouteConfig{
-//		ModuleApiRoute: ModuleApiRouteValues{
-//			Path: deletedModuleApiRoute.Path,
-//		},
+//		ModuleApiRoute: ModuleApiRouteValues{},
 //	}
 //
 //	return deletedModuleApiRouteConfig, nil
@@ -199,10 +207,7 @@ func (m *ModuleApiRouteValues) Get(
 //func (m *ModuleApiRouteValues) Validate() error {
 //	multiError := util.MultiError{}
 //
-//	// ensure path is set
-//	if m.Path == nil {
-//		multiError.AppendError(errors.New("missing required field in config: Path"))
-//	}
+//	// TODO: add additional validation as needed
 //
 //	return multiError.Error()
 //}

@@ -26,10 +26,10 @@ type WorkloadDefinitionConfig struct {
 // WorkloadDefinitionValues contains all the attributes needed to manage
 // the WorkloadDefinition API object.
 type WorkloadDefinitionValues struct {
-	Name               *string `yaml:"Name"`
-	YAMLDocument       *string `yaml:"YAMLDocument"`
-	WorkloadConfigPath *string `yaml:"WorkloadConfigPath"`
-	Age                *string `yaml:"Age"`
+	Name               *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	YAMLDocument       *string `json:"YAMLDocument,omitempty" yaml:"YAMLDocument,omitempty"`
+	WorkloadConfigPath *string `json:"WorkloadConfigPath,omitempty" yaml:"WorkloadConfigPath,omitempty"`
+	Age                *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets workload definitions from the Threeport API.
@@ -39,8 +39,8 @@ func (w *WorkloadDefinitionValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]WorkloadDefinitionConfig, error) {
-	var workloadDefinitionConfigs []WorkloadDefinitionConfig
-
+	// get API objects
+	var workloadDefinitions *[]api_v0.WorkloadDefinition
 	switch {
 	// if name is provided, get workload definition by name
 	case w.Name != nil:
@@ -48,28 +48,27 @@ func (w *WorkloadDefinitionValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workload definition with name %s: %w", *w.Name, err)
 		}
-		workloadDefinitionConfig := WorkloadDefinitionConfig{
-			WorkloadDefinition: WorkloadDefinitionValues{
-				Name: workloadDefinition.Name,
-				Age:  util.Ptr(util.GetAgeFormatted(workloadDefinition.CreatedAt)),
-			},
-		}
-		workloadDefinitionConfigs = append(workloadDefinitionConfigs, workloadDefinitionConfig)
+		workloadDefinitions = &[]api_v0.WorkloadDefinition{*workloadDefinition}
 	// get all workload definitions
 	default:
-		workloadDefinitions, err := client_v0.GetWorkloadDefinitions(apiClient, apiEndpoint)
+		allWorkloadDefinitions, err := client_v0.GetWorkloadDefinitions(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workload definitions from Threeport API: %w", err)
 		}
-		for _, workloadDefinition := range *workloadDefinitions {
-			workloadDefinitionConfig := WorkloadDefinitionConfig{
-				WorkloadDefinition: WorkloadDefinitionValues{
-					Name: workloadDefinition.Name,
-					Age:  util.Ptr(util.GetAgeFormatted(workloadDefinition.CreatedAt)),
-				},
-			}
-			workloadDefinitionConfigs = append(workloadDefinitionConfigs, workloadDefinitionConfig)
+		workloadDefinitions = allWorkloadDefinitions
+	}
+
+	// assemble config objects from API objects
+	var workloadDefinitionConfigs []WorkloadDefinitionConfig
+	for _, workloadDefinition := range *workloadDefinitions {
+		workloadDefinitionConfig := WorkloadDefinitionConfig{
+			WorkloadDefinition: WorkloadDefinitionValues{
+				Name:         workloadDefinition.Name,
+				YAMLDocument: workloadDefinition.YAMLDocument,
+				Age:          util.Ptr(util.GetAgeFormatted(workloadDefinition.CreatedAt)),
+			},
 		}
+		workloadDefinitionConfigs = append(workloadDefinitionConfigs, workloadDefinitionConfig)
 	}
 
 	return &workloadDefinitionConfigs, nil

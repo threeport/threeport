@@ -23,14 +23,14 @@ type HelmWorkloadDefinitionConfig struct {
 // HelmWorkloadDefinitionValues contains all the attributes needed to manage
 // the HelmWorkloadDefinition API object.
 type HelmWorkloadDefinitionValues struct {
-	Name                   *string `yaml:"Name"`
-	Repo                   *string `yaml:"Repo"`
-	Chart                  *string `yaml:"Chart"`
-	ChartVersion           *string `yaml:"ChartVersion"`
-	Values                 *string `yaml:"Values"`
-	ValuesDocument         *string `yaml:"ValuesDocument"`
-	HelmWorkloadConfigPath *string `yaml:"HelmWorkloadConfigPath"`
-	Age                    *string `yaml:"Age"`
+	Name                   *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Repo                   *string `json:"Repo,omitempty" yaml:"Repo,omitempty"`
+	Chart                  *string `json:"Chart,omitempty" yaml:"Chart,omitempty"`
+	ChartVersion           *string `json:"ChartVersion,omitempty" yaml:"ChartVersion,omitempty"`
+	Values                 *string `json:"Values,omitempty" yaml:"Values,omitempty"`
+	ValuesDocument         *string `json:"ValuesDocument,omitempty" yaml:"ValuesDocument,omitempty"`
+	HelmWorkloadConfigPath *string `json:"HelmWorkloadConfigPath,omitempty" yaml:"HelmWorkloadConfigPath,omitempty"`
+	Age                    *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets helm workload definitions from the Threeport API.
@@ -40,8 +40,8 @@ func (h *HelmWorkloadDefinitionValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]HelmWorkloadDefinitionConfig, error) {
-	var helmWorkloadDefinitionConfigs []HelmWorkloadDefinitionConfig
-
+	// get API objects
+	var helmWorkloadDefinitions *[]api_v0.HelmWorkloadDefinition
 	switch {
 	// if name is provided, get helm workload definition by name
 	case h.Name != nil:
@@ -49,36 +49,30 @@ func (h *HelmWorkloadDefinitionValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get helm workload definition with name %s: %w", *h.Name, err)
 		}
-		helmWorkloadDefinitionConfig := HelmWorkloadDefinitionConfig{
-			HelmWorkloadDefinition: HelmWorkloadDefinitionValues{
-				Age:          util.Ptr(util.GetAgeFormatted(helmWorkloadDefinition.CreatedAt)),
-				Name:         h.Name,
-				Repo:         helmWorkloadDefinition.Repo,
-				Chart:        helmWorkloadDefinition.Chart,
-				ChartVersion: helmWorkloadDefinition.ChartVersion,
-				Values:       helmWorkloadDefinition.ValuesDocument,
-			},
-		}
-		helmWorkloadDefinitionConfigs = append(helmWorkloadDefinitionConfigs, helmWorkloadDefinitionConfig)
+		helmWorkloadDefinitions = &[]api_v0.HelmWorkloadDefinition{*helmWorkloadDefinition}
 	// get all helm workload definitions
 	default:
-		helmWorkloadDefinitions, err := client_v0.GetHelmWorkloadDefinitions(apiClient, apiEndpoint)
+		allHelmWorkloadDefinitions, err := client_v0.GetHelmWorkloadDefinitions(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get helm workload definitions from Threeport API: %w", err)
 		}
-		for _, helmWorkloadDefinition := range *helmWorkloadDefinitions {
-			helmWorkloadDefinitionConfig := HelmWorkloadDefinitionConfig{
-				HelmWorkloadDefinition: HelmWorkloadDefinitionValues{
-					Age:          util.Ptr(util.GetAgeFormatted(helmWorkloadDefinition.CreatedAt)),
-					Name:         helmWorkloadDefinition.Name,
-					Repo:         helmWorkloadDefinition.Repo,
-					Chart:        helmWorkloadDefinition.Chart,
-					ChartVersion: helmWorkloadDefinition.ChartVersion,
-					Values:       helmWorkloadDefinition.ValuesDocument,
-				},
-			}
-			helmWorkloadDefinitionConfigs = append(helmWorkloadDefinitionConfigs, helmWorkloadDefinitionConfig)
+		helmWorkloadDefinitions = allHelmWorkloadDefinitions
+	}
+
+	// assemble config objects from API objects
+	var helmWorkloadDefinitionConfigs []HelmWorkloadDefinitionConfig
+	for _, helmWorkloadDefinition := range *helmWorkloadDefinitions {
+		helmWorkloadDefinitionConfig := HelmWorkloadDefinitionConfig{
+			HelmWorkloadDefinition: HelmWorkloadDefinitionValues{
+				Name:           helmWorkloadDefinition.Name,
+				Repo:           helmWorkloadDefinition.Repo,
+				Chart:          helmWorkloadDefinition.Chart,
+				ChartVersion:   helmWorkloadDefinition.ChartVersion,
+				ValuesDocument: helmWorkloadDefinition.ValuesDocument,
+				Age:            util.Ptr(util.GetAgeFormatted(helmWorkloadDefinition.CreatedAt)),
+			},
 		}
+		helmWorkloadDefinitionConfigs = append(helmWorkloadDefinitionConfigs, helmWorkloadDefinitionConfig)
 	}
 
 	return &helmWorkloadDefinitionConfigs, nil

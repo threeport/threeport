@@ -23,29 +23,29 @@ type GatewayDefinitionConfig struct {
 // GatewayDefinitionValues contains all the attributes needed to manage
 // the GatewayDefinition API object.
 type GatewayDefinitionValues struct {
-	Name                 *string                     `yaml:"Name"`
-	HttpPorts            *[]GatewayHttpPortValues    `yaml:"HttpPorts"`
-	TcpPorts             *[]GatewayTcpPortValues     `yaml:"TcpPorts"`
-	ServiceName          *string                     `yaml:"ServiceName"`
-	SubDomain            *string                     `yaml:"SubDomain"`
-	DomainNameDefinition *DomainNameDefinitionValues `yaml:"DomainNameDefinition"`
-	Age                  *string                     `yaml:"Age"`
+	Name                 *string                     `json:"Name,omitempty" yaml:"Name,omitempty"`
+	HttpPorts            *[]GatewayHttpPortValues    `json:"HttpPorts,omitempty" yaml:"HttpPorts,omitempty"`
+	TcpPorts             *[]GatewayTcpPortValues     `json:"TcpPorts,omitempty" yaml:"TcpPorts,omitempty"`
+	ServiceName          *string                     `json:"ServiceName,omitempty" yaml:"ServiceName,omitempty"`
+	SubDomain            *string                     `json:"SubDomain,omitempty" yaml:"SubDomain,omitempty"`
+	DomainNameDefinition *DomainNameDefinitionValues `json:"DomainNameDefinition,omitempty" yaml:"DomainNameDefinition,omitempty"`
+	Age                  *string                     `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // GatewayHttpPortValues contains the attributes needed to manage a gateway
 // http port.
 type GatewayHttpPortValues struct {
-	Port          *int    `yaml:"Port"`
-	Path          *string `yaml:"Path"`
-	TLSEnabled    *bool   `yaml:"TLSEnabled"`
-	HTTPSRedirect *bool   `yaml:"HTTPSRedirect"`
+	Port          *int    `json:"Port,omitempty" yaml:"Port,omitempty"`
+	Path          *string `json:"Path,omitempty" yaml:"Path,omitempty"`
+	TLSEnabled    *bool   `json:"TLSEnabled,omitempty" yaml:"TLSEnabled,omitempty"`
+	HTTPSRedirect *bool   `json:"HTTPSRedirect,omitempty" yaml:"HTTPSRedirect,omitempty"`
 }
 
 // GatewayTcpPortValues contains the attributes needed to manage a gateway
 // tcp port.
 type GatewayTcpPortValues struct {
-	Port       *int  `yaml:"Port"`
-	TLSEnabled *bool `yaml:"TLSEnabled"`
+	Port       *int  `json:"Port,omitempty" yaml:"Port,omitempty"`
+	TLSEnabled *bool `json:"TLSEnabled,omitempty" yaml:"TLSEnabled,omitempty"`
 }
 
 // Get gets gateway definitions from the Threeport API.
@@ -55,8 +55,8 @@ func (g *GatewayDefinitionValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]GatewayDefinitionConfig, error) {
-	var gatewayDefinitionConfigs []GatewayDefinitionConfig
-
+	// get API objects
+	var gatewayDefinitions *[]api_v0.GatewayDefinition
 	switch {
 	// if name is provided, get gateway definition by name
 	case g.Name != nil:
@@ -64,6 +64,19 @@ func (g *GatewayDefinitionValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get gateway definition with name %s: %w", *g.Name, err)
 		}
+		gatewayDefinitions = &[]api_v0.GatewayDefinition{*gatewayDefinition}
+	// get all gateway definitions
+	default:
+		allGatewayDefinitions, err := client_v0.GetGatewayDefinitions(apiClient, apiEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get gateway definitions from Threeport API: %w", err)
+		}
+		gatewayDefinitions = allGatewayDefinitions
+	}
+
+	// assemble config objects from API objects
+	var gatewayDefinitionConfigs []GatewayDefinitionConfig
+	for _, gatewayDefinition := range *gatewayDefinitions {
 		// convert API ports to config ports
 		var httpPorts *[]GatewayHttpPortValues
 		if gatewayDefinition.HttpPorts != nil {
@@ -93,61 +106,15 @@ func (g *GatewayDefinitionValues) Get(
 
 		gatewayDefinitionConfig := GatewayDefinitionConfig{
 			GatewayDefinition: GatewayDefinitionValues{
-				Age:         util.Ptr(util.GetAgeFormatted(gatewayDefinition.CreatedAt)),
-				Name:        g.Name,
+				Name:        gatewayDefinition.Name,
 				HttpPorts:   httpPorts,
 				TcpPorts:    tcpPorts,
 				ServiceName: gatewayDefinition.ServiceName,
 				SubDomain:   gatewayDefinition.SubDomain,
+				Age:         util.Ptr(util.GetAgeFormatted(gatewayDefinition.CreatedAt)),
 			},
 		}
 		gatewayDefinitionConfigs = append(gatewayDefinitionConfigs, gatewayDefinitionConfig)
-	// get all gateway definitions
-	default:
-		gatewayDefinitions, err := client_v0.GetGatewayDefinitions(apiClient, apiEndpoint)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get gateway definitions from Threeport API: %w", err)
-		}
-		for _, gatewayDefinition := range *gatewayDefinitions {
-			// convert API ports to config ports
-			var httpPorts *[]GatewayHttpPortValues
-			if gatewayDefinition.HttpPorts != nil {
-				ports := make([]GatewayHttpPortValues, len(gatewayDefinition.HttpPorts))
-				for i, port := range gatewayDefinition.HttpPorts {
-					ports[i] = GatewayHttpPortValues{
-						Port:          port.Port,
-						Path:          port.Path,
-						TLSEnabled:    port.TLSEnabled,
-						HTTPSRedirect: port.HTTPSRedirect,
-					}
-				}
-				httpPorts = &ports
-			}
-
-			var tcpPorts *[]GatewayTcpPortValues
-			if gatewayDefinition.TcpPorts != nil {
-				ports := make([]GatewayTcpPortValues, len(gatewayDefinition.TcpPorts))
-				for i, port := range gatewayDefinition.TcpPorts {
-					ports[i] = GatewayTcpPortValues{
-						Port:       port.Port,
-						TLSEnabled: port.TLSEnabled,
-					}
-				}
-				tcpPorts = &ports
-			}
-
-			gatewayDefinitionConfig := GatewayDefinitionConfig{
-				GatewayDefinition: GatewayDefinitionValues{
-					Age:         util.Ptr(util.GetAgeFormatted(gatewayDefinition.CreatedAt)),
-					Name:        gatewayDefinition.Name,
-					HttpPorts:   httpPorts,
-					TcpPorts:    tcpPorts,
-					ServiceName: gatewayDefinition.ServiceName,
-					SubDomain:   gatewayDefinition.SubDomain,
-				},
-			}
-			gatewayDefinitionConfigs = append(gatewayDefinitionConfigs, gatewayDefinitionConfig)
-		}
 	}
 
 	return &gatewayDefinitionConfigs, nil

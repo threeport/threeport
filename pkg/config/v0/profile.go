@@ -5,10 +5,11 @@ package v0
 import (
 	errors "errors"
 	"fmt"
+	"net/http"
+
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"net/http"
 )
 
 // ProfileConfig is a config abstraction for the Profile API object.
@@ -22,9 +23,8 @@ type ProfileConfig struct {
 // ProfileValues contains all the attributes needed to manage
 // the Profile API object.
 type ProfileValues struct {
-	// TODO: add config abstraction fields needed for user to manage a Profile
-	Name *string `yaml:"Name"`
-	Age  *string `yaml:"Age"`
+	Name *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Age  *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets profiles from the Threeport API.
@@ -34,8 +34,8 @@ func (p *ProfileValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ProfileConfig, error) {
-	var profileConfigs []ProfileConfig
-
+	// get API objects
+	var profiles *[]api_v0.Profile
 	switch {
 	// if name is provided, get profile by name
 	case p.Name != nil:
@@ -43,30 +43,26 @@ func (p *ProfileValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get profile with name %s: %w", *p.Name, err)
 		}
-		// TODO: add config abstraction fields needed for user to manage a Profile
-		profileConfig := ProfileConfig{
-			Profile: ProfileValues{
-				Age:  util.Ptr(util.GetAgeFormatted(profile.CreatedAt)),
-				Name: p.Name,
-			},
-		}
-		profileConfigs = append(profileConfigs, profileConfig)
+		profiles = &[]api_v0.Profile{*profile}
 	// get all profiles
 	default:
-		profiles, err := client_v0.GetProfiles(apiClient, apiEndpoint)
+		allProfiles, err := client_v0.GetProfiles(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get profiles from Threeport API: %w", err)
 		}
-		for _, profile := range *profiles {
-			// TODO: add config abstraction fields needed for user to manage a Profile
-			profileConfig := ProfileConfig{
-				Profile: ProfileValues{
-					Age:  util.Ptr(util.GetAgeFormatted(profile.CreatedAt)),
-					Name: profile.Name,
-				},
-			}
-			profileConfigs = append(profileConfigs, profileConfig)
+		profiles = allProfiles
+	}
+
+	// assemble config objects from API objects
+	var profileConfigs []ProfileConfig
+	for _, profile := range *profiles {
+		profileConfig := ProfileConfig{
+			Profile: ProfileValues{
+				Age:  util.Ptr(util.GetAgeFormatted(profile.CreatedAt)),
+				Name: profile.Name,
+			},
 		}
+		profileConfigs = append(profileConfigs, profileConfig)
 	}
 
 	return &profileConfigs, nil
@@ -83,7 +79,6 @@ func (p *ProfileValues) Create(
 	}
 
 	// construct profile object
-	// TODO: add API object fields as needed for Profile
 	profile := api_v0.Profile{
 		Name: p.Name,
 	}
@@ -99,7 +94,6 @@ func (p *ProfileValues) Create(
 	}
 
 	// construct profile config
-	// TODO: add config abstraction fields needed for user to manage a Profile
 	createdProfileConfig := &ProfileConfig{
 		Profile: ProfileValues{
 			Age:  util.Ptr(util.GetAgeFormatted(createdProfile.CreatedAt)),
@@ -135,7 +129,6 @@ func (p *ProfileValues) Replace(
 	}
 
 	// construct updated profile object
-	// TODO: add API object fields as needed for Profile
 	updatedProfile := &api_v0.Profile{
 		Common: api_v0.Common{
 			ID: existingProfile.ID,
@@ -154,7 +147,6 @@ func (p *ProfileValues) Replace(
 	}
 
 	// construct updated profile config
-	// TODO: add config abstraction fields needed for user to manage a Profile
 	updatedProfileConfig := &ProfileConfig{
 		Profile: ProfileValues{
 			Age:  util.Ptr(util.GetAgeFormatted(replacedProfile.CreatedAt)),
@@ -191,7 +183,6 @@ func (p *ProfileValues) Delete(
 	}
 
 	// construct deleted profile config
-	// TODO: add config abstraction fields needed for user to manage a Profile
 	deletedProfileConfig := &ProfileConfig{
 		Profile: ProfileValues{
 			Name: deletedProfile.Name,
@@ -209,8 +200,6 @@ func (p *ProfileValues) Validate() error {
 	if p.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
-
-	// TODO: add additional validation as needed
 
 	return multiError.Error()
 }

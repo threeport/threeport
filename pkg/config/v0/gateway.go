@@ -21,15 +21,15 @@ type GatewayConfig struct {
 // GatewayDefinition and GatewayInstance API objects
 // together with a single operation.
 type GatewayValues struct {
-	Name                      *string                          `yaml:"Name"`
-	HttpPorts                 *[]GatewayHttpPortValues         `yaml:"HttpPorts"`
-	TcpPorts                  *[]GatewayTcpPortValues          `yaml:"TcpPorts"`
-	ServiceName               *string                          `yaml:"ServiceName"`
-	SubDomain                 *string                          `yaml:"SubDomain"`
-	DomainNameDefinition      *DomainNameDefinitionValues      `yaml:"DomainNameDefinition"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	WorkloadInstance          *WorkloadInstanceValues          `yaml:"WorkloadInstance"`
-	Age                       *string                          `yaml:"Age"`
+	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
+	HttpPorts                 *[]GatewayHttpPortValues         `json:"HttpPorts,omitempty" yaml:"HttpPorts,omitempty"`
+	TcpPorts                  *[]GatewayTcpPortValues          `json:"TcpPorts,omitempty" yaml:"TcpPorts,omitempty"`
+	ServiceName               *string                          `json:"ServiceName,omitempty" yaml:"ServiceName,omitempty"`
+	SubDomain                 *string                          `json:"SubDomain,omitempty" yaml:"SubDomain,omitempty"`
+	DomainNameDefinition      *DomainNameDefinitionValues      `json:"DomainNameDefinition,omitempty" yaml:"DomainNameDefinition,omitempty"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	WorkloadInstance          *WorkloadInstanceValues          `json:"WorkloadInstance,omitempty" yaml:"WorkloadInstance,omitempty"`
+	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets a gateway definition and instance from the Threeport API.

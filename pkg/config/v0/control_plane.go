@@ -22,13 +22,14 @@ type ControlPlaneConfig struct {
 // ControlPlaneDefinition and ControlPlaneInstance API objects
 // together with a single operation.
 type ControlPlaneValues struct {
-	Name                      *string                          `yaml:"Name"`
-	Namespace                 *string                          `yaml:"Namespace"`
-	AuthEnabled               *bool                            `yaml:"AuthEnabled"`
-	OnboardParent             *bool                            `yaml:"OnboardParent"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
-	CustomComponentInfo       []*api_v0.ControlPlaneComponent  `yaml:"CustomComponentInfo"`
-	Age                       *string                          `yaml:"Age"`
+	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Namespace                 *string                          `json:"Namespace,omitempty" yaml:"Namespace,omitempty"`
+	AuthEnabled               *bool                            `json:"AuthEnabled,omitempty" yaml:"AuthEnabled,omitempty"`
+	OnboardParent             *bool                            `json:"OnboardParent,omitempty" yaml:"OnboardParent,omitempty"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	CustomComponentInfo       []*api_v0.ControlPlaneComponent  `json:"CustomComponentInfo,omitempty" yaml:"CustomComponentInfo,omitempty"`
+	Genesis                   *bool                            `json:"Genesis,omitempty" yaml:"Genesis,omitempty"`
+	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets a control plane definition and instance from the Threeport API.
@@ -264,6 +265,7 @@ func mapToControlPlaneDefinedInstances(
 						OnboardParent:             def.ControlPlaneDefinition.OnboardParent,
 						KubernetesRuntimeInstance: inst.ControlPlaneInstance.KubernetesRuntimeInstance,
 						CustomComponentInfo:       inst.ControlPlaneInstance.CustomComponentInfo,
+						Genesis:                   inst.ControlPlaneInstance.Genesis,
 						Age:                       inst.ControlPlaneInstance.Age,
 					},
 				}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -22,8 +23,12 @@ type ModuleObjectConfig struct {
 // the ModuleObject API object.
 type ModuleObjectValues struct {
 	// TODO: add config abstraction fields needed for user to manage a ModuleObject
-	Name *string `yaml:"Name"`
-	Age  *string `yaml:"Age"`
+	Name             *string                 `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Version          *string                 `json:"Version,omitempty" yaml:"Version,omitempty"`
+	Description      *string                 `json:"Description,omitempty" yaml:"Description,omitempty"`
+	ModuleController *ModuleControllerValues `json:"ModuleController,omitempty" yaml:"ModuleController,omitempty"`
+	ModuleApi        *ModuleApiValues        `json:"ModuleApi,omitempty" yaml:"ModuleApi,omitempty"`
+	Age              *string                 `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets module objects from the Threeport API.
@@ -33,8 +38,8 @@ func (m *ModuleObjectValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ModuleObjectConfig, error) {
-	var moduleObjectConfigs []ModuleObjectConfig
-
+	// get API objects
+	var moduleObjects *[]api_v0.ModuleObject
 	switch {
 	// if name is provided, get module object by name
 	case m.Name != nil:
@@ -42,28 +47,44 @@ func (m *ModuleObjectValues) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get module object with name %s: %w", *m.Name, err)
 		}
-		moduleObjectConfig := ModuleObjectConfig{
-			ModuleObject: ModuleObjectValues{
-				Age:  util.Ptr(util.GetAgeFormatted(moduleObject.CreatedAt)),
-				Name: m.Name,
-			},
-		}
-		moduleObjectConfigs = append(moduleObjectConfigs, moduleObjectConfig)
+		moduleObjects = &[]api_v0.ModuleObject{*moduleObject}
 	// get all module objects
 	default:
-		moduleObjects, err := client_v0.GetModuleObjects(apiClient, apiEndpoint)
+		allModuleObjects, err := client_v0.GetModuleObjects(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get module objects from Threeport API: %w", err)
 		}
-		for _, moduleObject := range *moduleObjects {
-			moduleObjectConfig := ModuleObjectConfig{
-				ModuleObject: ModuleObjectValues{
-					Age:  util.Ptr(util.GetAgeFormatted(moduleObject.CreatedAt)),
-					Name: moduleObject.Name,
-				},
-			}
-			moduleObjectConfigs = append(moduleObjectConfigs, moduleObjectConfig)
+		moduleObjects = allModuleObjects
+	}
+
+	// assemble config objects from API objects
+	var moduleObjectConfigs []ModuleObjectConfig
+	for _, moduleObject := range *moduleObjects {
+		// related objects
+		moduleApi, err := client_v0.GetModuleApiByID(apiClient, apiEndpoint, *moduleObject.ModuleApiID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get module api with id %d: %w", *moduleObject.ModuleApiID, err)
 		}
+		moduleController, err := client_v0.GetModuleControllerByID(apiClient, apiEndpoint, *moduleObject.ModuleControllerID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get module controller with id %d: %w", *moduleObject.ModuleControllerID, err)
+		}
+
+		moduleObjectConfig := ModuleObjectConfig{
+			ModuleObject: ModuleObjectValues{
+				Name:        moduleObject.Name,
+				Version:     moduleObject.Version,
+				Description: moduleObject.Description,
+				ModuleController: &ModuleControllerValues{
+					Name: moduleController.Name,
+				},
+				ModuleApi: &ModuleApiValues{
+					Name: moduleApi.Name,
+				},
+				Age: util.Ptr(util.GetAgeFormatted(moduleObject.CreatedAt)),
+			},
+		}
+		moduleObjectConfigs = append(moduleObjectConfigs, moduleObjectConfig)
 	}
 
 	return &moduleObjectConfigs, nil

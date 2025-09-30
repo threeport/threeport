@@ -23,21 +23,21 @@ type ObservabilityStackInstanceConfig struct {
 // ObservabilityStackInstanceValues contains all the attributes needed to manage
 // the ObservabilityStackInstance API object.
 type ObservabilityStackInstanceValues struct {
-	Name                                  *string                             `yaml:"Name"`
-	KubernetesRuntimeInstance             *KubernetesRuntimeInstanceValues    `yaml:"KubernetesRuntimeInstance"`
-	MetricsEnabled                        *bool                               `yaml:"MetricsEnabled"`
-	LoggingEnabled                        *bool                               `yaml:"LoggingEnabled"`
-	GrafanaHelmValues                     *string                             `yaml:"GrafanaHelmValues"`
-	GrafanaHelmValuesDocument             *string                             `yaml:"GrafanaHelmValuesDocument"`
-	LokiHelmValues                        *string                             `yaml:"LokiHelmValues"`
-	LokiHelmValuesDocument                *string                             `yaml:"LokiHelmValuesDocument"`
-	PromtailHelmValues                    *string                             `yaml:"PromtailHelmValues"`
-	PromtailHelmValuesDocument            *string                             `yaml:"PromtailHelmValuesDocument"`
-	KubePrometheusStackHelmValues         *string                             `yaml:"KubePrometheusStackHelmValues"`
-	KubePrometheusStackHelmValuesDocument *string                             `yaml:"KubePrometheusStackHelmValuesDocument"`
-	ObservabilityConfigPath               *string                             `yaml:"ObservabilityConfigPath"`
-	ObservabilityStackDefinition          *ObservabilityStackDefinitionValues `yaml:"ObservabilityStackDefinition"`
-	Age                                   *string                             `yaml:"Age"`
+	Name                                  *string                             `json:"Name,omitempty" yaml:"Name,omitempty"`
+	KubernetesRuntimeInstance             *KubernetesRuntimeInstanceValues    `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	MetricsEnabled                        *bool                               `json:"MetricsEnabled,omitempty" yaml:"MetricsEnabled,omitempty"`
+	LoggingEnabled                        *bool                               `json:"LoggingEnabled,omitempty" yaml:"LoggingEnabled,omitempty"`
+	GrafanaHelmValues                     *string                             `json:"GrafanaHelmValues,omitempty" yaml:"GrafanaHelmValues,omitempty"`
+	GrafanaHelmValuesDocument             *string                             `json:"GrafanaHelmValuesDocument,omitempty" yaml:"GrafanaHelmValuesDocument,omitempty"`
+	LokiHelmValues                        *string                             `json:"LokiHelmValues,omitempty" yaml:"LokiHelmValues,omitempty"`
+	LokiHelmValuesDocument                *string                             `json:"LokiHelmValuesDocument,omitempty" yaml:"LokiHelmValuesDocument,omitempty"`
+	PromtailHelmValues                    *string                             `json:"PromtailHelmValues,omitempty" yaml:"PromtailHelmValues,omitempty"`
+	PromtailHelmValuesDocument            *string                             `json:"PromtailHelmValuesDocument,omitempty" yaml:"PromtailHelmValuesDocument,omitempty"`
+	KubePrometheusStackHelmValues         *string                             `json:"KubePrometheusStackHelmValues,omitempty" yaml:"KubePrometheusStackHelmValues,omitempty"`
+	KubePrometheusStackHelmValuesDocument *string                             `json:"KubePrometheusStackHelmValuesDocument,omitempty" yaml:"KubePrometheusStackHelmValuesDocument,omitempty"`
+	ObservabilityConfigPath               *string                             `json:"ObservabilityConfigPath,omitempty" yaml:"ObservabilityConfigPath,omitempty"`
+	ObservabilityStackDefinition          *ObservabilityStackDefinitionValues `json:"ObservabilityStackDefinition,omitempty" yaml:"ObservabilityStackDefinition,omitempty"`
+	Age                                   *string                             `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets observability stack instances from the Threeport API.
@@ -66,6 +66,7 @@ func (o *ObservabilityStackInstanceValues) Get(
 		observabilityStackInstances = allObservabilityStackInstances
 	}
 
+	// assemble config objects from API objects
 	var observabilityStackInstanceConfigs []ObservabilityStackInstanceConfig
 	for _, observabilityStackInstance := range *observabilityStackInstances {
 		// related objects
