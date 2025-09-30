@@ -4,28 +4,29 @@ package cmd
 
 import (
 	"fmt"
-	api_v0 "github.com/threeport/threeport/pkg/api/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
-	"net/http"
 	"os"
 	"text/tabwriter"
+
+	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 )
 
-// outputGetOciOkeKubernetesRuntimesCmd produces the tabular output for the
-// 'tptctl get oci-oke-kubernetes-runtimes' command.
-func outputGetOciOkeKubernetesRuntimesCmd(
-	v0ociOkeKubernetesRuntimeInstances *[]api_v0.OciOkeKubernetesRuntimeInstance,
-	apiClient *http.Client,
-	apiEndpoint string,
+// outputGetv0OciAccountsCmd produces the tabular output for the
+// `get oci-accounts` command.
+func outputGetv0OciAccountsCmd(
+	ociAccounts *[]config_v0.OciAccountConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t AGE")
-	for _, ociOkeKubernetesRuntimeInstance := range *v0ociOkeKubernetesRuntimeInstances {
+	fmt.Fprintln(writer, "VERSION\t NAME\t USER OCID\t TENANCY OCID\t DEFAULT ACCOUNT\t DEFAULT REGION\t AGE")
+	for _, ociAccount := range *ociAccounts {
 		fmt.Fprintln(
 			writer,
 			"v0", "\t",
-			*ociOkeKubernetesRuntimeInstance.Name, "\t",
-			util.GetAge(ociOkeKubernetesRuntimeInstance.CreatedAt),
+			*ociAccount.OciAccount.Name, "\t",
+			*ociAccount.OciAccount.UserOCID, "\t",
+			*ociAccount.OciAccount.TenancyOCID, "\t",
+			*ociAccount.OciAccount.DefaultAccount, "\t",
+			*ociAccount.OciAccount.DefaultRegion, "\t",
+			*ociAccount.OciAccount.Age,
 		)
 	}
 	writer.Flush()
@@ -33,20 +34,23 @@ func outputGetOciOkeKubernetesRuntimesCmd(
 	return nil
 }
 
-// outputGetv0OciAccountsCmd produces the tabular output for the
-// 'tptctl get oci-accounts' command.
-func outputGetv0OciAccountsCmd(
-	ociAccounts *[]api_v0.OciAccount,
-	apiClient *http.Client,
-	apiEndpoint string,
+// outputGetv0OciOkeKubernetesRuntimesCmd produces the tabular output for the
+// 'get oci-oke-kubernetes-runtimes' command.
+func outputGetv0OciOkeKubernetesRuntimesCmd(
+	ociOkeKubernetesRuntimes *[]config_v0.OciOkeKubernetesRuntimeConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t AGE")
-	for _, ociAccount := range *ociAccounts {
+	fmt.Fprintln(writer, "VERSION\t NAME\t ACCOUNT NAME\t WORKER NODE SHAPE\t WORKER NODE INITIAL COUNT\t REGION\t AGE")
+	for _, ociOkeKubernetesRuntime := range *ociOkeKubernetesRuntimes {
 		fmt.Fprintln(
 			writer,
-			*ociAccount.Name, "\t",
-			util.GetAge(ociAccount.CreatedAt),
+			"v0", "\t",
+			*ociOkeKubernetesRuntime.OciOkeKubernetesRuntime.Name, "\t",
+			*ociOkeKubernetesRuntime.OciOkeKubernetesRuntime.OciAccountName, "\t",
+			*ociOkeKubernetesRuntime.OciOkeKubernetesRuntime.WorkerNodeShape, "\t",
+			*ociOkeKubernetesRuntime.OciOkeKubernetesRuntime.WorkerNodeInitialCount, "\t",
+			*ociOkeKubernetesRuntime.OciOkeKubernetesRuntime.Region, "\t",
+			*ociOkeKubernetesRuntime.OciOkeKubernetesRuntime.Age,
 		)
 	}
 	writer.Flush()
@@ -55,19 +59,21 @@ func outputGetv0OciAccountsCmd(
 }
 
 // outputGetv0OciOkeKubernetesRuntimeDefinitionsCmd produces the tabular output for the
-// 'tptctl get oci-oke-kubernetes-runtime-definitions' command.
+// `get oci-oke-kubernetes-runtime-definitions` command.
 func outputGetv0OciOkeKubernetesRuntimeDefinitionsCmd(
-	ociOkeKubernetesRuntimeDefinitions *[]api_v0.OciOkeKubernetesRuntimeDefinition,
-	apiClient *http.Client,
-	apiEndpoint string,
+	ociOkeKubernetesRuntimeDefinitions *[]config_v0.OciOkeKubernetesRuntimeDefinitionConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t AGE")
+	fmt.Fprintln(writer, "VERSION\t NAME\t OCI ACCOUNT NAME\t WORKER NODE SHAPE\t WORKER NODE INITIAL COUNT\t AGE")
 	for _, ociOkeKubernetesRuntimeDefinition := range *ociOkeKubernetesRuntimeDefinitions {
 		fmt.Fprintln(
 			writer,
-			*ociOkeKubernetesRuntimeDefinition.Name, "\t",
-			util.GetAge(ociOkeKubernetesRuntimeDefinition.CreatedAt),
+			"v0", "\t",
+			*ociOkeKubernetesRuntimeDefinition.OciOkeKubernetesRuntimeDefinition.Name, "\t",
+			*ociOkeKubernetesRuntimeDefinition.OciOkeKubernetesRuntimeDefinition.OciAccountName, "\t",
+			*ociOkeKubernetesRuntimeDefinition.OciOkeKubernetesRuntimeDefinition.WorkerNodeShape, "\t",
+			*ociOkeKubernetesRuntimeDefinition.OciOkeKubernetesRuntimeDefinition.WorkerNodeInitialCount, "\t",
+			*ociOkeKubernetesRuntimeDefinition.OciOkeKubernetesRuntimeDefinition.Age,
 		)
 	}
 	writer.Flush()
@@ -76,19 +82,20 @@ func outputGetv0OciOkeKubernetesRuntimeDefinitionsCmd(
 }
 
 // outputGetv0OciOkeKubernetesRuntimeInstancesCmd produces the tabular output for the
-// 'tptctl get oci-oke-kubernetes-runtime-instances' command.
+// `get oci-oke-kubernetes-runtime-instances` command.
 func outputGetv0OciOkeKubernetesRuntimeInstancesCmd(
-	ociOkeKubernetesRuntimeInstances *[]api_v0.OciOkeKubernetesRuntimeInstance,
-	apiClient *http.Client,
-	apiEndpoint string,
+	ociOkeKubernetesRuntimeInstances *[]config_v0.OciOkeKubernetesRuntimeInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t AGE")
+	fmt.Fprintln(writer, "VERSION\t NAME\t OCI OKE KUBERNETES RUNTIME DEFINITION\t REGION\t AGE")
 	for _, ociOkeKubernetesRuntimeInstance := range *ociOkeKubernetesRuntimeInstances {
 		fmt.Fprintln(
 			writer,
-			*ociOkeKubernetesRuntimeInstance.Name, "\t",
-			util.GetAge(ociOkeKubernetesRuntimeInstance.CreatedAt),
+			"v0", "\t",
+			*ociOkeKubernetesRuntimeInstance.OciOkeKubernetesRuntimeInstance.Name, "\t",
+			*ociOkeKubernetesRuntimeInstance.OciOkeKubernetesRuntimeInstance.OciOkeKubernetesRuntimeDefinition.Name, "\t",
+			*ociOkeKubernetesRuntimeInstance.OciOkeKubernetesRuntimeInstance.Region, "\t",
+			*ociOkeKubernetesRuntimeInstance.OciOkeKubernetesRuntimeInstance.Age,
 		)
 	}
 	writer.Flush()

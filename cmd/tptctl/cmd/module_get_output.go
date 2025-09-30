@@ -4,34 +4,26 @@ package cmd
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"text/tabwriter"
 
-	api_v0 "github.com/threeport/threeport/pkg/api/v0"
-	client "github.com/threeport/threeport/pkg/client/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
+	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 )
 
 // outputGetv0ModuleApisCmd produces the tabular output for the
-// 'get module-apis' command.
+// `get module-apis` command.
 func outputGetv0ModuleApisCmd(
-	moduleApis *[]api_v0.ModuleApi,
-	apiClient *http.Client,
-	apiEndpoint string,
+	moduleApis *[]config_v0.ModuleApiConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t CORE MODULE\t AGE")
+	fmt.Fprintln(writer, "VERSION\t NAME\t CORE MODULE\t AGE")
 	for _, moduleApi := range *moduleApis {
-		coreModule := ""
-		if *moduleApi.Core {
-			coreModule = "*"
-		}
 		fmt.Fprintln(
 			writer,
-			*moduleApi.Name, "\t",
-			coreModule, "\t",
-			util.GetAge(moduleApi.CreatedAt),
+			"v0", "\t",
+			*moduleApi.ModuleApi.Name, "\t",
+			*moduleApi.ModuleApi.Core, "\t",
+			*moduleApi.ModuleApi.Age,
 		)
 	}
 	writer.Flush()
@@ -40,27 +32,19 @@ func outputGetv0ModuleApisCmd(
 }
 
 // outputGetv0ModuleApiRoutesCmd produces the tabular output for the
-// 'get module-api-routes' command.
+// `get module-api-routes` command.
 func outputGetv0ModuleApiRoutesCmd(
-	moduleApiRoutes *[]api_v0.ModuleApiRoute,
-	apiClient *http.Client,
-	apiEndpoint string,
+	moduleApiRoutes *[]config_v0.ModuleApiRouteConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "PATH\t MODULE API\t AGE")
+	fmt.Fprintln(writer, "VERSION\t PATH\t MODULE API\t AGE")
 	for _, moduleApiRoute := range *moduleApiRoutes {
-		// get the module api name
-		moduleApi, err := client.GetModuleApiByID(apiClient, apiEndpoint, *moduleApiRoute.ModuleApiID)
-		if err != nil {
-			return fmt.Errorf("failed to get module api: %w", err)
-		}
-		moduleApiName := *moduleApi.Name
-
 		fmt.Fprintln(
 			writer,
-			*moduleApiRoute.Path, "\t",
-			moduleApiName, "\t",
-			util.GetAge(moduleApiRoute.CreatedAt),
+			"v0", "\t",
+			*moduleApiRoute.ModuleApiRoute.Path, "\t",
+			*moduleApiRoute.ModuleApiRoute.ModuleApi.Name, "\t",
+			*moduleApiRoute.ModuleApiRoute.Age,
 		)
 	}
 	writer.Flush()
@@ -69,27 +53,19 @@ func outputGetv0ModuleApiRoutesCmd(
 }
 
 // outputGetv0ModuleControllersCmd produces the tabular output for the
-// 'get module-controllers' command.
+// `get module-controllers` command.
 func outputGetv0ModuleControllersCmd(
-	moduleControllers *[]api_v0.ModuleController,
-	apiClient *http.Client,
-	apiEndpoint string,
+	moduleControllers *[]config_v0.ModuleControllerConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t MODULE API\t AGE")
+	fmt.Fprintln(writer, "VERSION\t NAME\t MODULE API\t AGE")
 	for _, moduleController := range *moduleControllers {
-		// get the module api name
-		moduleApi, err := client.GetModuleApiByID(apiClient, apiEndpoint, *moduleController.ModuleApiID)
-		if err != nil {
-			return fmt.Errorf("failed to get module api: %w", err)
-		}
-		moduleApiName := *moduleApi.Name
-
 		fmt.Fprintln(
 			writer,
-			*moduleController.Name, "\t",
-			moduleApiName, "\t",
-			util.GetAge(moduleController.CreatedAt),
+			"v0", "\t",
+			*moduleController.ModuleController.Name, "\t",
+			*moduleController.ModuleController.ModuleApi.Name, "\t",
+			*moduleController.ModuleController.Age,
 		)
 	}
 	writer.Flush()
@@ -98,45 +74,22 @@ func outputGetv0ModuleControllersCmd(
 }
 
 // outputGetv0ModuleObjectsCmd produces the tabular output for the
-// 'get module-objects' command.
+// `get module-objects` command.
 func outputGetv0ModuleObjectsCmd(
-	moduleObjects *[]api_v0.ModuleObject,
-	apiClient *http.Client,
-	apiEndpoint string,
+	moduleObjects *[]config_v0.ModuleObjectConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t VERSION\t DESCRIPTION\t MODULE CONTROLLER\t MODULE API\t AGE")
+	fmt.Fprintln(writer, "VERSION\t NAME\t VERSION\t DESCRIPTION\t MODULE CONTROLLER\t MODULE API\t AGE")
 	for _, moduleObject := range *moduleObjects {
-		// get the module api name
-		moduleApi, err := client.GetModuleApiByID(apiClient, apiEndpoint, *moduleObject.ModuleApiID)
-		if err != nil {
-			return fmt.Errorf("failed to get module api: %w", err)
-		}
-		moduleApiName := *moduleApi.Name
-
-		// get the module controller name
-		moduleControllerName := ""
-		if moduleObject.ModuleControllerID != nil {
-			moduleController, err := client.GetModuleControllerByID(apiClient, apiEndpoint, *moduleObject.ModuleControllerID)
-			if err != nil {
-				return fmt.Errorf("failed to get module controller: %w", err)
-			}
-			moduleControllerName = *moduleController.Name
-		}
-
-		moduleObjectDescription := ""
-		if moduleObject.Description != nil {
-			moduleObjectDescription = *moduleObject.Description
-		}
-
 		fmt.Fprintln(
 			writer,
-			*moduleObject.Name, "\t",
-			*moduleObject.Version, "\t",
-			util.TruncateString(moduleObjectDescription, 40), "\t",
-			moduleControllerName, "\t",
-			moduleApiName, "\t",
-			util.GetAge(moduleObject.CreatedAt),
+			"v0", "\t",
+			*moduleObject.ModuleObject.Name, "\t",
+			*moduleObject.ModuleObject.Version, "\t",
+			*moduleObject.ModuleObject.Description, "\t",
+			*moduleObject.ModuleObject.ModuleController.Name, "\t",
+			*moduleObject.ModuleObject.ModuleApi.Name, "\t",
+			*moduleObject.ModuleObject.Age,
 		)
 	}
 	writer.Flush()

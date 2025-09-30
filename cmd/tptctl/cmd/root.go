@@ -23,11 +23,11 @@ var cliArgs = &cli.GenesisControlPlaneCLIArgs{}
 var rootCmd = &cobra.Command{
 	Use:   "tptctl",
 	Short: "Manage Threeport",
-	Long: `tptctl is a CLI tool for managing your application orchestration.
-It installs and manages Threeport control planes and allows you to manage your
-software delivery using Threeport.  Threeport manages the infrastructure,
+	Long: `tptctl is a CLI tool for managing application delivery with Threeport.
+It installs and manages Threeport iself, and provides commands for managing
+your application delivery using Threeport.  Threeport manages the infrastructure,
 runtime environments, managed service dependencies, installed support services,
-as well as all components of your application.
+as well as all component workloads of your application.
 
 Plugins: tptctl plugins are installed at ~/.threeport/plugins.  If you install a
 tptctl plugin in an alternative location, set the THREEPORT_PLUGIN_DIR environment

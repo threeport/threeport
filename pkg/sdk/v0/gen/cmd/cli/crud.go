@@ -14,15 +14,14 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
-// GenPluginCrudCmds generates the create, delete, describe, get and update
+// GenPluginCrudCmds generates the get, create, delete, and replace
 // commands for an extension's tptctl plugin.
 func GenPluginCrudCmds(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	crudCmds := []string{
 		"create",
 		"delete",
-		"describe",
 		"get",
-		"update",
+		"replace",
 	}
 	for _, crudCmd := range crudCmds {
 		crudCmdUpper := strcase.ToCamel(crudCmd)

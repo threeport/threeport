@@ -16,25 +16,9 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
-// GenCliCommands generates commands for the tptctl CLI tool and its module plugins.
+// GenCliCommands generates commands for the tptctl CLI tool and its plugins.
 func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	pluralize := pluralize.NewClient()
-
-	// used to configure dynamically-generated function call parameters
-	multiLineCall := Options{
-		Close:     ")",
-		Multi:     true,
-		Open:      "(",
-		Separator: ",",
-	}
-
-	// used to configure dynamically-generated function signature parameters
-	multiLineParams := Options{
-		Close:     "",
-		Multi:     true,
-		Open:      "",
-		Separator: ",",
-	}
 
 	// set values for threeport and extensions where different
 	exampleCmdStr := "tptctl"
@@ -55,7 +39,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, apiObjGroup := range gen.ApiObjectGroups {
 		// commandCode contains the standard tptctl commands for a threeport object
 		commandCode := NewFile("cmd")
-		commandCode.HeaderComment(util.HeaderCommentGenNoEdit)
+		commandCode.HeaderComment(util.HeaderCommentGenMod)
 		commandCode.ImportAlias("gopkg.in/yaml.v2", "yaml")
 		commandCode.ImportAlias("github.com/ghodss/yaml", "ghodss_yaml")
 		commandCode.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
@@ -63,9 +47,9 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		commandCode.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
 		if gen.Module {
 			commandCode.ImportAlias("github.com/threeport/threeport/cmd/tptctl/cmd", "tptctl_cmd")
-			commandCode.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "tptctl_cli")
+			commandCode.ImportAlias("github.com/threeport/threeport/pkg/config/v0", "tptctl_config")
 		} else {
-			commandCode.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
+			commandCode.ImportAlias("github.com/threeport/threeport/pkg/config/v0", "config")
 		}
 
 		// getOutputCode contains the customized output for `tptctl get` commands
@@ -75,16 +59,35 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		getOutputCode.HeaderComment(util.HeaderCommentGenMod)
 		getOutputCode.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
 
-		// describeOutputCode contains the customized output for `tptctl describe` commands
-		// this file is written if it doesn't exist, otherwise is left for developer
-		// customization
-		describeOutputCode := NewFile("cmd")
-		describeOutputCode.HeaderComment(util.HeaderCommentGenMod)
-		describeOutputCode.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
+		// add config import for get output functions
+		for _, apiObj := range apiObjGroup.UnversionedApiObjects {
+			if apiObj.TptctlCommands {
+				for _, version := range apiObj.Versions {
+					getOutputCode.ImportAlias(
+						fmt.Sprintf("%s%s", configImportPath, version),
+						fmt.Sprintf("config_%s", version),
+					)
+				}
+			}
+		}
 
 		// no code will be generated if tptctl is not enabled on API
 		// model
 		commandsGenerated := false
+
+		// declare flag vars
+		nameVar := fmt.Sprintf("%sName", apiObjGroup.ControllerDomainLower)
+		configPathVar := fmt.Sprintf("%sConfigPath", apiObjGroup.ControllerDomainLower)
+		versionVar := fmt.Sprintf("%sVersion", apiObjGroup.ControllerDomainLower)
+		outputVar := fmt.Sprintf("%sOutput", apiObjGroup.ControllerDomainLower)
+		commandCode.Var().Defs(
+			Id(nameVar).String(),
+			Id(configPathVar).String(),
+			Id(versionVar).String(),
+			Id(outputVar).String(),
+		)
+		commandCode.Line()
+
 		for _, apiObj := range apiObjGroup.UnversionedApiObjects {
 			if apiObj.TptctlCommands {
 				commandsGenerated = true
@@ -118,31 +121,18 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						fmt.Sprintf("config_%s", version),
 					)
 				}
-				for _, version := range apiObj.Versions {
-					describeOutputCode.ImportAlias(
-						fmt.Sprintf("%s%s", apiImportPath, version),
-						fmt.Sprintf("api_%s", version),
-					)
-					describeOutputCode.ImportAlias(
-						fmt.Sprintf("%s%s", clientImportPath, version),
-						fmt.Sprintf("client_%s", version),
-					)
-					describeOutputCode.ImportAlias(
-						fmt.Sprintf("%s%s", configImportPath, version),
-						fmt.Sprintf("config_%s", version),
-					)
-				}
 
 				// commands for defined instance abstractions
-				if apiObj.DefinedInstanceInstance {
-					rootObj := strings.TrimSuffix(apiObj.TypeName, "Instance")
+				//if apiObj.DefinedInstanceInstance {
+				if apiObj.DefinedInstanceDefinition {
+					//rootObj := strings.TrimSuffix(apiObj.TypeName, "Instance")
+					rootObj := strings.TrimSuffix(apiObj.TypeName, "Definition")
 					rootCmdStr := strcase.ToKebab(rootObj)
 					rootCmdStrHuman := strcase.ToDelimited(rootObj, ' ')
 					rootObjectVar := strcase.ToLowerCamel(rootObj)
 					rootObjectConfigVar := fmt.Sprintf("%sConfig", rootObjectVar)
-					instanceObj := rootObj + "Instance"
-					instanceVar := rootObjectVar + "Instance"
-					instanceHuman := strcase.ToDelimited(instanceVar, ' ')
+					objectConfigObj := fmt.Sprintf("%sConfig", rootObj)
+					objectValuesObj := fmt.Sprintf("%sValues", rootObj)
 
 					commandCode.Comment("///////////////////////////////////////////////////////////////////////////////")
 					commandCode.Comment(rootObj)
@@ -151,30 +141,36 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 					// defined instance get command
 					getCmdVar := fmt.Sprintf("Get%sCmd", pluralize.Pluralize(rootObj, 2, false))
-					getClientFunc := fmt.Sprintf("Get%s%s", rootObj, "Instances")
-					getCmdOutputFunc := fmt.Sprintf("output%s", getCmdVar)
+					//getCmdOutputFunc := fmt.Sprintf("output%s%s", apiObj.Version, getCmdVar)
 
 					commandCode.Comment(fmt.Sprintf(
-						"%s represents the %s command",
+						"%s represents the command '%s get %s'",
 						getCmdVar,
-						rootCmdStr,
+						exampleCmdStr,
+						pluralize.Pluralize(rootCmdStr, 2, false),
 					))
 					commandCode.Var().Id(getCmdVar).Op("=").Op("&").Qual(
 						"github.com/spf13/cobra",
 						"Command",
 					).Values(Dict{
-						Id("Use"): Lit(pluralize.Pluralize(rootCmdStr, 2, false)),
+						Id("Use"):     Lit(pluralize.Pluralize(rootCmdStr, 2, false)),
+						Id("Aliases"): Index().String().Values(Lit(rootCmdStr)),
 						Id("Example"): Lit(fmt.Sprintf(
-							"  %s get %s",
+							"  # get all %s\n  %s get %s\n\n  # get a specific %s\n  %s get %s --name some-%s",
+							pluralize.Pluralize(rootCmdStrHuman, 2, false),
 							exampleCmdStr,
 							pluralize.Pluralize(rootCmdStr, 2, false),
+							rootCmdStrHuman,
+							exampleCmdStr,
+							rootCmdStr,
+							rootCmdStr,
 						)),
 						Id("Short"): Lit(fmt.Sprintf(
 							"Get %s from the system",
 							pluralize.Pluralize(rootCmdStrHuman, 2, false),
 						)),
 						Id("Long"): Lit(fmt.Sprintf(
-							"Get %s from the system.\n\nA %[2]s is a simple abstraction of %[2]s definitions and %[2]s instances.\nThis command displays all instances and the definitions used to configure them.",
+							"Get %s from the system. Use --name to get a specific %s. A %[2]s is a unified abstraction of a %[2]s definition and %[2]s instance.",
 							pluralize.Pluralize(rootCmdStrHuman, 2, false),
 							rootCmdStrHuman,
 						)),
@@ -203,71 +199,143 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								).Op(":=").Id("GetClientContext").Call(Id("cmd"))
 							}
 							g.Line()
-							g.Comment(fmt.Sprintf(
-								"get %s",
-								pluralize.Pluralize(rootCmdStrHuman, 2, false),
-							))
-							for _, version := range apiObj.Versions {
-								g.List(Id(
-									fmt.Sprintf("%s%s", version, pluralize.Pluralize(instanceVar, 2, false)),
-								), Err()).Op(":=").Qual(
-									fmt.Sprintf("%s%s", clientImportPath, version),
-									getClientFunc,
-								).Call(Id("apiClient"), Id("apiEndpoint"))
-								g.If(Err().Op("!=").Nil()).Block(
-									Qual(
-										"github.com/threeport/threeport/pkg/cli/v0",
-										"Error",
-									).Call(Lit(fmt.Sprintf(
-										"failed to retrieve %s instances",
-										rootCmdStrHuman,
-									)), Err()),
-									Qual("os", "Exit").Call(Lit(1)),
-								)
-								g.Line()
-							}
-							g.Line()
-							g.Comment("write the output")
-							objLenCheck := &Statement{}
-							for i, version := range apiObj.Versions {
-								objLenCheck.Len(Op("*").Id(
-									fmt.Sprintf("%s%s", version, pluralize.Pluralize(instanceVar, 2, false)),
-								)).Op("==").Lit(0)
-								if i < len(apiObj.Versions)-1 {
-									objLenCheck.Op("&&")
-								}
-							}
-							g.If(objLenCheck).Block(
-								Qual(
-									"github.com/threeport/threeport/pkg/cli/v0",
-									"Info",
-								).Call(Qual("fmt", "Sprintf").Call(
-									Line().Lit(fmt.Sprintf(
-										"No %s currently managed by %%s threeport control plane",
-										pluralize.Pluralize(instanceHuman, 2, false),
-									)),
-									Line().Id("requestedControlPlane").Op(",").Line(),
-								)),
-								Qual("os", "Exit").Call(Lit(0)),
-							)
-							g.If(
-								Err().Op(":=").Id(getCmdOutputFunc).CustomFunc(multiLineCall, func(h *Group) {
-									for _, version := range apiObj.Versions {
-										h.Id(
-											fmt.Sprintf("%s%s", version, pluralize.Pluralize(instanceVar, 2, false)),
-										)
-									}
-									h.Id("apiClient")
-									h.Id("apiEndpoint")
-								}),
-								Err().Op("!=").Nil(),
-							).Block(
-								Qual(
-									"github.com/threeport/threeport/pkg/cli/v0",
-									"Error",
-								).Call(Lit("failed to produce output: %s"), Err()),
+							g.Comment("flag validation")
+							g.If(Err().Op(":=").Qual(
+								"github.com/threeport/threeport/pkg/cli/v0",
+								"ValidateConfigNameFlags",
+							).Call(
+								Line().Id(configPathVar),
+								Line().Id(nameVar),
+								Line().Lit(rootCmdStrHuman),
+								Line(),
+							), Err().Op("!=").Nil()).Block(
+								Qual("github.com/threeport/threeport/pkg/cli/v0", "Error").Call(
+									Lit("flag validation failed"), Err()),
 								Qual("os", "Exit").Call(Lit(1)),
 							)
+							g.Line()
+							g.Comment(fmt.Sprintf("get %s based on version", rootCmdStrHuman))
+							g.Switch(Id(versionVar)).BlockFunc(func(h *Group) {
+								for _, version := range apiObj.Versions {
+									h.Case(Lit(version)).Block(
+										Commentf("load %s values", rootCmdStrHuman),
+										Id(fmt.Sprintf("%sConfig", rootObjectVar)).Op(":=").Qual(
+											fmt.Sprintf("%s%s", configImportPath, version),
+											objectConfigObj,
+										).Values(),
+										If(Id(configPathVar).Op("!=").Lit("")).Block(
+											Id("configContent").Op(",").Err().Op(":=").Qual("os", "ReadFile").Call(
+												Id(configPathVar),
+											),
+											If(Err().Op("!=").Nil()).Block(
+												Qual("github.com/threeport/threeport/pkg/cli/v0", "Error").Call(
+													Lit("failed to read config file"), Err()),
+												Qual("os", "Exit").Call(Lit(1)),
+											),
+											If(Err().Op(":=").Qual("gopkg.in/yaml.v2", "UnmarshalStrict").Call(
+												Id("configContent"), Op("&").Id(fmt.Sprintf("%sConfig", rootObjectVar)),
+											), Err().Op("!=").Nil()).Block(
+												Qual("github.com/threeport/threeport/pkg/cli/v0", "Error").Call(
+													Lit("failed to unmarshal config file yaml content"), Err()),
+												Qual("os", "Exit").Call(Lit(1)),
+											),
+										).Else().If(Id(nameVar).Op("!=").Lit("")).Block(
+											Id(fmt.Sprintf("%sConfig", rootObjectVar)).Op("=").Qual(
+												fmt.Sprintf("%s%s", configImportPath, version),
+												objectConfigObj,
+											).Values(Dict{
+												Line().Id(rootObj): Qual(
+													fmt.Sprintf("%s%s", configImportPath, version),
+													objectValuesObj,
+												).Values(Dict{
+													Line().Id("Name"): Op("&").Id(nameVar).Op(",").Line(),
+												}).Op(",").Line(),
+											}),
+										),
+										Line(),
+										Comment(fmt.Sprintf("get %s", rootCmdStrHuman)),
+										List(
+											Id(fmt.Sprintf("%sConfigs", rootObjectVar)),
+											Err(),
+										).Op(":=").Id(fmt.Sprintf("%sConfig", rootObjectVar)).Dot(rootObj).Dot("Get").Call(
+											Id("apiClient"),
+											Id("apiEndpoint"),
+										),
+										If(Err().Op("!=").Nil()).Block(
+											Qual("github.com/threeport/threeport/pkg/cli/v0", "Error").Call(
+												Lit(fmt.Sprintf("failed to retrieve %s", rootCmdStrHuman)), Err()),
+											Qual("os", "Exit").Call(Lit(1)),
+										),
+										Line(),
+										Comment(fmt.Sprintf("check if %s exists", rootCmdStrHuman)),
+										If(Len(Op("*").Id(fmt.Sprintf("%sConfigs", rootObjectVar))).Op("==").Lit(0)).Block(
+											Qual("github.com/threeport/threeport/pkg/cli/v0", "Info").Call(
+												Qual("fmt", "Sprintf").Call(
+													Line().Lit(fmt.Sprintf(
+														"no %s found that are currently managed by %%s threeport control plane",
+														pluralize.Pluralize(rootCmdStrHuman, 2, false),
+													)),
+													Line().Id("requestedControlPlane"),
+													Line(),
+												),
+											),
+											Qual("os", "Exit").Call(Lit(0)),
+										),
+										Line(),
+										Comment("write the output"),
+										Switch(Id(outputVar)).Block(
+											Case(Lit("tabular")).Block(
+												If(Err().Op(":=").Id(fmt.Sprintf("outputGet%s%sCmd", version, pluralize.Pluralize(rootObj, 2, false))).Call(
+													Id(fmt.Sprintf("%sConfigs", rootObjectVar)),
+												), Err().Op("!=").Nil()).Block(
+													Qual("github.com/threeport/threeport/pkg/cli/v0", "Error").Call(
+														Lit("failed to produce output"), Err()),
+													Qual("os", "Exit").Call(Lit(1)),
+												),
+											),
+											Case(Lit("yaml")).Block(
+												If(Err().Op(":=").Qual(
+													"github.com/threeport/threeport/pkg/cli/v0",
+													"YamlObjectOutput",
+												).Call(
+													Op("*").Id(fmt.Sprintf("%sConfigs", rootObjectVar)),
+												), Err().Op("!=").Nil()).Block(
+													Qual(
+														"github.com/threeport/threeport/pkg/cli/v0",
+														"Error",
+													).Call(
+														Lit("failed to produce YAML output"), Err()),
+													Qual("os", "Exit").Call(Lit(1)),
+												),
+											),
+											Case(Lit("json")).Block(
+												If(Err().Op(":=").Qual(
+													"github.com/threeport/threeport/pkg/cli/v0",
+													"JsonObjectOutput",
+												).Call(
+													Op("*").Id(fmt.Sprintf("%sConfigs", rootObjectVar)),
+												), Err().Op("!=").Nil()).Block(
+													Qual(
+														"github.com/threeport/threeport/pkg/cli/v0",
+														"Error",
+													).Call(Lit("failed to produce JSON output"), Err()),
+													Qual("os", "Exit").Call(Lit(1)),
+												),
+											),
+											Default().Block(
+												Qual("github.com/threeport/threeport/pkg/cli/v0", "Error").Call(
+													Lit(""), Qual("fmt", "Errorf").Call(Lit("unrecognized output format: %s"), Id(outputVar))),
+												Qual("os", "Exit").Call(Lit(1)),
+											),
+										),
+									)
+								}
+								h.Default().Block(
+									Qual("github.com/threeport/threeport/pkg/cli/v0", "Error").Call(
+										Lit(""), Qual("errors", "New").Call(Lit("unrecognized object version"))),
+									Qual("os", "Exit").Call(Lit(1)),
+								)
+							})
 						}),
 					})
 
@@ -275,10 +343,38 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Id("GetCmd").Dot("AddCommand").Call(Id(getCmdVar)),
 						Line(),
 						Id(getCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
+							Line().Op("&").Id(nameVar),
+							Line().Lit("name"), Lit("n"), Lit(""),
+							Lit(fmt.Sprintf("Name of %s.", rootCmdStrHuman)),
+							Line(),
+						),
+						Id(getCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
+							Line().Op("&").Id(configPathVar),
+							Line().Lit("config"), Lit("c"), Lit(""),
+							Lit(fmt.Sprintf("Path to file with %s config.", rootCmdStrHuman)),
+							Line(),
+						),
+						Id(getCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
+							Line().Op("&").Id(versionVar),
+							Line().Lit("version"), Lit("v"), Lit(util.GetDefaultObjectVersion(apiObj.TypeName)),
+							Lit(fmt.Sprintf(
+								"Version of %s objects to retrieve. One of: %s",
+								rootCmdStrHuman, apiObj.Versions,
+							)),
+							Line(),
+						),
+						Id(getCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
+							Line().Op("&").Id(outputVar),
+							Line().Lit("output"), Lit("o"), Lit("tabular"),
+							Lit(fmt.Sprintf(
+								"Output format for %s objects. One of: [tabular, yaml, json]",
+								rootCmdStrHuman,
+							)),
+							Line(),
+						),
+						Id(getCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
 							Line().Op("&").Id("cliArgs").Dot("ControlPlaneName"),
-							Line().Lit("control-plane-name"),
-							Lit("i"),
-							Lit(""),
+							Line().Lit("control-plane-name"), Lit("i"), Lit(""),
 							Lit("Optional. Name of control plane. Will default to current control plane if not provided."),
 							Line(),
 						),
@@ -286,28 +382,21 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 					// defined instance create command
 					createCmdVar := fmt.Sprintf("Create%sCmd", rootObj)
-					objectConfigObj := fmt.Sprintf("%sConfig", rootObj)
-					createConfigPathVar := fmt.Sprintf("create%sConfigPath", rootObj)
 					configPathField := fmt.Sprintf("%sConfigPath", apiObjGroup.ControllerDomain)
-					createdDefObjVar := fmt.Sprintf("created%sDefinition", rootObj)
-					createdInstObjVar := fmt.Sprintf("created%sInstance", rootObj)
-					createDefInstVersionVar := fmt.Sprintf("create%sVersion", rootObj)
+					createdSliceVar := fmt.Sprintf("created%sSlice", rootObj)
+					createdRootObjVar := fmt.Sprintf("created%s", rootObj)
 
 					// for models that use configs that reference other files the config
 					// path variable must be set on the config object
 					setConfigPath := &Statement{}
 					if apiObj.TptctlConfigPath || apiObj.DefinedInstanceTptctlConfigPath {
-						setConfigPath.Id(rootObjectVar).Dot(configPathField).Op("=").Op("&").Id(createConfigPathVar)
+						setConfigPath.Id(rootObjectVar).Dot(configPathField).Op("=").Op("&").Id(configPathVar)
 					}
 
-					commandCode.Var().Defs(
-						Id(createConfigPathVar).String(),
-						Id(createDefInstVersionVar).String(),
-					)
-
 					commandCode.Comment(fmt.Sprintf(
-						"%s represents the %s command",
+						"%s represents the command '%s create %s'",
 						createCmdVar,
+						exampleCmdStr,
 						rootCmdStr,
 					))
 					commandCode.Var().Id(createCmdVar).Op("=").Op("&").Qual(
@@ -316,7 +405,8 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					).Values(Dict{
 						Id("Use"): Lit(rootCmdStr),
 						Id("Example"): Lit(fmt.Sprintf(
-							"  %s create %s --config path/to/config.yaml",
+							"  # create a new %s using a config file\n  %s create %s --config path/to/config.yaml",
+							rootCmdStrHuman,
 							exampleCmdStr,
 							rootCmdStr,
 						)),
@@ -325,7 +415,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							rootCmdStrHuman,
 						)),
 						Id("Long"): Lit(fmt.Sprintf(
-							"Create a new %[1]s. This command creates a new %[1]s definition and %[1]s instance based on the %[1]s config.",
+							"Create a new %[1]s. A %[1]s is a unified abstraction of a %[1]s definition and %[1]s instance. This command creates both a new %[1]s definition and %[1]s instance.",
 							rootCmdStrHuman,
 						)),
 						Id("SilenceUsage"): True(),
@@ -358,7 +448,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								rootCmdStrHuman,
 							))
 							g.Id("configContent").Op(",").Err().Op(":=").Qual("os", "ReadFile").Call(
-								Id(createConfigPathVar),
+								Id(configPathVar),
 							)
 							g.If(Err().Op("!=").Nil()).Block(
 								Qual(
@@ -369,7 +459,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							)
 							g.Line()
 							g.Comment(fmt.Sprintf("create %s based on version", rootCmdStrHuman))
-							g.Switch(Id(createDefInstVersionVar)).BlockFunc(func(h *Group) {
+							g.Switch(Id(versionVar)).BlockFunc(func(h *Group) {
 								for _, version := range apiObj.Versions {
 									h.Case(Lit(version)).Block(
 										Var().Id(rootObjectConfigVar).Qual(
@@ -393,7 +483,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										)),
 										Id(rootObjectVar).Op(":=").Id(rootObjectConfigVar).Dot(rootObj),
 										Add(setConfigPath),
-										Id(createdDefObjVar).Op(",").Id(createdInstObjVar).Op(",").Err().Op(":=").Id(rootObjectVar).Dot("Create").Call(
+										Id(createdSliceVar).Op(",").Err().Op(":=").Id(rootObjectVar).Dot("Create").Call(
 											Line().Id("apiClient"),
 											Line().Id("apiEndpoint"),
 											Line(),
@@ -409,27 +499,35 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											Qual("os", "Exit").Call(Lit(1)),
 										),
 										Line(),
+										Comment("check the result of the create"),
+										If(Id(createdSliceVar).Op("==").Nil().Op("||").Len(Op("*").Id(createdSliceVar)).Op("==").Lit(0)).Block(
+											Qual(
+												"github.com/threeport/threeport/pkg/cli/v0",
+												"Error",
+											).Call(Lit(fmt.Sprintf(
+												"failed to create %s",
+												rootCmdStrHuman,
+											)), Qual("errors", "New").Call(Lit(fmt.Sprintf(
+												"no %s received after create", pluralize.Pluralize(rootCmdStrHuman, 2, false),
+											)))),
+											Qual("os", "Exit").Call(Lit(1)),
+										),
+										Id(createdRootObjVar).Op(":=").Parens((Op("*").Id(createdSliceVar))).Index(Lit(0)),
+										Line(),
 										Qual(
 											"github.com/threeport/threeport/pkg/cli/v0",
 											"Info",
 										).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
-											"%s definition %%s created",
+											"%s definition and instance with name %%s created",
 											rootCmdStrHuman,
-										)), Op("*").Id(createdDefObjVar).Dot("Name"))),
-										Qual(
-											"github.com/threeport/threeport/pkg/cli/v0",
-											"Info",
-										).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
-											"%s instance %%s created",
-											rootCmdStrHuman,
-										)), Op("*").Id(createdInstObjVar).Dot("Name"))),
+										)), Op("*").Id(createdRootObjVar).Dot(rootObj).Dot("Name"))),
 										Qual(
 											"github.com/threeport/threeport/pkg/cli/v0",
 											"Complete",
 										).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
 											"%s %%s created",
 											rootCmdStrHuman,
-										)), Op("*").Id(rootObjectConfigVar).Dot(rootObj).Dot("Name"))),
+										)), Op("*").Id(createdRootObjVar).Dot(rootObj).Dot("Name"))),
 									)
 									h.Default().Block(
 										Qual(
@@ -452,7 +550,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Id("CreateCmd").Dot("AddCommand").Call(Id(createCmdVar)),
 						Line(),
 						Id(createCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-							Line().Op("&").Id(createConfigPathVar),
+							Line().Op("&").Id(configPathVar),
 							Line().Lit("config"),
 							Lit("c"),
 							Lit(""),
@@ -472,7 +570,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line(),
 						),
 						Id(createCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-							Line().Op("&").Id(createDefInstVersionVar),
+							Line().Op("&").Id(versionVar),
 							Line().Lit("version"),
 							Lit("v"),
 							Lit(util.GetDefaultObjectVersion(apiObj.TypeName)),
@@ -487,26 +585,18 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 					// defined instance delete command
 					deleteCmdVar := fmt.Sprintf("Delete%sCmd", rootObj)
-					deleteConfigPathVar := fmt.Sprintf("delete%sConfigPath", rootObj)
-					deleteNameVar := fmt.Sprintf("delete%sName", rootObj)
-					deleteDefInstVersionVar := fmt.Sprintf("delete%sVersion", rootObj)
 
 					// for models that use configs that reference other files the config
 					// path variable must be set on the config object
 					setConfigPath = &Statement{}
 					if apiObj.TptctlConfigPath {
-						setConfigPath.Id(rootObjectVar).Dot(configPathField).Op("=").Op("&").Id(deleteConfigPathVar)
+						setConfigPath.Id(rootObjectVar).Dot(configPathField).Op("=").Op("&").Id(configPathVar)
 					}
 
-					commandCode.Var().Defs(
-						Id(deleteConfigPathVar).String(),
-						Id(deleteNameVar).String(),
-						Id(deleteDefInstVersionVar).String(),
-					)
-
 					commandCode.Comment(fmt.Sprintf(
-						"%s represents the %s command",
+						"%s represents the command '%s delete %s'",
 						deleteCmdVar,
+						exampleCmdStr,
 						rootCmdStr,
 					))
 					commandCode.Var().Id(deleteCmdVar).Op("=").Op("&").Qual(
@@ -515,7 +605,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					).Values(Dict{
 						Id("Use"): Lit(rootCmdStr),
 						Id("Example"): Lit(fmt.Sprintf(
-							"  # delete based on config file\n  %[1]s delete %[2]s --config path/to/config.yaml\n\n  # delete based on name\n  %[1]s delete %[2]s --name some-%[2]s",
+							"  # delete using a config file\n  %[1]s delete %[2]s --config path/to/config.yaml\n\n  # delete using name\n  %[1]s delete %[2]s --name some-%[2]s",
 							exampleCmdStr,
 							rootCmdStr,
 						)),
@@ -524,7 +614,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							rootCmdStrHuman,
 						)),
 						Id("Long"): Lit(fmt.Sprintf(
-							"Delete an existing %[1]s. This command deletes an existing %[1]s definition and %[1]s instance based on the %[1]s config.",
+							"Delete an existing %[1]s. This command deletes an existing %[1]s definition and %[1]s instance.",
 							rootCmdStrHuman,
 						)),
 						Id("SilenceUsage"): True(),
@@ -553,7 +643,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							}
 							g.Line()
 							g.Comment("flag validation")
-							g.If(Id(deleteConfigPathVar)).Op("==").Lit("").Block(
+							g.If(Id(configPathVar)).Op("==").Lit("").Block(
 								Qual(
 									"github.com/threeport/threeport/pkg/cli/v0",
 									"Error",
@@ -567,7 +657,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							g.List(
 								Id("configContent"),
 								Err(),
-							).Op(":=").Qual("os", "ReadFile").Call(Id(deleteConfigPathVar))
+							).Op(":=").Qual("os", "ReadFile").Call(Id(configPathVar))
 							g.If(Err().Op("!=").Nil()).Block(
 								Qual(
 									"github.com/threeport/threeport/pkg/cli/v0",
@@ -577,7 +667,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							)
 							g.Line()
 							g.Comment(fmt.Sprintf("delete %s based on version", rootCmdStrHuman))
-							g.Switch().Id(deleteDefInstVersionVar).BlockFunc(func(h *Group) {
+							g.Switch().Id(versionVar).BlockFunc(func(h *Group) {
 								for _, version := range apiObj.Versions {
 									h.Case(Lit(version)).Block(
 										Var().Id(rootObjectConfigVar).Qual(
@@ -601,7 +691,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										)),
 										Id(rootObjectVar).Op(":=").Id(rootObjectConfigVar).Dot(rootObj),
 										Add(setConfigPath),
-										Id("_").Op(",").Id("_").Op(",").Err().Op("=").Id(rootObjectVar).Dot("Delete").Call(
+										Id("_").Op(",").Err().Op("=").Id(rootObjectVar).Dot("Delete").Call(
 											Id("apiClient"), Id("apiEndpoint"),
 										),
 										If(Err().Op("!=").Nil()).Block(
@@ -635,7 +725,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
 											"%s %%s deleted",
 											rootCmdStrHuman,
-										)), Op("*").Id(rootObjectConfigVar).Dot(rootObj).Dot("Name"))),
+										)), Op("*").Id(rootObjectVar).Dot("Name"))),
 									)
 									h.Default().Block(
 										Qual(
@@ -658,7 +748,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Id("DeleteCmd").Dot("AddCommand").Call(Id(deleteCmdVar)),
 						Line(),
 						Id(deleteCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-							Line().Op("&").Id(deleteConfigPathVar),
+							Line().Op("&").Id(configPathVar),
 							Line().Lit("config"),
 							Lit("c"),
 							Lit(""),
@@ -677,7 +767,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line(),
 						),
 						Id(deleteCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-							Line().Op("&").Id(deleteDefInstVersionVar),
+							Line().Op("&").Id(versionVar),
 							Line().Lit("version"),
 							Lit("v"),
 							Lit(util.GetDefaultObjectVersion(apiObj.TypeName)),
@@ -689,62 +779,6 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line(),
 						),
 					)
-
-					// defined instance get command output function
-					getOutputCode.Commentf(
-						"%s produces the tabular output for the",
-						getCmdOutputFunc,
-					)
-					getOutputCode.Commentf(
-						"'get %s' command.",
-						pluralize.Pluralize(rootCmdStr, 2, false),
-					)
-					objParams := &Statement{}
-					objParams.CustomFunc(multiLineParams, func(g *Group) {
-						for _, version := range apiObj.Versions {
-							g.Id(fmt.Sprintf(
-								"%s%s",
-								version,
-								pluralize.Pluralize(instanceVar, 2, false)),
-							).Op("*").Index().Qual(
-								fmt.Sprintf("%s%s", apiImportPath, version),
-								instanceObj,
-							)
-						}
-					})
-
-					getOutputCode.Func().Id(getCmdOutputFunc).Params(
-						objParams,
-						Line().Id("apiClient").Op("*").Qual("net/http", "Client"),
-						Line().Id("apiEndpoint").String(),
-						Line(),
-					).Error().BlockFunc(func(g *Group) {
-						g.Id("writer").Op(":=").Qual("text/tabwriter", "NewWriter").Call(
-							Qual("os", "Stdout"), Lit(4), Lit(4), Lit(4), LitRune(' '), Lit(0),
-						)
-						g.Qual("fmt", "Fprintln").Call(Id("writer"), Lit("VERSION\t NAME\t AGE"))
-						for _, version := range apiObj.Versions {
-							g.For(
-								List(Id("_"), Id(instanceVar)).Op(":=").Range().Op("*").Id(
-									fmt.Sprintf("%s%s", version, pluralize.Pluralize(instanceVar, 2, false)),
-								)).Block(
-								Qual("fmt", "Fprintln").Call(
-									Line().Id("writer"),
-									Line().Lit(version).Op(",").Lit("\t"),
-									Line().Op("*").Id(instanceVar).Dot("Name").Op(",").Lit("\t"),
-									Line().Qual(
-										"github.com/threeport/threeport/pkg/util/v0",
-										"GetAge",
-									).Call(Id(instanceVar).Dot("CreatedAt")),
-									Line(),
-								),
-							)
-						}
-						g.Id("writer").Dot("Flush").Call()
-						g.Line()
-						g.Return(Nil())
-					})
-					Line()
 				}
 
 				cmdStr := strcase.ToKebab(apiObj.TypeName)
@@ -760,36 +794,46 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				commandCode.Comment("///////////////////////////////////////////////////////////////////////////////")
 				commandCode.Line()
 
-				// get command
+				// variable declarations
 				getCmdVar := fmt.Sprintf("Get%sCmd", pluralize.Pluralize(apiObj.TypeName, 2, false))
-				getClientFunc := fmt.Sprintf("Get%s", pluralize.Pluralize(apiObj.TypeName, 2, false))
-				getObjectVersionVar := fmt.Sprintf("get%sVersion", apiObj.TypeName)
+				createCmdVar := fmt.Sprintf("Create%sCmd", apiObj.TypeName)
+				replaceCmdVar := fmt.Sprintf("Replace%sCmd", apiObj.TypeName)
+				deleteCmdVar := fmt.Sprintf("Delete%sCmd", apiObj.TypeName)
 
-				commandCode.Var().Id(getObjectVersionVar).String()
-				commandCode.Line()
+				createdObjVar := fmt.Sprintf("created%s", apiObj.TypeName)
+				updatedObjVar := fmt.Sprintf("updated%s", apiObj.TypeName)
+				deletedObjVar := fmt.Sprintf("deleted%s", apiObj.TypeName)
 
 				commandCode.Comment(fmt.Sprintf(
-					"%s represents the %s command",
+					"%s represents the command '%s get %s'",
 					getCmdVar,
-					cmdStr,
+					exampleCmdStr,
+					pluralize.Pluralize(cmdStr, 2, false),
 				))
 				commandCode.Var().Id(getCmdVar).Op("=").Op("&").Qual(
 					"github.com/spf13/cobra",
 					"Command",
 				).Values(Dict{
-					Id("Use"): Lit(pluralize.Pluralize(cmdStr, 2, false)),
+					Id("Use"):     Lit(pluralize.Pluralize(cmdStr, 2, false)),
+					Id("Aliases"): Index().String().Values(Lit(cmdStr)),
 					Id("Example"): Lit(fmt.Sprintf(
-						"  %s get %s",
+						"  # get all %s\n  %s get %s\n\n  # get a specific %s\n  %s get %s --name some-%s",
+						pluralize.Pluralize(cmdStrHuman, 2, false),
 						exampleCmdStr,
 						pluralize.Pluralize(cmdStr, 2, false),
+						cmdStrHuman,
+						exampleCmdStr,
+						cmdStr,
+						cmdStr,
 					)),
 					Id("Short"): Lit(fmt.Sprintf(
 						"Get %s from the system",
 						pluralize.Pluralize(cmdStrHuman, 2, false),
 					)),
 					Id("Long"): Lit(fmt.Sprintf(
-						"Get %s from the system.",
+						"Get %s from the system. Use --name to get a specific %s.",
 						pluralize.Pluralize(cmdStrHuman, 2, false),
+						cmdStrHuman,
 					)),
 					Id("SilenceUsage"): True(),
 					Id("PreRun"):       Id("CommandPreRunFunc"),
@@ -816,17 +860,70 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							).Op(":=").Id("GetClientContext").Call(Id("cmd"))
 						}
 						g.Line()
-						g.Switch().Id(getObjectVersionVar).BlockFunc(func(h *Group) {
+						g.Comment("flag validation")
+						g.If(Err().Op(":=").Qual(
+							"github.com/threeport/threeport/pkg/cli/v0",
+							"ValidateConfigNameFlags",
+						).Call(
+							Line().Id(configPathVar),
+							Line().Id(nameVar),
+							Line().Lit(cmdStrHuman),
+							Line(),
+						), Err().Op("!=").Nil()).Block(
+							Qual("github.com/threeport/threeport/pkg/cli/v0", "Error").Call(
+								Lit("flag validation failed"), Err()),
+							Qual("os", "Exit").Call(Lit(1)),
+						)
+						g.Line()
+						g.Switch().Id(versionVar).BlockFunc(func(h *Group) {
 							for _, version := range apiObj.Versions {
 								h.Case(Lit(version)).Block(
+									Comment("load values"),
+									Id(fmt.Sprintf("%sConfig", objectVar)).Op(":=").Qual(
+										fmt.Sprintf("%s%s", configImportPath, version),
+										objectConfigObj,
+									).Values(),
+									If(Id(configPathVar).Op("!=").Lit("")).Block(
+										Id("configContent").Op(",").Err().Op(":=").Qual("os", "ReadFile").Call(
+											Id(configPathVar),
+										),
+										If(Err().Op("!=").Nil()).Block(
+											Qual("github.com/threeport/threeport/pkg/cli/v0", "Error").Call(
+												Lit("failed to read config file"), Err()),
+											Qual("os", "Exit").Call(Lit(1)),
+										),
+										If(Err().Op(":=").Qual("gopkg.in/yaml.v2", "UnmarshalStrict").Call(
+											Id("configContent"), Op("&").Id(fmt.Sprintf("%sConfig", objectVar)),
+										), Err().Op("!=").Nil()).Block(
+											Qual("github.com/threeport/threeport/pkg/cli/v0", "Error").Call(
+												Lit("failed to unmarshal config file yaml content"), Err()),
+											Qual("os", "Exit").Call(Lit(1)),
+										),
+									).Else().If(Id(nameVar).Op("!=").Lit("")).Block(
+										Id(fmt.Sprintf("%sConfig", objectVar)).Op("=").Qual(
+											fmt.Sprintf("%s%s", configImportPath, version),
+											objectConfigObj,
+										).Values(Dict{
+											Line().Id(apiObj.TypeName): Qual(
+												fmt.Sprintf("%s%s", configImportPath, version),
+												objectValuesObj,
+											).Values(Dict{
+												Line().Id("Name"): Op("&").Id(nameVar).Op(",").Line(),
+											}).Op(",").Line(),
+										}),
+									),
+									Line(),
 									Comment(fmt.Sprintf(
 										"get %s",
 										pluralize.Pluralize(cmdStrHuman, 2, false),
 									)),
-									List(Id(pluralize.Pluralize(objectVar, 2, false)), Err()).Op(":=").Qual(
-										fmt.Sprintf("%s%s", clientImportPath, version),
-										getClientFunc,
-									).Call(Id("apiClient"), Id("apiEndpoint")),
+									List(
+										Id(pluralize.Pluralize(objectVar, 2, false)),
+										Err(),
+									).Op(":=").Id(fmt.Sprintf("%sConfig", objectVar)).Dot(apiObj.TypeName).Dot("Get").Call(
+										Id("apiClient"),
+										Id("apiEndpoint"),
+									),
 									If(Err().Op("!=").Nil()).Block(
 										Qual(
 											"github.com/threeport/threeport/pkg/cli/v0",
@@ -838,41 +935,78 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										Qual("os", "Exit").Call(Lit(1)),
 									),
 									Line(),
-									Comment("write the output"),
+									Comment(fmt.Sprintf("check if %s exists", cmdStrHuman)),
 									If(Len(Op("*").Id(pluralize.Pluralize(objectVar, 2, false))).Op("==").Lit(0)).Block(
-										Qual(
-											"github.com/threeport/threeport/pkg/cli/v0",
-											"Info",
-										).Call(Qual("fmt", "Sprintf").Call(
-											Line().Lit(fmt.Sprintf(
-												"No %s currently managed by %%s threeport control plane",
-												pluralize.Pluralize(cmdStrHuman, 2, false),
-											)),
-											Line().Id("requestedControlPlane").Op(",").Line(),
-										)),
+										Qual("github.com/threeport/threeport/pkg/cli/v0", "Info").Call(
+											Qual("fmt", "Sprintf").Call(
+												Line().Lit(fmt.Sprintf(
+													"no %s found that are currently managed by %%s threeport control plane",
+													pluralize.Pluralize(cmdStrHuman, 2, false),
+												)),
+												Line().Id("requestedControlPlane"),
+												Line(),
+											),
+										),
 										Qual("os", "Exit").Call(Lit(0)),
 									),
-
-									If(
-										Err().Op(":=").Id(
-											fmt.Sprintf(
-												"outputGet%s%sCmd",
-												version,
-												pluralize.Pluralize(apiObj.TypeName, 2, false),
+									Line(),
+									Comment("write the output"),
+									Switch(Id(outputVar)).Block(
+										Case(Lit("tabular")).Block(
+											If(
+												Err().Op(":=").Id(
+													fmt.Sprintf(
+														"outputGet%s%sCmd",
+														version,
+														pluralize.Pluralize(apiObj.TypeName, 2, false),
+													),
+												).Call(
+													Id(pluralize.Pluralize(objectVar, 2, false)),
+												),
+												Err().Op("!=").Nil(),
+											).Block(
+												Qual(
+													"github.com/threeport/threeport/pkg/cli/v0",
+													"Error",
+												).Call(Lit("failed to produce output"), Err()),
+												Qual("os", "Exit").Call(Lit(1)),
 											),
-										).Call(
-											Line().Id(pluralize.Pluralize(objectVar, 2, false)),
-											Line().Id("apiClient"),
-											Line().Id("apiEndpoint"),
-											Line(),
 										),
-										Err().Op("!=").Nil(),
-									).Block(
-										Qual(
-											"github.com/threeport/threeport/pkg/cli/v0",
-											"Error",
-										).Call(Lit("failed to produce output"), Err()),
-										Qual("os", "Exit").Call(Lit(1)),
+										Case(Lit("yaml")).Block(
+											If(Err().Op(":=").Qual(
+												"github.com/threeport/threeport/pkg/cli/v0",
+												"YamlObjectOutput",
+											).Call(
+												Op("*").Id(pluralize.Pluralize(objectVar, 2, false)),
+											), Err().Op("!=").Nil()).Block(
+												Qual(
+													"github.com/threeport/threeport/pkg/cli/v0",
+													"Error",
+												).Call(Lit("failed to produce YAML output"), Err()),
+												Qual("os", "Exit").Call(Lit(1)),
+											),
+										),
+										Case(Lit("json")).Block(
+											If(Err().Op(":=").Qual(
+												"github.com/threeport/threeport/pkg/cli/v0",
+												"JsonObjectOutput",
+											).Call(
+												Op("*").Id(pluralize.Pluralize(objectVar, 2, false)),
+											), Err().Op("!=").Nil()).Block(
+												Qual(
+													"github.com/threeport/threeport/pkg/cli/v0",
+													"Error",
+												).Call(Lit("failed to produce JSON output"), Err()),
+												Qual("os", "Exit").Call(Lit(1)),
+											),
+										),
+										Default().Block(
+											Qual(
+												"github.com/threeport/threeport/pkg/cli/v0",
+												"Error",
+											).Call(Lit(""), Qual("fmt", "Errorf").Call(Lit("unrecognized output format: %s"), Id(outputVar))),
+											Qual("os", "Exit").Call(Lit(1)),
+										),
 									),
 								)
 							}
@@ -896,48 +1030,55 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Id("GetCmd").Dot("AddCommand").Call(Id(getCmdVar)),
 					Line(),
 					Id(getCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id("cliArgs").Dot("ControlPlaneName"),
-						Line().Lit("control-plane-name"),
-						Lit("i"),
-						Lit(""),
-						Lit("Optional. Name of control plane. Will default to current control plane if not provided."),
+						Line().Op("&").Id(nameVar),
+						Line().Lit("name"), Lit("n"), Lit(""),
+						Lit(fmt.Sprintf("Name of %s.", cmdStrHuman)),
 						Line(),
 					),
 					Id(getCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(getObjectVersionVar),
-						Line().Lit("version"),
-						Lit("v"),
-						Lit(util.GetDefaultObjectVersion(apiObj.TypeName)),
+						Line().Op("&").Id(configPathVar),
+						Line().Lit("config"), Lit("c"), Lit(""),
+						Lit(fmt.Sprintf("Path to file with %s config.", cmdStrHuman)),
+						Line(),
+					),
+					Id(getCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
+						Line().Op("&").Id(versionVar),
+						Line().Lit("version"), Lit("v"), Lit(util.GetDefaultObjectVersion(apiObj.TypeName)),
 						Lit(fmt.Sprintf(
-							"Version of %s object to retrieve. One of: %s",
-							pluralize.Pluralize(cmdStrHuman, 2, false),
-							apiObj.Versions,
+							"Version of %s objects to retrieve. One of: %s",
+							cmdStrHuman, apiObj.Versions,
 						)),
+						Line(),
+					),
+					Id(getCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
+						Line().Op("&").Id(outputVar),
+						Line().Lit("output"), Lit("o"), Lit("tabular"),
+						Lit(fmt.Sprintf(
+							"Output format for %s objects. One of: [tabular, yaml, json]",
+							cmdStrHuman,
+						)),
+						Line(),
+					),
+					Id(getCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
+						Line().Op("&").Id("cliArgs").Dot("ControlPlaneName"),
+						Line().Lit("control-plane-name"), Lit("i"), Lit(""),
+						Lit("Optional. Name of control plane. Will default to current control plane if not provided."),
 						Line(),
 					),
 				)
 
 				// create command
-				createCmdVar := fmt.Sprintf("Create%sCmd", apiObj.TypeName)
-				createConfigPathVar := fmt.Sprintf("create%sConfigPath", apiObj.TypeName)
-				createdObjVar := fmt.Sprintf("created%s", apiObj.TypeName)
-				createObjectVersionVar := fmt.Sprintf("create%sVersion", apiObj.TypeName)
-
 				// for models that use configs that reference other files the config
 				// path variable must be set on the config object
 				setConfigPath := &Statement{}
 				if apiObj.TptctlConfigPath {
-					setConfigPath.Id(objectVar).Dot(configPathField).Op("=").Op("&").Id(createConfigPathVar)
+					setConfigPath.Id(objectVar).Dot(configPathField).Op("=").Op("&").Id(configPathVar)
 				}
 
-				commandCode.Var().Defs(
-					Id(createConfigPathVar).String(),
-					Id(createObjectVersionVar).String(),
-				)
-
 				commandCode.Comment(fmt.Sprintf(
-					"%s represents the %s command",
+					"%s represents the command '%s create %s'",
 					createCmdVar,
+					exampleCmdStr,
 					cmdStr,
 				))
 				commandCode.Var().Id(createCmdVar).Op("=").Op("&").Qual(
@@ -946,7 +1087,8 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				).Values(Dict{
 					Id("Use"): Lit(cmdStr),
 					Id("Example"): Lit(fmt.Sprintf(
-						"  %s create %s --config path/to/config.yaml",
+						"  # create a new %s using a config file\n  %s create %s --config path/to/config.yaml",
+						cmdStrHuman,
 						exampleCmdStr,
 						cmdStr,
 					)),
@@ -988,7 +1130,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							cmdStrHuman,
 						))
 						g.Id("configContent").Op(",").Err().Op(":=").Qual("os", "ReadFile").Call(
-							Id(createConfigPathVar),
+							Id(configPathVar),
 						)
 						g.If(Err().Op("!=").Nil()).Block(
 							Qual(
@@ -998,7 +1140,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Qual("os", "Exit").Call(Lit(1)),
 						)
 						g.Comment(fmt.Sprintf("create %s based on version", cmdStrHuman))
-						g.Switch().Id(createObjectVersionVar).BlockFunc(func(h *Group) {
+						g.Switch().Id(versionVar).BlockFunc(func(h *Group) {
 							for _, version := range apiObj.Versions {
 								h.Case(Lit(version)).Block(
 									Var().Id(objectConfigVar).Qual(
@@ -1042,7 +1184,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
 										"%s %%s created",
 										cmdStrHuman,
-									)), Op("*").Id(createdObjVar).Dot("Name"))),
+									)), Op("*").Id(createdObjVar).Dot(apiObj.TypeName).Dot("Name"))),
 								)
 								h.Default().Block(
 									Qual(
@@ -1065,7 +1207,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Id("CreateCmd").Dot("AddCommand").Call(Id(createCmdVar)),
 					Line(),
 					Id(createCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(createConfigPathVar),
+						Line().Op("&").Id(configPathVar),
 						Line().Lit("config"),
 						Lit("c"),
 						Lit(""),
@@ -1085,7 +1227,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line(),
 					),
 					Id(createCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(createObjectVersionVar),
+						Line().Op("&").Id(versionVar),
 						Line().Lit("version"),
 						Lit("v"),
 						Lit(util.GetDefaultObjectVersion(apiObj.TypeName)),
@@ -1098,29 +1240,194 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					),
 				)
 
-				// delete command
-				deleteCmdVar := fmt.Sprintf("Delete%sCmd", apiObj.TypeName)
-				deleteConfigPathVar := fmt.Sprintf("delete%sConfigPath", apiObj.TypeName)
-				deleteNameVar := fmt.Sprintf("delete%sName", apiObj.TypeName)
-				deletedObjVar := fmt.Sprintf("deleted%s", apiObj.TypeName)
-				deleteObjectVersionVar := fmt.Sprintf("delete%sVersion", apiObj.TypeName)
+				// replace command
+				commandCode.Comment(fmt.Sprintf(
+					"%s represents the command '%s replace %s'",
+					replaceCmdVar,
+					exampleCmdStr,
+					cmdStr,
+				))
+				commandCode.Var().Id(replaceCmdVar).Op("=").Op("&").Qual(
+					"github.com/spf13/cobra",
+					"Command",
+				).Values(Dict{
+					Id("Use"): Lit(cmdStr),
+					Id("Example"): Lit(fmt.Sprintf(
+						"  # replace using a config file\n  %s replace %s --config path/to/config.yaml --name some-%s",
+						exampleCmdStr,
+						cmdStr,
+						cmdStr,
+					)),
+					Id("Short"): Lit(fmt.Sprintf(
+						"Replace an existing %s",
+						cmdStrHuman,
+					)),
+					Id("Long"): Lit(fmt.Sprintf(
+						"Replace an existing %s.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
+						cmdStrHuman,
+					)),
+					Id("SilenceUsage"): True(),
+					Id("PreRun"):       Id("CommandPreRunFunc"),
+					Id("Run"): Func().Params(Id("cmd").Op("*").Qual(
+						"github.com/spf13/cobra",
+						"Command",
+					), Id("args").Index().String()).BlockFunc(func(g *Group) {
+						if gen.Module {
+							g.List(
+								Id("apiClient"),
+								Id("_"),
+								Id("apiEndpoint"),
+								Id("_"),
+							).Op(":=").Qual(
+								"github.com/threeport/threeport/cmd/tptctl/cmd",
+								"GetClientContext",
+							).Call(Id("cmd"))
+						} else {
+							g.List(
+								Id("apiClient"),
+								Id("_"),
+								Id("apiEndpoint"),
+								Id("_"),
+							).Op(":=").Id("GetClientContext").Call(Id("cmd"))
+						}
+						g.Line()
+						g.Comment(fmt.Sprintf("replace %s based on version", cmdStrHuman))
+						g.Switch().Id(versionVar).BlockFunc(func(h *Group) {
+							for _, version := range apiObj.Versions {
+								h.Case(Lit(version)).Block(
+									Var().Id(objectConfigVar).Qual(
+										fmt.Sprintf("%s%s", configImportPath, version),
+										objectConfigObj,
+									),
+									Comment(fmt.Sprintf(
+										"load %s config",
+										cmdStrHuman,
+									)),
+									List(
+										Id("configContent"),
+										Err(),
+									).Op(":=").Qual("os", "ReadFile").Call(Id(configPathVar)),
+									If(Err().Op("!=").Nil()).Block(
+										Qual(
+											"github.com/threeport/threeport/pkg/cli/v0",
+											"Error",
+										).Call(Lit("failed to read config file"), Err()),
+										Qual("os", "Exit").Call(Lit(1)),
+									),
+									If(Err().Op(":=").Qual(
+										"gopkg.in/yaml.v2",
+										"UnmarshalStrict",
+									).Call(
+										Id("configContent"),
+										Op("&").Id(objectConfigVar),
+									), Err().Op("!=").Nil()).Block(
+										Qual(
+											"github.com/threeport/threeport/pkg/cli/v0",
+											"Error",
+										).Call(Lit("failed to unmarshal config file yaml content"), Err()),
+										Qual("os", "Exit").Call(Lit(1)),
+									),
+									Line(),
+									Comment(fmt.Sprintf(
+										"replace %s",
+										cmdStrHuman,
+									)),
+									Id(objectVar).Op(":=").Id(objectConfigVar).Dot(apiObj.TypeName),
+									Add(setConfigPath),
+									Id(updatedObjVar).Op(",").Err().Op(":=").Id(objectVar).Dot("Replace").Call(
+										Id("apiClient"), Id("apiEndpoint"), Id(nameVar),
+									),
+									If(Err().Op("!=").Nil()).Block(
+										Qual(
+											"github.com/threeport/threeport/pkg/cli/v0",
+											"Error",
+										).Call(Lit(fmt.Sprintf(
+											"failed to update %s",
+											cmdStrHuman,
+										)), Err()),
+										Qual("os", "Exit").Call(Lit(1)),
+									),
+									Line(),
+									Qual(
+										"github.com/threeport/threeport/pkg/cli/v0",
+										"Complete",
+									).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
+										"%s %%s updated",
+										cmdStrHuman,
+									)), Op("*").Id(updatedObjVar).Dot(apiObj.TypeName).Dot("Name"))),
+								)
+								h.Default().Block(
+									Qual(
+										"github.com/threeport/threeport/pkg/cli/v0",
+										"Error",
+									).Call(
+										Lit(""),
+										Qual("errors", "New").Call(
+											Lit("unrecognized object version"),
+										),
+									),
+									Qual("os", "Exit").Call(Lit(1)),
+								)
+							}
+						})
+					}),
+				})
 
+				commandCode.Func().Id("init").Params().Block(
+					Id("ReplaceCmd").Dot("AddCommand").Call(Id(replaceCmdVar)),
+					Line(),
+					Id(replaceCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
+						Line().Op("&").Id(configPathVar),
+						Line().Lit("config"),
+						Lit("c"),
+						Lit(""),
+						Lit(fmt.Sprintf("Path to file with %s config.  The config file must be a complete config, i.e. the provided config will be used to replace the entire existing config for the object with a PUT request.", cmdStrHuman)),
+						Line(),
+					),
+					Id(replaceCmdVar).Dot("MarkFlagRequired").Call(Lit("config")),
+					Id(replaceCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
+						Line().Op("&").Id(nameVar),
+						Line().Lit("name"),
+						Lit("n"),
+						Lit(""),
+						Lit(fmt.Sprintf("Name of existing %s to replace.  If the name in the %[1]s config is different from the name provided here, the name of the existing object will be updated with the name in the config.", cmdStrHuman)),
+						Line(),
+					),
+					Id(replaceCmdVar).Dot("MarkFlagRequired").Call(Lit("name")),
+					Id(replaceCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
+						Line().Op("&").Id("cliArgs").Dot("ControlPlaneName"),
+						Line().Lit("control-plane-name"),
+						Lit("i"),
+						Lit(""),
+						Lit("Optional. Name of control plane. Will default to current control plane if not provided."),
+						Line(),
+					),
+					Id(replaceCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
+						Line().Op("&").Id(versionVar),
+						Line().Lit("version"),
+						Lit("v"),
+						Lit(util.GetDefaultObjectVersion(apiObj.TypeName)),
+						Lit(fmt.Sprintf(
+							"Version of %s object to replace. One of: %s",
+							pluralize.Pluralize(cmdStrHuman, 2, false),
+							apiObj.Versions,
+						)),
+						Line(),
+					),
+				)
+
+				// delete command
 				// for models that use configs that reference other files the config
 				// path variable must be set on the config object
 				setConfigPath = &Statement{}
 				if apiObj.TptctlConfigPath {
-					setConfigPath.Id(objectVar).Dot(configPathField).Op("=").Op("&").Id(deleteConfigPathVar)
+					setConfigPath.Id(objectVar).Dot(configPathField).Op("=").Op("&").Id(configPathVar)
 				}
 
-				commandCode.Var().Defs(
-					Id(deleteConfigPathVar).String(),
-					Id(deleteNameVar).String(),
-					Id(deleteObjectVersionVar).String(),
-				)
-
 				commandCode.Comment(fmt.Sprintf(
-					"%s represents the %s command",
+					"%s represents the command '%s delete %s'",
 					deleteCmdVar,
+					exampleCmdStr,
 					cmdStr,
 				))
 				commandCode.Var().Id(deleteCmdVar).Op("=").Op("&").Qual(
@@ -1129,7 +1436,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				).Values(Dict{
 					Id("Use"): Lit(cmdStr),
 					Id("Example"): Lit(fmt.Sprintf(
-						"  # delete based on config file\n  %[1]s delete %[2]s --config path/to/config.yaml\n\n  # delete based on name\n  %[1]s delete %[2]s --name some-%[2]s",
+						"  # delete using a config file\n  %[1]s delete %[2]s --config path/to/config.yaml\n\n  # delete using name\n  %[1]s delete %[2]s --name some-%[2]s",
 						exampleCmdStr,
 						cmdStr,
 					)),
@@ -1171,8 +1478,8 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"github.com/threeport/threeport/pkg/cli/v0",
 							"ValidateConfigNameFlags",
 						).Call(
-							Line().Id(deleteConfigPathVar),
-							Line().Id(deleteNameVar),
+							Line().Id(configPathVar),
+							Line().Id(nameVar),
 							Line().Lit(cmdStrHuman),
 							Line(),
 						), Err().Op("!=").Nil()).Block(
@@ -1184,14 +1491,14 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						)
 						g.Line()
 						g.Comment(fmt.Sprintf("delete %s based on version", cmdStrHuman))
-						g.Switch().Id(deleteObjectVersionVar).BlockFunc(func(h *Group) {
+						g.Switch().Id(versionVar).BlockFunc(func(h *Group) {
 							for _, version := range apiObj.Versions {
 								h.Case(Lit(version)).Block(
 									Var().Id(objectConfigVar).Qual(
 										fmt.Sprintf("%s%s", configImportPath, version),
 										objectConfigObj,
 									),
-									If(Id(deleteConfigPathVar).Op("!=").Lit("")).Block(
+									If(Id(configPathVar).Op("!=").Lit("")).Block(
 										Comment(fmt.Sprintf(
 											"load %s config",
 											cmdStrHuman,
@@ -1199,7 +1506,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										List(
 											Id("configContent"),
 											Err(),
-										).Op(":=").Qual("os", "ReadFile").Call(Id(deleteConfigPathVar)),
+										).Op(":=").Qual("os", "ReadFile").Call(Id(configPathVar)),
 										If(Err().Op("!=").Nil()).Block(
 											Qual(
 												"github.com/threeport/threeport/pkg/cli/v0",
@@ -1229,7 +1536,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 												fmt.Sprintf("%s%s", configImportPath, version),
 												objectValuesObj,
 											).Values(Dict{
-												Line().Id("Name"): Op("&").Id(deleteNameVar).Op(",").Line(),
+												Line().Id("Name"): Op("&").Id(nameVar).Op(",").Line(),
 											}).Op(",").Line(),
 										}),
 									),
@@ -1260,7 +1567,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
 										"%s %%s deleted",
 										cmdStrHuman,
-									)), Op("*").Id(deletedObjVar).Dot("Name"))),
+									)), Op("*").Id(deletedObjVar).Dot(apiObj.TypeName).Dot("Name"))),
 								)
 								h.Default().Block(
 									Qual(
@@ -1283,7 +1590,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Id("DeleteCmd").Dot("AddCommand").Call(Id(deleteCmdVar)),
 					Line(),
 					Id(deleteCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(deleteConfigPathVar),
+						Line().Op("&").Id(configPathVar),
 						Line().Lit("config"),
 						Lit("c"),
 						Lit(""),
@@ -1294,7 +1601,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line(),
 					),
 					Id(deleteCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(deleteNameVar),
+						Line().Op("&").Id(nameVar),
 						Line().Lit("name"),
 						Lit("n"),
 						Lit(""),
@@ -1313,7 +1620,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line(),
 					),
 					Id(deleteCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(deleteObjectVersionVar),
+						Line().Op("&").Id(versionVar),
 						Line().Lit("version"),
 						Lit("v"),
 						Lit(util.GetDefaultObjectVersion(apiObj.TypeName)),
@@ -1325,460 +1632,68 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line(),
 					),
 				)
-
-				// describe command
-				describeCmdVar := fmt.Sprintf("Describe%sCmd", apiObj.TypeName)
-				describeConfigPathVar := fmt.Sprintf("describe%sConfigPath", apiObj.TypeName)
-				describeNameVar := fmt.Sprintf("describe%sName", apiObj.TypeName)
-				describeFieldVar := fmt.Sprintf("describe%sField", apiObj.TypeName)
-				describeOutputVar := fmt.Sprintf("describe%sOutput", apiObj.TypeName)
-				jsonObjectVar := fmt.Sprintf("%sJson", objectVar)
-				yamlObjectVar := fmt.Sprintf("%sYaml", objectVar)
-				redactedObjectVar := fmt.Sprintf("redacted%s", apiObj.TypeName)
-				describeObjectVersionVar := fmt.Sprintf("describe%sVersion", apiObj.TypeName)
-
-				commandCode.Var().Defs(
-					Id(describeConfigPathVar).String(),
-					Id(describeNameVar).String(),
-					Id(describeFieldVar).String(),
-					Id(describeOutputVar).String(),
-					Id(describeObjectVersionVar).String(),
-				)
-				commandCode.Comment(fmt.Sprintf(
-					"%s representes the %s command",
-					describeCmdVar,
-					cmdStr,
-				))
-				commandCode.Var().Id(describeCmdVar).Op("=").Op("&").Qual(
-					"github.com/spf13/cobra",
-					"Command",
-				).Values(Dict{
-					Id("Use"): Lit(cmdStr),
-					Id("Example"): Lit(fmt.Sprintf(
-						"  # Get the plain output description for a %[1]s\n  %[2]s describe %[3]s -n some-%[3]s\n\n  # Get JSON output for a %[1]s\n  %[2]s describe %[3]s -n some-%[3]s -o json\n\n  # Get the value of the Name field for a %[1]s\n  %[2]s describe %[3]s -n some-%[3]s -f Name ",
-						cmdStrHuman,
-						exampleCmdStr,
-						cmdStr,
-					)),
-					Id("Short"): Lit(fmt.Sprintf(
-						"Describe a %[1]s",
-						cmdStrHuman,
-					)),
-					Id("Long"): Lit(fmt.Sprintf(
-						"Describe a %s.  This command can give you a plain output description, output all fields in JSON or YAML format, or provide the value of any specific field.\n\nNote: any values that are encrypted in the database will be redacted unless the field is specifically requested with the --field flag.",
-						cmdStrHuman,
-					)),
-					Id("SilenceUsage"): True(),
-					Id("PreRun"):       Id("CommandPreRunFunc"),
-					Id("Run"): Func().Params(Id("cmd").Op("*").Qual(
-						"github.com/spf13/cobra",
-						"Command",
-					), Id("args").Index().String()).BlockFunc(func(g *Group) {
-						if gen.Module {
-							g.List(
-								Id("apiClient"),
-								Id("_"),
-								Id("apiEndpoint"),
-								Id("_"),
-							).Op(":=").Qual(
-								"github.com/threeport/threeport/cmd/tptctl/cmd",
-								"GetClientContext",
-							).Call(Id("cmd"))
-						} else {
-							g.List(
-								Id("apiClient"),
-								Id("_"),
-								Id("apiEndpoint"),
-								Id("_"),
-							).Op(":=").Id("GetClientContext").Call(Id("cmd"))
-						}
-						g.Line()
-						g.Comment("flag validation")
-						g.If(Err().Op(":=").Qual(
-							"github.com/threeport/threeport/pkg/cli/v0",
-							"ValidateConfigNameFlags",
-						).Call(
-							Line().Id(describeConfigPathVar),
-							Line().Id(describeNameVar),
-							Line().Lit(cmdStrHuman),
-							Line(),
-						), Err().Op("!=").Nil()).Block(
-							Qual(
-								"github.com/threeport/threeport/pkg/cli/v0",
-								"Error",
-							).Call(Lit("flag validation failed"), Err()),
-							Qual("os", "Exit").Call(Lit(1)),
-						)
-						g.Line()
-						g.If(
-							List(Err().Op(":=")).Qual(
-								"github.com/threeport/threeport/pkg/cli/v0",
-								"ValidateDescribeOutputFlag",
-							).Call(
-								Line().Id(describeOutputVar),
-								Line().Lit(cmdStrHuman),
-								Line(),
-							),
-							Err().Op("!=").Nil(),
-						).Block(
-							Qual(
-								"github.com/threeport/threeport/pkg/cli/v0",
-								"Error",
-							).Call(Lit("flag validation failed"), Err()),
-							Qual("os", "Exit").Call(Lit(1)),
-						)
-						g.Line()
-						g.Comment(fmt.Sprintf(
-							"get %s",
-							cmdStrHuman,
-						))
-						g.Var().Id(objectVar).Interface()
-						g.Switch().Id(describeObjectVersionVar).BlockFunc(func(h *Group) {
-							for _, version := range apiObj.Versions {
-								h.Case(Lit(version)).Block(
-									Comment(fmt.Sprintf(
-										"load %s config by name or config file",
-										cmdStrHuman,
-									)),
-									Var().Id(objectConfigVar).Qual(
-										fmt.Sprintf("%s%s", configImportPath, version),
-										objectConfigObj,
-									),
-									If(Id(describeConfigPathVar).Op("!=").Lit("")).Block(
-										List(Id("configContent"), Err()).Op(":=").Qual("os", "ReadFile").Call(
-											Id(describeConfigPathVar),
-										),
-										If(Err().Op("!=").Nil()).Block(
-											Qual(
-												"github.com/threeport/threeport/pkg/cli/v0",
-												"Error",
-											).Call(Lit("failed to read config file"), Err()),
-											Qual("os", "Exit").Call(Lit(1)),
-										),
-										If(List(Err()).Op(":=").Qual(
-											"gopkg.in/yaml.v2",
-											"UnmarshalStrict",
-										).Call(
-											Id("configContent"),
-											Op("&").Id(objectConfigVar),
-										), Err().Op("!=").Nil()).Block(
-											Qual(
-												"github.com/threeport/threeport/pkg/cli/v0",
-												"Error",
-											).Call(Lit("failed to unmarshal config file yaml content"), Err()),
-											Qual("os", "Exit").Call(Lit(1)),
-										),
-									).Else().Block(
-										Id(objectConfigVar).Op("=").Qual(
-											fmt.Sprintf("%s%s", configImportPath, version),
-											objectConfigObj,
-										).Values(Dict{
-											Line().Id(apiObj.TypeName): Qual(
-												fmt.Sprintf("%s%s", configImportPath, version),
-												objectValuesObj,
-											).Values(Dict{
-												Line().Id("Name"): Op("&").Id(describeNameVar).Op(",").Line(),
-											}).Op(",").Line(),
-										}),
-									),
-									Line(),
-									Comment(fmt.Sprintf("get %s object by name", cmdStrHuman)),
-									List(Id("obj"), Err()).Op(":=").Qual(
-										fmt.Sprintf("%s%s", clientImportPath, version),
-										fmt.Sprintf("Get%sByName", apiObj.TypeName),
-									).Call(
-										Line().Id("apiClient"),
-										Line().Id("apiEndpoint"),
-										Line().Op("*").Id(objectConfigVar).Dot(apiObj.TypeName).Dot("Name"),
-										Line(),
-									),
-
-									If(Err().Op("!=").Nil()).Block(
-										Qual(
-											"github.com/threeport/threeport/pkg/cli/v0",
-											"Error",
-										).Call(Lit(fmt.Sprintf(
-											"failed to retrieve %s details",
-											cmdStrHuman,
-										)), Err()),
-										Qual("os", "Exit").Call(Lit(1)),
-									),
-									Id(objectVar).Op("=").Id("obj"),
-									Line(),
-									Comment("return plain output if requested"),
-									If(Id(describeOutputVar).Op("==").Lit("plain")).Block(
-										If((Err().Op(":=").Id(
-											fmt.Sprintf("outputDescribe%s%sCmd", version, apiObj.TypeName),
-										).Params(
-											Line().Id(objectVar).Assert(Op("*").Qual(
-												fmt.Sprintf("%s%s", apiImportPath, version),
-												apiObj.TypeName,
-											)),
-											Line().Op("&").Id(objectConfigVar),
-											Line().Id("apiClient"),
-											Line().Id("apiEndpoint"),
-											Line(),
-										).Op(";").Err().Op("!=").Nil()).Block(
-											Qual(
-												"github.com/threeport/threeport/pkg/cli/v0",
-												"Error",
-											).Call(Lit(fmt.Sprintf(
-												"failed to describe %s",
-												cmdStrHuman,
-											)), Err()),
-											Qual("os", "Exit").Call(Lit(1)),
-										)),
-									),
-								)
-							}
-							h.Default().Block(
-								Qual(
-									"github.com/threeport/threeport/pkg/cli/v0",
-									"Error",
-								).Call(
-									Lit(""),
-									Qual("errors", "New").Call(
-										Lit("unrecognized object version"),
-									),
-								),
-								Qual("os", "Exit").Call(Lit(1)),
-							)
-						})
-						g.Line()
-
-						g.Comment("return field value if specified")
-						g.If(Id(describeFieldVar).Op("!=").Lit("")).Block(
-							List(Id("fieldVal"), Err()).Op(":=").Qual(
-								"github.com/threeport/threeport/pkg/util/v0",
-								"GetObjectFieldValue",
-							).
-								Call(
-									Line().Id(objectVar),
-									Line().Id(describeFieldVar),
-									Line(),
-								),
-							If(Err().Op("!=").Nil()).Block(
-								Qual(
-									"github.com/threeport/threeport/pkg/cli/v0",
-									"Error",
-								).Call(Lit(fmt.Sprintf(
-									"failed to get field value from %s",
-									cmdStrHuman,
-								)), Err()),
-								Qual("os", "Exit").Call(Lit(1)),
-							),
-							Line(),
-							Comment("decrypt value as needed"),
-							List(
-								Id("encrypted"),
-								Err(),
-							).Op(":=").Id("encryption").Dot("IsEncryptedField").Call(
-								Id(objectVar),
-								Id(describeFieldVar),
-							),
-							If(Err().Op("!=").Nil()).Block(
-								Id("cli").Dot("Error").Call(Lit(""), Err()),
-							),
-							If(Id("encrypted")).Block(
-								Comment("get encryption key from threeport config"),
-								List(
-									Id("threeportConfig"),
-									Id("requestedControlPlane"),
-									Err(),
-								).Op(":=").Qual(
-									"github.com/threeport/threeport/pkg/cli/v0",
-									"GetThreeportConfig",
-								).Call(
-									Id("cliArgs").Dot("ControlPlaneName"),
-								),
-								If(Err().Op("!=").Nil()).Block(
-									Id("cli").Dot("Error").Call(
-										Lit("failed to get threeport config: %w"),
-										Err(),
-									),
-									Qual("os", "Exit").Call(Lit(1)),
-								),
-								List(
-									Id("encryptionKey"),
-									Err(),
-								).Op(":=").Id("threeportConfig").Dot("GetThreeportEncryptionKey").Call(
-									Id("requestedControlPlane"),
-								),
-								If(Err().Op("!=").Nil()).Block(
-									Id("cli").Dot("Error").Call(
-										Lit("failed to get encryption key from threeport config: %w"),
-										Err(),
-									),
-									Qual("os", "Exit").Call(Lit(1)),
-								),
-								Line(),
-								Comment("decrypt value for output"),
-								List(Id("decryptedVal"), Err()).Op(":=").Id("encryption").Dot("Decrypt").Call(
-									Id("encryptionKey"), Id("fieldVal").Dot("String").Call(),
-								),
-								If(Err().Op("!=").Nil()).Block(
-									Id("cli").Dot("Error").Call(Lit("failed to decrypt value: %w"), Err()),
-								),
-								Qual("fmt", "Println").Call(Id("decryptedVal")),
-								Qual("os", "Exit").Call(Lit(0)),
-							).Else().Block(
-								Qual("fmt", "Println").Call(Id("fieldVal").Dot("Interface").Call()),
-								Qual("os", "Exit").Call(Lit(0)),
-							),
-						)
-						g.Line()
-						g.Comment("produce json or yaml output if requested")
-						g.Switch(Id(describeOutputVar)).Block(
-							Case(Lit("json")).Block(
-								Comment("redact encrypted values"),
-								Id(redactedObjectVar).Op(":=").Qual(
-									"github.com/threeport/threeport/pkg/encryption/v0",
-									"RedactEncryptedValues",
-								).Call(Id(objectVar)),
-								Line(),
-								Comment("marshal to JSON then print"),
-								List(
-									Id(jsonObjectVar),
-									Err(),
-								).Op(":=").Qual("encoding/json", "MarshalIndent").Call(
-									Id(redactedObjectVar),
-									Lit(""),
-									Lit("  "),
-								),
-								If(Err().Op("!=").Nil()).Block(
-									Qual(
-										"github.com/threeport/threeport/pkg/cli/v0",
-										"Error",
-									).Call(Lit(fmt.Sprintf(
-										"failed to marshal %s into JSON",
-										cmdStrHuman,
-									)), Err()),
-									Qual("os", "Exit").Call(Lit(1)),
-								),
-								Line(),
-								Qual("fmt", "Println").Call(Id("string").Call(Id(jsonObjectVar))),
-							),
-							Case(Lit("yaml")).Block(
-								Comment("redact encrypted values"),
-								Id(redactedObjectVar).Op(":=").Qual(
-									"github.com/threeport/threeport/pkg/encryption/v0",
-									"RedactEncryptedValues",
-								).Call(Id(objectVar)),
-								Line(),
-								Comment("marshal to JSON then convert to YAML - this results in field"),
-								Comment("names with correct capitalization vs marshalling directly to YAML"),
-								List(
-									Id(jsonObjectVar),
-									Err(),
-								).Op(":=").Qual("encoding/json", "MarshalIndent").Call(
-									Id(redactedObjectVar),
-									Lit(""),
-									Lit("  "),
-								),
-								If(Err().Op("!=").Nil()).Block(
-									Qual(
-										"github.com/threeport/threeport/pkg/cli/v0",
-										"Error",
-									).Call(Lit(fmt.Sprintf(
-										"failed to marshal %s into JSON",
-										cmdStrHuman,
-									)), Err()),
-									Qual("os", "Exit").Call(Lit(1)),
-								),
-								List(Id(yamlObjectVar), Err()).Op(":=").Qual(
-									"github.com/ghodss/yaml",
-									"JSONToYAML",
-								).Call(Id(jsonObjectVar)),
-								If(Err().Op("!=").Nil()).Block(
-									Qual(
-										"github.com/threeport/threeport/pkg/cli/v0",
-										"Error",
-									).Call(Lit(fmt.Sprintf(
-										"failed to convert %s JSON to YAML",
-										cmdStrHuman,
-									)), Err()),
-									Qual("os", "Exit").Call(Lit(1)),
-								),
-								Line(),
-								Qual("fmt", "Println").Call(Id("string").Call(Id(yamlObjectVar))),
-							),
-						)
-					}),
-				})
-
-				commandCode.Func().Id("init").Params().Block(
-					Id("DescribeCmd").Dot("AddCommand").Call(Id(describeCmdVar)),
-					Line(),
-					Id(describeCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(describeConfigPathVar),
-						Line().Lit("config"),
-						Lit("c"),
-						Lit(""),
-						Lit(fmt.Sprintf(
-							"Path to file with %s config.",
-							cmdStrHuman,
-						)),
-						Line(),
-					),
-					Id(describeCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(describeNameVar),
-						Line().Lit("name"),
-						Lit("n"),
-						Lit(""),
-						Lit(fmt.Sprintf(
-							"Name of %s.",
-							cmdStrHuman,
-						)),
-						Line(),
-					),
-					Id(describeCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(describeOutputVar),
-						Line().Lit("output"),
-						Lit("o"),
-						Lit("plain"),
-						Lit("Output format for object description. One of 'plain','json','yaml'.  Will be ignored if the --field flag is also used.  Plain output produces select details about the object.  JSON and YAML output formats include all direct attributes of the object"),
-						Line(),
-					),
-					Id(describeCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(describeFieldVar),
-						Line().Lit("field"),
-						Lit("f"),
-						Lit(""),
-						Lit("Object field to get value for. If used, --output flag will be ignored.  *Only* the value of the desired field will be returned.  Will not return information on related objects, only direct attributes of the object itself."),
-						Line(),
-					),
-					Id(describeCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id("cliArgs").Dot("ControlPlaneName"),
-						Line().Lit("control-plane-name"),
-						Lit("i"),
-						Lit(""),
-						Lit("Optional. Name of control plane. Will default to current control plane if not provided."),
-						Line(),
-					),
-					Id(describeCmdVar).Dot("Flags").Call().Dot("StringVarP").Call(
-						Line().Op("&").Id(describeObjectVersionVar),
-						Line().Lit("version"),
-						Lit("v"),
-						Lit(util.GetDefaultObjectVersion(apiObj.TypeName)),
-						Lit(fmt.Sprintf(
-							"Version of %s object to describe. One of: %s",
-							pluralize.Pluralize(cmdStrHuman, 2, false),
-							apiObj.Versions,
-						)),
-						Line(),
-					),
-				)
 			}
 		}
 
 		for _, apiObj := range apiObjGroup.ApiObjects {
 			if apiObj.TptctlCommands {
+				// defined instance get command output function
+				if apiObj.DefinedInstanceDefinition {
+					rootObj := strings.TrimSuffix(apiObj.TypeName, "Definition")
+					rootObjectVar := strcase.ToLowerCamel(rootObj)
+					rootCmdStr := strcase.ToKebab(rootObj)
+					getCmdOutputFunc := fmt.Sprintf(
+						"outputGet%s%sCmd",
+						apiObj.Version,
+						pluralize.Pluralize(rootObj, 2, false),
+					)
+
+					getOutputCode.Commentf(
+						"%s produces the tabular output for the",
+						getCmdOutputFunc,
+					)
+					getOutputCode.Commentf(
+						"'get %s' command.",
+						pluralize.Pluralize(rootCmdStr, 2, false),
+					)
+					getOutputCode.Func().Id(getCmdOutputFunc).Params(
+						Line().Id(pluralize.Pluralize(rootObjectVar, 2, false)).Op("*").Index().Qual(
+							fmt.Sprintf("%s%s", configImportPath, apiObj.Version),
+							fmt.Sprintf("%sConfig", rootObj),
+						),
+						Line(),
+					).Error().Block(
+						Id("writer").Op(":=").Qual("text/tabwriter", "NewWriter").Call(
+							Qual("os", "Stdout"), Lit(4), Lit(4), Lit(4), LitRune(' '), Lit(0),
+						),
+						Comment("TODO: add columns for each field that users should see"),
+						Commentf(
+							"TODO: available fields are defined in the %sValues object in pkg/config/%s/%s.go",
+							rootObj,
+							apiObj.Version,
+							strcase.ToSnake(rootObj),
+						),
+						Qual("fmt", "Fprintln").Call(Id("writer"), Lit("VERSION\t NAME\t AGE")),
+						For(
+							List(Id("_"), Id(rootObjectVar)).Op(":=").Range().Op("*").Id(pluralize.Pluralize(rootObjectVar, 2, false)).Block(
+								Qual("fmt", "Fprintln").Call(
+									Line().Id("writer"),
+									Line().Lit(apiObj.Version).Op(",").Lit("\t"),
+									Line().Op("*").Id(rootObjectVar).Dot(rootObj).Dot("Name").Op(",").Lit("\t"),
+									Line().Op("*").Id(rootObjectVar).Dot(rootObj).Dot("Age").Op(",").Line(),
+								),
+							),
+						),
+						Id("writer").Dot("Flush").Call(),
+						Line(),
+						Return(Nil()),
+					)
+					Line()
+				}
+
+				// API object get command output function
 				objectVar := strcase.ToLowerCamel(apiObj.TypeName)
 				cmdStr := strcase.ToKebab(apiObj.TypeName)
-				objectConfigVar := fmt.Sprintf("%sConfig", objectVar)
-				objectConfigObj := fmt.Sprintf("%sConfig", apiObj.TypeName)
-
-				// get command output function
 				getCmdOutputFunc := fmt.Sprintf(
 					"outputGet%s%sCmd",
 					apiObj.Version,
@@ -1790,34 +1705,36 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					getCmdOutputFunc,
 				)
 				getOutputCode.Commentf(
-					"'get %s' command.",
+					"`get %s` command.",
 					pluralize.Pluralize(cmdStr, 2, false),
 				)
 				getOutputCode.Func().Id(getCmdOutputFunc).Params(
 					Line().Id(pluralize.Pluralize(objectVar, 2, false)).Op("*").Index().Qual(
-						fmt.Sprintf("%s%s", apiImportPath, apiObj.Version),
-						apiObj.TypeName,
+						fmt.Sprintf("%s%s", configImportPath, apiObj.Version),
+						fmt.Sprintf("%sConfig", apiObj.TypeName),
 					),
-					Line().Id("apiClient").Op("*").Qual("net/http", "Client"),
-					Line().Id("apiEndpoint").String(),
 					Line(),
 				).Error().Block(
 					Id("writer").Op(":=").Qual("text/tabwriter", "NewWriter").Call(
 						Qual("os", "Stdout"), Lit(4), Lit(4), Lit(4), LitRune(' '), Lit(0),
 					),
-					Qual("fmt", "Fprintln").Call(Id("writer"), Lit("NAME\t AGE")),
+					Comment("TODO: add columns for each field that users should see"),
+					Commentf(
+						"TODO: available fields are defined in the %sValues object in pkg/config/%s/%s.go",
+						apiObj.TypeName,
+						apiObj.Version,
+						strcase.ToSnake(apiObj.TypeName),
+					),
+					Qual("fmt", "Fprintln").Call(Id("writer"), Lit("VERSION\t NAME\t AGE")),
 					For(List(
 						Id("_"),
 						Id(objectVar),
 					).Op(":=").Range().Op("*").Id(pluralize.Pluralize(objectVar, 2, false))).Block(
 						Qual("fmt", "Fprintln").Call(
 							Line().Id("writer"),
-							Line().Op("*").Id(objectVar).Dot("Name").Op(",").Lit("\t"),
-							Line().Qual(
-								"github.com/threeport/threeport/pkg/util/v0",
-								"GetAge",
-							).Call(Id(objectVar).Dot("CreatedAt")),
-							Line(),
+							Line().Lit(apiObj.Version).Op(",").Lit("\t"),
+							Line().Op("*").Id(objectVar).Dot(apiObj.TypeName).Dot("Name").Op(",").Lit("\t"),
+							Line().Op("*").Id(objectVar).Dot(apiObj.TypeName).Dot("Age").Op(",").Line(),
 						),
 					),
 					Id("writer").Dot("Flush").Call(),
@@ -1825,82 +1742,39 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Return(Nil()),
 				)
 				Line()
-
-				// describe command output function
-				describeCmdOutputFunc := fmt.Sprintf(
-					"outputDescribe%s%sCmd",
-					apiObj.Version,
-					apiObj.TypeName,
-				)
-				describeOutputCode.Comment(fmt.Sprintf(
-					"%s produces the plain description",
-					describeCmdOutputFunc,
-				))
-				describeOutputCode.Comment(fmt.Sprintf(
-					"output for the 'describe %s' command",
-					cmdStr,
-				))
-				describeOutputCode.Func().Id(describeCmdOutputFunc).Params(
-					Line().Id(objectVar).Op("*").Qual(
-						fmt.Sprintf("%s%s", apiImportPath, apiObj.Version),
-						apiObj.TypeName,
-					),
-					Line().Id(objectConfigVar).Op("*").Qual(
-						fmt.Sprintf("%s%s", configImportPath, apiObj.Version),
-						objectConfigObj,
-					),
-					Line().Id("apiClient").Op("*").Qual("net/http", "Client"),
-					Line().Id("apiEndpoint").String(),
-					Line(),
-				).Error().Block(
-					Comment("output describe details"),
-					Qual("fmt", "Printf").Call(
-						Line().Lit(fmt.Sprintf(
-							"* %s Name: %%s\n",
-							apiObj.TypeName,
-						)),
-						Line().Op("*").Id(objectConfigVar).Dot(apiObj.TypeName).Dot("Name"),
-						Line(),
-					),
-					Qual("fmt", "Printf").Call(
-						Line().Lit("* Created: %s\n"),
-						Line().Op("*").Id(objectVar).Dot("CreatedAt"),
-						Line(),
-					),
-					Qual("fmt", "Printf").Call(
-						Line().Lit("* Last Modified: %s\n"),
-						Line().Op("*").Id(objectVar).Dot("UpdatedAt"),
-						Line(),
-					),
-					Line(),
-					Return(Nil()),
-				)
 			}
 		}
 
 		if commandsGenerated {
-			// write commands code to file if not excluded by SDK config
 			commandsDir := filepath.Join("cmd", "tptctl", "cmd")
 			if gen.Module {
 				commandsDir = filepath.Join("cmd", strcase.ToSnake(sdkConfig.ModuleName), "cmd")
 			}
-			// write commands code to file if not excluded by SDK config
+			// write commands code to file if it doesn't already exist and not excluded by SDK config
 			genFilepath := filepath.Join(
 				commandsDir,
-				fmt.Sprintf("%s_gen.go", util.FilenameSansExt(apiObjGroup.ModelFilename)),
+				fmt.Sprintf("%s.go", util.FilenameSansExt(apiObjGroup.ModelFilename)),
 			)
 			if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
 				cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
 			} else {
-				_, err := util.WriteCodeToFile(commandCode, genFilepath, true)
+				fileWritten, err := util.WriteCodeToFile(commandCode, genFilepath, false)
 				if err != nil {
 					return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
 				}
-				cli.Info(fmt.Sprintf(
-					"source code for %s tptctl commands written to %s",
-					apiObjGroup.ControllerDomainLower,
-					genFilepath,
-				))
+				if fileWritten {
+					cli.Info(fmt.Sprintf(
+						"source code for %s tptctl commands written to %s",
+						apiObjGroup.ControllerDomainLower,
+						genFilepath,
+					))
+				} else {
+					cli.Info(fmt.Sprintf(
+						"source code for %s tptctl commands already exists at %s - not overwritten",
+						apiObjGroup.ControllerDomainLower,
+						genFilepath,
+					))
+				}
 			}
 
 			// write get output code to file if it doesn't already exist and not excluded by SDK config
@@ -1924,33 +1798,6 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				} else {
 					cli.Info(fmt.Sprintf(
 						"source code for %s tptctl get command output already exists at %s - not overwritten",
-						apiObjGroup.ControllerDomainLower,
-						genFilepath,
-					))
-				}
-			}
-
-			// write describe output code to file if it doesn't already exist and not excluded by SDK config
-			genFilepath = filepath.Join(
-				commandsDir,
-				fmt.Sprintf("%s_describe_output.go", util.FilenameSansExt(apiObjGroup.ModelFilename)),
-			)
-			if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
-				cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
-			} else {
-				fileWritten, err := util.WriteCodeToFile(describeOutputCode, genFilepath, false)
-				if err != nil {
-					return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
-				}
-				if fileWritten {
-					cli.Info(fmt.Sprintf(
-						"source code for %s tptctl describe command output written to %s",
-						apiObjGroup.ControllerDomainLower,
-						genFilepath,
-					))
-				} else {
-					cli.Info(fmt.Sprintf(
-						"source code for %s tptctl describe command output already exists at %s - not overwritten",
 						apiObjGroup.ControllerDomainLower,
 						genFilepath,
 					))
