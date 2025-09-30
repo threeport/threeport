@@ -34,6 +34,22 @@ var GetTerraformsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := GetClientContext(cmd)
 
+		// get encryption key if necessary
+		var encryptionKey string
+		if terraformDecrypt == true {
+			threeportConfig, _, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
+			if err != nil {
+				cli.Error("failed to get threeport config: %w", err)
+				os.Exit(1)
+			}
+			key, err := threeportConfig.GetThreeportEncryptionKey(requestedControlPlane)
+			if err != nil {
+				cli.Error("failed to get encryption key from threeport config: %w", err)
+				os.Exit(1)
+			}
+			encryptionKey = key
+		}
+
 		// flag validation
 		if err := cli.ValidateConfigNameFlags(
 			terraformConfigPath,
@@ -68,7 +84,7 @@ var GetTerraformsCmd = &cobra.Command{
 			}
 
 			// get terraform
-			terraformConfigs, err := terraformConfig.Terraform.Get(apiClient, apiEndpoint)
+			terraformConfigs, err := terraformConfig.Terraform.Get(apiClient, apiEndpoint, encryptionKey)
 			if err != nil {
 				cli.Error("failed to retrieve terraform", err)
 				os.Exit(1)
@@ -136,6 +152,10 @@ func init() {
 	GetTerraformsCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
+	)
+	GetTerraformsCmd.Flags().BoolVarP(
+		&terraformDecrypt,
+		"decrypt-secrets", "d", false, "Decrypt any encrypted secrets in output.",
 	)
 }
 

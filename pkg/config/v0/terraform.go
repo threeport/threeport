@@ -25,6 +25,8 @@ type TerraformValues struct {
 	ConfigDir           *string           `json:"ConfigDir,omitempty" yaml:"ConfigDir,omitempty"`
 	AwsAccount          *AwsAccountValues `json:"AwsAccount,omitempty" yaml:"AwsAccount,omitempty"`
 	VarsDocument        *string           `json:"VarsDocument,omitempty" yaml:"VarsDocument,omitempty"`
+	StateDocument       *string           `json:"StateDocument,omitempty" yaml:"StateDocument,omitempty"`
+	Outputs             *string           `json:"Outputs,omitempty" yaml:"Outputs,omitempty"`
 	TerraformConfigPath *string           `json:"TerraformConfigPath,omitempty" yaml:"TerraformConfigPath,omitempty"`
 	Status              *string           `json:"Status,omitempty" yaml:"Status,omitempty"`
 	Age                 *string           `json:"Age,omitempty" yaml:"Age,omitempty"`
@@ -34,11 +36,13 @@ type TerraformValues struct {
 func (t *TerraformValues) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
+	encryptionKey string,
 ) (*[]TerraformConfig, error) {
 	// get operations
 	operations, terraformDefinitions, terraformInstances := t.GetOperations(
 		apiClient,
 		apiEndpoint,
+		encryptionKey,
 	)
 
 	// execute get operations
@@ -64,6 +68,7 @@ func (t *TerraformValues) Create(
 	operations, terraformDefinitions, terraformInstances := t.GetOperations(
 		apiClient,
 		apiEndpoint,
+		"",
 	)
 
 	// execute create operations
@@ -91,6 +96,7 @@ func (t *TerraformValues) Replace(
 	operations, terraformDefinitions, terraformInstances := t.GetOperations(
 		apiClient,
 		apiEndpoint,
+		"",
 	)
 
 	// execute replace operations
@@ -117,6 +123,7 @@ func (t *TerraformValues) Delete(
 	operations, _, _ := t.GetOperations(
 		apiClient,
 		apiEndpoint,
+		"",
 	)
 
 	// execute delete operations
@@ -136,6 +143,7 @@ func (t *TerraformValues) Delete(
 func (t *TerraformValues) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
+	encryptionKey string,
 ) (*util.Operations, *[]TerraformDefinitionConfig, *[]TerraformInstanceConfig) {
 	var err error
 	var operatedTerraformDefinitions []TerraformDefinitionConfig
@@ -192,6 +200,8 @@ func (t *TerraformValues) GetOperations(
 		Name:                t.Name,
 		AwsAccount:          t.AwsAccount,
 		VarsDocument:        t.VarsDocument,
+		StateDocument:       t.StateDocument,
+		Outputs:             t.Outputs,
 		TerraformConfigPath: t.TerraformConfigPath,
 		TerraformDefinition: &terraformDefinitionValues,
 		Age:                 t.Age,
@@ -213,7 +223,7 @@ func (t *TerraformValues) GetOperations(
 			return nil
 		},
 		Get: func() error {
-			terraformInstance, err := terraformInstanceValues.Get(apiClient, apiEndpoint)
+			terraformInstance, err := terraformInstanceValues.Get(apiClient, apiEndpoint, encryptionKey)
 			if err != nil {
 				return fmt.Errorf("failed to get terraform instances: %w", err)
 			}
