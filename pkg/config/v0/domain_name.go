@@ -31,7 +31,7 @@ type DomainNameValues struct {
 }
 
 // Get gets a domain name definition and instance from the Threeport API.
-func (d *DomainNameValues) Get(
+func (d *DomainNameConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]DomainNameConfig, error) {
@@ -56,7 +56,7 @@ func (d *DomainNameValues) Get(
 }
 
 // Create creates a domain name definition and instance in the Threeport API.
-func (d *DomainNameValues) Create(
+func (d *DomainNameConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]DomainNameConfig, error) {
@@ -70,7 +70,7 @@ func (d *DomainNameValues) Create(
 	if err := operations.Create(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute create operations for domain name defined instance with name %s: %w",
-			*d.Name,
+			*d.DomainName.Name,
 			err,
 		)
 	}
@@ -82,7 +82,7 @@ func (d *DomainNameValues) Create(
 }
 
 // Replace replaces a domain name definition and instance in the Threeport API.
-func (d *DomainNameValues) Replace(
+func (d *DomainNameConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
@@ -109,7 +109,7 @@ func (d *DomainNameValues) Replace(
 }
 
 // Delete deletes a domain name definition and instance from the Threeport API.
-func (d *DomainNameValues) Delete(
+func (d *DomainNameConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]DomainNameConfig, error) {
@@ -123,7 +123,7 @@ func (d *DomainNameValues) Delete(
 	if err := operations.Delete(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute delete operations for domain name defined instance with name %s: %w",
-			*d.Name,
+			*d.DomainName.Name,
 			err,
 		)
 	}
@@ -133,7 +133,7 @@ func (d *DomainNameValues) Delete(
 
 // GetOperations returns a slice of operations used to get, create, replace or delete
 // a domain name defined instance.
-func (d *DomainNameValues) GetOperations(
+func (d *DomainNameConfig) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*util.Operations, *[]DomainNameDefinitionConfig, *[]DomainNameInstanceConfig) {
@@ -144,30 +144,32 @@ func (d *DomainNameValues) GetOperations(
 	operations := util.Operations{}
 
 	// add domain name definition operation
-	domainNameDefinitionValues := DomainNameDefinitionValues{
-		Name:       d.Name,
-		Domain:     d.Domain,
-		Zone:       d.Zone,
-		AdminEmail: d.AdminEmail,
+	domainNameDefinitionConfig := DomainNameDefinitionConfig{
+		DomainNameDefinition: DomainNameDefinitionValues{
+			Name:       d.DomainName.Name,
+			Domain:     d.DomainName.Domain,
+			Zone:       d.DomainName.Zone,
+			AdminEmail: d.DomainName.AdminEmail,
+		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			domainNameDefinition, err := domainNameDefinitionValues.Create(apiClient, apiEndpoint)
+			domainNameDefinition, err := domainNameDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create domain name definition with name %s: %w", *d.Name, err)
+				return fmt.Errorf("failed to create domain name definition with name %s: %w", *d.DomainName.Name, err)
 			}
 			operatedDomainNameDefinitions = append(operatedDomainNameDefinitions, *domainNameDefinition)
 			return nil
 		},
 		Delete: func() error {
-			_, err = domainNameDefinitionValues.Delete(apiClient, apiEndpoint)
+			_, err = domainNameDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete domain name definition with name %s: %w", *d.Name, err)
+				return fmt.Errorf("failed to delete domain name definition with name %s: %w", *d.DomainName.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			domainNameDefinitions, err := domainNameDefinitionValues.Get(apiClient, apiEndpoint)
+			domainNameDefinitions, err := domainNameDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				return fmt.Errorf("failed to get domain name definitions: %w", err)
 			}
@@ -179,7 +181,7 @@ func (d *DomainNameValues) GetOperations(
 		},
 		Name: "domain name definition",
 		Replace: func(name string) error {
-			domainNameDefinition, err := domainNameDefinitionValues.Replace(apiClient, apiEndpoint, name)
+			domainNameDefinition, err := domainNameDefinitionConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace domain name definition with name %s: %w", name, err)
 			}
@@ -189,47 +191,49 @@ func (d *DomainNameValues) GetOperations(
 	})
 
 	// add domain name instance operation
-	domainNameInstanceValues := DomainNameInstanceValues{
-		Name:                      d.Name,
-		KubernetesRuntimeInstance: d.KubernetesRuntimeInstance,
-		WorkloadInstance:          d.WorkloadInstance,
-		DomainNameDefinition: &DomainNameDefinitionValues{
-			Name: d.Name,
+	domainNameInstanceConfig := DomainNameInstanceConfig{
+		DomainNameInstance: DomainNameInstanceValues{
+			Name:                      d.DomainName.Name,
+			KubernetesRuntimeInstance: d.DomainName.KubernetesRuntimeInstance,
+			WorkloadInstance:          d.DomainName.WorkloadInstance,
+			DomainNameDefinition: &DomainNameDefinitionValues{
+				Name: d.DomainName.Name,
+			},
 		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			domainNameInstance, err := domainNameInstanceValues.Create(apiClient, apiEndpoint)
+			domainNameInstance, err := domainNameInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create domain name instance with name %s: %w", *d.Name, err)
+				return fmt.Errorf("failed to create domain name instance with name %s: %w", *d.DomainName.Name, err)
 			}
 			operatedDomainNameInstances = append(operatedDomainNameInstances, *domainNameInstance)
 			return nil
 		},
 		Delete: func() error {
-			_, err = domainNameInstanceValues.Delete(apiClient, apiEndpoint)
+			_, err = domainNameInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete domain name instance with name %s: %w", *d.Name, err)
+				return fmt.Errorf("failed to delete domain name instance with name %s: %w", *d.DomainName.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			domainNameInstance, err := domainNameInstanceValues.Get(apiClient, apiEndpoint)
+			domainNameInstance, err := domainNameInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get domain name instance with name %s: %w", *d.Name, err)
+				return fmt.Errorf("failed to get domain name instance with name %s: %w", *d.DomainName.Name, err)
 			}
 			if len(*domainNameInstance) == 0 {
-				return fmt.Errorf("failed to find domain name instance with name %s: %w", *d.Name, err)
+				return fmt.Errorf("failed to find domain name instance with name %s: %w", *d.DomainName.Name, err)
 			}
 			if len(*domainNameInstance) > 1 {
-				return fmt.Errorf("multiple domain name instances found with name %s: %w", *d.Name, err)
+				return fmt.Errorf("multiple domain name instances found with name %s: %w", *d.DomainName.Name, err)
 			}
 			operatedDomainNameInstances = append(operatedDomainNameInstances, (*domainNameInstance)[0])
 			return nil
 		},
 		Name: "domain name instance",
 		Replace: func(name string) error {
-			domainNameInstance, err := domainNameInstanceValues.Replace(apiClient, apiEndpoint, name)
+			domainNameInstance, err := domainNameInstanceConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace domain name definition with name %s: %w", name, err)
 			}

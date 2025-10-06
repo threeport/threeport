@@ -67,7 +67,7 @@ var GetControlPlanesCmd = &cobra.Command{
 			}
 
 			// get control plane
-			controlPlaneConfigs, err := controlPlaneConfig.ControlPlane.Get(apiClient, apiEndpoint)
+			controlPlaneConfigs, err := controlPlaneConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve control plane", err)
 				os.Exit(1)
@@ -163,8 +163,7 @@ var CreateControlPlaneCmd = &cobra.Command{
 			}
 
 			// create control plane
-			controlPlane := controlPlaneConfig.ControlPlane
-			createdControlPlaneSlice, err := controlPlane.Create(
+			createdControlPlaneSlice, err := controlPlaneConfig.Create(
 				apiClient,
 				apiEndpoint,
 			)
@@ -240,16 +239,15 @@ var DeleteControlPlaneCmd = &cobra.Command{
 			}
 
 			// delete control plane
-			controlPlane := controlPlaneConfig.ControlPlane
-			_, err = controlPlane.Delete(apiClient, apiEndpoint)
+			_, err = controlPlaneConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete control plane", err)
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("control plane definition %s deleted", *controlPlane.Name))
-			cli.Info(fmt.Sprintf("control plane instance %s deleted", *controlPlane.Name))
-			cli.Complete(fmt.Sprintf("control plane %s deleted", *controlPlane.Name))
+			cli.Info(fmt.Sprintf("control plane definition %s deleted", *controlPlaneConfig.ControlPlane.Name))
+			cli.Info(fmt.Sprintf("control plane instance %s deleted", *controlPlaneConfig.ControlPlane.Name))
+			cli.Complete(fmt.Sprintf("control plane %s deleted", *controlPlaneConfig.ControlPlane.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -323,7 +321,7 @@ var GetControlPlaneDefinitionsCmd = &cobra.Command{
 			}
 
 			// get control plane definitions
-			controlPlaneDefinitions, err := controlPlaneDefinitionConfig.ControlPlaneDefinition.Get(apiClient, apiEndpoint)
+			controlPlaneDefinitions, err := controlPlaneDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve control plane definitions", err)
 				os.Exit(1)
@@ -418,8 +416,7 @@ var CreateControlPlaneDefinitionCmd = &cobra.Command{
 			}
 
 			// create control plane definition
-			controlPlaneDefinition := controlPlaneDefinitionConfig.ControlPlaneDefinition
-			createdControlPlaneDefinition, err := controlPlaneDefinition.Create(apiClient, apiEndpoint)
+			createdControlPlaneDefinition, err := controlPlaneDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create control plane definition", err)
 				os.Exit(1)
@@ -478,8 +475,7 @@ var ReplaceControlPlaneDefinitionCmd = &cobra.Command{
 			}
 
 			// replace control plane definition
-			controlPlaneDefinition := controlPlaneDefinitionConfig.ControlPlaneDefinition
-			updatedControlPlaneDefinition, err := controlPlaneDefinition.Replace(apiClient, apiEndpoint, controlPlaneName)
+			updatedControlPlaneDefinition, err := controlPlaneDefinitionConfig.Replace(apiClient, apiEndpoint, controlPlaneName)
 			if err != nil {
 				cli.Error("failed to update control plane definition", err)
 				os.Exit(1)
@@ -561,8 +557,7 @@ var DeleteControlPlaneDefinitionCmd = &cobra.Command{
 			}
 
 			// delete control plane definition
-			controlPlaneDefinition := controlPlaneDefinitionConfig.ControlPlaneDefinition
-			deletedControlPlaneDefinition, err := controlPlaneDefinition.Delete(apiClient, apiEndpoint)
+			deletedControlPlaneDefinition, err := controlPlaneDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete control plane definition", err)
 				os.Exit(1)
@@ -646,7 +641,7 @@ var GetControlPlaneInstancesCmd = &cobra.Command{
 			}
 
 			// get control plane instances
-			controlPlaneInstances, err := controlPlaneInstanceConfig.ControlPlaneInstance.Get(apiClient, apiEndpoint)
+			controlPlaneInstances, err := controlPlaneInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve control plane instances", err)
 				os.Exit(1)
@@ -741,8 +736,7 @@ var CreateControlPlaneInstanceCmd = &cobra.Command{
 			}
 
 			// create control plane instance
-			controlPlaneInstance := controlPlaneInstanceConfig.ControlPlaneInstance
-			createdControlPlaneInstance, err := controlPlaneInstance.Create(apiClient, apiEndpoint)
+			createdControlPlaneInstance, err := controlPlaneInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create control plane instance", err)
 				os.Exit(1)
@@ -801,8 +795,7 @@ var ReplaceControlPlaneInstanceCmd = &cobra.Command{
 			}
 
 			// replace control plane instance
-			controlPlaneInstance := controlPlaneInstanceConfig.ControlPlaneInstance
-			updatedControlPlaneInstance, err := controlPlaneInstance.Replace(apiClient, apiEndpoint, controlPlaneName)
+			updatedControlPlaneInstance, err := controlPlaneInstanceConfig.Replace(apiClient, apiEndpoint, controlPlaneName)
 			if err != nil {
 				cli.Error("failed to update control plane instance", err)
 				os.Exit(1)
@@ -884,8 +877,7 @@ var DeleteControlPlaneInstanceCmd = &cobra.Command{
 			}
 
 			// delete control plane instance
-			controlPlaneInstance := controlPlaneInstanceConfig.ControlPlaneInstance
-			deletedControlPlaneInstance, err := controlPlaneInstance.Delete(apiClient, apiEndpoint)
+			deletedControlPlaneInstance, err := controlPlaneInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete control plane instance", err)
 				os.Exit(1)

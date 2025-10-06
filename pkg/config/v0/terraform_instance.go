@@ -40,19 +40,20 @@ type TerraformInstanceValues struct {
 // Get gets terraform instances from the Threeport API.
 // If the name is set in the TerraformInstanceValues, it will return the terraform instance with that name.
 // If the name is not set, it will return all terraform instances.
-func (t *TerraformInstanceValues) Get(
+func (t *TerraformInstanceConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 	encryptionKey string,
 ) (*[]TerraformInstanceConfig, error) {
+	terraformInstanceValues := t.TerraformInstance
 	// get API objects
 	var terraformInstances *[]api_v0.TerraformInstance
 	switch {
 	// if name is provided, get terraform instance by name
-	case t.Name != nil:
-		terraformInstance, err := client_v0.GetTerraformInstanceByName(apiClient, apiEndpoint, *t.Name)
+	case terraformInstanceValues.Name != nil:
+		terraformInstance, err := client_v0.GetTerraformInstanceByName(apiClient, apiEndpoint, *terraformInstanceValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get terraform instance with name %s: %w", *t.Name, err)
+			return nil, fmt.Errorf("failed to get terraform instance with name %s: %w", *terraformInstanceValues.Name, err)
 		}
 		terraformInstances = &[]api_v0.TerraformInstance{*terraformInstance}
 	// get all terraform instances
@@ -129,52 +130,53 @@ func (t *TerraformInstanceValues) Get(
 }
 
 // Create creates a terraform instance in the Threeport API.
-func (t *TerraformInstanceValues) Create(
+func (t *TerraformInstanceConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*TerraformInstanceConfig, error) {
+	terraformInstanceValues := t.TerraformInstance
 	// validate config
 	if err := t.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for terraform instance with name %s: %w", *t.Name, err)
+		return nil, fmt.Errorf("failed to validate values for terraform instance with name %s: %w", *terraformInstanceValues.Name, err)
 	}
 
 	// get terraform definition by name
 	terraformDefinition, err := client_v0.GetTerraformDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*t.TerraformDefinition.Name,
+		*terraformInstanceValues.TerraformDefinition.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find terraform definition with name %s: %w", *t.TerraformDefinition.Name, err)
+		return nil, fmt.Errorf("failed to find terraform definition with name %s: %w", *terraformInstanceValues.TerraformDefinition.Name, err)
 	}
 
 	// get AWS Account by name
 	awsAccount, err := client_v0.GetAwsAccountByName(
 		apiClient,
 		apiEndpoint,
-		*t.AwsAccount.Name,
+		*terraformInstanceValues.AwsAccount.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", *t.AwsAccount.Name, err)
+		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", *terraformInstanceValues.AwsAccount.Name, err)
 	}
 
 	// construct terraform instance object
 	terraformInstance := api_v0.TerraformInstance{
 		Instance: api_v0.Instance{
-			Name: t.Name,
+			Name: terraformInstanceValues.Name,
 		},
 		AwsAccountID:          awsAccount.ID,
 		TerraformDefinitionID: terraformDefinition.ID,
 	}
 
 	// add terraform vars if supplied
-	if t.VarsDocument != nil && *t.VarsDocument != "" {
+	if terraformInstanceValues.VarsDocument != nil && *terraformInstanceValues.VarsDocument != "" {
 		// build the path to the terraform config dir relative to the user's working directory
-		configDir := filepath.Dir(*t.TerraformConfigPath)
-		varsDoc := filepath.Join(configDir, *t.VarsDocument)
+		configDir := filepath.Dir(*terraformInstanceValues.TerraformConfigPath)
+		varsDoc := filepath.Join(configDir, *terraformInstanceValues.VarsDocument)
 		varsContent, err := os.ReadFile(varsDoc)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read terraform vars file with name %s: %w", *t.VarsDocument, err)
+			return nil, fmt.Errorf("failed to read terraform vars file with name %s: %w", *terraformInstanceValues.VarsDocument, err)
 		}
 
 		// add the terraform vars to the terraform instance object
@@ -196,10 +198,10 @@ func (t *TerraformInstanceValues) Create(
 	createdTerraformInstanceConfig := &TerraformInstanceConfig{
 		TerraformInstance: TerraformInstanceValues{
 			Name:                createdTerraformInstance.Name,
-			AwsAccount:          t.AwsAccount,
-			VarsDocument:        t.VarsDocument,
-			TerraformDefinition: t.TerraformDefinition,
-			TerraformConfigPath: t.TerraformConfigPath,
+			AwsAccount:          terraformInstanceValues.AwsAccount,
+			VarsDocument:        terraformInstanceValues.VarsDocument,
+			TerraformDefinition: terraformInstanceValues.TerraformDefinition,
+			TerraformConfigPath: terraformInstanceValues.TerraformConfigPath,
 			Status:              util.Ptr(string(*createdTerraformInstance.Status)),
 			Age:                 util.Ptr(util.GetAgeFormatted(createdTerraformInstance.CreatedAt)),
 		},
@@ -212,11 +214,12 @@ func (t *TerraformInstanceValues) Create(
 // This is a full replacement of all fields in the terraform instance object.
 // This function takes a name parameter to identify the terraform instance to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (t *TerraformInstanceValues) Replace(
+func (t *TerraformInstanceConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*TerraformInstanceConfig, error) {
+	terraformInstanceValues := t.TerraformInstance
 	// validate config
 	if err := t.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid terraform instance config: %w", err)
@@ -236,20 +239,20 @@ func (t *TerraformInstanceValues) Replace(
 	terraformDefinition, err := client_v0.GetTerraformDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*t.TerraformDefinition.Name,
+		*terraformInstanceValues.TerraformDefinition.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find terraform definition with name %s: %w", *t.TerraformDefinition.Name, err)
+		return nil, fmt.Errorf("failed to find terraform definition with name %s: %w", *terraformInstanceValues.TerraformDefinition.Name, err)
 	}
 
 	// get AWS Account by name
 	awsAccount, err := client_v0.GetAwsAccountByName(
 		apiClient,
 		apiEndpoint,
-		*t.AwsAccount.Name,
+		*terraformInstanceValues.AwsAccount.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", *t.AwsAccount.Name, err)
+		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", *terraformInstanceValues.AwsAccount.Name, err)
 	}
 
 	// construct updated terraform instance object
@@ -258,20 +261,20 @@ func (t *TerraformInstanceValues) Replace(
 			ID: existingTerraformInstance.ID,
 		},
 		Instance: api_v0.Instance{
-			Name: t.Name,
+			Name: terraformInstanceValues.Name,
 		},
 		AwsAccountID:          awsAccount.ID,
 		TerraformDefinitionID: terraformDefinition.ID,
 	}
 
 	// add terraform vars if supplied
-	if t.VarsDocument != nil && *t.VarsDocument != "" {
+	if terraformInstanceValues.VarsDocument != nil && *terraformInstanceValues.VarsDocument != "" {
 		// build the path to the terraform config dir relative to the user's working directory
-		configDir := filepath.Dir(*t.TerraformConfigPath)
-		varsDoc := filepath.Join(configDir, *t.VarsDocument)
+		configDir := filepath.Dir(*terraformInstanceValues.TerraformConfigPath)
+		varsDoc := filepath.Join(configDir, *terraformInstanceValues.VarsDocument)
 		varsContent, err := os.ReadFile(varsDoc)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read terraform vars file with name %s: %w", *t.VarsDocument, err)
+			return nil, fmt.Errorf("failed to read terraform vars file with name %s: %w", *terraformInstanceValues.VarsDocument, err)
 		}
 
 		// add the terraform vars to the terraform instance object
@@ -293,10 +296,10 @@ func (t *TerraformInstanceValues) Replace(
 	updatedTerraformInstanceConfig := &TerraformInstanceConfig{
 		TerraformInstance: TerraformInstanceValues{
 			Name:                replacedTerraformInstance.Name,
-			AwsAccount:          t.AwsAccount,
-			VarsDocument:        t.VarsDocument,
-			TerraformDefinition: t.TerraformDefinition,
-			TerraformConfigPath: t.TerraformConfigPath,
+			AwsAccount:          terraformInstanceValues.AwsAccount,
+			VarsDocument:        terraformInstanceValues.VarsDocument,
+			TerraformDefinition: terraformInstanceValues.TerraformDefinition,
+			TerraformConfigPath: terraformInstanceValues.TerraformConfigPath,
 			Status:              util.Ptr(string(*replacedTerraformInstance.Status)),
 			Age:                 util.Ptr(util.GetAgeFormatted(replacedTerraformInstance.CreatedAt)),
 		},
@@ -306,18 +309,19 @@ func (t *TerraformInstanceValues) Replace(
 }
 
 // Delete deletes a terraform instance from the Threeport API.
-func (t *TerraformInstanceValues) Delete(
+func (t *TerraformInstanceConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*TerraformInstanceConfig, error) {
+	terraformInstanceValues := t.TerraformInstance
 	// get terraform instance by name
 	terraformInstance, err := client_v0.GetTerraformInstanceByName(
 		apiClient,
 		apiEndpoint,
-		*t.Name,
+		*terraformInstanceValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find terraform instance with name %s: %w", *t.Name, err)
+		return nil, fmt.Errorf("failed to find terraform instance with name %s: %w", *terraformInstanceValues.Name, err)
 	}
 
 	// delete terraform instance
@@ -332,7 +336,7 @@ func (t *TerraformInstanceValues) Delete(
 
 	// wait for terraform instance to be deleted
 	util.Retry(120, 10, func() error {
-		if _, err := client_v0.GetTerraformInstanceByName(apiClient, apiEndpoint, *t.Name); err == nil {
+		if _, err := client_v0.GetTerraformInstanceByName(apiClient, apiEndpoint, *terraformInstanceValues.Name); err == nil {
 			return errors.New("terraform instance not deleted")
 		}
 		return nil
@@ -349,21 +353,22 @@ func (t *TerraformInstanceValues) Delete(
 }
 
 // Validate validates inputs to create terraform instances.
-func (t *TerraformInstanceValues) Validate() error {
+func (t *TerraformInstanceConfig) Validate() error {
+	terraformInstanceValues := t.TerraformInstance
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if t.Name == nil {
+	if terraformInstanceValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure AWS account name is set
-	if t.AwsAccount == nil || t.AwsAccount.Name == nil {
-		multiError.AppendError(errors.New("missing required field in config: AwsAccount.Name"))
+	if terraformInstanceValues.AwsAccount == nil || terraformInstanceValues.AwsAccount.Name == nil {
+		multiError.AppendError(errors.New("missing required field in config: AwsAccounterraformInstanceValues.Name"))
 	}
 
 	// ensure the terraform definition name is set
-	if t.TerraformDefinition == nil || t.TerraformDefinition.Name == nil {
+	if terraformInstanceValues.TerraformDefinition == nil || terraformInstanceValues.TerraformDefinition.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: TerraformDefinition.Name"))
 	}
 

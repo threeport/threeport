@@ -67,7 +67,7 @@ var GetDomainNamesCmd = &cobra.Command{
 			}
 
 			// get domain name
-			domainNameConfigs, err := domainNameConfig.DomainName.Get(apiClient, apiEndpoint)
+			domainNameConfigs, err := domainNameConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve domain name", err)
 				os.Exit(1)
@@ -163,8 +163,7 @@ var CreateDomainNameCmd = &cobra.Command{
 			}
 
 			// create domain name
-			domainName := domainNameConfig.DomainName
-			createdDomainNameSlice, err := domainName.Create(
+			createdDomainNameSlice, err := domainNameConfig.Create(
 				apiClient,
 				apiEndpoint,
 			)
@@ -240,16 +239,15 @@ var DeleteDomainNameCmd = &cobra.Command{
 			}
 
 			// delete domain name
-			domainName := domainNameConfig.DomainName
-			_, err = domainName.Delete(apiClient, apiEndpoint)
+			_, err = domainNameConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete domain name", err)
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("domain name definition %s deleted", *domainName.Name))
-			cli.Info(fmt.Sprintf("domain name instance %s deleted", *domainName.Name))
-			cli.Complete(fmt.Sprintf("domain name %s deleted", *domainName.Name))
+			cli.Info(fmt.Sprintf("domain name definition %s deleted", *domainNameConfig.DomainName.Name))
+			cli.Info(fmt.Sprintf("domain name instance %s deleted", *domainNameConfig.DomainName.Name))
+			cli.Complete(fmt.Sprintf("domain name %s deleted", *domainNameConfig.DomainName.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -323,7 +321,7 @@ var GetDomainNameDefinitionsCmd = &cobra.Command{
 			}
 
 			// get domain name definitions
-			domainNameDefinitions, err := domainNameDefinitionConfig.DomainNameDefinition.Get(apiClient, apiEndpoint)
+			domainNameDefinitions, err := domainNameDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve domain name definitions", err)
 				os.Exit(1)
@@ -418,8 +416,7 @@ var CreateDomainNameDefinitionCmd = &cobra.Command{
 			}
 
 			// create domain name definition
-			domainNameDefinition := domainNameDefinitionConfig.DomainNameDefinition
-			createdDomainNameDefinition, err := domainNameDefinition.Create(apiClient, apiEndpoint)
+			createdDomainNameDefinition, err := domainNameDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create domain name definition", err)
 				os.Exit(1)
@@ -478,8 +475,7 @@ var ReplaceDomainNameDefinitionCmd = &cobra.Command{
 			}
 
 			// replace domain name definition
-			domainNameDefinition := domainNameDefinitionConfig.DomainNameDefinition
-			updatedDomainNameDefinition, err := domainNameDefinition.Replace(apiClient, apiEndpoint, gatewayName)
+			updatedDomainNameDefinition, err := domainNameDefinitionConfig.Replace(apiClient, apiEndpoint, gatewayName)
 			if err != nil {
 				cli.Error("failed to update domain name definition", err)
 				os.Exit(1)
@@ -561,8 +557,7 @@ var DeleteDomainNameDefinitionCmd = &cobra.Command{
 			}
 
 			// delete domain name definition
-			domainNameDefinition := domainNameDefinitionConfig.DomainNameDefinition
-			deletedDomainNameDefinition, err := domainNameDefinition.Delete(apiClient, apiEndpoint)
+			deletedDomainNameDefinition, err := domainNameDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete domain name definition", err)
 				os.Exit(1)
@@ -646,7 +641,7 @@ var GetDomainNameInstancesCmd = &cobra.Command{
 			}
 
 			// get domain name instances
-			domainNameInstances, err := domainNameInstanceConfig.DomainNameInstance.Get(apiClient, apiEndpoint)
+			domainNameInstances, err := domainNameInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve domain name instances", err)
 				os.Exit(1)
@@ -741,8 +736,7 @@ var CreateDomainNameInstanceCmd = &cobra.Command{
 			}
 
 			// create domain name instance
-			domainNameInstance := domainNameInstanceConfig.DomainNameInstance
-			createdDomainNameInstance, err := domainNameInstance.Create(apiClient, apiEndpoint)
+			createdDomainNameInstance, err := domainNameInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create domain name instance", err)
 				os.Exit(1)
@@ -801,8 +795,7 @@ var ReplaceDomainNameInstanceCmd = &cobra.Command{
 			}
 
 			// replace domain name instance
-			domainNameInstance := domainNameInstanceConfig.DomainNameInstance
-			updatedDomainNameInstance, err := domainNameInstance.Replace(apiClient, apiEndpoint, gatewayName)
+			updatedDomainNameInstance, err := domainNameInstanceConfig.Replace(apiClient, apiEndpoint, gatewayName)
 			if err != nil {
 				cli.Error("failed to update domain name instance", err)
 				os.Exit(1)
@@ -884,8 +877,7 @@ var DeleteDomainNameInstanceCmd = &cobra.Command{
 			}
 
 			// delete domain name instance
-			domainNameInstance := domainNameInstanceConfig.DomainNameInstance
-			deletedDomainNameInstance, err := domainNameInstance.Delete(apiClient, apiEndpoint)
+			deletedDomainNameInstance, err := domainNameInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete domain name instance", err)
 				os.Exit(1)
@@ -970,7 +962,7 @@ var GetGatewaysCmd = &cobra.Command{
 			}
 
 			// get gateway
-			gatewayConfigs, err := gatewayConfig.Gateway.Get(apiClient, apiEndpoint)
+			gatewayConfigs, err := gatewayConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve gateway", err)
 				os.Exit(1)
@@ -1066,8 +1058,7 @@ var CreateGatewayCmd = &cobra.Command{
 			}
 
 			// create gateway
-			gateway := gatewayConfig.Gateway
-			createdGatewaySlice, err := gateway.Create(
+			createdGatewaySlice, err := gatewayConfig.Create(
 				apiClient,
 				apiEndpoint,
 			)
@@ -1143,16 +1134,15 @@ var DeleteGatewayCmd = &cobra.Command{
 			}
 
 			// delete gateway
-			gateway := gatewayConfig.Gateway
-			_, err = gateway.Delete(apiClient, apiEndpoint)
+			_, err = gatewayConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete gateway", err)
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("gateway definition %s deleted", *gateway.Name))
-			cli.Info(fmt.Sprintf("gateway instance %s deleted", *gateway.Name))
-			cli.Complete(fmt.Sprintf("gateway %s deleted", *gateway.Name))
+			cli.Info(fmt.Sprintf("gateway definition %s deleted", *gatewayConfig.Gateway.Name))
+			cli.Info(fmt.Sprintf("gateway instance %s deleted", *gatewayConfig.Gateway.Name))
+			cli.Complete(fmt.Sprintf("gateway %s deleted", *gatewayConfig.Gateway.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -1226,7 +1216,7 @@ var GetGatewayDefinitionsCmd = &cobra.Command{
 			}
 
 			// get gateway definitions
-			gatewayDefinitions, err := gatewayDefinitionConfig.GatewayDefinition.Get(apiClient, apiEndpoint)
+			gatewayDefinitions, err := gatewayDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve gateway definitions", err)
 				os.Exit(1)
@@ -1321,8 +1311,7 @@ var CreateGatewayDefinitionCmd = &cobra.Command{
 			}
 
 			// create gateway definition
-			gatewayDefinition := gatewayDefinitionConfig.GatewayDefinition
-			createdGatewayDefinition, err := gatewayDefinition.Create(apiClient, apiEndpoint)
+			createdGatewayDefinition, err := gatewayDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create gateway definition", err)
 				os.Exit(1)
@@ -1381,8 +1370,7 @@ var ReplaceGatewayDefinitionCmd = &cobra.Command{
 			}
 
 			// replace gateway definition
-			gatewayDefinition := gatewayDefinitionConfig.GatewayDefinition
-			updatedGatewayDefinition, err := gatewayDefinition.Replace(apiClient, apiEndpoint, gatewayName)
+			updatedGatewayDefinition, err := gatewayDefinitionConfig.Replace(apiClient, apiEndpoint, gatewayName)
 			if err != nil {
 				cli.Error("failed to update gateway definition", err)
 				os.Exit(1)
@@ -1464,8 +1452,7 @@ var DeleteGatewayDefinitionCmd = &cobra.Command{
 			}
 
 			// delete gateway definition
-			gatewayDefinition := gatewayDefinitionConfig.GatewayDefinition
-			deletedGatewayDefinition, err := gatewayDefinition.Delete(apiClient, apiEndpoint)
+			deletedGatewayDefinition, err := gatewayDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete gateway definition", err)
 				os.Exit(1)
@@ -1549,7 +1536,7 @@ var GetGatewayInstancesCmd = &cobra.Command{
 			}
 
 			// get gateway instances
-			gatewayInstances, err := gatewayInstanceConfig.GatewayInstance.Get(apiClient, apiEndpoint)
+			gatewayInstances, err := gatewayInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve gateway instances", err)
 				os.Exit(1)
@@ -1644,8 +1631,7 @@ var CreateGatewayInstanceCmd = &cobra.Command{
 			}
 
 			// create gateway instance
-			gatewayInstance := gatewayInstanceConfig.GatewayInstance
-			createdGatewayInstance, err := gatewayInstance.Create(apiClient, apiEndpoint)
+			createdGatewayInstance, err := gatewayInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create gateway instance", err)
 				os.Exit(1)
@@ -1704,8 +1690,7 @@ var ReplaceGatewayInstanceCmd = &cobra.Command{
 			}
 
 			// replace gateway instance
-			gatewayInstance := gatewayInstanceConfig.GatewayInstance
-			updatedGatewayInstance, err := gatewayInstance.Replace(apiClient, apiEndpoint, gatewayName)
+			updatedGatewayInstance, err := gatewayInstanceConfig.Replace(apiClient, apiEndpoint, gatewayName)
 			if err != nil {
 				cli.Error("failed to update gateway instance", err)
 				os.Exit(1)
@@ -1787,8 +1772,7 @@ var DeleteGatewayInstanceCmd = &cobra.Command{
 			}
 
 			// delete gateway instance
-			gatewayInstance := gatewayInstanceConfig.GatewayInstance
-			deletedGatewayInstance, err := gatewayInstance.Delete(apiClient, apiEndpoint)
+			deletedGatewayInstance, err := gatewayInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete gateway instance", err)
 				os.Exit(1)

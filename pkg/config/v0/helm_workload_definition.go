@@ -36,18 +36,19 @@ type HelmWorkloadDefinitionValues struct {
 // Get gets helm workload definitions from the Threeport API.
 // If the name is set in the HelmWorkloadDefinitionValues, it will return the helm workload definition with that name.
 // If the name is not set, it will return all helm workload definitions.
-func (h *HelmWorkloadDefinitionValues) Get(
+func (h *HelmWorkloadDefinitionConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]HelmWorkloadDefinitionConfig, error) {
+	helmWorkloadDefinitionValues := h.HelmWorkloadDefinition
 	// get API objects
 	var helmWorkloadDefinitions *[]api_v0.HelmWorkloadDefinition
 	switch {
 	// if name is provided, get helm workload definition by name
-	case h.Name != nil:
-		helmWorkloadDefinition, err := client_v0.GetHelmWorkloadDefinitionByName(apiClient, apiEndpoint, *h.Name)
+	case helmWorkloadDefinitionValues.Name != nil:
+		helmWorkloadDefinition, err := client_v0.GetHelmWorkloadDefinitionByName(apiClient, apiEndpoint, *helmWorkloadDefinitionValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get helm workload definition with name %s: %w", *h.Name, err)
+			return nil, fmt.Errorf("failed to get helm workload definition with name %s: %w", *helmWorkloadDefinitionValues.Name, err)
 		}
 		helmWorkloadDefinitions = &[]api_v0.HelmWorkloadDefinition{*helmWorkloadDefinition}
 	// get all helm workload definitions
@@ -79,31 +80,33 @@ func (h *HelmWorkloadDefinitionValues) Get(
 }
 
 // Create creates a helm workload definition in the Threeport API.
-func (h *HelmWorkloadDefinitionValues) Create(
+func (h *HelmWorkloadDefinitionConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*HelmWorkloadDefinitionConfig, error) {
+	helmWorkloadDefinitionValues := h.HelmWorkloadDefinition
+
 	// validate config
 	if err := h.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for helm workload definition with name %s: %w", *h.Name, err)
+		return nil, fmt.Errorf("failed to validate values for helm workload definition with name %s: %w", *helmWorkloadDefinitionValues.Name, err)
 	}
 
 	// construct helm workload definition object
 	helmWorkloadDefinition := api_v0.HelmWorkloadDefinition{
 		Definition: api_v0.Definition{
-			Name: h.Name,
+			Name: helmWorkloadDefinitionValues.Name,
 		},
-		Repo:  h.Repo,
-		Chart: h.Chart,
+		Repo:  helmWorkloadDefinitionValues.Repo,
+		Chart: helmWorkloadDefinitionValues.Chart,
 	}
 
 	// set chart version if provided
-	if h.ChartVersion != nil {
-		helmWorkloadDefinition.ChartVersion = h.ChartVersion
+	if helmWorkloadDefinitionValues.ChartVersion != nil {
+		helmWorkloadDefinition.ChartVersion = helmWorkloadDefinitionValues.ChartVersion
 	}
 
 	// set helm values if present
-	values, err := GetValuesFromDocumentOrInline(h.Values, h.ValuesDocument, h.HelmWorkloadConfigPath)
+	values, err := GetValuesFromDocumentOrInline(helmWorkloadDefinitionValues.Values, helmWorkloadDefinitionValues.ValuesDocument, helmWorkloadDefinitionValues.HelmWorkloadConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get values document from path: %w", err)
 	}
@@ -138,11 +141,13 @@ func (h *HelmWorkloadDefinitionValues) Create(
 // This is a full replacement of all fields in the helm workload definition object.
 // This function takes a name parameter to identify the helm workload definition to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (h *HelmWorkloadDefinitionValues) Replace(
+func (h *HelmWorkloadDefinitionConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*HelmWorkloadDefinitionConfig, error) {
+	helmWorkloadDefinitionValues := h.HelmWorkloadDefinition
+
 	// validate config
 	if err := h.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid helm workload definition config: %w", err)
@@ -164,19 +169,19 @@ func (h *HelmWorkloadDefinitionValues) Replace(
 			ID: existingHelmWorkloadDefinition.ID,
 		},
 		Definition: api_v0.Definition{
-			Name: h.Name,
+			Name: helmWorkloadDefinitionValues.Name,
 		},
-		Repo:  h.Repo,
-		Chart: h.Chart,
+		Repo:  helmWorkloadDefinitionValues.Repo,
+		Chart: helmWorkloadDefinitionValues.Chart,
 	}
 
 	// set chart version if provided
-	if h.ChartVersion != nil {
-		updatedHelmWorkloadDefinition.ChartVersion = h.ChartVersion
+	if helmWorkloadDefinitionValues.ChartVersion != nil {
+		updatedHelmWorkloadDefinition.ChartVersion = helmWorkloadDefinitionValues.ChartVersion
 	}
 
 	// set helm values if present
-	values, err := GetValuesFromDocumentOrInline(h.Values, h.ValuesDocument, h.HelmWorkloadConfigPath)
+	values, err := GetValuesFromDocumentOrInline(helmWorkloadDefinitionValues.Values, helmWorkloadDefinitionValues.ValuesDocument, helmWorkloadDefinitionValues.HelmWorkloadConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get values document from path: %w", err)
 	}
@@ -208,18 +213,20 @@ func (h *HelmWorkloadDefinitionValues) Replace(
 }
 
 // Delete deletes a helm workload definition from the Threeport API.
-func (h *HelmWorkloadDefinitionValues) Delete(
+func (h *HelmWorkloadDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*HelmWorkloadDefinitionConfig, error) {
+	helmWorkloadDefinitionValues := h.HelmWorkloadDefinition
+
 	// get helm workload definition by name
 	helmWorkloadDefinition, err := client_v0.GetHelmWorkloadDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*h.Name,
+		*helmWorkloadDefinitionValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find helm workload definition with name %s: %w", *h.Name, err)
+		return nil, fmt.Errorf("failed to find helm workload definition with name %s: %w", *helmWorkloadDefinitionValues.Name, err)
 	}
 
 	// delete helm workload definition
@@ -246,26 +253,27 @@ func (h *HelmWorkloadDefinitionValues) Delete(
 }
 
 // Validate validates inputs to create helm workload definitions.
-func (h *HelmWorkloadDefinitionValues) Validate() error {
+func (h *HelmWorkloadDefinitionConfig) Validate() error {
+	helmWorkloadDefinitionValues := h.HelmWorkloadDefinition
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if h.Name == nil {
+	if helmWorkloadDefinitionValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure repo is set
-	if h.Repo == nil {
+	if helmWorkloadDefinitionValues.Repo == nil {
 		multiError.AppendError(errors.New("missing required field in config: Repo"))
 	}
 
 	// ensure chart is set
-	if h.Chart == nil {
+	if helmWorkloadDefinitionValues.Chart == nil {
 		multiError.AppendError(errors.New("missing required field in config: Chart"))
 	}
 
 	// ensure values or values document is set
-	if h.Values != nil && h.ValuesDocument != nil {
+	if helmWorkloadDefinitionValues.Values != nil && helmWorkloadDefinitionValues.ValuesDocument != nil {
 		multiError.AppendError(errors.New("cannot set both Values and ValuesDocument"))
 	}
 

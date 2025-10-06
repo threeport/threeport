@@ -35,18 +35,19 @@ type KubernetesRuntimeDefinitionValues struct {
 // Get gets kubernetes runtime definitions from the Threeport API.
 // If the name is set in the KubernetesRuntimeDefinitionValues, it will return the kubernetes runtime definition with that name.
 // If the name is not set, it will return all kubernetes runtime definitions.
-func (k *KubernetesRuntimeDefinitionValues) Get(
+func (k *KubernetesRuntimeDefinitionConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]KubernetesRuntimeDefinitionConfig, error) {
+	kubernetesRuntimeDefinitionValues := k.KubernetesRuntimeDefinition
 	// get API objects
 	var kubernetesRuntimeDefinitions *[]api_v0.KubernetesRuntimeDefinition
 	switch {
 	// if name is provided, get kubernetes runtime definition by name
-	case k.Name != nil:
-		kubernetesRuntimeDefinition, err := client_v0.GetKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *k.Name)
+	case kubernetesRuntimeDefinitionValues.Name != nil:
+		kubernetesRuntimeDefinition, err := client_v0.GetKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *kubernetesRuntimeDefinitionValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get kubernetes runtime definition with name %s: %w", *k.Name, err)
+			return nil, fmt.Errorf("failed to get kubernetes runtime definition with name %s: %w", *kubernetesRuntimeDefinitionValues.Name, err)
 		}
 		kubernetesRuntimeDefinitions = &[]api_v0.KubernetesRuntimeDefinition{*kubernetesRuntimeDefinition}
 	// get all kubernetes runtime definitions
@@ -77,23 +78,25 @@ func (k *KubernetesRuntimeDefinitionValues) Get(
 }
 
 // Create creates a kubernetes runtime definition in the Threeport API.
-func (k *KubernetesRuntimeDefinitionValues) Create(
+func (k *KubernetesRuntimeDefinitionConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*KubernetesRuntimeDefinitionConfig, error) {
+	kubernetesRuntimeDefinitionValues := k.KubernetesRuntimeDefinition
+
 	// validate config
 	if err := k.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for kubernetes runtime definition with name %s: %w", *k.Name, err)
+		return nil, fmt.Errorf("failed to validate values for kubernetes runtime definition with name %s: %w", *kubernetesRuntimeDefinitionValues.Name, err)
 	}
 
 	// construct kubernetes runtime definition object
 	kubernetesRuntimeDefinition := api_v0.KubernetesRuntimeDefinition{
 		Definition: api_v0.Definition{
-			Name: k.Name,
+			Name: kubernetesRuntimeDefinitionValues.Name,
 		},
-		InfraProvider:            k.InfraProvider,
-		HighAvailability:         k.HighAvailability,
-		InfraProviderAccountName: k.InfraProviderAccountName,
+		InfraProvider:            kubernetesRuntimeDefinitionValues.InfraProvider,
+		HighAvailability:         kubernetesRuntimeDefinitionValues.HighAvailability,
+		InfraProviderAccountName: kubernetesRuntimeDefinitionValues.InfraProviderAccountName,
 	}
 
 	// create kubernetes runtime definition
@@ -124,11 +127,13 @@ func (k *KubernetesRuntimeDefinitionValues) Create(
 // This is a full replacement of all fields in the kubernetes runtime definition object.
 // This function takes a name parameter to identify the kubernetes runtime definition to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (k *KubernetesRuntimeDefinitionValues) Replace(
+func (k *KubernetesRuntimeDefinitionConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*KubernetesRuntimeDefinitionConfig, error) {
+	kubernetesRuntimeDefinitionValues := k.KubernetesRuntimeDefinition
+
 	// validate config
 	if err := k.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid kubernetes runtime definition config: %w", err)
@@ -150,11 +155,11 @@ func (k *KubernetesRuntimeDefinitionValues) Replace(
 			ID: existingKubernetesRuntimeDefinition.ID,
 		},
 		Definition: api_v0.Definition{
-			Name: k.Name,
+			Name: kubernetesRuntimeDefinitionValues.Name,
 		},
-		InfraProvider:            k.InfraProvider,
-		HighAvailability:         k.HighAvailability,
-		InfraProviderAccountName: k.InfraProviderAccountName,
+		InfraProvider:            kubernetesRuntimeDefinitionValues.InfraProvider,
+		HighAvailability:         kubernetesRuntimeDefinitionValues.HighAvailability,
+		InfraProviderAccountName: kubernetesRuntimeDefinitionValues.InfraProviderAccountName,
 	}
 
 	// replace kubernetes runtime definition
@@ -182,18 +187,20 @@ func (k *KubernetesRuntimeDefinitionValues) Replace(
 }
 
 // Delete deletes a kubernetes runtime definition from the Threeport API.
-func (k *KubernetesRuntimeDefinitionValues) Delete(
+func (k *KubernetesRuntimeDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*KubernetesRuntimeDefinitionConfig, error) {
+	kubernetesRuntimeDefinitionValues := k.KubernetesRuntimeDefinition
+
 	// get kubernetes runtime definition by name
 	kubernetesRuntimeDefinition, err := client_v0.GetKubernetesRuntimeDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*k.Name,
+		*kubernetesRuntimeDefinitionValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find kubernetes runtime definition with name %s: %w", *k.Name, err)
+		return nil, fmt.Errorf("failed to find kubernetes runtime definition with name %s: %w", *kubernetesRuntimeDefinitionValues.Name, err)
 	}
 
 	// delete kubernetes runtime definition
@@ -220,16 +227,17 @@ func (k *KubernetesRuntimeDefinitionValues) Delete(
 }
 
 // Validate validates inputs to create kubernetes runtime definitions.
-func (k *KubernetesRuntimeDefinitionValues) Validate() error {
+func (k *KubernetesRuntimeDefinitionConfig) Validate() error {
+	kubernetesRuntimeDefinitionValues := k.KubernetesRuntimeDefinition
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if k.Name == nil {
+	if kubernetesRuntimeDefinitionValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// validate name length
-	if utf8.RuneCountInString(*k.Name) > provider.RuntimeNameMaxLength {
+	if utf8.RuneCountInString(*kubernetesRuntimeDefinitionValues.Name) > provider.RuntimeNameMaxLength {
 		multiError.AppendError(fmt.Errorf(
 			"kubernetes runtime definition name too long - cannot exceed %d characters",
 			provider.RuntimeNameMaxLength,
@@ -237,7 +245,7 @@ func (k *KubernetesRuntimeDefinitionValues) Validate() error {
 	}
 
 	// ensure infra provider is set
-	if k.InfraProvider == nil {
+	if kubernetesRuntimeDefinitionValues.InfraProvider == nil {
 		multiError.AppendError(errors.New("missing required field in config: InfraProvider"))
 	}
 

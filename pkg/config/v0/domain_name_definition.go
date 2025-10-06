@@ -33,18 +33,19 @@ type DomainNameDefinitionValues struct {
 // Get gets domain name definitions from the Threeport API.
 // If the name is set in the DomainNameDefinitionValues, it will return the domain name definition with that name.
 // If the name is not set, it will return all domain name definitions.
-func (d *DomainNameDefinitionValues) Get(
+func (d *DomainNameDefinitionConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]DomainNameDefinitionConfig, error) {
+	domainNameDefinitionValues := d.DomainNameDefinition
 	// get API objects
 	var domainNameDefinitions *[]api_v0.DomainNameDefinition
 	switch {
 	// if name is provided, get domain name definition by name
-	case d.Name != nil:
-		domainNameDefinition, err := client_v0.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *d.Name)
+	case domainNameDefinitionValues.Name != nil:
+		domainNameDefinition, err := client_v0.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *domainNameDefinitionValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *d.Name, err)
+			return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *domainNameDefinitionValues.Name, err)
 		}
 		domainNameDefinitions = &[]api_v0.DomainNameDefinition{*domainNameDefinition}
 	// get all domain name definitions
@@ -75,17 +76,19 @@ func (d *DomainNameDefinitionValues) Get(
 }
 
 // Create creates a domain name definition in the Threeport API.
-func (d *DomainNameDefinitionValues) Create(
+func (d *DomainNameDefinitionConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*DomainNameDefinitionConfig, error) {
+	domainNameDefinitionValues := d.DomainNameDefinition
+
 	// validate config
 	if err := d.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for domain name definition with name %s: %w", *d.Name, err)
+		return nil, fmt.Errorf("failed to validate values for domain name definition with name %s: %w", *domainNameDefinitionValues.Name, err)
 	}
 
 	// check if domain name definition exists
-	existingDomainNameDefinition, err := client_v0.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *d.Domain)
+	existingDomainNameDefinition, err := client_v0.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *domainNameDefinitionValues.Domain)
 	if err == nil {
 		// return existing domain name definition config
 		return &DomainNameDefinitionConfig{
@@ -102,11 +105,11 @@ func (d *DomainNameDefinitionValues) Create(
 	// construct domain name definition object
 	domainNameDefinition := api_v0.DomainNameDefinition{
 		Definition: api_v0.Definition{
-			Name: d.Name,
+			Name: domainNameDefinitionValues.Name,
 		},
-		Domain:     d.Domain,
-		Zone:       d.Zone,
-		AdminEmail: d.AdminEmail,
+		Domain:     domainNameDefinitionValues.Domain,
+		Zone:       domainNameDefinitionValues.Zone,
+		AdminEmail: domainNameDefinitionValues.AdminEmail,
 	}
 
 	// create domain name definition
@@ -137,11 +140,13 @@ func (d *DomainNameDefinitionValues) Create(
 // This is a full replacement of all fields in the domain name definition object.
 // This function takes a name parameter to identify the domain name definition to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (d *DomainNameDefinitionValues) Replace(
+func (d *DomainNameDefinitionConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*DomainNameDefinitionConfig, error) {
+	domainNameDefinitionValues := d.DomainNameDefinition
+
 	// validate config
 	if err := d.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid domain name definition config: %w", err)
@@ -163,11 +168,11 @@ func (d *DomainNameDefinitionValues) Replace(
 			ID: existingDomainNameDefinition.ID,
 		},
 		Definition: api_v0.Definition{
-			Name: d.Name,
+			Name: domainNameDefinitionValues.Name,
 		},
-		Domain:     d.Domain,
-		Zone:       d.Zone,
-		AdminEmail: d.AdminEmail,
+		Domain:     domainNameDefinitionValues.Domain,
+		Zone:       domainNameDefinitionValues.Zone,
+		AdminEmail: domainNameDefinitionValues.AdminEmail,
 	}
 
 	// replace domain name definition
@@ -195,18 +200,20 @@ func (d *DomainNameDefinitionValues) Replace(
 }
 
 // Delete deletes a domain name definition from the Threeport API.
-func (d *DomainNameDefinitionValues) Delete(
+func (d *DomainNameDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*DomainNameDefinitionConfig, error) {
+	domainNameDefinitionValues := d.DomainNameDefinition
+
 	// get domain name definition by name
 	domainNameDefinition, err := client_v0.GetDomainNameDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*d.Name,
+		*domainNameDefinitionValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find domain name definition with name %s: %w", *d.Name, err)
+		return nil, fmt.Errorf("failed to find domain name definition with name %s: %w", *domainNameDefinitionValues.Name, err)
 	}
 
 	// delete domain name definition
@@ -233,22 +240,23 @@ func (d *DomainNameDefinitionValues) Delete(
 }
 
 // Validate validates inputs to create domain name definitions.
-func (d *DomainNameDefinitionValues) Validate() error {
+func (d *DomainNameDefinitionConfig) Validate() error {
+	domainNameDefinitionValues := d.DomainNameDefinition
 	multiError := util.MultiError{}
 
-	if d.Name == nil {
+	if domainNameDefinitionValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
-	if d.Domain == nil {
+	if domainNameDefinitionValues.Domain == nil {
 		multiError.AppendError(errors.New("missing required field in config: Domain"))
 	}
 
-	if d.Zone == nil {
+	if domainNameDefinitionValues.Zone == nil {
 		multiError.AppendError(errors.New("missing required field in config: Zone"))
 	}
 
-	if d.AdminEmail == nil {
+	if domainNameDefinitionValues.AdminEmail == nil {
 		multiError.AppendError(errors.New("missing required field in config: AdminEmail"))
 	}
 

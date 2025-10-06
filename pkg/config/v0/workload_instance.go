@@ -38,18 +38,19 @@ type WorkloadInstanceValues struct {
 // Get gets workload instances from the Threeport API.
 // If the name is set in the WorkloadInstanceValues, it will return the workload instance with that name.
 // If the name is not set, it will return all workload instances.
-func (w *WorkloadInstanceValues) Get(
+func (w *WorkloadInstanceConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]WorkloadInstanceConfig, error) {
+	workloadInstanceValues := w.WorkloadInstance
 	// get API objects
 	var workloadInstances *[]api_v0.WorkloadInstance
 	switch {
 	// if name is provided, get workload instance by name
-	case w.Name != nil:
-		workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *w.Name)
+	case workloadInstanceValues.Name != nil:
+		workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *workloadInstanceValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *w.Name, err)
+			return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *workloadInstanceValues.Name, err)
 		}
 		workloadInstances = &[]api_v0.WorkloadInstance{*workloadInstance}
 	// get all workload instances
@@ -116,20 +117,21 @@ func (w *WorkloadInstanceValues) Get(
 }
 
 // Create creates a workload instance in the Threeport API.
-func (w *WorkloadInstanceValues) Create(
+func (w *WorkloadInstanceConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*WorkloadInstanceConfig, error) {
+	workloadInstanceValues := w.WorkloadInstance
 	// validate config
 	if err := w.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for workload instance with name %s: %w", *w.Name, err)
+		return nil, fmt.Errorf("failed to validate values for workload instance with name %s: %w", *workloadInstanceValues.Name, err)
 	}
 
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := getKubernetesRuntimeInstanceByNameOrDefault(
 		apiClient,
 		apiEndpoint,
-		w.KubernetesRuntimeInstance,
+		workloadInstanceValues.KubernetesRuntimeInstance,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
@@ -139,10 +141,10 @@ func (w *WorkloadInstanceValues) Create(
 	workloadDefinition, err := client_v0.GetWorkloadDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*w.WorkloadDefinition.Name,
+		*workloadInstanceValues.WorkloadDefinition.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload definition by name %s: %w", *w.WorkloadDefinition.Name, err)
+		return nil, fmt.Errorf("failed to get workload definition by name %s: %w", *workloadInstanceValues.WorkloadDefinition.Name, err)
 	}
 
 	// check to see if threeport is managing namespace
@@ -198,7 +200,7 @@ func (w *WorkloadInstanceValues) Create(
 	// construct workload instance object
 	workloadInstance := api_v0.WorkloadInstance{
 		Instance: api_v0.Instance{
-			Name: w.Name,
+			Name: workloadInstanceValues.Name,
 		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		WorkloadDefinitionID:        workloadDefinition.ID,
@@ -218,8 +220,8 @@ func (w *WorkloadInstanceValues) Create(
 	createdWorkloadInstanceConfig := &WorkloadInstanceConfig{
 		WorkloadInstance: WorkloadInstanceValues{
 			Name:                      createdWorkloadInstance.Name,
-			KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
-			WorkloadDefinition:        w.WorkloadDefinition,
+			KubernetesRuntimeInstance: workloadInstanceValues.KubernetesRuntimeInstance,
+			WorkloadDefinition:        workloadInstanceValues.WorkloadDefinition,
 			Status:                    util.Ptr(string(*createdWorkloadInstance.Status)),
 			Age:                       util.Ptr(util.GetAgeFormatted(createdWorkloadInstance.CreatedAt)),
 		},
@@ -232,11 +234,12 @@ func (w *WorkloadInstanceValues) Create(
 // This is a full replacement of all fields in the workload instance object.
 // This function takes a name parameter to identify the workload instance to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (w *WorkloadInstanceValues) Replace(
+func (w *WorkloadInstanceConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*WorkloadInstanceConfig, error) {
+	workloadInstanceValues := w.WorkloadInstance
 	// validate config
 	if err := w.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid workload instance config: %w", err)
@@ -256,7 +259,7 @@ func (w *WorkloadInstanceValues) Replace(
 	kubernetesRuntimeInstance, moved, err := getKubernetesRuntimeInstanceAndCheckId(
 		apiClient,
 		apiEndpoint,
-		w.KubernetesRuntimeInstance,
+		workloadInstanceValues.KubernetesRuntimeInstance,
 		existingWorkloadInstance.KubernetesRuntimeInstanceID,
 	)
 	if err != nil {
@@ -273,10 +276,10 @@ func (w *WorkloadInstanceValues) Replace(
 	workloadDefinition, err := client_v0.GetWorkloadDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*w.WorkloadDefinition.Name,
+		*workloadInstanceValues.WorkloadDefinition.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload definition by name %s: %w", *w.WorkloadDefinition.Name, err)
+		return nil, fmt.Errorf("failed to get workload definition by name %s: %w", *workloadInstanceValues.WorkloadDefinition.Name, err)
 	}
 
 	// construct updated workload instance object
@@ -285,7 +288,7 @@ func (w *WorkloadInstanceValues) Replace(
 			ID: existingWorkloadInstance.ID,
 		},
 		Instance: api_v0.Instance{
-			Name: w.Name,
+			Name: workloadInstanceValues.Name,
 		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		WorkloadDefinitionID:        workloadDefinition.ID,
@@ -305,8 +308,8 @@ func (w *WorkloadInstanceValues) Replace(
 	updatedWorkloadInstanceConfig := &WorkloadInstanceConfig{
 		WorkloadInstance: WorkloadInstanceValues{
 			Name:                      replacedWorkloadInstance.Name,
-			KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
-			WorkloadDefinition:        w.WorkloadDefinition,
+			KubernetesRuntimeInstance: workloadInstanceValues.KubernetesRuntimeInstance,
+			WorkloadDefinition:        workloadInstanceValues.WorkloadDefinition,
 			Status:                    util.Ptr(string(*replacedWorkloadInstance.Status)),
 			Age:                       util.Ptr(util.GetAgeFormatted(replacedWorkloadInstance.CreatedAt)),
 		},
@@ -316,18 +319,19 @@ func (w *WorkloadInstanceValues) Replace(
 }
 
 // Delete deletes a workload instance from the Threeport API.
-func (w *WorkloadInstanceValues) Delete(
+func (w *WorkloadInstanceConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*WorkloadInstanceConfig, error) {
+	workloadInstanceValues := w.WorkloadInstance
 	// get workload instance by name
 	workloadInstance, err := client_v0.GetWorkloadInstanceByName(
 		apiClient,
 		apiEndpoint,
-		*w.Name,
+		*workloadInstanceValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find workload instance with name %s: %w", *w.Name, err)
+		return nil, fmt.Errorf("failed to find workload instance with name %s: %w", *workloadInstanceValues.Name, err)
 	}
 
 	// delete workload instance
@@ -342,7 +346,7 @@ func (w *WorkloadInstanceValues) Delete(
 
 	// wait for workload instance to be deleted
 	util.Retry(60, 1, func() error {
-		if _, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *w.Name); err == nil {
+		if _, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *workloadInstanceValues.Name); err == nil {
 			return errors.New("workload instance not deleted")
 		}
 		return nil
@@ -359,16 +363,17 @@ func (w *WorkloadInstanceValues) Delete(
 }
 
 // Validate validates inputs to create workload instances.
-func (w *WorkloadInstanceValues) Validate() error {
+func (w *WorkloadInstanceConfig) Validate() error {
+	workloadInstanceValues := w.WorkloadInstance
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if w.Name == nil {
+	if workloadInstanceValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure workload definition name is set
-	if w.WorkloadDefinition == nil || w.WorkloadDefinition.Name == nil {
+	if workloadInstanceValues.WorkloadDefinition == nil || workloadInstanceValues.WorkloadDefinition.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: WorkloadDefinition.Name"))
 	}
 

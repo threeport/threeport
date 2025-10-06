@@ -51,18 +51,19 @@ type GatewayTcpPortValues struct {
 // Get gets gateway definitions from the Threeport API.
 // If the name is set in the GatewayDefinitionValues, it will return the gateway definition with that name.
 // If the name is not set, it will return all gateway definitions.
-func (g *GatewayDefinitionValues) Get(
+func (g *GatewayDefinitionConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]GatewayDefinitionConfig, error) {
+	gatewayDefinitionValues := g.GatewayDefinition
 	// get API objects
 	var gatewayDefinitions *[]api_v0.GatewayDefinition
 	switch {
 	// if name is provided, get gateway definition by name
-	case g.Name != nil:
-		gatewayDefinition, err := client_v0.GetGatewayDefinitionByName(apiClient, apiEndpoint, *g.Name)
+	case gatewayDefinitionValues.Name != nil:
+		gatewayDefinition, err := client_v0.GetGatewayDefinitionByName(apiClient, apiEndpoint, *gatewayDefinitionValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get gateway definition with name %s: %w", *g.Name, err)
+			return nil, fmt.Errorf("failed to get gateway definition with name %s: %w", *gatewayDefinitionValues.Name, err)
 		}
 		gatewayDefinitions = &[]api_v0.GatewayDefinition{*gatewayDefinition}
 	// get all gateway definitions
@@ -121,20 +122,22 @@ func (g *GatewayDefinitionValues) Get(
 }
 
 // Create creates a gateway definition in the Threeport API.
-func (g *GatewayDefinitionValues) Create(
+func (g *GatewayDefinitionConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*GatewayDefinitionConfig, error) {
+	gatewayDefinitionValues := g.GatewayDefinition
+
 	// validate config
 	if err := g.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for gateway definition with name %s: %w", *g.Name, err)
+		return nil, fmt.Errorf("failed to validate values for gateway definition with name %s: %w", *gatewayDefinitionValues.Name, err)
 	}
 
 	// construct list of http ports
 	tlsEnabled := false
 	var httpPorts []*api_v0.GatewayHttpPort
-	if g.HttpPorts != nil {
-		for _, httpPort := range *g.HttpPorts {
+	if gatewayDefinitionValues.HttpPorts != nil {
+		for _, httpPort := range *gatewayDefinitionValues.HttpPorts {
 			// create copy of pointer
 			currentHttpPort := httpPort
 
@@ -160,8 +163,8 @@ func (g *GatewayDefinitionValues) Create(
 
 	// construct list of tcp ports
 	var tcpPorts []*api_v0.GatewayTcpPort
-	if g.TcpPorts != nil {
-		for _, tcpPort := range *g.TcpPorts {
+	if gatewayDefinitionValues.TcpPorts != nil {
+		for _, tcpPort := range *gatewayDefinitionValues.TcpPorts {
 			tcpPorts = append(tcpPorts,
 				&api_v0.GatewayTcpPort{
 					Port:       tcpPort.Port,
@@ -173,11 +176,11 @@ func (g *GatewayDefinitionValues) Create(
 	// get domain name definition
 	domainNameUsed := false
 	domainNameDefinition := &api_v0.DomainNameDefinition{}
-	if g.DomainNameDefinition != nil && g.DomainNameDefinition.Name != nil && *g.DomainNameDefinition.Name != "" {
+	if gatewayDefinitionValues.DomainNameDefinition != nil && gatewayDefinitionValues.DomainNameDefinition.Name != nil && *gatewayDefinitionValues.DomainNameDefinition.Name != "" {
 		domainNameUsed = true
-		dnd, err := client_v0.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *g.DomainNameDefinition.Name)
+		dnd, err := client_v0.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *gatewayDefinitionValues.DomainNameDefinition.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *g.DomainNameDefinition.Name, err)
+			return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *gatewayDefinitionValues.DomainNameDefinition.Name, err)
 		}
 		domainNameDefinition = dnd
 	} else {
@@ -191,23 +194,23 @@ func (g *GatewayDefinitionValues) Create(
 	if domainNameUsed {
 		gatewayDefinition = api_v0.GatewayDefinition{
 			Definition: api_v0.Definition{
-				Name: g.Name,
+				Name: gatewayDefinitionValues.Name,
 			},
 			HttpPorts:              httpPorts,
 			TcpPorts:               tcpPorts,
-			SubDomain:              g.SubDomain,
-			ServiceName:            g.ServiceName,
+			SubDomain:              gatewayDefinitionValues.SubDomain,
+			ServiceName:            gatewayDefinitionValues.ServiceName,
 			DomainNameDefinitionID: domainNameDefinition.ID,
 		}
 	} else {
 		gatewayDefinition = api_v0.GatewayDefinition{
 			Definition: api_v0.Definition{
-				Name: g.Name,
+				Name: gatewayDefinitionValues.Name,
 			},
 			HttpPorts:   httpPorts,
 			TcpPorts:    tcpPorts,
-			SubDomain:   g.SubDomain,
-			ServiceName: g.ServiceName,
+			SubDomain:   gatewayDefinitionValues.SubDomain,
+			ServiceName: gatewayDefinitionValues.ServiceName,
 		}
 	}
 
@@ -267,11 +270,13 @@ func (g *GatewayDefinitionValues) Create(
 // This is a full replacement of all fields in the gateway definition object.
 // This function takes a name parameter to identify the gateway definition to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (g *GatewayDefinitionValues) Replace(
+func (g *GatewayDefinitionConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*GatewayDefinitionConfig, error) {
+	gatewayDefinitionValues := g.GatewayDefinition
+
 	// validate config
 	if err := g.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid gateway definition config: %w", err)
@@ -290,8 +295,8 @@ func (g *GatewayDefinitionValues) Replace(
 	// construct list of http ports for update
 	tlsEnabled := false
 	var httpPorts []*api_v0.GatewayHttpPort
-	if g.HttpPorts != nil {
-		for _, httpPort := range *g.HttpPorts {
+	if gatewayDefinitionValues.HttpPorts != nil {
+		for _, httpPort := range *gatewayDefinitionValues.HttpPorts {
 			// create copy of pointer
 			currentHttpPort := httpPort
 
@@ -317,8 +322,8 @@ func (g *GatewayDefinitionValues) Replace(
 
 	// construct list of tcp ports for update
 	var tcpPorts []*api_v0.GatewayTcpPort
-	if g.TcpPorts != nil {
-		for _, tcpPort := range *g.TcpPorts {
+	if gatewayDefinitionValues.TcpPorts != nil {
+		for _, tcpPort := range *gatewayDefinitionValues.TcpPorts {
 			tcpPorts = append(tcpPorts,
 				&api_v0.GatewayTcpPort{
 					Port:       tcpPort.Port,
@@ -330,11 +335,11 @@ func (g *GatewayDefinitionValues) Replace(
 	// get domain name definition for update
 	domainNameUsed := false
 	domainNameDefinition := &api_v0.DomainNameDefinition{}
-	if g.DomainNameDefinition != nil && g.DomainNameDefinition.Name != nil && *g.DomainNameDefinition.Name != "" {
+	if gatewayDefinitionValues.DomainNameDefinition != nil && gatewayDefinitionValues.DomainNameDefinition.Name != nil && *gatewayDefinitionValues.DomainNameDefinition.Name != "" {
 		domainNameUsed = true
-		dnd, err := client_v0.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *g.DomainNameDefinition.Name)
+		dnd, err := client_v0.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *gatewayDefinitionValues.DomainNameDefinition.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *g.DomainNameDefinition.Name, err)
+			return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *gatewayDefinitionValues.DomainNameDefinition.Name, err)
 		}
 		domainNameDefinition = dnd
 	} else {
@@ -351,12 +356,12 @@ func (g *GatewayDefinitionValues) Replace(
 				ID: existingGatewayDefinition.ID,
 			},
 			Definition: api_v0.Definition{
-				Name: g.Name,
+				Name: gatewayDefinitionValues.Name,
 			},
 			HttpPorts:              httpPorts,
 			TcpPorts:               tcpPorts,
-			SubDomain:              g.SubDomain,
-			ServiceName:            g.ServiceName,
+			SubDomain:              gatewayDefinitionValues.SubDomain,
+			ServiceName:            gatewayDefinitionValues.ServiceName,
 			DomainNameDefinitionID: domainNameDefinition.ID,
 		}
 	} else {
@@ -365,12 +370,12 @@ func (g *GatewayDefinitionValues) Replace(
 				ID: existingGatewayDefinition.ID,
 			},
 			Definition: api_v0.Definition{
-				Name: g.Name,
+				Name: gatewayDefinitionValues.Name,
 			},
 			HttpPorts:   httpPorts,
 			TcpPorts:    tcpPorts,
-			SubDomain:   g.SubDomain,
-			ServiceName: g.ServiceName,
+			SubDomain:   gatewayDefinitionValues.SubDomain,
+			ServiceName: gatewayDefinitionValues.ServiceName,
 		}
 	}
 
@@ -427,18 +432,20 @@ func (g *GatewayDefinitionValues) Replace(
 }
 
 // Delete deletes a gateway definition from the Threeport API.
-func (g *GatewayDefinitionValues) Delete(
+func (g *GatewayDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*GatewayDefinitionConfig, error) {
+	gatewayDefinitionValues := g.GatewayDefinition
+
 	// get gateway definition by name
 	gatewayDefinition, err := client_v0.GetGatewayDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*g.Name,
+		*gatewayDefinitionValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find gateway definition with name %s: %w", *g.Name, err)
+		return nil, fmt.Errorf("failed to find gateway definition with name %s: %w", *gatewayDefinitionValues.Name, err)
 	}
 
 	// delete gateway definition
@@ -464,24 +471,25 @@ func (g *GatewayDefinitionValues) Delete(
 }
 
 // Validate validates inputs to create gateway definitions.
-func (g *GatewayDefinitionValues) Validate() error {
+func (g *GatewayDefinitionConfig) Validate() error {
+	gatewayDefinitionValues := g.GatewayDefinition
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if g.Name == nil {
+	if gatewayDefinitionValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure http ports or tcp ports are set
-	if g.HttpPorts == nil && g.TcpPorts == nil {
+	if gatewayDefinitionValues.HttpPorts == nil && gatewayDefinitionValues.TcpPorts == nil {
 		multiError.AppendError(errors.New("missing required field in config: Must provide one of []HttpPorts or []TcpPorts"))
 	}
 
 	// make sure HTTPS redirect from 80 -> 443 is not set if port 443 is not set
-	if g.HttpPorts != nil {
+	if gatewayDefinitionValues.HttpPorts != nil {
 		port443 := false
 		redirect := false
-		for _, httpPort := range *g.HttpPorts {
+		for _, httpPort := range *gatewayDefinitionValues.HttpPorts {
 			// see if redirect is set
 			if *httpPort.Port == 80 && *httpPort.HTTPSRedirect {
 				redirect = true

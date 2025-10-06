@@ -43,19 +43,20 @@ type AwsAccountValues struct {
 // If the name is set in the AwsAccountValues, it will return the aws account with that name.
 // If the name is not set, it will return all aws accounts.
 // If the encryptionKey is provided, it will decrypt the SecretAccessKey and AccessKeyID fields.
-func (a *AwsAccountValues) Get(
+func (a *AwsAccountConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 	encryptionKey string,
 ) (*[]AwsAccountConfig, error) {
+	awsAccountValues := a.AwsAccount
 	// get API objects
 	var awsAccounts *[]api_v0.AwsAccount
 	switch {
 	// if name is provided, get aws account by name
-	case a.Name != nil:
-		awsAccount, err := client_v0.GetAwsAccountByName(apiClient, apiEndpoint, *a.Name)
+	case awsAccountValues.Name != nil:
+		awsAccount, err := client_v0.GetAwsAccountByName(apiClient, apiEndpoint, *awsAccountValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get aws account with name %s: %w", *a.Name, err)
+			return nil, fmt.Errorf("failed to get aws account with name %s: %w", *awsAccountValues.Name, err)
 		}
 		awsAccounts = &[]api_v0.AwsAccount{*awsAccount}
 	// get all aws accounts
@@ -101,17 +102,19 @@ func (a *AwsAccountValues) Get(
 }
 
 // Create creates a aws account in the Threeport API.
-func (a *AwsAccountValues) Create(
+func (a *AwsAccountConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*AwsAccountConfig, error) {
+	awsAccountValues := a.AwsAccount
+
 	// validate config
 	if err := a.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for aws account with name %s: %w", *a.Name, err)
+		return nil, fmt.Errorf("failed to validate values for aws account with name %s: %w", *awsAccountValues.Name, err)
 	}
 
 	// validate that no other default AWS account exists
-	if a.DefaultAccount != nil && *a.DefaultAccount {
+	if awsAccountValues.DefaultAccount != nil && *awsAccountValues.DefaultAccount {
 		existingAccounts, err := client_v0.GetAwsAccounts(apiClient, apiEndpoint)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve existing AWS accounts to check default accounts: %w", err)
@@ -126,51 +129,51 @@ func (a *AwsAccountValues) Create(
 
 	// establish default region from explicit declaration in config or AWS config file
 	var region string
-	if a.DefaultRegion == nil {
-		awsConfig, err := ini.Load(*a.LocalConfig)
+	if awsAccountValues.DefaultRegion == nil {
+		awsConfig, err := ini.Load(*awsAccountValues.LocalConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load aws config: %w", err)
 		}
-		if awsConfig.Section(*a.LocalProfile).HasKey("region") {
-			region = awsConfig.Section(*a.LocalProfile).Key("region").String()
+		if awsConfig.Section(*awsAccountValues.LocalProfile).HasKey("region") {
+			region = awsConfig.Section(*awsAccountValues.LocalProfile).Key("region").String()
 		} else {
 			return nil, fmt.Errorf(
 				"profile %s not found in aws config %s",
-				*a.LocalProfile,
-				*a.LocalConfig,
+				*awsAccountValues.LocalProfile,
+				*awsAccountValues.LocalConfig,
 			)
 		}
 	} else {
-		region = *a.DefaultRegion
+		region = *awsAccountValues.DefaultRegion
 	}
 
 	// retrieve access key ID and secret access key if needed
 	var accessKeyID string
 	var secretAccessKey string
-	if a.AccessKeyID == nil && a.SecretAccessKey == nil {
-		awsCredentials, err := ini.Load(*a.LocalCredentials)
+	if awsAccountValues.AccessKeyID == nil && awsAccountValues.SecretAccessKey == nil {
+		awsCredentials, err := ini.Load(*awsAccountValues.LocalCredentials)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load aws credentials: %w", err)
 		}
-		if awsCredentials.Section(*a.LocalProfile).HasKey("aws_access_key_id") &&
-			awsCredentials.Section(*a.LocalProfile).HasKey("aws_secret_access_key") {
-			accessKeyID = awsCredentials.Section(*a.LocalProfile).Key("aws_access_key_id").String()
-			secretAccessKey = awsCredentials.Section(*a.LocalProfile).Key("aws_secret_access_key").String()
+		if awsCredentials.Section(*awsAccountValues.LocalProfile).HasKey("aws_access_key_id") &&
+			awsCredentials.Section(*awsAccountValues.LocalProfile).HasKey("aws_secret_access_key") {
+			accessKeyID = awsCredentials.Section(*awsAccountValues.LocalProfile).Key("aws_access_key_id").String()
+			secretAccessKey = awsCredentials.Section(*awsAccountValues.LocalProfile).Key("aws_secret_access_key").String()
 		}
 	} else {
-		accessKeyID = *a.AccessKeyID
-		secretAccessKey = *a.SecretAccessKey
+		accessKeyID = *awsAccountValues.AccessKeyID
+		secretAccessKey = *awsAccountValues.SecretAccessKey
 	}
 
 	// construct aws account object
 	awsAccount := api_v0.AwsAccount{
-		Name:            a.Name,
-		DefaultAccount:  a.DefaultAccount,
+		Name:            awsAccountValues.Name,
+		DefaultAccount:  awsAccountValues.DefaultAccount,
 		DefaultRegion:   &region,
-		AccountID:       a.AccountID,
+		AccountID:       awsAccountValues.AccountID,
 		AccessKeyID:     &accessKeyID,
 		SecretAccessKey: &secretAccessKey,
-		RoleArn:         a.RoleArn,
+		RoleArn:         awsAccountValues.RoleArn,
 	}
 
 	// create aws account
@@ -202,11 +205,13 @@ func (a *AwsAccountValues) Create(
 // This is a full replacement of all fields in the aws account object.
 // This function takes a name parameter to identify the aws account to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (a *AwsAccountValues) Replace(
+func (a *AwsAccountConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*AwsAccountConfig, error) {
+	awsAccountValues := a.AwsAccount
+
 	// validate config
 	if err := a.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid aws account config: %w", err)
@@ -227,13 +232,13 @@ func (a *AwsAccountValues) Replace(
 		Common: api_v0.Common{
 			ID: existingAwsAccount.ID,
 		},
-		Name:            a.Name,
-		AccountID:       a.AccountID,
-		DefaultAccount:  a.DefaultAccount,
-		DefaultRegion:   a.DefaultRegion,
-		AccessKeyID:     a.AccessKeyID,
-		SecretAccessKey: a.SecretAccessKey,
-		RoleArn:         a.RoleArn,
+		Name:            awsAccountValues.Name,
+		AccountID:       awsAccountValues.AccountID,
+		DefaultAccount:  awsAccountValues.DefaultAccount,
+		DefaultRegion:   awsAccountValues.DefaultRegion,
+		AccessKeyID:     awsAccountValues.AccessKeyID,
+		SecretAccessKey: awsAccountValues.SecretAccessKey,
+		RoleArn:         awsAccountValues.RoleArn,
 	}
 
 	// replace aws account
@@ -262,18 +267,20 @@ func (a *AwsAccountValues) Replace(
 }
 
 // Delete deletes a aws account from the Threeport API.
-func (a *AwsAccountValues) Delete(
+func (a *AwsAccountConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*AwsAccountConfig, error) {
+	awsAccountValues := a.AwsAccount
+
 	// get aws account by name
 	awsAccount, err := client_v0.GetAwsAccountByName(
 		apiClient,
 		apiEndpoint,
-		*a.Name,
+		*awsAccountValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find aws account with name %s: %w", *a.Name, err)
+		return nil, fmt.Errorf("failed to find aws account with name %s: %w", *awsAccountValues.Name, err)
 	}
 
 	// delete aws account
@@ -301,16 +308,17 @@ func (a *AwsAccountValues) Delete(
 }
 
 // Validate validates inputs to create aws accounts.
-func (a *AwsAccountValues) Validate() error {
+func (a *AwsAccountConfig) Validate() error {
+	awsAccountValues := a.AwsAccount
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if a.Name == nil {
+	if awsAccountValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure account ID is set
-	if a.AccountID == nil {
+	if awsAccountValues.AccountID == nil {
 		multiError.AppendError(errors.New("missing required field in config: AccountID"))
 	}
 
@@ -323,10 +331,10 @@ LocalConfig, LocalCredentials and LocalProfile
 `
 	localConfig := false
 	explicitConfig := false
-	if a.LocalConfig != nil && a.LocalCredentials != nil && a.LocalProfile != nil {
+	if awsAccountValues.LocalConfig != nil && awsAccountValues.LocalCredentials != nil && awsAccountValues.LocalProfile != nil {
 		localConfig = true
 	}
-	if a.DefaultRegion != nil && a.AccessKeyID != nil && a.SecretAccessKey != nil {
+	if awsAccountValues.DefaultRegion != nil && awsAccountValues.AccessKeyID != nil && awsAccountValues.SecretAccessKey != nil {
 		explicitConfig = true
 	}
 	switch {

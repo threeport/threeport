@@ -36,7 +36,7 @@ var GetAwsAccountsCmd = &cobra.Command{
 
 		// get encryption key if necessary
 		var encryptionKey string
-		if awsDecrypt == true {
+		if awsDecrypt {
 			threeportConfig, _, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 			if err != nil {
 				cli.Error("failed to get threeport config: %w", err)
@@ -83,7 +83,7 @@ var GetAwsAccountsCmd = &cobra.Command{
 			}
 
 			// get aws accounts
-			awsAccounts, err := awsAccountConfig.AwsAccount.Get(apiClient, apiEndpoint, encryptionKey)
+			awsAccounts, err := awsAccountConfig.Get(apiClient, apiEndpoint, encryptionKey)
 			if err != nil {
 				cli.Error("failed to retrieve aws accounts", err)
 				os.Exit(1)
@@ -182,8 +182,7 @@ var CreateAwsAccountCmd = &cobra.Command{
 			}
 
 			// create aws account
-			awsAccount := awsAccountConfig.AwsAccount
-			createdAwsAccount, err := awsAccount.Create(apiClient, apiEndpoint)
+			createdAwsAccount, err := awsAccountConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create aws account", err)
 				os.Exit(1)
@@ -242,8 +241,7 @@ var ReplaceAwsAccountCmd = &cobra.Command{
 			}
 
 			// replace aws account
-			awsAccount := awsAccountConfig.AwsAccount
-			updatedAwsAccount, err := awsAccount.Replace(apiClient, apiEndpoint, awsName)
+			updatedAwsAccount, err := awsAccountConfig.Replace(apiClient, apiEndpoint, awsName)
 			if err != nil {
 				cli.Error("failed to update aws account", err)
 				os.Exit(1)
@@ -325,8 +323,7 @@ var DeleteAwsAccountCmd = &cobra.Command{
 			}
 
 			// delete aws account
-			awsAccount := awsAccountConfig.AwsAccount
-			deletedAwsAccount, err := awsAccount.Delete(apiClient, apiEndpoint)
+			deletedAwsAccount, err := awsAccountConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete aws account", err)
 				os.Exit(1)
@@ -411,7 +408,7 @@ var GetAwsEksKubernetesRuntimesCmd = &cobra.Command{
 			}
 
 			// get aws eks kubernetes runtime
-			awsEksKubernetesRuntimeConfigs, err := awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime.Get(apiClient, apiEndpoint)
+			awsEksKubernetesRuntimeConfigs, err := awsEksKubernetesRuntimeConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve aws eks kubernetes runtime", err)
 				os.Exit(1)
@@ -507,8 +504,7 @@ var CreateAwsEksKubernetesRuntimeCmd = &cobra.Command{
 			}
 
 			// create aws eks kubernetes runtime
-			awsEksKubernetesRuntime := awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime
-			createdAwsEksKubernetesRuntimeSlice, err := awsEksKubernetesRuntime.Create(
+			createdAwsEksKubernetesRuntimeSlice, err := awsEksKubernetesRuntimeConfig.Create(
 				apiClient,
 				apiEndpoint,
 			)
@@ -584,16 +580,15 @@ var DeleteAwsEksKubernetesRuntimeCmd = &cobra.Command{
 			}
 
 			// delete aws eks kubernetes runtime
-			awsEksKubernetesRuntime := awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime
-			_, err = awsEksKubernetesRuntime.Delete(apiClient, apiEndpoint)
+			_, err = awsEksKubernetesRuntimeConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete aws eks kubernetes runtime", err)
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("aws eks kubernetes runtime definition %s deleted", *awsEksKubernetesRuntime.Name))
-			cli.Info(fmt.Sprintf("aws eks kubernetes runtime instance %s deleted", *awsEksKubernetesRuntime.Name))
-			cli.Complete(fmt.Sprintf("aws eks kubernetes runtime %s deleted", *awsEksKubernetesRuntime.Name))
+			cli.Info(fmt.Sprintf("aws eks kubernetes runtime definition %s deleted", *awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime.Name))
+			cli.Info(fmt.Sprintf("aws eks kubernetes runtime instance %s deleted", *awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime.Name))
+			cli.Complete(fmt.Sprintf("aws eks kubernetes runtime %s deleted", *awsEksKubernetesRuntimeConfig.AwsEksKubernetesRuntime.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -667,7 +662,7 @@ var GetAwsEksKubernetesRuntimeDefinitionsCmd = &cobra.Command{
 			}
 
 			// get aws eks kubernetes runtime definitions
-			awsEksKubernetesRuntimeDefinitions, err := awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition.Get(apiClient, apiEndpoint)
+			awsEksKubernetesRuntimeDefinitions, err := awsEksKubernetesRuntimeDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve aws eks kubernetes runtime definitions", err)
 				os.Exit(1)
@@ -762,8 +757,7 @@ var CreateAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			}
 
 			// create aws eks kubernetes runtime definition
-			awsEksKubernetesRuntimeDefinition := awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition
-			createdAwsEksKubernetesRuntimeDefinition, err := awsEksKubernetesRuntimeDefinition.Create(apiClient, apiEndpoint)
+			createdAwsEksKubernetesRuntimeDefinition, err := awsEksKubernetesRuntimeDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create aws eks kubernetes runtime definition", err)
 				os.Exit(1)
@@ -822,8 +816,7 @@ var ReplaceAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			}
 
 			// replace aws eks kubernetes runtime definition
-			awsEksKubernetesRuntimeDefinition := awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition
-			updatedAwsEksKubernetesRuntimeDefinition, err := awsEksKubernetesRuntimeDefinition.Replace(apiClient, apiEndpoint, awsName)
+			updatedAwsEksKubernetesRuntimeDefinition, err := awsEksKubernetesRuntimeDefinitionConfig.Replace(apiClient, apiEndpoint, awsName)
 			if err != nil {
 				cli.Error("failed to update aws eks kubernetes runtime definition", err)
 				os.Exit(1)
@@ -905,8 +898,7 @@ var DeleteAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			}
 
 			// delete aws eks kubernetes runtime definition
-			awsEksKubernetesRuntimeDefinition := awsEksKubernetesRuntimeDefinitionConfig.AwsEksKubernetesRuntimeDefinition
-			deletedAwsEksKubernetesRuntimeDefinition, err := awsEksKubernetesRuntimeDefinition.Delete(apiClient, apiEndpoint)
+			deletedAwsEksKubernetesRuntimeDefinition, err := awsEksKubernetesRuntimeDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete aws eks kubernetes runtime definition", err)
 				os.Exit(1)
@@ -990,7 +982,7 @@ var GetAwsEksKubernetesRuntimeInstancesCmd = &cobra.Command{
 			}
 
 			// get aws eks kubernetes runtime instances
-			awsEksKubernetesRuntimeInstances, err := awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance.Get(apiClient, apiEndpoint)
+			awsEksKubernetesRuntimeInstances, err := awsEksKubernetesRuntimeInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve aws eks kubernetes runtime instances", err)
 				os.Exit(1)
@@ -1085,8 +1077,7 @@ var CreateAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 			}
 
 			// create aws eks kubernetes runtime instance
-			awsEksKubernetesRuntimeInstance := awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance
-			createdAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstance.Create(apiClient, apiEndpoint)
+			createdAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create aws eks kubernetes runtime instance", err)
 				os.Exit(1)
@@ -1145,8 +1136,7 @@ var ReplaceAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 			}
 
 			// replace aws eks kubernetes runtime instance
-			awsEksKubernetesRuntimeInstance := awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance
-			updatedAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstance.Replace(apiClient, apiEndpoint, awsName)
+			updatedAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstanceConfig.Replace(apiClient, apiEndpoint, awsName)
 			if err != nil {
 				cli.Error("failed to update aws eks kubernetes runtime instance", err)
 				os.Exit(1)
@@ -1228,8 +1218,7 @@ var DeleteAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
 			}
 
 			// delete aws eks kubernetes runtime instance
-			awsEksKubernetesRuntimeInstance := awsEksKubernetesRuntimeInstanceConfig.AwsEksKubernetesRuntimeInstance
-			deletedAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstance.Delete(apiClient, apiEndpoint)
+			deletedAwsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete aws eks kubernetes runtime instance", err)
 				os.Exit(1)

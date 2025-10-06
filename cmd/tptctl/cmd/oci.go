@@ -36,7 +36,7 @@ var GetOciAccountsCmd = &cobra.Command{
 
 		// get encryption key if necessary
 		var encryptionKey string
-		if ociDecrypt == true {
+		if ociDecrypt {
 			threeportConfig, _, err := cli.GetThreeportConfig(cliArgs.ControlPlaneName)
 			if err != nil {
 				cli.Error("failed to get threeport config: %w", err)
@@ -83,7 +83,7 @@ var GetOciAccountsCmd = &cobra.Command{
 			}
 
 			// get oci accounts
-			ociAccounts, err := ociAccountConfig.OciAccount.Get(apiClient, apiEndpoint, encryptionKey)
+			ociAccounts, err := ociAccountConfig.Get(apiClient, apiEndpoint, encryptionKey)
 			if err != nil {
 				cli.Error("failed to retrieve oci accounts", err)
 				os.Exit(1)
@@ -182,8 +182,7 @@ var CreateOciAccountCmd = &cobra.Command{
 			}
 
 			// create oci account
-			ociAccount := ociAccountConfig.OciAccount
-			createdOciAccount, err := ociAccount.Create(apiClient, apiEndpoint)
+			createdOciAccount, err := ociAccountConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create oci account", err)
 				os.Exit(1)
@@ -242,8 +241,7 @@ var ReplaceOciAccountCmd = &cobra.Command{
 			}
 
 			// replace oci account
-			ociAccount := ociAccountConfig.OciAccount
-			updatedOciAccount, err := ociAccount.Replace(apiClient, apiEndpoint, ociName)
+			updatedOciAccount, err := ociAccountConfig.Replace(apiClient, apiEndpoint, ociName)
 			if err != nil {
 				cli.Error("failed to update oci account", err)
 				os.Exit(1)
@@ -325,8 +323,7 @@ var DeleteOciAccountCmd = &cobra.Command{
 			}
 
 			// delete oci account
-			ociAccount := ociAccountConfig.OciAccount
-			deletedOciAccount, err := ociAccount.Delete(apiClient, apiEndpoint)
+			deletedOciAccount, err := ociAccountConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete oci account", err)
 				os.Exit(1)
@@ -411,7 +408,7 @@ var GetOciOkeKubernetesRuntimesCmd = &cobra.Command{
 			}
 
 			// get oci oke kubernetes runtime
-			ociOkeKubernetesRuntimeConfigs, err := ociOkeKubernetesRuntimeConfig.OciOkeKubernetesRuntime.Get(apiClient, apiEndpoint)
+			ociOkeKubernetesRuntimeConfigs, err := ociOkeKubernetesRuntimeConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve oci oke kubernetes runtime", err)
 				os.Exit(1)
@@ -507,8 +504,7 @@ var CreateOciOkeKubernetesRuntimeCmd = &cobra.Command{
 			}
 
 			// create oci oke kubernetes runtime
-			ociOkeKubernetesRuntime := ociOkeKubernetesRuntimeConfig.OciOkeKubernetesRuntime
-			createdOciOkeKubernetesRuntimeSlice, err := ociOkeKubernetesRuntime.Create(
+			createdOciOkeKubernetesRuntimeSlice, err := ociOkeKubernetesRuntimeConfig.Create(
 				apiClient,
 				apiEndpoint,
 			)
@@ -584,16 +580,15 @@ var DeleteOciOkeKubernetesRuntimeCmd = &cobra.Command{
 			}
 
 			// delete oci oke kubernetes runtime
-			ociOkeKubernetesRuntime := ociOkeKubernetesRuntimeConfig.OciOkeKubernetesRuntime
-			_, err = ociOkeKubernetesRuntime.Delete(apiClient, apiEndpoint)
+			_, err = ociOkeKubernetesRuntimeConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete oci oke kubernetes runtime", err)
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("oci oke kubernetes runtime definition %s deleted", *ociOkeKubernetesRuntime.Name))
-			cli.Info(fmt.Sprintf("oci oke kubernetes runtime instance %s deleted", *ociOkeKubernetesRuntime.Name))
-			cli.Complete(fmt.Sprintf("oci oke kubernetes runtime %s deleted", *ociOkeKubernetesRuntime.Name))
+			cli.Info(fmt.Sprintf("oci oke kubernetes runtime definition %s deleted", *ociOkeKubernetesRuntimeConfig.OciOkeKubernetesRuntime.Name))
+			cli.Info(fmt.Sprintf("oci oke kubernetes runtime instance %s deleted", *ociOkeKubernetesRuntimeConfig.OciOkeKubernetesRuntime.Name))
+			cli.Complete(fmt.Sprintf("oci oke kubernetes runtime %s deleted", *ociOkeKubernetesRuntimeConfig.OciOkeKubernetesRuntime.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -667,7 +662,7 @@ var GetOciOkeKubernetesRuntimeDefinitionsCmd = &cobra.Command{
 			}
 
 			// get oci oke kubernetes runtime definitions
-			ociOkeKubernetesRuntimeDefinitions, err := ociOkeKubernetesRuntimeDefinitionConfig.OciOkeKubernetesRuntimeDefinition.Get(apiClient, apiEndpoint)
+			ociOkeKubernetesRuntimeDefinitions, err := ociOkeKubernetesRuntimeDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve oci oke kubernetes runtime definitions", err)
 				os.Exit(1)
@@ -762,8 +757,7 @@ var CreateOciOkeKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			}
 
 			// create oci oke kubernetes runtime definition
-			ociOkeKubernetesRuntimeDefinition := ociOkeKubernetesRuntimeDefinitionConfig.OciOkeKubernetesRuntimeDefinition
-			createdOciOkeKubernetesRuntimeDefinition, err := ociOkeKubernetesRuntimeDefinition.Create(apiClient, apiEndpoint)
+			createdOciOkeKubernetesRuntimeDefinition, err := ociOkeKubernetesRuntimeDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create oci oke kubernetes runtime definition", err)
 				os.Exit(1)
@@ -822,8 +816,7 @@ var ReplaceOciOkeKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			}
 
 			// replace oci oke kubernetes runtime definition
-			ociOkeKubernetesRuntimeDefinition := ociOkeKubernetesRuntimeDefinitionConfig.OciOkeKubernetesRuntimeDefinition
-			updatedOciOkeKubernetesRuntimeDefinition, err := ociOkeKubernetesRuntimeDefinition.Replace(apiClient, apiEndpoint, ociName)
+			updatedOciOkeKubernetesRuntimeDefinition, err := ociOkeKubernetesRuntimeDefinitionConfig.Replace(apiClient, apiEndpoint, ociName)
 			if err != nil {
 				cli.Error("failed to update oci oke kubernetes runtime definition", err)
 				os.Exit(1)
@@ -905,8 +898,7 @@ var DeleteOciOkeKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			}
 
 			// delete oci oke kubernetes runtime definition
-			ociOkeKubernetesRuntimeDefinition := ociOkeKubernetesRuntimeDefinitionConfig.OciOkeKubernetesRuntimeDefinition
-			deletedOciOkeKubernetesRuntimeDefinition, err := ociOkeKubernetesRuntimeDefinition.Delete(apiClient, apiEndpoint)
+			deletedOciOkeKubernetesRuntimeDefinition, err := ociOkeKubernetesRuntimeDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete oci oke kubernetes runtime definition", err)
 				os.Exit(1)
@@ -990,7 +982,7 @@ var GetOciOkeKubernetesRuntimeInstancesCmd = &cobra.Command{
 			}
 
 			// get oci oke kubernetes runtime instances
-			ociOkeKubernetesRuntimeInstances, err := ociOkeKubernetesRuntimeInstanceConfig.OciOkeKubernetesRuntimeInstance.Get(apiClient, apiEndpoint)
+			ociOkeKubernetesRuntimeInstances, err := ociOkeKubernetesRuntimeInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve oci oke kubernetes runtime instances", err)
 				os.Exit(1)
@@ -1085,8 +1077,7 @@ var CreateOciOkeKubernetesRuntimeInstanceCmd = &cobra.Command{
 			}
 
 			// create oci oke kubernetes runtime instance
-			ociOkeKubernetesRuntimeInstance := ociOkeKubernetesRuntimeInstanceConfig.OciOkeKubernetesRuntimeInstance
-			createdOciOkeKubernetesRuntimeInstance, err := ociOkeKubernetesRuntimeInstance.Create(apiClient, apiEndpoint)
+			createdOciOkeKubernetesRuntimeInstance, err := ociOkeKubernetesRuntimeInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create oci oke kubernetes runtime instance", err)
 				os.Exit(1)
@@ -1145,8 +1136,7 @@ var ReplaceOciOkeKubernetesRuntimeInstanceCmd = &cobra.Command{
 			}
 
 			// replace oci oke kubernetes runtime instance
-			ociOkeKubernetesRuntimeInstance := ociOkeKubernetesRuntimeInstanceConfig.OciOkeKubernetesRuntimeInstance
-			updatedOciOkeKubernetesRuntimeInstance, err := ociOkeKubernetesRuntimeInstance.Replace(apiClient, apiEndpoint, ociName)
+			updatedOciOkeKubernetesRuntimeInstance, err := ociOkeKubernetesRuntimeInstanceConfig.Replace(apiClient, apiEndpoint, ociName)
 			if err != nil {
 				cli.Error("failed to update oci oke kubernetes runtime instance", err)
 				os.Exit(1)
@@ -1228,8 +1218,7 @@ var DeleteOciOkeKubernetesRuntimeInstanceCmd = &cobra.Command{
 			}
 
 			// delete oci oke kubernetes runtime instance
-			ociOkeKubernetesRuntimeInstance := ociOkeKubernetesRuntimeInstanceConfig.OciOkeKubernetesRuntimeInstance
-			deletedOciOkeKubernetesRuntimeInstance, err := ociOkeKubernetesRuntimeInstance.Delete(apiClient, apiEndpoint)
+			deletedOciOkeKubernetesRuntimeInstance, err := ociOkeKubernetesRuntimeInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete oci oke kubernetes runtime instance", err)
 				os.Exit(1)

@@ -105,7 +105,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"Get gets a %s definition and instance from the Threeport API.",
 						defInstObjectHuman,
 					))
-					f.Func().Params(Id(defInstMethodVar).Op("*").Id(defInstValuesObjectName)).Id("Get").Params(
+					f.Func().Params(Id(defInstMethodVar).Op("*").Id(defInstConfigObjectName)).Id("Get").Params(
 						Line().Id("apiClient").Op("*").Qual("net/http", "Client"),
 						Line().Id("apiEndpoint").String(),
 						Line(),
@@ -157,7 +157,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"Create creates a %s definition and instance in the Threeport API.",
 						defInstObjectHuman,
 					))
-					f.Func().Params(Id(defInstMethodVar).Op("*").Id(defInstValuesObjectName)).Id("Create").Params(
+					f.Func().Params(Id(defInstMethodVar).Op("*").Id(defInstConfigObjectName)).Id("Create").Params(
 						Line().Id("apiClient").Op("*").Qual("net/http", "Client"),
 						Line().Id("apiEndpoint").String(),
 						Line(),
@@ -184,7 +184,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									"failed to execute create operations for %s defined instance with name %%s: %%w",
 									defInstObjectHuman,
 								)),
-								Line().Op("*").Id(defInstMethodVar).Dot("Name"),
+								Line().Op("*").Id(defInstMethodVar).Dot(defInstObject).Dot("Name"),
 								Line().Err(),
 								Line(),
 							)),
@@ -210,7 +210,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"Replace replaces a %s definition and instance in the Threeport API.",
 						defInstObjectHuman,
 					))
-					f.Func().Params(Id(defInstMethodVar).Op("*").Id(defInstValuesObjectName)).Id("Replace").Params(
+					f.Func().Params(Id(defInstMethodVar).Op("*").Id(defInstConfigObjectName)).Id("Replace").Params(
 						Line().Id("apiClient").Op("*").Qual("net/http", "Client"),
 						Line().Id("apiEndpoint").String(),
 						Line().Id("name").String(),
@@ -264,7 +264,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"Delete deletes a %s definition and instance from the Threeport API.",
 						defInstObjectHuman,
 					))
-					f.Func().Params(Id(defInstMethodVar).Op("*").Id(defInstValuesObjectName)).Id("Delete").Params(
+					f.Func().Params(Id(defInstMethodVar).Op("*").Id(defInstConfigObjectName)).Id("Delete").Params(
 						Line().Id("apiClient").Op("*").Qual("net/http", "Client"),
 						Line().Id("apiEndpoint").String(),
 						Line(),
@@ -291,7 +291,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									"failed to execute delete operations for %s defined instance with name %%s: %%w",
 									defInstObjectHuman,
 								)),
-								Line().Op("*").Id(defInstMethodVar).Dot("Name"),
+								Line().Op("*").Id(defInstMethodVar).Dot(defInstObject).Dot("Name"),
 								Line().Err(),
 								Line(),
 							)),
@@ -306,7 +306,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					f.Comment("GetOperations returns a slice of operations used to get, create, replace or delete")
 					f.Comment(fmt.Sprintf("a %s defined instance.", defInstObjectHuman))
 					f.Func().Params(
-						Id(defInstMethodVar).Op("*").Id(defInstValuesObjectName),
+						Id(defInstMethodVar).Op("*").Id(defInstConfigObjectName),
 					).Id("GetOperations").Params(
 						Line().Id("apiClient").Op("*").Qual("net/http", "Client"),
 						Line().Id("apiEndpoint").String(),
@@ -331,7 +331,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Comment("TODO: add appropriate fields to definition values object"),
 						Id(defValuesVar).Op(":=").Id(defValuesObjectName).Values(
 							Dict{
-								Line().Id("Name"): Id(defInstMethodVar).Dot("Name").Op(",").Line(),
+								Line().Id("Name"): Id(defInstMethodVar).Dot(defInstObject).Dot("Name").Op(",").Line(),
 							},
 						),
 						Id("operations").Dot("AppendOperation").Call(Qual(
@@ -385,7 +385,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 												"failed to create %s definition with name %%s: %%w",
 												defInstObjectHuman,
 											)),
-											Op("*").Id(defInstMethodVar).Dot("Name"),
+											Op("*").Id(defInstMethodVar).Dot(defInstObject).Dot("Name"),
 											Id("err"),
 										)),
 									),
@@ -435,7 +435,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 													"failed to delete %s definition with name %%s: %%w",
 													defInstObjectHuman,
 												)),
-												Op("*").Id(defInstMethodVar).Dot("Name"),
+												Op("*").Id(defInstMethodVar).Dot(defInstObject).Dot("Name"),
 												Id("err"),
 											),
 										),
@@ -451,8 +451,8 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Comment("TODO: add appropriate fields to instance values object"),
 						Id(instValuesVar).Op(":=").Id(instValuesObjectName).Values(
 							Dict{
-								Id("Name"): Id(defInstMethodVar).Dot("Name"),
-								Id("Age"):  Id(defInstMethodVar).Dot("Age"),
+								Id("Name"): Id(defInstMethodVar).Dot(defInstObject).Dot("Name"),
+								Id("Age"):  Id(defInstMethodVar).Dot(defInstObject).Dot("Age"),
 							},
 						),
 						Id("operations").Dot("AppendOperation").Call(Qual(
@@ -506,7 +506,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 												"failed to create %s instance with name %%s: %%w",
 												defInstObjectHuman,
 											)),
-											Op("*").Id(defInstMethodVar).Dot("Name"),
+											Op("*").Id(defInstMethodVar).Dot(defInstObject).Dot("Name"),
 											Id("err"),
 										)),
 									),
@@ -555,7 +555,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 												"failed to delete %s instance with name %%s: %%w",
 												defInstObjectHuman,
 											)),
-											Op("*").Id(defInstMethodVar).Dot("Name"),
+											Op("*").Id(defInstMethodVar).Dot(defInstObject).Dot("Name"),
 											Id("err"),
 										)),
 									),
@@ -763,7 +763,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						))
 					}
 					f.Func().Params(
-						Id(methodVar).Op("*").Id(valuesObjectName),
+						Id(methodVar).Op("*").Id(configObjectName),
 					).Id("Get").Params(
 						Line().Id("apiClient").Op("*").Qual("net/http", "Client"),
 						Line().Id("apiEndpoint").String(),
@@ -772,6 +772,9 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Op("*").Index().Id(configObjectName),
 						Error(),
 					).BlockFunc(func(g *Group) {
+						// Extract values from config object
+						g.Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Op(":=").Id(methodVar).Dot(apiObject.TypeName)
+						g.Line()
 						// Generate first phase: get API objects
 						g.Comment("get API objects")
 						if apiObject.NameField {
@@ -781,19 +784,19 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							)
 							g.Switch().Block(
 								Comment(fmt.Sprintf("if name is provided, get %s by name", objectHuman)),
-								Case(Id(methodVar).Dot("Name").Op("!=").Nil()).Block(
+								Case(Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name").Op("!=").Nil()).Block(
 									List(Id(objectVar), Id("err")).Op(":=").Qual(
 										clientImportPath,
 										fmt.Sprintf("Get%sByName", apiObject.TypeName),
 									).Call(
 										Id("apiClient"),
 										Id("apiEndpoint"),
-										Op("*").Id(methodVar).Dot("Name"),
+										Op("*").Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name"),
 									),
 									If(Id("err").Op("!=").Nil()).Block(
 										Return(Nil(), Qual("fmt", "Errorf").Call(
 											Lit(fmt.Sprintf("failed to get %s with name %%s: %%w", objectHuman)),
-											Op("*").Id(methodVar).Dot("Name"),
+											Op("*").Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name"),
 											Id("err"),
 										)),
 									),
@@ -890,7 +893,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						objectHuman,
 					))
 					f.Func().Params(
-						Id(methodVar).Op("*").Id(valuesObjectName),
+						Id(methodVar).Op("*").Id(configObjectName),
 					).Id("Create").Params(
 						Line().Id("apiClient").Op("*").Qual("net/http", "Client"),
 						Line().Id("apiEndpoint").String(),
@@ -899,12 +902,16 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Op("*").Id(configObjectName),
 						Error(),
 					).BlockFunc(func(g *Group) {
+						// Extract values from config object
+						g.Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Op(":=").Id(methodVar).Dot(apiObject.TypeName)
+						g.Line()
+
 						g.Comment("validate config")
 						if apiObject.NameField {
 							g.If(Id("err").Op(":=").Id(methodVar).Dot("Validate").Call(), Id("err").Op("!=").Nil()).Block(
 								Return(Nil(), Qual("fmt", "Errorf").Call(
 									Lit(fmt.Sprintf("failed to validate values for %s with name %%s: %%w", objectHuman)),
-									Op("*").Id(methodVar).Dot("Name"),
+									Op("*").Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name"),
 									Id("err"),
 								)),
 							)
@@ -933,7 +940,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											"Definition",
 										).Values(
 											Dict{
-												Line().Id("Name"): Id(methodVar).Dot("Name").Op(",").Line(),
+												Line().Id("Name"): Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name").Op(",").Line(),
 											},
 										).Op(",").Line(),
 									})
@@ -944,13 +951,13 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											"Instance",
 										).Values(
 											Dict{
-												Line().Id("Name"): Id(methodVar).Dot("Name").Op(",").Line(),
+												Line().Id("Name"): Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name").Op(",").Line(),
 											},
 										).Op(",").Line(),
 									})
 								default:
 									h.Add(Dict{
-										Line().Id("Name"): Id(methodVar).Dot("Name").Op(",").Line(),
+										Line().Id("Name"): Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name").Op(",").Line(),
 									})
 								}
 							}
@@ -1031,7 +1038,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						f.Comment("This allows a different name to be provided in the values object for name changes.")
 					}
 					f.Func().Params(
-						Id(methodVar).Op("*").Id(valuesObjectName),
+						Id(methodVar).Op("*").Id(configObjectName),
 					).Id("Replace").Params(
 						Line().Id("apiClient").Op("*").Qual("net/http", "Client"),
 						Line().Id("apiEndpoint").String(),
@@ -1056,6 +1063,10 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Op("*").Id(configObjectName),
 						Error(),
 					).BlockFunc(func(g *Group) {
+						// Extract values from config object
+						g.Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Op(":=").Id(methodVar).Dot(apiObject.TypeName)
+						g.Line()
+
 						g.Comment("validate config")
 						g.If(Id("err").Op(":=").Id(methodVar).Dot("Validate").Call(), Id("err").Op("!=").Nil()).Block(
 							Return(Nil(), Qual("fmt", "Errorf").Call(
@@ -1133,7 +1144,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											"Definition",
 										).Values(
 											Dict{
-												Line().Id("Name"): Id(methodVar).Dot("Name").Op(",").Line(),
+												Line().Id("Name"): Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name").Op(",").Line(),
 											},
 										),
 									})
@@ -1152,7 +1163,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											"Instance",
 										).Values(
 											Dict{
-												Line().Id("Name"): Id(methodVar).Dot("Name").Op(",").Line(),
+												Line().Id("Name"): Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name").Op(",").Line(),
 											},
 										),
 									})
@@ -1166,7 +1177,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 												Line().Id("ID"): Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("ID").Op(",").Line(),
 											},
 										),
-										Id("Name"): Id(methodVar).Dot("Name"),
+										Id("Name"): Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name"),
 									})
 								}
 							} else {
@@ -1239,7 +1250,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 					// Generate Delete method
 					f.Comment(fmt.Sprintf("Delete deletes a %s from the Threeport API.", objectHuman))
-					f.Func().Params(Id(methodVar).Op("*").Id(valuesObjectName)).Id("Delete").Params(
+					f.Func().Params(Id(methodVar).Op("*").Id(configObjectName)).Id("Delete").Params(
 						Line().Id("apiClient").Op("*").Qual("net/http", "Client"),
 						Line().Id("apiEndpoint").String(),
 						Line(),
@@ -1247,6 +1258,9 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Op("*").Id(configObjectName),
 						Error(),
 					).BlockFunc(func(g *Group) {
+						// Extract values from config object
+						g.Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Op(":=").Id(methodVar).Dot(apiObject.TypeName)
+						g.Line()
 						if apiObject.NameField {
 							g.Comment(fmt.Sprintf("get %s by name", objectHuman))
 							g.Id(objectVar).Op(",").Id("err").Op(":=").Qual(
@@ -1255,7 +1269,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							).Call(
 								Line().Id("apiClient"),
 								Line().Id("apiEndpoint"),
-								Line().Op("*").Id(methodVar).Dot("Name"),
+								Line().Op("*").Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name"),
 								Line(),
 							)
 							g.If(Id("err").Op("!=").Nil()).Block(
@@ -1263,7 +1277,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Nil(),
 									Qual("fmt", "Errorf").Call(
 										Lit(fmt.Sprintf("failed to find %s with name %%s: %%w", objectHuman)),
-										Op("*").Id(methodVar).Dot("Name"),
+										Op("*").Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name"),
 										Id("err"),
 									),
 								),
@@ -1354,16 +1368,18 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						objectHuman,
 					))
 					f.Func().Params(
-						Id(methodVar).Op("*").Id(valuesObjectName),
+						Id(methodVar).Op("*").Id(configObjectName),
 					).Id("Validate").Params().Params(
 						Error(),
 					).BlockFunc(func(g *Group) {
+						// Extract values from config object
+						g.Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Op(":=").Id(methodVar).Dot(apiObject.TypeName)
 						g.Id("multiError").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "MultiError").Values()
 						g.Line()
 
 						if apiObject.NameField {
 							g.Comment("ensure name is set")
-							g.If(Id(methodVar).Dot("Name").Op("==").Nil()).Block(
+							g.If(Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name").Op("==").Nil()).Block(
 								Id("multiError").Dot("AppendError").Call(
 									Qual("errors", "New").Call(Lit("missing required field in config: Name")),
 								),

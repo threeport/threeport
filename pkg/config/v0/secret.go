@@ -32,7 +32,7 @@ type SecretValues struct {
 }
 
 // Get gets a secret definition and instance from the Threeport API.
-func (s *SecretValues) Get(
+func (s *SecretConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]SecretConfig, error) {
@@ -57,10 +57,11 @@ func (s *SecretValues) Get(
 }
 
 // Create creates a secret definition and instance in the Threeport API.
-func (s *SecretValues) Create(
+func (s *SecretConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]SecretConfig, error) {
+	secretValues := s.Secret
 	// get operations
 	operations, secretDefinitions, secretInstances := s.GetOperations(
 		apiClient,
@@ -71,7 +72,7 @@ func (s *SecretValues) Create(
 	if err := operations.Create(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute create operations for secret defined instance with name %s: %w",
-			*s.Name,
+			*secretValues.Name,
 			err,
 		)
 	}
@@ -83,7 +84,7 @@ func (s *SecretValues) Create(
 }
 
 // Replace replaces a secret definition and instance in the Threeport API.
-func (s *SecretValues) Replace(
+func (s *SecretConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
@@ -110,10 +111,11 @@ func (s *SecretValues) Replace(
 }
 
 // Delete deletes a secret definition and instance from the Threeport API.
-func (s *SecretValues) Delete(
+func (s *SecretConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]SecretConfig, error) {
+	secretValues := s.Secret
 	// get operations
 	operations, _, _ := s.GetOperations(
 		apiClient,
@@ -124,7 +126,7 @@ func (s *SecretValues) Delete(
 	if err := operations.Delete(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute delete operations for secret defined instance with name %s: %w",
-			*s.Name,
+			*secretValues.Name,
 			err,
 		)
 	}
@@ -134,10 +136,11 @@ func (s *SecretValues) Delete(
 
 // GetOperations returns a slice of operations used to get, create, replace or delete
 // a secret defined instance.
-func (s *SecretValues) GetOperations(
+func (s *SecretConfig) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*util.Operations, *[]SecretDefinitionConfig, *[]SecretInstanceConfig) {
+	secretValues := s.Secret
 	var err error
 	var operatedSecretDefinitions []SecretDefinitionConfig
 	var operatedSecretInstances []SecretInstanceConfig
@@ -145,30 +148,32 @@ func (s *SecretValues) GetOperations(
 	operations := util.Operations{}
 
 	// add secret definition operation
-	secretDefinitionValues := SecretDefinitionValues{
-		Name:             s.Name,
-		AwsAccountName:   s.AwsAccountName,
-		Data:             s.Data,
-		SecretConfigPath: s.SecretConfigPath,
+	secretDefinitionConfig := SecretDefinitionConfig{
+		SecretDefinition: SecretDefinitionValues{
+			Name:             secretValues.Name,
+			AwsAccountName:   secretValues.AwsAccountName,
+			Data:             secretValues.Data,
+			SecretConfigPath: secretValues.SecretConfigPath,
+		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			secretDefinition, err := secretDefinitionValues.Create(apiClient, apiEndpoint)
+			secretDefinition, err := secretDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create secret definition with name %s: %w", *s.Name, err)
+				return fmt.Errorf("failed to create secret definition with name %s: %w", *secretValues.Name, err)
 			}
 			operatedSecretDefinitions = append(operatedSecretDefinitions, *secretDefinition)
 			return nil
 		},
 		Delete: func() error {
-			_, err = secretDefinitionValues.Delete(apiClient, apiEndpoint)
+			_, err = secretDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete secret definition with name %s: %w", *s.Name, err)
+				return fmt.Errorf("failed to delete secret definition with name %s: %w", *secretValues.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			secretDefinitions, err := secretDefinitionValues.Get(apiClient, apiEndpoint)
+			secretDefinitions, err := secretDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				return fmt.Errorf("failed to get secret definitions: %w", err)
 			}
@@ -180,7 +185,7 @@ func (s *SecretValues) GetOperations(
 		},
 		Name: "secret definition",
 		Replace: func(name string) error {
-			secretDefinition, err := secretDefinitionValues.Replace(apiClient, apiEndpoint, name)
+			secretDefinition, err := secretDefinitionConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace secret definition with name %s: %w", name, err)
 			}
@@ -190,47 +195,49 @@ func (s *SecretValues) GetOperations(
 	})
 
 	// add secret instance operation
-	secretInstanceValues := SecretInstanceValues{
-		Name:                      s.Name,
-		SecretDefinition:          &secretDefinitionValues,
-		WorkloadInstance:          s.WorkloadInstance,
-		HelmWorkloadInstance:      s.HelmWorkloadInstance,
-		KubernetesRuntimeInstance: s.KubernetesRuntimeInstance,
-		SecretConfigPath:          s.SecretConfigPath,
+	secretInstanceConfig := SecretInstanceConfig{
+		SecretInstance: SecretInstanceValues{
+			Name:                      secretValues.Name,
+			SecretDefinition:          &secretDefinitionConfig.SecretDefinition,
+			WorkloadInstance:          secretValues.WorkloadInstance,
+			HelmWorkloadInstance:      secretValues.HelmWorkloadInstance,
+			KubernetesRuntimeInstance: secretValues.KubernetesRuntimeInstance,
+			SecretConfigPath:          secretValues.SecretConfigPath,
+		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			secretInstance, err := secretInstanceValues.Create(apiClient, apiEndpoint)
+			secretInstance, err := secretInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create secret instance with name %s: %w", *s.Name, err)
+				return fmt.Errorf("failed to create secret instance with name %s: %w", *secretValues.Name, err)
 			}
 			operatedSecretInstances = append(operatedSecretInstances, *secretInstance)
 			return nil
 		},
 		Delete: func() error {
-			_, err = secretInstanceValues.Delete(apiClient, apiEndpoint)
+			_, err = secretInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete secret instance with name %s: %w", *s.Name, err)
+				return fmt.Errorf("failed to delete secret instance with name %s: %w", *secretValues.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			secretInstance, err := secretInstanceValues.Get(apiClient, apiEndpoint)
+			secretInstance, err := secretInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get secret instance with name %s: %w", *s.Name, err)
+				return fmt.Errorf("failed to get secret instance with name %s: %w", *secretValues.Name, err)
 			}
 			if len(*secretInstance) == 0 {
-				return fmt.Errorf("failed to find secret instance with name %s: %w", *s.Name, err)
+				return fmt.Errorf("failed to find secret instance with name %s: %w", *secretValues.Name, err)
 			}
 			if len(*secretInstance) > 1 {
-				return fmt.Errorf("multiple secret instances found with name %s: %w", *s.Name, err)
+				return fmt.Errorf("multiple secret instances found with name %s: %w", *secretValues.Name, err)
 			}
 			operatedSecretInstances = append(operatedSecretInstances, (*secretInstance)[0])
 			return nil
 		},
 		Name: "secret instance",
 		Replace: func(name string) error {
-			secretInstance, err := secretInstanceValues.Replace(apiClient, apiEndpoint, name)
+			secretInstance, err := secretInstanceConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace secret definition with name %s: %w", name, err)
 			}

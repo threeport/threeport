@@ -38,18 +38,19 @@ type KubernetesRuntimeInstanceValues struct {
 // Get gets kubernetes runtime instances from the Threeport API.
 // If the name is set in the KubernetesRuntimeInstanceValues, it will return the kubernetes runtime instance with that name.
 // If the name is not set, it will return all kubernetes runtime instances.
-func (k *KubernetesRuntimeInstanceValues) Get(
+func (k *KubernetesRuntimeInstanceConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]KubernetesRuntimeInstanceConfig, error) {
+	kubernetesRuntimeInstanceValues := k.KubernetesRuntimeInstance
 	// get API objects
 	var kubernetesRuntimeInstances *[]api_v0.KubernetesRuntimeInstance
 	switch {
 	// if name is provided, get kubernetes runtime instance by name
-	case k.Name != nil:
-		kubernetesRuntimeInstance, err := client_v0.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *k.Name)
+	case kubernetesRuntimeInstanceValues.Name != nil:
+		kubernetesRuntimeInstance, err := client_v0.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *kubernetesRuntimeInstanceValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get kubernetes runtime instance with name %s: %w", *k.Name, err)
+			return nil, fmt.Errorf("failed to get kubernetes runtime instance with name %s: %w", *kubernetesRuntimeInstanceValues.Name, err)
 		}
 		kubernetesRuntimeInstances = &[]api_v0.KubernetesRuntimeInstance{*kubernetesRuntimeInstance}
 	// get all kubernetes runtime instances
@@ -96,35 +97,37 @@ func (k *KubernetesRuntimeInstanceValues) Get(
 }
 
 // Create creates a kubernetes runtime instance in the Threeport API.
-func (k *KubernetesRuntimeInstanceValues) Create(
+func (k *KubernetesRuntimeInstanceConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*KubernetesRuntimeInstanceConfig, error) {
+	kubernetesRuntimeInstanceValues := k.KubernetesRuntimeInstance
+
 	// validate config
 	if err := k.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for kubernetes runtime instance with name %s: %w", *k.Name, err)
+		return nil, fmt.Errorf("failed to validate values for kubernetes runtime instance with name %s: %w", *kubernetesRuntimeInstanceValues.Name, err)
 	}
 
 	// get kubernetes runtime definition by name
-	kubernetesRuntimeDefinition, err := client_v0.GetKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *k.KubernetesRuntimeDefinition.Name)
+	kubernetesRuntimeDefinition, err := client_v0.GetKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *kubernetesRuntimeInstanceValues.KubernetesRuntimeDefinition.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find kubernetes definition with name %s: %w", *k.KubernetesRuntimeDefinition.Name, err)
+		return nil, fmt.Errorf("failed to find kubernetes definition with name %s: %w", *kubernetesRuntimeInstanceValues.KubernetesRuntimeDefinition.Name, err)
 	}
 
 	// construct kubernetes runtime instance object
 	kubernetesRuntimeInstance := api_v0.KubernetesRuntimeInstance{
 		Instance: api_v0.Instance{
-			Name: k.Name,
+			Name: kubernetesRuntimeInstanceValues.Name,
 		},
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
-		DefaultRuntime:                k.DefaultRuntime,
-		Location:                      k.Location,
-		ThreeportAgentImage:           k.ThreeportAgentImage,
+		DefaultRuntime:                kubernetesRuntimeInstanceValues.DefaultRuntime,
+		Location:                      kubernetesRuntimeInstanceValues.Location,
+		ThreeportAgentImage:           kubernetesRuntimeInstanceValues.ThreeportAgentImage,
 	}
 
 	// set control plane host if provided
-	if k.ThreeportControlPlaneHost != nil {
-		kubernetesRuntimeInstance.ThreeportControlPlaneHost = k.ThreeportControlPlaneHost
+	if kubernetesRuntimeInstanceValues.ThreeportControlPlaneHost != nil {
+		kubernetesRuntimeInstance.ThreeportControlPlaneHost = kubernetesRuntimeInstanceValues.ThreeportControlPlaneHost
 	}
 
 	// create kubernetes runtime instance
@@ -157,11 +160,13 @@ func (k *KubernetesRuntimeInstanceValues) Create(
 // This is a full replacement of all fields in the kubernetes runtime instance object.
 // This function takes a name parameter to identify the kubernetes runtime instance to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (k *KubernetesRuntimeInstanceValues) Replace(
+func (k *KubernetesRuntimeInstanceConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*KubernetesRuntimeInstanceConfig, error) {
+	kubernetesRuntimeInstanceValues := k.KubernetesRuntimeInstance
+
 	// validate config
 	if err := k.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid kubernetes runtime instance config: %w", err)
@@ -178,9 +183,9 @@ func (k *KubernetesRuntimeInstanceValues) Replace(
 	}
 
 	// get kubernetes runtime definition by name for update
-	kubernetesRuntimeDefinition, err := client_v0.GetKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *k.KubernetesRuntimeDefinition.Name)
+	kubernetesRuntimeDefinition, err := client_v0.GetKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *kubernetesRuntimeInstanceValues.KubernetesRuntimeDefinition.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find kubernetes definition with name %s: %w", *k.KubernetesRuntimeDefinition.Name, err)
+		return nil, fmt.Errorf("failed to find kubernetes definition with name %s: %w", *kubernetesRuntimeInstanceValues.KubernetesRuntimeDefinition.Name, err)
 	}
 
 	// construct updated kubernetes runtime instance object
@@ -189,17 +194,17 @@ func (k *KubernetesRuntimeInstanceValues) Replace(
 			ID: existingKubernetesRuntimeInstance.ID,
 		},
 		Instance: api_v0.Instance{
-			Name: k.Name,
+			Name: kubernetesRuntimeInstanceValues.Name,
 		},
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
-		DefaultRuntime:                k.DefaultRuntime,
-		Location:                      k.Location,
-		ThreeportAgentImage:           k.ThreeportAgentImage,
+		DefaultRuntime:                kubernetesRuntimeInstanceValues.DefaultRuntime,
+		Location:                      kubernetesRuntimeInstanceValues.Location,
+		ThreeportAgentImage:           kubernetesRuntimeInstanceValues.ThreeportAgentImage,
 	}
 
 	// set control plane host if provided
-	if k.ThreeportControlPlaneHost != nil {
-		updatedKubernetesRuntimeInstance.ThreeportControlPlaneHost = k.ThreeportControlPlaneHost
+	if kubernetesRuntimeInstanceValues.ThreeportControlPlaneHost != nil {
+		updatedKubernetesRuntimeInstance.ThreeportControlPlaneHost = kubernetesRuntimeInstanceValues.ThreeportControlPlaneHost
 	}
 
 	// replace kubernetes runtime instance
@@ -229,18 +234,20 @@ func (k *KubernetesRuntimeInstanceValues) Replace(
 }
 
 // Delete deletes a kubernetes runtime instance from the Threeport API.
-func (k *KubernetesRuntimeInstanceValues) Delete(
+func (k *KubernetesRuntimeInstanceConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*KubernetesRuntimeInstanceConfig, error) {
+	kubernetesRuntimeInstanceValues := k.KubernetesRuntimeInstance
+
 	// get kubernetes runtime instance by name
 	kubernetesRuntimeInstance, err := client_v0.GetKubernetesRuntimeInstanceByName(
 		apiClient,
 		apiEndpoint,
-		*k.Name,
+		*kubernetesRuntimeInstanceValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find kubernetes runtime instance with name %s: %w", *k.Name, err)
+		return nil, fmt.Errorf("failed to find kubernetes runtime instance with name %s: %w", *kubernetesRuntimeInstanceValues.Name, err)
 	}
 
 	// delete kubernetes runtime instance
@@ -255,7 +262,7 @@ func (k *KubernetesRuntimeInstanceValues) Delete(
 
 	// wait for kubernetes runtime instance to be deleted
 	util.Retry(60, 1, func() error {
-		if _, err := client_v0.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *k.Name); err == nil {
+		if _, err := client_v0.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *kubernetesRuntimeInstanceValues.Name); err == nil {
 			return errors.New("kubernetes runtime instance not deleted")
 		}
 		return nil
@@ -277,16 +284,17 @@ func (k *KubernetesRuntimeInstanceValues) Delete(
 }
 
 // Validate validates inputs to create kubernetes runtime instances.
-func (k *KubernetesRuntimeInstanceValues) Validate() error {
+func (k *KubernetesRuntimeInstanceConfig) Validate() error {
+	kubernetesRuntimeInstanceValues := k.KubernetesRuntimeInstance
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if k.Name == nil {
+	if kubernetesRuntimeInstanceValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// validate name length
-	if utf8.RuneCountInString(*k.Name) > provider.RuntimeNameMaxLength {
+	if utf8.RuneCountInString(*kubernetesRuntimeInstanceValues.Name) > provider.RuntimeNameMaxLength {
 		multiError.AppendError(fmt.Errorf(
 			"kubernetes runtime instance name too long - cannot exceed %d characters",
 			provider.RuntimeNameMaxLength,
@@ -294,12 +302,12 @@ func (k *KubernetesRuntimeInstanceValues) Validate() error {
 	}
 
 	// ensure location is set
-	if k.Location == nil {
+	if kubernetesRuntimeInstanceValues.Location == nil {
 		multiError.AppendError(errors.New("missing required field in config: Location"))
 	}
 
 	// ensure kubernetes runtime definition name is set
-	if k.KubernetesRuntimeDefinition == nil || k.KubernetesRuntimeDefinition.Name == nil {
+	if kubernetesRuntimeInstanceValues.KubernetesRuntimeDefinition == nil || kubernetesRuntimeInstanceValues.KubernetesRuntimeDefinition.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeDefinition.Name"))
 	}
 

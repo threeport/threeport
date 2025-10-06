@@ -38,7 +38,7 @@ type ObservabilityStackValues struct {
 }
 
 // Get gets a observability stack definition and instance from the Threeport API.
-func (o *ObservabilityStackValues) Get(
+func (o *ObservabilityStackConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ObservabilityStackConfig, error) {
@@ -66,10 +66,11 @@ func (o *ObservabilityStackValues) Get(
 }
 
 // Create creates a observability stack definition and instance in the Threeport API.
-func (o *ObservabilityStackValues) Create(
+func (o *ObservabilityStackConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ObservabilityStackConfig, error) {
+	observabilityStackValues := o.ObservabilityStack
 	// get operations
 	operations, observabilityStackDefinitions, observabilityStackInstances, err := o.GetOperations(
 		apiClient,
@@ -83,7 +84,7 @@ func (o *ObservabilityStackValues) Create(
 	if err := operations.Create(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute create operations for observability stack defined instance with name %s: %w",
-			*o.Name,
+			*observabilityStackValues.Name,
 			err,
 		)
 	}
@@ -95,7 +96,7 @@ func (o *ObservabilityStackValues) Create(
 }
 
 // Replace replaces a observability stack definition and instance in the Threeport API.
-func (o *ObservabilityStackValues) Replace(
+func (o *ObservabilityStackConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
@@ -125,12 +126,13 @@ func (o *ObservabilityStackValues) Replace(
 }
 
 // Delete deletes a observability stack definition and instance from the Threeport API.
-func (o *ObservabilityStackValues) Delete(
+func (o *ObservabilityStackConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ObservabilityStackConfig, error) {
+	observabilityStackValues := o.ObservabilityStack
 	// validate config for delete
-	if o.Name == nil {
+	if observabilityStackValues.Name == nil {
 		return nil, fmt.Errorf("name is required")
 	}
 
@@ -147,7 +149,7 @@ func (o *ObservabilityStackValues) Delete(
 	if err := operations.Delete(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute delete operations for observability stack defined instance with name %s: %w",
-			*o.Name,
+			*observabilityStackValues.Name,
 			err,
 		)
 	}
@@ -157,10 +159,11 @@ func (o *ObservabilityStackValues) Delete(
 
 // GetOperations returns a slice of operations used to get, create, replace or delete
 // a observability stack defined instance.
-func (o *ObservabilityStackValues) GetOperations(
+func (o *ObservabilityStackConfig) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*util.Operations, *[]ObservabilityStackDefinitionConfig, *[]ObservabilityStackInstanceConfig, error) {
+	observabilityStackValues := o.ObservabilityStack
 	var err error
 	var operatedObservabilityStackDefinitions []ObservabilityStackDefinitionConfig
 	var operatedObservabilityStackInstances []ObservabilityStackInstanceConfig
@@ -168,51 +171,53 @@ func (o *ObservabilityStackValues) GetOperations(
 	operations := util.Operations{}
 
 	// add observability stack definition operation
-	observabilityStackDefinitionValues := ObservabilityStackDefinitionValues{
-		Name:                                  o.Name,
-		GrafanaHelmValues:                     o.GrafanaHelmValues,
-		GrafanaHelmValuesDocument:             o.GrafanaHelmValuesDocument,
-		LokiHelmValues:                        o.LokiHelmValues,
-		LokiHelmValuesDocument:                o.LokiHelmValuesDocument,
-		PromtailHelmValues:                    o.PromtailHelmValues,
-		PromtailHelmValuesDocument:            o.PromtailHelmValuesDocument,
-		KubePrometheusStackHelmValues:         o.KubePrometheusStackHelmValues,
-		KubePrometheusStackHelmValuesDocument: o.KubePrometheusStackHelmValuesDocument,
-		ObservabilityConfigPath:               o.ObservabilityConfigPath,
+	observabilityStackDefinitionConfig := ObservabilityStackDefinitionConfig{
+		ObservabilityStackDefinition: ObservabilityStackDefinitionValues{
+			Name:                                  observabilityStackValues.Name,
+			GrafanaHelmValues:                     observabilityStackValues.GrafanaHelmValues,
+			GrafanaHelmValuesDocument:             observabilityStackValues.GrafanaHelmValuesDocument,
+			LokiHelmValues:                        observabilityStackValues.LokiHelmValues,
+			LokiHelmValuesDocument:                observabilityStackValues.LokiHelmValuesDocument,
+			PromtailHelmValues:                    observabilityStackValues.PromtailHelmValues,
+			PromtailHelmValuesDocument:            observabilityStackValues.PromtailHelmValuesDocument,
+			KubePrometheusStackHelmValues:         observabilityStackValues.KubePrometheusStackHelmValues,
+			KubePrometheusStackHelmValuesDocument: observabilityStackValues.KubePrometheusStackHelmValuesDocument,
+			ObservabilityConfigPath:               observabilityStackValues.ObservabilityConfigPath,
+		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			observabilityStackDefinition, err := observabilityStackDefinitionValues.Create(apiClient, apiEndpoint)
+			observabilityStackDefinition, err := observabilityStackDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create observability stack definition with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to create observability stack definition with name %s: %w", *observabilityStackValues.Name, err)
 			}
 			operatedObservabilityStackDefinitions = append(operatedObservabilityStackDefinitions, *observabilityStackDefinition)
 			return nil
 		},
 		Delete: func() error {
-			_, err = observabilityStackDefinitionValues.Delete(apiClient, apiEndpoint)
+			_, err = observabilityStackDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete observability stack definition with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to delete observability stack definition with name %s: %w", *observabilityStackValues.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			observabilityStackDefinition, err := observabilityStackDefinitionValues.Get(apiClient, apiEndpoint)
+			observabilityStackDefinition, err := observabilityStackDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get observability stack definition with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to get observability stack definition with name %s: %w", *observabilityStackValues.Name, err)
 			}
 			if len(*observabilityStackDefinition) == 0 {
-				return fmt.Errorf("failed to find observability stack definition with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to find observability stack definition with name %s: %w", *observabilityStackValues.Name, err)
 			}
 			if len(*observabilityStackDefinition) > 1 {
-				return fmt.Errorf("multiple observability stack definitions found with name %s: %w", *o.Name, err)
+				return fmt.Errorf("multiple observability stack definitions found with name %s: %w", *observabilityStackValues.Name, err)
 			}
 			operatedObservabilityStackDefinitions = append(operatedObservabilityStackDefinitions, (*observabilityStackDefinition)[0])
 			return nil
 		},
 		Name: "observability stack definition",
 		Replace: func(name string) error {
-			observabilityStackDefinition, err := observabilityStackDefinitionValues.Replace(apiClient, apiEndpoint, name)
+			observabilityStackDefinition, err := observabilityStackDefinitionConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace observability stack definition with name %s: %w", name, err)
 			}
@@ -222,55 +227,57 @@ func (o *ObservabilityStackValues) GetOperations(
 	})
 
 	// add observability stack instance operation
-	observabilityStackInstanceValues := ObservabilityStackInstanceValues{
-		Name:                                  o.Name,
-		KubernetesRuntimeInstance:             o.KubernetesRuntimeInstance,
-		MetricsEnabled:                        o.MetricsEnabled,
-		LoggingEnabled:                        o.LoggingEnabled,
-		GrafanaHelmValues:                     o.GrafanaHelmValues,
-		GrafanaHelmValuesDocument:             o.GrafanaHelmValuesDocument,
-		LokiHelmValues:                        o.LokiHelmValues,
-		LokiHelmValuesDocument:                o.LokiHelmValuesDocument,
-		PromtailHelmValues:                    o.PromtailHelmValues,
-		PromtailHelmValuesDocument:            o.PromtailHelmValuesDocument,
-		KubePrometheusStackHelmValues:         o.KubePrometheusStackHelmValues,
-		KubePrometheusStackHelmValuesDocument: o.KubePrometheusStackHelmValuesDocument,
-		ObservabilityConfigPath:               o.ObservabilityConfigPath,
-		ObservabilityStackDefinition:          &observabilityStackDefinitionValues,
+	observabilityStackInstanceConfig := ObservabilityStackInstanceConfig{
+		ObservabilityStackInstance: ObservabilityStackInstanceValues{
+			Name:                                  observabilityStackValues.Name,
+			KubernetesRuntimeInstance:             observabilityStackValues.KubernetesRuntimeInstance,
+			MetricsEnabled:                        observabilityStackValues.MetricsEnabled,
+			LoggingEnabled:                        observabilityStackValues.LoggingEnabled,
+			GrafanaHelmValues:                     observabilityStackValues.GrafanaHelmValues,
+			GrafanaHelmValuesDocument:             observabilityStackValues.GrafanaHelmValuesDocument,
+			LokiHelmValues:                        observabilityStackValues.LokiHelmValues,
+			LokiHelmValuesDocument:                observabilityStackValues.LokiHelmValuesDocument,
+			PromtailHelmValues:                    observabilityStackValues.PromtailHelmValues,
+			PromtailHelmValuesDocument:            observabilityStackValues.PromtailHelmValuesDocument,
+			KubePrometheusStackHelmValues:         observabilityStackValues.KubePrometheusStackHelmValues,
+			KubePrometheusStackHelmValuesDocument: observabilityStackValues.KubePrometheusStackHelmValuesDocument,
+			ObservabilityConfigPath:               observabilityStackValues.ObservabilityConfigPath,
+			ObservabilityStackDefinition:          &observabilityStackDefinitionConfig.ObservabilityStackDefinition,
+		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			observabilityStackInstance, err := observabilityStackInstanceValues.Create(apiClient, apiEndpoint)
+			observabilityStackInstance, err := observabilityStackInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create observability stack instance with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to create observability stack instance with name %s: %w", *observabilityStackValues.Name, err)
 			}
 			operatedObservabilityStackInstances = append(operatedObservabilityStackInstances, *observabilityStackInstance)
 			return nil
 		},
 		Delete: func() error {
-			_, err = observabilityStackInstanceValues.Delete(apiClient, apiEndpoint)
+			_, err = observabilityStackInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete observability stack instance with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to delete observability stack instance with name %s: %w", *observabilityStackValues.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			observabilityStackInstance, err := observabilityStackInstanceValues.Get(apiClient, apiEndpoint)
+			observabilityStackInstance, err := observabilityStackInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get observability stack instance with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to get observability stack instance with name %s: %w", *observabilityStackValues.Name, err)
 			}
 			if len(*observabilityStackInstance) == 0 {
-				return fmt.Errorf("failed to find observability stack instance with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to find observability stack instance with name %s: %w", *observabilityStackValues.Name, err)
 			}
 			if len(*observabilityStackInstance) > 1 {
-				return fmt.Errorf("multiple observability stack instances found with name %s: %w", *o.Name, err)
+				return fmt.Errorf("multiple observability stack instances found with name %s: %w", *observabilityStackValues.Name, err)
 			}
 			operatedObservabilityStackInstances = append(operatedObservabilityStackInstances, (*observabilityStackInstance)[0])
 			return nil
 		},
 		Name: "observability stack instance",
 		Replace: func(name string) error {
-			observabilityStackInstance, err := observabilityStackInstanceValues.Replace(apiClient, apiEndpoint, name)
+			observabilityStackInstance, err := observabilityStackInstanceConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace observability stack instance with name %s: %w", name, err)
 			}

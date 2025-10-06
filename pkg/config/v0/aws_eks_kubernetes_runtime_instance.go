@@ -37,18 +37,19 @@ type AwsEksKubernetesRuntimeInstanceValues struct {
 // Get gets aws eks kubernetes runtime instances from the Threeport API.
 // If the name is set in the AwsEksKubernetesRuntimeInstanceValues, it will return the aws eks kubernetes runtime instance with that name.
 // If the name is not set, it will return all aws eks kubernetes runtime instances.
-func (a *AwsEksKubernetesRuntimeInstanceValues) Get(
+func (a *AwsEksKubernetesRuntimeInstanceConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]AwsEksKubernetesRuntimeInstanceConfig, error) {
+	awsEksKubernetesRuntimeInstanceValues := a.AwsEksKubernetesRuntimeInstance
 	// get API objects
 	var awsEksKubernetesRuntimeInstances *[]api_v0.AwsEksKubernetesRuntimeInstance
 	switch {
 	// if name is provided, get aws eks kubernetes runtime instance by name
-	case a.Name != nil:
-		awsEksKubernetesRuntimeInstance, err := client_v0.GetAwsEksKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *a.Name)
+	case awsEksKubernetesRuntimeInstanceValues.Name != nil:
+		awsEksKubernetesRuntimeInstance, err := client_v0.GetAwsEksKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, *awsEksKubernetesRuntimeInstanceValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get aws eks kubernetes runtime instance with name %s: %w", *a.Name, err)
+			return nil, fmt.Errorf("failed to get aws eks kubernetes runtime instance with name %s: %w", *awsEksKubernetesRuntimeInstanceValues.Name, err)
 		}
 		awsEksKubernetesRuntimeInstances = &[]api_v0.AwsEksKubernetesRuntimeInstance{*awsEksKubernetesRuntimeInstance}
 	// get all aws eks kubernetes runtime instances
@@ -76,7 +77,7 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Get(
 			)
 			if err != nil {
 				return nil, fmt.Errorf(
-					"failed to get AWS EKS kubernetes runtime definition with ID %s: %w",
+					"failed to get AWS EKS kubernetes runtime definition with ID %d: %w",
 					*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
 					err,
 				)
@@ -108,7 +109,7 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Get(
 			)
 			if err != nil {
 				return nil, fmt.Errorf(
-					"failed to get Kubernetes runtime instance with ID %s: %w",
+					"failed to get Kubernetes runtime instance with ID %d: %w",
 					*awsEksKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
 					err,
 				)
@@ -135,25 +136,27 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Get(
 }
 
 // Create creates a aws eks kubernetes runtime instance in the Threeport API.
-func (a *AwsEksKubernetesRuntimeInstanceValues) Create(
+func (a *AwsEksKubernetesRuntimeInstanceConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*AwsEksKubernetesRuntimeInstanceConfig, error) {
+	awsEksKubernetesRuntimeInstanceValues := a.AwsEksKubernetesRuntimeInstance
+
 	// validate config
 	if err := a.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for aws eks kubernetes runtime instance with name %s: %w", *a.Name, err)
+		return nil, fmt.Errorf("failed to validate values for aws eks kubernetes runtime instance with name %s: %w", *awsEksKubernetesRuntimeInstanceValues.Name, err)
 	}
 
 	// look up AWS EKS kubernetes runtime definition by name
-	awsEksKubernetesRuntimeDefinition, err := client_v0.GetAwsEksKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *a.AwsEksKubernetesRuntimeDefinition.Name)
+	awsEksKubernetesRuntimeDefinition, err := client_v0.GetAwsEksKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *awsEksKubernetesRuntimeInstanceValues.AwsEksKubernetesRuntimeDefinition.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime definition with name %s: %w", *a.AwsEksKubernetesRuntimeDefinition.Name, err)
+		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime definition with name %s: %w", *awsEksKubernetesRuntimeInstanceValues.AwsEksKubernetesRuntimeDefinition.Name, err)
 	}
 
 	// get location for provider AWS region
-	location, err := mapping.GetLocationForAwsRegion(*a.Region)
+	location, err := mapping.GetLocationForAwsRegion(*awsEksKubernetesRuntimeInstanceValues.Region)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get Threeport location for AWS region %s: %w", *a.Region, err)
+		return nil, fmt.Errorf("failed to get Threeport location for AWS region %s: %w", *awsEksKubernetesRuntimeInstanceValues.Region, err)
 	}
 
 	// construct kubernetes runtime instance object
@@ -161,7 +164,7 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Create(
 	defaultRuntime := false
 	kubernetesRuntimeInstance := api_v0.KubernetesRuntimeInstance{
 		Instance: api_v0.Instance{
-			Name: a.Name,
+			Name: awsEksKubernetesRuntimeInstanceValues.Name,
 		},
 		Reconciliation: api_v0.Reconciliation{
 			Reconciled: util.Ptr(true),
@@ -181,9 +184,9 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Create(
 	// construct AWS EKS kubernetes runtime instance object
 	awsEksKubernetesRuntimeInstance := api_v0.AwsEksKubernetesRuntimeInstance{
 		Instance: api_v0.Instance{
-			Name: a.Name,
+			Name: awsEksKubernetesRuntimeInstanceValues.Name,
 		},
-		Region:                              a.Region,
+		Region:                              awsEksKubernetesRuntimeInstanceValues.Region,
 		KubernetesRuntimeInstanceID:         createdKubernetesRuntimeInstance.ID,
 		AwsEksKubernetesRuntimeDefinitionID: awsEksKubernetesRuntimeDefinition.ID,
 	}
@@ -204,7 +207,7 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Create(
 			Age:                               util.Ptr(util.GetAgeFormatted(createdAwsEksKubernetesRuntimeInstance.CreatedAt)),
 			Name:                              createdAwsEksKubernetesRuntimeInstance.Name,
 			Region:                            createdAwsEksKubernetesRuntimeInstance.Region,
-			AwsEksKubernetesRuntimeDefinition: a.AwsEksKubernetesRuntimeDefinition,
+			AwsEksKubernetesRuntimeDefinition: awsEksKubernetesRuntimeInstanceValues.AwsEksKubernetesRuntimeDefinition,
 			Reconciled:                        createdAwsEksKubernetesRuntimeInstance.Reconciled,
 		},
 	}
@@ -216,11 +219,13 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Create(
 // This is a full replacement of all fields in the aws eks kubernetes runtime instance object.
 // This function takes a name parameter to identify the aws eks kubernetes runtime instance to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (a *AwsEksKubernetesRuntimeInstanceValues) Replace(
+func (a *AwsEksKubernetesRuntimeInstanceConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*AwsEksKubernetesRuntimeInstanceConfig, error) {
+	awsEksKubernetesRuntimeInstanceValues := a.AwsEksKubernetesRuntimeInstance
+
 	// validate config
 	if err := a.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid aws eks kubernetes runtime instance config: %w", err)
@@ -242,9 +247,9 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Replace(
 			ID: existingAwsEksKubernetesRuntimeInstance.ID,
 		},
 		Instance: api_v0.Instance{
-			Name: a.Name,
+			Name: awsEksKubernetesRuntimeInstanceValues.Name,
 		},
-		Region:                              a.Region,
+		Region:                              awsEksKubernetesRuntimeInstanceValues.Region,
 		KubernetesRuntimeInstanceID:         existingAwsEksKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
 		AwsEksKubernetesRuntimeDefinitionID: existingAwsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
 	}
@@ -265,7 +270,7 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Replace(
 			Age:                               util.Ptr(util.GetAgeFormatted(replacedAwsEksKubernetesRuntimeInstance.CreatedAt)),
 			Name:                              replacedAwsEksKubernetesRuntimeInstance.Name,
 			Region:                            replacedAwsEksKubernetesRuntimeInstance.Region,
-			AwsEksKubernetesRuntimeDefinition: a.AwsEksKubernetesRuntimeDefinition,
+			AwsEksKubernetesRuntimeDefinition: awsEksKubernetesRuntimeInstanceValues.AwsEksKubernetesRuntimeDefinition,
 			Reconciled:                        replacedAwsEksKubernetesRuntimeInstance.Reconciled,
 		},
 	}
@@ -274,18 +279,20 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Replace(
 }
 
 // Delete deletes a aws eks kubernetes runtime instance from the Threeport API.
-func (a *AwsEksKubernetesRuntimeInstanceValues) Delete(
+func (a *AwsEksKubernetesRuntimeInstanceConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*AwsEksKubernetesRuntimeInstanceConfig, error) {
+	awsEksKubernetesRuntimeInstanceValues := a.AwsEksKubernetesRuntimeInstance
+
 	// get aws eks kubernetes runtime instance by name
 	awsEksKubernetesRuntimeInstance, err := client_v0.GetAwsEksKubernetesRuntimeInstanceByName(
 		apiClient,
 		apiEndpoint,
-		*a.Name,
+		*awsEksKubernetesRuntimeInstanceValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find aws eks kubernetes runtime instance with name %s: %w", *a.Name, err)
+		return nil, fmt.Errorf("failed to find aws eks kubernetes runtime instance with name %s: %w", *awsEksKubernetesRuntimeInstanceValues.Name, err)
 	}
 
 	// delete aws eks kubernetes runtime instance
@@ -375,21 +382,22 @@ func (a *AwsEksKubernetesRuntimeInstanceValues) Delete(
 }
 
 // Validate validates inputs to create aws eks kubernetes runtime instances.
-func (a *AwsEksKubernetesRuntimeInstanceValues) Validate() error {
+func (a *AwsEksKubernetesRuntimeInstanceConfig) Validate() error {
+	awsEksKubernetesRuntimeInstanceValues := a.AwsEksKubernetesRuntimeInstance
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if a.Name == nil {
+	if awsEksKubernetesRuntimeInstanceValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure region is set
-	if a.Region == nil {
+	if awsEksKubernetesRuntimeInstanceValues.Region == nil {
 		multiError.AppendError(errors.New("missing required field in config: Region"))
 	}
 
 	// ensure aws eks kubernetes runtime definition is set
-	if a.AwsEksKubernetesRuntimeDefinition == nil || a.AwsEksKubernetesRuntimeDefinition.Name == nil {
+	if awsEksKubernetesRuntimeInstanceValues.AwsEksKubernetesRuntimeDefinition == nil || awsEksKubernetesRuntimeInstanceValues.AwsEksKubernetesRuntimeDefinition.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: AwsEksKubernetesRuntimeDefinition.Name"))
 	}
 

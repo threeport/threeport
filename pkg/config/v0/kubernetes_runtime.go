@@ -34,7 +34,7 @@ type KubernetesRuntimeValues struct {
 }
 
 // Get gets a kubernetes runtime definition and instance from the Threeport API.
-func (k *KubernetesRuntimeValues) Get(
+func (k *KubernetesRuntimeConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]KubernetesRuntimeConfig, error) {
@@ -59,10 +59,11 @@ func (k *KubernetesRuntimeValues) Get(
 }
 
 // Create creates a kubernetes runtime definition and instance in the Threeport API.
-func (k *KubernetesRuntimeValues) Create(
+func (k *KubernetesRuntimeConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]KubernetesRuntimeConfig, error) {
+	kubernetesRuntimeValues := k.KubernetesRuntime
 	// get operations
 	operations, kubernetesRuntimeDefinitions, kubernetesRuntimeInstances := k.GetOperations(
 		apiClient,
@@ -73,7 +74,7 @@ func (k *KubernetesRuntimeValues) Create(
 	if err := operations.Create(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute create operations for kubernetes runtime defined instance with name %s: %w",
-			*k.Name,
+			*kubernetesRuntimeValues.Name,
 			err,
 		)
 	}
@@ -85,7 +86,7 @@ func (k *KubernetesRuntimeValues) Create(
 }
 
 // Replace replaces a kubernetes runtime definition and instance in the Threeport API.
-func (k *KubernetesRuntimeValues) Replace(
+func (k *KubernetesRuntimeConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
@@ -112,10 +113,11 @@ func (k *KubernetesRuntimeValues) Replace(
 }
 
 // Delete deletes a kubernetes runtime definition and instance from the Threeport API.
-func (k *KubernetesRuntimeValues) Delete(
+func (k *KubernetesRuntimeConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]KubernetesRuntimeConfig, error) {
+	kubernetesRuntimeValues := k.KubernetesRuntime
 	// get operations
 	operations, _, _ := k.GetOperations(
 		apiClient,
@@ -126,7 +128,7 @@ func (k *KubernetesRuntimeValues) Delete(
 	if err := operations.Delete(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute delete operations for kubernetes runtime defined instance with name %s: %w",
-			*k.Name,
+			*kubernetesRuntimeValues.Name,
 			err,
 		)
 	}
@@ -136,10 +138,11 @@ func (k *KubernetesRuntimeValues) Delete(
 
 // GetOperations returns a slice of operations used to get, create, replace or delete
 // a kubernetes runtime defined instance.
-func (k *KubernetesRuntimeValues) GetOperations(
+func (k *KubernetesRuntimeConfig) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*util.Operations, *[]KubernetesRuntimeDefinitionConfig, *[]KubernetesRuntimeInstanceConfig) {
+	kubernetesRuntimeValues := k.KubernetesRuntime
 	var err error
 	var operatedKubernetesRuntimeDefinitions []KubernetesRuntimeDefinitionConfig
 	var operatedKubernetesRuntimeInstances []KubernetesRuntimeInstanceConfig
@@ -147,30 +150,32 @@ func (k *KubernetesRuntimeValues) GetOperations(
 	operations := util.Operations{}
 
 	// add kubernetes runtime definition operation
-	kubernetesRuntimeDefinitionValues := KubernetesRuntimeDefinitionValues{
-		Name:                     k.Name,
-		InfraProvider:            k.InfraProvider,
-		InfraProviderAccountName: k.InfraProviderAccountName,
-		HighAvailability:         k.HighAvailability,
+	kubernetesRuntimeDefinitionConfig := KubernetesRuntimeDefinitionConfig{
+		KubernetesRuntimeDefinition: KubernetesRuntimeDefinitionValues{
+			Name:                     kubernetesRuntimeValues.Name,
+			InfraProvider:            kubernetesRuntimeValues.InfraProvider,
+			InfraProviderAccountName: kubernetesRuntimeValues.InfraProviderAccountName,
+			HighAvailability:         kubernetesRuntimeValues.HighAvailability,
+		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			kubernetesRuntimeDefinition, err := kubernetesRuntimeDefinitionValues.Create(apiClient, apiEndpoint)
+			kubernetesRuntimeDefinition, err := kubernetesRuntimeDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create kubernetes runtime definition with name %s: %w", *k.Name, err)
+				return fmt.Errorf("failed to create kubernetes runtime definition with name %s: %w", *kubernetesRuntimeValues.Name, err)
 			}
 			operatedKubernetesRuntimeDefinitions = append(operatedKubernetesRuntimeDefinitions, *kubernetesRuntimeDefinition)
 			return nil
 		},
 		Delete: func() error {
-			_, err = kubernetesRuntimeDefinitionValues.Delete(apiClient, apiEndpoint)
+			_, err = kubernetesRuntimeDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete kubernetes runtime definition with name %s: %w", *k.Name, err)
+				return fmt.Errorf("failed to delete kubernetes runtime definition with name %s: %w", *kubernetesRuntimeValues.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			kubernetesRuntimeDefinitions, err := kubernetesRuntimeDefinitionValues.Get(apiClient, apiEndpoint)
+			kubernetesRuntimeDefinitions, err := kubernetesRuntimeDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				return fmt.Errorf("failed to get kubernetes runtime definitions: %w", err)
 			}
@@ -182,7 +187,7 @@ func (k *KubernetesRuntimeValues) GetOperations(
 		},
 		Name: "kubernetes runtime definition",
 		Replace: func(name string) error {
-			kubernetesRuntimeDefinition, err := kubernetesRuntimeDefinitionValues.Replace(apiClient, apiEndpoint, name)
+			kubernetesRuntimeDefinition, err := kubernetesRuntimeDefinitionConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace kubernetes runtime definition with name %s: %w", name, err)
 			}
@@ -192,49 +197,51 @@ func (k *KubernetesRuntimeValues) GetOperations(
 	})
 
 	// add kubernetes runtime instance operation
-	kubernetesRuntimeInstanceValues := KubernetesRuntimeInstanceValues{
-		Name:                      k.Name,
-		ThreeportControlPlaneHost: util.Ptr(false),
-		DefaultRuntime:            k.DefaultRuntime,
-		Location:                  k.Location,
-		ThreeportAgentImage:       k.ThreeportAgentImage,
-		KubernetesRuntimeDefinition: &KubernetesRuntimeDefinitionValues{
-			Name: k.Name,
+	kubernetesRuntimeInstanceConfig := KubernetesRuntimeInstanceConfig{
+		KubernetesRuntimeInstance: KubernetesRuntimeInstanceValues{
+			Name:                      kubernetesRuntimeValues.Name,
+			ThreeportControlPlaneHost: util.Ptr(false),
+			DefaultRuntime:            kubernetesRuntimeValues.DefaultRuntime,
+			Location:                  kubernetesRuntimeValues.Location,
+			ThreeportAgentImage:       kubernetesRuntimeValues.ThreeportAgentImage,
+			KubernetesRuntimeDefinition: &KubernetesRuntimeDefinitionValues{
+				Name: kubernetesRuntimeValues.Name,
+			},
 		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			kubernetesRuntimeInstance, err := kubernetesRuntimeInstanceValues.Create(apiClient, apiEndpoint)
+			kubernetesRuntimeInstance, err := kubernetesRuntimeInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create kubernetes runtime instance with name %s: %w", *k.Name, err)
+				return fmt.Errorf("failed to create kubernetes runtime instance with name %s: %w", *kubernetesRuntimeValues.Name, err)
 			}
 			operatedKubernetesRuntimeInstances = append(operatedKubernetesRuntimeInstances, *kubernetesRuntimeInstance)
 			return nil
 		},
 		Delete: func() error {
-			_, err = kubernetesRuntimeInstanceValues.Delete(apiClient, apiEndpoint)
+			_, err = kubernetesRuntimeInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete kubernetes runtime instance with name %s: %w", *k.Name, err)
+				return fmt.Errorf("failed to delete kubernetes runtime instance with name %s: %w", *kubernetesRuntimeValues.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			kubernetesRuntimeInstance, err := kubernetesRuntimeInstanceValues.Get(apiClient, apiEndpoint)
+			kubernetesRuntimeInstance, err := kubernetesRuntimeInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get kubernetes runtime instance with name %s: %w", *k.Name, err)
+				return fmt.Errorf("failed to get kubernetes runtime instance with name %s: %w", *kubernetesRuntimeValues.Name, err)
 			}
 			if len(*kubernetesRuntimeInstance) == 0 {
-				return fmt.Errorf("failed to find kubernetes runtime instance with name %s: %w", *k.Name, err)
+				return fmt.Errorf("failed to find kubernetes runtime instance with name %s: %w", *kubernetesRuntimeValues.Name, err)
 			}
 			if len(*kubernetesRuntimeInstance) > 1 {
-				return fmt.Errorf("multiple kubernetes runtime instances found with name %s: %w", *k.Name, err)
+				return fmt.Errorf("multiple kubernetes runtime instances found with name %s: %w", *kubernetesRuntimeValues.Name, err)
 			}
 			operatedKubernetesRuntimeInstances = append(operatedKubernetesRuntimeInstances, (*kubernetesRuntimeInstance)[0])
 			return nil
 		},
 		Name: "kubernetes runtime instance",
 		Replace: func(name string) error {
-			kubernetesRuntimeInstance, err := kubernetesRuntimeInstanceValues.Replace(apiClient, apiEndpoint, name)
+			kubernetesRuntimeInstance, err := kubernetesRuntimeInstanceConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace kubernetes runtime definition with name %s: %w", name, err)
 			}

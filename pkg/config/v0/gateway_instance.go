@@ -33,18 +33,19 @@ type GatewayInstanceValues struct {
 // Get gets gateway instances from the Threeport API.
 // If the name is set in the GatewayInstanceValues, it will return the gateway instance with that name.
 // If the name is not set, it will return all gateway instances.
-func (g *GatewayInstanceValues) Get(
+func (g *GatewayInstanceConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]GatewayInstanceConfig, error) {
+	gatewayInstanceValues := g.GatewayInstance
 	// get API objects
 	var gatewayInstances *[]api_v0.GatewayInstance
 	switch {
 	// if name is provided, get gateway instance by name
-	case g.Name != nil:
-		gatewayInstance, err := client_v0.GetGatewayInstanceByName(apiClient, apiEndpoint, *g.Name)
+	case gatewayInstanceValues.Name != nil:
+		gatewayInstance, err := client_v0.GetGatewayInstanceByName(apiClient, apiEndpoint, *gatewayInstanceValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get gateway instance with name %s: %w", *g.Name, err)
+			return nil, fmt.Errorf("failed to get gateway instance with name %s: %w", *gatewayInstanceValues.Name, err)
 		}
 		gatewayInstances = &[]api_v0.GatewayInstance{*gatewayInstance}
 	// get all gateway instances
@@ -110,41 +111,43 @@ func (g *GatewayInstanceValues) Get(
 }
 
 // Create creates a gateway instance in the Threeport API.
-func (g *GatewayInstanceValues) Create(
+func (g *GatewayInstanceConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*GatewayInstanceConfig, error) {
+	gatewayInstanceValues := g.GatewayInstance
+
 	// validate config
 	if err := g.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for gateway instance with name %s: %w", *g.Name, err)
+		return nil, fmt.Errorf("failed to validate values for gateway instance with name %s: %w", *gatewayInstanceValues.Name, err)
 	}
 
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := getKubernetesRuntimeInstanceByNameOrDefault(
 		apiClient,
 		apiEndpoint,
-		g.KubernetesRuntimeInstance,
+		gatewayInstanceValues.KubernetesRuntimeInstance,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
 	// get workload instance
-	workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *g.WorkloadInstance.Name)
+	workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *gatewayInstanceValues.WorkloadInstance.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *g.WorkloadInstance.Name, err)
+		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *gatewayInstanceValues.WorkloadInstance.Name, err)
 	}
 
 	// get gateway definition
-	gatewayDefinition, err := client_v0.GetGatewayDefinitionByName(apiClient, apiEndpoint, *g.GatewayDefinition.Name)
+	gatewayDefinition, err := client_v0.GetGatewayDefinitionByName(apiClient, apiEndpoint, *gatewayInstanceValues.GatewayDefinition.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gateway definition with name %s: %w", *g.GatewayDefinition.Name, err)
+		return nil, fmt.Errorf("failed to get gateway definition with name %s: %w", *gatewayInstanceValues.GatewayDefinition.Name, err)
 	}
 
 	// construct gateway instance object
 	gatewayInstance := api_v0.GatewayInstance{
 		Instance: api_v0.Instance{
-			Name: g.Name,
+			Name: gatewayInstanceValues.Name,
 		},
 		GatewayDefinitionID:         gatewayDefinition.ID,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
@@ -176,11 +179,13 @@ func (g *GatewayInstanceValues) Create(
 // This is a full replacement of all fields in the gateway instance object.
 // This function takes a name parameter to identify the gateway instance to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (g *GatewayInstanceValues) Replace(
+func (g *GatewayInstanceConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*GatewayInstanceConfig, error) {
+	gatewayInstanceValues := g.GatewayInstance
+
 	// validate config
 	if err := g.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid gateway instance config: %w", err)
@@ -200,7 +205,7 @@ func (g *GatewayInstanceValues) Replace(
 	kubernetesRuntimeInstance, moved, err := getKubernetesRuntimeInstanceAndCheckId(
 		apiClient,
 		apiEndpoint,
-		g.KubernetesRuntimeInstance,
+		gatewayInstanceValues.KubernetesRuntimeInstance,
 		existingGatewayInstance.KubernetesRuntimeInstanceID,
 	)
 	if err != nil {
@@ -214,15 +219,15 @@ func (g *GatewayInstanceValues) Replace(
 	}
 
 	// get workload instance for update
-	workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *g.WorkloadInstance.Name)
+	workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *gatewayInstanceValues.WorkloadInstance.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *g.WorkloadInstance.Name, err)
+		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *gatewayInstanceValues.WorkloadInstance.Name, err)
 	}
 
 	// get gateway definition for update
-	gatewayDefinition, err := client_v0.GetGatewayDefinitionByName(apiClient, apiEndpoint, *g.GatewayDefinition.Name)
+	gatewayDefinition, err := client_v0.GetGatewayDefinitionByName(apiClient, apiEndpoint, *gatewayInstanceValues.GatewayDefinition.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gateway definition with name %s: %w", *g.GatewayDefinition.Name, err)
+		return nil, fmt.Errorf("failed to get gateway definition with name %s: %w", *gatewayInstanceValues.GatewayDefinition.Name, err)
 	}
 
 	// construct updated gateway instance object
@@ -231,7 +236,7 @@ func (g *GatewayInstanceValues) Replace(
 			ID: existingGatewayInstance.ID,
 		},
 		Instance: api_v0.Instance{
-			Name: g.Name,
+			Name: gatewayInstanceValues.Name,
 		},
 		GatewayDefinitionID:         gatewayDefinition.ID,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
@@ -260,18 +265,20 @@ func (g *GatewayInstanceValues) Replace(
 }
 
 // Delete deletes a gateway instance from the Threeport API.
-func (g *GatewayInstanceValues) Delete(
+func (g *GatewayInstanceConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*GatewayInstanceConfig, error) {
+	gatewayInstanceValues := g.GatewayInstance
+
 	// get gateway instance by name
 	gatewayInstance, err := client_v0.GetGatewayInstanceByName(
 		apiClient,
 		apiEndpoint,
-		*g.Name,
+		*gatewayInstanceValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find gateway instance with name %s: %w", *g.Name, err)
+		return nil, fmt.Errorf("failed to find gateway instance with name %s: %w", *gatewayInstanceValues.Name, err)
 	}
 
 	// delete gateway instance
@@ -286,7 +293,7 @@ func (g *GatewayInstanceValues) Delete(
 
 	// wait for gateway instance to be deleted
 	util.Retry(60, 1, func() error {
-		if _, err := client_v0.GetGatewayInstanceByName(apiClient, apiEndpoint, *g.Name); err == nil {
+		if _, err := client_v0.GetGatewayInstanceByName(apiClient, apiEndpoint, *gatewayInstanceValues.Name); err == nil {
 			return errors.New("gateway instance not deleted")
 		}
 		return nil
@@ -303,18 +310,19 @@ func (g *GatewayInstanceValues) Delete(
 }
 
 // Validate validates inputs to create gateway instances.
-func (g *GatewayInstanceValues) Validate() error {
+func (g *GatewayInstanceConfig) Validate() error {
+	gatewayInstanceValues := g.GatewayInstance
 	multiError := util.MultiError{}
 
-	if g.Name == nil {
+	if gatewayInstanceValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
-	if g.GatewayDefinition == nil || g.GatewayDefinition.Name == nil {
+	if gatewayInstanceValues.GatewayDefinition == nil || gatewayInstanceValues.GatewayDefinition.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: GatewayDefinition.Name"))
 	}
 
-	if g.WorkloadInstance == nil || g.WorkloadInstance.Name == nil {
+	if gatewayInstanceValues.WorkloadInstance == nil || gatewayInstanceValues.WorkloadInstance.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: WorkloadInstance.Name"))
 	}
 

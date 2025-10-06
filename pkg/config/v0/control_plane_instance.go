@@ -37,18 +37,19 @@ type ControlPlaneInstanceValues struct {
 // Get gets control plane instances from the Threeport API.
 // If the name is set in the ControlPlaneInstanceValues, it will return the control plane instance with that name.
 // If the name is not set, it will return all control plane instances.
-func (c *ControlPlaneInstanceValues) Get(
+func (c *ControlPlaneInstanceConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ControlPlaneInstanceConfig, error) {
+	controlPlaneInstanceValues := c.ControlPlaneInstance
 	// get API objects
 	var controlPlaneInstances *[]api_v0.ControlPlaneInstance
 	switch {
 	// if name is provided, get control plane instance by name
-	case c.Name != nil:
-		controlPlaneInstance, err := client_v0.GetControlPlaneInstanceByName(apiClient, apiEndpoint, *c.Name)
+	case controlPlaneInstanceValues.Name != nil:
+		controlPlaneInstance, err := client_v0.GetControlPlaneInstanceByName(apiClient, apiEndpoint, *controlPlaneInstanceValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get control plane instance with name %s: %w", *c.Name, err)
+			return nil, fmt.Errorf("failed to get control plane instance with name %s: %w", *controlPlaneInstanceValues.Name, err)
 		}
 		controlPlaneInstances = &[]api_v0.ControlPlaneInstance{*controlPlaneInstance}
 	// get all control plane instances
@@ -105,20 +106,22 @@ func (c *ControlPlaneInstanceValues) Get(
 }
 
 // Create creates a control plane instance in the Threeport API.
-func (c *ControlPlaneInstanceValues) Create(
+func (c *ControlPlaneInstanceConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*ControlPlaneInstanceConfig, error) {
+	controlPlaneInstanceValues := c.ControlPlaneInstance
+
 	// validate config
 	if err := c.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for control plane instance with name %s: %w", *c.Name, err)
+		return nil, fmt.Errorf("failed to validate values for control plane instance with name %s: %w", *controlPlaneInstanceValues.Name, err)
 	}
 
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := getKubernetesRuntimeInstanceByNameOrDefault(
 		apiClient,
 		apiEndpoint,
-		c.KubernetesRuntimeInstance,
+		controlPlaneInstanceValues.KubernetesRuntimeInstance,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
@@ -128,20 +131,20 @@ func (c *ControlPlaneInstanceValues) Create(
 	controlPlaneDefinition, err := client_v0.GetControlPlaneDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*c.ControlPlaneDefinition.Name,
+		*controlPlaneInstanceValues.ControlPlaneDefinition.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find control plane definition with name %s: %w", *c.ControlPlaneDefinition.Name, err)
+		return nil, fmt.Errorf("failed to find control plane definition with name %s: %w", *controlPlaneInstanceValues.ControlPlaneDefinition.Name, err)
 	}
 
 	// construct control plane instance object
 	controlPlaneInstance := api_v0.ControlPlaneInstance{
 		Instance: api_v0.Instance{
-			Name: c.Name,
+			Name: controlPlaneInstanceValues.Name,
 		},
-		Namespace:                   c.Namespace,
+		Namespace:                   controlPlaneInstanceValues.Namespace,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		CustomComponentInfo:         c.CustomComponentInfo,
+		CustomComponentInfo:         controlPlaneInstanceValues.CustomComponentInfo,
 		ControlPlaneDefinitionID:    controlPlaneDefinition.ID,
 	}
 
@@ -161,8 +164,8 @@ func (c *ControlPlaneInstanceValues) Create(
 			Age:                       util.Ptr(util.GetAgeFormatted(createdControlPlaneInstance.CreatedAt)),
 			Name:                      createdControlPlaneInstance.Name,
 			Namespace:                 createdControlPlaneInstance.Namespace,
-			KubernetesRuntimeInstance: c.KubernetesRuntimeInstance,
-			ControlPlaneDefinition:    c.ControlPlaneDefinition,
+			KubernetesRuntimeInstance: controlPlaneInstanceValues.KubernetesRuntimeInstance,
+			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
 			CustomComponentInfo:       createdControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   createdControlPlaneInstance.Genesis,
 		},
@@ -175,11 +178,13 @@ func (c *ControlPlaneInstanceValues) Create(
 // This is a full replacement of all fields in the control plane instance object.
 // This function takes a name parameter to identify the control plane instance to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (c *ControlPlaneInstanceValues) Replace(
+func (c *ControlPlaneInstanceConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*ControlPlaneInstanceConfig, error) {
+	controlPlaneInstanceValues := c.ControlPlaneInstance
+
 	// validate config
 	if err := c.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid control plane instance config: %w", err)
@@ -201,11 +206,11 @@ func (c *ControlPlaneInstanceValues) Replace(
 			ID: existingControlPlaneInstance.ID,
 		},
 		Instance: api_v0.Instance{
-			Name: c.Name,
+			Name: controlPlaneInstanceValues.Name,
 		},
-		Namespace:                   c.Namespace,
+		Namespace:                   controlPlaneInstanceValues.Namespace,
 		KubernetesRuntimeInstanceID: existingControlPlaneInstance.KubernetesRuntimeInstanceID,
-		CustomComponentInfo:         c.CustomComponentInfo,
+		CustomComponentInfo:         controlPlaneInstanceValues.CustomComponentInfo,
 		ControlPlaneDefinitionID:    existingControlPlaneInstance.ControlPlaneDefinitionID,
 	}
 
@@ -225,8 +230,8 @@ func (c *ControlPlaneInstanceValues) Replace(
 			Age:                       util.Ptr(util.GetAgeFormatted(replacedControlPlaneInstance.CreatedAt)),
 			Name:                      replacedControlPlaneInstance.Name,
 			Namespace:                 replacedControlPlaneInstance.Namespace,
-			KubernetesRuntimeInstance: c.KubernetesRuntimeInstance,
-			ControlPlaneDefinition:    c.ControlPlaneDefinition,
+			KubernetesRuntimeInstance: controlPlaneInstanceValues.KubernetesRuntimeInstance,
+			ControlPlaneDefinition:    controlPlaneInstanceValues.ControlPlaneDefinition,
 			CustomComponentInfo:       replacedControlPlaneInstance.CustomComponentInfo,
 			Genesis:                   replacedControlPlaneInstance.Genesis,
 		},
@@ -236,18 +241,20 @@ func (c *ControlPlaneInstanceValues) Replace(
 }
 
 // Delete deletes a control plane instance from the Threeport API.
-func (c *ControlPlaneInstanceValues) Delete(
+func (c *ControlPlaneInstanceConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*ControlPlaneInstanceConfig, error) {
+	controlPlaneInstanceValues := c.ControlPlaneInstance
+
 	// get control plane instance by name
 	controlPlaneInstance, err := client_v0.GetControlPlaneInstanceByName(
 		apiClient,
 		apiEndpoint,
-		*c.Name,
+		*controlPlaneInstanceValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find control plane instance with name %s: %w", *c.Name, err)
+		return nil, fmt.Errorf("failed to find control plane instance with name %s: %w", *controlPlaneInstanceValues.Name, err)
 	}
 
 	// ensure control plane instance is not a genesis instance
@@ -305,21 +312,22 @@ func (c *ControlPlaneInstanceValues) Delete(
 }
 
 // Validate validates inputs to create control plane instances.
-func (c *ControlPlaneInstanceValues) Validate() error {
+func (c *ControlPlaneInstanceConfig) Validate() error {
+	controlPlaneInstanceValues := c.ControlPlaneInstance
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if c.Name == nil {
+	if controlPlaneInstanceValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure namespace is set
-	if c.Namespace == nil {
+	if controlPlaneInstanceValues.Namespace == nil {
 		multiError.AppendError(errors.New("missing required field in config: Namespace"))
 	}
 
 	// ensure control plane definition is set
-	if c.ControlPlaneDefinition == nil || c.ControlPlaneDefinition.Name == nil {
+	if controlPlaneInstanceValues.ControlPlaneDefinition == nil || controlPlaneInstanceValues.ControlPlaneDefinition.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: ControlPlaneDefinition.Name"))
 	}
 

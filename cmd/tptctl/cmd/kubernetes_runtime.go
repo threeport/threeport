@@ -67,7 +67,7 @@ var GetKubernetesRuntimesCmd = &cobra.Command{
 			}
 
 			// get kubernetes runtime
-			kubernetesRuntimeConfigs, err := kubernetesRuntimeConfig.KubernetesRuntime.Get(apiClient, apiEndpoint)
+			kubernetesRuntimeConfigs, err := kubernetesRuntimeConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve kubernetes runtime", err)
 				os.Exit(1)
@@ -163,8 +163,7 @@ var CreateKubernetesRuntimeCmd = &cobra.Command{
 			}
 
 			// create kubernetes runtime
-			kubernetesRuntime := kubernetesRuntimeConfig.KubernetesRuntime
-			createdKubernetesRuntimeSlice, err := kubernetesRuntime.Create(
+			createdKubernetesRuntimeSlice, err := kubernetesRuntimeConfig.Create(
 				apiClient,
 				apiEndpoint,
 			)
@@ -240,16 +239,15 @@ var DeleteKubernetesRuntimeCmd = &cobra.Command{
 			}
 
 			// delete kubernetes runtime
-			kubernetesRuntime := kubernetesRuntimeConfig.KubernetesRuntime
-			_, err = kubernetesRuntime.Delete(apiClient, apiEndpoint)
+			_, err = kubernetesRuntimeConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete kubernetes runtime", err)
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("kubernetes runtime definition %s deleted", *kubernetesRuntime.Name))
-			cli.Info(fmt.Sprintf("kubernetes runtime instance %s deleted", *kubernetesRuntime.Name))
-			cli.Complete(fmt.Sprintf("kubernetes runtime %s deleted", *kubernetesRuntime.Name))
+			cli.Info(fmt.Sprintf("kubernetes runtime definition %s deleted", *kubernetesRuntimeConfig.KubernetesRuntime.Name))
+			cli.Info(fmt.Sprintf("kubernetes runtime instance %s deleted", *kubernetesRuntimeConfig.KubernetesRuntime.Name))
+			cli.Complete(fmt.Sprintf("kubernetes runtime %s deleted", *kubernetesRuntimeConfig.KubernetesRuntime.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -323,7 +321,7 @@ var GetKubernetesRuntimeDefinitionsCmd = &cobra.Command{
 			}
 
 			// get kubernetes runtime definitions
-			kubernetesRuntimeDefinitions, err := kubernetesRuntimeDefinitionConfig.KubernetesRuntimeDefinition.Get(apiClient, apiEndpoint)
+			kubernetesRuntimeDefinitions, err := kubernetesRuntimeDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve kubernetes runtime definitions", err)
 				os.Exit(1)
@@ -418,8 +416,7 @@ var CreateKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			}
 
 			// create kubernetes runtime definition
-			kubernetesRuntimeDefinition := kubernetesRuntimeDefinitionConfig.KubernetesRuntimeDefinition
-			createdKubernetesRuntimeDefinition, err := kubernetesRuntimeDefinition.Create(apiClient, apiEndpoint)
+			createdKubernetesRuntimeDefinition, err := kubernetesRuntimeDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create kubernetes runtime definition", err)
 				os.Exit(1)
@@ -478,8 +475,7 @@ var ReplaceKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			}
 
 			// replace kubernetes runtime definition
-			kubernetesRuntimeDefinition := kubernetesRuntimeDefinitionConfig.KubernetesRuntimeDefinition
-			updatedKubernetesRuntimeDefinition, err := kubernetesRuntimeDefinition.Replace(apiClient, apiEndpoint, kubernetesRuntimeName)
+			updatedKubernetesRuntimeDefinition, err := kubernetesRuntimeDefinitionConfig.Replace(apiClient, apiEndpoint, kubernetesRuntimeName)
 			if err != nil {
 				cli.Error("failed to update kubernetes runtime definition", err)
 				os.Exit(1)
@@ -561,8 +557,7 @@ var DeleteKubernetesRuntimeDefinitionCmd = &cobra.Command{
 			}
 
 			// delete kubernetes runtime definition
-			kubernetesRuntimeDefinition := kubernetesRuntimeDefinitionConfig.KubernetesRuntimeDefinition
-			deletedKubernetesRuntimeDefinition, err := kubernetesRuntimeDefinition.Delete(apiClient, apiEndpoint)
+			deletedKubernetesRuntimeDefinition, err := kubernetesRuntimeDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete kubernetes runtime definition", err)
 				os.Exit(1)
@@ -646,7 +641,7 @@ var GetKubernetesRuntimeInstancesCmd = &cobra.Command{
 			}
 
 			// get kubernetes runtime instances
-			kubernetesRuntimeInstances, err := kubernetesRuntimeInstanceConfig.KubernetesRuntimeInstance.Get(apiClient, apiEndpoint)
+			kubernetesRuntimeInstances, err := kubernetesRuntimeInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve kubernetes runtime instances", err)
 				os.Exit(1)
@@ -741,8 +736,7 @@ var CreateKubernetesRuntimeInstanceCmd = &cobra.Command{
 			}
 
 			// create kubernetes runtime instance
-			kubernetesRuntimeInstance := kubernetesRuntimeInstanceConfig.KubernetesRuntimeInstance
-			createdKubernetesRuntimeInstance, err := kubernetesRuntimeInstance.Create(apiClient, apiEndpoint)
+			createdKubernetesRuntimeInstance, err := kubernetesRuntimeInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create kubernetes runtime instance", err)
 				os.Exit(1)
@@ -801,8 +795,7 @@ var ReplaceKubernetesRuntimeInstanceCmd = &cobra.Command{
 			}
 
 			// replace kubernetes runtime instance
-			kubernetesRuntimeInstance := kubernetesRuntimeInstanceConfig.KubernetesRuntimeInstance
-			updatedKubernetesRuntimeInstance, err := kubernetesRuntimeInstance.Replace(apiClient, apiEndpoint, kubernetesRuntimeName)
+			updatedKubernetesRuntimeInstance, err := kubernetesRuntimeInstanceConfig.Replace(apiClient, apiEndpoint, kubernetesRuntimeName)
 			if err != nil {
 				cli.Error("failed to update kubernetes runtime instance", err)
 				os.Exit(1)
@@ -884,8 +877,7 @@ var DeleteKubernetesRuntimeInstanceCmd = &cobra.Command{
 			}
 
 			// delete kubernetes runtime instance
-			kubernetesRuntimeInstance := kubernetesRuntimeInstanceConfig.KubernetesRuntimeInstance
-			deletedKubernetesRuntimeInstance, err := kubernetesRuntimeInstance.Delete(apiClient, apiEndpoint)
+			deletedKubernetesRuntimeInstance, err := kubernetesRuntimeInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete kubernetes runtime instance", err)
 				os.Exit(1)

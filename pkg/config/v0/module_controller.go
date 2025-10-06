@@ -31,18 +31,19 @@ type ModuleControllerValues struct {
 // Get gets module controllers from the Threeport API.
 // If the name is set in the ModuleControllerValues, it will return the module controller with that name.
 // If the name is not set, it will return all module controllers.
-func (m *ModuleControllerValues) Get(
+func (m *ModuleControllerConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ModuleControllerConfig, error) {
+	moduleControllerValues := m.ModuleController
 	// get API objects
 	var moduleControllers *[]api_v0.ModuleController
 	switch {
 	// if name is provided, get module controller by name
-	case m.Name != nil:
-		moduleController, err := client_v0.GetModuleControllerByName(apiClient, apiEndpoint, *m.Name)
+	case moduleControllerValues.Name != nil:
+		moduleController, err := client_v0.GetModuleControllerByName(apiClient, apiEndpoint, *moduleControllerValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get module controller with name %s: %w", *m.Name, err)
+			return nil, fmt.Errorf("failed to get module controller with name %s: %w", *moduleControllerValues.Name, err)
 		}
 		moduleControllers = &[]api_v0.ModuleController{*moduleController}
 	// get all module controllers
@@ -77,143 +78,3 @@ func (m *ModuleControllerValues) Get(
 
 	return &moduleControllerConfigs, nil
 }
-
-// The Threeport end user should never need to create, replace or delete module controllers.
-// This is done by the modules themselves when they spin up and are registered with the
-// Threeport API.
-
-//// Create creates a module controller in the Threeport API.
-//func (m *ModuleControllerValues) Create(
-//	apiClient *http.Client,
-//	apiEndpoint string,
-//) (*ModuleControllerConfig, error) {
-//	// validate config
-//	if err := m.Validate(); err != nil {
-//		return nil, fmt.Errorf("failed to validate values for module controller with name %s: %w", *m.Name, err)
-//	}
-//
-//	// construct module controller object
-//	moduleController := api_v0.ModuleController{
-//		Name: m.Name,
-//	}
-//
-//	// create module controller
-//	createdModuleController, err := client_v0.CreateModuleController(
-//		apiClient,
-//		apiEndpoint,
-//		&moduleController,
-//	)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to create module controller in threeport API: %w", err)
-//	}
-//
-//	// construct module controller config
-//	createdModuleControllerConfig := &ModuleControllerConfig{
-//		ModuleController: ModuleControllerValues{
-//			Age:  util.Ptr(util.GetAgeFormatted(createdModuleController.CreatedAt)),
-//			Name: createdModuleController.Name,
-//		},
-//	}
-//
-//	return createdModuleControllerConfig, nil
-//}
-//
-//// Replace updates the entire module controller object in the Threeport API.
-//// This is a full replacement of all fields in the module controller object.
-//// This function takes a name parameter to identify the module controller to replace.
-//// This allows a different name to be provided in the values object for name changes.
-//func (m *ModuleControllerValues) Replace(
-//	apiClient *http.Client,
-//	apiEndpoint string,
-//	name string,
-//) (*ModuleControllerConfig, error) {
-//	// validate config
-//	if err := m.Validate(); err != nil {
-//		return nil, fmt.Errorf("invalid module controller config: %w", err)
-//	}
-//
-//	// get existing module controller by name
-//	existingModuleController, err := client_v0.GetModuleControllerByName(
-//		apiClient,
-//		apiEndpoint,
-//		name,
-//	)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to find module controller with name %s: %w", name, err)
-//	}
-//
-//	// construct updated module controller object
-//	updatedModuleController := &api_v0.ModuleController{
-//		Common: api_v0.Common{
-//			ID: existingModuleController.ID,
-//		},
-//		Name: m.Name,
-//	}
-//
-//	// replace module controller
-//	replacedModuleController, err := client_v0.ReplaceModuleController(
-//		apiClient,
-//		apiEndpoint,
-//		updatedModuleController,
-//	)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to replace module controller in threeport API: %w", err)
-//	}
-//
-//	// construct updated module controller config
-//	updatedModuleControllerConfig := &ModuleControllerConfig{
-//		ModuleController: ModuleControllerValues{
-//			Age:  util.Ptr(util.GetAgeFormatted(replacedModuleController.CreatedAt)),
-//			Name: replacedModuleController.Name,
-//		},
-//	}
-//
-//	return updatedModuleControllerConfig, nil
-//}
-//
-//// Delete deletes a module controller from the Threeport API.
-//func (m *ModuleControllerValues) Delete(
-//	apiClient *http.Client,
-//	apiEndpoint string,
-//) (*ModuleControllerConfig, error) {
-//	// get module controller by name
-//	moduleController, err := client_v0.GetModuleControllerByName(
-//		apiClient,
-//		apiEndpoint,
-//		*m.Name,
-//	)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to find module controller with name %s: %w", *m.Name, err)
-//	}
-//
-//	// delete module controller
-//	deletedModuleController, err := client_v0.DeleteModuleController(
-//		apiClient,
-//		apiEndpoint,
-//		*moduleController.ID,
-//	)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to delete module controller from Threeport API: %w", err)
-//	}
-//
-//	// construct deleted module controller config
-//	deletedModuleControllerConfig := &ModuleControllerConfig{
-//		ModuleController: ModuleControllerValues{
-//			Name: deletedModuleController.Name,
-//		},
-//	}
-//
-//	return deletedModuleControllerConfig, nil
-//}
-//
-//// Validate validates inputs to create module controllers.
-//func (m *ModuleControllerValues) Validate() error {
-//	multiError := util.MultiError{}
-//
-//	// ensure name is set
-//	if m.Name == nil {
-//		multiError.AppendError(errors.New("missing required field in config: Name"))
-//	}
-//
-//	return multiError.Error()
-//}

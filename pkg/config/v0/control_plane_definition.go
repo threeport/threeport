@@ -32,18 +32,19 @@ type ControlPlaneDefinitionValues struct {
 // Get gets control plane definitions from the Threeport API.
 // If the name is set in the ControlPlaneDefinitionValues, it will return the control plane definition with that name.
 // If the name is not set, it will return all control plane definitions.
-func (c *ControlPlaneDefinitionValues) Get(
+func (c *ControlPlaneDefinitionConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ControlPlaneDefinitionConfig, error) {
+	controlPlaneDefinitionValues := c.ControlPlaneDefinition
 	// get API objects
 	var controlPlaneDefinitions *[]api_v0.ControlPlaneDefinition
 	switch {
 	// if name is provided, get control plane definition by name
-	case c.Name != nil:
-		controlPlaneDefinition, err := client_v0.GetControlPlaneDefinitionByName(apiClient, apiEndpoint, *c.Name)
+	case controlPlaneDefinitionValues.Name != nil:
+		controlPlaneDefinition, err := client_v0.GetControlPlaneDefinitionByName(apiClient, apiEndpoint, *controlPlaneDefinitionValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get control plane definition with name %s: %w", *c.Name, err)
+			return nil, fmt.Errorf("failed to get control plane definition with name %s: %w", *controlPlaneDefinitionValues.Name, err)
 		}
 		controlPlaneDefinitions = &[]api_v0.ControlPlaneDefinition{*controlPlaneDefinition}
 	// get all control plane definitions
@@ -73,22 +74,24 @@ func (c *ControlPlaneDefinitionValues) Get(
 }
 
 // Create creates a control plane definition in the Threeport API.
-func (c *ControlPlaneDefinitionValues) Create(
+func (c *ControlPlaneDefinitionConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*ControlPlaneDefinitionConfig, error) {
+	controlPlaneDefinitionValues := c.ControlPlaneDefinition
+
 	// validate config
 	if err := c.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for control plane definition with name %s: %w", *c.Name, err)
+		return nil, fmt.Errorf("failed to validate values for control plane definition with name %s: %w", *controlPlaneDefinitionValues.Name, err)
 	}
 
 	// construct control plane definition object
 	controlPlaneDefinition := api_v0.ControlPlaneDefinition{
 		Definition: api_v0.Definition{
-			Name: c.Name,
+			Name: controlPlaneDefinitionValues.Name,
 		},
-		AuthEnabled:   c.AuthEnabled,
-		OnboardParent: c.OnboardParent,
+		AuthEnabled:   controlPlaneDefinitionValues.AuthEnabled,
+		OnboardParent: controlPlaneDefinitionValues.OnboardParent,
 	}
 
 	// create control plane definition
@@ -118,11 +121,13 @@ func (c *ControlPlaneDefinitionValues) Create(
 // This is a full replacement of all fields in the control plane definition object.
 // This function takes a name parameter to identify the control plane definition to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (c *ControlPlaneDefinitionValues) Replace(
+func (c *ControlPlaneDefinitionConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*ControlPlaneDefinitionConfig, error) {
+	controlPlaneDefinitionValues := c.ControlPlaneDefinition
+
 	// validate config
 	if err := c.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid control plane definition config: %w", err)
@@ -144,10 +149,10 @@ func (c *ControlPlaneDefinitionValues) Replace(
 			ID: existingControlPlaneDefinition.ID,
 		},
 		Definition: api_v0.Definition{
-			Name: c.Name,
+			Name: controlPlaneDefinitionValues.Name,
 		},
-		AuthEnabled:   c.AuthEnabled,
-		OnboardParent: c.OnboardParent,
+		AuthEnabled:   controlPlaneDefinitionValues.AuthEnabled,
+		OnboardParent: controlPlaneDefinitionValues.OnboardParent,
 	}
 
 	// replace control plane definition
@@ -174,18 +179,20 @@ func (c *ControlPlaneDefinitionValues) Replace(
 }
 
 // Delete deletes a control plane definition from the Threeport API.
-func (c *ControlPlaneDefinitionValues) Delete(
+func (c *ControlPlaneDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*ControlPlaneDefinitionConfig, error) {
+	controlPlaneDefinitionValues := c.ControlPlaneDefinition
+
 	// get control plane definition by name
 	controlPlaneDefinition, err := client_v0.GetControlPlaneDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*c.Name,
+		*controlPlaneDefinitionValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find control plane definition with name %s: %w", *c.Name, err)
+		return nil, fmt.Errorf("failed to find control plane definition with name %s: %w", *controlPlaneDefinitionValues.Name, err)
 	}
 
 	// delete control plane definition
@@ -211,11 +218,12 @@ func (c *ControlPlaneDefinitionValues) Delete(
 }
 
 // Validate validates inputs to create control plane definitions.
-func (c *ControlPlaneDefinitionValues) Validate() error {
+func (c *ControlPlaneDefinitionConfig) Validate() error {
+	controlPlaneDefinitionValues := c.ControlPlaneDefinition
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if c.Name == nil {
+	if controlPlaneDefinitionValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 

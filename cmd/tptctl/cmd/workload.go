@@ -67,7 +67,7 @@ var GetWorkloadsCmd = &cobra.Command{
 			}
 
 			// get workload
-			workloadConfigs, err := workloadConfig.Workload.Get(apiClient, apiEndpoint)
+			workloadConfigs, err := workloadConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve workload", err)
 				os.Exit(1)
@@ -163,9 +163,8 @@ var CreateWorkloadCmd = &cobra.Command{
 			}
 
 			// create workload
-			workload := workloadConfig.Workload
-			workload.WorkloadConfigPath = &workloadConfigPath
-			createdWorkloadSlice, err := workload.Create(
+			workloadConfig.Workload.WorkloadConfigPath = &workloadConfigPath
+			createdWorkloadSlice, err := workloadConfig.Create(
 				apiClient,
 				apiEndpoint,
 			)
@@ -241,17 +240,16 @@ var DeleteWorkloadCmd = &cobra.Command{
 			}
 
 			// delete workload
-			workload := workloadConfig.Workload
-			workload.WorkloadConfigPath = &workloadConfigPath
-			_, err = workload.Delete(apiClient, apiEndpoint)
+			workloadConfig.Workload.WorkloadConfigPath = &workloadConfigPath
+			_, err = workloadConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete workload", err)
 				os.Exit(1)
 			}
 
-			cli.Info(fmt.Sprintf("workload definition %s deleted", *workload.Name))
-			cli.Info(fmt.Sprintf("workload instance %s deleted", *workload.Name))
-			cli.Complete(fmt.Sprintf("workload %s deleted", *workload.Name))
+			cli.Info(fmt.Sprintf("workload definition %s deleted", *workloadConfig.Workload.Name))
+			cli.Info(fmt.Sprintf("workload instance %s deleted", *workloadConfig.Workload.Name))
+			cli.Complete(fmt.Sprintf("workload %s deleted", *workloadConfig.Workload.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
@@ -325,7 +323,7 @@ var GetWorkloadDefinitionsCmd = &cobra.Command{
 			}
 
 			// get workload definitions
-			workloadDefinitions, err := workloadDefinitionConfig.WorkloadDefinition.Get(apiClient, apiEndpoint)
+			workloadDefinitions, err := workloadDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve workload definitions", err)
 				os.Exit(1)
@@ -420,9 +418,8 @@ var CreateWorkloadDefinitionCmd = &cobra.Command{
 			}
 
 			// create workload definition
-			workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
-			workloadDefinition.WorkloadConfigPath = &workloadConfigPath
-			createdWorkloadDefinition, err := workloadDefinition.Create(apiClient, apiEndpoint)
+			workloadDefinitionConfig.WorkloadDefinition.WorkloadConfigPath = &workloadConfigPath
+			createdWorkloadDefinition, err := workloadDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create workload definition", err)
 				os.Exit(1)
@@ -481,9 +478,8 @@ var ReplaceWorkloadDefinitionCmd = &cobra.Command{
 			}
 
 			// replace workload definition
-			workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
-			workloadDefinition.WorkloadConfigPath = &workloadConfigPath
-			updatedWorkloadDefinition, err := workloadDefinition.Replace(apiClient, apiEndpoint, workloadName)
+			workloadDefinitionConfig.WorkloadDefinition.WorkloadConfigPath = &workloadConfigPath
+			updatedWorkloadDefinition, err := workloadDefinitionConfig.Replace(apiClient, apiEndpoint, workloadName)
 			if err != nil {
 				cli.Error("failed to update workload definition", err)
 				os.Exit(1)
@@ -565,9 +561,8 @@ var DeleteWorkloadDefinitionCmd = &cobra.Command{
 			}
 
 			// delete workload definition
-			workloadDefinition := workloadDefinitionConfig.WorkloadDefinition
-			workloadDefinition.WorkloadConfigPath = &workloadConfigPath
-			deletedWorkloadDefinition, err := workloadDefinition.Delete(apiClient, apiEndpoint)
+			workloadDefinitionConfig.WorkloadDefinition.WorkloadConfigPath = &workloadConfigPath
+			deletedWorkloadDefinition, err := workloadDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete workload definition", err)
 				os.Exit(1)
@@ -651,7 +646,7 @@ var GetWorkloadInstancesCmd = &cobra.Command{
 			}
 
 			// get workload instances
-			workloadInstances, err := workloadInstanceConfig.WorkloadInstance.Get(apiClient, apiEndpoint)
+			workloadInstances, err := workloadInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve workload instances", err)
 				os.Exit(1)
@@ -746,8 +741,7 @@ var CreateWorkloadInstanceCmd = &cobra.Command{
 			}
 
 			// create workload instance
-			workloadInstance := workloadInstanceConfig.WorkloadInstance
-			createdWorkloadInstance, err := workloadInstance.Create(apiClient, apiEndpoint)
+			createdWorkloadInstance, err := workloadInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create workload instance", err)
 				os.Exit(1)
@@ -806,8 +800,7 @@ var ReplaceWorkloadInstanceCmd = &cobra.Command{
 			}
 
 			// replace workload instance
-			workloadInstance := workloadInstanceConfig.WorkloadInstance
-			updatedWorkloadInstance, err := workloadInstance.Replace(apiClient, apiEndpoint, workloadName)
+			updatedWorkloadInstance, err := workloadInstanceConfig.Replace(apiClient, apiEndpoint, workloadName)
 			if err != nil {
 				cli.Error("failed to update workload instance", err)
 				os.Exit(1)
@@ -889,8 +882,7 @@ var DeleteWorkloadInstanceCmd = &cobra.Command{
 			}
 
 			// delete workload instance
-			workloadInstance := workloadInstanceConfig.WorkloadInstance
-			deletedWorkloadInstance, err := workloadInstance.Delete(apiClient, apiEndpoint)
+			deletedWorkloadInstance, err := workloadInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete workload instance", err)
 				os.Exit(1)

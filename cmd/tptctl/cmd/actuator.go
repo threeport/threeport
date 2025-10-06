@@ -5,11 +5,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
+
 	cobra "github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	yaml "gopkg.in/yaml.v2"
-	"os"
 )
 
 var (
@@ -65,7 +66,7 @@ var GetProfilesCmd = &cobra.Command{
 			}
 
 			// get profiles
-			profiles, err := profileConfig.Profile.Get(apiClient, apiEndpoint)
+			profiles, err := profileConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve profiles", err)
 				os.Exit(1)
@@ -160,8 +161,7 @@ var CreateProfileCmd = &cobra.Command{
 			}
 
 			// create profile
-			profile := profileConfig.Profile
-			createdProfile, err := profile.Create(apiClient, apiEndpoint)
+			createdProfile, err := profileConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create profile", err)
 				os.Exit(1)
@@ -220,8 +220,7 @@ var ReplaceProfileCmd = &cobra.Command{
 			}
 
 			// replace profile
-			profile := profileConfig.Profile
-			updatedProfile, err := profile.Replace(apiClient, apiEndpoint, actuatorName)
+			updatedProfile, err := profileConfig.Replace(apiClient, apiEndpoint, actuatorName)
 			if err != nil {
 				cli.Error("failed to update profile", err)
 				os.Exit(1)
@@ -303,8 +302,7 @@ var DeleteProfileCmd = &cobra.Command{
 			}
 
 			// delete profile
-			profile := profileConfig.Profile
-			deletedProfile, err := profile.Delete(apiClient, apiEndpoint)
+			deletedProfile, err := profileConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete profile", err)
 				os.Exit(1)
@@ -388,7 +386,7 @@ var GetTiersCmd = &cobra.Command{
 			}
 
 			// get tiers
-			tiers, err := tierConfig.Tier.Get(apiClient, apiEndpoint)
+			tiers, err := tierConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve tiers", err)
 				os.Exit(1)
@@ -483,8 +481,7 @@ var CreateTierCmd = &cobra.Command{
 			}
 
 			// create tier
-			tier := tierConfig.Tier
-			createdTier, err := tier.Create(apiClient, apiEndpoint)
+			createdTier, err := tierConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to create tier", err)
 				os.Exit(1)
@@ -543,8 +540,7 @@ var ReplaceTierCmd = &cobra.Command{
 			}
 
 			// replace tier
-			tier := tierConfig.Tier
-			updatedTier, err := tier.Replace(apiClient, apiEndpoint, actuatorName)
+			updatedTier, err := tierConfig.Replace(apiClient, apiEndpoint, actuatorName)
 			if err != nil {
 				cli.Error("failed to update tier", err)
 				os.Exit(1)
@@ -626,8 +622,7 @@ var DeleteTierCmd = &cobra.Command{
 			}
 
 			// delete tier
-			tier := tierConfig.Tier
-			deletedTier, err := tier.Delete(apiClient, apiEndpoint)
+			deletedTier, err := tierConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to delete tier", err)
 				os.Exit(1)

@@ -34,18 +34,19 @@ type ModuleObjectValues struct {
 // Get gets module objects from the Threeport API.
 // If the name is set in the ModuleObjectValues, it will return the module object with that name.
 // If the name is not set, it will return all module objects.
-func (m *ModuleObjectValues) Get(
+func (m *ModuleObjectConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ModuleObjectConfig, error) {
+	moduleObjectValues := m.ModuleObject
 	// get API objects
 	var moduleObjects *[]api_v0.ModuleObject
 	switch {
 	// if name is provided, get module object by name
-	case m.Name != nil:
-		moduleObject, err := client_v0.GetModuleObjectByName(apiClient, apiEndpoint, *m.Name)
+	case moduleObjectValues.Name != nil:
+		moduleObject, err := client_v0.GetModuleObjectByName(apiClient, apiEndpoint, *moduleObjectValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get module object with name %s: %w", *m.Name, err)
+			return nil, fmt.Errorf("failed to get module object with name %s: %w", *moduleObjectValues.Name, err)
 		}
 		moduleObjects = &[]api_v0.ModuleObject{*moduleObject}
 	// get all module objects
@@ -89,143 +90,3 @@ func (m *ModuleObjectValues) Get(
 
 	return &moduleObjectConfigs, nil
 }
-
-// The Threeport end user should never need to create, replace or delete module objects.
-// This is done by the modules themselves when they spin up and are registered with the
-// Threeport API.
-
-//// Create creates a module object in the Threeport API.
-//func (m *ModuleObjectValues) Create(
-//	apiClient *http.Client,
-//	apiEndpoint string,
-//) (*ModuleObjectConfig, error) {
-//	// validate config
-//	if err := m.Validate(); err != nil {
-//		return nil, fmt.Errorf("failed to validate values for module object with name %s: %w", *m.Name, err)
-//	}
-//
-//	// construct module object object
-//	moduleObject := api_v0.ModuleObject{
-//		Name: m.Name,
-//	}
-//
-//	// create module object
-//	createdModuleObject, err := client_v0.CreateModuleObject(
-//		apiClient,
-//		apiEndpoint,
-//		&moduleObject,
-//	)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to create module object in threeport API: %w", err)
-//	}
-//
-//	// construct module object config
-//	createdModuleObjectConfig := &ModuleObjectConfig{
-//		ModuleObject: ModuleObjectValues{
-//			Age:  util.Ptr(util.GetAgeFormatted(createdModuleObject.CreatedAt)),
-//			Name: createdModuleObject.Name,
-//		},
-//	}
-//
-//	return createdModuleObjectConfig, nil
-//}
-//
-//// Replace updates the entire module object object in the Threeport API.
-//// This is a full replacement of all fields in the module object object.
-//// This function takes a name parameter to identify the module object to replace.
-//// This allows a different name to be provided in the values object for name changes.
-//func (m *ModuleObjectValues) Replace(
-//	apiClient *http.Client,
-//	apiEndpoint string,
-//	name string,
-//) (*ModuleObjectConfig, error) {
-//	// validate config
-//	if err := m.Validate(); err != nil {
-//		return nil, fmt.Errorf("invalid module object config: %w", err)
-//	}
-//
-//	// get existing module object by name
-//	existingModuleObject, err := client_v0.GetModuleObjectByName(
-//		apiClient,
-//		apiEndpoint,
-//		name,
-//	)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to find module object with name %s: %w", name, err)
-//	}
-//
-//	// construct updated module object object
-//	updatedModuleObject := &api_v0.ModuleObject{
-//		Common: api_v0.Common{
-//			ID: existingModuleObject.ID,
-//		},
-//		Name: m.Name,
-//	}
-//
-//	// replace module object
-//	replacedModuleObject, err := client_v0.ReplaceModuleObject(
-//		apiClient,
-//		apiEndpoint,
-//		updatedModuleObject,
-//	)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to replace module object in threeport API: %w", err)
-//	}
-//
-//	// construct updated module object config
-//	updatedModuleObjectConfig := &ModuleObjectConfig{
-//		ModuleObject: ModuleObjectValues{
-//			Age:  util.Ptr(util.GetAgeFormatted(replacedModuleObject.CreatedAt)),
-//			Name: replacedModuleObject.Name,
-//		},
-//	}
-//
-//	return updatedModuleObjectConfig, nil
-//}
-//
-//// Delete deletes a module object from the Threeport API.
-//func (m *ModuleObjectValues) Delete(
-//	apiClient *http.Client,
-//	apiEndpoint string,
-//) (*ModuleObjectConfig, error) {
-//	// get module object by name
-//	moduleObject, err := client_v0.GetModuleObjectByName(
-//		apiClient,
-//		apiEndpoint,
-//		*m.Name,
-//	)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to find module object with name %s: %w", *m.Name, err)
-//	}
-//
-//	// delete module object
-//	deletedModuleObject, err := client_v0.DeleteModuleObject(
-//		apiClient,
-//		apiEndpoint,
-//		*moduleObject.ID,
-//	)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to delete module object from Threeport API: %w", err)
-//	}
-//
-//	// construct deleted module object config
-//	deletedModuleObjectConfig := &ModuleObjectConfig{
-//		ModuleObject: ModuleObjectValues{
-//			Name: deletedModuleObject.Name,
-//		},
-//	}
-//
-//	return deletedModuleObjectConfig, nil
-//}
-//
-//// Validate validates inputs to create module objects.
-//func (m *ModuleObjectValues) Validate() error {
-//	multiError := util.MultiError{}
-//
-//	// ensure name is set
-//	if m.Name == nil {
-//		multiError.AppendError(errors.New("missing required field in config: Name"))
-//	}
-//
-//	return multiError.Error()
-//}

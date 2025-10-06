@@ -67,7 +67,7 @@ var GetModuleApisCmd = &cobra.Command{
 			}
 
 			// get module apis
-			moduleApis, err := moduleApiConfig.ModuleApi.Get(apiClient, apiEndpoint)
+			moduleApis, err := moduleApiConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve module apis", err)
 				os.Exit(1)
@@ -394,7 +394,7 @@ var GetModuleApiRoutesCmd = &cobra.Command{
 			}
 
 			// get module api routes
-			moduleApiRoutes, err := moduleApiRouteConfig.ModuleApiRoute.Get(apiClient, apiEndpoint)
+			moduleApiRoutes, err := moduleApiRouteConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve module api routes", err)
 				os.Exit(1)
@@ -721,7 +721,7 @@ var GetModuleControllersCmd = &cobra.Command{
 			}
 
 			// get module controllers
-			moduleControllers, err := moduleControllerConfig.ModuleController.Get(apiClient, apiEndpoint)
+			moduleControllers, err := moduleControllerConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve module controllers", err)
 				os.Exit(1)
@@ -1048,7 +1048,7 @@ var GetModuleObjectsCmd = &cobra.Command{
 			}
 
 			// get module objects
-			moduleObjects, err := moduleObjectConfig.ModuleObject.Get(apiClient, apiEndpoint)
+			moduleObjects, err := moduleObjectConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				cli.Error("failed to retrieve module objects", err)
 				os.Exit(1)

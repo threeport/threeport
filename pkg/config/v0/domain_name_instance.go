@@ -35,18 +35,19 @@ type DomainNameInstanceValues struct {
 // Get gets domain name instances from the Threeport API.
 // If the name is set in the DomainNameInstanceValues, it will return the domain name instance with that name.
 // If the name is not set, it will return all domain name instances.
-func (d *DomainNameInstanceValues) Get(
+func (d *DomainNameInstanceConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]DomainNameInstanceConfig, error) {
+	domainNameInstanceValues := d.DomainNameInstance
 	// get API objects
 	var domainNameInstances *[]api_v0.DomainNameInstance
 	switch {
 	// if name is provided, get domain name instance by name
-	case d.Name != nil:
-		domainNameInstance, err := client_v0.GetDomainNameInstanceByName(apiClient, apiEndpoint, *d.Name)
+	case domainNameInstanceValues.Name != nil:
+		domainNameInstance, err := client_v0.GetDomainNameInstanceByName(apiClient, apiEndpoint, *domainNameInstanceValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get domain name instance with name %s: %w", *d.Name, err)
+			return nil, fmt.Errorf("failed to get domain name instance with name %s: %w", *domainNameInstanceValues.Name, err)
 		}
 		domainNameInstances = &[]api_v0.DomainNameInstance{*domainNameInstance}
 	// get all domain name instances
@@ -112,41 +113,43 @@ func (d *DomainNameInstanceValues) Get(
 }
 
 // Create creates a domain name instance in the Threeport API.
-func (d *DomainNameInstanceValues) Create(
+func (d *DomainNameInstanceConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*DomainNameInstanceConfig, error) {
+	domainNameInstanceValues := d.DomainNameInstance
+
 	// validate config
 	if err := d.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for domain name instance with name %s: %w", *d.Name, err)
+		return nil, fmt.Errorf("failed to validate values for domain name instance with name %s: %w", *domainNameInstanceValues.Name, err)
 	}
 
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := getKubernetesRuntimeInstanceByNameOrDefault(
 		apiClient,
 		apiEndpoint,
-		d.KubernetesRuntimeInstance,
+		domainNameInstanceValues.KubernetesRuntimeInstance,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
 	// get workload instance
-	workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *d.WorkloadInstance.Name)
+	workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *domainNameInstanceValues.WorkloadInstance.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *d.WorkloadInstance.Name, err)
+		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *domainNameInstanceValues.WorkloadInstance.Name, err)
 	}
 
 	// get domain name definition
-	domainNameDefinition, err := client_v0.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *d.DomainNameDefinition.Name)
+	domainNameDefinition, err := client_v0.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *domainNameInstanceValues.DomainNameDefinition.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *d.DomainNameDefinition.Name, err)
+		return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *domainNameInstanceValues.DomainNameDefinition.Name, err)
 	}
 
 	// construct domain name instance object
 	domainNameInstance := api_v0.DomainNameInstance{
 		Instance: api_v0.Instance{
-			Name: util.Ptr(d.getDomainNameInstanceName()),
+			Name: util.Ptr(domainNameInstanceValues.getDomainNameInstanceName()),
 		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		WorkloadInstanceID:          workloadInstance.ID,
@@ -178,11 +181,13 @@ func (d *DomainNameInstanceValues) Create(
 // This is a full replacement of all fields in the domain name instance object.
 // This function takes a name parameter to identify the domain name instance to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (d *DomainNameInstanceValues) Replace(
+func (d *DomainNameInstanceConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*DomainNameInstanceConfig, error) {
+	domainNameInstanceValues := d.DomainNameInstance
+
 	// validate config
 	if err := d.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid domain name instance config: %w", err)
@@ -200,7 +205,7 @@ func (d *DomainNameInstanceValues) Replace(
 
 	// get kubernetes runtime instance API object for update
 	var kubernetesRuntimeInstance api_v0.KubernetesRuntimeInstance
-	if d.KubernetesRuntimeInstance == nil {
+	if domainNameInstanceValues.KubernetesRuntimeInstance == nil {
 		// get default kubernetes runtime instance
 		kubernetesRuntimeInst, err := client_v0.GetDefaultKubernetesRuntimeInstance(apiClient, apiEndpoint)
 		if err != nil {
@@ -211,24 +216,24 @@ func (d *DomainNameInstanceValues) Replace(
 		kubernetesRuntimeInst, err := client_v0.GetKubernetesRuntimeInstanceByName(
 			apiClient,
 			apiEndpoint,
-			*d.KubernetesRuntimeInstance.Name,
+			*domainNameInstanceValues.KubernetesRuntimeInstance.Name,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to find kubernetes runtime instance by name %s: %w", *d.KubernetesRuntimeInstance.Name, err)
+			return nil, fmt.Errorf("failed to find kubernetes runtime instance by name %s: %w", *domainNameInstanceValues.KubernetesRuntimeInstance.Name, err)
 		}
 		kubernetesRuntimeInstance = *kubernetesRuntimeInst
 	}
 
 	// get workload instance for update
-	workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *d.WorkloadInstance.Name)
+	workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *domainNameInstanceValues.WorkloadInstance.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *d.WorkloadInstance.Name, err)
+		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *domainNameInstanceValues.WorkloadInstance.Name, err)
 	}
 
 	// get domain name definition for update
-	domainNameDefinition, err := client_v0.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *d.DomainNameDefinition.Name)
+	domainNameDefinition, err := client_v0.GetDomainNameDefinitionByName(apiClient, apiEndpoint, *domainNameInstanceValues.DomainNameDefinition.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *d.DomainNameDefinition.Name, err)
+		return nil, fmt.Errorf("failed to get domain name definition with name %s: %w", *domainNameInstanceValues.DomainNameDefinition.Name, err)
 	}
 
 	// construct updated domain name instance object
@@ -237,7 +242,7 @@ func (d *DomainNameInstanceValues) Replace(
 			ID: existingDomainNameInstance.ID,
 		},
 		Instance: api_v0.Instance{
-			Name: util.Ptr(d.getDomainNameInstanceName()),
+			Name: util.Ptr(domainNameInstanceValues.getDomainNameInstanceName()),
 		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		WorkloadInstanceID:          workloadInstance.ID,
@@ -266,24 +271,26 @@ func (d *DomainNameInstanceValues) Replace(
 }
 
 // Delete deletes a domain name instance from the Threeport API.
-func (d *DomainNameInstanceValues) Delete(
+func (d *DomainNameInstanceConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*DomainNameInstanceConfig, error) {
+	domainNameInstanceValues := d.DomainNameInstance
+
 	// check if domain name instance exists
-	existingDomainNameInstance, err := client_v0.GetDomainNameInstanceByName(apiClient, apiEndpoint, d.getDomainNameInstanceName())
+	existingDomainNameInstance, err := client_v0.GetDomainNameInstanceByName(apiClient, apiEndpoint, domainNameInstanceValues.getDomainNameInstanceName())
 	if err != nil {
 		return nil, nil
 	}
 
 	deletedDomainNameInstance, err := client_v0.DeleteDomainNameInstance(apiClient, apiEndpoint, *existingDomainNameInstance.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to delete domain name instance %s: %w", d.getDomainNameInstanceName(), err)
+		return nil, fmt.Errorf("failed to delete domain name instance %s: %w", domainNameInstanceValues.getDomainNameInstanceName(), err)
 	}
 
 	// wait for domain name instance to be deleted
 	util.Retry(60, 1, func() error {
-		if _, err := client_v0.GetDomainNameInstanceByName(apiClient, apiEndpoint, d.getDomainNameInstanceName()); err == nil {
+		if _, err := client_v0.GetDomainNameInstanceByName(apiClient, apiEndpoint, domainNameInstanceValues.getDomainNameInstanceName()); err == nil {
 			return errors.New("domain name instance not deleted")
 		}
 		return nil
@@ -305,14 +312,15 @@ func (d *DomainNameInstanceValues) getDomainNameInstanceName() string {
 }
 
 // Validate validates inputs to create domain name instances.
-func (d *DomainNameInstanceValues) Validate() error {
+func (d *DomainNameInstanceConfig) Validate() error {
+	domainNameInstanceValues := d.DomainNameInstance
 	multiError := util.MultiError{}
 
-	if d.DomainNameDefinition == nil || d.DomainNameDefinition.Domain == nil {
+	if domainNameInstanceValues.DomainNameDefinition == nil || domainNameInstanceValues.DomainNameDefinition.Domain == nil {
 		multiError.AppendError(errors.New("missing required field in config: DomainNameDefinition.Name"))
 	}
 
-	if d.WorkloadInstance == nil || d.WorkloadInstance.Name == nil {
+	if domainNameInstanceValues.WorkloadInstance == nil || domainNameInstanceValues.WorkloadInstance.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: WorkloadInstance.Name"))
 	}
 

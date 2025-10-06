@@ -35,18 +35,19 @@ type SecretDefinitionValues struct {
 // Get gets secret definitions from the Threeport API.
 // If the name is set in the SecretDefinitionValues, it will return the secret definition with that name.
 // If the name is not set, it will return all secret definitions.
-func (s *SecretDefinitionValues) Get(
+func (s *SecretDefinitionConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]SecretDefinitionConfig, error) {
+	secretDefinitionValues := s.SecretDefinition
 	// get API objects
 	var secretDefinitions *[]api_v0.SecretDefinition
 	switch {
 	// if name is provided, get secret definition by name
-	case s.Name != nil:
-		secretDefinition, err := client_v0.GetSecretDefinitionByName(apiClient, apiEndpoint, *s.Name)
+	case secretDefinitionValues.Name != nil:
+		secretDefinition, err := client_v0.GetSecretDefinitionByName(apiClient, apiEndpoint, *secretDefinitionValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get secret definition with name %s: %w", *s.Name, err)
+			return nil, fmt.Errorf("failed to get secret definition with name %s: %w", *secretDefinitionValues.Name, err)
 		}
 		secretDefinitions = &[]api_v0.SecretDefinition{*secretDefinition}
 	// get all secret definitions
@@ -94,23 +95,24 @@ func (s *SecretDefinitionValues) Get(
 }
 
 // Create creates a secret definition in the Threeport API.
-func (s *SecretDefinitionValues) Create(
+func (s *SecretDefinitionConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*SecretDefinitionConfig, error) {
+	secretDefinitionValues := s.SecretDefinition
 	// validate config
 	if err := s.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for secret definition with name %s: %w", *s.Name, err)
+		return nil, fmt.Errorf("failed to validate values for secret definition with name %s: %w", *secretDefinitionValues.Name, err)
 	}
 
 	// get AWS account by name
-	awsAccount, err := client_v0.GetAwsAccountByName(apiClient, apiEndpoint, *s.AwsAccountName)
+	awsAccount, err := client_v0.GetAwsAccountByName(apiClient, apiEndpoint, *secretDefinitionValues.AwsAccountName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get AWS account with name %s: %w", *s.AwsAccountName, err)
+		return nil, fmt.Errorf("failed to get AWS account with name %s: %w", *secretDefinitionValues.AwsAccountName, err)
 	}
 
 	// marshal data to JSON
-	jsonData, err := json.Marshal(s.Data)
+	jsonData, err := json.Marshal(secretDefinitionValues.Data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal data: %w", err)
 	}
@@ -118,7 +120,7 @@ func (s *SecretDefinitionValues) Create(
 	// construct secret definition object
 	secretDefinition := api_v0.SecretDefinition{
 		Definition: api_v0.Definition{
-			Name: s.Name,
+			Name: secretDefinitionValues.Name,
 		},
 		AwsAccountID: awsAccount.ID,
 		Data:         util.Ptr(datatypes.JSON(jsonData)),
@@ -138,8 +140,8 @@ func (s *SecretDefinitionValues) Create(
 	createdSecretDefinitionConfig := &SecretDefinitionConfig{
 		SecretDefinition: SecretDefinitionValues{
 			Name:           createdSecretDefinition.Name,
-			AwsAccountName: s.AwsAccountName,
-			Data:           s.Data,
+			AwsAccountName: secretDefinitionValues.AwsAccountName,
+			Data:           secretDefinitionValues.Data,
 			Age:            util.Ptr(util.GetAgeFormatted(createdSecretDefinition.CreatedAt)),
 		},
 	}
@@ -151,11 +153,12 @@ func (s *SecretDefinitionValues) Create(
 // This is a full replacement of all fields in the secret definition object.
 // This function takes a name parameter to identify the secret definition to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (s *SecretDefinitionValues) Replace(
+func (s *SecretDefinitionConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*SecretDefinitionConfig, error) {
+	secretDefinitionValues := s.SecretDefinition
 	// validate config
 	if err := s.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid secret definition config: %w", err)
@@ -172,13 +175,13 @@ func (s *SecretDefinitionValues) Replace(
 	}
 
 	// get AWS account by name
-	awsAccount, err := client_v0.GetAwsAccountByName(apiClient, apiEndpoint, *s.AwsAccountName)
+	awsAccount, err := client_v0.GetAwsAccountByName(apiClient, apiEndpoint, *secretDefinitionValues.AwsAccountName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get AWS account with name %s: %w", *s.AwsAccountName, err)
+		return nil, fmt.Errorf("failed to get AWS account with name %s: %w", *secretDefinitionValues.AwsAccountName, err)
 	}
 
 	// marshal data to JSON
-	jsonData, err := json.Marshal(s.Data)
+	jsonData, err := json.Marshal(secretDefinitionValues.Data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal data: %w", err)
 	}
@@ -189,7 +192,7 @@ func (s *SecretDefinitionValues) Replace(
 			ID: existingSecretDefinition.ID,
 		},
 		Definition: api_v0.Definition{
-			Name: s.Name,
+			Name: secretDefinitionValues.Name,
 		},
 		AwsAccountID: awsAccount.ID,
 		Data:         util.Ptr(datatypes.JSON(jsonData)),
@@ -209,8 +212,8 @@ func (s *SecretDefinitionValues) Replace(
 	updatedSecretDefinitionConfig := &SecretDefinitionConfig{
 		SecretDefinition: SecretDefinitionValues{
 			Name:           replacedSecretDefinition.Name,
-			AwsAccountName: s.AwsAccountName,
-			Data:           s.Data,
+			AwsAccountName: secretDefinitionValues.AwsAccountName,
+			Data:           secretDefinitionValues.Data,
 			Age:            util.Ptr(util.GetAgeFormatted(replacedSecretDefinition.CreatedAt)),
 		},
 	}
@@ -219,18 +222,19 @@ func (s *SecretDefinitionValues) Replace(
 }
 
 // Delete deletes a secret definition from the Threeport API.
-func (s *SecretDefinitionValues) Delete(
+func (s *SecretDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*SecretDefinitionConfig, error) {
+	secretDefinitionValues := s.SecretDefinition
 	// get secret definition by name
 	secretDefinition, err := client_v0.GetSecretDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*s.Name,
+		*secretDefinitionValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find secret definition with name %s: %w", *s.Name, err)
+		return nil, fmt.Errorf("failed to find secret definition with name %s: %w", *secretDefinitionValues.Name, err)
 	}
 
 	// delete secret definition
@@ -254,21 +258,22 @@ func (s *SecretDefinitionValues) Delete(
 }
 
 // Validate validates inputs to create secret definitions.
-func (s *SecretDefinitionValues) Validate() error {
+func (s *SecretDefinitionConfig) Validate() error {
+	secretDefinitionValues := s.SecretDefinition
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if s.Name == nil {
+	if secretDefinitionValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure data is set
-	if s.Data == nil {
+	if secretDefinitionValues.Data == nil {
 		multiError.AppendError(errors.New("missing required field in config: Data"))
 	}
 
 	// ensure AWS account name is set
-	if s.AwsAccountName == nil {
+	if secretDefinitionValues.AwsAccountName == nil {
 		multiError.AppendError(errors.New("missing required field in config: AwsAccountName"))
 	}
 

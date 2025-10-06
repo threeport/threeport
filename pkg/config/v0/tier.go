@@ -31,18 +31,19 @@ type TierValues struct {
 // Get gets tiers from the Threeport API.
 // If the name is set in the TierValues, it will return the tier with that name.
 // If the name is not set, it will return all tiers.
-func (t *TierValues) Get(
+func (t *TierConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]TierConfig, error) {
+	tierValues := t.Tier
 	// get API objects
 	var tiers *[]api_v0.Tier
 	switch {
 	// if name is provided, get tier by name
-	case t.Name != nil:
-		tier, err := client_v0.GetTierByName(apiClient, apiEndpoint, *t.Name)
+	case tierValues.Name != nil:
+		tier, err := client_v0.GetTierByName(apiClient, apiEndpoint, *tierValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get tier with name %s: %w", *t.Name, err)
+			return nil, fmt.Errorf("failed to get tier with name %s: %w", *tierValues.Name, err)
 		}
 		tiers = &[]api_v0.Tier{*tier}
 	// get all tiers
@@ -71,19 +72,20 @@ func (t *TierValues) Get(
 }
 
 // Create creates a tier in the Threeport API.
-func (t *TierValues) Create(
+func (t *TierConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*TierConfig, error) {
+	tierValues := t.Tier
 	// validate config
 	if err := t.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for tier with name %s: %w", *t.Name, err)
+		return nil, fmt.Errorf("failed to validate values for tier with name %s: %w", *tierValues.Name, err)
 	}
 
 	// construct tier object
 	tier := api_v0.Tier{
-		Name:        t.Name,
-		Criticality: t.Criticality,
+		Name:        tierValues.Name,
+		Criticality: tierValues.Criticality,
 	}
 
 	// create tier
@@ -112,11 +114,12 @@ func (t *TierValues) Create(
 // This is a full replacement of all fields in the tier object.
 // This function takes a name parameter to identify the tier to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (t *TierValues) Replace(
+func (t *TierConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*TierConfig, error) {
+	tierValues := t.Tier
 	// validate config
 	if err := t.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid tier config: %w", err)
@@ -137,8 +140,8 @@ func (t *TierValues) Replace(
 		Common: api_v0.Common{
 			ID: existingTier.ID,
 		},
-		Name:        t.Name,
-		Criticality: t.Criticality,
+		Name:        tierValues.Name,
+		Criticality: tierValues.Criticality,
 	}
 
 	// replace tier
@@ -164,18 +167,19 @@ func (t *TierValues) Replace(
 }
 
 // Delete deletes a tier from the Threeport API.
-func (t *TierValues) Delete(
+func (t *TierConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*TierConfig, error) {
+	tierValues := t.Tier
 	// get tier by name
 	tier, err := client_v0.GetTierByName(
 		apiClient,
 		apiEndpoint,
-		*t.Name,
+		*tierValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find tier with name %s: %w", *t.Name, err)
+		return nil, fmt.Errorf("failed to find tier with name %s: %w", *tierValues.Name, err)
 	}
 
 	// delete tier
@@ -200,11 +204,12 @@ func (t *TierValues) Delete(
 }
 
 // Validate validates inputs to create tiers.
-func (t *TierValues) Validate() error {
+func (t *TierConfig) Validate() error {
+	tierValues := t.Tier
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if t.Name == nil {
+	if tierValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 

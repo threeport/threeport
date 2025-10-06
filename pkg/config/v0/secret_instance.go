@@ -35,18 +35,19 @@ type SecretInstanceValues struct {
 // Get gets secret instances from the Threeport API.
 // If the name is set in the SecretInstanceValues, it will return the secret instance with that name.
 // If the name is not set, it will return all secret instances.
-func (s *SecretInstanceValues) Get(
+func (s *SecretInstanceConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]SecretInstanceConfig, error) {
+	secretInstanceValues := s.SecretInstance
 	// get API objects
 	var secretInstances *[]api_v0.SecretInstance
 	switch {
 	// if name is provided, get secret instance by name
-	case s.Name != nil:
-		secretInstance, err := client_v0.GetSecretInstanceByName(apiClient, apiEndpoint, *s.Name)
+	case secretInstanceValues.Name != nil:
+		secretInstance, err := client_v0.GetSecretInstanceByName(apiClient, apiEndpoint, *secretInstanceValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get secret instance with name %s: %w", *s.Name, err)
+			return nil, fmt.Errorf("failed to get secret instance with name %s: %w", *secretInstanceValues.Name, err)
 		}
 		secretInstances = &[]api_v0.SecretInstance{*secretInstance}
 	// get all secret instances
@@ -124,20 +125,21 @@ func (s *SecretInstanceValues) Get(
 }
 
 // Create creates a secret instance in the Threeport API.
-func (s *SecretInstanceValues) Create(
+func (s *SecretInstanceConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*SecretInstanceConfig, error) {
+	secretInstanceValues := s.SecretInstance
 	// validate config
 	if err := s.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for secret instance with name %s: %w", *s.Name, err)
+		return nil, fmt.Errorf("failed to validate values for secret instance with name %s: %w", *secretInstanceValues.Name, err)
 	}
 
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := getKubernetesRuntimeInstanceByNameOrDefault(
 		apiClient,
 		apiEndpoint,
-		s.KubernetesRuntimeInstance,
+		secretInstanceValues.KubernetesRuntimeInstance,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
@@ -147,16 +149,16 @@ func (s *SecretInstanceValues) Create(
 	secretDefinition, err := client_v0.GetSecretDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*s.Name,
+		*secretInstanceValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get secret definition by name %s: %w", *s.Name, err)
+		return nil, fmt.Errorf("failed to get secret definition by name %s: %w", *secretInstanceValues.Name, err)
 	}
 
 	// construct secret instance object
 	secretInstance := api_v0.SecretInstance{
 		Instance: api_v0.Instance{
-			Name: s.Name,
+			Name: secretInstanceValues.Name,
 		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		SecretDefinitionID:          secretDefinition.ID,
@@ -164,21 +166,21 @@ func (s *SecretInstanceValues) Create(
 
 	// get workload instance
 	switch {
-	case s.WorkloadInstance != nil:
+	case secretInstanceValues.WorkloadInstance != nil:
 		workloadInstance, err := client_v0.GetWorkloadInstanceByName(
 			apiClient,
 			apiEndpoint,
-			*s.WorkloadInstance.Name,
+			*secretInstanceValues.WorkloadInstance.Name,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workload instance by name: %w", err)
 		}
 		secretInstance.WorkloadInstanceID = workloadInstance.ID
-	case s.HelmWorkloadInstance != nil:
+	case secretInstanceValues.HelmWorkloadInstance != nil:
 		helmWorkloadInstance, err := client_v0.GetHelmWorkloadInstanceByName(
 			apiClient,
 			apiEndpoint,
-			*s.HelmWorkloadInstance.Name,
+			*secretInstanceValues.HelmWorkloadInstance.Name,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get helm workload instance by name: %w", err)
@@ -200,10 +202,10 @@ func (s *SecretInstanceValues) Create(
 	createdSecretInstanceConfig := &SecretInstanceConfig{
 		SecretInstance: SecretInstanceValues{
 			Name:                      createdSecretInstance.Name,
-			SecretDefinition:          s.SecretDefinition,
-			WorkloadInstance:          s.WorkloadInstance,
-			HelmWorkloadInstance:      s.HelmWorkloadInstance,
-			KubernetesRuntimeInstance: s.KubernetesRuntimeInstance,
+			SecretDefinition:          secretInstanceValues.SecretDefinition,
+			WorkloadInstance:          secretInstanceValues.WorkloadInstance,
+			HelmWorkloadInstance:      secretInstanceValues.HelmWorkloadInstance,
+			KubernetesRuntimeInstance: secretInstanceValues.KubernetesRuntimeInstance,
 			Age:                       util.Ptr(util.GetAgeFormatted(createdSecretInstance.CreatedAt)),
 		},
 	}
@@ -215,11 +217,12 @@ func (s *SecretInstanceValues) Create(
 // This is a full replacement of all fields in the secret instance object.
 // This function takes a name parameter to identify the secret instance to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (s *SecretInstanceValues) Replace(
+func (s *SecretInstanceConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*SecretInstanceConfig, error) {
+	secretInstanceValues := s.SecretInstance
 	// validate config
 	if err := s.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid secret instance config: %w", err)
@@ -239,7 +242,7 @@ func (s *SecretInstanceValues) Replace(
 	kubernetesRuntimeInstance, moved, err := getKubernetesRuntimeInstanceAndCheckId(
 		apiClient,
 		apiEndpoint,
-		s.KubernetesRuntimeInstance,
+		secretInstanceValues.KubernetesRuntimeInstance,
 		existingSecretInstance.KubernetesRuntimeInstanceID,
 	)
 	if err != nil {
@@ -256,10 +259,10 @@ func (s *SecretInstanceValues) Replace(
 	secretDefinition, err := client_v0.GetSecretDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*s.Name,
+		*secretInstanceValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get secret definition by name %s: %w", *s.Name, err)
+		return nil, fmt.Errorf("failed to get secret definition by name %s: %w", *secretInstanceValues.Name, err)
 	}
 
 	// construct updated secret instance object
@@ -268,7 +271,7 @@ func (s *SecretInstanceValues) Replace(
 			ID: existingSecretInstance.ID,
 		},
 		Instance: api_v0.Instance{
-			Name: s.Name,
+			Name: secretInstanceValues.Name,
 		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
 		SecretDefinitionID:          secretDefinition.ID,
@@ -276,21 +279,21 @@ func (s *SecretInstanceValues) Replace(
 
 	// get workload instance
 	switch {
-	case s.WorkloadInstance != nil:
+	case secretInstanceValues.WorkloadInstance != nil:
 		workloadInstance, err := client_v0.GetWorkloadInstanceByName(
 			apiClient,
 			apiEndpoint,
-			*s.WorkloadInstance.Name,
+			*secretInstanceValues.WorkloadInstance.Name,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workload instance by name: %w", err)
 		}
 		updatedSecretInstance.WorkloadInstanceID = workloadInstance.ID
-	case s.HelmWorkloadInstance != nil:
+	case secretInstanceValues.HelmWorkloadInstance != nil:
 		helmWorkloadInstance, err := client_v0.GetHelmWorkloadInstanceByName(
 			apiClient,
 			apiEndpoint,
-			*s.HelmWorkloadInstance.Name,
+			*secretInstanceValues.HelmWorkloadInstance.Name,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get helm workload instance by name: %w", err)
@@ -312,10 +315,10 @@ func (s *SecretInstanceValues) Replace(
 	updatedSecretInstanceConfig := &SecretInstanceConfig{
 		SecretInstance: SecretInstanceValues{
 			Name:                      replacedSecretInstance.Name,
-			SecretDefinition:          s.SecretDefinition,
-			WorkloadInstance:          s.WorkloadInstance,
-			HelmWorkloadInstance:      s.HelmWorkloadInstance,
-			KubernetesRuntimeInstance: s.KubernetesRuntimeInstance,
+			SecretDefinition:          secretInstanceValues.SecretDefinition,
+			WorkloadInstance:          secretInstanceValues.WorkloadInstance,
+			HelmWorkloadInstance:      secretInstanceValues.HelmWorkloadInstance,
+			KubernetesRuntimeInstance: secretInstanceValues.KubernetesRuntimeInstance,
 			Age:                       util.Ptr(util.GetAgeFormatted(replacedSecretInstance.CreatedAt)),
 		},
 	}
@@ -324,18 +327,19 @@ func (s *SecretInstanceValues) Replace(
 }
 
 // Delete deletes a secret instance from the Threeport API.
-func (s *SecretInstanceValues) Delete(
+func (s *SecretInstanceConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*SecretInstanceConfig, error) {
+	secretInstanceValues := s.SecretInstance
 	// get secret instance by name
 	secretInstance, err := client_v0.GetSecretInstanceByName(
 		apiClient,
 		apiEndpoint,
-		*s.Name,
+		*secretInstanceValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find secret instance with name %s: %w", *s.Name, err)
+		return nil, fmt.Errorf("failed to find secret instance with name %s: %w", *secretInstanceValues.Name, err)
 	}
 
 	// delete secret instance
@@ -350,7 +354,7 @@ func (s *SecretInstanceValues) Delete(
 
 	// wait for secret instance to be deleted
 	util.Retry(60, 1, func() error {
-		if _, err := client_v0.GetSecretInstanceByName(apiClient, apiEndpoint, *s.Name); err == nil {
+		if _, err := client_v0.GetSecretInstanceByName(apiClient, apiEndpoint, *secretInstanceValues.Name); err == nil {
 			return errors.New("secret instance not deleted")
 		}
 		return nil
@@ -367,26 +371,27 @@ func (s *SecretInstanceValues) Delete(
 }
 
 // Validate validates inputs to create secret instances.
-func (s *SecretInstanceValues) Validate() error {
+func (s *SecretInstanceConfig) Validate() error {
+	secretInstanceValues := s.SecretInstance
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if s.Name == nil {
+	if secretInstanceValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure secret definition is set
-	if s.SecretDefinition == nil {
+	if secretInstanceValues.SecretDefinition == nil {
 		multiError.AppendError(errors.New("missing required field in config: SecretDefinition"))
 	}
 
 	// ensure workload instance or helm workload instance is set
-	if s.WorkloadInstance == nil && s.HelmWorkloadInstance == nil {
+	if secretInstanceValues.WorkloadInstance == nil && secretInstanceValues.HelmWorkloadInstance == nil {
 		multiError.AppendError(errors.New("missing required field in config: WorkloadInstance or HelmWorkloadInstance"))
 	}
 
 	// ensure kubernetes runtime instance is set (name is required if provided)
-	if s.KubernetesRuntimeInstance == nil || s.KubernetesRuntimeInstance.Name == nil {
+	if secretInstanceValues.KubernetesRuntimeInstance == nil || secretInstanceValues.KubernetesRuntimeInstance.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
 	}
 

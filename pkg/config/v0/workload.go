@@ -33,7 +33,7 @@ type WorkloadValues struct {
 }
 
 // Get gets a workload definition and instance from the Threeport API.
-func (w *WorkloadValues) Get(
+func (w *WorkloadConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]WorkloadConfig, error) {
@@ -58,10 +58,11 @@ func (w *WorkloadValues) Get(
 }
 
 // Create creates a workload definition and instance in the Threeport API.
-func (w *WorkloadValues) Create(
+func (w *WorkloadConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]WorkloadConfig, error) {
+	workloadValues := w.Workload
 	// get operations
 	operations, workloadDefinitions, workloadInstances := w.GetOperations(
 		apiClient,
@@ -72,7 +73,7 @@ func (w *WorkloadValues) Create(
 	if err := operations.Create(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute create operations for workload defined instance with name %s: %w",
-			*w.Name,
+			*workloadValues.Name,
 			err,
 		)
 	}
@@ -84,7 +85,7 @@ func (w *WorkloadValues) Create(
 }
 
 // Replace replaces a workload definition and instance in the Threeport API.
-func (w *WorkloadValues) Replace(
+func (w *WorkloadConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
@@ -111,10 +112,11 @@ func (w *WorkloadValues) Replace(
 }
 
 // Delete deletes a workload definition and instance from the Threeport API.
-func (w *WorkloadValues) Delete(
+func (w *WorkloadConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]WorkloadConfig, error) {
+	workloadValues := w.Workload
 	// get operations
 	operations, _, _ := w.GetOperations(
 		apiClient,
@@ -125,7 +127,7 @@ func (w *WorkloadValues) Delete(
 	if err := operations.Delete(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute delete operations for workload defined instance with name %s: %w",
-			*w.Name,
+			*workloadValues.Name,
 			err,
 		)
 	}
@@ -135,10 +137,11 @@ func (w *WorkloadValues) Delete(
 
 // GetOperations returns a slice of operations used to get, create, replace or delete
 // a workload defined instance.
-func (w *WorkloadValues) GetOperations(
+func (w *WorkloadConfig) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*util.Operations, *[]WorkloadDefinitionConfig, *[]WorkloadInstanceConfig) {
+	workloadValues := w.Workload
 	var err error
 	var operatedWorkloadDefinitions []WorkloadDefinitionConfig
 	var operatedWorkloadInstances []WorkloadInstanceConfig
@@ -146,29 +149,31 @@ func (w *WorkloadValues) GetOperations(
 	operations := util.Operations{}
 
 	// add workload definition operation
-	workloadDefinitionValues := WorkloadDefinitionValues{
-		Name:               w.Name,
-		YAMLDocument:       w.YAMLDocument,
-		WorkloadConfigPath: w.WorkloadConfigPath,
+	workloadDefinitionConfig := WorkloadDefinitionConfig{
+		WorkloadDefinition: WorkloadDefinitionValues{
+			Name:               workloadValues.Name,
+			YAMLDocument:       workloadValues.YAMLDocument,
+			WorkloadConfigPath: workloadValues.WorkloadConfigPath,
+		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			workloadDefinition, err := workloadDefinitionValues.Create(apiClient, apiEndpoint)
+			workloadDefinition, err := workloadDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create workload definition with name %s: %w", *w.Name, err)
+				return fmt.Errorf("failed to create workload definition with name %s: %w", *workloadValues.Name, err)
 			}
 			operatedWorkloadDefinitions = append(operatedWorkloadDefinitions, *workloadDefinition)
 			return nil
 		},
 		Delete: func() error {
-			_, err = workloadDefinitionValues.Delete(apiClient, apiEndpoint)
+			_, err = workloadDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete workload definition with name %s: %w", *w.Name, err)
+				return fmt.Errorf("failed to delete workload definition with name %s: %w", *workloadValues.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			workloadDefinitions, err := workloadDefinitionValues.Get(apiClient, apiEndpoint)
+			workloadDefinitions, err := workloadDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				return fmt.Errorf("failed to get workload definitions: %w", err)
 			}
@@ -180,7 +185,7 @@ func (w *WorkloadValues) GetOperations(
 		},
 		Name: "workload definition",
 		Replace: func(name string) error {
-			workloadDefinition, err := workloadDefinitionValues.Replace(apiClient, apiEndpoint, name)
+			workloadDefinition, err := workloadDefinitionConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace workload definition with name %s: %w", name, err)
 			}
@@ -190,44 +195,46 @@ func (w *WorkloadValues) GetOperations(
 	})
 
 	// add workload instance operation
-	workloadInstanceValues := WorkloadInstanceValues{
-		Name:                      w.Name,
-		KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
-		WorkloadDefinition:        &workloadDefinitionValues,
+	workloadInstanceConfig := WorkloadInstanceConfig{
+		WorkloadInstance: WorkloadInstanceValues{
+			Name:                      workloadValues.Name,
+			KubernetesRuntimeInstance: workloadValues.KubernetesRuntimeInstance,
+			WorkloadDefinition:        &workloadDefinitionConfig.WorkloadDefinition,
+		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			workloadInstance, err := workloadInstanceValues.Create(apiClient, apiEndpoint)
+			workloadInstance, err := workloadInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create workload instance with name %s: %w", *w.Name, err)
+				return fmt.Errorf("failed to create workload instance with name %s: %w", *workloadValues.Name, err)
 			}
 			operatedWorkloadInstances = append(operatedWorkloadInstances, *workloadInstance)
 			return nil
 		},
 		Delete: func() error {
-			_, err = workloadInstanceValues.Delete(apiClient, apiEndpoint)
+			_, err = workloadInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete workload instance with name %s: %w", *w.Name, err)
+				return fmt.Errorf("failed to delete workload instance with name %s: %w", *workloadValues.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			workloadInstance, err := workloadInstanceValues.Get(apiClient, apiEndpoint)
+			workloadInstance, err := workloadInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get workload instance with name %s: %w", *w.Name, err)
+				return fmt.Errorf("failed to get workload instance with name %s: %w", *workloadValues.Name, err)
 			}
 			if len(*workloadInstance) == 0 {
-				return fmt.Errorf("failed to find workload instance with name %s: %w", *w.Name, err)
+				return fmt.Errorf("failed to find workload instance with name %s: %w", *workloadValues.Name, err)
 			}
 			if len(*workloadInstance) > 1 {
-				return fmt.Errorf("multiple workload instances found with name %s: %w", *w.Name, err)
+				return fmt.Errorf("multiple workload instances found with name %s: %w", *workloadValues.Name, err)
 			}
 			operatedWorkloadInstances = append(operatedWorkloadInstances, (*workloadInstance)[0])
 			return nil
 		},
 		Name: "workload instance",
 		Replace: func(name string) error {
-			workloadInstance, err := workloadInstanceValues.Replace(apiClient, apiEndpoint, name)
+			workloadInstance, err := workloadInstanceConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace workload definition with name %s: %w", name, err)
 			}
@@ -237,28 +244,30 @@ func (w *WorkloadValues) GetOperations(
 	})
 
 	// add domain name if provided
-	var domainNameDefinitionValues DomainNameDefinitionValues
-	if w.DomainName != nil {
+	var domainNameDefinitionConfig DomainNameDefinitionConfig
+	if workloadValues.DomainName != nil {
 		// add domain name definition operation
-		domainNameDefinitionValues = DomainNameDefinitionValues{
-			Name:       w.DomainName.Name,
-			Domain:     w.DomainName.Domain,
-			Zone:       w.DomainName.Zone,
-			AdminEmail: w.DomainName.AdminEmail,
+		domainNameDefinitionConfig = DomainNameDefinitionConfig{
+			DomainNameDefinition: DomainNameDefinitionValues{
+				Name:       workloadValues.DomainName.Name,
+				Domain:     workloadValues.DomainName.Domain,
+				Zone:       workloadValues.DomainName.Zone,
+				AdminEmail: workloadValues.DomainName.AdminEmail,
+			},
 		}
 		operations.AppendOperation(util.Operation{
 			Name: "domain name definition",
 			Create: func() error {
-				_, err = domainNameDefinitionValues.Create(apiClient, apiEndpoint)
+				_, err = domainNameDefinitionConfig.Create(apiClient, apiEndpoint)
 				if err != nil {
-					return fmt.Errorf("failed to create domain name definition with name %s: %w", *w.DomainName.Name, err)
+					return fmt.Errorf("failed to create domain name definition with name %s: %w", *workloadValues.DomainName.Name, err)
 				}
 				return nil
 			},
 			Delete: func() error {
-				_, err = domainNameDefinitionValues.Delete(apiClient, apiEndpoint)
+				_, err = domainNameDefinitionConfig.Delete(apiClient, apiEndpoint)
 				if err != nil {
-					return fmt.Errorf("failed to delete domain name definition with name %s: %w", *w.DomainName.Name, err)
+					return fmt.Errorf("failed to delete domain name definition with name %s: %w", *workloadValues.DomainName.Name, err)
 				}
 				return nil
 			},
@@ -267,7 +276,7 @@ func (w *WorkloadValues) GetOperations(
 				return nil
 			},
 			Replace: func(name string) error {
-				_, err = domainNameDefinitionValues.Replace(apiClient, apiEndpoint, name)
+				_, err = domainNameDefinitionConfig.Replace(apiClient, apiEndpoint, name)
 				if err != nil {
 					return fmt.Errorf("failed to replace domain name definition with name %s: %w", name, err)
 				}
@@ -276,24 +285,26 @@ func (w *WorkloadValues) GetOperations(
 		})
 
 		// add domain name instance operation
-		domainNameInstanceValues := DomainNameInstanceValues{
-			DomainNameDefinition:      &domainNameDefinitionValues,
-			KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
-			WorkloadInstance:          &workloadInstanceValues,
+		domainNameInstanceConfig := DomainNameInstanceConfig{
+			DomainNameInstance: DomainNameInstanceValues{
+				DomainNameDefinition:      &domainNameDefinitionConfig.DomainNameDefinition,
+				KubernetesRuntimeInstance: workloadValues.KubernetesRuntimeInstance,
+				WorkloadInstance:          &workloadInstanceConfig.WorkloadInstance,
+			},
 		}
 		operations.AppendOperation(util.Operation{
 			Name: "domain name instance",
 			Create: func() error {
-				_, err = domainNameInstanceValues.Create(apiClient, apiEndpoint)
+				_, err = domainNameInstanceConfig.Create(apiClient, apiEndpoint)
 				if err != nil {
-					return fmt.Errorf("failed to create domain name instance with name %s: %w", *w.DomainName.Name, err)
+					return fmt.Errorf("failed to create domain name instance with name %s: %w", *workloadValues.DomainName.Name, err)
 				}
 				return nil
 			},
 			Delete: func() error {
-				_, err = domainNameInstanceValues.Delete(apiClient, apiEndpoint)
+				_, err = domainNameInstanceConfig.Delete(apiClient, apiEndpoint)
 				if err != nil {
-					return fmt.Errorf("failed to delete domain name instance with name %s: %w", *w.DomainName.Name, err)
+					return fmt.Errorf("failed to delete domain name instance with name %s: %w", *workloadValues.DomainName.Name, err)
 				}
 				return nil
 			},
@@ -302,7 +313,7 @@ func (w *WorkloadValues) GetOperations(
 				return nil
 			},
 			Replace: func(name string) error {
-				_, err = domainNameInstanceValues.Replace(apiClient, apiEndpoint, name)
+				_, err = domainNameInstanceConfig.Replace(apiClient, apiEndpoint, name)
 				if err != nil {
 					return fmt.Errorf("failed to replace domain name instance with name %s: %w", name, err)
 				}
@@ -312,30 +323,32 @@ func (w *WorkloadValues) GetOperations(
 	}
 
 	// add gateway if provided
-	if w.Gateway != nil {
+	if workloadValues.Gateway != nil {
 		// add gateway definition operation
-		gatewayDefinitionValues := GatewayDefinitionValues{
-			Name:                 w.Gateway.Name,
-			HttpPorts:            w.Gateway.HttpPorts,
-			TcpPorts:             w.Gateway.TcpPorts,
-			ServiceName:          w.Gateway.ServiceName,
-			SubDomain:            w.Gateway.SubDomain,
-			DomainNameDefinition: &domainNameDefinitionValues,
+		gatewayDefinitionConfig := GatewayDefinitionConfig{
+			GatewayDefinition: GatewayDefinitionValues{
+				Name:                 workloadValues.Gateway.Name,
+				HttpPorts:            workloadValues.Gateway.HttpPorts,
+				TcpPorts:             workloadValues.Gateway.TcpPorts,
+				ServiceName:          workloadValues.Gateway.ServiceName,
+				SubDomain:            workloadValues.Gateway.SubDomain,
+				DomainNameDefinition: &domainNameDefinitionConfig.DomainNameDefinition,
+			},
 		}
 
 		operations.AppendOperation(util.Operation{
 			Name: "gateway definition",
 			Create: func() error {
-				_, err = gatewayDefinitionValues.Create(apiClient, apiEndpoint)
+				_, err = gatewayDefinitionConfig.Create(apiClient, apiEndpoint)
 				if err != nil {
-					return fmt.Errorf("failed to create gateway definition with name %s: %w", *w.Gateway.Name, err)
+					return fmt.Errorf("failed to create gateway definition with name %s: %w", *workloadValues.Gateway.Name, err)
 				}
 				return nil
 			},
 			Delete: func() error {
-				_, err = gatewayDefinitionValues.Delete(apiClient, apiEndpoint)
+				_, err = gatewayDefinitionConfig.Delete(apiClient, apiEndpoint)
 				if err != nil {
-					return fmt.Errorf("failed to delete gateway definition with name %s: %w", *w.Gateway.Name, err)
+					return fmt.Errorf("failed to delete gateway definition with name %s: %w", *workloadValues.Gateway.Name, err)
 				}
 				return nil
 			},
@@ -344,7 +357,7 @@ func (w *WorkloadValues) GetOperations(
 				return nil
 			},
 			Replace: func(name string) error {
-				_, err = gatewayDefinitionValues.Replace(apiClient, apiEndpoint, name)
+				_, err = gatewayDefinitionConfig.Replace(apiClient, apiEndpoint, name)
 				if err != nil {
 					return fmt.Errorf("failed to replace gateway definition with name %s: %w", name, err)
 				}
@@ -353,25 +366,27 @@ func (w *WorkloadValues) GetOperations(
 		})
 
 		// add gateway instance operation
-		gatewayInstanceValues := GatewayInstanceValues{
-			Name:                      w.Gateway.Name,
-			GatewayDefinition:         &gatewayDefinitionValues,
-			KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
-			WorkloadInstance:          &workloadInstanceValues,
+		gatewayInstanceConfig := GatewayInstanceConfig{
+			GatewayInstance: GatewayInstanceValues{
+				Name:                      workloadValues.Gateway.Name,
+				GatewayDefinition:         &gatewayDefinitionConfig.GatewayDefinition,
+				KubernetesRuntimeInstance: workloadValues.KubernetesRuntimeInstance,
+				WorkloadInstance:          &workloadInstanceConfig.WorkloadInstance,
+			},
 		}
 		operations.AppendOperation(util.Operation{
 			Name: "gateway instance",
 			Create: func() error {
-				_, err = gatewayInstanceValues.Create(apiClient, apiEndpoint)
+				_, err = gatewayInstanceConfig.Create(apiClient, apiEndpoint)
 				if err != nil {
-					return fmt.Errorf("failed to create gateway instance with name %s: %w", *w.Gateway.Name, err)
+					return fmt.Errorf("failed to create gateway instance with name %s: %w", *workloadValues.Gateway.Name, err)
 				}
 				return nil
 			},
 			Delete: func() error {
-				_, err = gatewayInstanceValues.Delete(apiClient, apiEndpoint)
+				_, err = gatewayInstanceConfig.Delete(apiClient, apiEndpoint)
 				if err != nil {
-					return fmt.Errorf("failed to delete gateway instance with name %s: %w", *w.Gateway.Name, err)
+					return fmt.Errorf("failed to delete gateway instance with name %s: %w", *workloadValues.Gateway.Name, err)
 				}
 				return nil
 			},
@@ -380,7 +395,7 @@ func (w *WorkloadValues) GetOperations(
 				return nil
 			},
 			Replace: func(name string) error {
-				_, err = gatewayInstanceValues.Replace(apiClient, apiEndpoint, name)
+				_, err = gatewayInstanceConfig.Replace(apiClient, apiEndpoint, name)
 				if err != nil {
 					return fmt.Errorf("failed to replace gateway instance with name %s: %w", name, err)
 				}
@@ -390,27 +405,29 @@ func (w *WorkloadValues) GetOperations(
 	}
 
 	// add secret operation
-	if w.Secret != nil {
-		secret := SecretValues{
-			Name:                      w.Secret.Name,
-			AwsAccountName:            w.Secret.AwsAccountName,
-			Data:                      w.Secret.Data,
-			KubernetesRuntimeInstance: w.KubernetesRuntimeInstance,
-			WorkloadInstance:          &workloadInstanceValues,
+	if workloadValues.Secret != nil {
+		secretConfig := SecretConfig{
+			Secret: SecretValues{
+				Name:                      workloadValues.Secret.Name,
+				AwsAccountName:            workloadValues.Secret.AwsAccountName,
+				Data:                      workloadValues.Secret.Data,
+				KubernetesRuntimeInstance: workloadValues.KubernetesRuntimeInstance,
+				WorkloadInstance:          &workloadInstanceConfig.WorkloadInstance,
+			},
 		}
 		operations.AppendOperation(util.Operation{
 			Name: "secret",
 			Create: func() error {
-				_, err := secret.Create(apiClient, apiEndpoint)
+				_, err := secretConfig.Create(apiClient, apiEndpoint)
 				if err != nil {
-					return fmt.Errorf("failed to create secret defined instance with name %s: %w", *w.Secret.Name, err)
+					return fmt.Errorf("failed to create secret defined instance with name %s: %w", *workloadValues.Secret.Name, err)
 				}
 				return nil
 			},
 			Delete: func() error {
-				_, err := secret.Delete(apiClient, apiEndpoint)
+				_, err := secretConfig.Delete(apiClient, apiEndpoint)
 				if err != nil {
-					return fmt.Errorf("failed to delete secret defined instance with name %s: %w", *w.Secret.Name, err)
+					return fmt.Errorf("failed to delete secret defined instance with name %s: %w", *workloadValues.Secret.Name, err)
 				}
 				return nil
 			},
@@ -419,7 +436,7 @@ func (w *WorkloadValues) GetOperations(
 				return nil
 			},
 			Replace: func(name string) error {
-				_, err := secret.Replace(apiClient, apiEndpoint, name)
+				_, err := secretConfig.Replace(apiClient, apiEndpoint, name)
 				if err != nil {
 					return fmt.Errorf("failed to replace secret defined instance with name %s: %w", name, err)
 				}

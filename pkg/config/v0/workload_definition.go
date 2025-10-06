@@ -35,18 +35,19 @@ type WorkloadDefinitionValues struct {
 // Get gets workload definitions from the Threeport API.
 // If the name is set in the WorkloadDefinitionValues, it will return the workload definition with that name.
 // If the name is not set, it will return all workload definitions.
-func (w *WorkloadDefinitionValues) Get(
+func (w *WorkloadDefinitionConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]WorkloadDefinitionConfig, error) {
+	workloadDefinitionValues := w.WorkloadDefinition
 	// get API objects
 	var workloadDefinitions *[]api_v0.WorkloadDefinition
 	switch {
 	// if name is provided, get workload definition by name
-	case w.Name != nil:
-		workloadDefinition, err := client_v0.GetWorkloadDefinitionByName(apiClient, apiEndpoint, *w.Name)
+	case workloadDefinitionValues.Name != nil:
+		workloadDefinition, err := client_v0.GetWorkloadDefinitionByName(apiClient, apiEndpoint, *workloadDefinitionValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get workload definition with name %s: %w", *w.Name, err)
+			return nil, fmt.Errorf("failed to get workload definition with name %s: %w", *workloadDefinitionValues.Name, err)
 		}
 		workloadDefinitions = &[]api_v0.WorkloadDefinition{*workloadDefinition}
 	// get all workload definitions
@@ -75,30 +76,31 @@ func (w *WorkloadDefinitionValues) Get(
 }
 
 // Create creates a workload definition in the Threeport API.
-func (w *WorkloadDefinitionValues) Create(
+func (w *WorkloadDefinitionConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*WorkloadDefinitionConfig, error) {
+	workloadDefinitionValues := w.WorkloadDefinition
 	// validate config
 	if err := w.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for workload definition with name %s: %w", *w.Name, err)
+		return nil, fmt.Errorf("failed to validate values for workload definition with name %s: %w", *workloadDefinitionValues.Name, err)
 	}
 
 	// build the path to the YAML document relative to the user's working directory
-	configPath, _ := filepath.Split(*w.WorkloadConfigPath)
-	relativeYamlPath := path.Join(configPath, *w.YAMLDocument)
+	configPath, _ := filepath.Split(*workloadDefinitionValues.WorkloadConfigPath)
+	relativeYamlPath := path.Join(configPath, *workloadDefinitionValues.YAMLDocument)
 
 	// load YAML document
 	definitionContent, err := os.ReadFile(relativeYamlPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read definition YAMLDocument file with name %s: %w", *w.YAMLDocument, err)
+		return nil, fmt.Errorf("failed to read definition YAMLDocument file with name %s: %w", *workloadDefinitionValues.YAMLDocument, err)
 	}
 	stringContent := string(definitionContent)
 
 	// construct workload definition object
 	workloadDefinition := api_v0.WorkloadDefinition{
 		Definition: api_v0.Definition{
-			Name: w.Name,
+			Name: workloadDefinitionValues.Name,
 		},
 		YAMLDocument: &stringContent,
 	}
@@ -117,8 +119,8 @@ func (w *WorkloadDefinitionValues) Create(
 	createdWorkloadDefinitionConfig := &WorkloadDefinitionConfig{
 		WorkloadDefinition: WorkloadDefinitionValues{
 			Name:               createdWorkloadDefinition.Name,
-			YAMLDocument:       w.YAMLDocument,
-			WorkloadConfigPath: w.WorkloadConfigPath,
+			YAMLDocument:       workloadDefinitionValues.YAMLDocument,
+			WorkloadConfigPath: workloadDefinitionValues.WorkloadConfigPath,
 			Age:                util.Ptr(util.GetAgeFormatted(createdWorkloadDefinition.CreatedAt)),
 		},
 	}
@@ -130,11 +132,12 @@ func (w *WorkloadDefinitionValues) Create(
 // This is a full replacement of all fields in the workload definition object.
 // This function takes a name parameter to identify the workload definition to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (w *WorkloadDefinitionValues) Replace(
+func (w *WorkloadDefinitionConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*WorkloadDefinitionConfig, error) {
+	workloadDefinitionValues := w.WorkloadDefinition
 	// validate config
 	if err := w.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid workload definition config: %w", err)
@@ -151,13 +154,13 @@ func (w *WorkloadDefinitionValues) Replace(
 	}
 
 	// build the path to the YAML document relative to the user's working directory
-	configPath, _ := filepath.Split(*w.WorkloadConfigPath)
-	relativeYamlPath := path.Join(configPath, *w.YAMLDocument)
+	configPath, _ := filepath.Split(*workloadDefinitionValues.WorkloadConfigPath)
+	relativeYamlPath := path.Join(configPath, *workloadDefinitionValues.YAMLDocument)
 
 	// load YAML document
 	definitionContent, err := os.ReadFile(relativeYamlPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read definition YAMLDocument file with name %s: %w", *w.YAMLDocument, err)
+		return nil, fmt.Errorf("failed to read definition YAMLDocument file with name %s: %w", *workloadDefinitionValues.YAMLDocument, err)
 	}
 	stringContent := string(definitionContent)
 
@@ -167,7 +170,7 @@ func (w *WorkloadDefinitionValues) Replace(
 			ID: existingWorkloadDefinition.ID,
 		},
 		Definition: api_v0.Definition{
-			Name: w.Name,
+			Name: workloadDefinitionValues.Name,
 		},
 		YAMLDocument: &stringContent,
 	}
@@ -186,8 +189,8 @@ func (w *WorkloadDefinitionValues) Replace(
 	updatedWorkloadDefinitionConfig := &WorkloadDefinitionConfig{
 		WorkloadDefinition: WorkloadDefinitionValues{
 			Name:               replacedWorkloadDefinition.Name,
-			YAMLDocument:       w.YAMLDocument,
-			WorkloadConfigPath: w.WorkloadConfigPath,
+			YAMLDocument:       workloadDefinitionValues.YAMLDocument,
+			WorkloadConfigPath: workloadDefinitionValues.WorkloadConfigPath,
 			Age:                util.Ptr(util.GetAgeFormatted(replacedWorkloadDefinition.CreatedAt)),
 		},
 	}
@@ -196,18 +199,19 @@ func (w *WorkloadDefinitionValues) Replace(
 }
 
 // Delete deletes a workload definition from the Threeport API.
-func (w *WorkloadDefinitionValues) Delete(
+func (w *WorkloadDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*WorkloadDefinitionConfig, error) {
+	workloadDefinitionValues := w.WorkloadDefinition
 	// get workload definition by name
 	workloadDefinition, err := client_v0.GetWorkloadDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*w.Name,
+		*workloadDefinitionValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find workload definition with name %s: %w", *w.Name, err)
+		return nil, fmt.Errorf("failed to find workload definition with name %s: %w", *workloadDefinitionValues.Name, err)
 	}
 
 	// delete workload definition
@@ -231,16 +235,17 @@ func (w *WorkloadDefinitionValues) Delete(
 }
 
 // Validate validates inputs to create workload definitions.
-func (w *WorkloadDefinitionValues) Validate() error {
+func (w *WorkloadDefinitionConfig) Validate() error {
+	workloadDefinitionValues := w.WorkloadDefinition
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if w.Name == nil {
+	if workloadDefinitionValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure YAML document is set
-	if w.YAMLDocument == nil {
+	if workloadDefinitionValues.YAMLDocument == nil {
 		multiError.AppendError(errors.New("missing required field in config: YAMLDocument"))
 	}
 

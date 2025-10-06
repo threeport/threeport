@@ -35,18 +35,19 @@ type TerraformDefinitionValues struct {
 // Get gets terraform definitions from the Threeport API.
 // If the name is set in the TerraformDefinitionValues, it will return the terraform definition with that name.
 // If the name is not set, it will return all terraform definitions.
-func (t *TerraformDefinitionValues) Get(
+func (t *TerraformDefinitionConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]TerraformDefinitionConfig, error) {
+	terraformDefinitionValues := t.TerraformDefinition
 	// get API objects
 	var terraformDefinitions *[]api_v0.TerraformDefinition
 	switch {
 	// if name is provided, get terraform definition by name
-	case t.Name != nil:
-		terraformDefinition, err := client_v0.GetTerraformDefinitionByName(apiClient, apiEndpoint, *t.Name)
+	case terraformDefinitionValues.Name != nil:
+		terraformDefinition, err := client_v0.GetTerraformDefinitionByName(apiClient, apiEndpoint, *terraformDefinitionValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get terraform definition with name %s: %w", *t.Name, err)
+			return nil, fmt.Errorf("failed to get terraform definition with name %s: %w", *terraformDefinitionValues.Name, err)
 		}
 		terraformDefinitions = &[]api_v0.TerraformDefinition{*terraformDefinition}
 	// get all terraform definitions
@@ -74,18 +75,19 @@ func (t *TerraformDefinitionValues) Get(
 }
 
 // Create creates a terraform definition in the Threeport API.
-func (t *TerraformDefinitionValues) Create(
+func (t *TerraformDefinitionConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*TerraformDefinitionConfig, error) {
+	terraformDefinitionValues := t.TerraformDefinition
 	// validate config
 	if err := t.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for terraform definition with name %s: %w", *t.Name, err)
+		return nil, fmt.Errorf("failed to validate values for terraform definition with name %s: %w", *terraformDefinitionValues.Name, err)
 	}
 
 	// build the path to the terraform config dir relative to the user's working directory
-	configDir := filepath.Dir(*t.TerraformConfigPath)
-	relativeTerraformConfigPath := filepath.Join(configDir, *t.ConfigDir)
+	configDir := filepath.Dir(*terraformDefinitionValues.TerraformConfigPath)
+	relativeTerraformConfigPath := filepath.Join(configDir, *terraformDefinitionValues.ConfigDir)
 
 	// collect all the terraform config files
 	var terraformConfigFiles []string
@@ -103,7 +105,7 @@ func (t *TerraformDefinitionValues) Create(
 		return nil, fmt.Errorf("failed to find terraform config files in provided config dir: %w", err)
 	}
 	if len(terraformConfigFiles) == 0 {
-		return nil, fmt.Errorf("no terraform config files with '.tf' file extension found in provided config dir: %s", *t.ConfigDir)
+		return nil, fmt.Errorf("no terraform config files with '.tf' file extension found in provided config dir: %s", *terraformDefinitionValues.ConfigDir)
 	}
 
 	// load terraform configs
@@ -120,7 +122,7 @@ func (t *TerraformDefinitionValues) Create(
 	// construct terraform definition object
 	terraformDefinition := api_v0.TerraformDefinition{
 		Definition: api_v0.Definition{
-			Name: t.Name,
+			Name: terraformDefinitionValues.Name,
 		},
 		ConfigDir: &concatConfig,
 	}
@@ -139,8 +141,8 @@ func (t *TerraformDefinitionValues) Create(
 	createdTerraformDefinitionConfig := &TerraformDefinitionConfig{
 		TerraformDefinition: TerraformDefinitionValues{
 			Name:                createdTerraformDefinition.Name,
-			ConfigDir:           t.ConfigDir,
-			TerraformConfigPath: t.TerraformConfigPath,
+			ConfigDir:           terraformDefinitionValues.ConfigDir,
+			TerraformConfigPath: terraformDefinitionValues.TerraformConfigPath,
 			Age:                 util.Ptr(util.GetAgeFormatted(createdTerraformDefinition.CreatedAt)),
 		},
 	}
@@ -152,11 +154,12 @@ func (t *TerraformDefinitionValues) Create(
 // This is a full replacement of all fields in the terraform definition object.
 // This function takes a name parameter to identify the terraform definition to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (t *TerraformDefinitionValues) Replace(
+func (t *TerraformDefinitionConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*TerraformDefinitionConfig, error) {
+	terraformDefinitionValues := t.TerraformDefinition
 	// validate config
 	if err := t.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid terraform definition config: %w", err)
@@ -173,8 +176,8 @@ func (t *TerraformDefinitionValues) Replace(
 	}
 
 	// build the path to the terraform config dir relative to the user's working directory
-	configDir := filepath.Dir(*t.TerraformConfigPath)
-	relativeTerraformConfigPath := filepath.Join(configDir, *t.ConfigDir)
+	configDir := filepath.Dir(*terraformDefinitionValues.TerraformConfigPath)
+	relativeTerraformConfigPath := filepath.Join(configDir, *terraformDefinitionValues.ConfigDir)
 
 	// collect all the terraform config files
 	var terraformConfigFiles []string
@@ -192,7 +195,7 @@ func (t *TerraformDefinitionValues) Replace(
 		return nil, fmt.Errorf("failed to find terraform config files in provided config dir: %w", err)
 	}
 	if len(terraformConfigFiles) == 0 {
-		return nil, fmt.Errorf("no terraform config files with '.tf' file extension found in provided config dir: %s", *t.ConfigDir)
+		return nil, fmt.Errorf("no terraform config files with '.tf' file extension found in provided config dir: %s", *terraformDefinitionValues.ConfigDir)
 	}
 
 	// load terraform configs
@@ -212,7 +215,7 @@ func (t *TerraformDefinitionValues) Replace(
 			ID: existingTerraformDefinition.ID,
 		},
 		Definition: api_v0.Definition{
-			Name: t.Name,
+			Name: terraformDefinitionValues.Name,
 		},
 		ConfigDir: &concatConfig,
 	}
@@ -231,8 +234,8 @@ func (t *TerraformDefinitionValues) Replace(
 	updatedTerraformDefinitionConfig := &TerraformDefinitionConfig{
 		TerraformDefinition: TerraformDefinitionValues{
 			Name:                replacedTerraformDefinition.Name,
-			ConfigDir:           t.ConfigDir,
-			TerraformConfigPath: t.TerraformConfigPath,
+			ConfigDir:           terraformDefinitionValues.ConfigDir,
+			TerraformConfigPath: terraformDefinitionValues.TerraformConfigPath,
 			Age:                 util.Ptr(util.GetAgeFormatted(replacedTerraformDefinition.CreatedAt)),
 		},
 	}
@@ -241,18 +244,19 @@ func (t *TerraformDefinitionValues) Replace(
 }
 
 // Delete deletes a terraform definition from the Threeport API.
-func (t *TerraformDefinitionValues) Delete(
+func (t *TerraformDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*TerraformDefinitionConfig, error) {
+	terraformDefinitionValues := t.TerraformDefinition
 	// get terraform definition by name
 	terraformDefinition, err := client_v0.GetTerraformDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*t.Name,
+		*terraformDefinitionValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find terraform definition with name %s: %w", *t.Name, err)
+		return nil, fmt.Errorf("failed to find terraform definition with name %s: %w", *terraformDefinitionValues.Name, err)
 	}
 
 	// delete terraform definition
@@ -276,16 +280,17 @@ func (t *TerraformDefinitionValues) Delete(
 }
 
 // Validate validates inputs to create terraform definitions.
-func (t *TerraformDefinitionValues) Validate() error {
+func (t *TerraformDefinitionConfig) Validate() error {
+	terraformDefinitionValues := t.TerraformDefinition
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if t.Name == nil {
+	if terraformDefinitionValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure terraform config dir is set
-	if t.ConfigDir == nil {
+	if terraformDefinitionValues.ConfigDir == nil {
 		multiError.AppendError(errors.New("missing required field in config: ConfigDir"))
 	}
 

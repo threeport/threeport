@@ -37,19 +37,20 @@ type OciAccountValues struct {
 // Get gets oci accounts from the Threeport API.
 // If the name is set in the OciAccountValues, it will return the oci account with that name.
 // If the name is not set, it will return all oci accounts.
-func (o *OciAccountValues) Get(
+func (o *OciAccountConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 	encryptionKey string,
 ) (*[]OciAccountConfig, error) {
+	ociAccountValues := o.OciAccount
 	// get API objects
 	var ociAccounts *[]api_v0.OciAccount
 	switch {
 	// if name is provided, get oci account by name
-	case o.Name != nil:
-		ociAccount, err := client_v0.GetOciAccountByName(apiClient, apiEndpoint, *o.Name)
+	case ociAccountValues.Name != nil:
+		ociAccount, err := client_v0.GetOciAccountByName(apiClient, apiEndpoint, *ociAccountValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get oci account with name %s: %w", *o.Name, err)
+			return nil, fmt.Errorf("failed to get oci account with name %s: %w", *ociAccountValues.Name, err)
 		}
 		ociAccounts = &[]api_v0.OciAccount{*ociAccount}
 	// get all oci accounts
@@ -95,24 +96,25 @@ func (o *OciAccountValues) Get(
 }
 
 // Create creates a oci account in the Threeport API.
-func (o *OciAccountValues) Create(
+func (o *OciAccountConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*OciAccountConfig, error) {
+	ociAccountValues := o.OciAccount
 	// validate config
 	if err := o.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for oci account with name %s: %w", *o.Name, err)
+		return nil, fmt.Errorf("failed to validate values for oci account with name %s: %w", *ociAccountValues.Name, err)
 	}
 
 	// construct oci account object
 	ociAccount := api_v0.OciAccount{
-		Name:           o.Name,
-		UserOCID:       o.UserOCID,
-		TenancyOCID:    o.TenancyOCID,
-		DefaultAccount: o.DefaultAccount,
-		DefaultRegion:  o.DefaultRegion,
-		KeyFingerprint: o.KeyFingerprint,
-		PrivateKey:     o.PrivateKey,
+		Name:           ociAccountValues.Name,
+		UserOCID:       ociAccountValues.UserOCID,
+		TenancyOCID:    ociAccountValues.TenancyOCID,
+		DefaultAccount: ociAccountValues.DefaultAccount,
+		DefaultRegion:  ociAccountValues.DefaultRegion,
+		KeyFingerprint: ociAccountValues.KeyFingerprint,
+		PrivateKey:     ociAccountValues.PrivateKey,
 	}
 
 	// create oci account
@@ -146,11 +148,12 @@ func (o *OciAccountValues) Create(
 // This is a full replacement of all fields in the oci account object.
 // This function takes a name parameter to identify the oci account to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (o *OciAccountValues) Replace(
+func (o *OciAccountConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*OciAccountConfig, error) {
+	ociAccountValues := o.OciAccount
 	// validate config
 	if err := o.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid oci account config: %w", err)
@@ -171,13 +174,13 @@ func (o *OciAccountValues) Replace(
 		Common: api_v0.Common{
 			ID: existingOciAccount.ID,
 		},
-		Name:           o.Name,
-		UserOCID:       o.UserOCID,
-		TenancyOCID:    o.TenancyOCID,
-		DefaultAccount: o.DefaultAccount,
-		DefaultRegion:  o.DefaultRegion,
-		KeyFingerprint: o.KeyFingerprint,
-		PrivateKey:     o.PrivateKey,
+		Name:           ociAccountValues.Name,
+		UserOCID:       ociAccountValues.UserOCID,
+		TenancyOCID:    ociAccountValues.TenancyOCID,
+		DefaultAccount: ociAccountValues.DefaultAccount,
+		DefaultRegion:  ociAccountValues.DefaultRegion,
+		KeyFingerprint: ociAccountValues.KeyFingerprint,
+		PrivateKey:     ociAccountValues.PrivateKey,
 	}
 
 	// replace oci account
@@ -208,18 +211,19 @@ func (o *OciAccountValues) Replace(
 }
 
 // Delete deletes a oci account from the Threeport API.
-func (o *OciAccountValues) Delete(
+func (o *OciAccountConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*OciAccountConfig, error) {
+	ociAccountValues := o.OciAccount
 	// get oci account by name
 	ociAccount, err := client_v0.GetOciAccountByName(
 		apiClient,
 		apiEndpoint,
-		*o.Name,
+		*ociAccountValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find oci account with name %s: %w", *o.Name, err)
+		return nil, fmt.Errorf("failed to find oci account with name %s: %w", *ociAccountValues.Name, err)
 	}
 
 	// delete oci account
@@ -243,36 +247,37 @@ func (o *OciAccountValues) Delete(
 }
 
 // Validate validates inputs to create oci accounts.
-func (o *OciAccountValues) Validate() error {
+func (o *OciAccountConfig) Validate() error {
+	ociAccountValues := o.OciAccount
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if o.Name == nil {
+	if ociAccountValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure UserOCID is set
-	if o.UserOCID == nil {
+	if ociAccountValues.UserOCID == nil {
 		multiError.AppendError(errors.New("missing required field in config: UserOCID"))
 	}
 
 	// ensure TenancyOCID is set
-	if o.TenancyOCID == nil {
+	if ociAccountValues.TenancyOCID == nil {
 		multiError.AppendError(errors.New("missing required field in config: TenancyOCID"))
 	}
 
 	// ensure DefaultRegion is set
-	if o.DefaultRegion == nil {
+	if ociAccountValues.DefaultRegion == nil {
 		multiError.AppendError(errors.New("missing required field in config: DefaultRegion"))
 	}
 
 	// ensure KeyFingerprint is set
-	if o.KeyFingerprint == nil {
+	if ociAccountValues.KeyFingerprint == nil {
 		multiError.AppendError(errors.New("missing required field in config: KeyFingerprint"))
 	}
 
 	// ensure PrivateKey is set
-	if o.PrivateKey == nil {
+	if ociAccountValues.PrivateKey == nil {
 		multiError.AppendError(errors.New("missing required field in config: PrivateKey"))
 	}
 

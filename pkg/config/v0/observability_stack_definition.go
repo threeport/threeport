@@ -39,18 +39,19 @@ type ObservabilityStackDefinitionValues struct {
 // Get gets observability stack definitions from the Threeport API.
 // If the name is set in the ObservabilityStackDefinitionValues, it will return the observability stack definition with that name.
 // If the name is not set, it will return all observability stack definitions.
-func (o *ObservabilityStackDefinitionValues) Get(
+func (o *ObservabilityStackDefinitionConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ObservabilityStackDefinitionConfig, error) {
+	observabilityStackDefinitionValues := o.ObservabilityStackDefinition
 	// get API objects
 	var observabilityStackDefinitions *[]api_v0.ObservabilityStackDefinition
 	switch {
 	// if name is provided, get observability stack definition by name
-	case o.Name != nil:
-		observabilityStackDefinition, err := client_v0.GetObservabilityStackDefinitionByName(apiClient, apiEndpoint, *o.Name)
+	case observabilityStackDefinitionValues.Name != nil:
+		observabilityStackDefinition, err := client_v0.GetObservabilityStackDefinitionByName(apiClient, apiEndpoint, *observabilityStackDefinitionValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get observability stack definition with name %s: %w", *o.Name, err)
+			return nil, fmt.Errorf("failed to get observability stack definition with name %s: %w", *observabilityStackDefinitionValues.Name, err)
 		}
 		observabilityStackDefinitions = &[]api_v0.ObservabilityStackDefinition{*observabilityStackDefinition}
 	// get all observability stack definitions
@@ -82,27 +83,28 @@ func (o *ObservabilityStackDefinitionValues) Get(
 }
 
 // Create creates a observability stack definition in the Threeport API.
-func (o *ObservabilityStackDefinitionValues) Create(
+func (o *ObservabilityStackDefinitionConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*ObservabilityStackDefinitionConfig, error) {
+	observabilityStackDefinitionValues := o.ObservabilityStackDefinition
 	// validate config
 	if err := o.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for observability stack definition with name %s: %w", *o.Name, err)
+		return nil, fmt.Errorf("failed to validate values for observability stack definition with name %s: %w", *observabilityStackDefinitionValues.Name, err)
 	}
 
 	// construct observability stack definition object
 	observabilityStackDefinition := &api_v0.ObservabilityStackDefinition{
 		Definition: api_v0.Definition{
-			Name: o.Name,
+			Name: observabilityStackDefinitionValues.Name,
 		},
 	}
 
 	// set grafana helm values if present
 	grafanaHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.GrafanaHelmValues,
-		o.GrafanaHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		observabilityStackDefinitionValues.GrafanaHelmValues,
+		observabilityStackDefinitionValues.GrafanaHelmValuesDocument,
+		observabilityStackDefinitionValues.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get grafana values document from path: %w", err)
@@ -111,9 +113,9 @@ func (o *ObservabilityStackDefinitionValues) Create(
 
 	// set loki helm values if present
 	lokiHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.LokiHelmValues,
-		o.LokiHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		observabilityStackDefinitionValues.LokiHelmValues,
+		observabilityStackDefinitionValues.LokiHelmValuesDocument,
+		observabilityStackDefinitionValues.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get loki values document from path: %w", err)
@@ -122,9 +124,9 @@ func (o *ObservabilityStackDefinitionValues) Create(
 
 	// set promtail helm values if present
 	promtailHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.PromtailHelmValues,
-		o.PromtailHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		observabilityStackDefinitionValues.PromtailHelmValues,
+		observabilityStackDefinitionValues.PromtailHelmValuesDocument,
+		observabilityStackDefinitionValues.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get promtail values document from path: %w", err)
@@ -133,9 +135,9 @@ func (o *ObservabilityStackDefinitionValues) Create(
 
 	// set kube-prometheus-stack helm values if present
 	kubePrometheusStackHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.KubePrometheusStackHelmValues,
-		o.KubePrometheusStackHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		observabilityStackDefinitionValues.KubePrometheusStackHelmValues,
+		observabilityStackDefinitionValues.KubePrometheusStackHelmValuesDocument,
+		observabilityStackDefinitionValues.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube-prometheus-stack values document from path: %w", err)
@@ -157,15 +159,15 @@ func (o *ObservabilityStackDefinitionValues) Create(
 		ObservabilityStackDefinition: ObservabilityStackDefinitionValues{
 			Age:                                   util.Ptr(util.GetAgeFormatted(createdObservabilityStackDefinition.CreatedAt)),
 			Name:                                  createdObservabilityStackDefinition.Name,
-			GrafanaHelmValues:                     o.GrafanaHelmValues,
+			GrafanaHelmValues:                     observabilityStackDefinitionValues.GrafanaHelmValues,
 			GrafanaHelmValuesDocument:             createdObservabilityStackDefinition.GrafanaHelmValuesDocument,
-			LokiHelmValues:                        o.LokiHelmValues,
+			LokiHelmValues:                        observabilityStackDefinitionValues.LokiHelmValues,
 			LokiHelmValuesDocument:                createdObservabilityStackDefinition.LokiHelmValuesDocument,
-			PromtailHelmValues:                    o.PromtailHelmValues,
+			PromtailHelmValues:                    observabilityStackDefinitionValues.PromtailHelmValues,
 			PromtailHelmValuesDocument:            createdObservabilityStackDefinition.PromtailHelmValuesDocument,
-			KubePrometheusStackHelmValues:         o.KubePrometheusStackHelmValues,
+			KubePrometheusStackHelmValues:         observabilityStackDefinitionValues.KubePrometheusStackHelmValues,
 			KubePrometheusStackHelmValuesDocument: createdObservabilityStackDefinition.KubePrometheusStackHelmValuesDocument,
-			ObservabilityConfigPath:               o.ObservabilityConfigPath,
+			ObservabilityConfigPath:               observabilityStackDefinitionValues.ObservabilityConfigPath,
 		},
 	}
 
@@ -176,11 +178,12 @@ func (o *ObservabilityStackDefinitionValues) Create(
 // This is a full replacement of all fields in the observability stack definition object.
 // This function takes a name parameter to identify the observability stack definition to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (o *ObservabilityStackDefinitionValues) Replace(
+func (o *ObservabilityStackDefinitionConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*ObservabilityStackDefinitionConfig, error) {
+	observabilityStackDefinitionValues := o.ObservabilityStackDefinition
 	// validate config
 	if err := o.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid observability stack definition config: %w", err)
@@ -202,15 +205,15 @@ func (o *ObservabilityStackDefinitionValues) Replace(
 			ID: existingObservabilityStackDefinition.ID,
 		},
 		Definition: api_v0.Definition{
-			Name: o.Name,
+			Name: observabilityStackDefinitionValues.Name,
 		},
 	}
 
 	// set grafana helm values if present
 	grafanaHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.GrafanaHelmValues,
-		o.GrafanaHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		observabilityStackDefinitionValues.GrafanaHelmValues,
+		observabilityStackDefinitionValues.GrafanaHelmValuesDocument,
+		observabilityStackDefinitionValues.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get grafana values document from path: %w", err)
@@ -219,9 +222,9 @@ func (o *ObservabilityStackDefinitionValues) Replace(
 
 	// set loki helm values if present
 	lokiHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.LokiHelmValues,
-		o.LokiHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		observabilityStackDefinitionValues.LokiHelmValues,
+		observabilityStackDefinitionValues.LokiHelmValuesDocument,
+		observabilityStackDefinitionValues.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get loki values document from path: %w", err)
@@ -230,9 +233,9 @@ func (o *ObservabilityStackDefinitionValues) Replace(
 
 	// set promtail helm values if present
 	promtailHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.PromtailHelmValues,
-		o.PromtailHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		observabilityStackDefinitionValues.PromtailHelmValues,
+		observabilityStackDefinitionValues.PromtailHelmValuesDocument,
+		observabilityStackDefinitionValues.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get promtail values document from path: %w", err)
@@ -241,9 +244,9 @@ func (o *ObservabilityStackDefinitionValues) Replace(
 
 	// set kube-prometheus-stack helm values if present
 	kubePrometheusStackHelmValuesDocument, err := GetValuesFromDocumentOrInline(
-		o.KubePrometheusStackHelmValues,
-		o.KubePrometheusStackHelmValuesDocument,
-		o.ObservabilityConfigPath,
+		observabilityStackDefinitionValues.KubePrometheusStackHelmValues,
+		observabilityStackDefinitionValues.KubePrometheusStackHelmValuesDocument,
+		observabilityStackDefinitionValues.ObservabilityConfigPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube-prometheus-stack values document from path: %w", err)
@@ -265,15 +268,15 @@ func (o *ObservabilityStackDefinitionValues) Replace(
 		ObservabilityStackDefinition: ObservabilityStackDefinitionValues{
 			Age:                                   util.Ptr(util.GetAgeFormatted(replacedObservabilityStackDefinition.CreatedAt)),
 			Name:                                  replacedObservabilityStackDefinition.Name,
-			GrafanaHelmValues:                     o.GrafanaHelmValues,
+			GrafanaHelmValues:                     observabilityStackDefinitionValues.GrafanaHelmValues,
 			GrafanaHelmValuesDocument:             replacedObservabilityStackDefinition.GrafanaHelmValuesDocument,
-			LokiHelmValues:                        o.LokiHelmValues,
+			LokiHelmValues:                        observabilityStackDefinitionValues.LokiHelmValues,
 			LokiHelmValuesDocument:                replacedObservabilityStackDefinition.LokiHelmValuesDocument,
-			PromtailHelmValues:                    o.PromtailHelmValues,
+			PromtailHelmValues:                    observabilityStackDefinitionValues.PromtailHelmValues,
 			PromtailHelmValuesDocument:            replacedObservabilityStackDefinition.PromtailHelmValuesDocument,
-			KubePrometheusStackHelmValues:         o.KubePrometheusStackHelmValues,
+			KubePrometheusStackHelmValues:         observabilityStackDefinitionValues.KubePrometheusStackHelmValues,
 			KubePrometheusStackHelmValuesDocument: replacedObservabilityStackDefinition.KubePrometheusStackHelmValuesDocument,
-			ObservabilityConfigPath:               o.ObservabilityConfigPath,
+			ObservabilityConfigPath:               observabilityStackDefinitionValues.ObservabilityConfigPath,
 		},
 	}
 
@@ -281,18 +284,19 @@ func (o *ObservabilityStackDefinitionValues) Replace(
 }
 
 // Delete deletes a observability stack definition from the Threeport API.
-func (o *ObservabilityStackDefinitionValues) Delete(
+func (o *ObservabilityStackDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*ObservabilityStackDefinitionConfig, error) {
+	observabilityStackDefinitionValues := o.ObservabilityStackDefinition
 	// get observability stack definition by name
 	observabilityStackDefinition, err := client_v0.GetObservabilityStackDefinitionByName(
 		apiClient,
 		apiEndpoint,
-		*o.Name,
+		*observabilityStackDefinitionValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find observability stack definition with name %s: %w", *o.Name, err)
+		return nil, fmt.Errorf("failed to find observability stack definition with name %s: %w", *observabilityStackDefinitionValues.Name, err)
 	}
 
 	// delete observability stack definition
@@ -320,31 +324,32 @@ func (o *ObservabilityStackDefinitionValues) Delete(
 }
 
 // Validate validates inputs to create observability stack definitions.
-func (o *ObservabilityStackDefinitionValues) Validate() error {
+func (o *ObservabilityStackDefinitionConfig) Validate() error {
+	observabilityStackDefinitionValues := o.ObservabilityStackDefinition
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if o.Name == nil {
+	if observabilityStackDefinitionValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
 	// ensure grafana helm values and document are not both set
-	if o.GrafanaHelmValues != nil && o.GrafanaHelmValuesDocument != nil {
+	if observabilityStackDefinitionValues.GrafanaHelmValues != nil && observabilityStackDefinitionValues.GrafanaHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("GrafanaHelmValues and GrafanaHelmValuesDocument cannot both be set"))
 	}
 
 	// ensure loki helm values and document are not both set
-	if o.LokiHelmValues != nil && o.LokiHelmValuesDocument != nil {
+	if observabilityStackDefinitionValues.LokiHelmValues != nil && observabilityStackDefinitionValues.LokiHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("LokiHelmValues and LokiHelmValuesDocument cannot both be set"))
 	}
 
 	// ensure promtail helm values and document are not both set
-	if o.PromtailHelmValues != nil && o.PromtailHelmValuesDocument != nil {
+	if observabilityStackDefinitionValues.PromtailHelmValues != nil && observabilityStackDefinitionValues.PromtailHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("PromtailHelmValues and PromtailHelmValuesDocument cannot both be set"))
 	}
 
 	// ensure kube-prometheus-stack helm values and document are not both set
-	if o.KubePrometheusStackHelmValues != nil && o.KubePrometheusStackHelmValuesDocument != nil {
+	if observabilityStackDefinitionValues.KubePrometheusStackHelmValues != nil && observabilityStackDefinitionValues.KubePrometheusStackHelmValuesDocument != nil {
 		multiError.AppendError(fmt.Errorf("KubePrometheusStackHelmValues and KubePrometheusStackHelmValuesDocument cannot both be set"))
 	}
 

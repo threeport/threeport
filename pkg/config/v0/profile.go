@@ -30,18 +30,19 @@ type ProfileValues struct {
 // Get gets profiles from the Threeport API.
 // If the name is set in the ProfileValues, it will return the profile with that name.
 // If the name is not set, it will return all profiles.
-func (p *ProfileValues) Get(
+func (p *ProfileConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]ProfileConfig, error) {
+	profileValues := p.Profile
 	// get API objects
 	var profiles *[]api_v0.Profile
 	switch {
 	// if name is provided, get profile by name
-	case p.Name != nil:
-		profile, err := client_v0.GetProfileByName(apiClient, apiEndpoint, *p.Name)
+	case profileValues.Name != nil:
+		profile, err := client_v0.GetProfileByName(apiClient, apiEndpoint, *profileValues.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get profile with name %s: %w", *p.Name, err)
+			return nil, fmt.Errorf("failed to get profile with name %s: %w", *profileValues.Name, err)
 		}
 		profiles = &[]api_v0.Profile{*profile}
 	// get all profiles
@@ -69,18 +70,19 @@ func (p *ProfileValues) Get(
 }
 
 // Create creates a profile in the Threeport API.
-func (p *ProfileValues) Create(
+func (p *ProfileConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*ProfileConfig, error) {
+	profileValues := p.Profile
 	// validate config
 	if err := p.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate values for profile with name %s: %w", *p.Name, err)
+		return nil, fmt.Errorf("failed to validate values for profile with name %s: %w", *profileValues.Name, err)
 	}
 
 	// construct profile object
 	profile := api_v0.Profile{
-		Name: p.Name,
+		Name: profileValues.Name,
 	}
 
 	// create profile
@@ -108,11 +110,12 @@ func (p *ProfileValues) Create(
 // This is a full replacement of all fields in the profile object.
 // This function takes a name parameter to identify the profile to replace.
 // This allows a different name to be provided in the values object for name changes.
-func (p *ProfileValues) Replace(
+func (p *ProfileConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
 ) (*ProfileConfig, error) {
+	profileValues := p.Profile
 	// validate config
 	if err := p.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid profile config: %w", err)
@@ -133,7 +136,7 @@ func (p *ProfileValues) Replace(
 		Common: api_v0.Common{
 			ID: existingProfile.ID,
 		},
-		Name: p.Name,
+		Name: profileValues.Name,
 	}
 
 	// replace profile
@@ -158,18 +161,19 @@ func (p *ProfileValues) Replace(
 }
 
 // Delete deletes a profile from the Threeport API.
-func (p *ProfileValues) Delete(
+func (p *ProfileConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*ProfileConfig, error) {
+	profileValues := p.Profile
 	// get profile by name
 	profile, err := client_v0.GetProfileByName(
 		apiClient,
 		apiEndpoint,
-		*p.Name,
+		*profileValues.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find profile with name %s: %w", *p.Name, err)
+		return nil, fmt.Errorf("failed to find profile with name %s: %w", *profileValues.Name, err)
 	}
 
 	// delete profile
@@ -193,11 +197,12 @@ func (p *ProfileValues) Delete(
 }
 
 // Validate validates inputs to create profiles.
-func (p *ProfileValues) Validate() error {
+func (p *ProfileConfig) Validate() error {
+	profileValues := p.Profile
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if p.Name == nil {
+	if profileValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 

@@ -30,7 +30,7 @@ type OciOkeKubernetesRuntimeValues struct {
 }
 
 // Get gets a oci oke kubernetes runtime definition and instance from the Threeport API.
-func (o *OciOkeKubernetesRuntimeValues) Get(
+func (o *OciOkeKubernetesRuntimeConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]OciOkeKubernetesRuntimeConfig, error) {
@@ -55,10 +55,11 @@ func (o *OciOkeKubernetesRuntimeValues) Get(
 }
 
 // Create creates a oci oke kubernetes runtime definition and instance in the Threeport API.
-func (o *OciOkeKubernetesRuntimeValues) Create(
+func (o *OciOkeKubernetesRuntimeConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]OciOkeKubernetesRuntimeConfig, error) {
+	ociOkeKubernetesRuntimeValues := o.OciOkeKubernetesRuntime
 	// get operations
 	operations, ociOkeKubernetesRuntimeDefinitions, ociOkeKubernetesRuntimeInstances := o.GetOperations(
 		apiClient,
@@ -69,7 +70,7 @@ func (o *OciOkeKubernetesRuntimeValues) Create(
 	if err := operations.Create(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute create operations for oci oke kubernetes runtime defined instance with name %s: %w",
-			*o.Name,
+			*ociOkeKubernetesRuntimeValues.Name,
 			err,
 		)
 	}
@@ -81,7 +82,7 @@ func (o *OciOkeKubernetesRuntimeValues) Create(
 }
 
 // Replace replaces a oci oke kubernetes runtime definition and instance in the Threeport API.
-func (o *OciOkeKubernetesRuntimeValues) Replace(
+func (o *OciOkeKubernetesRuntimeConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
@@ -108,10 +109,11 @@ func (o *OciOkeKubernetesRuntimeValues) Replace(
 }
 
 // Delete deletes a oci oke kubernetes runtime definition and instance from the Threeport API.
-func (o *OciOkeKubernetesRuntimeValues) Delete(
+func (o *OciOkeKubernetesRuntimeConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]OciOkeKubernetesRuntimeConfig, error) {
+	ociOkeKubernetesRuntimeValues := o.OciOkeKubernetesRuntime
 	// get operations
 	operations, _, _ := o.GetOperations(
 		apiClient,
@@ -122,7 +124,7 @@ func (o *OciOkeKubernetesRuntimeValues) Delete(
 	if err := operations.Delete(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute delete operations for oci oke kubernetes runtime defined instance with name %s: %w",
-			*o.Name,
+			*ociOkeKubernetesRuntimeValues.Name,
 			err,
 		)
 	}
@@ -132,10 +134,11 @@ func (o *OciOkeKubernetesRuntimeValues) Delete(
 
 // GetOperations returns a slice of operations used to get, create, replace or delete
 // a oci oke kubernetes runtime defined instance.
-func (o *OciOkeKubernetesRuntimeValues) GetOperations(
+func (o *OciOkeKubernetesRuntimeConfig) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*util.Operations, *[]OciOkeKubernetesRuntimeDefinitionConfig, *[]OciOkeKubernetesRuntimeInstanceConfig) {
+	ociOkeKubernetesRuntimeValues := o.OciOkeKubernetesRuntime
 	var err error
 	var operatedOciOkeKubernetesRuntimeDefinitions []OciOkeKubernetesRuntimeDefinitionConfig
 	var operatedOciOkeKubernetesRuntimeInstances []OciOkeKubernetesRuntimeInstanceConfig
@@ -143,30 +146,32 @@ func (o *OciOkeKubernetesRuntimeValues) GetOperations(
 	operations := util.Operations{}
 
 	// add oci oke kubernetes runtime definition operation
-	ociOkeKubernetesRuntimeDefinitionValues := OciOkeKubernetesRuntimeDefinitionValues{
-		Name:                   o.Name,
-		OciAccountName:         o.OciAccountName,
-		WorkerNodeShape:        o.WorkerNodeShape,
-		WorkerNodeInitialCount: o.WorkerNodeInitialCount,
+	ociOkeKubernetesRuntimeDefinitionConfig := OciOkeKubernetesRuntimeDefinitionConfig{
+		OciOkeKubernetesRuntimeDefinition: OciOkeKubernetesRuntimeDefinitionValues{
+			Name:                   ociOkeKubernetesRuntimeValues.Name,
+			OciAccountName:         ociOkeKubernetesRuntimeValues.OciAccountName,
+			WorkerNodeShape:        ociOkeKubernetesRuntimeValues.WorkerNodeShape,
+			WorkerNodeInitialCount: ociOkeKubernetesRuntimeValues.WorkerNodeInitialCount,
+		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			ociOkeKubernetesRuntimeDefinition, err := ociOkeKubernetesRuntimeDefinitionValues.Create(apiClient, apiEndpoint)
+			ociOkeKubernetesRuntimeDefinition, err := ociOkeKubernetesRuntimeDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create oci oke kubernetes runtime definition with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to create oci oke kubernetes runtime definition with name %s: %w", *ociOkeKubernetesRuntimeValues.Name, err)
 			}
 			operatedOciOkeKubernetesRuntimeDefinitions = append(operatedOciOkeKubernetesRuntimeDefinitions, *ociOkeKubernetesRuntimeDefinition)
 			return nil
 		},
 		Delete: func() error {
-			_, err = ociOkeKubernetesRuntimeDefinitionValues.Delete(apiClient, apiEndpoint)
+			_, err = ociOkeKubernetesRuntimeDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete oci oke kubernetes runtime definition with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to delete oci oke kubernetes runtime definition with name %s: %w", *ociOkeKubernetesRuntimeValues.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			ociOkeKubernetesRuntimeDefinitions, err := ociOkeKubernetesRuntimeDefinitionValues.Get(apiClient, apiEndpoint)
+			ociOkeKubernetesRuntimeDefinitions, err := ociOkeKubernetesRuntimeDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				return fmt.Errorf("failed to get oci oke kubernetes runtime definitions: %w", err)
 			}
@@ -178,7 +183,7 @@ func (o *OciOkeKubernetesRuntimeValues) GetOperations(
 		},
 		Name: "oci oke kubernetes runtime definition",
 		Replace: func(name string) error {
-			ociOkeKubernetesRuntimeDefinition, err := ociOkeKubernetesRuntimeDefinitionValues.Replace(apiClient, apiEndpoint, name)
+			ociOkeKubernetesRuntimeDefinition, err := ociOkeKubernetesRuntimeDefinitionConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace oci oke kubernetes runtime definition with name %s: %w", name, err)
 			}
@@ -188,44 +193,46 @@ func (o *OciOkeKubernetesRuntimeValues) GetOperations(
 	})
 
 	// add oci oke kubernetes runtime instance operation
-	ociOkeKubernetesRuntimeInstanceValues := OciOkeKubernetesRuntimeInstanceValues{
-		Name:                              o.Name,
-		Region:                            o.Region,
-		OciOkeKubernetesRuntimeDefinition: &ociOkeKubernetesRuntimeDefinitionValues,
+	ociOkeKubernetesRuntimeInstanceConfig := OciOkeKubernetesRuntimeInstanceConfig{
+		OciOkeKubernetesRuntimeInstance: OciOkeKubernetesRuntimeInstanceValues{
+			Name:                              ociOkeKubernetesRuntimeValues.Name,
+			Region:                            ociOkeKubernetesRuntimeValues.Region,
+			OciOkeKubernetesRuntimeDefinition: &ociOkeKubernetesRuntimeDefinitionConfig.OciOkeKubernetesRuntimeDefinition,
+		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			ociOkeKubernetesRuntimeInstance, err := ociOkeKubernetesRuntimeInstanceValues.Create(apiClient, apiEndpoint)
+			ociOkeKubernetesRuntimeInstance, err := ociOkeKubernetesRuntimeInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create oci oke kubernetes runtime instance with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to create oci oke kubernetes runtime instance with name %s: %w", *ociOkeKubernetesRuntimeValues.Name, err)
 			}
 			operatedOciOkeKubernetesRuntimeInstances = append(operatedOciOkeKubernetesRuntimeInstances, *ociOkeKubernetesRuntimeInstance)
 			return nil
 		},
 		Delete: func() error {
-			_, err = ociOkeKubernetesRuntimeInstanceValues.Delete(apiClient, apiEndpoint)
+			_, err = ociOkeKubernetesRuntimeInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete oci oke kubernetes runtime instance with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to delete oci oke kubernetes runtime instance with name %s: %w", *ociOkeKubernetesRuntimeValues.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			ociOkeKubernetesRuntimeInstance, err := ociOkeKubernetesRuntimeInstanceValues.Get(apiClient, apiEndpoint)
+			ociOkeKubernetesRuntimeInstance, err := ociOkeKubernetesRuntimeInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get oci oke kubernetes runtime instance with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to get oci oke kubernetes runtime instance with name %s: %w", *ociOkeKubernetesRuntimeValues.Name, err)
 			}
 			if len(*ociOkeKubernetesRuntimeInstance) == 0 {
-				return fmt.Errorf("failed to find oci oke kubernetes runtime instance with name %s: %w", *o.Name, err)
+				return fmt.Errorf("failed to find oci oke kubernetes runtime instance with name %s: %w", *ociOkeKubernetesRuntimeValues.Name, err)
 			}
 			if len(*ociOkeKubernetesRuntimeInstance) > 1 {
-				return fmt.Errorf("multiple oci oke kubernetes runtime instances found with name %s: %w", *o.Name, err)
+				return fmt.Errorf("multiple oci oke kubernetes runtime instances found with name %s: %w", *ociOkeKubernetesRuntimeValues.Name, err)
 			}
 			operatedOciOkeKubernetesRuntimeInstances = append(operatedOciOkeKubernetesRuntimeInstances, (*ociOkeKubernetesRuntimeInstance)[0])
 			return nil
 		},
 		Name: "oci oke kubernetes runtime instance",
 		Replace: func(name string) error {
-			ociOkeKubernetesRuntimeInstance, err := ociOkeKubernetesRuntimeInstanceValues.Replace(apiClient, apiEndpoint, name)
+			ociOkeKubernetesRuntimeInstance, err := ociOkeKubernetesRuntimeInstanceConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace oci oke kubernetes runtime definition with name %s: %w", name, err)
 			}

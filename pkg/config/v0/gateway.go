@@ -33,7 +33,7 @@ type GatewayValues struct {
 }
 
 // Get gets a gateway definition and instance from the Threeport API.
-func (g *GatewayValues) Get(
+func (g *GatewayConfig) Get(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]GatewayConfig, error) {
@@ -58,7 +58,7 @@ func (g *GatewayValues) Get(
 }
 
 // Create creates a gateway definition and instance in the Threeport API.
-func (g *GatewayValues) Create(
+func (g *GatewayConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]GatewayConfig, error) {
@@ -72,7 +72,7 @@ func (g *GatewayValues) Create(
 	if err := operations.Create(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute create operations for gateway defined instance with name %s: %w",
-			*g.Name,
+			*g.Gateway.Name,
 			err,
 		)
 	}
@@ -84,7 +84,7 @@ func (g *GatewayValues) Create(
 }
 
 // Replace replaces a gateway definition and instance in the Threeport API.
-func (g *GatewayValues) Replace(
+func (g *GatewayConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
 	name string,
@@ -111,7 +111,7 @@ func (g *GatewayValues) Replace(
 }
 
 // Delete deletes a gateway definition and instance from the Threeport API.
-func (g *GatewayValues) Delete(
+func (g *GatewayConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]GatewayConfig, error) {
@@ -125,7 +125,7 @@ func (g *GatewayValues) Delete(
 	if err := operations.Delete(); err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute delete operations for gateway defined instance with name %s: %w",
-			*g.Name,
+			*g.Gateway.Name,
 			err,
 		)
 	}
@@ -135,7 +135,7 @@ func (g *GatewayValues) Delete(
 
 // GetOperations returns a slice of operations used to get, create, replace or delete
 // a gateway defined instance.
-func (g *GatewayValues) GetOperations(
+func (g *GatewayConfig) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*util.Operations, *[]GatewayDefinitionConfig, *[]GatewayInstanceConfig) {
@@ -146,32 +146,34 @@ func (g *GatewayValues) GetOperations(
 	operations := util.Operations{}
 
 	// add gateway definition operation
-	gatewayDefinitionValues := GatewayDefinitionValues{
-		Name:                 g.Name,
-		HttpPorts:            g.HttpPorts,
-		TcpPorts:             g.TcpPorts,
-		ServiceName:          g.ServiceName,
-		SubDomain:            g.SubDomain,
-		DomainNameDefinition: g.DomainNameDefinition,
+	gatewayDefinitionConfig := GatewayDefinitionConfig{
+		GatewayDefinition: GatewayDefinitionValues{
+			Name:                 g.Gateway.Name,
+			HttpPorts:            g.Gateway.HttpPorts,
+			TcpPorts:             g.Gateway.TcpPorts,
+			ServiceName:          g.Gateway.ServiceName,
+			SubDomain:            g.Gateway.SubDomain,
+			DomainNameDefinition: g.Gateway.DomainNameDefinition,
+		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			gatewayDefinition, err := gatewayDefinitionValues.Create(apiClient, apiEndpoint)
+			gatewayDefinition, err := gatewayDefinitionConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create gateway definition with name %s: %w", *g.Name, err)
+				return fmt.Errorf("failed to create gateway definition with name %s: %w", *g.Gateway.Name, err)
 			}
 			operatedGatewayDefinitions = append(operatedGatewayDefinitions, *gatewayDefinition)
 			return nil
 		},
 		Delete: func() error {
-			_, err = gatewayDefinitionValues.Delete(apiClient, apiEndpoint)
+			_, err = gatewayDefinitionConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete gateway definition with name %s: %w", *g.Name, err)
+				return fmt.Errorf("failed to delete gateway definition with name %s: %w", *g.Gateway.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			gatewayDefinitions, err := gatewayDefinitionValues.Get(apiClient, apiEndpoint)
+			gatewayDefinitions, err := gatewayDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
 				return fmt.Errorf("failed to get gateway definitions: %w", err)
 			}
@@ -183,7 +185,7 @@ func (g *GatewayValues) GetOperations(
 		},
 		Name: "gateway definition",
 		Replace: func(name string) error {
-			gatewayDefinition, err := gatewayDefinitionValues.Replace(apiClient, apiEndpoint, name)
+			gatewayDefinition, err := gatewayDefinitionConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace gateway definition with name %s: %w", name, err)
 			}
@@ -193,47 +195,49 @@ func (g *GatewayValues) GetOperations(
 	})
 
 	// add gateway instance operation
-	gatewayInstanceValues := GatewayInstanceValues{
-		Name:                      g.Name,
-		KubernetesRuntimeInstance: g.KubernetesRuntimeInstance,
-		WorkloadInstance:          g.WorkloadInstance,
-		GatewayDefinition: &GatewayDefinitionValues{
-			Name: g.Name,
+	gatewayInstanceConfig := GatewayInstanceConfig{
+		GatewayInstance: GatewayInstanceValues{
+			Name:                      g.Gateway.Name,
+			KubernetesRuntimeInstance: g.Gateway.KubernetesRuntimeInstance,
+			WorkloadInstance:          g.Gateway.WorkloadInstance,
+			GatewayDefinition: &GatewayDefinitionValues{
+				Name: g.Gateway.Name,
+			},
 		},
 	}
 	operations.AppendOperation(util.Operation{
 		Create: func() error {
-			gatewayInstance, err := gatewayInstanceValues.Create(apiClient, apiEndpoint)
+			gatewayInstance, err := gatewayInstanceConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to create gateway instance with name %s: %w", *g.Name, err)
+				return fmt.Errorf("failed to create gateway instance with name %s: %w", *g.Gateway.Name, err)
 			}
 			operatedGatewayInstances = append(operatedGatewayInstances, *gatewayInstance)
 			return nil
 		},
 		Delete: func() error {
-			_, err = gatewayInstanceValues.Delete(apiClient, apiEndpoint)
+			_, err = gatewayInstanceConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to delete gateway instance with name %s: %w", *g.Name, err)
+				return fmt.Errorf("failed to delete gateway instance with name %s: %w", *g.Gateway.Name, err)
 			}
 			return nil
 		},
 		Get: func() error {
-			gatewayInstance, err := gatewayInstanceValues.Get(apiClient, apiEndpoint)
+			gatewayInstance, err := gatewayInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get gateway instance with name %s: %w", *g.Name, err)
+				return fmt.Errorf("failed to get gateway instance with name %s: %w", *g.Gateway.Name, err)
 			}
 			if len(*gatewayInstance) == 0 {
-				return fmt.Errorf("failed to find gateway instance with name %s: %w", *g.Name, err)
+				return fmt.Errorf("failed to find gateway instance with name %s: %w", *g.Gateway.Name, err)
 			}
 			if len(*gatewayInstance) > 1 {
-				return fmt.Errorf("multiple gateway instances found with name %s: %w", *g.Name, err)
+				return fmt.Errorf("multiple gateway instances found with name %s: %w", *g.Gateway.Name, err)
 			}
 			operatedGatewayInstances = append(operatedGatewayInstances, (*gatewayInstance)[0])
 			return nil
 		},
 		Name: "gateway instance",
 		Replace: func(name string) error {
-			gatewayInstance, err := gatewayInstanceValues.Replace(apiClient, apiEndpoint, name)
+			gatewayInstance, err := gatewayInstanceConfig.Replace(apiClient, apiEndpoint, name)
 			if err != nil {
 				return fmt.Errorf("failed to replace gateway definition with name %s: %w", name, err)
 			}
