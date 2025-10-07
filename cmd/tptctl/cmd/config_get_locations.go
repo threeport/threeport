@@ -16,10 +16,10 @@ import (
 )
 
 var (
-	LocationName      string
-	LocationContinent string
-	LocationAwsRegion string
-	LocationOciRegion string
+	locationName      string
+	locationContinent string
+	locationAwsRegion string
+	locationOciRegion string
 )
 
 // ConfigGetControlPlanesCmd represents the get-instances command
@@ -32,16 +32,16 @@ var ConfigGetLocationsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// validate flags
 		providedFlags := []string{}
-		if LocationName != "" {
+		if locationName != "" {
 			providedFlags = append(providedFlags, "--location")
 		}
-		if LocationContinent != "" {
+		if locationContinent != "" {
 			providedFlags = append(providedFlags, "--continent")
 		}
-		if LocationAwsRegion != "" {
+		if locationAwsRegion != "" {
 			providedFlags = append(providedFlags, "--aws-region")
 		}
-		if LocationOciRegion != "" {
+		if locationOciRegion != "" {
 			providedFlags = append(providedFlags, "--oci-region")
 		}
 
@@ -55,41 +55,51 @@ var ConfigGetLocationsCmd = &cobra.Command{
 		regionMap := mapping.GetRegionMap()
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 		fmt.Fprintln(writer, "LOCATION\t AWS REGION\t OCI REGION")
+		filterFound := false
 		switch {
-		case LocationName != "":
+		case locationName != "":
 			for _, region := range *regionMap {
-				if region.Location != LocationName {
+				if region.Location != locationName {
 					continue
 				}
+				filterFound = true
 				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion)
 			}
-		case LocationContinent != "":
+		case locationContinent != "":
 			for _, region := range *regionMap {
 				// get the continent from the location
 				continent := strings.Split(region.Location, ":")[0]
-				if continent != LocationContinent {
+				if continent != locationContinent {
 					continue
 				}
+				filterFound = true
 				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion)
 			}
-		case LocationAwsRegion != "":
+		case locationAwsRegion != "":
 			for _, region := range *regionMap {
-				if region.AwsRegion != LocationAwsRegion {
+				if region.AwsRegion != locationAwsRegion {
 					continue
 				}
+				filterFound = true
 				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion)
 			}
-		case LocationOciRegion != "":
+		case locationOciRegion != "":
 			for _, region := range *regionMap {
-				if region.OciRegion != LocationOciRegion {
+				if region.OciRegion != locationOciRegion {
 					continue
 				}
+				filterFound = true
 				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion)
 			}
 		default:
+			filterFound = true
 			for _, region := range *regionMap {
 				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion)
 			}
+		}
+		if !filterFound {
+			cli.Error("no locations found for the given filter", nil)
+			os.Exit(1)
 		}
 		writer.Flush()
 	},
@@ -99,19 +109,19 @@ func init() {
 	ConfigCmd.AddCommand(ConfigGetLocationsCmd)
 
 	ConfigGetLocationsCmd.Flags().StringVarP(
-		&LocationName,
+		&locationName,
 		"location", "l", "", "Location to get regions for",
 	)
 	ConfigGetLocationsCmd.Flags().StringVarP(
-		&LocationContinent,
+		&locationContinent,
 		"continent", "c", "", "Continent to get regions for",
 	)
 	ConfigGetLocationsCmd.Flags().StringVarP(
-		&LocationAwsRegion,
+		&locationAwsRegion,
 		"aws-region", "a", "", "AWS region to get locations for",
 	)
 	ConfigGetLocationsCmd.Flags().StringVarP(
-		&LocationOciRegion,
+		&locationOciRegion,
 		"oci-region", "o", "", "OCI region to get locations for",
 	)
 }
