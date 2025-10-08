@@ -257,7 +257,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										List(
 											Id(fmt.Sprintf("%sConfigs", rootObjectVar)),
 											Err(),
-										).Op(":=").Id(fmt.Sprintf("%sConfig", rootObjectVar)).Dot(rootObj).Dot("Get").Call(
+										).Op(":=").Id(fmt.Sprintf("%sConfig", rootObjectVar)).Dot("Get").Call(
 											Id("apiClient"),
 											Id("apiEndpoint"),
 										),
@@ -481,9 +481,8 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											"create %s",
 											rootCmdStrHuman,
 										)),
-										Id(rootObjectVar).Op(":=").Id(rootObjectConfigVar).Dot(rootObj),
 										Add(setConfigPath),
-										Id(createdSliceVar).Op(",").Err().Op(":=").Id(rootObjectVar).Dot("Create").Call(
+										Id(createdSliceVar).Op(",").Err().Op(":=").Id(rootObjectConfigVar).Dot("Create").Call(
 											Line().Id("apiClient"),
 											Line().Id("apiEndpoint"),
 											Line(),
@@ -689,9 +688,8 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											"delete %s",
 											rootCmdStrHuman,
 										)),
-										Id(rootObjectVar).Op(":=").Id(rootObjectConfigVar).Dot(rootObj),
 										Add(setConfigPath),
-										Id("_").Op(",").Err().Op("=").Id(rootObjectVar).Dot("Delete").Call(
+										Id("_").Op(",").Err().Op("=").Id(rootObjectConfigVar).Dot("Delete").Call(
 											Id("apiClient"), Id("apiEndpoint"),
 										),
 										If(Err().Op("!=").Nil()).Block(
@@ -711,21 +709,21 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
 											"%s definition %%s deleted",
 											rootCmdStrHuman,
-										)), Op("*").Id(rootObjectVar).Dot("Name"))),
+										)), Op("*").Id(rootObjectConfigVar).Dot(rootObj).Dot("Name"))),
 										Qual(
 											"github.com/threeport/threeport/pkg/cli/v0",
 											"Info",
 										).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
 											"%s instance %%s deleted",
 											rootCmdStrHuman,
-										)), Op("*").Id(rootObjectVar).Dot("Name"))),
+										)), Op("*").Id(rootObjectConfigVar).Dot(rootObj).Dot("Name"))),
 										Qual(
 											"github.com/threeport/threeport/pkg/cli/v0",
 											"Complete",
 										).Call(Qual("fmt", "Sprintf").Call(Lit(fmt.Sprintf(
 											"%s %%s deleted",
 											rootCmdStrHuman,
-										)), Op("*").Id(rootObjectVar).Dot("Name"))),
+										)), Op("*").Id(rootObjectConfigVar).Dot(rootObj).Dot("Name"))),
 									)
 									h.Default().Block(
 										Qual(
@@ -920,7 +918,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									List(
 										Id(pluralize.Pluralize(objectVar, 2, false)),
 										Err(),
-									).Op(":=").Id(fmt.Sprintf("%sConfig", objectVar)).Dot(apiObj.TypeName).Dot("Get").Call(
+									).Op(":=").Id(fmt.Sprintf("%sConfig", objectVar)).Dot("Get").Call(
 										Id("apiClient"),
 										Id("apiEndpoint"),
 									),
@@ -1162,9 +1160,8 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"create %s",
 										cmdStrHuman,
 									)),
-									Id(objectVar).Op(":=").Id(objectConfigVar).Dot(apiObj.TypeName),
 									Add(setConfigPath),
-									Id(createdObjVar).Op(",").Err().Op(":=").Id(objectVar).Dot("Create").Call(
+									Id(createdObjVar).Op(",").Err().Op(":=").Id(objectConfigVar).Dot("Create").Call(
 										Id("apiClient"), Id("apiEndpoint"),
 									),
 									If(Err().Op("!=").Nil()).Block(
@@ -1332,9 +1329,8 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"replace %s",
 										cmdStrHuman,
 									)),
-									Id(objectVar).Op(":=").Id(objectConfigVar).Dot(apiObj.TypeName),
 									Add(setConfigPath),
-									Id(updatedObjVar).Op(",").Err().Op(":=").Id(objectVar).Dot("Replace").Call(
+									Id(updatedObjVar).Op(",").Err().Op(":=").Id(objectConfigVar).Dot("Replace").Call(
 										Id("apiClient"), Id("apiEndpoint"), Id(nameVar),
 									),
 									If(Err().Op("!=").Nil()).Block(
@@ -1545,9 +1541,8 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										"delete %s",
 										cmdStrHuman,
 									)),
-									Id(objectVar).Op(":=").Id(objectConfigVar).Dot(apiObj.TypeName),
 									Add(setConfigPath),
-									Id(deletedObjVar).Op(",").Err().Op(":=").Id(objectVar).Dot("Delete").Call(
+									Id(deletedObjVar).Op(",").Err().Op(":=").Id(objectConfigVar).Dot("Delete").Call(
 										Id("apiClient"), Id("apiEndpoint"),
 									),
 									If(Err().Op("!=").Nil()).Block(
