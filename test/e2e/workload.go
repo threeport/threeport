@@ -10,6 +10,10 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+const (
+	threeportConfig = "/tmp/e2e-threeport-config.yaml"
+)
+
 type WorkloadTestCase struct {
 	// An arbitrary name for the next case
 	Name string

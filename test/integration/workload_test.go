@@ -39,16 +39,14 @@ type kubeResource struct {
 	Manifest  string
 }
 
-// TestWorkloadE2E tests that workload creation and deletgion works as expected.
-// func TestWorkloadE2E(t *testing.T) {
-func TestWorkloadE2E(t *testing.T) {
+// TestWorkloadIntegration tests that workload creation and deletgion works as expected
+// when performed using the Threeport client library.
+func TestWorkloadIntegration(t *testing.T) {
 	assert := assert.New(t)
 	testWorkloads := testResources()
 
 	for _, testWorkload := range *testWorkloads {
-		t.Log(fmt.Sprintf(
-			"testing workload: %s\n", testWorkload.Name,
-		))
+		t.Logf("testing workload: %s\n", testWorkload.Name)
 
 		// create workload definition
 		workloadDefName := testWorkload.Name
@@ -527,27 +525,32 @@ func TestWorkloadE2E(t *testing.T) {
 		}
 		assert.Equal(allResourcesGone, true, fmt.Sprintf("should have found that all resources are gone from Kubernetes after %d seconds", goneAttemptsMax*goneCheckDurationSeconds))
 
-		// delete gateway definition
+		deleteSuccess := false
 		deletedAttempts := 0
 		deletedAttemptsMax := 10
-		deletedCheckDurationSeconds = 1
-		deleteSuccess := false
-		for deletedAttempts < deletedAttemptsMax {
-			_, err = client.DeleteGatewayDefinition(
-				apiClient,
-				threeportAPIEndpoint,
-				*gatewayDefinition.ID,
-			)
 
-			// workload controller may not have deleted the gateway
-			// instance yet. If so, wait and try again
-			if err != nil {
-				deletedAttempts += 1
-				time.Sleep(time.Second * time.Duration(deletedCheckDurationSeconds))
-				continue
+		// delete gateway definition
+		deletedCheckDurationSeconds = 1
+		if gatewayDefinition.ID != nil {
+			for deletedAttempts < deletedAttemptsMax {
+				_, err = client.DeleteGatewayDefinition(
+					apiClient,
+					threeportAPIEndpoint,
+					*gatewayDefinition.ID,
+				)
+
+				// workload controller may not have deleted the gateway
+				// instance yet. If so, wait and try again
+				if err != nil {
+					deletedAttempts += 1
+					time.Sleep(time.Second * time.Duration(deletedCheckDurationSeconds))
+					continue
+				}
+				deleteSuccess = true
+				break
 			}
+		} else {
 			deleteSuccess = true
-			break
 		}
 		assert.True(deleteSuccess, "should be able to delete gateway definition")
 
@@ -576,32 +579,38 @@ func TestWorkloadE2E(t *testing.T) {
 		// delete domain name definition
 		deletedAttempts = 0
 		deleteSuccess = false
-		for deletedAttempts < deletedAttemptsMax {
-			_, err = client.DeleteDomainNameDefinition(
-				apiClient,
-				threeportAPIEndpoint,
-				*domainNameDefinition.ID,
-			)
+		if domainNameDefinition.ID != nil {
+			for deletedAttempts < deletedAttemptsMax {
+				_, err = client.DeleteDomainNameDefinition(
+					apiClient,
+					threeportAPIEndpoint,
+					*domainNameDefinition.ID,
+				)
 
-			// workload controller may not have deleted the gateway
-			// instance yet. If so, wait and try again
-			if err != nil {
-				deletedAttempts += 1
-				time.Sleep(time.Duration(deletedCheckDurationSeconds * 1000000000))
-				continue
+				// workload controller may not have deleted the gateway
+				// instance yet. If so, wait and try again
+				if err != nil {
+					deletedAttempts += 1
+					time.Sleep(time.Duration(deletedCheckDurationSeconds * 1000000000))
+					continue
+				}
+				deleteSuccess = true
+				break
 			}
+		} else {
 			deleteSuccess = true
-			break
 		}
 		assert.True(deleteSuccess, "should be able to delete domain name definition")
 
 		// delete secret definition
-		_, err = client.DeleteSecretDefinition(
-			apiClient,
-			threeportAPIEndpoint,
-			*createdSecretDefinition.ID,
-		)
-		assert.Nil(err, "should have no error deleting secret definition")
+		if createdSecretDefinition != nil && createdSecretDefinition.ID != nil {
+			_, err = client.DeleteSecretDefinition(
+				apiClient,
+				threeportAPIEndpoint,
+				*createdSecretDefinition.ID,
+			)
+			assert.Nil(err, "should have no error deleting secret definition")
+		}
 
 		// delete workload definition
 		deletedWorkloadDef, err := client.DeleteWorkloadDefinition(

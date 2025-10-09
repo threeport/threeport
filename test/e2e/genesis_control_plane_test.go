@@ -15,9 +15,8 @@ import (
 )
 
 const (
-	threeportName   = "e2e-test"
-	imageTag        = "test"
-	threeportConfig = "/tmp/e2e-threeport-config.yaml"
+	threeportName = "e2e-test"
+	imageTag      = "test"
 )
 
 // setup operations
