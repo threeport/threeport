@@ -14,12 +14,6 @@ type CustomRoute struct {
 	// The API path for the route.
 	Path string
 
-	// If true, the route accepts an ID parameter that is used by the route's
-	// handler function.  If true, the route will be added to the API server.
-	// However, only the path (minus the ID parameter) will be registered with
-	// the API server.
-	IdParam bool
-
 	// The HTTP method for the route.
 	Method string
 
@@ -55,7 +49,6 @@ func CustomRoutes(h *handlers.Handler) []CustomRoute {
 		// Adds workload resource definitions in bulk.
 		{
 			Path:    v0.PathWorkloadResourceDefinitionSets,
-			IdParam: false,
 			Method:  "POST",
 			Handler: h.AddWorkloadResourceDefinitions,
 			ApiObjects: []ApiObject{
@@ -70,7 +63,6 @@ func CustomRoutes(h *handlers.Handler) []CustomRoute {
 		// route which deletes a single event by ID.
 		{
 			Path:    v0.PathWorkloadEvents,
-			IdParam: false,
 			Method:  "DELETE",
 			Handler: h.DeleteWorkloadEvents,
 			ApiObjects: []ApiObject{
@@ -84,7 +76,6 @@ func CustomRoutes(h *handlers.Handler) []CustomRoute {
 		// Joins attached object references for events.
 		{
 			Path:    v0.PathEventsJoinAttachedObjectReferences,
-			IdParam: false,
 			Method:  "GET",
 			Handler: h.GetEventsJoinAttachedObjectReferences,
 			ApiObjects: []ApiObject{
@@ -102,7 +93,6 @@ func CustomRoutes(h *handlers.Handler) []CustomRoute {
 		// Creates a module api route with a module object reference.
 		{
 			Path:    v0.PathModuleApiRouteWithModuleObjectReferences,
-			IdParam: false,
 			Method:  "POST",
 			Handler: h.AddModuleApiRouteWithModuleObjectReferences,
 			ApiObjects: []ApiObject{
@@ -120,9 +110,25 @@ func CustomRoutes(h *handlers.Handler) []CustomRoute {
 		// Gets module objects with associated module api routes.
 		{
 			Path:    v0.PathModuleObjectsWithModuleApiRoutes,
-			IdParam: true,
 			Method:  "GET",
 			Handler: h.GetModuleObjectsWithModuleApiRoutes,
+			ApiObjects: []ApiObject{
+				{
+					Name:    v0.ObjectTypeModuleObject,
+					Version: "v0",
+				},
+				{
+					Name:    v0.ObjectTypeModuleApiRoute,
+					Version: "v0",
+				},
+			},
+		},
+
+		// Gets a single module object by ID with associated module api routes.
+		{
+			Path:    v0.PathModuleObjectsWithModuleApiRoutes + "/:id",
+			Method:  "GET",
+			Handler: h.GetModuleObjectWithModuleApiRoutes,
 			ApiObjects: []ApiObject{
 				{
 					Name:    v0.ObjectTypeModuleObject,
@@ -140,9 +146,6 @@ func CustomRoutes(h *handlers.Handler) []CustomRoute {
 // AddCustomRoutes adds non-SDK-generated routes to API server for custom use cases.
 func AddCustomRoutes(e *echo.Echo, h *handlers.Handler) {
 	for _, route := range CustomRoutes(h) {
-		if route.IdParam {
-			e.Add(route.Method, route.Path+"/:id", route.Handler)
-		}
 		e.Add(route.Method, route.Path, route.Handler)
 	}
 }

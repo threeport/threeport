@@ -30,11 +30,32 @@ func GenAddCustomRoutes(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			f.Comment("CustomRoute is a custom route for the API that defines the REST")
 			f.Comment("path, HTTP method, and handler function.")
 			f.Type().Id("CustomRoute").Struct(
+				Comment("The API's REST path for the custom route."),
 				Id("Path").String(),
+
+				Line().Comment("The HTTP method for the custom route."),
 				Id("Method").String(),
+
+				Line().Comment("The handler function for the custom route."),
 				Id("Handler").Func().Params(
 					Qual("github.com/labstack/echo/v4", "Context"),
 				).Error(),
+
+				Line().Comment("The API object type/s that the custom route serves."),
+				Comment("This is used to determine the ModuleObjects-ModuleApiRoute relationship"),
+				Comment("in module registration.  If the route serves multiple API objects, all"),
+				Comment("API objects must be included here."),
+				Id("ApiObjects").Index().Id("ApiObject"),
+			)
+			f.Line()
+
+			f.Comment("ApiObject is a type that represents an API object.")
+			f.Type().Id("ApiObject").Struct(
+				Comment("The name of the API object."),
+				Id("Name").String(),
+
+				Line().Comment("The version of the API object."),
+				Id("Version").String(),
 			)
 			f.Line()
 		}
@@ -88,7 +109,13 @@ func GenAddCustomRoutes(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Line(),
 				Comment("Add custom routes here.  Example:"),
 				Comment("return []CustomRoute{"),
-				Comment("    {Path: api_v0.PathObjectCustom, Method: \"GET\", Handler: h.GetObjectsForCustomPurpose},"),
+				Comment("    {"),
+				Comment("        Path: api_v0.PathCustomForSomeObject,"),
+				Comment("        Method: \"POST\","),
+				Comment("        Handler: h.CustomerHandlerForSomeObject, ApiObjects: []ApiObject{"),
+				Comment("            {Name: \"SomeObject\", Version: \"v0\"},"),
+				Comment("        },"),
+				Comment("    },"),
 				Comment("}"),
 				Return(Index().Id("CustomRoute").Values()),
 			)
