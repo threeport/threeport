@@ -184,13 +184,27 @@ func (h *HelmWorkloadInstanceConfig) Create(
 		return nil, fmt.Errorf("failed to create helm workload instance in threeport API: %w", err)
 	}
 
+	// get the related helm workload definition
+	createdHelmWorkloadDefinition, err := client_v0.GetHelmWorkloadDefinitionByID(
+		apiClient,
+		apiEndpoint,
+		*createdHelmWorkloadInstance.HelmWorkloadDefinitionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get helm workload definition: %w", err)
+	}
+	helmWorkloadDefinitionValues := HelmWorkloadDefinitionValues{
+		Name: createdHelmWorkloadDefinition.Name,
+	}
+
 	// construct helm workload instance config
 	createdHelmWorkloadInstanceConfig := &HelmWorkloadInstanceConfig{
 		HelmWorkloadInstance: HelmWorkloadInstanceValues{
-			Age:              util.Ptr(util.GetAgeFormatted(createdHelmWorkloadInstance.CreatedAt)),
-			Name:             createdHelmWorkloadInstance.Name,
-			Values:           createdHelmWorkloadInstance.ValuesDocument,
-			ReleaseNamespace: createdHelmWorkloadInstance.ReleaseNamespace,
+			Age:                    util.Ptr(util.GetAgeFormatted(createdHelmWorkloadInstance.CreatedAt)),
+			Name:                   createdHelmWorkloadInstance.Name,
+			Values:                 createdHelmWorkloadInstance.ValuesDocument,
+			ReleaseNamespace:       createdHelmWorkloadInstance.ReleaseNamespace,
+			HelmWorkloadDefinition: &helmWorkloadDefinitionValues,
 		},
 	}
 
@@ -352,11 +366,6 @@ func (h *HelmWorkloadInstanceConfig) Validate() error {
 	// ensure name is set
 	if helmWorkloadInstanceValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
-	}
-
-	// ensure kubernetes runtime instance name is set
-	if helmWorkloadInstanceValues.KubernetesRuntimeInstance == nil || helmWorkloadInstanceValues.KubernetesRuntimeInstance.Name == nil {
-		multiError.AppendError(errors.New("missing required field in config: KubernetesRuntimeInstance.Name"))
 	}
 
 	// ensure helm workload definition name is set
