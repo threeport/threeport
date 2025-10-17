@@ -27,7 +27,7 @@ type LogStorageDefinition struct {
 	LogStorageInstances []*LogStorageInstance `json:"LogStorageInstances,omitempty" validate:"optional,association"`
 }
 
-// An instance of log storage deployed to a compute space cluster.
+// LogStorageInstance is an instance of log storage deployed to a compute space cluster.
 type LogStorageInstance struct {
 	Common   `swaggerignore:"true" mapstructure:",squash"`
 	Instance `mapstructure:",squash"`

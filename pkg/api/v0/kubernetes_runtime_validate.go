@@ -109,7 +109,27 @@ func (k *KubernetesRuntimeInstance) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// BeforeUpdate validates that no immutable fields are attempting to be changed
+// BeforeUpdate validates that no immutable fields are being changed
+// before updates are persisted.
+func (k *KubernetesRuntimeDefinition) BeforeUpdate(tx *gorm.DB) error {
+	// ensure infra provider is not changed
+	if tx.Statement.Changed("InfraProvider") {
+		return util.NewBadRequestError(
+			"kubernetes runtime definition infra provider cannot be changed after creation",
+		)
+	}
+
+	// ensure high availability is not changed
+	if tx.Statement.Changed("HighAvailability") {
+		return util.NewBadRequestError(
+			"kubernetes runtime definition high availability cannot be changed after creation",
+		)
+	}
+
+	return nil
+}
+
+// BeforeUpdate validates that no immutable fields are being changed
 // before updates are persisted.
 func (k *KubernetesRuntimeInstance) BeforeUpdate(tx *gorm.DB) error {
 	// ensure runtime location is not changed

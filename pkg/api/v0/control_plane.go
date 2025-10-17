@@ -1,6 +1,6 @@
 package v0
 
-// ControlPlaneDefinition is the configuration for a Control Plane.
+// ControlPlaneDefinition is the configuration for a Threeport Control Plane.
 type ControlPlaneDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Definition     `mapstructure:",squash"`
@@ -18,7 +18,7 @@ type ControlPlaneDefinition struct {
 	ControlPlaneInstances []*ControlPlaneInstance `json:"ControlPlaneInstances,omitempty" validate:"optional,association"`
 }
 
-// ControlPlaneInstance is the instance for a deployed Control Plane.
+// ControlPlaneInstance is the instance for a deployed Threeport Control Plane.
 type ControlPlaneInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Instance       `mapstructure:",squash"`

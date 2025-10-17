@@ -4,7 +4,7 @@ import (
 	"gorm.io/datatypes"
 )
 
-// AwsAccount is a user account with the AWS service provider.
+// AwsAccount is a user account with the Amazon Web Services service provider.
 type AwsAccount struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 

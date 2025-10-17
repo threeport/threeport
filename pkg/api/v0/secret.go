@@ -18,7 +18,6 @@ type SecretDefinition struct {
 	SecretInstances []*SecretInstance `json:"SecretInstances,omitempty" validate:"optional,association"`
 }
 
-// todo add marker
 // SecretInstance is an instance of a secret deployed to a runtime.
 type SecretInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`

@@ -180,7 +180,12 @@ func GenCoreModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) err
 								"Ptr",
 							).Call(Lit(apiObj.TypeName)),
 							Id("Version"): Qual(
-								"github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Lit(apiObj.Version)),
+								"github.com/threeport/threeport/pkg/util/v0", "Ptr",
+							).Call(Lit(apiObj.Version)),
+							Id("Description"): Qual(
+								"github.com/threeport/threeport/pkg/util/v0",
+								"Ptr",
+							).Call(Lit(apiObj.Description)),
 							Id("ModuleApiID"):        Id("moduleApi").Dot("ID"),
 							Id("ModuleControllerID"): Id("controller").Dot("ID"),
 						})
@@ -197,6 +202,10 @@ func GenCoreModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) err
 								"github.com/threeport/threeport/pkg/util/v0",
 								"Ptr",
 							).Call(Lit(apiObj.Version)),
+							Id("Description"): Qual(
+								"github.com/threeport/threeport/pkg/util/v0",
+								"Ptr",
+							).Call(Lit(apiObj.Description)),
 							Id("ModuleApiID"): Id("moduleApi").Dot("ID"),
 						})
 					}
@@ -318,6 +327,10 @@ func GenCoreModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) err
 							"github.com/threeport/threeport/pkg/util/v0",
 							"Ptr",
 						).Call(Lit(apiObj.Version)),
+						Id("Description"): Qual(
+							"github.com/threeport/threeport/pkg/util/v0",
+							"Ptr",
+						).Call(Lit(apiObj.Description)),
 						Id("ModuleApiID"): Id("moduleApi").Dot("ID"),
 					})
 					g.Id("result").Op("=").Id("db").Dot("Where").Call(
@@ -426,7 +439,7 @@ func GenCoreModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) err
 		}
 		g.Line()
 		g.Comment("registering custom routes")
-		g.For(List(Id("_"), Id("customRoute")).Op(":=").Range().Qual(
+		g.For(List(Id("_"), Id("customRoute")).Op(":=").Range().Op("*").Qual(
 			"github.com/threeport/threeport/pkg/api-server/v0/routes",
 			"CustomRoutes",
 		).Call(Nil())).BlockFunc(func(h *Group) {
@@ -435,12 +448,12 @@ func GenCoreModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) err
 				"github.com/threeport/threeport/pkg/api/v0",
 				"ModuleObject",
 			).Values()
-			h.For(List(Id("_"), Id("apiObject")).Op(":=").Range().Id("customRoute").Dot("ApiObjects")).BlockFunc(func(i *Group) {
-				i.Id("moduleObj").Op(":=").Qual(
+			h.For(List(Id("_"), Id("apiObject")).Op(":=").Range().Op("*").Id("customRoute").Dot("ApiObjects")).Block(
+				Id("moduleObj").Op(":=").Qual(
 					"github.com/threeport/threeport/pkg/api/v0",
 					"ModuleObject",
-				).Values()
-				i.Id("moduleResult").Op(":=").Id("db").Dot("Where").Call(
+				).Values(),
+				Id("moduleResult").Op(":=").Id("db").Dot("Where").Call(
 					Qual("github.com/threeport/threeport/pkg/api/v0", "ModuleObject").Values(Dict{
 						Id("ModuleApiID"): Id("moduleApi").Dot("ID"),
 						Id("Name"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
@@ -450,16 +463,16 @@ func GenCoreModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) err
 							Id("apiObject").Dot("Version"),
 						),
 					}),
-				).Dot("Find").Call(Op("&").Id("moduleObj"))
-				i.If(Id("moduleResult").Dot("Error").Op("!=").Nil()).Block(
+				).Dot("Find").Call(Op("&").Id("moduleObj")),
+				If(Id("moduleResult").Dot("Error").Op("!=").Nil()).Block(
 					Return(Qual("fmt", "Errorf").Call(
 						Lit("failed to query module object for %s: %w"),
 						Id("apiObject").Dot("Name"),
 						Id("moduleResult").Dot("Error"),
 					)),
-				)
-				i.Id("moduleObjects").Op("=").Append(Id("moduleObjects"), Op("&").Id("moduleObj"))
-			})
+				),
+				Id("moduleObjects").Op("=").Append(Id("moduleObjects"), Op("&").Id("moduleObj")),
+			)
 			h.Id("route").Op("=").Qual(
 				"github.com/threeport/threeport/pkg/api/v0",
 				"ModuleApiRoute",
@@ -713,12 +726,6 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								"github.com/threeport/threeport/pkg/api/v0",
 								"ModuleObject",
 							).Values(Dict{
-								Id("Description"): Qual(
-									"github.com/threeport/threeport/pkg/util/v0",
-									"Ptr",
-								).Call(Lit(apiObj.Description)),
-								Id("ModuleApiID"):        Id("existingModApi").Dot("ID"),
-								Id("ModuleControllerID"): Id(controllerVar).Dot("ID"),
 								Id("Name"): Qual(
 									"github.com/threeport/threeport/pkg/util/v0",
 									"Ptr",
@@ -727,6 +734,12 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									"github.com/threeport/threeport/pkg/util/v0",
 									"Ptr",
 								).Call(Lit(apiObj.Version)),
+								Id("Description"): Qual(
+									"github.com/threeport/threeport/pkg/util/v0",
+									"Ptr",
+								).Call(Lit(apiObj.Description)),
+								Id("ModuleApiID"):        Id("existingModApi").Dot("ID"),
+								Id("ModuleControllerID"): Id(controllerVar).Dot("ID"),
 							}),
 							List(Id("objectResult"), Id("err")).Op(":=").Qual(
 								"github.com/threeport/threeport/pkg/client/v0",
@@ -855,11 +868,6 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								"github.com/threeport/threeport/pkg/api/v0",
 								"ModuleObject",
 							).Values(Dict{
-								Id("Description"): Qual(
-									"github.com/threeport/threeport/pkg/util/v0",
-									"Ptr",
-								).Call(Lit(apiObj.Description)),
-								Id("ModuleApiID"): Id("existingModApi").Dot("ID"),
 								Id("Name"): Qual(
 									"github.com/threeport/threeport/pkg/util/v0",
 									"Ptr",
@@ -868,6 +876,11 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									"github.com/threeport/threeport/pkg/util/v0",
 									"Ptr",
 								).Call(Lit(apiObj.Version)),
+								Id("Description"): Qual(
+									"github.com/threeport/threeport/pkg/util/v0",
+									"Ptr",
+								).Call(Lit(apiObj.Description)),
+								Id("ModuleApiID"): Id("existingModApi").Dot("ID"),
 							}),
 							List(Id("_"), Id("err")).Op(":=").Qual(
 								"github.com/threeport/threeport/pkg/client/v0", "CreateModuleObject",
@@ -993,11 +1006,6 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"github.com/threeport/threeport/pkg/api/v0",
 							"ModuleObject",
 						).Values(Dict{
-							Id("Description"): Qual(
-								"github.com/threeport/threeport/pkg/util/v0",
-								"Ptr",
-							).Call(Lit(apiObj.Description)),
-							Id("ModuleApiID"): Id("existingModApi").Dot("ID"),
 							Id("Name"): Qual(
 								"github.com/threeport/threeport/pkg/util/v0",
 								"Ptr",
@@ -1006,6 +1014,11 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								"github.com/threeport/threeport/pkg/util/v0",
 								"Ptr",
 							).Call(Lit(apiObj.Version)),
+							Id("Description"): Qual(
+								"github.com/threeport/threeport/pkg/util/v0",
+								"Ptr",
+							).Call(Lit(apiObj.Description)),
+							Id("ModuleApiID"): Id("existingModApi").Dot("ID"),
 						}),
 						List(Id("_"), Id("err")).Op(":=").Qual(
 							"github.com/threeport/threeport/pkg/client/v0",
@@ -1109,7 +1122,7 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		}
 		g.Line()
 		g.Comment("registering custom routes")
-		g.For(List(Id("_"), Id("customRoute")).Op(":=").Range().Qual(
+		g.For(List(Id("_"), Id("customRoute")).Op(":=").Range().Op("*").Qual(
 			fmt.Sprintf("%s/pkg/api-server/v0/routes", gen.ModulePath),
 			"CustomRoutes",
 		).Call(Nil())).BlockFunc(func(h *Group) {
@@ -1118,8 +1131,8 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				"github.com/threeport/threeport/pkg/api/v0",
 				"ModuleObject",
 			).Values()
-			h.For(List(Id("_"), Id("apiObject")).Op(":=").Range().Id("customRoute").Dot("ApiObjects")).BlockFunc(func(i *Group) {
-				i.List(Id("modObj"), Id("err")).Op(":=").Qual(
+			h.For(List(Id("_"), Id("apiObject")).Op(":=").Range().Op("*").Id("customRoute").Dot("ApiObjects")).Block(
+				List(Id("modObj"), Id("err")).Op(":=").Qual(
 					"github.com/threeport/threeport/pkg/client/v0",
 					"GetModuleObjectsByQueryString",
 				).Call(
@@ -1131,16 +1144,16 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Id("apiObject").Dot("Version"),
 					),
 					Line(),
-				)
-				i.If(Id("err").Op("!=").Nil()).Block(
+				),
+				If(Id("err").Op("!=").Nil()).Block(
 					Return(Qual("fmt", "Errorf").Call(
 						Lit("failed to retrieve module object %s: %w"),
 						Id("apiObject").Dot("Name"),
 						Id("err"),
 					)),
-				)
-				i.Id("moduleObjects").Op("=").Append(Id("moduleObjects"), Op("&").Parens(Op("*").Id("modObj")).Index(Lit(0)))
-			})
+				),
+				Id("moduleObjects").Op("=").Append(Id("moduleObjects"), Op("&").Parens(Op("*").Id("modObj")).Index(Lit(0))),
+			)
 			h.Id("route").Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/api/v0",
 				"ModuleApiRoute",

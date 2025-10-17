@@ -50,16 +50,16 @@ type ObservabilityStackDefinition struct {
 	ObservabilityStackInstances []*ObservabilityStackInstance `json:"ObservabilityStackInstances,omitempty" validate:"optional,association"`
 }
 
-// ObservabilityStackInstances defines an instance of an observability stack.
+// ObservabilityStackInstance is a deployed instance of an observability stack.
 type ObservabilityStackInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// ObservabilityStackDefinitionID is the definition used to configure the workload instance.
+	// The observability stack definition that belongs to this resource.
 	ObservabilityStackDefinitionID *uint `json:"ObservabilityStackDefinitionID,omitempty" query:"observabilitystackdefinitionid" gorm:"not null" validate:"required"`
 
-	// The kubernetes runtime where the ingress layer is installed.
+	// The kubernetes runtime where the observability stack is installed.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
 
 	// If true, metrics will be enabled for the observability stack.
@@ -97,7 +97,7 @@ type ObservabilityStackInstance struct {
 	PromtailHelmValuesDocument *string `json:"PromtailHelmValuesDocument,omitempty" query:"promtailhelmvaluesdocument" validate:"optional"`
 }
 
-// ObservabilityDashboardDefinition defines an dashboard.
+// ObservabilityDashboardDefinition is the definition of an observability dashboard.
 type ObservabilityDashboardDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Definition     `mapstructure:",squash"`
@@ -117,16 +117,16 @@ type ObservabilityDashboardDefinition struct {
 	ObservabilityDashboardInstances []*ObservabilityDashboardInstance `json:"ObservabilityDashboardInstances,omitempty" validate:"optional,association"`
 }
 
-// ObservabilityDashboardInstances defines an instance of an observability dashboard.
+// ObservabilityDashboardInstances is a deployed instance of an observability dashboard.
 type ObservabilityDashboardInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// ObservabilityDashboardDefinitionID is the definition used to configure the workload instance.
+	// The observability dashboard definition that belongs to this resource.
 	ObservabilityDashboardDefinitionID *uint `json:"ObservabilityDashboardDefinitionID,omitempty" query:"observabilitydashboarddefinitionid" gorm:"not null" validate:"required"`
 
-	// The kubernetes runtime where the ingress layer is installed.
+	// The kubernetes runtime where the observability dashboard is installed.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
 
 	// The Grafana Helm workload definition that belongs to this resource.
@@ -137,7 +137,7 @@ type ObservabilityDashboardInstance struct {
 	GrafanaHelmValuesDocument *string `json:"GrafanaHelmValuesDocument,omitempty" query:"grafanahelmvaluedsdocument" validate:"optional"`
 }
 
-// MetricsDefinition defines a metrics aggregation layer for a workload.
+// MetricsDefinition is the definition of a metrics aggregation layer for a workload.
 type MetricsDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Definition     `mapstructure:",squash"`
@@ -157,27 +157,27 @@ type MetricsDefinition struct {
 	MetricsInstances []*MetricsInstance `json:"MetricsInstances,omitempty" validate:"optional,association"`
 }
 
-// MetricsInstances defines an instance of a metrics aggregation layer for a workload.
+// MetricsInstances is a deployed instance of a metrics aggregation layer for a workload.
 type MetricsInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// MetricsDefinitionID is the definition used to configure the workload instance.
+	// The metrics definition that belongs to this resource.
 	MetricsDefinitionID *uint `json:"MetricsDefinitionID,omitempty" query:"metricsdefinitionid" gorm:"not null" validate:"required"`
 
-	// The kubernetes runtime where the ingress layer is installed.
+	// The kubernetes runtime where the metrics is installed.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
 
-	// The kube-prometheus-stack Helm workload definition that belongs to this resource.
+	// The kube-prometheus-stack helm workload instance that belongs to this resource.
 	KubePrometheusStackHelmWorkloadInstanceID *uint `json:"KubePrometheusStackHelmWorkloadInstanceID,omitempty" query:"kubeprometheusstackhelmworkloadinstanceid" validate:"optional"`
 
-	// Optional Helm workload definition values that can be provided to configure the
+	// Optional Helm workload instance values that can be provided to configure the
 	// underlying kube-prometheus-stack chart.
 	KubePrometheusStackHelmValuesDocument *string `json:"KubePrometheusStackHelmValuesDocument,omitempty" query:"kubeprometheusstackhelmvaluesdocument" validate:"optional"`
 }
 
-// LoggingDefinition defines a logging implementation for a workload.
+// LoggingDefinition is the definition of a logging implementation for a workload.
 type LoggingDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Definition     `mapstructure:",squash"`
@@ -203,33 +203,33 @@ type LoggingDefinition struct {
 	// underlying promtail chart.
 	PromtailHelmValuesDocument *string `json:"PromtailHelmValuesDocument,omitempty" query:"promtailhelmvaluesdocument" validate:"optional"`
 
-	// The associated metrics instances that are deployed from this definition.
+	// The associated logging instances that are deployed from this definition.
 	LoggingInstances []*LoggingInstance `json:"LoggingInstances,omitempty" validate:"optional,association"`
 }
 
-// LoggingInstances defines an instance of a logging implementation for a workload.
+// LoggingInstances is a deployed instance of a logging implementation for a workload.
 type LoggingInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// MetricsDefinitionID is the definition used to configure the workload instance.
+	// The logging definition that belongs to this resource.
 	LoggingDefinitionID *uint `json:"LoggingDefinitionID,omitempty" query:"loggingdefinitionid" gorm:"not null" validate:"required"`
 
-	// The kubernetes runtime where the ingress layer is installed.
+	// The kubernetes runtime where the logging is installed.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required"`
 
-	// The loki Helm workload definition that belongs to this resource.
+	// The loki helm workload instance that belongs to this resource.
 	LokiHelmWorkloadInstanceID *uint `json:"LokiHelmWorkloadInstanceID,omitempty" query:"lokihelmworkloadinstanceid" validate:"optional"`
 
-	// The promtail Helm workload definition that belongs to this resource.
+	// The promtail helm workload instance that belongs to this resource.
 	PromtailHelmWorkloadInstanceID *uint `json:"PromtailHelmWorkloadInstanceID,omitempty" query:"promtailhelmworkloadinstanceid" validate:"optional"`
 
-	// Optional Helm workload definition values that can be provided to configure the
+	// Optional Helm workload instance values that can be provided to configure the
 	// underlying loki chart.
 	LokiHelmValuesDocument *string `json:"LokiHelmValuesDocument,omitempty" query:"lokihelmvaluesdocument" validate:"optional"`
 
-	// Optional Helm workload definition values that can be provided to configure the
+	// Optional Helm workload instance values that can be provided to configure the
 	// underlying promtail chart.
 	PromtailHelmValuesDocument *string `json:"PromtailHelmValuesDocument,omitempty" query:"promtailhelmvaluesdocument" validate:"optional"`
 }

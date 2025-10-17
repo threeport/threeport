@@ -10,7 +10,7 @@ const (
 	PathWorkloadResourceDefinitionSets = "/v0/workload-resource-definition-sets"
 )
 
-// WorkloadDefinition is the collection of Kubernetes manifests that define a
+// WorkloadDefinition is a collection of Kubernetes manifests that define a
 // distinct workload.
 type WorkloadDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`

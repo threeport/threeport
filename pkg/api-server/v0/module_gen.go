@@ -79,6 +79,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object SecretDefinition
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("SecretDefinition defines a secret that can be deployed to a runtime."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("SecretDefinition"),
@@ -123,6 +124,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object SecretInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("SecretInstance is an instance of a secret deployed to a runtime."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("SecretInstance"),
@@ -170,6 +172,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 	// /////////////////////////////////////////////////////////////////////////////
 	// registering object Profile
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("Profile is a named standard configuration for a definition object."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("Profile"),
 		Version:     util.Ptr("v0"),
@@ -213,6 +216,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object Tier
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("Tier is a level of criticality for access control. Common tiers would be \"development\" and \"production\" whereby typically many users will have access to manage development tiers while only leads and managers have access to manage production tier resources."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("Tier"),
 		Version:     util.Ptr("v0"),
@@ -270,6 +274,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object AwsAccount
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("AwsAccount is a user account with the Amazon Web Services service provider."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("AwsAccount"),
 		Version:     util.Ptr("v0"),
@@ -313,6 +318,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object AwsEksKubernetesRuntimeDefinition
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("AwsEksKubernetesRuntimeDefinition provides the configuration for EKS cluster instances."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("AwsEksKubernetesRuntimeDefinition"),
 		Version:     util.Ptr("v0"),
@@ -356,6 +362,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object AwsEksKubernetesRuntimeInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("AwsEksKubernetesRuntimeInstance is a deployed instance of an EKS cluster."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("AwsEksKubernetesRuntimeInstance"),
@@ -414,6 +421,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object OciAccount
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("OciAccount is a user account with the Oracle Cloud Infrastructure service provider."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("OciAccount"),
 		Version:     util.Ptr("v0"),
@@ -457,6 +465,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object OciOkeKubernetesRuntimeDefinition
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("OciOkeKubernetesRuntimeDefinition provides the configuration for OKE cluster instances."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("OciOkeKubernetesRuntimeDefinition"),
 		Version:     util.Ptr("v0"),
@@ -500,6 +509,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object OciOkeKubernetesRuntimeInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("OciOkeKubernetesRuntimeInstance is a deployed instance of an OKE cluster."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("OciOkeKubernetesRuntimeInstance"),
@@ -558,6 +568,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object ControlPlaneDefinition
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("ControlPlaneDefinition is the configuration for a Threeport Control Plane."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("ControlPlaneDefinition"),
@@ -602,6 +613,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object ControlPlaneInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("ControlPlaneInstance is the instance for a deployed Threeport Control Plane."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("ControlPlaneInstance"),
@@ -655,6 +667,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 	// /////////////////////////////////////////////////////////////////////////////
 	// registering object Event
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("Event is a record of an event in the system."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("Event"),
 		Version:     util.Ptr("v0"),
@@ -712,6 +725,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object DomainNameDefinition
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("DomainNameDefinition is the definition for domain name management for a particular DNS zone."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("DomainNameDefinition"),
 		Version:     util.Ptr("v0"),
@@ -755,6 +769,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object DomainNameInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("DomainNameInstance is an instance of domain name management for a workload."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("DomainNameInstance"),
@@ -799,6 +814,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object GatewayDefinition
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("GatewayDefinition is the definition of a gateway that provides routing of requests to a collection of workloads."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("GatewayDefinition"),
@@ -843,6 +859,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object GatewayHttpPort
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("GatewayHttpPort is an HTTP port to expose to the outside network."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("GatewayHttpPort"),
 		Version:     util.Ptr("v0"),
@@ -886,6 +903,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object GatewayInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("GatewayInstance is a deployed instance of a gateway."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("GatewayInstance"),
@@ -930,6 +948,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object GatewayTcpPort
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("GatewayTcpPort is a TCP port to expose to the outside network."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("GatewayTcpPort"),
 		Version:     util.Ptr("v0"),
@@ -987,6 +1006,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object HelmWorkloadDefinition
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("HelmWorkloadDefinition includes the helm repo and chart that is used to configure the workload."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("HelmWorkloadDefinition"),
@@ -1031,6 +1051,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object HelmWorkloadInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("HelmWorkloadInstance is a deployed instance of a helm chart with the runtime parameters as helm values."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("HelmWorkloadInstance"),
@@ -1089,6 +1110,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object KubernetesRuntimeDefinition
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("KubernetesRuntimeDefinition is the configuration for a Kubernetes cluster."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("KubernetesRuntimeDefinition"),
@@ -1133,6 +1155,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object KubernetesRuntimeInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("KubernetesRuntimeInstance is a deployed instance of a Kubernetes cluster."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("KubernetesRuntimeInstance"),
@@ -1180,6 +1203,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 	// /////////////////////////////////////////////////////////////////////////////
 	// registering object LogBackend
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("LogBackend is where the log messages are stored."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("LogBackend"),
 		Version:     util.Ptr("v0"),
@@ -1223,6 +1247,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object LogStorageDefinition
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("LogStorageDefinition provides configuration for the retention of log output from workloads to one or more log storage back ends."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("LogStorageDefinition"),
 		Version:     util.Ptr("v0"),
@@ -1266,6 +1291,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object LogStorageInstance
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("LogStorageInstance is an instance of log storage deployed to a compute space cluster."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("LogStorageInstance"),
 		Version:     util.Ptr("v0"),
@@ -1323,6 +1349,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object LoggingDefinition
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("LoggingDefinition is the definition of a logging implementation for a workload."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("LoggingDefinition"),
@@ -1367,6 +1394,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object LoggingInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("LoggingInstances is a deployed instance of a logging implementation for a workload."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("LoggingInstance"),
@@ -1411,6 +1439,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object MetricsDefinition
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("MetricsDefinition is the definition of a metrics aggregation layer for a workload."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("MetricsDefinition"),
@@ -1455,6 +1484,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object MetricsInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("MetricsInstances is a deployed instance of a metrics aggregation layer for a workload."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("MetricsInstance"),
@@ -1499,6 +1529,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object ObservabilityDashboardDefinition
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("ObservabilityDashboardDefinition is the definition of an observability dashboard."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("ObservabilityDashboardDefinition"),
@@ -1543,6 +1574,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object ObservabilityDashboardInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("ObservabilityDashboardInstances is a deployed instance of an observability dashboard."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("ObservabilityDashboardInstance"),
@@ -1587,6 +1619,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object ObservabilityStackDefinition
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("ObservabilityStackDefinition defines an observability stack."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("ObservabilityStackDefinition"),
@@ -1631,6 +1664,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object ObservabilityStackInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("ObservabilityStackInstance is a deployed instance of an observability stack."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("ObservabilityStackInstance"),
@@ -1689,6 +1723,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object TerraformDefinition
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("TerraformDefinition is the configuration for terraform-defined resources."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("TerraformDefinition"),
@@ -1733,6 +1768,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object TerraformInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("TerraformInstance is the deployed instances of terraform resources defined in the associated definition with the variables values. The output from terraform is stored here along with the terraform state document."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("TerraformInstance"),
@@ -1791,6 +1827,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object WorkloadDefinition
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("WorkloadDefinition is a collection of Kubernetes manifests that define a distinct workload."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("WorkloadDefinition"),
@@ -1835,6 +1872,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object WorkloadEvent
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("WorkloadEvent is a summary of a Kubernetes Event that is associated with a WorkloadResourceInstance."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("WorkloadEvent"),
 		Version:     util.Ptr("v0"),
@@ -1878,6 +1916,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object WorkloadInstance
 	object = api_v0.ModuleObject{
+		Description:        util.Ptr("WorkloadInstance is a deployed instance of a workload."),
 		ModuleApiID:        moduleApi.ID,
 		ModuleControllerID: controller.ID,
 		Name:               util.Ptr("WorkloadInstance"),
@@ -1922,6 +1961,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object WorkloadResourceDefinition
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("WorkloadResourceDefinition is an individual Kubernetes resource manifest."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("WorkloadResourceDefinition"),
 		Version:     util.Ptr("v0"),
@@ -1965,6 +2005,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object WorkloadResourceInstance
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("WorkloadResourceInstance is a Kubernetes resource instance."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("WorkloadResourceInstance"),
 		Version:     util.Ptr("v0"),
@@ -2011,6 +2052,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 	// /////////////////////////////////////////////////////////////////////////////
 	// registering object AttachedObjectReference
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("AttachedObjectReference is a reference to an attached object."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("AttachedObjectReference"),
 		Version:     util.Ptr("v0"),
@@ -2057,6 +2099,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 	// /////////////////////////////////////////////////////////////////////////////
 	// registering object ModuleApi
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("ModuleApi represents an API server for a Threeport module."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("ModuleApi"),
 		Version:     util.Ptr("v0"),
@@ -2100,6 +2143,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object ModuleApiRoute
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("ModuleApiRoute represents a route supported by a module API."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("ModuleApiRoute"),
 		Version:     util.Ptr("v0"),
@@ -2143,6 +2187,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object ModuleController
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("ModuleController represents a distinct controller that is a part of the Threeport control plane."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("ModuleController"),
 		Version:     util.Ptr("v0"),
@@ -2186,6 +2231,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object ModuleObject
 	object = api_v0.ModuleObject{
+		Description: util.Ptr("ModuleObject is an API object that is managed by a module in Threeport. This provides central registry of all API objects across all modules for each Threeport control plane."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("ModuleObject"),
 		Version:     util.Ptr("v0"),
@@ -2228,10 +2274,10 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 	}
 
 	// registering custom routes
-	for _, customRoute := range routes.CustomRoutes(nil) {
+	for _, customRoute := range *routes.CustomRoutes(nil) {
 		// query the module objects for the custom route by name and version
 		moduleObjects := []*api_v0.ModuleObject{}
-		for _, apiObject := range customRoute.ApiObjects {
+		for _, apiObject := range *customRoute.ApiObjects {
 			moduleObj := api_v0.ModuleObject{}
 			moduleResult := db.Where(api_v0.ModuleObject{
 				ModuleApiID: moduleApi.ID,

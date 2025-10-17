@@ -3,8 +3,6 @@ package v0
 import "time"
 
 // KubernetesRuntimeDefinition is the configuration for a Kubernetes cluster.
-// TODO apply BeforeCreate functions that prevent changes to InfraProvider and
-// HighAvailability fields - these are immutable.
 type KubernetesRuntimeDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Definition     `mapstructure:",squash"`

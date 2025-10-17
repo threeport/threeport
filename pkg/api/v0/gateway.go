@@ -1,7 +1,7 @@
 package v0
 
-// Gateway is a route for requests to a workload from clients outside the
-// private network of a workload kubernetes runtime.  This
+// GatewayDefinition is the definition of a gateway that provides routing of requests to a
+// collection of workloads.
 type GatewayDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Definition     `mapstructure:",squash"`
@@ -52,13 +52,13 @@ type GatewayInstance struct {
 	// GatewayDefinitionID is the definition used to configure the workload instance.
 	GatewayDefinitionID *uint `json:"GatewayDefinitionID,omitempty" query:"gatewaydefinitionid" gorm:"not null" validate:"required"`
 
-	// The workload instance this gateway belongs to.
-	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadresourceinstanceid" gorm:"not null" validate:"required"`
-
-	//TODO: implement this in the future so we don't need to
+	// TODO: implement this in the future so we don't need to
 	// query the workload instance & search for the workload resource instance
 	// The workload resource instances that belong to this instance.
 	// WorkloadResourceInstances *[]WorkloadResourceInstance `json:"WorkloadResourceInstances,omitempty" query:"workloadresourceinstances" validate:"optional,association"`
+
+	// The workload instance this gateway belongs to.
+	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadresourceinstanceid" gorm:"not null" validate:"required"`
 }
 
 // GatewayHttpPort is an HTTP port to expose to the outside network.
@@ -95,7 +95,7 @@ type GatewayTcpPort struct {
 	TLSEnabled *bool `json:"TLSEnabled,omitempty" query:"tlsenabled" gorm:"default:false" validate:"optional"`
 }
 
-// DomainNameDefinition the definition for domain name management for a
+// DomainNameDefinition is the definition for domain name management for a
 // particular DNS zone.
 type DomainNameDefinition struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
