@@ -75,17 +75,25 @@ func GetResponse(
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal response status from threeport API: %w", err)
 		}
+
+		// If the error message is NOT from the Threeport API, e.g. an API gateway,
+		// then use the response body as the error message
+		errMessage := response.Status.Error
+		if response.Status.Error == "" {
+			errMessage = string(respBody)
+		}
+
 		// return specific errors that need to be identified with `errors.As`
 		// elsewhere
 		switch resp.StatusCode {
 		case http.StatusNotFound:
-			return nil, fmt.Errorf("%w: %s", ErrObjectNotFound, response.Status.Error)
+			return nil, fmt.Errorf("%w: %s", ErrObjectNotFound, errMessage)
 		case http.StatusUnauthorized:
-			return nil, fmt.Errorf("%w: %s", ErrUnauthorized, response.Status.Error)
+			return nil, fmt.Errorf("%w: %s", ErrUnauthorized, errMessage)
 		case http.StatusForbidden:
-			return nil, fmt.Errorf("%w: %s", ErrForbidden, response.Status.Error)
+			return nil, fmt.Errorf("%w: %s", ErrForbidden, errMessage)
 		case http.StatusConflict:
-			return nil, fmt.Errorf("%w: %s", ErrConflict, response.Status.Error)
+			return nil, fmt.Errorf("%w: %s", ErrConflict, errMessage)
 		default:
 			return nil, fmt.Errorf(
 				"API returned status: %d, %s\n%s\nexpected: %d",
