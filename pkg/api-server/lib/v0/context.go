@@ -16,23 +16,11 @@ import (
 )
 
 const (
-	//QueryParamPage = "page"
-	//QueryParamSize = "size"
-	//DefaultParamSizeValue            = 50
-	//DefaultParamSizeValue            = 200
-	////////////////////////////////////////////////
-	QueryParamQueryId = "queryid"
-	QueryParamCursor  = "cursor"
-	QueryParamLimit   = "limit"
-	//DefaultPaginationLimitValue = 200
-	DefaultPaginationLimitValue = 20
-	MaxPaginationLimitValue     = 10000
-	////////////////////////////////////////////////
-	//ErrMsgQueryParamInvalidPageValue = "Query parameter is not a valid integer value: " + QueryParamPage
-	//ErrMsgQueryParamInvalidSizeValue = "Query parameter is not a valid integer value: " + QueryParamSize
-	//ErrTokenIsNotProvided = "Authorization token was not provided"
-	//AuthorizationKey = "Authorization"
-	//BearerKey        = "Bearer "
+	QueryParamQueryId           = "queryid"
+	QueryParamCursor            = "cursor"
+	QueryParamLimit             = "limit"
+	DefaultPaginationLimitValue = 100
+	MaxPaginationLimitValue     = 1000
 )
 
 type CustomContext struct {

@@ -13,6 +13,8 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// Handler is the main handler for the API server.  It contains the database connection,
+// NATS connection, JetStream context, and logger.
 type Handler struct {
 	DB     *gorm.DB
 	NC     *nats.Conn
@@ -20,6 +22,7 @@ type Handler struct {
 	Logger *zap.Logger
 }
 
+// New returns a new Handler.
 func New(db *gorm.DB, nc *nats.Conn, rc nats.JetStreamContext, logger *zap.Logger) Handler {
 	return Handler{db, nc, rc, logger}
 }
