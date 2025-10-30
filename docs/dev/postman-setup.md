@@ -53,7 +53,7 @@ control-plane` to provision it.
 Build the tptdev tool:
 
 ```bash
-make build-tptdev
+mage build:tptdev
 ```
 
 Use that tool to get the credentials:
