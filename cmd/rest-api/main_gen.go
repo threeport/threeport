@@ -119,6 +119,9 @@ func main() {
 		e.Logger.Fatalf("failed to initialize module proxy router: %v", err)
 	}
 
+	// run cleanup of old materialized views every 60 seconds and drop views older than 15 minutes
+	apiserver_lib.CleanupMaterializedViews(db, &logger, 60, 15)
+
 	// nats connection
 	natsConn := fmt.Sprintf(
 		"nats://%s:%s@%s:%s",

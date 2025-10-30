@@ -24,7 +24,8 @@ func New(db *gorm.DB, nc *nats.Conn, rc nats.JetStreamContext, logger *zap.Logge
 	return Handler{db, nc, rc, logger}
 }
 
-// CreateMaterializedView creates a materialized view for a given object type and returns the view name and query ID.
+// CreateMaterializedView creates a materialized view for a given object type and returns the
+// view name and query ID. The views are used for result pagination in handlers that support pagination.
 func (h Handler) CreateMaterializedView(queryTable string) (string, string, error) {
 	// create the materialized view name
 	viewName, queryId := GenerateMaterializedViewName()
@@ -44,7 +45,7 @@ func (h Handler) CreateMaterializedView(queryTable string) (string, string, erro
 	return viewName, queryId, nil
 }
 
-// GetMaterializedViewName finds the name of the materialized view created for a given query ID.
+// GetMaterializedViewName finds the name of the materialized view created for a given pagination query ID.
 func (h Handler) GetMaterializedViewName(queryId string) (string, error) {
 	// find the materialized view name by query ID
 	viewQuery := fmt.Sprintf("SELECT table_name FROM information_schema.tables WHERE table_type = 'VIEW' AND table_name LIKE 'paginated_%%_%s'", queryId)
@@ -56,9 +57,10 @@ func (h Handler) GetMaterializedViewName(queryId string) (string, error) {
 	return viewName, nil
 }
 
-// GetMaterializedViewRecords fetches records from a materialized view based on a cursor.
-// This function uses reflection to work with any slice type.  It will use a cursor to
-// fetch the next page of results if a cursor is included in the page request parameters.
+// GetMaterializedViewRecords fetches records from a materialized view based on a cursor
+// for pagination.  This function uses reflection to work with any slice type.  It will
+// use a cursor to fetch the next page of results if a cursor is included in the page
+// request parameters.
 func (h Handler) GetMaterializedViewRecords(
 	records interface{},
 	viewName string,
@@ -92,7 +94,12 @@ func (h Handler) GetMaterializedViewRecords(
 // subsequent pages of results.
 func GenerateMaterializedViewName() (string, string) {
 	queryId := util.RandomAlphaNumericString(16)
-	viewName := fmt.Sprintf("paginated_%s_%s", time.Now().Format("20060102150405"), queryId)
+	viewName := fmt.Sprintf(
+		"%s_%s_%s",
+		apiserver_lib.PaginationViewPrefix,
+		time.Now().Format("20060102150405"),
+		queryId,
+	)
 
 	return viewName, queryId
 }
