@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 
 	echo "github.com/labstack/echo/v4"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -76,33 +77,151 @@ func (h Handler) AddModuleApiRouteWithModuleObjectReferences(c echo.Context) err
 // @Router /v0/module-objects-with-module-api-routes [GET]
 func (h Handler) GetModuleObjectsWithModuleApiRoutes(c echo.Context) error {
 	objectType := api_v0.ObjectTypeModuleObject
-	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
+
+	// get pagination parameters
+	pageParams, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
 	if err != nil {
-		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 	}
 
+	// bind filter
 	var filter api_v0.ModuleObject
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
+		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 	}
 
-	var totalCount int64
-	if result := h.DB.Model(&api_v0.ModuleObject{}).Where(&filter).Count(&totalCount); result.Error != nil {
-		h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
-	}
+	pagination := new(apiserver_lib.Pagination)
+	pagination.Limit = pageParams.Limit
 
 	records := &[]api_v0.ModuleObject{}
-	if result := h.DB.Order("ID asc").Where(&filter).Preload("ModuleApiRoutes").Limit(params.Size).Offset((params.Page - 1) * params.Size).Find(records); result.Error != nil {
-		h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
+	var returnedCount int64
+
+	switch {
+	case pageParams.QueryId == "":
+		// no query ID provided, so the client is not requesting a specific page of results
+		// count total number of objects
+		var totalCount int64
+		if result := h.DB.Model(&api_v0.ModuleObject{}).Where(&filter).Count(&totalCount); result.Error != nil {
+			h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
+			return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
+		}
+
+		// see if total count is greater than the limit
+		pagination.HasMore = totalCount > pagination.Limit
+
+		switch pagination.HasMore {
+		case false:
+			// if we don't have to paginate, return all records
+			if result := h.DB.Order("ID asc").Where(&filter).Preload("ModuleApiRoutes").Find(records); result.Error != nil {
+				h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
+				return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
+			}
+			returnedCount = int64(len(*records))
+
+		case true:
+			// if we have to paginate, create the materialized view and use it to fetch the first page of records
+			viewName, queryId, err := h.CreateMaterializedView(objectType)
+			if err != nil {
+				h.Logger.Error("handler error: error creating materialized view", zap.Error(err))
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			}
+			pagination.QueryId = queryId
+
+			query := fmt.Sprintf("SELECT * FROM %s ORDER BY ID ASC LIMIT %d", viewName, pageParams.Limit)
+			if result := h.DB.Raw(query).Find(records); result.Error != nil {
+				h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
+				return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
+			}
+
+			// load associations for the records retrieved from materialized view
+			if len(*records) > 0 {
+				var ids []uint
+				for _, record := range *records {
+					if record.ID != nil {
+						ids = append(ids, *record.ID)
+					}
+				}
+				if len(ids) > 0 {
+					recordsWithPreload := &[]api_v0.ModuleObject{}
+					if result := h.DB.Where("id IN ?", ids).Preload("ModuleApiRoutes").Find(recordsWithPreload); result.Error != nil {
+						h.Logger.Error("handler error: error preloading associations", zap.Error(result.Error))
+						return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
+					}
+					records = recordsWithPreload
+				}
+			}
+
+			returnedCount = int64(len(*records))
+			if len(*records) > 0 {
+				pagination.NextCursor = *(*records)[len(*records)-1].ID
+			} else {
+				pagination.NextCursor = 0
+			}
+		}
+
+	case pageParams.QueryId != "" && pageParams.Cursor == 0:
+		// client provided a query ID but no cursor, so we cannot fetch the next page of results
+		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), objectType)
+
+	case pageParams.QueryId != "" && pageParams.Cursor != 0:
+		// use query ID to find the materialized view name
+		viewName, err := h.GetMaterializedViewName(pageParams.QueryId)
+		if err != nil {
+			h.Logger.Error("handler error: error finding materialized view", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+		}
+
+		pagination.QueryId = pageParams.QueryId
+
+		// fetch records from the materialized view based on cursor
+		returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
+		if err != nil {
+			h.Logger.Error("handler error: error finding records", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+		}
+
+		// load associations for the records retrieved from materialized view
+		if len(*records) > 0 {
+			var ids []uint
+			for _, record := range *records {
+				if record.ID != nil {
+					ids = append(ids, *record.ID)
+				}
+			}
+			if len(ids) > 0 {
+				recordsWithPreload := &[]api_v0.ModuleObject{}
+				if result := h.DB.Where("id IN ?", ids).Preload("ModuleApiRoutes").Find(recordsWithPreload); result.Error != nil {
+					h.Logger.Error("handler error: error preloading associations", zap.Error(result.Error))
+					return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
+				}
+				records = recordsWithPreload
+			}
+		}
+
+		// set the next cursor
+		if len(*records) > 0 {
+			pagination.NextCursor = *(*records)[len(*records)-1].ID
+		} else {
+			pagination.NextCursor = 0
+		}
+
+		// see if we fetched the last of the records
+		pagination.HasMore = returnedCount >= pagination.Limit
 	}
 
-	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *records, objectType)
+	// construct response
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			Pagination:  *pagination,
+			ObjectCount: returnedCount,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
+		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus200(c, *response)

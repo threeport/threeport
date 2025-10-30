@@ -84,17 +84,13 @@ func (h Handler) AddWorkloadResourceDefinitions(c echo.Context) error {
 // @Router /v0/workload-events [DELETE]
 func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
 	objectType := v0.ObjectTypeWorkloadEvent
-	params, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
-	if err != nil {
-		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
-	}
 
 	// ensure query parameters are present to prevent client from deleting all
 	// workload events by mistake
 	queryParams := c.QueryParams()
 	if len(queryParams) != 1 {
 		err := errors.New("must provide one - and only one - query parameter when deleting multiple workload events")
-		return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, nil, err, objectType)
 	}
 
 	// ensure workload events are deleted by workload or helm workload instance
@@ -103,21 +99,21 @@ func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
 	for k, _ := range queryParams {
 		if !util.StringSliceContains(validQueryKeys, k, false) {
 			err := fmt.Errorf("can only delete multiple workload events using query parameter keys %s", validQueryKeys)
-			return apiserver_lib.ResponseStatus400(c, &params, err, objectType)
+			return apiserver_lib.ResponseStatus400(c, nil, err, objectType)
 		}
 	}
 
 	var filter v0.WorkloadEvent
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	var totalCount int64
 	workloadEvents := &[]v0.WorkloadEvent{}
 	if result := h.DB.Where(&filter).Find(workloadEvents).Count(&totalCount); result.Error != nil {
 		h.Logger.Error("handler error: error getting workload events", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// return 404 if no matches found for query parameter
@@ -127,13 +123,19 @@ func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
 
 	if result := h.DB.Delete(workloadEvents); result.Error != nil {
 		h.Logger.Error("handler error: error deleting workload events", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, &params, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(apiserver_lib.CreateMeta(params, totalCount), *workloadEvents, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: totalCount,
+		},
+		*workloadEvents,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, &params, err, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	return apiserver_lib.ResponseStatus200(c, *response)

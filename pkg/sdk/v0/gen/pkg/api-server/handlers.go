@@ -201,7 +201,9 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					notifyControllersUpdateHandler = Comment("notify controller if reconciliation is required")
 					notifyControllersUpdateHandler.Line()
 					notifyControllersUpdateHandler.If(Op("!*").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Block(
-						Id("notifPayload").Op(",").Id("err").Op(":=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("NotificationPayload").Call(
+						Id("notifPayload").Op(",").Id("err").Op(":=").Id(
+							fmt.Sprintf("existing%s", apiObject.TypeName),
+						).Dot("NotificationPayload").Call(
 							Line().Qual(
 								"github.com/threeport/threeport/pkg/notifications/v0",
 								"NotificationOperationUpdated",
@@ -911,7 +913,9 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							apiObject.TypeName,
 						),
 					),
-					Id("params").Op(",").Id("err").Op(":=").Id("c").Assert(Op("*").Qual(
+					Line(),
+					Comment("get pagination parameters"),
+					Id("pageParams").Op(",").Id("err").Op(":=").Id("c").Assert(Op("*").Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CustomContext",
 					)).Dot("GetPaginationParams").Call(),
@@ -919,9 +923,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus400",
-						).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("err").Op(",").Id("objectType"))),
+						).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType"))),
 					)),
 					Line(),
+					Comment("bind filter"),
 					Var().Id("filter").Qual(
 						fmt.Sprintf(
 							"%s/pkg/api/%s",
@@ -945,44 +950,14 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
-						).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("err").Op(",").Id("objectType")))
+						).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType")))
 					})),
 					Line(),
-					Var().Id("totalCount").Int64(),
-					If(Id("result").Op(":=").Do(func(s *Statement) {
-						if gen.Module {
-							s.Id("h").Dot("Handler")
-						} else {
-							s.Id("h")
-						}
-					}).Dot("DB").Add(dbLoadAssociationStatement).Dot("Model").Call(
-						Op("&").Qual(
-							fmt.Sprintf(
-								"%s/pkg/api/%s",
-								gen.ModulePath,
-								objCollection.Version,
-							),
-							apiObject.TypeName,
-						).Values(),
-					).Dot("Where").Call(Op("&").Id("filter")).Dot("Count").Call(Op("&").Id("totalCount")),
-						Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
-							if gen.Module {
-								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error counting objects"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
-								)
-							} else {
-								h.Id("h").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error counting objects"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
-								)
-							}
-							h.Return(Qual(
-								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatus500",
-							).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
-						}),
-					),
+					Id("pagination").Op(":=").New(Qual(
+						"github.com/threeport/threeport/pkg/api-server/lib/v0",
+						"Pagination",
+					)),
+					Id("pagination").Dot("Limit").Op("=").Id("pageParams").Dot("Limit"),
 					Line(),
 					Id("records").Op(":=").Op("&").Index().Qual(
 						fmt.Sprintf(
@@ -992,45 +967,242 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						),
 						apiObject.TypeName,
 					).Values(),
-					If(Id("result").Op(":=").Do(func(s *Statement) {
-						if gen.Module {
-							s.Id("h").Dot("Handler")
-						} else {
-							s.Id("h")
-						}
-					}).Dot("DB").Add(dbLoadAssociationStatement).Dot("Order").Call(
-						Lit("ID asc")).Dot("Where").Call(Op("&").Id("filter")).
-						Dot("Limit").Call(Id("params").Dot("Size")).
-						Dot("Offset").Call(Call(
-						Id("params").Dot("Page").Op("-").Lit(1)).Op("*").Id("params").Dot("Size")).
-						// TODO: figure out DB preloads
-						Dot("Find").Call(Id("records")).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
-						if gen.Module {
-							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-								Lit("handler error: error finding objects"),
-								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
-							)
-						} else {
-							h.Id("h").Dot("Logger").Dot("Error").Call(
-								Lit("handler error: error finding objects"),
-								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
-							)
-						}
-						h.Return(Qual(
-							"github.com/threeport/threeport/pkg/api-server/lib/v0",
-							"ResponseStatus500",
-						).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
-					}),
+					Var().Id("returnedCount").Int64(),
+					Line(),
+					Switch().Block(
+						Case(Id("pageParams").Dot("QueryId").Op("==").Lit("")).Block(
+							Comment("no query ID provided, so the client is not requesting a specific page of results"),
+							Comment("count total number of objects"),
+							Var().Id("totalCount").Int64(),
+							If(Id("result").Op(":=").Do(func(s *Statement) {
+								if gen.Module {
+									s.Id("h").Dot("Handler")
+								} else {
+									s.Id("h")
+								}
+							}).Dot("DB").Dot("Model").Call(
+								Op("&").Qual(
+									fmt.Sprintf(
+										"%s/pkg/api/%s",
+										gen.ModulePath,
+										objCollection.Version,
+									),
+									apiObject.TypeName,
+								).Values(),
+							).Dot("Where").Call(Op("&").Id("filter")).Dot("Count").Call(Op("&").Id("totalCount")),
+								Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+									if gen.Module {
+										h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+											Lit("handler error: error counting objects"),
+											Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+										)
+									} else {
+										h.Id("h").Dot("Logger").Dot("Error").Call(
+											Lit("handler error: error counting objects"),
+											Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+										)
+									}
+									h.Return(Qual(
+										"github.com/threeport/threeport/pkg/api-server/lib/v0",
+										"ResponseStatus500",
+									).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+								}),
+							),
+							Line(),
+							Comment("see if total count is greater than the limit"),
+							Id("pagination").Dot("HasMore").Op("=").Id("totalCount").Op(">").Id("pagination").Dot("Limit"),
+							Line(),
+							Switch(Id("pagination").Dot("HasMore")).Block(
+								Case(Lit(false)).Block(
+									Comment("if we don't have to paginate, return all records"),
+									If(Id("result").Op(":=").Do(func(s *Statement) {
+										if gen.Module {
+											s.Id("h").Dot("Handler")
+										} else {
+											s.Id("h")
+										}
+									}).Dot("DB").Dot("Order").Call(Lit("ID asc")).Dot("Where").Call(Op("&").Id("filter")).Dot("Find").Call(Id("records")),
+										Id("result").Dot("Error").Op("!=").Nil(),
+									).BlockFunc(func(h *Group) {
+										if gen.Module {
+											h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+												Lit("handler error: error finding objects"),
+												Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+											)
+										} else {
+											h.Id("h").Dot("Logger").Dot("Error").Call(
+												Lit("handler error: error finding objects"),
+												Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+											)
+										}
+										h.Return(Qual(
+											"github.com/threeport/threeport/pkg/api-server/lib/v0",
+											"ResponseStatus500",
+										).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+									}),
+									Id("returnedCount").Op("=").Int64().Call(Len(Op("*").Id("records"))),
+								),
+								Case(Lit(true)).Block(
+									Comment("if we have to paginate, create the materialized view and use it to fetch the first page of records"),
+									Id("queryTable").Op(":=").Id("filter").Dot("TableName").Call(),
+									List(Id("viewName"), Id("qid"), Id("err")).Op(":=").Do(func(s *Statement) {
+										if gen.Module {
+											s.Id("h").Dot("Handler")
+										} else {
+											s.Id("h")
+										}
+									}).Dot("CreateMaterializedView").Call(Id("queryTable")),
+									If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
+										if gen.Module {
+											h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+												Lit("handler error: error creating materialized view"),
+												Qual("go.uber.org/zap", "Error").Call(Id("err")),
+											)
+										} else {
+											h.Id("h").Dot("Logger").Dot("Error").Call(
+												Lit("handler error: error creating materialized view"),
+												Qual("go.uber.org/zap", "Error").Call(Id("err")),
+											)
+										}
+										h.Return(Qual(
+											"github.com/threeport/threeport/pkg/api-server/lib/v0",
+											"ResponseStatus500",
+										).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType")))
+									}),
+									Id("pagination").Dot("QueryId").Op("=").Id("qid"),
+									Line(),
+									Comment("fetch records from the new materialized view"),
+									List(Id("returnedCount"), Id("err")).Op("=").Do(func(s *Statement) {
+										if gen.Module {
+											s.Id("h").Dot("Handler")
+										} else {
+											s.Id("h")
+										}
+									}).Dot("GetMaterializedViewRecords").Call(Id("records"), Id("viewName"), Id("pageParams")),
+									If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
+										if gen.Module {
+											h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+												Lit("handler error: error finding records"),
+												Qual("go.uber.org/zap", "Error").Call(Id("err")),
+											)
+										} else {
+											h.Id("h").Dot("Logger").Dot("Error").Call(
+												Lit("handler error: error finding records"),
+												Qual("go.uber.org/zap", "Error").Call(Id("err")),
+											)
+										}
+										h.Return(Qual(
+											"github.com/threeport/threeport/pkg/api-server/lib/v0",
+											"ResponseStatus500",
+										).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType")))
+									}),
+									Line(),
+									Comment("set the cursor for the next page of results"),
+									If(Len(Op("*").Id("records")).Op(">").Lit(0)).Block(
+										Id("pagination").Dot("NextCursor").Op("=").Op("*").Parens(Op("*").Id("records")).Index(
+											Len(Op("*").Id("records")).Op("-").Lit(1),
+										).Dot("ID"),
+									).Else().Block(
+										Id("pagination").Dot("NextCursor").Op("=").Lit(0),
+									),
+								),
+							),
+						),
+						Case(Id("pageParams").Dot("QueryId").Op("!=").Lit("").Op("&&").Id("pageParams").Dot("Cursor").Op("==").Lit(0)).Block(
+							Comment("client provided a query ID but no cursor, so we cannot fetch the next page of results"),
+							Return(Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"ResponseStatus400",
+							).Call(Id("c").Op(",").Id("pageParams").Op(",").Qual("errors", "New").Call(
+								Lit("cursor is required when query ID is provided"),
+							).Op(",").Id("objectType"))),
+						),
+						Case(Id("pageParams").Dot("QueryId").Op("!=").Lit("").Op("&&").Id("pageParams").Dot("Cursor").Op("!=").Lit(0)).Block(
+							Comment("use query ID to find the materialized view name"),
+							List(Id("viewName"), Id("err")).Op(":=").Do(func(s *Statement) {
+								if gen.Module {
+									s.Id("h").Dot("Handler")
+								} else {
+									s.Id("h")
+								}
+							}).Dot("GetMaterializedViewName").Call(Id("pageParams").Dot("QueryId")),
+							If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
+								if gen.Module {
+									h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error finding materialized view"),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
+									)
+								} else {
+									h.Id("h").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error finding materialized view"),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
+									)
+								}
+								h.Return(Qual(
+									"github.com/threeport/threeport/pkg/api-server/lib/v0",
+									"ResponseStatus500",
+								).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType")))
+							}),
+							Line(),
+							Comment("fetch records from the materialized view based on cursor"),
+							List(Id("returnedCount"), Id("err")).Op("=").Do(func(s *Statement) {
+								if gen.Module {
+									s.Id("h").Dot("Handler")
+								} else {
+									s.Id("h")
+								}
+							}).Dot("GetMaterializedViewRecords").Call(Id("records"), Id("viewName"), Id("pageParams")),
+							If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
+								if gen.Module {
+									h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error finding records"),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
+									)
+								} else {
+									h.Id("h").Dot("Logger").Dot("Error").Call(
+										Lit("handler error: error finding records"),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
+									)
+								}
+								h.Return(Qual(
+									"github.com/threeport/threeport/pkg/api-server/lib/v0",
+									"ResponseStatus500",
+								).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType")))
+							}),
+							Line(),
+							Comment("set the query ID for the next page of results"),
+							Id("pagination").Dot("QueryId").Op("=").Id("pageParams").Dot("QueryId"),
+							Line(),
+							Comment("set the cursor for the next page of results"),
+							If(Len(Op("*").Id("records")).Op(">").Lit(0)).Block(
+								Id("pagination").Dot("NextCursor").Op("=").Op("*").Parens(Op("*").Id("records")).Index(
+									Len(Op("*").Id("records")).Op("-").Lit(1),
+								).Dot("ID"),
+							).Else().Block(
+								Id("pagination").Dot("NextCursor").Op("=").Lit(0),
+							),
+							Line(),
+							Comment("see if we fetched the last of the records"),
+							Id("pagination").Dot("HasMore").Op("=").Id("returnedCount").Op(">=").Id("pagination").Dot("Limit"),
+						),
 					),
 					Line(),
+					Comment("construct response"),
 					Id("response").Op(",").Id("err").Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
-					).Call(Qual(
-						"github.com/threeport/threeport/pkg/api-server/lib/v0",
-						"CreateMeta",
-					).Call(Id("params").Op(",").Id("totalCount")).Op(",").Op("*").Id("records").Op(",").Id("objectType")),
-					If(Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+					).Call(
+						Op("&").Qual(
+							"github.com/threeport/threeport/pkg/api-server/lib/v0",
+							"Meta",
+						).Values(Dict{
+							Id("Pagination"):  Op("*").Id("pagination"),
+							Id("ObjectCount"): Id("returnedCount"),
+						}),
+						Op("*").Id("records"),
+						Id("objectType"),
+					),
+					If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
 						if gen.Module {
 							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 								Lit("handler error: error creating response"),
@@ -1045,8 +1217,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
-						).Call(Id("c").Op(",").Op("&").Id("params").Op(",").Id("err").Op(",").Id("objectType")))
-					})),
+						).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType")))
+					}),
 					Line(),
 					Return(Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",

@@ -16,86 +16,95 @@ import (
 )
 
 const (
-	QueryParamPage                   = "page"
-	QueryParamSize                   = "size"
-	DefaultParamSizeValue            = 50
-	ErrMsgQueryParamInvalidPageValue = "Query parameter is not a valid integer value: " + QueryParamPage
-	ErrMsgQueryParamInvalidSizeValue = "Query parameter is not a valid integer value: " + QueryParamSize
-	ErrTokenIsNotProvided            = "OAuth token is not provided"
-	AuthorizationKey                 = "Authorization"
-	BearerKey                        = "Bearer "
+	//QueryParamPage = "page"
+	//QueryParamSize = "size"
+	//DefaultParamSizeValue            = 50
+	//DefaultParamSizeValue            = 200
+	////////////////////////////////////////////////
+	QueryParamQueryId = "queryid"
+	QueryParamCursor  = "cursor"
+	QueryParamLimit   = "limit"
+	//DefaultPaginationLimitValue = 200
+	DefaultPaginationLimitValue = 20
+	MaxPaginationLimitValue     = 10000
+	////////////////////////////////////////////////
+	//ErrMsgQueryParamInvalidPageValue = "Query parameter is not a valid integer value: " + QueryParamPage
+	//ErrMsgQueryParamInvalidSizeValue = "Query parameter is not a valid integer value: " + QueryParamSize
+	//ErrTokenIsNotProvided = "Authorization token was not provided"
+	//AuthorizationKey = "Authorization"
+	//BearerKey        = "Bearer "
 )
 
 type CustomContext struct {
 	echo.Context
 }
 
-// GetBearerToken extracts the OAuth token from Authorization header.
+// PageRequestParams contains pagination request information from the client.  These are
+// sent by the client as query paramters in the request to the Threeport API.
+type PageRequestParams struct {
+	// QueryId is the ID of the query that produced the paginated objects.  The client receives
+	// this info with the previous page of results.
+	QueryId string `json:"QueryId" query:"queryid" example:"1234567890-1234567890-1234567890"`
+
+	// Cursor is the unique ID of the first object in the next page of results.  The client
+	// gets this information from the `NextCursor` field in the previous page of results.
+	Cursor uint `json:"Cursor" query:"cursor" example:"1234567890"`
+
+	// The maximum number of objects the client wishes to receive in a page of results.
+	Limit int64 `json:"Limit" query:"limit" example:"500"`
+}
+
+// GetPaginationParams parses pagination query parameters into PageRequestParams.
+// If the limit is not provided, the default value is used.
+func (c *CustomContext) GetPaginationParams() (*PageRequestParams, error) {
+	params := new(PageRequestParams)
+	// extract query ID if provided
+	queryId := c.Request().URL.Query().Get(QueryParamQueryId)
+	if queryId != "" {
+		params.QueryId = queryId
+	}
+
+	// extract cursor if provided
+	strCursor := c.Request().URL.Query().Get(QueryParamCursor)
+	if strCursor != "" {
+		cursor, err := strconv.Atoi(strCursor)
+		if err != nil {
+			return params, fmt.Errorf("invalid cursor value: %s", strCursor)
+		}
+		params.Cursor = uint(cursor)
+	}
+
+	// extract limit if provided
+	strLimit := c.Request().URL.Query().Get(QueryParamLimit)
+	params.Limit = DefaultPaginationLimitValue
+	if strLimit != "" {
+		limit, err := strconv.Atoi(strLimit)
+		if err != nil {
+			return params, fmt.Errorf("invalid limit value: %s", strLimit)
+		}
+		params.Limit = int64(limit)
+	}
+	if params.Limit > MaxPaginationLimitValue {
+		return params, fmt.Errorf("limit value is too large: %d - maximum value is %d", params.Limit, MaxPaginationLimitValue)
+	}
+
+	return params, nil
+}
+
+// GetBearerToken extracts the auth token from Authorization header.
 func (c *CustomContext) GetBearerToken() (token string, err error) {
 
-	reqToken := c.Request().Header.Get(AuthorizationKey)
+	reqToken := c.Request().Header.Get("Authorization")
 
-	splitToken := strings.Split(reqToken, BearerKey)
+	splitToken := strings.Split(reqToken, "Bearer ")
 
 	if len(strings.TrimSpace(reqToken)) == 0 || len(splitToken) == 1 {
-		err = errors.New(ErrTokenIsNotProvided)
+		err = errors.New("authorization token was not provided")
 	} else {
 		token = splitToken[1]
 	}
 
 	return token, err
-}
-
-// GetPaginationParams parses pagination query parameters into PageRequestParams.
-func (c *CustomContext) GetPaginationParams() (params PageRequestParams, err error) {
-
-	strPage := c.Request().URL.Query().Get(QueryParamPage)
-	params.Page = -1
-	if strPage != "" {
-		params.Page, err = strconv.Atoi(strPage)
-		if err != nil || params.Page < -1 {
-			return params, errors.New(ErrMsgQueryParamInvalidPageValue)
-		}
-	} else {
-		params.Page = 1
-	}
-
-	strSize := c.Request().URL.Query().Get(QueryParamSize)
-	// with a value as -1 for gorms Limit method, we'll get a request without limit as default
-
-	params.Size = DefaultParamSizeValue
-	if strSize != "" {
-		params.Size, err = strconv.Atoi(strSize)
-		if err != nil || params.Size < -1 {
-			return params, errors.New(ErrMsgQueryParamInvalidSizeValue)
-		}
-	}
-
-	return params, err
-}
-
-// readBody Read request's body is a way so it can be red again by other methods
-func readBody(c echo.Context) []byte {
-	defer c.Request().Body.Close()
-	bodyBytes := []byte{}
-	bodyBytes, _ = ioutil.ReadAll(c.Request().Body)
-	c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
-	return bodyBytes
-}
-
-func getFieldNameByJsonTag(tag, key string, s interface{}) (fieldname string) {
-	rt := reflect.TypeOf(s)
-	if rt.Kind() != reflect.Struct {
-		panic("bad type")
-	}
-	for i := 0; i < rt.NumField(); i++ {
-		f := rt.Field(i)
-		v := strings.Split(f.Tag.Get(key), ",")[0] // use split to ignore tag "options"
-		if v == tag {
-			return f.Name
-		}
-	}
-	return ""
 }
 
 // CheckPayloadObject analyzes payload using Object model tags and returns providedGORMModelFields,
@@ -251,4 +260,28 @@ func versionFromPath(path string, extension bool) string {
 		return parsedPath[2]
 	}
 	return parsedPath[1]
+}
+
+// readBody Read request's body is a way so it can be red again by other methods
+func readBody(c echo.Context) []byte {
+	defer c.Request().Body.Close()
+	bodyBytes := []byte{}
+	bodyBytes, _ = ioutil.ReadAll(c.Request().Body)
+	c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+	return bodyBytes
+}
+
+func getFieldNameByJsonTag(tag, key string, s interface{}) (fieldname string) {
+	rt := reflect.TypeOf(s)
+	if rt.Kind() != reflect.Struct {
+		panic("bad type")
+	}
+	for i := 0; i < rt.NumField(); i++ {
+		f := rt.Field(i)
+		v := strings.Split(f.Tag.Get(key), ",")[0] // use split to ignore tag "options"
+		if v == tag {
+			return f.Name
+		}
+	}
+	return ""
 }
