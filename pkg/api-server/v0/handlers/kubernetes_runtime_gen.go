@@ -105,7 +105,11 @@ func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 		h.JS.Publish(notif.KubernetesRuntimeDefinitionCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, kubernetesRuntimeDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		kubernetesRuntimeDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -224,10 +228,14 @@ func (h Handler) GetKubernetesRuntimeDefinitions(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -258,7 +266,11 @@ func (h Handler) GetKubernetesRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, kubernetesRuntimeDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		kubernetesRuntimeDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -328,7 +340,11 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 		h.JS.Publish(notif.KubernetesRuntimeDefinitionUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingKubernetesRuntimeDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingKubernetesRuntimeDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -401,7 +417,11 @@ func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingKubernetesRuntimeDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingKubernetesRuntimeDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -484,7 +504,11 @@ func (h Handler) DeleteKubernetesRuntimeDefinition(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, kubernetesRuntimeDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		kubernetesRuntimeDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -581,7 +605,11 @@ func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 		h.JS.Publish(notif.KubernetesRuntimeInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, kubernetesRuntimeInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		kubernetesRuntimeInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -700,10 +728,14 @@ func (h Handler) GetKubernetesRuntimeInstances(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -734,7 +766,11 @@ func (h Handler) GetKubernetesRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, kubernetesRuntimeInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		kubernetesRuntimeInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -804,7 +840,11 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 		h.JS.Publish(notif.KubernetesRuntimeInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingKubernetesRuntimeInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingKubernetesRuntimeInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -877,7 +917,11 @@ func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingKubernetesRuntimeInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingKubernetesRuntimeInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -954,7 +998,11 @@ func (h Handler) DeleteKubernetesRuntimeInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, kubernetesRuntimeInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		kubernetesRuntimeInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)

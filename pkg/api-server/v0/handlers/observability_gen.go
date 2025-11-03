@@ -105,7 +105,11 @@ func (h Handler) AddLoggingDefinition(c echo.Context) error {
 		h.JS.Publish(notif.LoggingDefinitionCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, loggingDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		loggingDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -224,10 +228,14 @@ func (h Handler) GetLoggingDefinitions(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -258,7 +266,11 @@ func (h Handler) GetLoggingDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, loggingDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		loggingDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -328,7 +340,11 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 		h.JS.Publish(notif.LoggingDefinitionUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingLoggingDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingLoggingDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -401,7 +417,11 @@ func (h Handler) ReplaceLoggingDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingLoggingDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingLoggingDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -484,7 +504,11 @@ func (h Handler) DeleteLoggingDefinition(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, loggingDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		loggingDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -581,7 +605,11 @@ func (h Handler) AddLoggingInstance(c echo.Context) error {
 		h.JS.Publish(notif.LoggingInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, loggingInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		loggingInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -700,10 +728,14 @@ func (h Handler) GetLoggingInstances(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -734,7 +766,11 @@ func (h Handler) GetLoggingInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, loggingInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		loggingInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -804,7 +840,11 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 		h.JS.Publish(notif.LoggingInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingLoggingInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingLoggingInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -877,7 +917,11 @@ func (h Handler) ReplaceLoggingInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingLoggingInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingLoggingInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -954,7 +998,11 @@ func (h Handler) DeleteLoggingInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, loggingInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		loggingInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -1051,7 +1099,11 @@ func (h Handler) AddMetricsDefinition(c echo.Context) error {
 		h.JS.Publish(notif.MetricsDefinitionCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, metricsDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		metricsDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -1170,10 +1222,14 @@ func (h Handler) GetMetricsDefinitions(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -1204,7 +1260,11 @@ func (h Handler) GetMetricsDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, metricsDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		metricsDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -1274,7 +1334,11 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 		h.JS.Publish(notif.MetricsDefinitionUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingMetricsDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingMetricsDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -1347,7 +1411,11 @@ func (h Handler) ReplaceMetricsDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingMetricsDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingMetricsDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -1430,7 +1498,11 @@ func (h Handler) DeleteMetricsDefinition(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, metricsDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		metricsDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -1527,7 +1599,11 @@ func (h Handler) AddMetricsInstance(c echo.Context) error {
 		h.JS.Publish(notif.MetricsInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, metricsInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		metricsInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -1646,10 +1722,14 @@ func (h Handler) GetMetricsInstances(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -1680,7 +1760,11 @@ func (h Handler) GetMetricsInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, metricsInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		metricsInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -1750,7 +1834,11 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 		h.JS.Publish(notif.MetricsInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingMetricsInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingMetricsInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -1823,7 +1911,11 @@ func (h Handler) ReplaceMetricsInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingMetricsInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingMetricsInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -1900,7 +1992,11 @@ func (h Handler) DeleteMetricsInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, metricsInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		metricsInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -1997,7 +2093,11 @@ func (h Handler) AddObservabilityDashboardDefinition(c echo.Context) error {
 		h.JS.Publish(notif.ObservabilityDashboardDefinitionCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, observabilityDashboardDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		observabilityDashboardDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -2116,10 +2216,14 @@ func (h Handler) GetObservabilityDashboardDefinitions(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -2150,7 +2254,11 @@ func (h Handler) GetObservabilityDashboardDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, observabilityDashboardDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		observabilityDashboardDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -2220,7 +2328,11 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 		h.JS.Publish(notif.ObservabilityDashboardDefinitionUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingObservabilityDashboardDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingObservabilityDashboardDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -2293,7 +2405,11 @@ func (h Handler) ReplaceObservabilityDashboardDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingObservabilityDashboardDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingObservabilityDashboardDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -2376,7 +2492,11 @@ func (h Handler) DeleteObservabilityDashboardDefinition(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, observabilityDashboardDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		observabilityDashboardDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -2473,7 +2593,11 @@ func (h Handler) AddObservabilityDashboardInstance(c echo.Context) error {
 		h.JS.Publish(notif.ObservabilityDashboardInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, observabilityDashboardInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		observabilityDashboardInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -2592,10 +2716,14 @@ func (h Handler) GetObservabilityDashboardInstances(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -2626,7 +2754,11 @@ func (h Handler) GetObservabilityDashboardInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, observabilityDashboardInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		observabilityDashboardInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -2696,7 +2828,11 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 		h.JS.Publish(notif.ObservabilityDashboardInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingObservabilityDashboardInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingObservabilityDashboardInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -2769,7 +2905,11 @@ func (h Handler) ReplaceObservabilityDashboardInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingObservabilityDashboardInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingObservabilityDashboardInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -2846,7 +2986,11 @@ func (h Handler) DeleteObservabilityDashboardInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, observabilityDashboardInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		observabilityDashboardInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -2943,7 +3087,11 @@ func (h Handler) AddObservabilityStackDefinition(c echo.Context) error {
 		h.JS.Publish(notif.ObservabilityStackDefinitionCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, observabilityStackDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		observabilityStackDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -3062,10 +3210,14 @@ func (h Handler) GetObservabilityStackDefinitions(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -3096,7 +3248,11 @@ func (h Handler) GetObservabilityStackDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, observabilityStackDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		observabilityStackDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -3166,7 +3322,11 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 		h.JS.Publish(notif.ObservabilityStackDefinitionUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingObservabilityStackDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingObservabilityStackDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -3239,7 +3399,11 @@ func (h Handler) ReplaceObservabilityStackDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingObservabilityStackDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingObservabilityStackDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -3322,7 +3486,11 @@ func (h Handler) DeleteObservabilityStackDefinition(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, observabilityStackDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		observabilityStackDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -3419,7 +3587,11 @@ func (h Handler) AddObservabilityStackInstance(c echo.Context) error {
 		h.JS.Publish(notif.ObservabilityStackInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, observabilityStackInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		observabilityStackInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -3538,10 +3710,14 @@ func (h Handler) GetObservabilityStackInstances(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -3572,7 +3748,11 @@ func (h Handler) GetObservabilityStackInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, observabilityStackInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		observabilityStackInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -3642,7 +3822,11 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 		h.JS.Publish(notif.ObservabilityStackInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingObservabilityStackInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingObservabilityStackInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -3715,7 +3899,11 @@ func (h Handler) ReplaceObservabilityStackInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingObservabilityStackInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingObservabilityStackInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -3792,7 +3980,11 @@ func (h Handler) DeleteObservabilityStackInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, observabilityStackInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		observabilityStackInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)

@@ -106,7 +106,11 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 		h.JS.Publish(notif.ControlPlaneDefinitionCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, controlPlaneDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		controlPlaneDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -225,10 +229,14 @@ func (h Handler) GetControlPlaneDefinitions(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -259,7 +267,11 @@ func (h Handler) GetControlPlaneDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, controlPlaneDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		controlPlaneDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -329,7 +341,11 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 		h.JS.Publish(notif.ControlPlaneDefinitionUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingControlPlaneDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingControlPlaneDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -402,7 +418,11 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingControlPlaneDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingControlPlaneDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -485,7 +505,11 @@ func (h Handler) DeleteControlPlaneDefinition(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, controlPlaneDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		controlPlaneDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -582,7 +606,11 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 		h.JS.Publish(notif.ControlPlaneInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, controlPlaneInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		controlPlaneInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -701,10 +729,14 @@ func (h Handler) GetControlPlaneInstances(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -735,7 +767,11 @@ func (h Handler) GetControlPlaneInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, controlPlaneInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		controlPlaneInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -805,7 +841,11 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 		h.JS.Publish(notif.ControlPlaneInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingControlPlaneInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingControlPlaneInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -878,7 +918,11 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingControlPlaneInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingControlPlaneInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -955,7 +999,11 @@ func (h Handler) DeleteControlPlaneInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, controlPlaneInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		controlPlaneInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)

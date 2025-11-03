@@ -84,17 +84,6 @@ type Status struct {
 	Error string `json:"error" example:""`
 }
 
-//// CreateMeta creates a Meta object from a Pagination object and a total count.
-//func CreateMeta(
-//	pagination *Pagination,
-//	returnedCount int64,
-//) *Meta {
-//	return &Meta{
-//		Pagination:  *pagination,
-//		ObjectCount: returnedCount,
-//	}
-//}
-
 // CreateResponse creates a Response object with the given meta, object, and object type.
 func CreateResponse(
 	meta *Meta,
@@ -102,8 +91,12 @@ func CreateResponse(
 	objType string,
 ) (*Response, error) {
 
+	if meta == nil {
+		return nil, errors.New("response metadata must not be nil")
+	}
+
 	if obj == nil {
-		return nil, errors.New("obj must not be nil")
+		return nil, errors.New("response object must not be nil")
 	}
 
 	var code = http.StatusOK
@@ -113,10 +106,6 @@ func CreateResponse(
 	response.Type = objType
 
 	if reflect.TypeOf(obj).Kind() == reflect.Slice {
-		//if meta == nil {
-		//	meta.ObjectCount = int64(reflect.ValueOf(obj).Len())
-		//}
-
 		s := reflect.ValueOf(obj)
 		response.Data = make([]Object, s.Len())
 		for i := 0; i < s.Len(); i++ {
@@ -132,6 +121,15 @@ func CreateResponse(
 	response.Status = Status{Code: code, Message: message, Error: ""}
 
 	return response, nil
+}
+
+// SingleObjectMeta creates a Meta object with an ObjectCount of 1 and
+// no pagination information.  This is used in the common use case when
+// returning a single object.
+func SingleObjectMeta() *Meta {
+	return &Meta{
+		ObjectCount: 1,
+	}
 }
 
 // UpdateResponseStatus updates the status of a response.

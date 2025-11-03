@@ -105,7 +105,11 @@ func (h Handler) AddTerraformDefinition(c echo.Context) error {
 		h.JS.Publish(notif.TerraformDefinitionCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, terraformDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		terraformDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -224,10 +228,14 @@ func (h Handler) GetTerraformDefinitions(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -258,7 +266,11 @@ func (h Handler) GetTerraformDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, terraformDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		terraformDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -328,7 +340,11 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 		h.JS.Publish(notif.TerraformDefinitionUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingTerraformDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingTerraformDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -401,7 +417,11 @@ func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingTerraformDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingTerraformDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -484,7 +504,11 @@ func (h Handler) DeleteTerraformDefinition(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, terraformDefinition, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		terraformDefinition,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -581,7 +605,11 @@ func (h Handler) AddTerraformInstance(c echo.Context) error {
 		h.JS.Publish(notif.TerraformInstanceCreateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, terraformInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		terraformInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -700,10 +728,14 @@ func (h Handler) GetTerraformInstances(c echo.Context) error {
 	}
 
 	// construct response
-	response, err := apiserver_lib.CreateResponse(&apiserver_lib.Meta{
-		ObjectCount: returnedCount,
-		Pagination:  *pagination,
-	}, *records, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
@@ -734,7 +766,11 @@ func (h Handler) GetTerraformInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, terraformInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		terraformInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -804,7 +840,11 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 		h.JS.Publish(notif.TerraformInstanceUpdateSubject, *notifPayload)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingTerraformInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingTerraformInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -877,7 +917,11 @@ func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, existingTerraformInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingTerraformInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -954,7 +998,11 @@ func (h Handler) DeleteTerraformInstance(c echo.Context) error {
 		}
 	}
 
-	response, err := apiserver_lib.CreateResponse(nil, terraformInstance, objectType)
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		terraformInstance,
+		objectType,
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)

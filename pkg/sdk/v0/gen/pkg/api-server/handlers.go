@@ -830,7 +830,15 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.Id("response").Op(",").Id("err").Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
-					).Call(Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType"))
+					).Call(
+						Line().Qual(
+							"github.com/threeport/threeport/pkg/api-server/lib/v0",
+							"SingleObjectMeta",
+						).Call(),
+						Line().Id(strcase.ToLowerCamel(apiObject.TypeName)),
+						Line().Id("objectType"),
+						Line(),
+					)
 					g.If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
 						if gen.Module {
 							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
@@ -1192,15 +1200,16 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
 					).Call(
-						Op("&").Qual(
+						Line().Op("&").Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"Meta",
 						).Values(Dict{
-							Id("Pagination"):  Op("*").Id("pagination"),
 							Id("ObjectCount"): Id("returnedCount"),
+							Id("Pagination"):  Op("*").Id("pagination"),
 						}),
-						Op("*").Id("records"),
-						Id("objectType"),
+						Line().Op("*").Id("records"),
+						Line().Id("objectType"),
+						Line(),
 					),
 					If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
 						if gen.Module {
@@ -1332,7 +1341,13 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"CreateResponse",
 						).Call(
-							Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType"),
+							Line().Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"SingleObjectMeta",
+							).Call(),
+							Line().Id(strcase.ToLowerCamel(apiObject.TypeName)),
+							Line().Id("objectType"),
+							Line(),
 						),
 						If(Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
 							if gen.Module {
@@ -1611,7 +1626,15 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.Id("response").Op(",").Id("err").Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
-					).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id("objectType"))
+					).Call(
+						Line().Qual(
+							"github.com/threeport/threeport/pkg/api-server/lib/v0",
+							"SingleObjectMeta",
+						).Call(),
+						Line().Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+						Line().Id("objectType"),
+						Line(),
+					)
 					g.If(
 						Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
 							if gen.Module {
@@ -1964,7 +1987,15 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.Id("response").Op(",").Id("err").Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
-					).Call(Nil().Op(",").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id("objectType"))
+					).Call(
+						Line().Qual(
+							"github.com/threeport/threeport/pkg/api-server/lib/v0",
+							"SingleObjectMeta",
+						).Call(),
+						Line().Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+						Line().Id("objectType"),
+						Line(),
+					)
 					g.If(
 						Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
 							if gen.Module {
@@ -2061,7 +2092,15 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Id("response").Op(",").Id("err").Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
-					).Call(Nil().Op(",").Id(strcase.ToLowerCamel(apiObject.TypeName)).Op(",").Id("objectType")),
+					).Call(
+						Line().Qual(
+							"github.com/threeport/threeport/pkg/api-server/lib/v0",
+							"SingleObjectMeta",
+						).Call(),
+						Line().Id(strcase.ToLowerCamel(apiObject.TypeName)),
+						Line().Id("objectType"),
+						Line(),
+					),
 					If(
 						Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
 							if gen.Module {
