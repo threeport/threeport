@@ -140,7 +140,11 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 			h.JS.Publish(notif.SecretDefinitionCreateSubject, *notifPayload)
 		}
 
-		response, err := apiserver_lib.CreateResponse(nil, secretDefinition, objectType)
+		response, err := apiserver_lib.CreateResponse(
+			apiserver_lib.SingleObjectMeta(),
+			secretDefinition,
+			objectType,
+		)
 		if err != nil {
 			h.Logger.Error("handler error: error creating response", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
