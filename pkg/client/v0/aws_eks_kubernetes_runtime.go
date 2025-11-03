@@ -7,7 +7,7 @@ import (
 	"github.com/nukleros/aws-builder/pkg/eks"
 )
 
-// GetResourceInventoryByK8sRuntimeInst returns the DNS management IAM role arn.
+// GetResourceInventoryByK8sRuntimeInst returns EKS resource inventory by Kubernetes runtime instance ID.
 func GetResourceInventoryByK8sRuntimeInst(
 	apiClient *http.Client,
 	apiAddr string,

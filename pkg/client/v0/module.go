@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -53,23 +54,42 @@ func CreateModuleApiRouteWithModuleObjectReferences(
 }
 
 // GetModuleObjectsWithModuleApiRoutes fetches all module objects with associated module api routes.
-// TODO: implement pagination
 func GetModuleObjectsWithModuleApiRoutes(apiClient *http.Client, apiAddr string) (*[]v0.ModuleObject, error) {
 	var moduleObjects []v0.ModuleObject
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathModuleObjectsWithModuleApiRoutes),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &moduleObjects, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathModuleObjectsWithModuleApiRoutes)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathModuleObjectsWithModuleApiRoutes, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &moduleObjects, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &moduleObjects, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -83,9 +103,7 @@ func GetModuleObjectsWithModuleApiRoutes(apiClient *http.Client, apiAddr string)
 	return &moduleObjects, nil
 }
 
-// GetModuleObjectsWithModuleApiRoutesByQueryString fetches all module objects with associated module api routes
-// by provided module object ID.
-// TODO: implement pagination
+// GetModuleObjectWithModuleApiRoutesByID fetches a module object with associated module api routes by module object ID.
 func GetModuleObjectWithModuleApiRoutesByID(apiClient *http.Client, apiAddr string, moduleObjectID uint) (*v0.ModuleObject, error) {
 	var moduleObject v0.ModuleObject
 

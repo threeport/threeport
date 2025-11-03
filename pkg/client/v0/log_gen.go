@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -13,23 +14,42 @@ import (
 )
 
 // GetLogBackends fetches all log backends.
-// TODO: implement pagination
 func GetLogBackends(apiClient *http.Client, apiAddr string) (*[]v0.LogBackend, error) {
 	var logBackends []v0.LogBackend
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathLogBackends),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &logBackends, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathLogBackends)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathLogBackends, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &logBackends, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &logBackends, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -291,23 +311,42 @@ func DeleteLogBackend(apiClient *http.Client, apiAddr string, id uint) (*v0.LogB
 }
 
 // GetLogStorageDefinitions fetches all log storage definitions.
-// TODO: implement pagination
 func GetLogStorageDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.LogStorageDefinition, error) {
 	var logStorageDefinitions []v0.LogStorageDefinition
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathLogStorageDefinitions),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &logStorageDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathLogStorageDefinitions)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathLogStorageDefinitions, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &logStorageDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &logStorageDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -569,23 +608,42 @@ func DeleteLogStorageDefinition(apiClient *http.Client, apiAddr string, id uint)
 }
 
 // GetLogStorageInstances fetches all log storage instances.
-// TODO: implement pagination
 func GetLogStorageInstances(apiClient *http.Client, apiAddr string) (*[]v0.LogStorageInstance, error) {
 	var logStorageInstances []v0.LogStorageInstance
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathLogStorageInstances),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &logStorageInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathLogStorageInstances)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathLogStorageInstances, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &logStorageInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &logStorageInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -13,23 +14,42 @@ import (
 )
 
 // GetModuleApis fetches all module apis.
-// TODO: implement pagination
 func GetModuleApis(apiClient *http.Client, apiAddr string) (*[]v0.ModuleApi, error) {
 	var moduleApis []v0.ModuleApi
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathModuleApis),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &moduleApis, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathModuleApis)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathModuleApis, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &moduleApis, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &moduleApis, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -291,23 +311,42 @@ func DeleteModuleApi(apiClient *http.Client, apiAddr string, id uint) (*v0.Modul
 }
 
 // GetModuleApiRoutes fetches all module api routes.
-// TODO: implement pagination
 func GetModuleApiRoutes(apiClient *http.Client, apiAddr string) (*[]v0.ModuleApiRoute, error) {
 	var moduleApiRoutes []v0.ModuleApiRoute
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathModuleApiRoutes),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &moduleApiRoutes, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathModuleApiRoutes)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathModuleApiRoutes, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &moduleApiRoutes, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &moduleApiRoutes, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -569,23 +608,42 @@ func DeleteModuleApiRoute(apiClient *http.Client, apiAddr string, id uint) (*v0.
 }
 
 // GetModuleControllers fetches all module controllers.
-// TODO: implement pagination
 func GetModuleControllers(apiClient *http.Client, apiAddr string) (*[]v0.ModuleController, error) {
 	var moduleControllers []v0.ModuleController
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathModuleControllers),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &moduleControllers, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathModuleControllers)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathModuleControllers, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &moduleControllers, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &moduleControllers, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -847,23 +905,42 @@ func DeleteModuleController(apiClient *http.Client, apiAddr string, id uint) (*v
 }
 
 // GetModuleObjects fetches all module objects.
-// TODO: implement pagination
 func GetModuleObjects(apiClient *http.Client, apiAddr string) (*[]v0.ModuleObject, error) {
 	var moduleObjects []v0.ModuleObject
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathModuleObjects),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &moduleObjects, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathModuleObjects)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathModuleObjects, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &moduleObjects, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &moduleObjects, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}

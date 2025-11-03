@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -13,23 +14,42 @@ import (
 )
 
 // GetWorkloadDefinitions fetches all workload definitions.
-// TODO: implement pagination
 func GetWorkloadDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.WorkloadDefinition, error) {
 	var workloadDefinitions []v0.WorkloadDefinition
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadDefinitions),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &workloadDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadDefinitions)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathWorkloadDefinitions, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &workloadDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &workloadDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -291,23 +311,42 @@ func DeleteWorkloadDefinition(apiClient *http.Client, apiAddr string, id uint) (
 }
 
 // GetWorkloadEvents fetches all workload events.
-// TODO: implement pagination
 func GetWorkloadEvents(apiClient *http.Client, apiAddr string) (*[]v0.WorkloadEvent, error) {
 	var workloadEvents []v0.WorkloadEvent
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadEvents),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &workloadEvents, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadEvents)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathWorkloadEvents, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &workloadEvents, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &workloadEvents, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -569,23 +608,42 @@ func DeleteWorkloadEvent(apiClient *http.Client, apiAddr string, id uint) (*v0.W
 }
 
 // GetWorkloadInstances fetches all workload instances.
-// TODO: implement pagination
 func GetWorkloadInstances(apiClient *http.Client, apiAddr string) (*[]v0.WorkloadInstance, error) {
 	var workloadInstances []v0.WorkloadInstance
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadInstances),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &workloadInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadInstances)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathWorkloadInstances, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &workloadInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &workloadInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -847,23 +905,42 @@ func DeleteWorkloadInstance(apiClient *http.Client, apiAddr string, id uint) (*v
 }
 
 // GetWorkloadResourceDefinitions fetches all workload resource definitions.
-// TODO: implement pagination
 func GetWorkloadResourceDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.WorkloadResourceDefinition, error) {
 	var workloadResourceDefinitions []v0.WorkloadResourceDefinition
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadResourceDefinitions),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &workloadResourceDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadResourceDefinitions)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathWorkloadResourceDefinitions, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &workloadResourceDefinitions, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &workloadResourceDefinitions, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -1125,23 +1202,42 @@ func DeleteWorkloadResourceDefinition(apiClient *http.Client, apiAddr string, id
 }
 
 // GetWorkloadResourceInstances fetches all workload resource instances.
-// TODO: implement pagination
 func GetWorkloadResourceInstances(apiClient *http.Client, apiAddr string) (*[]v0.WorkloadResourceInstance, error) {
 	var workloadResourceInstances []v0.WorkloadResourceInstance
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadResourceInstances),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &workloadResourceInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathWorkloadResourceInstances)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathWorkloadResourceInstances, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &workloadResourceInstances, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &workloadResourceInstances, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}

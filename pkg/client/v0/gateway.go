@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
@@ -15,19 +16,39 @@ import (
 func GetGatewayHttpPortsByGatewayDefinitionId(apiClient *http.Client, apiAddr string, id uint) (*[]v0.GatewayHttpPort, error) {
 	var gatewayHttpPort []v0.GatewayHttpPort
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s?gatewaydefinitionid=%d", apiAddr, v0.PathGatewayHttpPorts, id),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &gatewayHttpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s?gatewaydefinitionid=%d", apiAddr, v0.PathGatewayHttpPorts, id)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?gatewaydefinitionid=%d&queryid=%s&cursor=%d", apiAddr, v0.PathGatewayHttpPorts, id, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &gatewayHttpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &gatewayHttpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
@@ -45,19 +66,39 @@ func GetGatewayHttpPortsByGatewayDefinitionId(apiClient *http.Client, apiAddr st
 func GetGatewayTcpPortsByGatewayDefinitionId(apiClient *http.Client, apiAddr string, id uint) (*[]v0.GatewayTcpPort, error) {
 	var gatewayTcpPort []v0.GatewayTcpPort
 
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s?gatewaydefinitionid=%d", apiAddr, v0.PathGatewayTcpPorts, id),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &gatewayTcpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s?gatewaydefinitionid=%d", apiAddr, v0.PathGatewayTcpPorts, id)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?gatewaydefinitionid=%d&queryid=%s&cursor=%d", apiAddr, v0.PathGatewayTcpPorts, id, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &gatewayTcpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
 	}
 
-	jsonData, err := json.Marshal(response.Data)
+	jsonData, err := json.Marshal(allPageData)
 	if err != nil {
 		return &gatewayTcpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}

@@ -41,6 +41,12 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				"tpclient_lib",
 				gen.Module,
 			))
+			f.ImportAlias(util.SetImportAlias(
+				"github.com/threeport/threeport/pkg/api-server/lib/v0",
+				"apiserver_lib",
+				"tpapiserver_lib",
+				gen.Module,
+			))
 
 			for _, apiObject := range objGroup.ApiObjects {
 				// get all objects
@@ -50,7 +56,6 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					getAllFuncName,
 					pluralize.Pluralize(strcase.ToDelimited(apiObject.TypeName, ' '), 2, false),
 				))
-				f.Comment("TODO: implement pagination")
 				f.Func().Id(getAllFuncName).Params(
 					Id("apiClient").Op("*").Qual("net/http", "Client"),
 					Id("apiAddr").String(),
@@ -66,12 +71,15 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						apiObject.TypeName,
 					),
 					Line(),
-					Id("response").Op(",").Id("err").Op(":=").Qual(
-						"github.com/threeport/threeport/pkg/client/lib/v0",
-						"GetResponse",
-					).Call(
-						Line().Id("apiClient"),
-						Line().Qual("fmt", "Sprintf").Call(
+					Id("allPagesReceived").Op(":=").False(),
+					Var().Id("allPageData").Index().Qual(
+						"github.com/threeport/threeport/pkg/api-server/lib/v0",
+						"Object",
+					),
+					Id("nextCursor").Op(":=").Uint().Call(Lit(0)),
+					Id("queryId").Op(":=").Lit(""),
+					For(Op("!").Id("allPagesReceived")).Block(
+						Id("url").Op(":=").Qual("fmt", "Sprintf").Call(
 							Lit("%s%s"),
 							Id("apiAddr"),
 							Qual(
@@ -79,20 +87,49 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								fmt.Sprintf("Path%s", pluralize.Pluralize(apiObject.TypeName, 2, false)),
 							),
 						),
-						Line().Qual("net/http", "MethodGet"),
-						Line().New(Qual("bytes", "Buffer")),
-						Line().Map(String()).String().Block(),
-						Line().Qual("net/http", "StatusOK"),
+						If(Id("queryId").Op("!=").Lit("")).Block(
+							Id("url").Op("=").Qual("fmt", "Sprintf").Call(
+								Lit("%s%s?queryid=%s&cursor=%d"),
+								Id("apiAddr"),
+								Qual(
+									fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+									fmt.Sprintf("Path%s", pluralize.Pluralize(apiObject.TypeName, 2, false)),
+								),
+								Id("queryId"),
+								Id("nextCursor"),
+							),
+						),
 						Line(),
+						Id("response").Op(",").Id("err").Op(":=").Qual(
+							"github.com/threeport/threeport/pkg/client/lib/v0",
+							"GetResponse",
+						).Call(
+							Line().Id("apiClient"),
+							Line().Id("url"),
+							Line().Qual("net/http", "MethodGet"),
+							Line().New(Qual("bytes", "Buffer")),
+							Line().Map(String()).String().Block(),
+							Line().Qual("net/http", "StatusOK"),
+							Line(),
+						),
+						If(Id("err").Op("!=").Nil().Block(
+							Return().Op("&").Id(pluralize.Pluralize(strcase.ToLowerCamel(apiObject.TypeName), 2, false)).Op(",").Qual(
+								"fmt", "Errorf",
+							).Call(Lit(ResponseErr).Op(",").Id("err")),
+						)),
+						Line(),
+						Id("allPageData").Op("=").Append(Id("allPageData").Op(",").Id("response").Dot("Data").Op("...")),
+						Line(),
+						If(Id("response").Dot("Meta").Dot("Pagination").Dot("HasMore")).Block(
+							Id("nextCursor").Op("=").Id("response").Dot("Meta").Dot("Pagination").Dot("NextCursor"),
+							Id("queryId").Op("=").Id("response").Dot("Meta").Dot("Pagination").Dot("QueryId"),
+						).Else().Block(
+							Id("allPagesReceived").Op("=").True(),
+						),
 					),
-					If(Id("err").Op("!=").Nil().Block(
-						Return().Op("&").Id(pluralize.Pluralize(strcase.ToLowerCamel(apiObject.TypeName), 2, false)).Op(",").Qual(
-							"fmt", "Errorf",
-						).Call(Lit(ResponseErr).Op(",").Id("err")),
-					)),
 					Line(),
 					Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
-						Id("response").Dot("Data"),
+						Id("allPageData"),
 					),
 					If(Id("err").Op("!=").Nil().Block(
 						Return().Op("&").Id(pluralize.Pluralize(strcase.ToLowerCamel(apiObject.TypeName), 2, false)).Op(",").Qual(
