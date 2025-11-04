@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"reflect"
 	"strconv"
 	"strings"
@@ -79,25 +79,85 @@ func (c *CustomContext) GetPaginationParams() (*PageRequestParams, error) {
 	return params, nil
 }
 
-// GetBearerToken extracts the auth token from Authorization header.
-func (c *CustomContext) GetBearerToken() (token string, err error) {
+// PayloadCheck parses JSON request body into key value pairs to perform validations such as:
+// - check for empty JSON object
+// - check for GORM Model fields in the payload
+// - check for optional associations fields in they payload if checkAssociation parameter is true
+// - check for unsupported fields in the payload
+// and returns an error code and error message if any of the conditions above are met
+func PayloadCheck(
+	c echo.Context,
+	extension bool,
+	checkAssociation bool,
+	objectType string,
+	objectStruct interface{},
+) (int, error) {
+	var payload map[string]interface{}
+	var payloadArray []map[string]interface{}
+	var providedGORMModelFields []string
+	var providedAssociationsFields []string
+	var unsupportedFields []string
 
-	reqToken := c.Request().Header.Get("Authorization")
+	// extract API version from context path i.e. v0, v11 etc.
+	apiVer := versionFromPath(c.Path(), extension)
 
-	splitToken := strings.Split(reqToken, "Bearer ")
+	bodyBytes := readBody(c)
 
-	if len(strings.TrimSpace(reqToken)) == 0 || len(splitToken) == 1 {
-		err = errors.New("authorization token was not provided")
+	// get payload k/v pairs
+	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
+		if err = json.Unmarshal(bodyBytes, &payloadArray); err != nil {
+			return 500, err
+		} else {
+			if len(payloadArray) == 0 {
+				return 400, errors.New(ErrMsgJSONPayloadEmpty)
+			}
+			// check array/slice of payload objects
+			for _, v := range payloadArray {
+				if id, err := checkPayloadObject(
+					apiVer, v, objectType, objectStruct,
+					&providedGORMModelFields,
+					&providedAssociationsFields,
+					&unsupportedFields,
+				); err != nil {
+					return id, err
+				}
+			}
+		}
 	} else {
-		token = splitToken[1]
+		if len(payload) == 0 {
+			return 400, errors.New(ErrMsgJSONPayloadEmpty)
+		}
+		// check single payload object
+		if id, err := checkPayloadObject(
+			apiVer, payload, objectType, objectStruct,
+			&providedGORMModelFields,
+			&providedAssociationsFields,
+			&unsupportedFields,
+		); err != nil {
+			return id, err
+		}
 	}
 
-	return token, err
+	if len(providedGORMModelFields) > 0 {
+		return 400, errors.New(ErrMsgGORMModelFieldsUpdateNotAllowed + " : " + strings.Join(providedGORMModelFields, ","))
+	}
+
+	if checkAssociation {
+		if len(providedAssociationsFields) > 0 {
+			return 400, errors.New(ErrMsgAssociationsUpdateNotAllowed + " : " + strings.Join(providedAssociationsFields, ","))
+		}
+	}
+
+	if len(unsupportedFields) > 0 {
+		return 400, errors.New(ErrMsgUnsupportedFieldsNotAllowed + " : " + strings.Join(unsupportedFields, ","))
+	}
+
+	return 500, nil
 }
 
-// CheckPayloadObject analyzes payload using Object model tags and returns providedGORMModelFields,
+// checkPayloadObject analyzes payload using Object model tags and returns providedGORMModelFields,
 // providedAssociationsFields, unsupportedFields for further decision making
-func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, objectType string, objectStruct interface{}, providedGORMModelFields *[]string, providedAssociationsFields *[]string, unsupportedFields *[]string) (int, error) {
+func checkPayloadObject(apiVer string, payloadObject map[string]interface{}, objectType string, objectStruct interface{}, providedGORMModelFields *[]string, providedAssociationsFields *[]string, unsupportedFields *[]string) (int, error) {
 	var associatedFields = &[]string{}
 	var optionalFields = &[]string{}
 	var optionalAssociationsFields = &[]string{}
@@ -151,95 +211,6 @@ func CheckPayloadObject(apiVer string, payloadObject map[string]interface{}, obj
 	return 200, nil
 }
 
-// PayloadCheck parses JSON request body into key value pairs to perform validations such as:
-// - check for empty JSON object
-// - check for GORM Model fields in the payload
-// - check for optional associations fields in they payload if checkAssociation parameter is true
-// - check for unsupported fields in the payload
-// and returns an error code and error message if any of the conditions above are met
-func PayloadCheck(
-	c echo.Context,
-	extension bool,
-	checkAssociation bool,
-	objectType string,
-	objectStruct interface{},
-) (int, error) {
-	var payload map[string]interface{}
-	var payloadArray []map[string]interface{}
-	var providedGORMModelFields []string
-	var providedAssociationsFields []string
-	var unsupportedFields []string
-
-	// extract API version from context path i.e. v0, v11 etc.
-	apiVer := versionFromPath(c.Path(), extension)
-
-	bodyBytes := readBody(c)
-
-	// get payload k/v pairs
-	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
-		if err = json.Unmarshal(bodyBytes, &payloadArray); err != nil {
-			return 500, err
-		} else {
-			if len(payloadArray) == 0 {
-				return 400, errors.New(ErrMsgJSONPayloadEmpty)
-			}
-			// check array/slice of payload objects
-			for _, v := range payloadArray {
-				if id, err := CheckPayloadObject(apiVer, v, objectType, objectStruct, &providedGORMModelFields, &providedAssociationsFields, &unsupportedFields); err != nil {
-					return id, err
-				}
-			}
-		}
-	} else {
-		if len(payload) == 0 {
-			return 400, errors.New(ErrMsgJSONPayloadEmpty)
-		}
-		// check single payload object
-		if id, err := CheckPayloadObject(apiVer, payload, objectType, objectStruct, &providedGORMModelFields, &providedAssociationsFields, &unsupportedFields); err != nil {
-			return id, err
-		}
-	}
-
-	if len(providedGORMModelFields) > 0 {
-		return 400, errors.New(ErrMsgGORMModelFieldsUpdateNotAllowed + " : " + strings.Join(providedGORMModelFields, ","))
-	}
-
-	if checkAssociation {
-		if len(providedAssociationsFields) > 0 {
-			return 400, errors.New(ErrMsgAssociationsUpdateNotAllowed + " : " + strings.Join(providedAssociationsFields, ","))
-		}
-	}
-
-	if len(unsupportedFields) > 0 {
-		return 400, errors.New(ErrMsgUnsupportedFieldsNotAllowed + " : " + strings.Join(unsupportedFields, ","))
-	}
-
-	return 500, nil
-}
-
-// MiddlewareFunc is a potential replacement for PayloadCheck in the future
-func MiddlewareFunc(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		// read origin body bytes
-		var bodyBytes []byte
-		if c.Request().Body != nil {
-			bodyBytes, _ = ioutil.ReadAll(c.Request().Body)
-			// write back to request body
-			c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
-			// parse json data
-			reqData := struct {
-				ID string `json:"id"`
-			}{}
-			err := json.Unmarshal(bodyBytes, &reqData)
-			if err != nil {
-				return c.JSON(400, "error json.")
-			}
-			fmt.Println(reqData.ID)
-		}
-		return next(c)
-	}
-}
-
 // versionFromPath returns the API version from the REST path based on whether
 // the path is from core Threeport or an extension of threeport.
 func versionFromPath(path string, extension bool) string {
@@ -250,15 +221,15 @@ func versionFromPath(path string, extension bool) string {
 	return parsedPath[1]
 }
 
-// readBody Read request's body is a way so it can be red again by other methods
+// readBody reads the request's body and returns it as a byte slice.
 func readBody(c echo.Context) []byte {
 	defer c.Request().Body.Close()
-	bodyBytes := []byte{}
-	bodyBytes, _ = ioutil.ReadAll(c.Request().Body)
-	c.Request().Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+	bodyBytes, _ := io.ReadAll(c.Request().Body)
+	c.Request().Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	return bodyBytes
 }
 
+// getFieldNameByJsonTag returns the field name of the struct by the given tag and key.
 func getFieldNameByJsonTag(tag, key string, s interface{}) (fieldname string) {
 	rt := reflect.TypeOf(s)
 	if rt.Kind() != reflect.Struct {
