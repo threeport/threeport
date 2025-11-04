@@ -459,12 +459,14 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			g.Line()
 		}
 
-		g.Comment("run cleanup of old materialized views every 60 seconds and drop views older than 15 minutes")
-		g.Qual(
-			fmt.Sprintf("%s/pkg/api-server/lib/v0", gen.ModulePath),
-			"CleanupMaterializedViews",
-		).Call(Id("db"), Op("&").Id("logger"), Lit(60), Lit(15))
-		g.Line()
+		if !gen.Module {
+			g.Comment("run cleanup of old materialized views every 60 seconds and drop views older than 15 minutes")
+			g.Qual(
+				fmt.Sprintf("%s/pkg/api-server/lib/v0", gen.ModulePath),
+				"CleanupMaterializedViews",
+			).Call(Id("db"), Op("&").Id("logger"), Lit(60), Lit(15))
+			g.Line()
+		}
 
 		g.Comment("nats connection")
 		g.Id("natsConn").Op(":=").Qual("fmt", "Sprintf").Call(
