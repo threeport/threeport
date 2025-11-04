@@ -66,25 +66,29 @@ func (m *ModuleObjectConfig) Get(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get module api with id %d: %w", *moduleObject.ModuleApiID, err)
 		}
-		moduleController, err := client_v0.GetModuleControllerByID(apiClient, apiEndpoint, *moduleObject.ModuleControllerID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get module controller with id %d: %w", *moduleObject.ModuleControllerID, err)
-		}
 
 		moduleObjectConfig := ModuleObjectConfig{
 			ModuleObject: ModuleObjectValues{
 				Name:        moduleObject.Name,
 				Version:     moduleObject.Version,
 				Description: moduleObject.Description,
-				ModuleController: &ModuleControllerValues{
-					Name: moduleController.Name,
-				},
 				ModuleApi: &ModuleApiValues{
 					Name: moduleApi.Name,
 				},
 				Age: util.Ptr(util.GetAgeFormatted(moduleObject.CreatedAt)),
 			},
 		}
+
+		if moduleObject.ModuleControllerID != nil {
+			moduleController, err := client_v0.GetModuleControllerByID(apiClient, apiEndpoint, *moduleObject.ModuleControllerID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get module controller with id %d: %w", *moduleObject.ModuleControllerID, err)
+			}
+			moduleObjectConfig.ModuleObject.ModuleController = &ModuleControllerValues{
+				Name: moduleController.Name,
+			}
+		}
+
 		moduleObjectConfigs = append(moduleObjectConfigs, moduleObjectConfig)
 	}
 

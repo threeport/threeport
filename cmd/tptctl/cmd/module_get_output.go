@@ -81,13 +81,17 @@ func outputGetv0ModuleObjectsCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "VERSION\t NAME\t VERSION\t DESCRIPTION\t MODULE CONTROLLER\t MODULE API\t AGE")
 	for _, moduleObject := range *moduleObjects {
+		moduleControllerName := ""
+		if moduleObject.ModuleObject.ModuleController != nil {
+			moduleControllerName = *moduleObject.ModuleObject.ModuleController.Name
+		}
 		fmt.Fprintln(
 			writer,
 			"v0", "\t",
 			*moduleObject.ModuleObject.Name, "\t",
 			*moduleObject.ModuleObject.Version, "\t",
 			*moduleObject.ModuleObject.Description, "\t",
-			*moduleObject.ModuleObject.ModuleController.Name, "\t",
+			moduleControllerName, "\t",
 			*moduleObject.ModuleObject.ModuleApi.Name, "\t",
 			*moduleObject.ModuleObject.Age,
 		)
