@@ -1,18 +1,12 @@
 package v0
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"reflect"
 )
 
 const (
-	ObjectTypeUnknown = "Unknown"
-	ObjectTypeBlank   = ""
-
-	ErrMsgNoRecordsFound                  = "No records found"
-	ErrMsgStatusUnauthorized              = "Unauthorized"
 	ErrMsgJSONPayloadEmpty                = "JSON payload is empty"
 	ErrMsgMissingRequiredFields           = "Missing required field(s)"
 	ErrMsgAssociationsUpdateNotAllowed    = "Update of associated objects is not allowed. Use PUT for each associated object"
@@ -144,11 +138,6 @@ func CreateStatus(code int, message string, error string) *Status {
 	return &Status{Code: code, Message: message, Error: error}
 }
 
-// CreateResponseErrorWithCode creates a Response object with the given code, error, and object type.
-func CreateResponseErrorWithCode(params *PageRequestParams, code int, error string, objectType string) *Response {
-	return CreateResponseErrorWithStatus(params, CreateStatus(code, http.StatusText(code), error), objectType)
-}
-
 // CreateResponseErrorWithStatus creates a Response object with the given status, object type.
 func CreateResponseErrorWithStatus(params *PageRequestParams, status *Status, objectType string) *Response {
 	return &Response{
@@ -197,15 +186,4 @@ func CreateResponseWithError409(params *PageRequestParams, error error, objectTy
 // CreateResponseWithError500 creates a Response object with the a 500 status, given params, error, and object type.
 func CreateResponseWithError500(params *PageRequestParams, error error, objectType string) *Response {
 	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), error.Error()), objectType)
-}
-
-// GetResponseData returns Response.Data from Response
-func GetResponseData(data []byte) (*[]Object, error) {
-	var response Response
-
-	if err := json.Unmarshal(data, &response); err != nil {
-		return nil, err
-	}
-
-	return &response.Data, nil
 }
