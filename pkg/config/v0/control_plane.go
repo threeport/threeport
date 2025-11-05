@@ -174,9 +174,6 @@ func (c *ControlPlaneConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get control plane definitions: %w", err)
 			}
-			if len(*controlPlaneDefinitions) == 0 {
-				return fmt.Errorf("failed to find any control plane definitions: %w", err)
-			}
 			operatedControlPlaneDefinitions = append(operatedControlPlaneDefinitions, *controlPlaneDefinitions...)
 			return nil
 		},
@@ -224,13 +221,7 @@ func (c *ControlPlaneConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get control plane instance with name %s: %w", *c.ControlPlane.Name, err)
 			}
-			if len(*controlPlaneInstance) == 0 {
-				return fmt.Errorf("failed to find control plane instance with name %s: %w", *c.ControlPlane.Name, err)
-			}
-			if len(*controlPlaneInstance) > 1 {
-				return fmt.Errorf("multiple control plane instances found with name %s: %w", *c.ControlPlane.Name, err)
-			}
-			operatedControlPlaneInstances = append(operatedControlPlaneInstances, (*controlPlaneInstance)[0])
+			operatedControlPlaneInstances = append(operatedControlPlaneInstances, *controlPlaneInstance...)
 			return nil
 		},
 		Name: "control plane instance",

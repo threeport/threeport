@@ -177,9 +177,6 @@ func (g *GatewayConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get gateway definitions: %w", err)
 			}
-			if len(*gatewayDefinitions) == 0 {
-				return fmt.Errorf("failed to find any gateway definitions: %w", err)
-			}
 			operatedGatewayDefinitions = append(operatedGatewayDefinitions, *gatewayDefinitions...)
 			return nil
 		},
@@ -226,13 +223,7 @@ func (g *GatewayConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get gateway instance with name %s: %w", *g.Gateway.Name, err)
 			}
-			if len(*gatewayInstance) == 0 {
-				return fmt.Errorf("failed to find gateway instance with name %s: %w", *g.Gateway.Name, err)
-			}
-			if len(*gatewayInstance) > 1 {
-				return fmt.Errorf("multiple gateway instances found with name %s: %w", *g.Gateway.Name, err)
-			}
-			operatedGatewayInstances = append(operatedGatewayInstances, (*gatewayInstance)[0])
+			operatedGatewayInstances = append(operatedGatewayInstances, *gatewayInstance...)
 			return nil
 		},
 		Name: "gateway instance",

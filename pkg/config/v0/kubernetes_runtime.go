@@ -179,9 +179,6 @@ func (k *KubernetesRuntimeConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get kubernetes runtime definitions: %w", err)
 			}
-			if len(*kubernetesRuntimeDefinitions) == 0 {
-				return fmt.Errorf("failed to find any kubernetes runtime definitions: %w", err)
-			}
 			operatedKubernetesRuntimeDefinitions = append(operatedKubernetesRuntimeDefinitions, *kubernetesRuntimeDefinitions...)
 			return nil
 		},
@@ -230,13 +227,7 @@ func (k *KubernetesRuntimeConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get kubernetes runtime instance with name %s: %w", *kubernetesRuntimeValues.Name, err)
 			}
-			if len(*kubernetesRuntimeInstance) == 0 {
-				return fmt.Errorf("failed to find kubernetes runtime instance with name %s: %w", *kubernetesRuntimeValues.Name, err)
-			}
-			if len(*kubernetesRuntimeInstance) > 1 {
-				return fmt.Errorf("multiple kubernetes runtime instances found with name %s: %w", *kubernetesRuntimeValues.Name, err)
-			}
-			operatedKubernetesRuntimeInstances = append(operatedKubernetesRuntimeInstances, (*kubernetesRuntimeInstance)[0])
+			operatedKubernetesRuntimeInstances = append(operatedKubernetesRuntimeInstances, *kubernetesRuntimeInstance...)
 			return nil
 		},
 		Name: "kubernetes runtime instance",

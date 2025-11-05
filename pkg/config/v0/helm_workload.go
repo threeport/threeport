@@ -235,13 +235,7 @@ func (h *HelmWorkloadConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get helm workload definition with name %s: %w", *helmWorkloadValues.Name, err)
 			}
-			if len(*helmWorkloadDefinition) == 0 {
-				return fmt.Errorf("failed to find helm workload definition with name %s: %w", *helmWorkloadValues.Name, err)
-			}
-			if len(*helmWorkloadDefinition) > 1 {
-				return fmt.Errorf("multiple helm workload definitions found with name %s: %w", *helmWorkloadValues.Name, err)
-			}
-			operatedHelmWorkloadDefinitions = append(operatedHelmWorkloadDefinitions, (*helmWorkloadDefinition)[0])
+			operatedHelmWorkloadDefinitions = append(operatedHelmWorkloadDefinitions, *helmWorkloadDefinition...)
 			return nil
 		},
 		Name: "helm workload definition",
@@ -295,13 +289,7 @@ func (h *HelmWorkloadConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get helm workload instance with name %s: %w", *helmWorkloadValues.Name, err)
 			}
-			if len(*helmWorkloadInstance) == 0 {
-				return fmt.Errorf("failed to find helm workload instance with name %s: %w", *helmWorkloadValues.Name, err)
-			}
-			if len(*helmWorkloadInstance) > 1 {
-				return fmt.Errorf("multiple helm workload instances found with name %s: %w", *helmWorkloadValues.Name, err)
-			}
-			operatedHelmWorkloadInstances = append(operatedHelmWorkloadInstances, (*helmWorkloadInstance)[0])
+			operatedHelmWorkloadInstances = append(operatedHelmWorkloadInstances, *helmWorkloadInstance...)
 			return nil
 		},
 		Name: "helm workload instance",

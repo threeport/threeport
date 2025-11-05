@@ -206,13 +206,7 @@ func (o *ObservabilityStackConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get observability stack definition with name %s: %w", *observabilityStackValues.Name, err)
 			}
-			if len(*observabilityStackDefinition) == 0 {
-				return fmt.Errorf("failed to find observability stack definition with name %s: %w", *observabilityStackValues.Name, err)
-			}
-			if len(*observabilityStackDefinition) > 1 {
-				return fmt.Errorf("multiple observability stack definitions found with name %s: %w", *observabilityStackValues.Name, err)
-			}
-			operatedObservabilityStackDefinitions = append(operatedObservabilityStackDefinitions, (*observabilityStackDefinition)[0])
+			operatedObservabilityStackDefinitions = append(operatedObservabilityStackDefinitions, *observabilityStackDefinition...)
 			return nil
 		},
 		Name: "observability stack definition",
@@ -266,13 +260,7 @@ func (o *ObservabilityStackConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get observability stack instance with name %s: %w", *observabilityStackValues.Name, err)
 			}
-			if len(*observabilityStackInstance) == 0 {
-				return fmt.Errorf("failed to find observability stack instance with name %s: %w", *observabilityStackValues.Name, err)
-			}
-			if len(*observabilityStackInstance) > 1 {
-				return fmt.Errorf("multiple observability stack instances found with name %s: %w", *observabilityStackValues.Name, err)
-			}
-			operatedObservabilityStackInstances = append(operatedObservabilityStackInstances, (*observabilityStackInstance)[0])
+			operatedObservabilityStackInstances = append(operatedObservabilityStackInstances, *observabilityStackInstance...)
 			return nil
 		},
 		Name: "observability stack instance",

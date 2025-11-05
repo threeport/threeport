@@ -183,9 +183,6 @@ func (t *TerraformConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get terraform definitions: %w", err)
 			}
-			if len(*terraformDefinitions) == 0 {
-				return fmt.Errorf("failed to find any terraform definitions: %w", err)
-			}
 			operatedTerraformDefinitions = append(operatedTerraformDefinitions, *terraformDefinitions...)
 			return nil
 		},
@@ -234,10 +231,7 @@ func (t *TerraformConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get terraform instances: %w", err)
 			}
-			if len(*terraformInstance) == 0 {
-				return fmt.Errorf("failed to find any terraform instances: %w", err)
-			}
-			operatedTerraformInstances = append(operatedTerraformInstances, (*terraformInstance)[0])
+			operatedTerraformInstances = append(operatedTerraformInstances, *terraformInstance...)
 			return nil
 		},
 		Name: "terraform instance",

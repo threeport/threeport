@@ -175,9 +175,6 @@ func (o *OciOkeKubernetesRuntimeConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get oci oke kubernetes runtime definitions: %w", err)
 			}
-			if len(*ociOkeKubernetesRuntimeDefinitions) == 0 {
-				return fmt.Errorf("failed to find any oci oke kubernetes runtime definitions: %w", err)
-			}
 			operatedOciOkeKubernetesRuntimeDefinitions = append(operatedOciOkeKubernetesRuntimeDefinitions, *ociOkeKubernetesRuntimeDefinitions...)
 			return nil
 		},
@@ -221,13 +218,7 @@ func (o *OciOkeKubernetesRuntimeConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get oci oke kubernetes runtime instance with name %s: %w", *ociOkeKubernetesRuntimeValues.Name, err)
 			}
-			if len(*ociOkeKubernetesRuntimeInstance) == 0 {
-				return fmt.Errorf("failed to find oci oke kubernetes runtime instance with name %s: %w", *ociOkeKubernetesRuntimeValues.Name, err)
-			}
-			if len(*ociOkeKubernetesRuntimeInstance) > 1 {
-				return fmt.Errorf("multiple oci oke kubernetes runtime instances found with name %s: %w", *ociOkeKubernetesRuntimeValues.Name, err)
-			}
-			operatedOciOkeKubernetesRuntimeInstances = append(operatedOciOkeKubernetesRuntimeInstances, (*ociOkeKubernetesRuntimeInstance)[0])
+			operatedOciOkeKubernetesRuntimeInstances = append(operatedOciOkeKubernetesRuntimeInstances, *ociOkeKubernetesRuntimeInstance...)
 			return nil
 		},
 		Name: "oci oke kubernetes runtime instance",

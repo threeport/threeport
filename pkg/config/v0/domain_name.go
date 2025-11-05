@@ -173,9 +173,6 @@ func (d *DomainNameConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get domain name definitions: %w", err)
 			}
-			if len(*domainNameDefinitions) == 0 {
-				return fmt.Errorf("failed to find any domain name definitions: %w", err)
-			}
 			operatedDomainNameDefinitions = append(operatedDomainNameDefinitions, *domainNameDefinitions...)
 			return nil
 		},
@@ -222,13 +219,7 @@ func (d *DomainNameConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get domain name instance with name %s: %w", *d.DomainName.Name, err)
 			}
-			if len(*domainNameInstance) == 0 {
-				return fmt.Errorf("failed to find domain name instance with name %s: %w", *d.DomainName.Name, err)
-			}
-			if len(*domainNameInstance) > 1 {
-				return fmt.Errorf("multiple domain name instances found with name %s: %w", *d.DomainName.Name, err)
-			}
-			operatedDomainNameInstances = append(operatedDomainNameInstances, (*domainNameInstance)[0])
+			operatedDomainNameInstances = append(operatedDomainNameInstances, *domainNameInstance...)
 			return nil
 		},
 		Name: "domain name instance",

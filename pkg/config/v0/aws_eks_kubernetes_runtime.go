@@ -179,9 +179,6 @@ func (a *AwsEksKubernetesRuntimeConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get aws eks kubernetes runtime definitions: %w", err)
 			}
-			if len(*awsEksKubernetesRuntimeDefinitions) == 0 {
-				return fmt.Errorf("failed to find any aws eks kubernetes runtime definitions: %w", err)
-			}
 			operatedAwsEksKubernetesRuntimeDefinitions = append(operatedAwsEksKubernetesRuntimeDefinitions, *awsEksKubernetesRuntimeDefinitions...)
 			return nil
 		},
@@ -227,13 +224,7 @@ func (a *AwsEksKubernetesRuntimeConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get aws eks kubernetes runtime instance with name %s: %w", *a.AwsEksKubernetesRuntime.Name, err)
 			}
-			if len(*awsEksKubernetesRuntimeInstance) == 0 {
-				return fmt.Errorf("failed to find aws eks kubernetes runtime instance with name %s: %w", *a.AwsEksKubernetesRuntime.Name, err)
-			}
-			if len(*awsEksKubernetesRuntimeInstance) > 1 {
-				return fmt.Errorf("multiple aws eks kubernetes runtime instances found with name %s: %w", *a.AwsEksKubernetesRuntime.Name, err)
-			}
-			operatedAwsEksKubernetesRuntimeInstances = append(operatedAwsEksKubernetesRuntimeInstances, (*awsEksKubernetesRuntimeInstance)[0])
+			operatedAwsEksKubernetesRuntimeInstances = append(operatedAwsEksKubernetesRuntimeInstances, *awsEksKubernetesRuntimeInstance...)
 			return nil
 		},
 		Name: "aws eks kubernetes runtime instance",

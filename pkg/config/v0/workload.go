@@ -177,9 +177,6 @@ func (w *WorkloadConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get workload definitions: %w", err)
 			}
-			if len(*workloadDefinitions) == 0 {
-				return fmt.Errorf("failed to find any workload definitions: %w", err)
-			}
 			operatedWorkloadDefinitions = append(operatedWorkloadDefinitions, *workloadDefinitions...)
 			return nil
 		},
@@ -221,15 +218,9 @@ func (w *WorkloadConfig) GetOperations(
 		Get: func() error {
 			workloadInstance, err := workloadInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get workload instance with name %s: %w", *workloadValues.Name, err)
+				return fmt.Errorf("failed to get workload instance/s: %w", err)
 			}
-			if len(*workloadInstance) == 0 {
-				return fmt.Errorf("failed to find workload instance with name %s: %w", *workloadValues.Name, err)
-			}
-			if len(*workloadInstance) > 1 {
-				return fmt.Errorf("multiple workload instances found with name %s: %w", *workloadValues.Name, err)
-			}
-			operatedWorkloadInstances = append(operatedWorkloadInstances, (*workloadInstance)[0])
+			operatedWorkloadInstances = append(operatedWorkloadInstances, *workloadInstance...)
 			return nil
 		},
 		Name: "workload instance",

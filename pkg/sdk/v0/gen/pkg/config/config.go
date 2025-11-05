@@ -356,15 +356,6 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											Id("err"),
 										)),
 									),
-									If(Id("len").Call(Op("*").Id(defsVar)).Op("==").Lit(0)).Block(
-										Return(Qual("fmt", "Errorf").Call(
-											Lit(fmt.Sprintf(
-												"failed to find any %s definitions: %%w",
-												defInstObjectHuman,
-											)),
-											Id("err"),
-										)),
-									),
 									Id(operatedDefsVar).Op("=").Id("append").Call(
 										Id(operatedDefsVar),
 										Op("*").Id(defsVar).Op("..."),
@@ -477,18 +468,9 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											Id("err"),
 										)),
 									),
-									If(Id("len").Call(Op("*").Id(instsVar)).Op("==").Lit(0)).Block(
-										Return(Qual("fmt", "Errorf").Call(
-											Lit(fmt.Sprintf(
-												"failed to find any %s instances: %%w",
-												defInstObjectHuman,
-											)),
-											Id("err"),
-										)),
-									),
 									Id(operatedInstsVar).Op("=").Id("append").Call(
 										Id(operatedInstsVar),
-										Call(Op("*").Id(instsVar)).Index(Lit(0)),
+										Op("*").Id(instsVar).Op("..."),
 									),
 									Return(Nil()),
 								),

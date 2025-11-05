@@ -18,6 +18,10 @@ func outputGetv0KubernetesRuntimesCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "VERSION\t NAME\t KUBERNETES RUNTIME DEFINITION\t KUBERNETES RUNTIME INSTANCE\t INFRA PROVIDER\t HIGH AVAILABILITY\t INFRA PROVIDER ACCOUNT\t LOCATION\t DEFAULT RUNTIME\t FORCE DELETE\t AGE")
 	for _, kubernetesRuntime := range *kubernetesRuntimes {
+		infraProviderAcctName := ""
+		if kubernetesRuntime.KubernetesRuntime.InfraProviderAccountName != nil {
+			infraProviderAcctName = *kubernetesRuntime.KubernetesRuntime.InfraProviderAccountName
+		}
 		fmt.Fprintln(
 			writer,
 			"v0", "\t",
@@ -26,7 +30,7 @@ func outputGetv0KubernetesRuntimesCmd(
 			*kubernetesRuntime.KubernetesRuntime.Name, "\t",
 			*kubernetesRuntime.KubernetesRuntime.InfraProvider, "\t",
 			*kubernetesRuntime.KubernetesRuntime.HighAvailability, "\t",
-			*kubernetesRuntime.KubernetesRuntime.InfraProviderAccountName, "\t",
+			infraProviderAcctName, "\t",
 			*kubernetesRuntime.KubernetesRuntime.Location, "\t",
 			*kubernetesRuntime.KubernetesRuntime.DefaultRuntime, "\t",
 			*kubernetesRuntime.KubernetesRuntime.ForceDelete, "\t",

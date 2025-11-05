@@ -177,9 +177,6 @@ func (s *SecretConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get secret definitions: %w", err)
 			}
-			if len(*secretDefinitions) == 0 {
-				return fmt.Errorf("failed to find any secret definitions: %w", err)
-			}
 			operatedSecretDefinitions = append(operatedSecretDefinitions, *secretDefinitions...)
 			return nil
 		},
@@ -226,13 +223,7 @@ func (s *SecretConfig) GetOperations(
 			if err != nil {
 				return fmt.Errorf("failed to get secret instance with name %s: %w", *secretValues.Name, err)
 			}
-			if len(*secretInstance) == 0 {
-				return fmt.Errorf("failed to find secret instance with name %s: %w", *secretValues.Name, err)
-			}
-			if len(*secretInstance) > 1 {
-				return fmt.Errorf("multiple secret instances found with name %s: %w", *secretValues.Name, err)
-			}
-			operatedSecretInstances = append(operatedSecretInstances, (*secretInstance)[0])
+			operatedSecretInstances = append(operatedSecretInstances, *secretInstance...)
 			return nil
 		},
 		Name: "secret instance",
