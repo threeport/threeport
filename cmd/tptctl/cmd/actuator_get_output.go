@@ -16,11 +16,10 @@ func outputGetv0ProfilesCmd(
 	profiles *[]config_v0.ProfileConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t AGE")
+	fmt.Fprintln(writer, "NAME\t AGE")
 	for _, profile := range *profiles {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*profile.Profile.Name, "\t",
 			*profile.Profile.Age,
 		)
@@ -36,11 +35,10 @@ func outputGetv0TiersCmd(
 	tiers *[]config_v0.TierConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t CRITICALITY\t AGE")
+	fmt.Fprintln(writer, "NAME\t CRITICALITY\t AGE")
 	for _, tier := range *tiers {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*tier.Tier.Name, "\t",
 			*tier.Tier.Criticality, "\t",
 			*tier.Tier.Age,

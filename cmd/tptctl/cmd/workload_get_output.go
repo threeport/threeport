@@ -16,11 +16,10 @@ func outputGetv0WorkloadsCmd(
 	workloads *[]config_v0.WorkloadConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t WORKLOAD DEFINITION\t WORKLOAD INSTANCE\t KUBERNETES RUNTIME INSTANCE\t STATUS\t AGE")
+	fmt.Fprintln(writer, "NAME\t WORKLOAD DEFINITION\t WORKLOAD INSTANCE\t KUBERNETES RUNTIME INSTANCE\t STATUS\t AGE")
 	for _, workload := range *workloads {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*workload.Workload.Name, "\t",
 			*workload.Workload.Name, "\t",
 			*workload.Workload.Name, "\t",
@@ -40,11 +39,10 @@ func outputGetv0WorkloadDefinitionsCmd(
 	workloadDefinitions *[]config_v0.WorkloadDefinitionConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t AGE")
+	fmt.Fprintln(writer, "NAME\t AGE")
 	for _, workloadDefinition := range *workloadDefinitions {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*workloadDefinition.WorkloadDefinition.Name, "\t",
 			*workloadDefinition.WorkloadDefinition.Age,
 		)
@@ -60,11 +58,10 @@ func outputGetv0WorkloadInstancesCmd(
 	workloadInstances *[]config_v0.WorkloadInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t WORKLOAD DEFINITION\t KUBERNETES RUNTIME INSTANCE\t STATUS\t AGE")
+	fmt.Fprintln(writer, "NAME\t WORKLOAD DEFINITION\t KUBERNETES RUNTIME INSTANCE\t STATUS\t AGE")
 	for _, workloadInstance := range *workloadInstances {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*workloadInstance.WorkloadInstance.Name, "\t",
 			*workloadInstance.WorkloadInstance.WorkloadDefinition.Name, "\t",
 			*workloadInstance.WorkloadInstance.KubernetesRuntimeInstance.Name, "\t",

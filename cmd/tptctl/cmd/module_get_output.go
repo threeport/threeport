@@ -16,11 +16,10 @@ func outputGetv0ModuleApisCmd(
 	moduleApis *[]config_v0.ModuleApiConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t CORE MODULE\t AGE")
+	fmt.Fprintln(writer, "NAME\t CORE MODULE\t AGE")
 	for _, moduleApi := range *moduleApis {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*moduleApi.ModuleApi.Name, "\t",
 			*moduleApi.ModuleApi.Core, "\t",
 			*moduleApi.ModuleApi.Age,
@@ -37,11 +36,10 @@ func outputGetv0ModuleApiRoutesCmd(
 	moduleApiRoutes *[]config_v0.ModuleApiRouteConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t PATH\t MODULE API\t AGE")
+	fmt.Fprintln(writer, "PATH\t MODULE API\t AGE")
 	for _, moduleApiRoute := range *moduleApiRoutes {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*moduleApiRoute.ModuleApiRoute.Path, "\t",
 			*moduleApiRoute.ModuleApiRoute.ModuleApi.Name, "\t",
 			*moduleApiRoute.ModuleApiRoute.Age,
@@ -58,11 +56,10 @@ func outputGetv0ModuleControllersCmd(
 	moduleControllers *[]config_v0.ModuleControllerConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t MODULE API\t AGE")
+	fmt.Fprintln(writer, "NAME\t MODULE API\t AGE")
 	for _, moduleController := range *moduleControllers {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*moduleController.ModuleController.Name, "\t",
 			*moduleController.ModuleController.ModuleApi.Name, "\t",
 			*moduleController.ModuleController.Age,
@@ -79,7 +76,7 @@ func outputGetv0ModuleObjectsCmd(
 	moduleObjects *[]config_v0.ModuleObjectConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t VERSION\t DESCRIPTION\t MODULE CONTROLLER\t MODULE API\t AGE")
+	fmt.Fprintln(writer, "NAME\t VERSION\t DESCRIPTION\t MODULE CONTROLLER\t MODULE API\t AGE")
 	for _, moduleObject := range *moduleObjects {
 		moduleControllerName := ""
 		if moduleObject.ModuleObject.ModuleController != nil {
@@ -87,7 +84,6 @@ func outputGetv0ModuleObjectsCmd(
 		}
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*moduleObject.ModuleObject.Name, "\t",
 			*moduleObject.ModuleObject.Version, "\t",
 			*moduleObject.ModuleObject.Description, "\t",

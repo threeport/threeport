@@ -217,7 +217,7 @@ func (d *DomainNameConfig) GetOperations(
 		Get: func() error {
 			domainNameInstance, err := domainNameInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get domain name instance with name %s: %w", *d.DomainName.Name, err)
+				return fmt.Errorf("failed to get domain name instances: %w", err)
 			}
 			operatedDomainNameInstances = append(operatedDomainNameInstances, *domainNameInstance...)
 			return nil

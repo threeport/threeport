@@ -221,7 +221,7 @@ func (g *GatewayConfig) GetOperations(
 		Get: func() error {
 			gatewayInstance, err := gatewayInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get gateway instance with name %s: %w", *g.Gateway.Name, err)
+				return fmt.Errorf("failed to get gateway instances: %w", err)
 			}
 			operatedGatewayInstances = append(operatedGatewayInstances, *gatewayInstance...)
 			return nil

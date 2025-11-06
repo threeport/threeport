@@ -16,11 +16,10 @@ func outputGetv0TerraformsCmd(
 	terraforms *[]config_v0.TerraformConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t TERRAFORM DEFINITION\t TERRAFORM INSTANCE\t AWS ACCOUNT\t STATUS\t AGE")
+	fmt.Fprintln(writer, "NAME\t TERRAFORM DEFINITION\t TERRAFORM INSTANCE\t AWS ACCOUNT\t STATUS\t AGE")
 	for _, terraform := range *terraforms {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*terraform.Terraform.Name, "\t",
 			*terraform.Terraform.Name, "\t",
 			*terraform.Terraform.Name, "\t",
@@ -40,11 +39,10 @@ func outputGetv0TerraformDefinitionsCmd(
 	terraformDefinitions *[]config_v0.TerraformDefinitionConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t AGE")
+	fmt.Fprintln(writer, "NAME\t AGE")
 	for _, terraformDefinition := range *terraformDefinitions {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*terraformDefinition.TerraformDefinition.Name, "\t",
 			*terraformDefinition.TerraformDefinition.Age,
 		)
@@ -60,11 +58,10 @@ func outputGetv0TerraformInstancesCmd(
 	terraformInstances *[]config_v0.TerraformInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t TERRAFORM DEFINITION\t AWS ACCOUNT NAME\t STATUS\t AGE")
+	fmt.Fprintln(writer, "NAME\t TERRAFORM DEFINITION\t AWS ACCOUNT NAME\t STATUS\t AGE")
 	for _, terraformInstance := range *terraformInstances {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*terraformInstance.TerraformInstance.Name, "\t",
 			*terraformInstance.TerraformInstance.TerraformDefinition.Name, "\t",
 			*terraformInstance.TerraformInstance.AwsAccount.Name, "\t",

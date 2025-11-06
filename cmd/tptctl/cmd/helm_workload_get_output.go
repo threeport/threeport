@@ -16,11 +16,10 @@ func outputGetv0HelmWorkloadsCmd(
 	helmWorkloads *[]config_v0.HelmWorkloadConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t HELM WORKLOAD DEFINITION\t HELM WORKLOAD INSTANCE\t REPO\t CHART\t KUBERNETES RUNTIME INSTANCE\t STATUS\t AGE")
+	fmt.Fprintln(writer, "NAME\t HELM WORKLOAD DEFINITION\t HELM WORKLOAD INSTANCE\t REPO\t CHART\t KUBERNETES RUNTIME INSTANCE\t STATUS\t AGE")
 	for _, helmWorkload := range *helmWorkloads {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*helmWorkload.HelmWorkload.Name, "\t",
 			*helmWorkload.HelmWorkload.Name, "\t",
 			*helmWorkload.HelmWorkload.Name, "\t",
@@ -42,11 +41,10 @@ func outputGetv0HelmWorkloadDefinitionsCmd(
 	helmWorkloadDefinitions *[]config_v0.HelmWorkloadDefinitionConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t REPO\t CHART\t AGE")
+	fmt.Fprintln(writer, "NAME\t REPO\t CHART\t AGE")
 	for _, helmWorkloadDefinition := range *helmWorkloadDefinitions {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*helmWorkloadDefinition.HelmWorkloadDefinition.Name, "\t",
 			*helmWorkloadDefinition.HelmWorkloadDefinition.Repo, "\t",
 			*helmWorkloadDefinition.HelmWorkloadDefinition.Chart, "\t",
@@ -64,11 +62,10 @@ func outputGetv0HelmWorkloadInstancesCmd(
 	helmWorkloadInstances *[]config_v0.HelmWorkloadInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t HELM WORKLOAD DEFINITION\t KUBERNETES RUNTIME INSTANCE\t STATUS\t AGE")
+	fmt.Fprintln(writer, "NAME\t HELM WORKLOAD DEFINITION\t KUBERNETES RUNTIME INSTANCE\t STATUS\t AGE")
 	for _, helmWorkloadInstance := range *helmWorkloadInstances {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*helmWorkloadInstance.HelmWorkloadInstance.Name, "\t",
 			*helmWorkloadInstance.HelmWorkloadInstance.HelmWorkloadDefinition.Name, "\t",
 			*helmWorkloadInstance.HelmWorkloadInstance.KubernetesRuntimeInstance.Name, "\t",

@@ -221,7 +221,7 @@ func (s *SecretConfig) GetOperations(
 		Get: func() error {
 			secretInstance, err := secretInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get secret instance with name %s: %w", *secretValues.Name, err)
+				return fmt.Errorf("failed to get secret instances: %w", err)
 			}
 			operatedSecretInstances = append(operatedSecretInstances, *secretInstance...)
 			return nil

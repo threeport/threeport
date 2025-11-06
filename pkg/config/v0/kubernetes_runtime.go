@@ -225,7 +225,7 @@ func (k *KubernetesRuntimeConfig) GetOperations(
 		Get: func() error {
 			kubernetesRuntimeInstance, err := kubernetesRuntimeInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get kubernetes runtime instance with name %s: %w", *kubernetesRuntimeValues.Name, err)
+				return fmt.Errorf("failed to get kubernetes runtime instances: %w", err)
 			}
 			operatedKubernetesRuntimeInstances = append(operatedKubernetesRuntimeInstances, *kubernetesRuntimeInstance...)
 			return nil

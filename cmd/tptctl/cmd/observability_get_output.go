@@ -16,11 +16,10 @@ func outputGetv0ObservabilityStacksCmd(
 	observabilityStacks *[]config_v0.ObservabilityStackConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t OBSERVABILITY STACK DEFINITION\t OBSERVABILITY STACK INSTANCE\t KUBERNETES RUNTIME INSTANCE\t METRICS ENABLED\t LOGGING ENABLED\t AGE")
+	fmt.Fprintln(writer, "NAME\t OBSERVABILITY STACK DEFINITION\t OBSERVABILITY STACK INSTANCE\t KUBERNETES RUNTIME INSTANCE\t METRICS ENABLED\t LOGGING ENABLED\t AGE")
 	for _, observabilityStack := range *observabilityStacks {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*observabilityStack.ObservabilityStack.Name, "\t",
 			*observabilityStack.ObservabilityStack.Name, "\t",
 			*observabilityStack.ObservabilityStack.Name, "\t",
@@ -41,11 +40,10 @@ func outputGetv0ObservabilityStackDefinitionsCmd(
 	observabilityStackDefinitions *[]config_v0.ObservabilityStackDefinitionConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t AGE")
+	fmt.Fprintln(writer, "NAME\t AGE")
 	for _, observabilityStackDefinition := range *observabilityStackDefinitions {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*observabilityStackDefinition.ObservabilityStackDefinition.Name, "\t",
 			*observabilityStackDefinition.ObservabilityStackDefinition.Age,
 		)
@@ -61,11 +59,10 @@ func outputGetv0ObservabilityStackInstancesCmd(
 	observabilityStackInstances *[]config_v0.ObservabilityStackInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t OBSERVABILITY STACK DEFINITION\t KUBERNETES RUNTIME INSTANCE\t METRICS ENABLED\t LOGGING ENABLED\t AGE")
+	fmt.Fprintln(writer, "NAME\t OBSERVABILITY STACK DEFINITION\t KUBERNETES RUNTIME INSTANCE\t METRICS ENABLED\t LOGGING ENABLED\t AGE")
 	for _, observabilityStackInstance := range *observabilityStackInstances {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*observabilityStackInstance.ObservabilityStackInstance.Name, "\t",
 			*observabilityStackInstance.ObservabilityStackInstance.ObservabilityStackDefinition.Name, "\t",
 			*observabilityStackInstance.ObservabilityStackInstance.KubernetesRuntimeInstance.Name, "\t",

@@ -16,11 +16,10 @@ func outputGetv0SecretsCmd(
 	secrets *[]config_v0.SecretConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t SECRET DEFINITION\t SECRET INSTANCE\t WORKLOAD INSTANCE\t HELM WORKLOAD INSTANCE\t KUBERNETES RUNTIME INSTANCE\t AGE")
+	fmt.Fprintln(writer, "NAME\t SECRET DEFINITION\t SECRET INSTANCE\t WORKLOAD INSTANCE\t HELM WORKLOAD INSTANCE\t KUBERNETES RUNTIME INSTANCE\t AGE")
 	for _, secret := range *secrets {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*secret.Secret.Name, "\t",
 			*secret.Secret.Name, "\t",
 			*secret.Secret.Name, "\t",
@@ -41,11 +40,10 @@ func outputGetv0SecretDefinitionsCmd(
 	secretDefinitions *[]config_v0.SecretDefinitionConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t AGE")
+	fmt.Fprintln(writer, "NAME\t AGE")
 	for _, secretDefinition := range *secretDefinitions {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*secretDefinition.SecretDefinition.Name, "\t",
 			*secretDefinition.SecretDefinition.Age,
 		)
@@ -61,11 +59,10 @@ func outputGetv0SecretInstancesCmd(
 	secretInstances *[]config_v0.SecretInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t SECRET DEFINITION\t WORKLOAD INSTANCE\t HELM WORKLOAD INSTANCE\t KUBERNETES RUNTIME INSTANCE\t AGE")
+	fmt.Fprintln(writer, "NAME\t SECRET DEFINITION\t WORKLOAD INSTANCE\t HELM WORKLOAD INSTANCE\t KUBERNETES RUNTIME INSTANCE\t AGE")
 	for _, secretInstance := range *secretInstances {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*secretInstance.SecretInstance.Name, "\t",
 			*secretInstance.SecretInstance.SecretDefinition.Name, "\t",
 			*secretInstance.SecretInstance.WorkloadInstance.Name, "\t",

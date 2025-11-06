@@ -233,7 +233,7 @@ func (h *HelmWorkloadConfig) GetOperations(
 		Get: func() error {
 			helmWorkloadDefinition, err := helmWorkloadDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get helm workload definition with name %s: %w", *helmWorkloadValues.Name, err)
+				return fmt.Errorf("failed to get helm workload definitions: %w", err)
 			}
 			operatedHelmWorkloadDefinitions = append(operatedHelmWorkloadDefinitions, *helmWorkloadDefinition...)
 			return nil

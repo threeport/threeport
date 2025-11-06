@@ -222,7 +222,7 @@ func (a *AwsEksKubernetesRuntimeConfig) GetOperations(
 		Get: func() error {
 			awsEksKubernetesRuntimeInstance, err := awsEksKubernetesRuntimeInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get aws eks kubernetes runtime instance with name %s: %w", *a.AwsEksKubernetesRuntime.Name, err)
+				return fmt.Errorf("failed to get aws eks kubernetes runtime instances: %w", err)
 			}
 			operatedAwsEksKubernetesRuntimeInstances = append(operatedAwsEksKubernetesRuntimeInstances, *awsEksKubernetesRuntimeInstance...)
 			return nil

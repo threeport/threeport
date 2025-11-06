@@ -1668,12 +1668,11 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							apiObj.Version,
 							strcase.ToSnake(rootObj),
 						),
-						Qual("fmt", "Fprintln").Call(Id("writer"), Lit("VERSION\t NAME\t AGE")),
+						Qual("fmt", "Fprintln").Call(Id("writer"), Lit("NAME\t AGE")),
 						For(
 							List(Id("_"), Id(rootObjectVar)).Op(":=").Range().Op("*").Id(pluralize.Pluralize(rootObjectVar, 2, false)).Block(
 								Qual("fmt", "Fprintln").Call(
 									Line().Id("writer"),
-									Line().Lit(apiObj.Version).Op(",").Lit("\t"),
 									Line().Op("*").Id(rootObjectVar).Dot(rootObj).Dot("Name").Op(",").Lit("\t"),
 									Line().Op("*").Id(rootObjectVar).Dot(rootObj).Dot("Age").Op(",").Line(),
 								),
@@ -1720,14 +1719,13 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						apiObj.Version,
 						strcase.ToSnake(apiObj.TypeName),
 					),
-					Qual("fmt", "Fprintln").Call(Id("writer"), Lit("VERSION\t NAME\t AGE")),
+					Qual("fmt", "Fprintln").Call(Id("writer"), Lit("NAME\t AGE")),
 					For(List(
 						Id("_"),
 						Id(objectVar),
 					).Op(":=").Range().Op("*").Id(pluralize.Pluralize(objectVar, 2, false))).Block(
 						Qual("fmt", "Fprintln").Call(
 							Line().Id("writer"),
-							Line().Lit(apiObj.Version).Op(",").Lit("\t"),
 							Line().Op("*").Id(objectVar).Dot(apiObj.TypeName).Dot("Name").Op(",").Lit("\t"),
 							Line().Op("*").Id(objectVar).Dot(apiObj.TypeName).Dot("Age").Op(",").Line(),
 						),

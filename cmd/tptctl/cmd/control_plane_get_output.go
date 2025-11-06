@@ -16,11 +16,10 @@ func outputGetv0ControlPlanesCmd(
 	controlPlanes *[]config_v0.ControlPlaneConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t CONTROL PLANE DEFINITION\t CONTROL PLANE INSTANCE\t AUTH ENABLED\t GENESIS CONTROL PLANE\t KUBERNETES RUNTIME INSTANCE\t AGE")
+	fmt.Fprintln(writer, "NAME\t CONTROL PLANE DEFINITION\t CONTROL PLANE INSTANCE\t AUTH ENABLED\t GENESIS CONTROL PLANE\t KUBERNETES RUNTIME INSTANCE\t AGE")
 	for _, controlPlane := range *controlPlanes {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*controlPlane.ControlPlane.Name, "\t",
 			*controlPlane.ControlPlane.Name, "\t",
 			*controlPlane.ControlPlane.Name, "\t",
@@ -41,11 +40,10 @@ func outputGetv0ControlPlaneDefinitionsCmd(
 	controlPlaneDefinitions *[]config_v0.ControlPlaneDefinitionConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t AUTH ENABLED\t AGE")
+	fmt.Fprintln(writer, "NAME\t AUTH ENABLED\t AGE")
 	for _, controlPlaneDefinition := range *controlPlaneDefinitions {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*controlPlaneDefinition.ControlPlaneDefinition.Name, "\t",
 			*controlPlaneDefinition.ControlPlaneDefinition.AuthEnabled, "\t",
 			*controlPlaneDefinition.ControlPlaneDefinition.Age,
@@ -62,11 +60,10 @@ func outputGetv0ControlPlaneInstancesCmd(
 	controlPlaneInstances *[]config_v0.ControlPlaneInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t GENESIS CONTROL PLANE\t CONTROL PLANE DEFINITION\t KUBERNETES RUNTIME INSTANCE\t AGE")
+	fmt.Fprintln(writer, "NAME\t GENESIS CONTROL PLANE\t CONTROL PLANE DEFINITION\t KUBERNETES RUNTIME INSTANCE\t AGE")
 	for _, controlPlaneInstance := range *controlPlaneInstances {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*controlPlaneInstance.ControlPlaneInstance.Name, "\t",
 			*controlPlaneInstance.ControlPlaneInstance.Genesis, "\t",
 			*controlPlaneInstance.ControlPlaneInstance.ControlPlaneDefinition.Name, "\t",

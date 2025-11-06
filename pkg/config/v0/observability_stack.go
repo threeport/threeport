@@ -204,7 +204,7 @@ func (o *ObservabilityStackConfig) GetOperations(
 		Get: func() error {
 			observabilityStackDefinition, err := observabilityStackDefinitionConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get observability stack definition with name %s: %w", *observabilityStackValues.Name, err)
+				return fmt.Errorf("failed to get observability stack definitions: %w", err)
 			}
 			operatedObservabilityStackDefinitions = append(operatedObservabilityStackDefinitions, *observabilityStackDefinition...)
 			return nil
@@ -258,7 +258,7 @@ func (o *ObservabilityStackConfig) GetOperations(
 		Get: func() error {
 			observabilityStackInstance, err := observabilityStackInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get observability stack instance with name %s: %w", *observabilityStackValues.Name, err)
+				return fmt.Errorf("failed to get observability stack instances: %w", err)
 			}
 			operatedObservabilityStackInstances = append(operatedObservabilityStackInstances, *observabilityStackInstance...)
 			return nil

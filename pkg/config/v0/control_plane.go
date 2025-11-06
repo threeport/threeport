@@ -219,7 +219,7 @@ func (c *ControlPlaneConfig) GetOperations(
 		Get: func() error {
 			controlPlaneInstance, err := controlPlaneInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get control plane instance with name %s: %w", *c.ControlPlane.Name, err)
+				return fmt.Errorf("failed to get control plane instances: %w", err)
 			}
 			operatedControlPlaneInstances = append(operatedControlPlaneInstances, *controlPlaneInstance...)
 			return nil

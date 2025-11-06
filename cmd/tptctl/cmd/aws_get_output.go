@@ -16,11 +16,10 @@ func outputGetv0AwsAccountsCmd(
 	awsAccounts *[]config_v0.AwsAccountConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t DEFAULT ACCOUNT\t DEFAULT REGION\t ACCOUNT ID\t AGE")
+	fmt.Fprintln(writer, "NAME\t DEFAULT ACCOUNT\t DEFAULT REGION\t ACCOUNT ID\t AGE")
 	for _, awsAccount := range *awsAccounts {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*awsAccount.AwsAccount.Name, "\t",
 			*awsAccount.AwsAccount.DefaultAccount, "\t",
 			*awsAccount.AwsAccount.DefaultRegion, "\t",
@@ -39,11 +38,10 @@ func outputGetv0AwsEksKubernetesRuntimesCmd(
 	awsEksKubernetesRuntimes *[]config_v0.AwsEksKubernetesRuntimeConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t AWS EKS KUBERNETES DEFINITION NAME\t AWS EKS KUBERNETES INSTANCE NAME\t REGION\t RECONCILED\t AGE")
+	fmt.Fprintln(writer, "NAME\t AWS EKS KUBERNETES DEFINITION NAME\t AWS EKS KUBERNETES INSTANCE NAME\t REGION\t RECONCILED\t AGE")
 	for _, awsEksKubernetesRuntime := range *awsEksKubernetesRuntimes {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*awsEksKubernetesRuntime.AwsEksKubernetesRuntime.Name, "\t",
 			*awsEksKubernetesRuntime.AwsEksKubernetesRuntime.Name, "\t",
 			*awsEksKubernetesRuntime.AwsEksKubernetesRuntime.Name, "\t",
@@ -63,11 +61,10 @@ func outputGetv0AwsEksKubernetesRuntimeDefinitionsCmd(
 	awsEksKubernetesRuntimeDefinitions *[]config_v0.AwsEksKubernetesRuntimeDefinitionConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t AWS ACCOUNT\t ZONE COUNT\t DEFAULT NODE GROUP INSTANCE TYPE\t DEFAULT NODE GROUP MINIMUM SIZE\t DEFAULT NODE GROUP MAXIMUM SIZE\t AGE")
+	fmt.Fprintln(writer, "NAME\t AWS ACCOUNT\t ZONE COUNT\t DEFAULT NODE GROUP INSTANCE TYPE\t DEFAULT NODE GROUP MINIMUM SIZE\t DEFAULT NODE GROUP MAXIMUM SIZE\t AGE")
 	for _, awsEksKubernetesRuntimeDefinition := range *awsEksKubernetesRuntimeDefinitions {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.Name, "\t",
 			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.AwsAccountName, "\t",
 			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.ZoneCount, "\t",
@@ -88,11 +85,10 @@ func outputGetv0AwsEksKubernetesRuntimeInstancesCmd(
 	awsEksKubernetesRuntimeInstances *[]config_v0.AwsEksKubernetesRuntimeInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t REGION\t KUBERNETES RUNTIME INSTANCE NAME\t AWS EKS KUBERNETES DEFINITION NAME\t RECONCILED\t AGE")
+	fmt.Fprintln(writer, "NAME\t REGION\t KUBERNETES RUNTIME INSTANCE NAME\t AWS EKS KUBERNETES DEFINITION NAME\t RECONCILED\t AGE")
 	for _, awsEksKubernetesRuntimeInstance := range *awsEksKubernetesRuntimeInstances {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeInstance.Name, "\t",
 			*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeInstance.Region, "\t",
 			*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeInstance.KubernetesRuntimeInstance.Name, "\t",

@@ -16,11 +16,10 @@ func outputGetv0DomainNamesCmd(
 	domainNames *[]config_v0.DomainNameConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t DOMAIN NAME DEFINITION\t DOMAIN NAME INSTANCE\t DOMAIN\t ZONE\t ADMIN EMAIL\t WORKLOAD INSTANCE\t AGE")
+	fmt.Fprintln(writer, "NAME\t DOMAIN NAME DEFINITION\t DOMAIN NAME INSTANCE\t DOMAIN\t ZONE\t ADMIN EMAIL\t WORKLOAD INSTANCE\t AGE")
 	for _, domainName := range *domainNames {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*domainName.DomainName.Name, "\t",
 			*domainName.DomainName.Name, "\t",
 			*domainName.DomainName.Name, "\t",
@@ -42,11 +41,10 @@ func outputGetv0DomainNameDefinitionsCmd(
 	domainNameDefinitions *[]config_v0.DomainNameDefinitionConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t DOMAIN\t ZONE\t ADMIN EMAIL\t AGE ")
+	fmt.Fprintln(writer, "NAME\t DOMAIN\t ZONE\t ADMIN EMAIL\t AGE ")
 	for _, domainNameDefinition := range *domainNameDefinitions {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*domainNameDefinition.DomainNameDefinition.Name, "\t",
 			*domainNameDefinition.DomainNameDefinition.Domain, "\t",
 			*domainNameDefinition.DomainNameDefinition.Zone, "\t",
@@ -65,11 +63,10 @@ func outputGetv0DomainNameInstancesCmd(
 	domainNameInstances *[]config_v0.DomainNameInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t DOMAIN NAME DEFINITION\t KUBERNETES RUNTIME INSTANCE\t WORKLOAD INSTANCE\t AGE")
+	fmt.Fprintln(writer, "NAME\t DOMAIN NAME DEFINITION\t KUBERNETES RUNTIME INSTANCE\t WORKLOAD INSTANCE\t AGE")
 	for _, domainNameInstance := range *domainNameInstances {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*domainNameInstance.DomainNameInstance.Name, "\t",
 			*domainNameInstance.DomainNameInstance.DomainNameDefinition.Name, "\t",
 			*domainNameInstance.DomainNameInstance.KubernetesRuntimeInstance.Name, "\t",
@@ -88,11 +85,10 @@ func outputGetv0GatewaysCmd(
 	gateways *[]config_v0.GatewayConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t GATEWAY DEFINITION\t GATEWAY INSTANCE\t HTTP PORTS\t TCP PORTS\t SUBDOMAIN\t KUBERNETES SERVICE NAME\t DOMAIN NAME DEFINITION\t KUBERNETES RUNTIME INSTANCE\t WORKLOAD INSTANCE\t AGE")
+	fmt.Fprintln(writer, "NAME\t GATEWAY DEFINITION\t GATEWAY INSTANCE\t HTTP PORTS\t TCP PORTS\t SUBDOMAIN\t KUBERNETES SERVICE NAME\t DOMAIN NAME DEFINITION\t KUBERNETES RUNTIME INSTANCE\t WORKLOAD INSTANCE\t AGE")
 	for _, gateway := range *gateways {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*gateway.Gateway.Name, "\t",
 			*gateway.Gateway.Name, "\t",
 			*gateway.Gateway.Name, "\t",
@@ -117,11 +113,10 @@ func outputGetv0GatewayDefinitionsCmd(
 	gatewayDefinitions *[]config_v0.GatewayDefinitionConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t HTTP PORTS\t TCP PORTS\t SUBDOMAIN\t KUBERNETES SERVICE NAME\t DOMAIN NAME DEFINITION\t AGE")
+	fmt.Fprintln(writer, "NAME\t HTTP PORTS\t TCP PORTS\t SUBDOMAIN\t KUBERNETES SERVICE NAME\t DOMAIN NAME DEFINITION\t AGE")
 	for _, gatewayDefinition := range *gatewayDefinitions {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*gatewayDefinition.GatewayDefinition.Name, "\t",
 			*gatewayDefinition.GatewayDefinition.HttpPorts, "\t",
 			*gatewayDefinition.GatewayDefinition.TcpPorts, "\t",
@@ -142,11 +137,10 @@ func outputGetv0GatewayInstancesCmd(
 	gatewayInstances *[]config_v0.GatewayInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "VERSION\t NAME\t GATEWAY DEFINITION\t KUBERNETES RUNTIME INSTANCE\t WORKLOAD INSTANCE\t AGE")
+	fmt.Fprintln(writer, "NAME\t GATEWAY DEFINITION\t KUBERNETES RUNTIME INSTANCE\t WORKLOAD INSTANCE\t AGE")
 	for _, gatewayInstance := range *gatewayInstances {
 		fmt.Fprintln(
 			writer,
-			"v0", "\t",
 			*gatewayInstance.GatewayInstance.Name, "\t",
 			*gatewayInstance.GatewayInstance.GatewayDefinition.Name, "\t",
 			*gatewayInstance.GatewayInstance.KubernetesRuntimeInstance.Name, "\t",

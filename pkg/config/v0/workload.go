@@ -218,7 +218,7 @@ func (w *WorkloadConfig) GetOperations(
 		Get: func() error {
 			workloadInstance, err := workloadInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get workload instance/s: %w", err)
+				return fmt.Errorf("failed to get workload instances: %w", err)
 			}
 			operatedWorkloadInstances = append(operatedWorkloadInstances, *workloadInstance...)
 			return nil

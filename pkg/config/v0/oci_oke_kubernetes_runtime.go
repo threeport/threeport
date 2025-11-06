@@ -216,7 +216,7 @@ func (o *OciOkeKubernetesRuntimeConfig) GetOperations(
 		Get: func() error {
 			ociOkeKubernetesRuntimeInstance, err := ociOkeKubernetesRuntimeInstanceConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				return fmt.Errorf("failed to get oci oke kubernetes runtime instance with name %s: %w", *ociOkeKubernetesRuntimeValues.Name, err)
+				return fmt.Errorf("failed to get oci oke kubernetes runtime instances: %w", err)
 			}
 			operatedOciOkeKubernetesRuntimeInstances = append(operatedOciOkeKubernetesRuntimeInstances, *ociOkeKubernetesRuntimeInstance...)
 			return nil
