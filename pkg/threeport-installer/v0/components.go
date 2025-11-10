@@ -318,7 +318,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAPITLS(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 	authConfig *auth.AuthConfig,
-	serverAltName string,
+	serverAltNames ...string,
 ) error {
 	if authConfig != nil {
 		// generate server certificate
@@ -326,7 +326,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAPITLS(
 			authConfig.CAConfig,
 			&authConfig.CAPrivateKey,
 			"threeport-api-server",
-			serverAltName,
+			serverAltNames...,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to generate server certificate and private key: %w", err)

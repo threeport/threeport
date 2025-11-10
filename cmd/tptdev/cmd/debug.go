@@ -64,7 +64,7 @@ var DebugCmd = &cobra.Command{
 		}
 
 		// generate new DB client credentials
-		dbCreds, err := auth.GenerateDbCreds()
+		dbCreds, err := auth.GenerateDbCreds(controlPlaneNamespace)
 		if err != nil {
 			cli.Error("failed to generated DB client credentials", err)
 			os.Exit(1)

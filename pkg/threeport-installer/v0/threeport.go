@@ -1,6 +1,8 @@
 package v0
 
 import (
+	"fmt"
+
 	"github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
@@ -215,4 +217,15 @@ func AllControlPlaneComponents() []*v0.ControlPlaneComponent {
 	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportRestApi)
 	allControlPlaneComponents = append(allControlPlaneComponents, ThreeportAgent)
 	return allControlPlaneComponents
+}
+
+// ThreeportApiAltNames returns a list of alternative names for the threeport API server certificate.
+func ThreeportApiAltNames(namespace string) []string {
+	return []string{
+		ThreeportAPIServiceResourceName,
+		fmt.Sprintf("%s.%s", ThreeportAPIServiceResourceName, namespace),
+		fmt.Sprintf("%s.%s.svc", ThreeportAPIServiceResourceName, namespace),
+		fmt.Sprintf("%s.%s.svc.cluster", ThreeportAPIServiceResourceName, namespace),
+		fmt.Sprintf("%s.%s.svc.cluster.local", ThreeportAPIServiceResourceName, namespace),
+	}
 }

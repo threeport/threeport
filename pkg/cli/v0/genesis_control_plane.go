@@ -404,7 +404,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	uninstaller.mapper = mapper
 
 	// generate new DB client credentials
-	dbCreds, err := auth.GenerateDbCreds()
+	dbCreds, err := auth.GenerateDbCreds(cpi.Opts.Namespace)
 	if err != nil {
 		return uninstaller.cleanOnCreateError("failed to generated DB client credentials", err)
 	}
@@ -503,7 +503,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}); err != nil {
 			return fmt.Errorf("failed to update threeport config: %w", err)
 		}
-
 	}
 
 	// install provider-specific kubernetes resources
@@ -523,12 +522,16 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// if auth enabled install the threeport API TLS assets that include the alt
 	// name for the remote load balancer if applicable
 	if cpi.Opts.AuthEnabled {
+		// determine the threeport API alt names
+		threeportApiAltNames := threeport.ThreeportApiAltNames(cpi.Opts.Namespace)
+		threeportApiAltNames = append(threeportApiAltNames, threeportAPIEndpoint)
+
 		// install the threeport API TLS assets
 		if err := cpi.InstallThreeportAPITLS(
 			dynamicKubeClient,
 			mapper,
 			authConfig,
-			threeportAPIEndpoint,
+			threeportApiAltNames...,
 		); err != nil {
 			return uninstaller.cleanOnCreateError("failed to install threeport API TLS assets", err)
 		}

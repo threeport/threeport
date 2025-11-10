@@ -48,7 +48,6 @@ func GetAuthConfig() (*AuthConfig, error) {
 		CAPrivateKeyPemEncoded:    caPrivateKeyEncoded,
 		CAPrivateKeyBase64Encoded: util.Base64Encode(caPrivateKeyEncoded),
 	}, nil
-
 }
 
 // GenerateCACertificate generates a certificate authority and private key for the Threeport API.
@@ -66,11 +65,6 @@ func GenerateCACertificate() (caConfig *x509.Certificate, ca []byte, caPrivateKe
 		URIs:         []*url.URL{{Scheme: "https", Host: "localhost"}},
 		DNSNames: []string{
 			"localhost",
-			"threeport-api-server",
-			"threeport-api-server.threeport-control-plane",
-			"threeport-api-server.threeport-control-plane.svc",
-			"threeport-api-server.threeport-control-plane.svc.cluster",
-			"threeport-api-server.threeport-control-plane.svc.cluster.local",
 		},
 		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
 		Subject: pkix.Name{
@@ -115,15 +109,7 @@ func GenerateCertificate(
 		return "", "", fmt.Errorf("failed to generate random serial number: %w", err)
 	}
 
-	// set config options for a new CA certificate
-	dnsNames := []string{
-		"localhost",
-		"threeport-api-server",
-		"threeport-api-server.threeport-control-plane",
-		"threeport-api-server.threeport-control-plane.svc",
-		"threeport-api-server.threeport-control-plane.svc.cluster",
-		"threeport-api-server.threeport-control-plane.svc.cluster.local",
-	}
+	dnsNames := []string{"localhost"}
 	ipAddresses := []net.IP{net.ParseIP("127.0.0.1")}
 
 	// Process altNames to separate IPs and DNS names

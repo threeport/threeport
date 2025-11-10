@@ -131,6 +131,7 @@ func v0ControlPlaneInstanceCreated(
 	componentMap := make(map[string]*v0.ControlPlaneComponent, 0)
 	componentMap["rest-api"] = cpi.Opts.RestApiInfo
 	componentMap["agent"] = cpi.Opts.AgentInfo
+	componentMap["database-migrator"] = cpi.Opts.DatabaseMigratorInfo
 	for _, info := range cpi.Opts.ControllerList {
 		componentMap[info.Name] = info
 	}
@@ -147,8 +148,8 @@ func v0ControlPlaneInstanceCreated(
 			installInfo.ImageName = customInfo.ImageName
 		}
 
-		if customInfo.ImageRepo != "" {
-			installInfo.ImageRepo = customInfo.ImageRepo
+		if customInfo.ImageNamespace != "" {
+			installInfo.ImageNamespace = customInfo.ImageNamespace
 		}
 
 		if customInfo.ImageTag != "" {
@@ -345,7 +346,7 @@ func v0ControlPlaneInstanceCreated(
 	}
 
 	// generate new DB client credentials
-	dbCreds, err := auth.GenerateDbCreds()
+	dbCreds, err := auth.GenerateDbCreds(*controlPlaneInstance.Namespace)
 	if err != nil {
 		return 0, fmt.Errorf("failed to generated DB client credentials: %w", err)
 	}
@@ -398,12 +399,16 @@ func v0ControlPlaneInstanceCreated(
 	// if auth enabled install the threeport API TLS assets that include the alt
 	// name for the remote load balancer if applicable
 	if cpi.Opts.AuthEnabled {
+		// determine the threeport API alt names
+		threeportApiAltNames := threeport.ThreeportApiAltNames(cpi.Opts.Namespace)
+		threeportApiAltNames = append(threeportApiAltNames, threeportAPIEndpoint)
+
 		// install the threeport API TLS assets
 		if err := cpi.InstallThreeportAPITLS(
 			dynamicKubeClient,
 			mapper,
 			authConfig,
-			threeportAPIEndpoint,
+			threeportApiAltNames...,
 		); err != nil {
 			return 0, fmt.Errorf("failed to install threeport API TLS assets: %w", err)
 		}
