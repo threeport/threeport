@@ -275,7 +275,7 @@ func (c *ControlPlaneInstanceConfig) Delete(
 	// wait for control plane instance to be reconciled
 	deletedCheckAttempts := 0
 	deletedCheckAttemptsMax := 30
-	deletedCheckDurationSeconds := 1
+	deletedCheckDurationSeconds := 10
 	controlPlaneInstanceDeleted := false
 	for deletedCheckAttempts < deletedCheckAttemptsMax {
 		_, err := client_v0.GetControlPlaneInstanceByID(apiClient, apiEndpoint, *controlPlaneInstance.ID)
