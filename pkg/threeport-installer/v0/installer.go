@@ -131,11 +131,11 @@ type ControlPlaneInstaller struct {
 
 func (cpi *ControlPlaneInstaller) SetAllImageRepo(imageRepo string) {
 	for _, c := range cpi.Opts.ControllerList {
-		c.ImageRepo = imageRepo
+		c.ImageNamespace = imageRepo
 	}
-	cpi.Opts.RestApiInfo.ImageRepo = imageRepo
-	cpi.Opts.AgentInfo.ImageRepo = imageRepo
-	cpi.Opts.DatabaseMigratorInfo.ImageRepo = imageRepo
+	cpi.Opts.RestApiInfo.ImageNamespace = imageRepo
+	cpi.Opts.AgentInfo.ImageNamespace = imageRepo
+	cpi.Opts.DatabaseMigratorInfo.ImageNamespace = imageRepo
 }
 
 func (cpi *ControlPlaneInstaller) SetAllImageTags(imageTag string) {

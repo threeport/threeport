@@ -14137,8 +14137,8 @@ const docTemplate = `{
                     "description": "The name of the secret with credentials to pull a private container image",
                     "type": "string"
                 },
-                "ImageRepo": {
-                    "description": "The image repo of the component",
+                "ImageNamespace": {
+                    "description": "The image namespace of the component",
                     "type": "string"
                 },
                 "ImageTag": {

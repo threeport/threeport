@@ -118,7 +118,7 @@ func (Build) ApiImageDev() error {
 
 	build := Build{}
 	if err := build.ApiImage(
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
@@ -132,7 +132,7 @@ func (Build) ApiImageDev() error {
 func (Build) ApiImageRelease() error {
 	build := Build{}
 	if err := build.ApiImage(
-		installer.ThreeportImageRepo,
+		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
@@ -232,7 +232,7 @@ func (Build) DbMigratorImageDev() error {
 
 	build := Build{}
 	if err := build.DbMigratorImage(
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
@@ -246,7 +246,7 @@ func (Build) DbMigratorImageDev() error {
 func (Build) DbMigratorImageRelease() error {
 	build := Build{}
 	if err := build.DbMigratorImage(
-		installer.ThreeportImageRepo,
+		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
@@ -346,7 +346,7 @@ func (Build) AgentImageDev() error {
 
 	build := Build{}
 	if err := build.AgentImage(
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
@@ -360,7 +360,7 @@ func (Build) AgentImageDev() error {
 func (Build) AgentImageRelease() error {
 	build := Build{}
 	if err := build.AgentImage(
-		installer.ThreeportImageRepo,
+		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
@@ -460,7 +460,7 @@ func (Build) SecretControllerImageDev() error {
 
 	build := Build{}
 	if err := build.SecretControllerImage(
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
@@ -474,7 +474,7 @@ func (Build) SecretControllerImageDev() error {
 func (Build) SecretControllerImageRelease() error {
 	build := Build{}
 	if err := build.SecretControllerImage(
-		installer.ThreeportImageRepo,
+		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
@@ -574,7 +574,7 @@ func (Build) AwsControllerImageDev() error {
 
 	build := Build{}
 	if err := build.AwsControllerImage(
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
@@ -588,7 +588,7 @@ func (Build) AwsControllerImageDev() error {
 func (Build) AwsControllerImageRelease() error {
 	build := Build{}
 	if err := build.AwsControllerImage(
-		installer.ThreeportImageRepo,
+		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
@@ -688,7 +688,7 @@ func (Build) OciControllerImageDev() error {
 
 	build := Build{}
 	if err := build.OciControllerImage(
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
@@ -702,7 +702,7 @@ func (Build) OciControllerImageDev() error {
 func (Build) OciControllerImageRelease() error {
 	build := Build{}
 	if err := build.OciControllerImage(
-		installer.ThreeportImageRepo,
+		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
@@ -802,7 +802,7 @@ func (Build) ControlPlaneControllerImageDev() error {
 
 	build := Build{}
 	if err := build.ControlPlaneControllerImage(
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
@@ -816,7 +816,7 @@ func (Build) ControlPlaneControllerImageDev() error {
 func (Build) ControlPlaneControllerImageRelease() error {
 	build := Build{}
 	if err := build.ControlPlaneControllerImage(
-		installer.ThreeportImageRepo,
+		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
@@ -916,7 +916,7 @@ func (Build) GatewayControllerImageDev() error {
 
 	build := Build{}
 	if err := build.GatewayControllerImage(
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
@@ -930,7 +930,7 @@ func (Build) GatewayControllerImageDev() error {
 func (Build) GatewayControllerImageRelease() error {
 	build := Build{}
 	if err := build.GatewayControllerImage(
-		installer.ThreeportImageRepo,
+		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
@@ -1030,7 +1030,7 @@ func (Build) HelmWorkloadControllerImageDev() error {
 
 	build := Build{}
 	if err := build.HelmWorkloadControllerImage(
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
@@ -1044,7 +1044,7 @@ func (Build) HelmWorkloadControllerImageDev() error {
 func (Build) HelmWorkloadControllerImageRelease() error {
 	build := Build{}
 	if err := build.HelmWorkloadControllerImage(
-		installer.ThreeportImageRepo,
+		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
@@ -1144,7 +1144,7 @@ func (Build) KubernetesRuntimeControllerImageDev() error {
 
 	build := Build{}
 	if err := build.KubernetesRuntimeControllerImage(
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
@@ -1158,7 +1158,7 @@ func (Build) KubernetesRuntimeControllerImageDev() error {
 func (Build) KubernetesRuntimeControllerImageRelease() error {
 	build := Build{}
 	if err := build.KubernetesRuntimeControllerImage(
-		installer.ThreeportImageRepo,
+		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
@@ -1258,7 +1258,7 @@ func (Build) ObservabilityControllerImageDev() error {
 
 	build := Build{}
 	if err := build.ObservabilityControllerImage(
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
@@ -1272,7 +1272,7 @@ func (Build) ObservabilityControllerImageDev() error {
 func (Build) ObservabilityControllerImageRelease() error {
 	build := Build{}
 	if err := build.ObservabilityControllerImage(
-		installer.ThreeportImageRepo,
+		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
@@ -1372,7 +1372,7 @@ func (Build) TerraformControllerImageDev() error {
 
 	build := Build{}
 	if err := build.TerraformControllerImage(
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
@@ -1386,7 +1386,7 @@ func (Build) TerraformControllerImageDev() error {
 func (Build) TerraformControllerImageRelease() error {
 	build := Build{}
 	if err := build.TerraformControllerImage(
-		installer.ThreeportImageRepo,
+		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
@@ -1486,7 +1486,7 @@ func (Build) WorkloadControllerImageDev() error {
 
 	build := Build{}
 	if err := build.WorkloadControllerImage(
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
@@ -1500,7 +1500,7 @@ func (Build) WorkloadControllerImageDev() error {
 func (Build) WorkloadControllerImageRelease() error {
 	build := Build{}
 	if err := build.WorkloadControllerImage(
-		installer.ThreeportImageRepo,
+		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
@@ -1875,7 +1875,7 @@ func (Dev) LoadImage(kindClusterName string, component string) error {
 		workingDir,
 		fmt.Sprintf("cmd/%s/image/Dockerfile-alpine", component),
 		arch,
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		imageName,
 		version.GetVersion(),
 		false,

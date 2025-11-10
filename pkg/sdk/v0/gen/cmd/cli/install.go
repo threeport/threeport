@@ -162,7 +162,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			If(Id("development")).Block(
 				Id("inst").Dot("ControlPlaneImageRepo").Op("=").Qual(
 					installerPkg,
-					"DevImageRepo",
+					"DevImageNamespace",
 				),
 				Id("inst").Dot("ControlPlaneImageTag").Op("=").Id("controlPlaneImageTag"),
 			).Else().Block(
@@ -212,7 +212,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().List(
 				Lit("dev"), Lit("d"), Lit(false), Qual("fmt", "Sprintf").Call(
 					Line().Lit("If true, development image repo (%s) and image tag (%s) will be used"),
-					Line().Qual(installerPkg, "DevImageRepo"),
+					Line().Qual(installerPkg, "DevImageNamespace"),
 					Line().Qual(
 						fmt.Sprintf("%s/internal/version", gen.ModulePath),
 						"GetVersion",

@@ -29,12 +29,12 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		installerPkg = fmt.Sprintf("%s/pkg/threeport-installer/v0", gen.ModulePath)
 	}
 
-	// set release image repo constant
+	// set release image namespace constant
 	var releaseImageRepoConst string
 	if gen.Module {
-		releaseImageRepoConst = "ReleaseImageRepo"
+		releaseImageRepoConst = "ReleaseImageNamespace"
 	} else {
-		releaseImageRepoConst = "ThreeportImageRepo"
+		releaseImageRepoConst = "ThreeportImageNamespace"
 	}
 
 	f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
@@ -209,7 +209,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		If(Err().Op(":=").Id("build").Dot(buildApiImageFuncName).Call(
 			Line().Qual(
 				installerPkg,
-				"DevImageRepo",
+				"DevImageNamespace",
 			),
 			Line().Qual(
 				fmt.Sprintf("%s/internal/version", gen.ModulePath),
@@ -382,7 +382,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		If(Err().Op(":=").Id("build").Dot(buildDbMigratorImageFuncName).Call(
 			Line().Qual(
 				installerPkg,
-				"DevImageRepo",
+				"DevImageNamespace",
 			),
 			Line().Qual(
 				fmt.Sprintf("%s/internal/version", gen.ModulePath),
@@ -564,7 +564,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			If(Err().Op(":=").Id("build").Dot(buildAgentImageFuncName).Call(
 				Line().Qual(
 					installerPkg,
-					"DevImageRepo",
+					"DevImageNamespace",
 				),
 				Line().Qual(
 					fmt.Sprintf("%s/internal/version", gen.ModulePath),
@@ -793,7 +793,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				If(Err().Op(":=").Id("build").Dot(buildImageFuncName).Call(
 					Line().Qual(
 						installerPkg,
-						"DevImageRepo",
+						"DevImageNamespace",
 					),
 					Line().Qual(
 						fmt.Sprintf("%s/internal/version", gen.ModulePath),
@@ -1003,7 +1003,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().Id("arch"),
 			Line().Qual(
 				installerPkg,
-				"DevImageRepo",
+				"DevImageNamespace",
 			),
 			Line().Id("imageName"),
 			Line().Qual(

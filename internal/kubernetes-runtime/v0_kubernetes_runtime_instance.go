@@ -140,7 +140,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 			return 0, fmt.Errorf("failed to parse custom threeport agent image: %w", err)
 		}
 
-		cpi.Opts.AgentInfo.ImageRepo = agentRegistry
+		cpi.Opts.AgentInfo.ImageNamespace = agentRegistry
 		cpi.Opts.AgentInfo.ImageTag = agentTag
 	}
 

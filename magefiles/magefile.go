@@ -277,7 +277,7 @@ func (Test) Up() error {
 		"./bin/tptctl",
 		"up",
 		"-r",
-		installer.DevImageRepo,
+		installer.DevImageNamespace,
 		"-t",
 		version.GetVersion(),
 		"-n",
