@@ -109,7 +109,7 @@ func (zl *ZapLogger) Info(ctx context.Context, msg string, data ...interface{}) 
 	for i := 0; i < len(data); i += 2 {
 		if i+1 >= len(data) {
 			// if there's no matching pair, log a warning or handle the error appropriately
-			zl.Logger.Warn("Odd number of arguments passed to Info method", zap.Any("data", data))
+			zl.Logger.Warn("odd number of arguments passed to Info method", zap.String("data", fmt.Sprintf("%+v", data)))
 			break
 		}
 
@@ -119,7 +119,7 @@ func (zl *ZapLogger) Info(ctx context.Context, msg string, data ...interface{}) 
 
 		key, ok := data[i].(string)
 		if !ok {
-			zl.Logger.Warn("Key is not a string", zap.Any("key", data[i]))
+			zl.Logger.Warn("key is not a string", zap.String("key", fmt.Sprintf("%+v", data[i])))
 			continue
 		}
 
@@ -136,7 +136,7 @@ func (zl *ZapLogger) Warn(ctx context.Context, msg string, data ...interface{}) 
 	for i := 0; i < len(data); i += 2 {
 		if i+1 >= len(data) {
 			// if there's no matching pair, log a warning or handle the error appropriately
-			zl.Logger.Warn("Odd number of arguments passed to Warn method", zap.Any("data", data))
+			zl.Logger.Warn("odd number of arguments passed to Warn method", zap.String("data", fmt.Sprintf("%+v", data)))
 			break
 		}
 
@@ -146,7 +146,7 @@ func (zl *ZapLogger) Warn(ctx context.Context, msg string, data ...interface{}) 
 
 		key, ok := data[i].(string)
 		if !ok {
-			zl.Logger.Warn("Key is not a string", zap.Any("key", data[i]))
+			zl.Logger.Warn("key is not a string", zap.String("key", fmt.Sprintf("%+v", data[i])))
 			continue
 		}
 
@@ -163,7 +163,7 @@ func (zl *ZapLogger) Error(ctx context.Context, msg string, data ...interface{})
 	for i := 0; i < len(data); i += 2 {
 		if i+1 >= len(data) {
 			// if there's no matching pair, log a warning or handle the error appropriately
-			zl.Logger.Warn("Odd number of arguments passed to Error method", zap.Any("data", data))
+			zl.Logger.Warn("odd number of arguments passed to Error method", zap.String("data", fmt.Sprintf("%+v", data)))
 			break
 		}
 
@@ -173,7 +173,7 @@ func (zl *ZapLogger) Error(ctx context.Context, msg string, data ...interface{})
 
 		key, ok := data[i].(string)
 		if !ok {
-			zl.Logger.Warn("Key is not a string", zap.Any("key", data[i]))
+			zl.Logger.Warn("key is not a string", zap.String("key", fmt.Sprintf("%+v", data[i])))
 			continue
 		}
 

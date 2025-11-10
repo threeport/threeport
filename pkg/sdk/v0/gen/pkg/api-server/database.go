@@ -194,8 +194,8 @@ func GenDatabaseInit(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			If(Id("i").Op("+").Lit(1).Op(">=").Len(Id("data"))).Block(
 				Comment("if there's no matching pair, log a warning or handle the error appropriately"),
 				Id("zl").Dot("Logger").Dot("Warn").Call(
-					Lit("Odd number of arguments passed to Info method"),
-					Qual("go.uber.org/zap", "Any").Call(Lit("data"), Id("data")),
+					Lit("odd number of arguments passed to Info method"),
+					Qual("go.uber.org/zap", "String").Call(Lit("data"), Qual("fmt", "Sprintf").Call(Lit("%+v"), Id("data"))),
 				),
 				Break(),
 			),
@@ -207,8 +207,8 @@ func GenDatabaseInit(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			List(Id("key"), Id("ok")).Op(":=").Id("data").Index(Id("i")).Assert(String()),
 			If(Op("!").Id("ok")).Block(
 				Id("zl").Dot("Logger").Dot("Warn").Call(
-					Lit("Key is not a string"),
-					Qual("go.uber.org/zap", "Any").Call(Lit("key"), Id("data").Index(Id("i"))),
+					Lit("key is not a string"),
+					Qual("go.uber.org/zap", "String").Call(Lit("key"), Qual("fmt", "Sprintf").Call(Lit("%+v"), Id("data").Index(Id("i")))),
 				),
 				Continue(),
 			),
@@ -234,8 +234,8 @@ func GenDatabaseInit(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			If(Id("i").Op("+").Lit(1).Op(">=").Len(Id("data"))).Block(
 				Comment("if there's no matching pair, log a warning or handle the error appropriately"),
 				Id("zl").Dot("Logger").Dot("Warn").Call(
-					Lit("Odd number of arguments passed to Warn method"),
-					Qual("go.uber.org/zap", "Any").Call(Lit("data"), Id("data")),
+					Lit("odd number of arguments passed to Warn method"),
+					Qual("go.uber.org/zap", "String").Call(Lit("data"), Qual("fmt", "Sprintf").Call(Lit("%+v"), Id("data"))),
 				),
 				Break(),
 			),
@@ -247,8 +247,8 @@ func GenDatabaseInit(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			List(Id("key"), Id("ok")).Op(":=").Id("data").Index(Id("i")).Assert(String()),
 			If(Op("!").Id("ok")).Block(
 				Id("zl").Dot("Logger").Dot("Warn").Call(
-					Lit("Key is not a string"),
-					Qual("go.uber.org/zap", "Any").Call(Lit("key"), Id("data").Index(Id("i"))),
+					Lit("key is not a string"),
+					Qual("go.uber.org/zap", "String").Call(Lit("key"), Qual("fmt", "Sprintf").Call(Lit("%+v"), Id("data").Index(Id("i")))),
 				),
 				Continue(),
 			),
@@ -274,8 +274,8 @@ func GenDatabaseInit(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			If(Id("i").Op("+").Lit(1).Op(">=").Len(Id("data"))).Block(
 				Comment("if there's no matching pair, log a warning or handle the error appropriately"),
 				Id("zl").Dot("Logger").Dot("Warn").Call(
-					Lit("Odd number of arguments passed to Error method"),
-					Qual("go.uber.org/zap", "Any").Call(Lit("data"), Id("data")),
+					Lit("odd number of arguments passed to Error method"),
+					Qual("go.uber.org/zap", "String").Call(Lit("data"), Qual("fmt", "Sprintf").Call(Lit("%+v"), Id("data"))),
 				),
 				Break(),
 			),
@@ -287,8 +287,8 @@ func GenDatabaseInit(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			List(Id("key"), Id("ok")).Op(":=").Id("data").Index(Id("i")).Assert(String()),
 			If(Op("!").Id("ok")).Block(
 				Id("zl").Dot("Logger").Dot("Warn").Call(
-					Lit("Key is not a string"),
-					Qual("go.uber.org/zap", "Any").Call(Lit("key"), Id("data").Index(Id("i"))),
+					Lit("key is not a string"),
+					Qual("go.uber.org/zap", "String").Call(Lit("key"), Qual("fmt", "Sprintf").Call(Lit("%+v"), Id("data").Index(Id("i")))),
 				),
 				Continue(),
 			),
