@@ -18,14 +18,27 @@ func outputGetv0TerraformsCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t TERRAFORM DEFINITION\t TERRAFORM INSTANCE\t AWS ACCOUNT\t STATUS\t AGE")
 	for _, terraform := range *terraforms {
+		awsAccountName := ""
+		if terraform.Terraform.AwsAccount != nil &&
+			terraform.Terraform.AwsAccount.Name != nil {
+			awsAccountName = *terraform.Terraform.AwsAccount.Name
+		}
+		status := ""
+		if terraform.Terraform.Status != nil {
+			status = *terraform.Terraform.Status
+		}
+		age := ""
+		if terraform.Terraform.Age != nil {
+			age = *terraform.Terraform.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*terraform.Terraform.Name, "\t",
 			*terraform.Terraform.Name, "\t",
 			*terraform.Terraform.Name, "\t",
-			*terraform.Terraform.AwsAccount.Name, "\t",
-			*terraform.Terraform.Status, "\t",
-			*terraform.Terraform.Age,
+			awsAccountName, "\t",
+			status, "\t",
+			age,
 		)
 	}
 	writer.Flush()
@@ -41,10 +54,14 @@ func outputGetv0TerraformDefinitionsCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t AGE")
 	for _, terraformDefinition := range *terraformDefinitions {
+		age := ""
+		if terraformDefinition.TerraformDefinition.Age != nil {
+			age = *terraformDefinition.TerraformDefinition.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*terraformDefinition.TerraformDefinition.Name, "\t",
-			*terraformDefinition.TerraformDefinition.Age,
+			age,
 		)
 	}
 	writer.Flush()
@@ -60,13 +77,31 @@ func outputGetv0TerraformInstancesCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t TERRAFORM DEFINITION\t AWS ACCOUNT NAME\t STATUS\t AGE")
 	for _, terraformInstance := range *terraformInstances {
+		terraformDefinitionName := ""
+		if terraformInstance.TerraformInstance.TerraformDefinition != nil &&
+			terraformInstance.TerraformInstance.TerraformDefinition.Name != nil {
+			terraformDefinitionName = *terraformInstance.TerraformInstance.TerraformDefinition.Name
+		}
+		awsAccountName := ""
+		if terraformInstance.TerraformInstance.AwsAccount != nil &&
+			terraformInstance.TerraformInstance.AwsAccount.Name != nil {
+			awsAccountName = *terraformInstance.TerraformInstance.AwsAccount.Name
+		}
+		status := ""
+		if terraformInstance.TerraformInstance.Status != nil {
+			status = *terraformInstance.TerraformInstance.Status
+		}
+		age := ""
+		if terraformInstance.TerraformInstance.Age != nil {
+			age = *terraformInstance.TerraformInstance.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*terraformInstance.TerraformInstance.Name, "\t",
-			*terraformInstance.TerraformInstance.TerraformDefinition.Name, "\t",
-			*terraformInstance.TerraformInstance.AwsAccount.Name, "\t",
-			*terraformInstance.TerraformInstance.Status, "\t",
-			*terraformInstance.TerraformInstance.Age,
+			terraformDefinitionName, "\t",
+			awsAccountName, "\t",
+			status, "\t",
+			age,
 		)
 	}
 	writer.Flush()

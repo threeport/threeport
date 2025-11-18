@@ -18,11 +18,15 @@ func outputGetv0ModuleApisCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t CORE MODULE\t AGE")
 	for _, moduleApi := range *moduleApis {
+		age := ""
+		if moduleApi.ModuleApi.Age != nil {
+			age = *moduleApi.ModuleApi.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*moduleApi.ModuleApi.Name, "\t",
 			*moduleApi.ModuleApi.Core, "\t",
-			*moduleApi.ModuleApi.Age,
+			age,
 		)
 	}
 	writer.Flush()
@@ -38,11 +42,20 @@ func outputGetv0ModuleApiRoutesCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "PATH\t MODULE API\t AGE")
 	for _, moduleApiRoute := range *moduleApiRoutes {
+		moduleApiName := ""
+		if moduleApiRoute.ModuleApiRoute.ModuleApi != nil &&
+			moduleApiRoute.ModuleApiRoute.ModuleApi.Name != nil {
+			moduleApiName = *moduleApiRoute.ModuleApiRoute.ModuleApi.Name
+		}
+		age := ""
+		if moduleApiRoute.ModuleApiRoute.Age != nil {
+			age = *moduleApiRoute.ModuleApiRoute.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*moduleApiRoute.ModuleApiRoute.Path, "\t",
-			*moduleApiRoute.ModuleApiRoute.ModuleApi.Name, "\t",
-			*moduleApiRoute.ModuleApiRoute.Age,
+			moduleApiName, "\t",
+			age,
 		)
 	}
 	writer.Flush()
@@ -58,11 +71,20 @@ func outputGetv0ModuleControllersCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t MODULE API\t AGE")
 	for _, moduleController := range *moduleControllers {
+		moduleApiName := ""
+		if moduleController.ModuleController.ModuleApi != nil &&
+			moduleController.ModuleController.ModuleApi.Name != nil {
+			moduleApiName = *moduleController.ModuleController.ModuleApi.Name
+		}
+		age := ""
+		if moduleController.ModuleController.Age != nil {
+			age = *moduleController.ModuleController.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*moduleController.ModuleController.Name, "\t",
-			*moduleController.ModuleController.ModuleApi.Name, "\t",
-			*moduleController.ModuleController.Age,
+			moduleApiName, "\t",
+			age,
 		)
 	}
 	writer.Flush()
@@ -78,18 +100,32 @@ func outputGetv0ModuleObjectsCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t VERSION\t DESCRIPTION\t MODULE CONTROLLER\t MODULE API\t AGE")
 	for _, moduleObject := range *moduleObjects {
+		description := ""
+		if moduleObject.ModuleObject.Description != nil {
+			description = *moduleObject.ModuleObject.Description
+		}
 		moduleControllerName := ""
-		if moduleObject.ModuleObject.ModuleController != nil {
+		if moduleObject.ModuleObject.ModuleController != nil &&
+			moduleObject.ModuleObject.ModuleController.Name != nil {
 			moduleControllerName = *moduleObject.ModuleObject.ModuleController.Name
+		}
+		moduleApiName := ""
+		if moduleObject.ModuleObject.ModuleApi != nil &&
+			moduleObject.ModuleObject.ModuleApi.Name != nil {
+			moduleApiName = *moduleObject.ModuleObject.ModuleApi.Name
+		}
+		age := ""
+		if moduleObject.ModuleObject.Age != nil {
+			age = *moduleObject.ModuleObject.Age
 		}
 		fmt.Fprintln(
 			writer,
 			*moduleObject.ModuleObject.Name, "\t",
 			*moduleObject.ModuleObject.Version, "\t",
-			*moduleObject.ModuleObject.Description, "\t",
+			description, "\t",
 			moduleControllerName, "\t",
-			*moduleObject.ModuleObject.ModuleApi.Name, "\t",
-			*moduleObject.ModuleObject.Age,
+			moduleApiName, "\t",
+			age,
 		)
 	}
 	writer.Flush()

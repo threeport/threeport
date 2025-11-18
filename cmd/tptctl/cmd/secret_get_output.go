@@ -18,15 +18,34 @@ func outputGetv0SecretsCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t SECRET DEFINITION\t SECRET INSTANCE\t WORKLOAD INSTANCE\t HELM WORKLOAD INSTANCE\t KUBERNETES RUNTIME INSTANCE\t AGE")
 	for _, secret := range *secrets {
+		workloadInstanceName := ""
+		if secret.Secret.WorkloadInstance != nil &&
+			secret.Secret.WorkloadInstance.Name != nil {
+			workloadInstanceName = *secret.Secret.WorkloadInstance.Name
+		}
+		helmWorkloadInstanceName := ""
+		if secret.Secret.HelmWorkloadInstance != nil &&
+			secret.Secret.HelmWorkloadInstance.Name != nil {
+			helmWorkloadInstanceName = *secret.Secret.HelmWorkloadInstance.Name
+		}
+		kubernetesRuntimeInstanceName := ""
+		if secret.Secret.KubernetesRuntimeInstance != nil &&
+			secret.Secret.KubernetesRuntimeInstance.Name != nil {
+			kubernetesRuntimeInstanceName = *secret.Secret.KubernetesRuntimeInstance.Name
+		}
+		age := ""
+		if secret.Secret.Age != nil {
+			age = *secret.Secret.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*secret.Secret.Name, "\t",
 			*secret.Secret.Name, "\t",
 			*secret.Secret.Name, "\t",
-			*secret.Secret.WorkloadInstance.Name, "\t",
-			*secret.Secret.HelmWorkloadInstance.Name, "\t",
-			*secret.Secret.KubernetesRuntimeInstance.Name, "\t",
-			*secret.Secret.Age,
+			workloadInstanceName, "\t",
+			helmWorkloadInstanceName, "\t",
+			kubernetesRuntimeInstanceName, "\t",
+			age,
 		)
 	}
 	writer.Flush()
@@ -42,10 +61,14 @@ func outputGetv0SecretDefinitionsCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t AGE")
 	for _, secretDefinition := range *secretDefinitions {
+		age := ""
+		if secretDefinition.SecretDefinition.Age != nil {
+			age = *secretDefinition.SecretDefinition.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*secretDefinition.SecretDefinition.Name, "\t",
-			*secretDefinition.SecretDefinition.Age,
+			age,
 		)
 	}
 	writer.Flush()
@@ -61,14 +84,38 @@ func outputGetv0SecretInstancesCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t SECRET DEFINITION\t WORKLOAD INSTANCE\t HELM WORKLOAD INSTANCE\t KUBERNETES RUNTIME INSTANCE\t AGE")
 	for _, secretInstance := range *secretInstances {
+		secretDefinitionName := ""
+		if secretInstance.SecretInstance.SecretDefinition != nil &&
+			secretInstance.SecretInstance.SecretDefinition.Name != nil {
+			secretDefinitionName = *secretInstance.SecretInstance.SecretDefinition.Name
+		}
+		workloadInstanceName := ""
+		if secretInstance.SecretInstance.WorkloadInstance != nil &&
+			secretInstance.SecretInstance.WorkloadInstance.Name != nil {
+			workloadInstanceName = *secretInstance.SecretInstance.WorkloadInstance.Name
+		}
+		helmWorkloadInstanceName := ""
+		if secretInstance.SecretInstance.HelmWorkloadInstance != nil &&
+			secretInstance.SecretInstance.HelmWorkloadInstance.Name != nil {
+			helmWorkloadInstanceName = *secretInstance.SecretInstance.HelmWorkloadInstance.Name
+		}
+		kubernetesRuntimeInstanceName := ""
+		if secretInstance.SecretInstance.KubernetesRuntimeInstance != nil &&
+			secretInstance.SecretInstance.KubernetesRuntimeInstance.Name != nil {
+			kubernetesRuntimeInstanceName = *secretInstance.SecretInstance.KubernetesRuntimeInstance.Name
+		}
+		age := ""
+		if secretInstance.SecretInstance.Age != nil {
+			age = *secretInstance.SecretInstance.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*secretInstance.SecretInstance.Name, "\t",
-			*secretInstance.SecretInstance.SecretDefinition.Name, "\t",
-			*secretInstance.SecretInstance.WorkloadInstance.Name, "\t",
-			*secretInstance.SecretInstance.HelmWorkloadInstance.Name, "\t",
-			*secretInstance.SecretInstance.KubernetesRuntimeInstance.Name, "\t",
-			*secretInstance.SecretInstance.Age,
+			secretDefinitionName, "\t",
+			workloadInstanceName, "\t",
+			helmWorkloadInstanceName, "\t",
+			kubernetesRuntimeInstanceName, "\t",
+			age,
 		)
 	}
 	writer.Flush()

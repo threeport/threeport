@@ -18,15 +18,24 @@ func outputGetv0ObservabilityStacksCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t OBSERVABILITY STACK DEFINITION\t OBSERVABILITY STACK INSTANCE\t KUBERNETES RUNTIME INSTANCE\t METRICS ENABLED\t LOGGING ENABLED\t AGE")
 	for _, observabilityStack := range *observabilityStacks {
+		kubernetesRuntimeInstanceName := ""
+		if observabilityStack.ObservabilityStack.KubernetesRuntimeInstance != nil &&
+			observabilityStack.ObservabilityStack.KubernetesRuntimeInstance.Name != nil {
+			kubernetesRuntimeInstanceName = *observabilityStack.ObservabilityStack.KubernetesRuntimeInstance.Name
+		}
+		age := ""
+		if observabilityStack.ObservabilityStack.Age != nil {
+			age = *observabilityStack.ObservabilityStack.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*observabilityStack.ObservabilityStack.Name, "\t",
 			*observabilityStack.ObservabilityStack.Name, "\t",
 			*observabilityStack.ObservabilityStack.Name, "\t",
-			*observabilityStack.ObservabilityStack.KubernetesRuntimeInstance.Name, "\t",
+			kubernetesRuntimeInstanceName, "\t",
 			*observabilityStack.ObservabilityStack.MetricsEnabled, "\t",
 			*observabilityStack.ObservabilityStack.LoggingEnabled, "\t",
-			*observabilityStack.ObservabilityStack.Age,
+			age,
 		)
 	}
 	writer.Flush()
@@ -42,10 +51,14 @@ func outputGetv0ObservabilityStackDefinitionsCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t AGE")
 	for _, observabilityStackDefinition := range *observabilityStackDefinitions {
+		age := ""
+		if observabilityStackDefinition.ObservabilityStackDefinition.Age != nil {
+			age = *observabilityStackDefinition.ObservabilityStackDefinition.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*observabilityStackDefinition.ObservabilityStackDefinition.Name, "\t",
-			*observabilityStackDefinition.ObservabilityStackDefinition.Age,
+			age,
 		)
 	}
 	writer.Flush()
@@ -61,14 +74,28 @@ func outputGetv0ObservabilityStackInstancesCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t OBSERVABILITY STACK DEFINITION\t KUBERNETES RUNTIME INSTANCE\t METRICS ENABLED\t LOGGING ENABLED\t AGE")
 	for _, observabilityStackInstance := range *observabilityStackInstances {
+		observabilityStackDefinitionName := ""
+		if observabilityStackInstance.ObservabilityStackInstance.ObservabilityStackDefinition != nil &&
+			observabilityStackInstance.ObservabilityStackInstance.ObservabilityStackDefinition.Name != nil {
+			observabilityStackDefinitionName = *observabilityStackInstance.ObservabilityStackInstance.ObservabilityStackDefinition.Name
+		}
+		kubernetesRuntimeInstanceName := ""
+		if observabilityStackInstance.ObservabilityStackInstance.KubernetesRuntimeInstance != nil &&
+			observabilityStackInstance.ObservabilityStackInstance.KubernetesRuntimeInstance.Name != nil {
+			kubernetesRuntimeInstanceName = *observabilityStackInstance.ObservabilityStackInstance.KubernetesRuntimeInstance.Name
+		}
+		age := ""
+		if observabilityStackInstance.ObservabilityStackInstance.Age != nil {
+			age = *observabilityStackInstance.ObservabilityStackInstance.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*observabilityStackInstance.ObservabilityStackInstance.Name, "\t",
-			*observabilityStackInstance.ObservabilityStackInstance.ObservabilityStackDefinition.Name, "\t",
-			*observabilityStackInstance.ObservabilityStackInstance.KubernetesRuntimeInstance.Name, "\t",
+			observabilityStackDefinitionName, "\t",
+			kubernetesRuntimeInstanceName, "\t",
 			*observabilityStackInstance.ObservabilityStackInstance.MetricsEnabled, "\t",
 			*observabilityStackInstance.ObservabilityStackInstance.LoggingEnabled, "\t",
-			*observabilityStackInstance.ObservabilityStackInstance.Age,
+			age,
 		)
 	}
 	writer.Flush()

@@ -18,6 +18,15 @@ func outputGetv0DomainNamesCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t DOMAIN NAME DEFINITION\t DOMAIN NAME INSTANCE\t DOMAIN\t ZONE\t ADMIN EMAIL\t WORKLOAD INSTANCE\t AGE")
 	for _, domainName := range *domainNames {
+		workloadInstanceName := ""
+		if domainName.DomainName.WorkloadInstance != nil &&
+			domainName.DomainName.WorkloadInstance.Name != nil {
+			workloadInstanceName = *domainName.DomainName.WorkloadInstance.Name
+		}
+		age := ""
+		if domainName.DomainName.Age != nil {
+			age = *domainName.DomainName.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*domainName.DomainName.Name, "\t",
@@ -26,8 +35,8 @@ func outputGetv0DomainNamesCmd(
 			*domainName.DomainName.Domain, "\t",
 			*domainName.DomainName.Zone, "\t",
 			*domainName.DomainName.AdminEmail, "\t",
-			*domainName.DomainName.WorkloadInstance.Name, "\t",
-			*domainName.DomainName.Age,
+			workloadInstanceName, "\t",
+			age,
 		)
 	}
 	writer.Flush()
@@ -43,13 +52,17 @@ func outputGetv0DomainNameDefinitionsCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t DOMAIN\t ZONE\t ADMIN EMAIL\t AGE ")
 	for _, domainNameDefinition := range *domainNameDefinitions {
+		age := ""
+		if domainNameDefinition.DomainNameDefinition.Age != nil {
+			age = *domainNameDefinition.DomainNameDefinition.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*domainNameDefinition.DomainNameDefinition.Name, "\t",
 			*domainNameDefinition.DomainNameDefinition.Domain, "\t",
 			*domainNameDefinition.DomainNameDefinition.Zone, "\t",
 			*domainNameDefinition.DomainNameDefinition.AdminEmail, "\t",
-			*domainNameDefinition.DomainNameDefinition.Age,
+			age,
 		)
 	}
 	writer.Flush()
@@ -65,13 +78,32 @@ func outputGetv0DomainNameInstancesCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t DOMAIN NAME DEFINITION\t KUBERNETES RUNTIME INSTANCE\t WORKLOAD INSTANCE\t AGE")
 	for _, domainNameInstance := range *domainNameInstances {
+		domainNameDefinitionName := ""
+		if domainNameInstance.DomainNameInstance.DomainNameDefinition != nil &&
+			domainNameInstance.DomainNameInstance.DomainNameDefinition.Name != nil {
+			domainNameDefinitionName = *domainNameInstance.DomainNameInstance.DomainNameDefinition.Name
+		}
+		kubernetesRuntimeInstanceName := ""
+		if domainNameInstance.DomainNameInstance.KubernetesRuntimeInstance != nil &&
+			domainNameInstance.DomainNameInstance.KubernetesRuntimeInstance.Name != nil {
+			kubernetesRuntimeInstanceName = *domainNameInstance.DomainNameInstance.KubernetesRuntimeInstance.Name
+		}
+		workloadInstanceName := ""
+		if domainNameInstance.DomainNameInstance.WorkloadInstance != nil &&
+			domainNameInstance.DomainNameInstance.WorkloadInstance.Name != nil {
+			workloadInstanceName = *domainNameInstance.DomainNameInstance.WorkloadInstance.Name
+		}
+		age := ""
+		if domainNameInstance.DomainNameInstance.Age != nil {
+			age = *domainNameInstance.DomainNameInstance.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*domainNameInstance.DomainNameInstance.Name, "\t",
-			*domainNameInstance.DomainNameInstance.DomainNameDefinition.Name, "\t",
-			*domainNameInstance.DomainNameInstance.KubernetesRuntimeInstance.Name, "\t",
-			*domainNameInstance.DomainNameInstance.WorkloadInstance.Name, "\t",
-			*domainNameInstance.DomainNameInstance.Age,
+			domainNameDefinitionName, "\t",
+			kubernetesRuntimeInstanceName, "\t",
+			workloadInstanceName, "\t",
+			age,
 		)
 	}
 	writer.Flush()
@@ -87,19 +119,54 @@ func outputGetv0GatewaysCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t GATEWAY DEFINITION\t GATEWAY INSTANCE\t HTTP PORTS\t TCP PORTS\t SUBDOMAIN\t KUBERNETES SERVICE NAME\t DOMAIN NAME DEFINITION\t KUBERNETES RUNTIME INSTANCE\t WORKLOAD INSTANCE\t AGE")
 	for _, gateway := range *gateways {
+		httpPorts := ""
+		if gateway.Gateway.HttpPorts != nil {
+			httpPorts = fmt.Sprintf("%v", *gateway.Gateway.HttpPorts)
+		}
+		tcpPorts := ""
+		if gateway.Gateway.TcpPorts != nil {
+			tcpPorts = fmt.Sprintf("%v", *gateway.Gateway.TcpPorts)
+		}
+		subDomain := ""
+		if gateway.Gateway.SubDomain != nil {
+			subDomain = *gateway.Gateway.SubDomain
+		}
+		serviceName := ""
+		if gateway.Gateway.ServiceName != nil {
+			serviceName = *gateway.Gateway.ServiceName
+		}
+		domainNameDefinitionName := ""
+		if gateway.Gateway.DomainNameDefinition != nil &&
+			gateway.Gateway.DomainNameDefinition.Name != nil {
+			domainNameDefinitionName = *gateway.Gateway.DomainNameDefinition.Name
+		}
+		kubernetesRuntimeInstanceName := ""
+		if gateway.Gateway.KubernetesRuntimeInstance != nil &&
+			gateway.Gateway.KubernetesRuntimeInstance.Name != nil {
+			kubernetesRuntimeInstanceName = *gateway.Gateway.KubernetesRuntimeInstance.Name
+		}
+		workloadInstanceName := ""
+		if gateway.Gateway.WorkloadInstance != nil &&
+			gateway.Gateway.WorkloadInstance.Name != nil {
+			workloadInstanceName = *gateway.Gateway.WorkloadInstance.Name
+		}
+		age := ""
+		if gateway.Gateway.Age != nil {
+			age = *gateway.Gateway.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*gateway.Gateway.Name, "\t",
 			*gateway.Gateway.Name, "\t",
 			*gateway.Gateway.Name, "\t",
-			*gateway.Gateway.HttpPorts, "\t",
-			*gateway.Gateway.TcpPorts, "\t",
-			*gateway.Gateway.SubDomain, "\t",
-			*gateway.Gateway.ServiceName, "\t",
-			*gateway.Gateway.DomainNameDefinition.Name, "\t",
-			*gateway.Gateway.KubernetesRuntimeInstance.Name, "\t",
-			*gateway.Gateway.WorkloadInstance.Name, "\t",
-			*gateway.Gateway.Age,
+			httpPorts, "\t",
+			tcpPorts, "\t",
+			subDomain, "\t",
+			serviceName, "\t",
+			domainNameDefinitionName, "\t",
+			kubernetesRuntimeInstanceName, "\t",
+			workloadInstanceName, "\t",
+			age,
 		)
 	}
 	writer.Flush()
@@ -115,15 +182,40 @@ func outputGetv0GatewayDefinitionsCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t HTTP PORTS\t TCP PORTS\t SUBDOMAIN\t KUBERNETES SERVICE NAME\t DOMAIN NAME DEFINITION\t AGE")
 	for _, gatewayDefinition := range *gatewayDefinitions {
+		httpPorts := ""
+		if gatewayDefinition.GatewayDefinition.HttpPorts != nil {
+			httpPorts = fmt.Sprintf("%v", *gatewayDefinition.GatewayDefinition.HttpPorts)
+		}
+		tcpPorts := ""
+		if gatewayDefinition.GatewayDefinition.TcpPorts != nil {
+			tcpPorts = fmt.Sprintf("%v", *gatewayDefinition.GatewayDefinition.TcpPorts)
+		}
+		subDomain := ""
+		if gatewayDefinition.GatewayDefinition.SubDomain != nil {
+			subDomain = *gatewayDefinition.GatewayDefinition.SubDomain
+		}
+		serviceName := ""
+		if gatewayDefinition.GatewayDefinition.ServiceName != nil {
+			serviceName = *gatewayDefinition.GatewayDefinition.ServiceName
+		}
+		domainNameDefinitionName := ""
+		if gatewayDefinition.GatewayDefinition.DomainNameDefinition != nil &&
+			gatewayDefinition.GatewayDefinition.DomainNameDefinition.Name != nil {
+			domainNameDefinitionName = *gatewayDefinition.GatewayDefinition.DomainNameDefinition.Name
+		}
+		age := ""
+		if gatewayDefinition.GatewayDefinition.Age != nil {
+			age = *gatewayDefinition.GatewayDefinition.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*gatewayDefinition.GatewayDefinition.Name, "\t",
-			*gatewayDefinition.GatewayDefinition.HttpPorts, "\t",
-			*gatewayDefinition.GatewayDefinition.TcpPorts, "\t",
-			*gatewayDefinition.GatewayDefinition.SubDomain, "\t",
-			*gatewayDefinition.GatewayDefinition.ServiceName, "\t",
-			*gatewayDefinition.GatewayDefinition.DomainNameDefinition.Name, "\t",
-			*gatewayDefinition.GatewayDefinition.Age,
+			httpPorts, "\t",
+			tcpPorts, "\t",
+			subDomain, "\t",
+			serviceName, "\t",
+			domainNameDefinitionName, "\t",
+			age,
 		)
 	}
 	writer.Flush()
@@ -139,13 +231,32 @@ func outputGetv0GatewayInstancesCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t GATEWAY DEFINITION\t KUBERNETES RUNTIME INSTANCE\t WORKLOAD INSTANCE\t AGE")
 	for _, gatewayInstance := range *gatewayInstances {
+		gatewayDefinitionName := ""
+		if gatewayInstance.GatewayInstance.GatewayDefinition != nil &&
+			gatewayInstance.GatewayInstance.GatewayDefinition.Name != nil {
+			gatewayDefinitionName = *gatewayInstance.GatewayInstance.GatewayDefinition.Name
+		}
+		kubernetesRuntimeInstanceName := ""
+		if gatewayInstance.GatewayInstance.KubernetesRuntimeInstance != nil &&
+			gatewayInstance.GatewayInstance.KubernetesRuntimeInstance.Name != nil {
+			kubernetesRuntimeInstanceName = *gatewayInstance.GatewayInstance.KubernetesRuntimeInstance.Name
+		}
+		workloadInstanceName := ""
+		if gatewayInstance.GatewayInstance.WorkloadInstance != nil &&
+			gatewayInstance.GatewayInstance.WorkloadInstance.Name != nil {
+			workloadInstanceName = *gatewayInstance.GatewayInstance.WorkloadInstance.Name
+		}
+		age := ""
+		if gatewayInstance.GatewayInstance.Age != nil {
+			age = *gatewayInstance.GatewayInstance.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*gatewayInstance.GatewayInstance.Name, "\t",
-			*gatewayInstance.GatewayInstance.GatewayDefinition.Name, "\t",
-			*gatewayInstance.GatewayInstance.KubernetesRuntimeInstance.Name, "\t",
-			*gatewayInstance.GatewayInstance.WorkloadInstance.Name, "\t",
-			*gatewayInstance.GatewayInstance.Age,
+			gatewayDefinitionName, "\t",
+			kubernetesRuntimeInstanceName, "\t",
+			workloadInstanceName, "\t",
+			age,
 		)
 	}
 	writer.Flush()

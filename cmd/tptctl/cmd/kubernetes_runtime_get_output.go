@@ -22,6 +22,10 @@ func outputGetv0KubernetesRuntimesCmd(
 		if kubernetesRuntime.KubernetesRuntime.InfraProviderAccountName != nil {
 			infraProviderAcctName = *kubernetesRuntime.KubernetesRuntime.InfraProviderAccountName
 		}
+		age := ""
+		if kubernetesRuntime.KubernetesRuntime.Age != nil {
+			age = *kubernetesRuntime.KubernetesRuntime.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*kubernetesRuntime.KubernetesRuntime.Name, "\t",
@@ -33,7 +37,7 @@ func outputGetv0KubernetesRuntimesCmd(
 			*kubernetesRuntime.KubernetesRuntime.Location, "\t",
 			*kubernetesRuntime.KubernetesRuntime.DefaultRuntime, "\t",
 			*kubernetesRuntime.KubernetesRuntime.ForceDelete, "\t",
-			*kubernetesRuntime.KubernetesRuntime.Age,
+			age,
 		)
 	}
 	writer.Flush()
@@ -53,13 +57,17 @@ func outputGetv0KubernetesRuntimeDefinitionsCmd(
 		if kubernetesRuntimeDefinition.KubernetesRuntimeDefinition.InfraProviderAccountName != nil {
 			infraProviderAccountName = *kubernetesRuntimeDefinition.KubernetesRuntimeDefinition.InfraProviderAccountName
 		}
+		age := ""
+		if kubernetesRuntimeDefinition.KubernetesRuntimeDefinition.Age != nil {
+			age = *kubernetesRuntimeDefinition.KubernetesRuntimeDefinition.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*kubernetesRuntimeDefinition.KubernetesRuntimeDefinition.Name, "\t",
 			*kubernetesRuntimeDefinition.KubernetesRuntimeDefinition.InfraProvider, "\t",
 			*kubernetesRuntimeDefinition.KubernetesRuntimeDefinition.HighAvailability, "\t",
 			infraProviderAccountName, "\t",
-			*kubernetesRuntimeDefinition.KubernetesRuntimeDefinition.Age,
+			age,
 		)
 	}
 	writer.Flush()
@@ -75,14 +83,23 @@ func outputGetv0KubernetesRuntimeInstancesCmd(
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t KUBERNETES RUNTIME DEFINITION\t LOCATION\t DEFAULT RUNTIME\t FORCE DELETE\t AGE")
 	for _, kubernetesRuntimeInstance := range *kubernetesRuntimeInstances {
+		definitionName := ""
+		if kubernetesRuntimeInstance.KubernetesRuntimeInstance.KubernetesRuntimeDefinition != nil &&
+			kubernetesRuntimeInstance.KubernetesRuntimeInstance.KubernetesRuntimeDefinition.Name != nil {
+			definitionName = *kubernetesRuntimeInstance.KubernetesRuntimeInstance.KubernetesRuntimeDefinition.Name
+		}
+		age := ""
+		if kubernetesRuntimeInstance.KubernetesRuntimeInstance.Age != nil {
+			age = *kubernetesRuntimeInstance.KubernetesRuntimeInstance.Age
+		}
 		fmt.Fprintln(
 			writer,
 			*kubernetesRuntimeInstance.KubernetesRuntimeInstance.Name, "\t",
-			*kubernetesRuntimeInstance.KubernetesRuntimeInstance.KubernetesRuntimeDefinition.Name, "\t",
+			definitionName, "\t",
 			*kubernetesRuntimeInstance.KubernetesRuntimeInstance.Location, "\t",
 			*kubernetesRuntimeInstance.KubernetesRuntimeInstance.DefaultRuntime, "\t",
 			*kubernetesRuntimeInstance.KubernetesRuntimeInstance.ForceDelete, "\t",
-			*kubernetesRuntimeInstance.KubernetesRuntimeInstance.Age,
+			age,
 		)
 	}
 	writer.Flush()
