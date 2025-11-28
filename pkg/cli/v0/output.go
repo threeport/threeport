@@ -23,6 +23,11 @@ func Info(message string) {
 	fmt.Printf("Info: %s\n", message)
 }
 
+// Notice returns a formatted notice message in blue.
+func Notice(message string) {
+	fmt.Println(Blue(fmt.Sprintf("Notice: %s", message)))
+}
+
 // Warning returns a formatted warning message in yellow.
 func Warning(message string) {
 	fmt.Println(Yellow(fmt.Sprintf("Warning: %s", message)))
