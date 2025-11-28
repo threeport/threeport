@@ -770,7 +770,7 @@ store_dir: /data
 									},
 									map[string]interface{}{
 										"name":  "STATEFULSET_FQDN",
-										"value": "crdb.threeport-control-plane.svc.cluster.local",
+										"value": fmt.Sprintf("crdb.%s.svc.cluster.local", cpi.Opts.Namespace),
 									},
 									map[string]interface{}{
 										"name":  "COCKROACH_CHANNEL",
