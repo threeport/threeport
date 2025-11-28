@@ -133,7 +133,7 @@ func (cfg *ThreeportConfig) GetThreeportAPIEndpoint(requestedControlPlane string
 func (cfg *ThreeportConfig) GetThreeportAuthEnabled(requestedControlPlane string) (bool, error) {
 	controlPlane, err := cfg.GetControlPlaneConfig(requestedControlPlane)
 	if err != nil {
-		return false, errors.New("current control plane not found when retrieving threeport API endpoint")
+		return false, errors.New("current control plane not found when determining if threeport auth is enabled")
 	}
 
 	return controlPlane.AuthEnabled, nil
@@ -144,7 +144,7 @@ func (cfg *ThreeportConfig) GetThreeportAuthEnabled(requestedControlPlane string
 func (cfg *ThreeportConfig) GetThreeportEncryptionKey(requestedControlPlane string) (string, error) {
 	controlPlane, err := cfg.GetControlPlaneConfig(requestedControlPlane)
 	if err != nil {
-		return "", errors.New("current control plane not found when retrieving threeport API endpoint")
+		return "", errors.New("current control plane not found when retrieving threeport encryption key")
 	}
 
 	return controlPlane.EncryptionKey, nil
@@ -168,16 +168,6 @@ func (cfg *ThreeportConfig) CheckThreeportGenesisControlPlane(requestedControlPl
 		return false, errors.New("current control plane not found when checking for genesis info")
 	}
 	return controlPlane.Genesis, nil
-}
-
-// GetEncryptionKey returns the encryption key from the threeport
-// config.
-func (cfg *ThreeportConfig) GetEncryptionKey(requestedControlPlane string) (string, error) {
-	controlPlane, err := cfg.GetControlPlaneConfig(requestedControlPlane)
-	if err != nil {
-		return "", errors.New("current instance not found when retrieving encryption key")
-	}
-	return controlPlane.EncryptionKey, nil
 }
 
 // GetThreeportCertificatesForControlPlane returns the CA certificate, client

@@ -345,7 +345,7 @@ func TestWorkloadIntegration(t *testing.T) {
 		assert.Nil(err, "should have no error getting kubernetes runtime instance")
 		assert.NotNil(kubernetesRuntimeInstance, "should have a kubernetes runtime instance returned")
 
-		encryptionKey, err := threeportConfig.GetEncryptionKey(threeportConfig.CurrentControlPlane)
+		encryptionKey, err := threeportConfig.GetThreeportEncryptionKey(threeportConfig.CurrentControlPlane)
 		require.Nil(t, err, "should have no error getting encryption key")
 
 		// create a client to connect to kube API

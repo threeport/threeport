@@ -35,7 +35,7 @@ var UpgradeControlPlaneCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, config, apiEndpoint, requestedControlPlane := GetClientContext(cmd)
 
-		encyptionKey, err := config.GetEncryptionKey(requestedControlPlane)
+		encyptionKey, err := config.GetThreeportEncryptionKey(requestedControlPlane)
 		if err != nil {
 			cli.Error("failed to retrieve encryption key for control plane:", err)
 			os.Exit(1)
