@@ -38,8 +38,10 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					instsVar := pluralize.Pluralize(instVar, 2, false)
 					defValuesObjectName := fmt.Sprintf("%sValues", defObject)
 					instValuesObjectName := fmt.Sprintf("%sValues", instObject)
-					defValuesVar := strcase.ToLowerCamel(defValuesObjectName)
-					instValuesVar := strcase.ToLowerCamel(instValuesObjectName)
+					defConfigObjectName := fmt.Sprintf("%sConfig", defObject)
+					instConfigObjectName := fmt.Sprintf("%sConfig", instObject)
+					defConfigVar := strcase.ToLowerCamel(defConfigObjectName)
+					instConfigVar := strcase.ToLowerCamel(instConfigObjectName)
 					operatedDefsVar := pluralize.Pluralize(fmt.Sprintf("operated%s", defObject), 2, false)
 					operatedInstsVar := pluralize.Pluralize(fmt.Sprintf("operated%s", instObject), 2, false)
 					mapToDefInstsFunc := fmt.Sprintf("mapTo%sDefinedInstances", defInstObject)
@@ -329,9 +331,13 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 						Commentf("add %s definition operation", defInstObjectHuman),
 						Comment("TODO: add appropriate fields to definition values object"),
-						Id(defValuesVar).Op(":=").Id(defValuesObjectName).Values(
+						Id(defConfigVar).Op(":=").Id(defConfigObjectName).Values(
 							Dict{
-								Line().Id("Name"): Id(defInstMethodVar).Dot(defInstObject).Dot("Name").Op(",").Line(),
+								Line().Id(defObject): Id(defValuesObjectName).Values(
+									Dict{
+										Line().Id("Name"): Id(defInstMethodVar).Dot(defInstObject).Dot("Name").Op(",").Line(),
+									},
+								).Op(",").Line(),
 							},
 						),
 						Id("operations").Dot("AppendOperation").Call(Qual(
@@ -343,7 +349,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									List(
 										Id(defsVar),
 										Id("err"),
-									).Op(":=").Id(defValuesVar).Dot("Get").Call(
+									).Op(":=").Id(defConfigVar).Dot("Get").Call(
 										Id("apiClient"),
 										Id("apiEndpoint"),
 									),
@@ -366,7 +372,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									List(
 										Id(defVar),
 										Id("err"),
-									).Op(":=").Id(defValuesVar).Dot("Create").Call(
+									).Op(":=").Id(defConfigVar).Dot("Create").Call(
 										Id("apiClient"),
 										Id("apiEndpoint"),
 									),
@@ -390,7 +396,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									List(
 										Id(defVar),
 										Id("err"),
-									).Op(":=").Id(defValuesVar).Dot("Replace").Call(
+									).Op(":=").Id(defConfigVar).Dot("Replace").Call(
 										Id("apiClient"),
 										Id("apiEndpoint"),
 										Id("name"),
@@ -415,7 +421,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									List(
 										Op("_"),
 										Id("err"),
-									).Op("=").Id(defValuesVar).Dot("Delete").Call(
+									).Op("=").Id(defConfigVar).Dot("Delete").Call(
 										Id("apiClient"),
 										Id("apiEndpoint"),
 									),
@@ -440,10 +446,14 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 						Commentf("add %s instance operation", defInstObjectHuman),
 						Comment("TODO: add appropriate fields to instance values object"),
-						Id(instValuesVar).Op(":=").Id(instValuesObjectName).Values(
+						Id(instConfigVar).Op(":=").Id(instConfigObjectName).Values(
 							Dict{
-								Id("Name"): Id(defInstMethodVar).Dot(defInstObject).Dot("Name"),
-								Id("Age"):  Id(defInstMethodVar).Dot(defInstObject).Dot("Age"),
+								Line().Id(instObject): Id(instValuesObjectName).Values(
+									Dict{
+										Id("Name"):    Id(defInstMethodVar).Dot(defInstObject).Dot("Name"),
+										Id(defObject): Op("&").Id(defConfigVar).Dot(defObject),
+									},
+								).Op(",").Line(),
 							},
 						),
 						Id("operations").Dot("AppendOperation").Call(Qual(
@@ -455,7 +465,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									List(
 										Id(instsVar),
 										Id("err"),
-									).Op(":=").Id(instValuesVar).Dot("Get").Call(
+									).Op(":=").Id(instConfigVar).Dot("Get").Call(
 										Id("apiClient"),
 										Id("apiEndpoint"),
 									),
@@ -478,7 +488,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									List(
 										Id(instVar),
 										Id("err"),
-									).Op(":=").Id(instValuesVar).Dot("Create").Call(
+									).Op(":=").Id(instConfigVar).Dot("Create").Call(
 										Id("apiClient"),
 										Id("apiEndpoint"),
 									),
@@ -502,7 +512,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									List(
 										Id(instVar),
 										Id("err"),
-									).Op(":=").Id(instValuesVar).Dot("Replace").Call(
+									).Op(":=").Id(instConfigVar).Dot("Replace").Call(
 										Id("apiClient"),
 										Id("apiEndpoint"),
 										Id("name"),
@@ -527,7 +537,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									List(
 										Op("_"),
 										Id("err"),
-									).Op("=").Id(instValuesVar).Dot("Delete").Call(
+									).Op("=").Id(instConfigVar).Dot("Delete").Call(
 										Id("apiClient"),
 										Id("apiEndpoint"),
 									),

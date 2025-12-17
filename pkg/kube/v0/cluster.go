@@ -13,6 +13,7 @@ import (
 	builder_config "github.com/nukleros/aws-builder/pkg/config"
 	"github.com/nukleros/aws-builder/pkg/eks/connection"
 	"github.com/oracle/oci-go-sdk/v65/common"
+	"golang.org/x/oauth2/google"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -149,7 +150,7 @@ func GetRestConfig(
 	threeportAPIEndpoint string,
 	encryptionKey string,
 ) (*rest.Config, error) {
-	if runtime.APIEndpoint == nil {
+	if runtime == nil || runtime.APIEndpoint == nil {
 		return nil, errors.New("cannot get REST config without API endpoint")
 	}
 
@@ -248,6 +249,16 @@ func GetRestConfig(
 						encryptionKey,
 					); err != nil {
 						return nil, fmt.Errorf("failed to refresh connection token for OKE cluster: %w", err)
+					}
+					restConfig = *config
+				case v0.KubernetesRuntimeInfraProviderGKE:
+					if config, err = refreshGKEConnection(
+						runtime,
+						threeportAPIClient,
+						threeportAPIEndpoint,
+						encryptionKey,
+					); err != nil {
+						return nil, fmt.Errorf("failed to refresh connection token for GKE cluster: %w", err)
 					}
 					restConfig = *config
 				default:
@@ -484,6 +495,52 @@ func refreshEKSConnection(
 	runtimeInstance.CACertificate = &eksClusterConn.CACertificate
 	runtimeInstance.ConnectionToken = &eksClusterConn.Token
 	runtimeInstance.ConnectionTokenExpiration = &eksClusterConn.TokenExpiration
+	_, err = client.UpdateKubernetesRuntimeInstance(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		runtimeInstance,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update kubernetes runtime instance kubernetes connection info: %w", err)
+	}
+
+	return &restConfig, nil
+}
+
+// refreshGKEConnection refreshes the connection token for a GKE cluster.
+func refreshGKEConnection(
+	runtimeInstance *v0.KubernetesRuntimeInstance,
+	threeportAPIClient *http.Client,
+	threeportAPIEndpoint string,
+	encryptionKey string,
+) (*rest.Config, error) {
+	ctx := context.Background()
+
+	// get a new access token using Google Application Default Credentials
+	// this relies on ADC being configured (via gcloud auth application-default login
+	// or GOOGLE_APPLICATION_CREDENTIALS environment variable)
+	tokenSource, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Google token source: %w", err)
+	}
+
+	token, err := tokenSource.Token()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get access token from Google: %w", err)
+	}
+
+	// generate updated rest config
+	restConfig := rest.Config{
+		Host:        *runtimeInstance.APIEndpoint,
+		BearerToken: token.AccessToken,
+		TLSClientConfig: rest.TLSClientConfig{
+			CAData: []byte(*runtimeInstance.CACertificate),
+		},
+	}
+
+	// update threeport API with new connection info
+	runtimeInstance.ConnectionToken = &token.AccessToken
+	runtimeInstance.ConnectionTokenExpiration = &token.Expiry
 	_, err = client.UpdateKubernetesRuntimeInstance(
 		threeportAPIClient,
 		threeportAPIEndpoint,

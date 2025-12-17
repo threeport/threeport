@@ -63,6 +63,12 @@ type Options struct {
 	// The OCI compartment OCID to install threeport control plane in.
 	OciCompartmentOcid string
 
+	// The Google Cloud project ID where the cluster infra is provisioned.
+	GcpProjectId string
+
+	// The Google Cloud region where the cluster infra is provisioned.
+	GcpRegion string
+
 	// Path to config file for threeport
 	CfgFile string
 

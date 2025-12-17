@@ -712,6 +712,120 @@ func (Build) OciControllerImageRelease() error {
 	return nil
 }
 
+// GcpControllerBin builds the binary for the gcp-controller.
+func (Build) GcpControllerBin(arch string) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	if err := util.BuildBinary(
+		workingDir,
+		arch,
+		"gcp-controller",
+		"cmd/gcp-controller/main_gen.go",
+		false,
+	); err != nil {
+		return fmt.Errorf("failed to build gcp-controller binary: %w", err)
+	}
+
+	fmt.Println("binary built and available at bin/gcp-controller")
+
+	return nil
+}
+
+// GcpControllerBinDev builds the gcp-controller binary for the architcture of the machine
+// where it is built.
+func (Build) GcpControllerBinDev() error {
+	_, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	build := Build{}
+	if err := build.GcpControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build dev gcp-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// GcpControllerBinRelease builds the gcp-controller binary for release architecture.
+func (Build) GcpControllerBinRelease() error {
+	build := Build{}
+	if err := build.GcpControllerBin(releaseArch); err != nil {
+		return fmt.Errorf("failed to build release gcp-controller binary: %w", err)
+	}
+
+	return nil
+}
+
+// GcpControllerImage builds and pushes the container image for the gcp-controller.
+func (Build) GcpControllerImage(
+	imageRepo string,
+	imageTag string,
+	arch string,
+) error {
+	workingDir, _, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	build := Build{}
+	if err := build.GcpControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary for image build: %w", err)
+	}
+
+	if err := util.BuildImage(
+		workingDir,
+		"cmd/gcp-controller/image/Dockerfile-alpine",
+		arch,
+		imageRepo,
+		"threeport-gcp-controller",
+		imageTag,
+		true,
+		false,
+		"",
+	); err != nil {
+		return fmt.Errorf("failed to build and push gcp-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// GcpControllerImageDev builds and pushes a development gcp-controller container image.
+func (Build) GcpControllerImageDev() error {
+	_, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+	}
+
+	build := Build{}
+	if err := build.GcpControllerImage(
+		installer.DevImageNamespace,
+		version.GetVersion(),
+		arch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push dev gcp-controller image: %w", err)
+	}
+
+	return nil
+}
+
+// GcpControllerImageRelease builds and pushes a release gcp-controller container image.
+func (Build) GcpControllerImageRelease() error {
+	build := Build{}
+	if err := build.GcpControllerImage(
+		installer.ThreeportImageNamespace,
+		version.GetVersion(),
+		releaseArch,
+	); err != nil {
+		return fmt.Errorf("failed to build and push release gcp-controller image: %w", err)
+	}
+
+	return nil
+}
+
 // ControlPlaneControllerBin builds the binary for the control-plane-controller.
 func (Build) ControlPlaneControllerBin(arch string) error {
 	workingDir, _, err := getBuildVals()
@@ -1537,6 +1651,10 @@ func (Build) AllBins(arch string) error {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
+	if err := build.GcpControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
 	if err := build.ControlPlaneControllerBin(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
@@ -1595,6 +1713,10 @@ func (Build) AllBinsDev() error {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
+	if err := build.GcpControllerBinDev(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
 	if err := build.ControlPlaneControllerBinDev(); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
@@ -1650,6 +1772,10 @@ func (Build) AllBinsRelease() error {
 	}
 
 	if err := build.OciControllerBinRelease(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.GcpControllerBinRelease(); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
@@ -1715,6 +1841,10 @@ func (Build) AllImages(
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
+	if err := build.GcpControllerImage(imageRepo, imageTag, arch); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
 	if err := build.ControlPlaneControllerImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
@@ -1773,6 +1903,10 @@ func (Build) AllImagesDev() error {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
+	if err := build.GcpControllerImageDev(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
 	if err := build.ControlPlaneControllerImageDev(); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
@@ -1828,6 +1962,10 @@ func (Build) AllImagesRelease() error {
 	}
 
 	if err := build.OciControllerImageRelease(); err != nil {
+		return fmt.Errorf("failed to build and push image: %w", err)
+	}
+
+	if err := build.GcpControllerImageRelease(); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 

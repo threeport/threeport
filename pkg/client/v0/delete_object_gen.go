@@ -76,6 +76,21 @@ func DeleteObjectByTypeAndID(apiClient *http.Client, apiAddr string, objectType 
 			return fmt.Errorf("failed to delete GatewayTcpPort: %w", err)
 		}
 
+	case "v0.GcpAccount":
+		if _, err := DeleteGcpAccount(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete GcpAccount: %w", err)
+		}
+
+	case "v0.GcpGkeKubernetesRuntimeDefinition":
+		if _, err := DeleteGcpGkeKubernetesRuntimeDefinition(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete GcpGkeKubernetesRuntimeDefinition: %w", err)
+		}
+
+	case "v0.GcpGkeKubernetesRuntimeInstance":
+		if _, err := DeleteGcpGkeKubernetesRuntimeInstance(apiClient, apiAddr, id); err != nil {
+			return fmt.Errorf("failed to delete GcpGkeKubernetesRuntimeInstance: %w", err)
+		}
+
 	case "v0.HelmWorkloadDefinition":
 		if _, err := DeleteHelmWorkloadDefinition(apiClient, apiAddr, id); err != nil {
 			return fmt.Errorf("failed to delete HelmWorkloadDefinition: %w", err)

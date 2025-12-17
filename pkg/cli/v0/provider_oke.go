@@ -160,9 +160,10 @@ func ConfigureControlPlaneWithOkeConfig(
 	// get resource inventory from Pulumi state
 	var resourceInventory *datatypes.JSON
 	if resourceInventory, err = kubernetesRuntimeInfraOKE.GetStackState(); err != nil {
-		return fmt.Errorf("failed to get stack state: %w", err)
+		return uninstaller.cleanOnCreateError("failed to get stack state: %w", err)
 	}
 
+	// create oci oke k8s runtime instance
 	ociOkeKubernetesRuntimeInstance := v0.OciOkeKubernetesRuntimeInstance{
 		Instance: v0.Instance{
 			Name: &okeRuntimeInstName,

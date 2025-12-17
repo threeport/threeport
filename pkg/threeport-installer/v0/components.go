@@ -1294,6 +1294,10 @@ func (cpi *ControlPlaneInstaller) GetThreeportAPIEndpoint(
 				if apiEndpoint, found, err = unstructured.NestedString(firstIngress, "ip"); err != nil || !found {
 					return fmt.Errorf("failed to retrieve threeport API load balancer ip: %w", err)
 				}
+			case v0.KubernetesRuntimeInfraProviderGKE:
+				if apiEndpoint, found, err = unstructured.NestedString(firstIngress, "ip"); err != nil || !found {
+					return fmt.Errorf("failed to retrieve threeport API load balancer ip: %w", err)
+				}
 			default:
 				return fmt.Errorf("unsupported infrastructure provider: %s", cpi.Opts.InfraProvider)
 			}

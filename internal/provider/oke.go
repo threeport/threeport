@@ -47,7 +47,7 @@ type KubernetesRuntimeInfraOKE struct {
 	// PulumiWorkspace provides all Pulumi workspace, stack, and state management.
 	PulumiWorkspace
 
-	// Version of the OKE cluster.
+	// Kubernetes version of the OKE cluster.
 	Version string
 
 	// The Oracle Cloud compartment ID where resources will be created.
@@ -587,8 +587,8 @@ func (i *KubernetesRuntimeInfraOKE) CreateInfra() (*kube.KubeConnectionInfo, err
 			FreeformTags:      pulumi.StringMap{"threeport-instance": pulumi.String(i.RuntimeInstanceName)},
 			InitialNodeLabels: containerengine.NodePoolInitialNodeLabelArray{
 				&containerengine.NodePoolInitialNodeLabelArgs{
-					Key:   pulumi.String("threeport.io/managed"),
-					Value: pulumi.String("true"),
+					Key:   pulumi.String(kube.ThreeportManagedByLabelKey),
+					Value: pulumi.String(kube.ThreeportManagedByLabelValue),
 				},
 			},
 			NodeConfigDetails: &containerengine.NodePoolNodeConfigDetailsArgs{

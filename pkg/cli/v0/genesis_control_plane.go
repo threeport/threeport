@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 	"unicode/utf8"
 
@@ -40,6 +41,10 @@ type GenesisControlPlaneCLIArgs struct {
 	AwsRegion             string
 	OciRegion             string
 	OciConfigProfile      string
+	AwsRoleArn            string
+	AwsSerialNumber       string
+	GcpProjectId          string
+	GcpRegion             string
 	CfgFile               string
 	ControlPlaneImageRepo string
 	ControlPlaneImageTag  string
@@ -147,6 +152,8 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.AwsRegion = a.AwsRegion
 	cpi.Opts.OciRegion = a.OciRegion
 	cpi.Opts.OciConfigProfile = a.OciConfigProfile
+	cpi.Opts.GcpProjectId = a.GcpProjectId
+	cpi.Opts.GcpRegion = a.GcpRegion
 	cpi.Opts.CfgFile = a.CfgFile
 	cpi.Opts.CreateRootDomain = a.CreateRootDomain
 	cpi.Opts.CreateAdminEmail = a.CreateAdminEmail
@@ -291,6 +298,29 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		); err != nil {
 			return fmt.Errorf("failed to deploy oke infrastructure: %w", err)
 		}
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		// Create GKE infrastructure
+		kubernetesRuntimeInfraGKE := provider.KubernetesRuntimeInfraGKE{
+			RuntimeInstanceName:    provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			Version:                kube.KubernetesDefaultVersion,
+			WorkerNodeInitialCount: int32(2),
+			ProjectID:              cpi.Opts.GcpProjectId,
+			Region:                 cpi.Opts.GcpRegion,
+		}
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraGKE
+		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraGKE
+
+		if cpi.Opts.ControlPlaneOnly {
+			kubeConnectionInfo, err = kubernetesRuntimeInfraGKE.GetConnection()
+			if err != nil {
+				return fmt.Errorf("failed to get connection info for OKE kubernetes runtime: %w", err)
+			}
+		} else {
+			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
+			if err != nil {
+				return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
+			}
+		}
 	}
 
 	// update threeport config with kube API info
@@ -385,6 +415,30 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if err != nil {
 			return uninstaller.cleanOnCreateError(
 				fmt.Sprintf("failed to get threeport location for OKE region %s", kubernetesRuntimeInfraOKE.Region),
+				err,
+			)
+		}
+		kubernetesRuntimeInstance = &v0.KubernetesRuntimeInstance{
+			Instance: v0.Instance{
+				Name: &kubernetesRuntimeInstName,
+			},
+			Reconciliation: v0.Reconciliation{
+				Reconciled: &instReconciled,
+			},
+			ThreeportControlPlaneHost: &controlPlaneHost,
+			APIEndpoint:               &kubeConnectionInfo.APIEndpoint,
+			CACertificate:             &kubeConnectionInfo.CACertificate,
+			ConnectionToken:           &kubeConnectionInfo.Token,
+			ConnectionTokenExpiration: &kubeConnectionInfo.TokenExpiration,
+			DefaultRuntime:            &defaultRuntime,
+			Location:                  &location,
+		}
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		kubernetesRuntimeInfraGKE := kubernetesRuntimeInfra.(*provider.KubernetesRuntimeInfraGKE)
+		location, err := mapping.GetLocationForGcpRegion(kubernetesRuntimeInfraGKE.Region)
+		if err != nil {
+			return uninstaller.cleanOnCreateError(
+				fmt.Sprintf("failed to get threeport location for GKE region %s", kubernetesRuntimeInfraGKE.Region),
 				err,
 			)
 		}
@@ -680,7 +734,8 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return uninstaller.cleanOnCreateError("failed to create new kubernetes runtime instance for default compute space", err)
 	}
 
-	// configure control plane with provider-specific details
+	// configure control plane with provider-specific details by adding the
+	// infra provider-specific objects to the Threeport API
 	switch controlPlane.InfraProvider {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		if err := ConfigureControlPlaneWithEksConfig(
@@ -695,7 +750,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			kubernetesRuntimeDefResult,
 			kubernetesRuntimeInstResult,
 		); err != nil {
-			return uninstaller.cleanOnCreateError("failed to configure control plane with eks config", err)
+			return uninstaller.cleanOnCreateError("failed to add AWS objects to Threeport API", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderOKE:
 		if err := ConfigureControlPlaneWithOkeConfig(
@@ -707,7 +762,19 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			kubernetesRuntimeInstResult,
 			&kubernetesRuntimeInfra,
 		); err != nil {
-			return uninstaller.cleanOnCreateError("failed to configure control plane with oke config", err)
+			return uninstaller.cleanOnCreateError("failed to add OCI objects to Threeport API", err)
+		}
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		if err := ConfigureControlPlaneWithGkeConfig(
+			cpi,
+			uninstaller,
+			apiClient,
+			threeportAPIEndpoint,
+			kubernetesRuntimeDefResult,
+			kubernetesRuntimeInstResult,
+			&kubernetesRuntimeInfra,
+		); err != nil {
+			return uninstaller.cleanOnCreateError("failed to add GCP objects to Threeport API", err)
 		}
 	}
 
@@ -965,6 +1032,42 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 				return fmt.Errorf("failed to restore state for OKE runtime instance %d: %w", *okeRuntimeInstance.ID, err)
 			}
 		}
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		kubernetesRuntimeInfraGKE := provider.KubernetesRuntimeInfraGKE{
+			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+		}
+		// load the GCP project ID and region from the existing Pulumi stack configuration
+		if err := kubernetesRuntimeInfraGKE.LoadConfigFromStack(); err != nil {
+			return fmt.Errorf("failed to load GKE config from Pulumi stack: %w", err)
+		}
+		if kubeConnection, err = kubernetesRuntimeInfraGKE.GetConnection(); err != nil {
+			return fmt.Errorf("failed to get connection for GKE kubernetes runtime infra: %w", err)
+		}
+		kubernetesRuntimeInfra = &kubernetesRuntimeInfraGKE
+
+		// pull GKE stack state from GKE runtime instance
+		// if not infra-only, as this flag implies the user
+		// does not want to depend on control plane state
+		if !cpi.Opts.InfraOnly {
+			// pull GKE stack state from GKE runtime instance
+			// and save to local pulumi state directory
+			gkeRuntimeInstance, err := client.GetGcpGkeKubernetesRuntimeInstanceByK8sRuntimeInst(
+				apiClient,
+				threeportControlPlaneConfig.APIServer,
+				*kubernetesRuntimeInstance.ID,
+			)
+			if err != nil {
+				return fmt.Errorf(
+					"failed to get OCI OKE kubernetes runtime instance by kubernetes runtime instance ID %d: %w",
+					*kubernetesRuntimeInstance.ID,
+					err,
+				)
+			}
+
+			if err := kubernetesRuntimeInfraGKE.SetStackState(gkeRuntimeInstance.ResourceInventory); err != nil {
+				return fmt.Errorf("failed to set OKE stack state: %w", err)
+			}
+		}
 	}
 
 	// Only tear down control plane first if not infra-only
@@ -1107,29 +1210,22 @@ func ValidateCreateGenesisControlPlaneFlags(
 ) error {
 	// ensure name length doesn't exceed maximum
 	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
-		return errors.New(
-			fmt.Sprintf(
-				"instance name is too long - cannot exceed %d characters",
-				threeport.InstanceNameMaxLength,
-			),
+		return fmt.Errorf(
+			"instance name is too long - cannot exceed %d characters",
+			threeport.InstanceNameMaxLength,
 		)
 	}
 
 	// validate infra provider is supported
 	allowedInfraProviders := v0.SupportedInfraProviders()
 	matched := false
-	for _, prov := range allowedInfraProviders {
-		if v0.KubernetesRuntimeInfraProvider(infraProvider) == prov {
-			matched = true
-			break
-		}
+	if slices.Contains(allowedInfraProviders, v0.KubernetesRuntimeInfraProvider(infraProvider)) {
+		matched = true
 	}
 	if !matched {
-		return errors.New(
-			fmt.Sprintf(
-				"invalid provider value '%s' - must be one of %s",
-				infraProvider, allowedInfraProviders,
-			),
+		return fmt.Errorf(
+			"invalid provider value '%s' - must be one of %s",
+			infraProvider, allowedInfraProviders,
 		)
 	}
 
@@ -1137,16 +1233,6 @@ func ValidateCreateGenesisControlPlaneFlags(
 	if infraProvider != v0.KubernetesRuntimeInfraProviderKind && len(kindPortMappings) > 0 {
 		return errors.New("kind port mappings are only supported for infrastructure provider 'kind'")
 	}
-
-	// TODO: We are currently deploying on EKS without internal auth enabled.
-	// When we switch over to auth enabled internally we can re-enable this
-
-	// ensure client cert auth is used on remote installations
-	// if infraProvider != v0.KubernetesRuntimeInfraProviderKind && !authEnabled {
-	// 	return errors.New(
-	// 		"cannot turn off client certificate authentication unless using the kind provider",
-	// 	)
-	// }
 
 	return nil
 }

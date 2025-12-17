@@ -80,9 +80,7 @@ type AwsEksKubernetesRuntimeInstance struct {
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// The AWS Region in which the cluster is provisioned.  This field is
-	// stored in the instance (as well as definition) since a change to the
-	// definition will not move a cluster.
+	// The AWS region in which the cluster is provisioned.
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
 
 	// The definition that configures this instance.

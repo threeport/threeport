@@ -8,6 +8,7 @@ import (
 	aws_notif "github.com/threeport/threeport/internal/aws/notif"
 	controlplane_notif "github.com/threeport/threeport/internal/control-plane/notif"
 	gateway_notif "github.com/threeport/threeport/internal/gateway/notif"
+	notif1 "github.com/threeport/threeport/internal/gcp/notif"
 	helmworkload_notif "github.com/threeport/threeport/internal/helm-workload/notif"
 	kubernetesruntime_notif "github.com/threeport/threeport/internal/kubernetes-runtime/notif"
 	observability_notif "github.com/threeport/threeport/internal/observability/notif"
@@ -47,6 +48,14 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", notif.OciStreamName, err)
+	}
+
+	_, err = js.AddStream(&nats.StreamConfig{
+		Name:     notif1.GcpStreamName,
+		Subjects: notif1.GetGcpSubjects(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not add stream %s: %w", notif1.GcpStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{

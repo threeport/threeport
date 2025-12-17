@@ -874,7 +874,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// build all dev binaries
 	buildAllDevFuncName := "AllBinsDev"
-	f.Comment(fmt.Sprintf("%s builds the development binaries for all components.", buildAllFuncName))
+	f.Comment(fmt.Sprintf("%s builds the development binaries for all components.", buildAllDevFuncName))
 	f.Func().Params(Id("Build")).Id(buildAllDevFuncName).Params().Error().BlockFunc(func(g *Group) {
 		g.Id("build").Op(":=").Id("Build").Values()
 		for _, funcName := range buildDevFuncNames {
@@ -892,7 +892,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	// build all release binaries
 	buildAllReleaseFuncName := "AllBinsRelease"
-	f.Comment(fmt.Sprintf("%s builds the release binaries for all components.", buildAllFuncName))
+	f.Comment(fmt.Sprintf("%s builds the release binaries for all components.", buildAllReleaseFuncName))
 	f.Func().Params(Id("Build")).Id(buildAllReleaseFuncName).Params().Error().BlockFunc(func(g *Group) {
 		g.Id("build").Op(":=").Id("Build").Values()
 		for _, funcName := range buildReleaseFuncNames {

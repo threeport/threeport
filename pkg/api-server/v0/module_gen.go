@@ -553,6 +553,153 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 	}
 
 	// /////////////////////////////////////////////////////////////////////////////
+	// registering controllers, objects and routes for Gcp object group
+	// /////////////////////////////////////////////////////////////////////////////
+	// registering controller gcp-controller
+	controller = api_v0.ModuleController{
+		DeploymentName: util.Ptr(threeportNamespace + "/threeport-gcp-controller"),
+		ModuleApiID:    moduleApi.ID,
+		Name:           util.Ptr("gcp-controller"),
+	}
+	result = db.Where(api_v0.ModuleController{Name: controller.Name}).FirstOrCreate(&controller)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register gcp-controller: %w", result.Error)
+	}
+
+	// registering object GcpAccount
+	object = api_v0.ModuleObject{
+		Description: util.Ptr("GcpAccount is a user account with the Google Cloud Platform service provider."),
+		ModuleApiID: moduleApi.ID,
+		Name:        util.Ptr("GcpAccount"),
+		Version:     util.Ptr("v0"),
+	}
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register GcpAccount: %w", result.Error)
+	}
+
+	// registering routes for GcpAccount
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGcpAccountVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for GcpAccount: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGcpAccounts),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for GcpAccount: %w", result.Error)
+	}
+
+	// registering object GcpGkeKubernetesRuntimeDefinition
+	object = api_v0.ModuleObject{
+		Description: util.Ptr("GcpGkeKubernetesRuntimeDefinition provides the configuration for GKE cluster instances."),
+		ModuleApiID: moduleApi.ID,
+		Name:        util.Ptr("GcpGkeKubernetesRuntimeDefinition"),
+		Version:     util.Ptr("v0"),
+	}
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register GcpGkeKubernetesRuntimeDefinition: %w", result.Error)
+	}
+
+	// registering routes for GcpGkeKubernetesRuntimeDefinition
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGcpGkeKubernetesRuntimeDefinitionVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for GcpGkeKubernetesRuntimeDefinition: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGcpGkeKubernetesRuntimeDefinitions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for GcpGkeKubernetesRuntimeDefinition: %w", result.Error)
+	}
+
+	// registering object GcpGkeKubernetesRuntimeInstance
+	object = api_v0.ModuleObject{
+		Description:        util.Ptr("GcpGkeKubernetesRuntimeInstance is a deployed instance of a GKE cluster."),
+		ModuleApiID:        moduleApi.ID,
+		ModuleControllerID: controller.ID,
+		Name:               util.Ptr("GcpGkeKubernetesRuntimeInstance"),
+		Version:            util.Ptr("v0"),
+	}
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register GcpGkeKubernetesRuntimeInstance: %w", result.Error)
+	}
+
+	// registering routes for GcpGkeKubernetesRuntimeInstance
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGcpGkeKubernetesRuntimeInstanceVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for GcpGkeKubernetesRuntimeInstance: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathGcpGkeKubernetesRuntimeInstances),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for GcpGkeKubernetesRuntimeInstance: %w", result.Error)
+	}
+
+	// /////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for ControlPlane object group
 	// /////////////////////////////////////////////////////////////////////////////
 	// registering controller control-plane-controller

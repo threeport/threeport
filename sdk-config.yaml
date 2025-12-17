@@ -69,6 +69,24 @@ ApiObjectGroups:
       Reconcilable: true
       Tptctl:
         Enabled: true
+- Name: gcp
+  Objects:
+    - Name: GcpAccount
+      Versions:
+        - v0
+      Tptctl:
+        Enabled: true
+    - Name: GcpGkeKubernetesRuntimeDefinition
+      Versions:
+        - v0
+      Tptctl:
+        Enabled: true
+    - Name: GcpGkeKubernetesRuntimeInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl:
+        Enabled: true
 - Name: control_plane
   Objects:
     - Name: ControlPlaneDefinition
