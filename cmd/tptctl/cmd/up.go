@@ -23,10 +23,15 @@ const tier = threeport.ControlPlaneTierDev
 
 // UpCmd represents the create threeport command
 var UpCmd = &cobra.Command{
-	Use:          "up",
-	Example:      "tptctl up --name genesis",
-	Short:        "Spin up a new deployment of the Threeport control plane",
-	Long:         `Spin up a new deployment of the Threeport control plane.`,
+	Use:     "up",
+	Example: "tptctl up --name genesis",
+	Short:   "Spin up a new deployment of the Threeport control plane",
+	Long: `Spin up a new deployment of the Threeport control plane. A Threeport
+control plane created with this command is called a 'genesis' control plane.  Subsequent
+Threeport control planes can be created by the genesis control plane via the control plane API.
+These are called 'derived' control planes.  These can also be referred to as 'parent' or 'child'
+control planes if they are used to create or are created by another control plane.
+`,
 	SilenceUsage: true,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		// if using eks provider, ensure aws-region is provided

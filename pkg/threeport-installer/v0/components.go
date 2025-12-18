@@ -404,6 +404,21 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 			}
 		}
 
+		// create controller service account
+		serviceAccount := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "ServiceAccount",
+				"metadata": map[string]interface{}{
+					"name":      controller.ServiceAccountName,
+					"namespace": cpi.Opts.Namespace,
+				},
+			},
+		}
+		if err := cpi.CreateOrUpdateKubeResource(serviceAccount, kubeClient, mapper); err != nil {
+			return fmt.Errorf("failed to create controller service account: %w", err)
+		}
+
 		if err := cpi.UpdateControllerDeployment(
 			kubeClient,
 			mapper,
@@ -648,7 +663,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 					"app.kubernetes.io/part-of":    cpi.Opts.Namespace,
 					"app.kubernetes.io/managed-by": "threeport",
 				},
-				"name":      "threeport-agent-controller-manager",
+				"name":      ThreeportAgentName,
 				"namespace": cpi.Opts.Namespace,
 			},
 		},
@@ -897,7 +912,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"subjects": []interface{}{
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
-					"name":      "threeport-agent-controller-manager",
+					"name":      ThreeportAgentName,
 					"namespace": cpi.Opts.Namespace,
 				},
 			},
@@ -930,7 +945,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"subjects": []interface{}{
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
-					"name":      "threeport-agent-controller-manager",
+					"name":      ThreeportAgentName,
 					"namespace": cpi.Opts.Namespace,
 				},
 			},
@@ -963,7 +978,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 			"subjects": []interface{}{
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
-					"name":      "threeport-agent-controller-manager",
+					"name":      ThreeportAgentName,
 					"namespace": cpi.Opts.Namespace,
 				},
 			},
@@ -1155,7 +1170,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 						//"securityContext": map[string]interface{}{
 						//	"runAsNonRoot": true,
 						//},
-						"serviceAccountName":            "threeport-agent-controller-manager",
+						"serviceAccountName":            ThreeportAgentName,
 						"terminationGracePeriodSeconds": 10,
 					},
 				},

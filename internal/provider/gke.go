@@ -28,6 +28,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	gcpiam "google.golang.org/api/iam/v1"
+	gcpoption "google.golang.org/api/option"
 	"gopkg.in/ini.v1"
 	"gorm.io/datatypes"
 
@@ -76,6 +78,11 @@ type KubernetesRuntimeInfraGKE struct {
 
 	// The path to the Pulumi state directory
 	stateDir string
+
+	// The email address of the GCP service account created for Threeport.
+	// This service account is used with Workload Identity to allow
+	// Threeport controllers to manage GCP resources.
+	ServiceAccountEmail string
 }
 
 // Create installs a Kubernetes cluster using Google Cloud GKE for threeport workloads.
@@ -83,6 +90,17 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 	// ensure GCP authentication is in place
 	if err := EnsureGCPAuth(); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
+	}
+
+	// load GCP configuration to ensure ProjectID is set
+	if err := i.loadGCPConfig(); err != nil {
+		return nil, fmt.Errorf("failed to load GCP configuration: %w", err)
+	}
+
+	// create GCP service account for Threeport to manage GCP resources
+	// This service account will be used with Workload Identity
+	if err := i.createGCPServiceAccountAndCredentials(); err != nil {
+		return nil, fmt.Errorf("failed to create GCP service account: %w", err)
 	}
 
 	// set up Pulumi workspace and get stack
@@ -194,9 +212,15 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 				Provider: pulumi.String("CALICO"),
 			},
 
+			// Enable Workload Identity - GKE's recommended way to authenticate
+			// workloads to other GCP services. This allows Kubernetes service
+			// accounts to act as GCP service accounts.
+			WorkloadIdentityConfig: &gkecontainer.ClusterWorkloadIdentityConfigArgs{
+				WorkloadPool: pulumi.String(fmt.Sprintf("%s.svc.id.goog", i.ProjectID)),
+			},
+
 			// TODO: Cluster config options to consider:
 			// - Master authorized networks.  This is a  GKE feature for restricting IP addresses that can access the Kubernetes API server.
-			// - Workload identity.  This is GKE's recommended way to authenticate workloads to other GCP services.
 			// - Binary authorization.  Ensure only trusted images can be deployed to the cluster.
 
 			// Enable deletion protection in production
@@ -208,7 +232,7 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create GKE cluster: %w", err)
 		}
 
-		// create a separately managed node pool
+		// create a separately managed node pool with Workload Identity enabled
 		// This gives us more control over node configuration
 		_, err = gkecontainer.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &gkecontainer.NodePoolArgs{
 			Name:     pulumi.String(fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)),
@@ -225,14 +249,20 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 				DiskSizeGb: pulumi.Int(50),
 				DiskType:   pulumi.String("pd-standard"),
 
-				// OAuth scopes for the node
-				// TODO: Review and minimize scopes based on actual requirements
+				// OAuth scopes for the node - with Workload Identity, nodes need
+				// minimal scopes as workloads use their own service accounts
 				OauthScopes: pulumi.StringArray{
 					pulumi.String("https://www.googleapis.com/auth/cloud-platform"),
 				},
 
 				Labels: pulumi.StringMap{
 					kube.ThreeportManagedByLabelKey: pulumi.String(kube.ThreeportManagedByLabelValue),
+				},
+
+				// Enable Workload Identity on this node pool
+				// GKE_METADATA enables the GKE metadata server for Workload Identity
+				WorkloadMetadataConfig: &gkecontainer.NodePoolNodeConfigWorkloadMetadataConfigArgs{
+					Mode: pulumi.String("GKE_METADATA"),
 				},
 
 				// TODO: Add taints, metadata, and other node config options as needed
@@ -269,7 +299,27 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
 	}
 
+	// configure Workload Identity binding after cluster is created
+	// This allows Kubernetes service accounts to impersonate the GCP service account
+	if err := i.configureWorkloadIdentityBindingPostCreate(); err != nil {
+		return nil, fmt.Errorf("failed to configure Workload Identity binding: %w", err)
+	}
+
 	return i.GetConnection()
+}
+
+// configureWorkloadIdentityBindingPostCreate sets up the Workload Identity binding
+// after the GKE cluster has been created.
+func (i *KubernetesRuntimeInfraGKE) configureWorkloadIdentityBindingPostCreate() error {
+	ctx := context.Background()
+
+	// Create IAM service client
+	iamService, err := gcpiam.NewService(ctx, gcpoption.WithScopes(gcpiam.CloudPlatformScope))
+	if err != nil {
+		return fmt.Errorf("failed to create IAM service client: %w", err)
+	}
+
+	return i.configureWorkloadIdentityBinding(iamService)
 }
 
 // Delete deletes a GKE cluster and the threeport control plane with it.
@@ -299,6 +349,12 @@ func (i *KubernetesRuntimeInfraGKE) Delete() error {
 	// remove the state directory after successful destruction
 	if err := os.RemoveAll(i.stateDir); err != nil {
 		return fmt.Errorf("failed to remove state directory: %w", err)
+	}
+
+	// clean up GCP resources (service account, IAM bindings)
+	if err := i.DeleteGCPResources(); err != nil {
+		// Log warning but don't fail - the cluster is already deleted
+		fmt.Printf("Warning: failed to clean up GCP resources: %v\n", err)
 	}
 
 	return nil
