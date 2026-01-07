@@ -3,12 +3,16 @@
 package v0
 
 import (
-	errors "errors"
+	"errors"
 	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"net/http"
 )
 
 // GcpGkeKubernetesRuntimeInstanceConfig is a config abstraction for the GcpGkeKubernetesRuntimeInstance API object.
@@ -24,7 +28,10 @@ type GcpGkeKubernetesRuntimeInstanceConfig struct {
 type GcpGkeKubernetesRuntimeInstanceValues struct {
 	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeInstance
 	Name                              *string                                  `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Region                            *string                                  `json:"Region,omitempty" yaml:"Region,omitempty"`
 	GcpGkeKubernetesRuntimeDefinition *GcpGkeKubernetesRuntimeDefinitionValues `json:"GcpGkeKubernetesRuntimeDefinition,omitempty" yaml:"GcpGkeKubernetesRuntimeDefinition,omitempty"`
+	KubernetesRuntimeInstance         *KubernetesRuntimeInstanceValues         `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	Reconciled                        *bool                                    `json:"Reconciled,omitempty" yaml:"Reconciled,omitempty"`
 	Age                               *string                                  `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
@@ -60,10 +67,69 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Get(
 	var gcpGkeKubernetesRuntimeInstanceConfigs []GcpGkeKubernetesRuntimeInstanceConfig
 	for _, gcpGkeKubernetesRuntimeInstance := range *gcpGkeKubernetesRuntimeInstances {
 		// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeInstance
+		// related objects
+		var gcpGkeKubernetesRuntimeDefinition *GcpGkeKubernetesRuntimeDefinitionValues
+		var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+
+		// get GCP GKE kubernetes runtime definition
+		if gcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeDefinitionID != nil {
+			gcpGkeKubernetesRuntimeDefinitionObj, err := client_v0.GetGcpGkeKubernetesRuntimeDefinitionByID(
+				apiClient,
+				apiEndpoint,
+				*gcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeDefinitionID,
+			)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"failed to get GCP GKE kubernetes runtime definition with ID %d: %w",
+					*gcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeDefinitionID,
+					err,
+				)
+			}
+			// get GCP account name
+			var gcpAccountName *string
+			if gcpGkeKubernetesRuntimeDefinitionObj.GcpAccountID != nil {
+				gcpAccount, err := client_v0.GetGcpAccountByID(
+					apiClient,
+					apiEndpoint,
+					*gcpGkeKubernetesRuntimeDefinitionObj.GcpAccountID,
+				)
+				if err == nil {
+					gcpAccountName = gcpAccount.Name
+				}
+			}
+			gcpGkeKubernetesRuntimeDefinition = &GcpGkeKubernetesRuntimeDefinitionValues{
+				Name:           gcpGkeKubernetesRuntimeDefinitionObj.Name,
+				GcpAccountName: gcpAccountName,
+			}
+		}
+
+		// get kubernetes runtime instance
+		if gcpGkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID != nil {
+			kubernetesRuntimeInstanceObj, err := client_v0.GetKubernetesRuntimeInstanceByID(
+				apiClient,
+				apiEndpoint,
+				*gcpGkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+			)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"failed to get Kubernetes runtime instance with ID %d: %w",
+					*gcpGkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+					err,
+				)
+			}
+			kubernetesRuntimeInstance = &KubernetesRuntimeInstanceValues{
+				Name: kubernetesRuntimeInstanceObj.Name,
+			}
+		}
+
 		gcpGkeKubernetesRuntimeInstanceConfig := GcpGkeKubernetesRuntimeInstanceConfig{
 			GcpGkeKubernetesRuntimeInstance: GcpGkeKubernetesRuntimeInstanceValues{
-				Age:  util.Ptr(util.GetAgeFormatted(gcpGkeKubernetesRuntimeInstance.CreatedAt)),
-				Name: gcpGkeKubernetesRuntimeInstance.Name,
+				Name:                              gcpGkeKubernetesRuntimeInstance.Name,
+				Region:                            gcpGkeKubernetesRuntimeInstance.Region,
+				GcpGkeKubernetesRuntimeDefinition: gcpGkeKubernetesRuntimeDefinition,
+				KubernetesRuntimeInstance:         kubernetesRuntimeInstance,
+				Reconciled:                        gcpGkeKubernetesRuntimeInstance.Reconciled,
+				Age:                               util.Ptr(util.GetAgeFormatted(gcpGkeKubernetesRuntimeInstance.CreatedAt)),
 			},
 		}
 		gcpGkeKubernetesRuntimeInstanceConfigs = append(gcpGkeKubernetesRuntimeInstanceConfigs, gcpGkeKubernetesRuntimeInstanceConfig)
@@ -84,12 +150,49 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Create(
 		return nil, fmt.Errorf("failed to validate values for gcp gke kubernetes runtime instance with name %s: %w", *gcpGkeKubernetesRuntimeInstanceValues.Name, err)
 	}
 
-	// construct gcp gke kubernetes runtime instance object
+	// look up GCP GKE kubernetes runtime definition by name
+	gcpGkeKubernetesRuntimeDefinition, err := client_v0.GetGcpGkeKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *gcpGkeKubernetesRuntimeInstanceValues.GcpGkeKubernetesRuntimeDefinition.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find GCP GKE kubernetes runtime definition with name %s: %w", *gcpGkeKubernetesRuntimeInstanceValues.GcpGkeKubernetesRuntimeDefinition.Name, err)
+	}
+
+	// get location for provider GCP region
+	location, err := mapping.GetLocationForGcpRegion(*gcpGkeKubernetesRuntimeInstanceValues.Region)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Threeport location for GCP region %s: %w", *gcpGkeKubernetesRuntimeInstanceValues.Region, err)
+	}
+
+	// construct kubernetes runtime instance object
+	controlPlaneHost := false
+	defaultRuntime := false
+	kubernetesRuntimeInstance := api_v0.KubernetesRuntimeInstance{
+		Instance: api_v0.Instance{
+			Name: gcpGkeKubernetesRuntimeInstanceValues.Name,
+		},
+		Reconciliation: api_v0.Reconciliation{
+			Reconciled: util.Ptr(true),
+		},
+		Location:                      &location,
+		ThreeportControlPlaneHost:     &controlPlaneHost,
+		DefaultRuntime:                &defaultRuntime,
+		KubernetesRuntimeDefinitionID: gcpGkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
+	}
+
+	// create kubernetes runtime instance
+	createdKubernetesRuntimeInstance, err := client_v0.CreateKubernetesRuntimeInstance(apiClient, apiEndpoint, &kubernetesRuntimeInstance)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kubernetes runtime instance for GCP GKE instance: %w", err)
+	}
+
+	// construct GCP GKE kubernetes runtime instance object
 	// TODO: add API object fields as needed for GcpGkeKubernetesRuntimeInstance
 	gcpGkeKubernetesRuntimeInstance := api_v0.GcpGkeKubernetesRuntimeInstance{
 		Instance: api_v0.Instance{
 			Name: gcpGkeKubernetesRuntimeInstanceValues.Name,
 		},
+		Region:                              gcpGkeKubernetesRuntimeInstanceValues.Region,
+		KubernetesRuntimeInstanceID:         createdKubernetesRuntimeInstance.ID,
+		GcpGkeKubernetesRuntimeDefinitionID: gcpGkeKubernetesRuntimeDefinition.ID,
 	}
 
 	// create gcp gke kubernetes runtime instance
@@ -106,8 +209,11 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Create(
 	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeInstance
 	createdGcpGkeKubernetesRuntimeInstanceConfig := &GcpGkeKubernetesRuntimeInstanceConfig{
 		GcpGkeKubernetesRuntimeInstance: GcpGkeKubernetesRuntimeInstanceValues{
-			Age:  util.Ptr(util.GetAgeFormatted(createdGcpGkeKubernetesRuntimeInstance.CreatedAt)),
-			Name: createdGcpGkeKubernetesRuntimeInstance.Name,
+			Age:                               util.Ptr(util.GetAgeFormatted(createdGcpGkeKubernetesRuntimeInstance.CreatedAt)),
+			Name:                              createdGcpGkeKubernetesRuntimeInstance.Name,
+			Region:                            createdGcpGkeKubernetesRuntimeInstance.Region,
+			GcpGkeKubernetesRuntimeDefinition: gcpGkeKubernetesRuntimeInstanceValues.GcpGkeKubernetesRuntimeDefinition,
+			Reconciled:                        createdGcpGkeKubernetesRuntimeInstance.Reconciled,
 		},
 	}
 
@@ -149,6 +255,9 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Replace(
 		Instance: api_v0.Instance{
 			Name: gcpGkeKubernetesRuntimeInstanceValues.Name,
 		},
+		Region:                              gcpGkeKubernetesRuntimeInstanceValues.Region,
+		KubernetesRuntimeInstanceID:         existingGcpGkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+		GcpGkeKubernetesRuntimeDefinitionID: existingGcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeDefinitionID,
 	}
 
 	// replace gcp gke kubernetes runtime instance
@@ -165,8 +274,11 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Replace(
 	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeInstance
 	updatedGcpGkeKubernetesRuntimeInstanceConfig := &GcpGkeKubernetesRuntimeInstanceConfig{
 		GcpGkeKubernetesRuntimeInstance: GcpGkeKubernetesRuntimeInstanceValues{
-			Age:  util.Ptr(util.GetAgeFormatted(replacedGcpGkeKubernetesRuntimeInstance.CreatedAt)),
-			Name: replacedGcpGkeKubernetesRuntimeInstance.Name,
+			Age:                               util.Ptr(util.GetAgeFormatted(replacedGcpGkeKubernetesRuntimeInstance.CreatedAt)),
+			Name:                              replacedGcpGkeKubernetesRuntimeInstance.Name,
+			Region:                            replacedGcpGkeKubernetesRuntimeInstance.Region,
+			GcpGkeKubernetesRuntimeDefinition: gcpGkeKubernetesRuntimeInstanceValues.GcpGkeKubernetesRuntimeDefinition,
+			Reconciled:                        replacedGcpGkeKubernetesRuntimeInstance.Reconciled,
 		},
 	}
 
@@ -200,11 +312,77 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Delete(
 		return nil, fmt.Errorf("failed to delete gcp gke kubernetes runtime instance from Threeport API: %w", err)
 	}
 
+	// wait for GCP GKE kubernetes runtime instance to be deleted
+	util.Retry(90, 10, func() error {
+		if _, err := client_v0.GetGcpGkeKubernetesRuntimeInstanceByName(
+			apiClient,
+			apiEndpoint,
+			*gcpGkeKubernetesRuntimeInstance.Name,
+		); err == nil {
+			return errors.New("GCP GKE kubernetes runtime instance not deleted")
+		}
+		return nil
+	})
+
+	// get kubernetes runtime instance
+	kubernetesRuntimeInstance, err := client_v0.GetKubernetesRuntimeInstanceByID(
+		apiClient,
+		apiEndpoint,
+		*gcpGkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+	)
+	if err != nil {
+		// if the kubernetes runtime instance wasn't found, there's no more to
+		// do - return the error if something other than 'object not found'
+		if !errors.Is(err, client_lib.ErrObjectNotFound) {
+			return nil, fmt.Errorf("failed to get associated kubernetes runtime instance: %w", err)
+		}
+	}
+	// if kubernetes runtime found, remove it
+	if err == nil {
+		// update kubernetes runtime instance to set the deletion confirmed
+		// timestamp - this will allow deletion of the k8s runtime object without
+		// triggering unnecessary reconciliation
+		now := time.Now().UTC()
+		kubernetesRuntimeInstance.DeletionConfirmed = &now
+		_, err = client_v0.UpdateKubernetesRuntimeInstance(
+			apiClient,
+			apiEndpoint,
+			kubernetesRuntimeInstance,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update associated kubernetes runtime instance to set deletion confirmed: %w", err)
+		}
+
+		// delete kubernetes runtime instance
+		_, err = client_v0.DeleteKubernetesRuntimeInstance(
+			apiClient,
+			apiEndpoint,
+			*gcpGkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete associated kubernetes runtime instance: %w", err)
+		}
+
+		// wait for kubernetes runtime instance to be deleted
+		util.Retry(10, 1, func() error {
+			if _, err := client_v0.GetKubernetesRuntimeInstanceByName(
+				apiClient,
+				apiEndpoint,
+				*kubernetesRuntimeInstance.Name,
+			); err == nil {
+				return errors.New("kubernetes runtime instance not deleted")
+			}
+			return nil
+		})
+	}
+
 	// construct deleted gcp gke kubernetes runtime instance config
 	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeInstance
 	deletedGcpGkeKubernetesRuntimeInstanceConfig := &GcpGkeKubernetesRuntimeInstanceConfig{
 		GcpGkeKubernetesRuntimeInstance: GcpGkeKubernetesRuntimeInstanceValues{
-			Name: deletedGcpGkeKubernetesRuntimeInstance.Name,
+			Name:       deletedGcpGkeKubernetesRuntimeInstance.Name,
+			Region:     deletedGcpGkeKubernetesRuntimeInstance.Region,
+			Reconciled: deletedGcpGkeKubernetesRuntimeInstance.Reconciled,
 		},
 	}
 
@@ -219,6 +397,16 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Validate() error {
 	// ensure name is set
 	if gcpGkeKubernetesRuntimeInstanceValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
+	}
+
+	// ensure region is set
+	if gcpGkeKubernetesRuntimeInstanceValues.Region == nil {
+		multiError.AppendError(errors.New("missing required field in config: Region"))
+	}
+
+	// ensure gcp gke kubernetes runtime definition is set
+	if gcpGkeKubernetesRuntimeInstanceValues.GcpGkeKubernetesRuntimeDefinition == nil || gcpGkeKubernetesRuntimeInstanceValues.GcpGkeKubernetesRuntimeDefinition.Name == nil {
+		multiError.AppendError(errors.New("missing required field in config: GcpGkeKubernetesRuntimeDefinition.Name"))
 	}
 
 	// TODO: add additional validation as needed

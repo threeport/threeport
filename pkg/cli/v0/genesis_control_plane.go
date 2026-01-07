@@ -320,6 +320,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			if err != nil {
 				return uninstaller.cleanOnCreateError("failed to create control plane infra for threeport", err)
 			}
+
+			// pass the GCP service account email to the installer for Workload Identity configuration
+			cpi.Opts.GcpServiceAccountEmail = kubernetesRuntimeInfraGKE.ServiceAccountEmail
 		}
 	}
 

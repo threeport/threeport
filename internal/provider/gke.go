@@ -562,6 +562,17 @@ func (i *KubernetesRuntimeInfraGKE) SetStackState(state *datatypes.JSON) error {
 		return fmt.Errorf("failed to set Pulumi environment variables: %w", err)
 	}
 
+	// create Pulumi.yaml project file (required for stack operations)
+	// This file may not exist if the controller restarted or is running in a fresh container
+	pulumiYaml := `name: gke
+runtime: go
+description: Google Kubernetes Engine (GKE) cluster for Threeport
+`
+	pulumiYamlPath := filepath.Join(i.stateDir, "Pulumi.yaml")
+	if err := os.WriteFile(pulumiYamlPath, []byte(pulumiYaml), 0644); err != nil {
+		return fmt.Errorf("failed to create Pulumi.yaml: %w", err)
+	}
+
 	ctx := context.Background()
 
 	// create a new workspace with local state backend

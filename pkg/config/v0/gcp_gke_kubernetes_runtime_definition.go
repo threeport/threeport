@@ -3,12 +3,14 @@
 package v0
 
 import (
-	errors "errors"
+	"errors"
 	"fmt"
+	"net/http"
+
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"net/http"
 )
 
 // GcpGkeKubernetesRuntimeDefinitionConfig is a config abstraction for the GcpGkeKubernetesRuntimeDefinition API object.
@@ -23,8 +25,14 @@ type GcpGkeKubernetesRuntimeDefinitionConfig struct {
 // the GcpGkeKubernetesRuntimeDefinition API object.
 type GcpGkeKubernetesRuntimeDefinitionValues struct {
 	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition
-	Name *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	Age  *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                         *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	GcpAccountName               *string `json:"GcpAccountName,omitempty" yaml:"GcpAccountName,omitempty"`
+	ZoneCount                    *int    `json:"ZoneCount,omitempty" yaml:"ZoneCount,omitempty"`
+	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" yaml:"DefaultNodeGroupInstanceType,omitempty"`
+	DefaultNodeGroupInitialSize  *int    `json:"DefaultNodeGroupInitialSize,omitempty" yaml:"DefaultNodeGroupInitialSize,omitempty"`
+	DefaultNodeGroupMinimumSize  *int    `json:"DefaultNodeGroupMinimumSize,omitempty" yaml:"DefaultNodeGroupMinimumSize,omitempty"`
+	DefaultNodeGroupMaximumSize  *int    `json:"DefaultNodeGroupMaximumSize,omitempty" yaml:"DefaultNodeGroupMaximumSize,omitempty"`
+	Age                          *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets gcp gke kubernetes runtime definitions from the Threeport API.
@@ -58,11 +66,23 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Get(
 	// assemble config objects from API objects
 	var gcpGkeKubernetesRuntimeDefinitionConfigs []GcpGkeKubernetesRuntimeDefinitionConfig
 	for _, gcpGkeKubernetesRuntimeDefinition := range *gcpGkeKubernetesRuntimeDefinitions {
+		// get GCP account by ID
+		gcpAccount, err := client_v0.GetGcpAccountByID(apiClient, apiEndpoint, *gcpGkeKubernetesRuntimeDefinition.GcpAccountID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find GCP account with ID %d: %w", *gcpGkeKubernetesRuntimeDefinition.GcpAccountID, err)
+		}
+
 		// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition
 		gcpGkeKubernetesRuntimeDefinitionConfig := GcpGkeKubernetesRuntimeDefinitionConfig{
 			GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
-				Age:  util.Ptr(util.GetAgeFormatted(gcpGkeKubernetesRuntimeDefinition.CreatedAt)),
-				Name: gcpGkeKubernetesRuntimeDefinition.Name,
+				Name:                         gcpGkeKubernetesRuntimeDefinition.Name,
+				GcpAccountName:               gcpAccount.Name,
+				ZoneCount:                    gcpGkeKubernetesRuntimeDefinition.ZoneCount,
+				DefaultNodeGroupInstanceType: gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
+				DefaultNodeGroupInitialSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
+				DefaultNodeGroupMinimumSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
+				DefaultNodeGroupMaximumSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+				Age:                          util.Ptr(util.GetAgeFormatted(gcpGkeKubernetesRuntimeDefinition.CreatedAt)),
 			},
 		}
 		gcpGkeKubernetesRuntimeDefinitionConfigs = append(gcpGkeKubernetesRuntimeDefinitionConfigs, gcpGkeKubernetesRuntimeDefinitionConfig)
@@ -83,12 +103,44 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		return nil, fmt.Errorf("failed to validate values for gcp gke kubernetes runtime definition with name %s: %w", *gcpGkeKubernetesRuntimeDefinitionValues.Name, err)
 	}
 
-	// construct gcp gke kubernetes runtime definition object
+	// look up GCP account by name
+	gcpAccount, err := client_v0.GetGcpAccountByName(apiClient, apiEndpoint, *gcpGkeKubernetesRuntimeDefinitionValues.GcpAccountName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find GCP account with name %s: %w", *gcpGkeKubernetesRuntimeDefinitionValues.GcpAccountName, err)
+	}
+
+	// construct kubernetes runtime definition
+	infraProvider := api_v0.KubernetesRuntimeInfraProviderGKE
+	kubernetesRuntimeDefinition := api_v0.KubernetesRuntimeDefinition{
+		Definition: api_v0.Definition{
+			Name: gcpGkeKubernetesRuntimeDefinitionValues.Name,
+		},
+		Reconciliation: api_v0.Reconciliation{
+			Reconciled: util.Ptr(true),
+		},
+		InfraProvider:            &infraProvider,
+		InfraProviderAccountName: gcpAccount.Name,
+	}
+
+	// create kubernetes runtime definition
+	createdKubernetesRuntimeDefinition, err := client_v0.CreateKubernetesRuntimeDefinition(apiClient, apiEndpoint, &kubernetesRuntimeDefinition)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new kubernetes runtime definition for GCP GKE definition: %w", err)
+	}
+
+	// construct GCP GKE kubernetes runtime definition object
 	// TODO: add API object fields as needed for GcpGkeKubernetesRuntimeDefinition
 	gcpGkeKubernetesRuntimeDefinition := api_v0.GcpGkeKubernetesRuntimeDefinition{
 		Definition: api_v0.Definition{
 			Name: gcpGkeKubernetesRuntimeDefinitionValues.Name,
 		},
+		GcpAccountID:                  gcpAccount.ID,
+		ZoneCount:                     gcpGkeKubernetesRuntimeDefinitionValues.ZoneCount,
+		DefaultNodeGroupInstanceType:  gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType,
+		DefaultNodeGroupInitialSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
+		DefaultNodeGroupMinimumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
+		DefaultNodeGroupMaximumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
+		KubernetesRuntimeDefinitionID: createdKubernetesRuntimeDefinition.ID,
 	}
 
 	// create gcp gke kubernetes runtime definition
@@ -105,8 +157,14 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition
 	createdGcpGkeKubernetesRuntimeDefinitionConfig := &GcpGkeKubernetesRuntimeDefinitionConfig{
 		GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
-			Age:  util.Ptr(util.GetAgeFormatted(createdGcpGkeKubernetesRuntimeDefinition.CreatedAt)),
-			Name: createdGcpGkeKubernetesRuntimeDefinition.Name,
+			Age:                          util.Ptr(util.GetAgeFormatted(createdGcpGkeKubernetesRuntimeDefinition.CreatedAt)),
+			Name:                         createdGcpGkeKubernetesRuntimeDefinition.Name,
+			GcpAccountName:               gcpGkeKubernetesRuntimeDefinitionValues.GcpAccountName,
+			ZoneCount:                    createdGcpGkeKubernetesRuntimeDefinition.ZoneCount,
+			DefaultNodeGroupInstanceType: createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
+			DefaultNodeGroupInitialSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
+			DefaultNodeGroupMinimumSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
+			DefaultNodeGroupMaximumSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 		},
 	}
 
@@ -148,6 +206,13 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 		Definition: api_v0.Definition{
 			Name: gcpGkeKubernetesRuntimeDefinitionValues.Name,
 		},
+		GcpAccountID:                  existingGcpGkeKubernetesRuntimeDefinition.GcpAccountID,
+		ZoneCount:                     gcpGkeKubernetesRuntimeDefinitionValues.ZoneCount,
+		DefaultNodeGroupInstanceType:  gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType,
+		DefaultNodeGroupInitialSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
+		DefaultNodeGroupMinimumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
+		DefaultNodeGroupMaximumSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
+		KubernetesRuntimeDefinitionID: existingGcpGkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
 	}
 
 	// replace gcp gke kubernetes runtime definition
@@ -164,8 +229,14 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition
 	updatedGcpGkeKubernetesRuntimeDefinitionConfig := &GcpGkeKubernetesRuntimeDefinitionConfig{
 		GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
-			Age:  util.Ptr(util.GetAgeFormatted(replacedGcpGkeKubernetesRuntimeDefinition.CreatedAt)),
-			Name: replacedGcpGkeKubernetesRuntimeDefinition.Name,
+			Age:                          util.Ptr(util.GetAgeFormatted(replacedGcpGkeKubernetesRuntimeDefinition.CreatedAt)),
+			Name:                         replacedGcpGkeKubernetesRuntimeDefinition.Name,
+			GcpAccountName:               gcpGkeKubernetesRuntimeDefinitionValues.GcpAccountName,
+			ZoneCount:                    replacedGcpGkeKubernetesRuntimeDefinition.ZoneCount,
+			DefaultNodeGroupInstanceType: replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
+			DefaultNodeGroupInitialSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
+			DefaultNodeGroupMinimumSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
+			DefaultNodeGroupMaximumSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 		},
 	}
 
@@ -189,6 +260,16 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 		return nil, fmt.Errorf("failed to find gcp gke kubernetes runtime definition with name %s: %w", *gcpGkeKubernetesRuntimeDefinitionValues.Name, err)
 	}
 
+	// delete associated kubernetes runtime definition
+	_, err = client_v0.DeleteKubernetesRuntimeDefinition(
+		apiClient,
+		apiEndpoint,
+		*gcpGkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
+		return nil, fmt.Errorf("failed to delete associated kubernetes runtime definition: %w", err)
+	}
+
 	// delete gcp gke kubernetes runtime definition
 	deletedGcpGkeKubernetesRuntimeDefinition, err := client_v0.DeleteGcpGkeKubernetesRuntimeDefinition(
 		apiClient,
@@ -203,7 +284,12 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition
 	deletedGcpGkeKubernetesRuntimeDefinitionConfig := &GcpGkeKubernetesRuntimeDefinitionConfig{
 		GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
-			Name: deletedGcpGkeKubernetesRuntimeDefinition.Name,
+			Name:                         deletedGcpGkeKubernetesRuntimeDefinition.Name,
+			ZoneCount:                    deletedGcpGkeKubernetesRuntimeDefinition.ZoneCount,
+			DefaultNodeGroupInstanceType: deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
+			DefaultNodeGroupInitialSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
+			DefaultNodeGroupMinimumSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
+			DefaultNodeGroupMaximumSize:  deletedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 		},
 	}
 
@@ -218,6 +304,36 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Validate() error {
 	// ensure name is set
 	if gcpGkeKubernetesRuntimeDefinitionValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
+	}
+
+	// ensure gcp account name is set
+	if gcpGkeKubernetesRuntimeDefinitionValues.GcpAccountName == nil {
+		multiError.AppendError(errors.New("missing required field in config: GcpAccountName"))
+	}
+
+	// ensure zone count is set
+	if gcpGkeKubernetesRuntimeDefinitionValues.ZoneCount == nil {
+		multiError.AppendError(errors.New("missing required field in config: ZoneCount"))
+	}
+
+	// ensure node group instance type is set
+	if gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType == nil {
+		multiError.AppendError(errors.New("missing required field in config: DefaultNodeGroupInstanceType"))
+	}
+
+	// ensure node group initial size is set
+	if gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize == nil {
+		multiError.AppendError(errors.New("missing required field in config: DefaultNodeGroupInitialSize"))
+	}
+
+	// ensure node group minimum size is set
+	if gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize == nil {
+		multiError.AppendError(errors.New("missing required field in config: DefaultNodeGroupMinimumSize"))
+	}
+
+	// ensure node group maximum size is set
+	if gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize == nil {
+		multiError.AppendError(errors.New("missing required field in config: DefaultNodeGroupMaximumSize"))
 	}
 
 	// TODO: add additional validation as needed

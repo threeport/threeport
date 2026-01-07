@@ -405,14 +405,23 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 		}
 
 		// create controller service account
+		serviceAccountMetadata := map[string]interface{}{
+			"name":      controller.ServiceAccountName,
+			"namespace": cpi.Opts.Namespace,
+		}
+
+		// add Workload Identity annotation for gcp-controller when GCP service account is configured
+		if controller.Name == ThreeportGcpControllerName && cpi.Opts.GcpServiceAccountEmail != "" {
+			serviceAccountMetadata["annotations"] = map[string]interface{}{
+				"iam.gke.io/gcp-service-account": cpi.Opts.GcpServiceAccountEmail,
+			}
+		}
+
 		serviceAccount := &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "v1",
 				"kind":       "ServiceAccount",
-				"metadata": map[string]interface{}{
-					"name":      controller.ServiceAccountName,
-					"namespace": cpi.Opts.Namespace,
-				},
+				"metadata":   serviceAccountMetadata,
 			},
 		}
 		if err := cpi.CreateOrUpdateKubeResource(serviceAccount, kubeClient, mapper); err != nil {

@@ -76,6 +76,7 @@ func BuildImage(
 		"buildx",
 		"build",
 		"--load",
+		"--no-cache",
 		fmt.Sprintf("--platform=linux/%s", arch),
 		"-t",
 		image,

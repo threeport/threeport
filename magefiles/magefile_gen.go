@@ -1686,7 +1686,7 @@ func (Build) AllBins(arch string) error {
 	return nil
 }
 
-// AllBins builds the development binaries for all components.
+// AllBinsDev builds the development binaries for all components.
 func (Build) AllBinsDev() error {
 	build := Build{}
 	if err := build.ApiBinDev(); err != nil {
@@ -1748,7 +1748,7 @@ func (Build) AllBinsDev() error {
 	return nil
 }
 
-// AllBins builds the release binaries for all components.
+// AllBinsRelease builds the release binaries for all components.
 func (Build) AllBinsRelease() error {
 	build := Build{}
 	if err := build.ApiBinRelease(); err != nil {

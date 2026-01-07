@@ -69,6 +69,11 @@ type Options struct {
 	// The Google Cloud region where the cluster infra is provisioned.
 	GcpRegion string
 
+	// The GCP service account email for Workload Identity. When set, the
+	// gcp-controller's Kubernetes ServiceAccount will be annotated to use
+	// this GCP service account via Workload Identity.
+	GcpServiceAccountEmail string
+
 	// Path to config file for threeport
 	CfgFile string
 

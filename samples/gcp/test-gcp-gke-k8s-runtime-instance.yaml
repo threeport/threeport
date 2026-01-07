@@ -1,0 +1,5 @@
+GcpGkeKubernetesRuntimeInstance:
+  Name: test-runtime-02
+  Region: us-east4
+  GcpGkeKubernetesRuntimeDefinition:
+    Name: test-runtime
