@@ -45,13 +45,13 @@ func GetGcpAccountByDefaultAccount(apiClient *http.Client, apiAddr string) (*v0.
 	return &gcpAccount, nil
 }
 
-// GetGcpAccountByAccountID fetches a GCP account by the GCP Account ID.
-func GetGcpAccountByAccountID(apiClient *http.Client, apiAddr string, accountID string) (*v0.GcpAccount, error) {
+// GetGcpAccountByProjectID fetches a GCP account by the GCP Project ID.
+func GetGcpAccountByProjectID(apiClient *http.Client, apiAddr string, projectID string) (*v0.GcpAccount, error) {
 	var gcpAccount v0.GcpAccount
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/gcp-accounts?accountid=%s", apiAddr, ApiVersion, accountID),
+		fmt.Sprintf("%s/%s/gcp-accounts?projectid=%s", apiAddr, ApiVersion, projectID),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
@@ -62,7 +62,7 @@ func GetGcpAccountByAccountID(apiClient *http.Client, apiAddr string, accountID 
 	}
 
 	if len(response.Data) < 1 {
-		return &gcpAccount, fmt.Errorf("no GCP account found with account ID %s", accountID)
+		return &gcpAccount, fmt.Errorf("no GCP account found with project ID %s", projectID)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

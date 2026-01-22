@@ -30,7 +30,7 @@ func ConfigureControlPlaneWithGkeConfig(
 	// create default GCP account
 	gcpAccount := v0.GcpAccount{
 		Name:           util.Ptr(provider.DefaultAccountName),
-		AccountID:      &kubernetesRuntimeInfraGKE.ProjectID,
+		ProjectID:      &kubernetesRuntimeInfraGKE.ProjectID,
 		DefaultAccount: util.Ptr(true),
 		DefaultRegion:  &kubernetesRuntimeInfraGKE.Region,
 	}
@@ -51,7 +51,6 @@ func ConfigureControlPlaneWithGkeConfig(
 		Definition: v0.Definition{
 			Name: &gkeRuntimeDefName,
 		},
-		GcpAccountID:                  createdGcpAccount.ID,
 		ZoneCount:                     &zoneCount,
 		DefaultNodeGroupInstanceType:  util.Ptr("e2-medium"),
 		DefaultNodeGroupInitialSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
@@ -83,6 +82,7 @@ func ConfigureControlPlaneWithGkeConfig(
 		Reconciliation: v0.Reconciliation{
 			Reconciled: util.Ptr(true),
 		},
+		GcpAccountID:                        createdGcpAccount.ID,
 		Region:                              &kubernetesRuntimeInfraGKE.Region,
 		GcpGkeKubernetesRuntimeDefinitionID: createdGcpGkeKubernetesRuntimeDef.ID,
 		KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,

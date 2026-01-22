@@ -9,8 +9,8 @@ type GcpAccount struct {
 	// The unique name of an Google account.
 	Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
-	// The account ID for the Google account.
-	AccountID *string `json:"AccountID,omitempty" query:"accountid" gorm:"not null" validate:"required"`
+	// The GCP project ID for the Google Cloud account.
+	ProjectID *string `json:"ProjectID,omitempty" query:"projectid" gorm:"not null" validate:"required"`
 
 	// If true is the Google Account used if none specified in a definition.
 	DefaultAccount *bool `json:"DefaultAccount,omitempty" query:"defaultaccount" gorm:"default:false" validate:"optional"`
@@ -18,17 +18,19 @@ type GcpAccount struct {
 	// The region to use for GCP managed services if not specified.
 	DefaultRegion *string `json:"DefaultRegion,omitempty" query:"defaultregion" gorm:"not null" validate:"required"`
 
+	// The service account key JSON for authenticating to GCP from outside GCP.
+	// This is the contents of a service account key file exported from GCP Console.
+	// Used when the gcp-controller runs outside GCP (e.g., in AWS or on-prem).
+	ServiceAccountCredentials *string `json:"ServiceAccountCredentials,omitempty" validate:"optional" encrypt:"true"`
+
 	// The cluster instances deployed in this GCP account.
-	GcpGkeKubernetesRuntimeDefinitions []*GcpGkeKubernetesRuntimeDefinition `json:"GcpGkeKubernetesRuntimeDefinitions,omitempty" validate:"optional,association"`
+	GcpGkeKubernetesRuntimeInstances []*GcpGkeKubernetesRuntimeInstance `json:"GcpGkeKubernetesRuntimeInstances,omitempty" validate:"optional,association"`
 }
 
 // GcpGkeKubernetesRuntimeDefinition provides the configuration for GKE cluster instances.
 type GcpGkeKubernetesRuntimeDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
-
-	// The GCP account in which the GKE cluster is provisioned.
-	GcpAccountID *uint `json:"GcpAccountID,omitempty" query:"gcpaccountid" gorm:"not null" validate:"required"`
 
 	// TODO: add fields for region limitations
 	// RegionsAllowed
@@ -61,6 +63,9 @@ type GcpGkeKubernetesRuntimeInstance struct {
 	Common         `swaggerignore:"true" mapstructure:",squash"`
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
+
+	// The GCP account in which the GKE cluster is provisioned.
+	GcpAccountID *uint `json:"GcpAccountID,omitempty" query:"gcpaccountid" gorm:"not null" validate:"required"`
 
 	// The GCP region in which the cluster is provisioned.
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`
