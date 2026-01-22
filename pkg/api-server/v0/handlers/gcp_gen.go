@@ -428,6 +428,13 @@ func (h Handler) DeleteGcpAccount(c echo.Context) error {
 	// delete object
 	if result := h.DB.Delete(&gcpAccount); result.Error != nil {
 		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -861,6 +868,13 @@ func (h Handler) DeleteGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 	// delete object
 	if result := h.DB.Delete(&gcpGkeKubernetesRuntimeDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1353,6 +1367,13 @@ func (h Handler) DeleteGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 			// from DB
 			if result := h.DB.Delete(&gcpGkeKubernetesRuntimeInstance); result.Error != nil {
 				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+				// check if this is a custom HTTP error with specific status code
+				var httpErr *util_v0.HttpError
+				if errors.As(result.Error, &httpErr) {
+					return apiserver_lib.ResponseStatusErr(
+						httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+					)
+				}
 				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 			}
 		}
