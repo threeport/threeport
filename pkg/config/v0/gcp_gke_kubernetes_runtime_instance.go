@@ -29,6 +29,7 @@ type GcpGkeKubernetesRuntimeInstanceValues struct {
 	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeInstance
 	Name                              *string                                  `json:"Name,omitempty" yaml:"Name,omitempty"`
 	Region                            *string                                  `json:"Region,omitempty" yaml:"Region,omitempty"`
+	GcpAccountName                    *string                                  `json:"GcpAccountName,omitempty" yaml:"GcpAccountName,omitempty"`
 	GcpGkeKubernetesRuntimeDefinition *GcpGkeKubernetesRuntimeDefinitionValues `json:"GcpGkeKubernetesRuntimeDefinition,omitempty" yaml:"GcpGkeKubernetesRuntimeDefinition,omitempty"`
 	KubernetesRuntimeInstance         *KubernetesRuntimeInstanceValues         `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
 	Reconciled                        *bool                                    `json:"Reconciled,omitempty" yaml:"Reconciled,omitempty"`
@@ -70,6 +71,19 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Get(
 		// related objects
 		var gcpGkeKubernetesRuntimeDefinition *GcpGkeKubernetesRuntimeDefinitionValues
 		var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+		var gcpAccountName *string
+
+		// get GCP account name from instance
+		if gcpGkeKubernetesRuntimeInstance.GcpAccountID != nil {
+			gcpAccount, err := client_v0.GetGcpAccountByID(
+				apiClient,
+				apiEndpoint,
+				*gcpGkeKubernetesRuntimeInstance.GcpAccountID,
+			)
+			if err == nil {
+				gcpAccountName = gcpAccount.Name
+			}
+		}
 
 		// get GCP GKE kubernetes runtime definition
 		if gcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeDefinitionID != nil {
@@ -85,21 +99,8 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Get(
 					err,
 				)
 			}
-			// get GCP account name
-			var gcpAccountName *string
-			if gcpGkeKubernetesRuntimeDefinitionObj.GcpAccountID != nil {
-				gcpAccount, err := client_v0.GetGcpAccountByID(
-					apiClient,
-					apiEndpoint,
-					*gcpGkeKubernetesRuntimeDefinitionObj.GcpAccountID,
-				)
-				if err == nil {
-					gcpAccountName = gcpAccount.Name
-				}
-			}
 			gcpGkeKubernetesRuntimeDefinition = &GcpGkeKubernetesRuntimeDefinitionValues{
-				Name:           gcpGkeKubernetesRuntimeDefinitionObj.Name,
-				GcpAccountName: gcpAccountName,
+				Name: gcpGkeKubernetesRuntimeDefinitionObj.Name,
 			}
 		}
 
@@ -126,6 +127,7 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Get(
 			GcpGkeKubernetesRuntimeInstance: GcpGkeKubernetesRuntimeInstanceValues{
 				Name:                              gcpGkeKubernetesRuntimeInstance.Name,
 				Region:                            gcpGkeKubernetesRuntimeInstance.Region,
+				GcpAccountName:                    gcpAccountName,
 				GcpGkeKubernetesRuntimeDefinition: gcpGkeKubernetesRuntimeDefinition,
 				KubernetesRuntimeInstance:         kubernetesRuntimeInstance,
 				Reconciled:                        gcpGkeKubernetesRuntimeInstance.Reconciled,
@@ -154,6 +156,12 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Create(
 	gcpGkeKubernetesRuntimeDefinition, err := client_v0.GetGcpGkeKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *gcpGkeKubernetesRuntimeInstanceValues.GcpGkeKubernetesRuntimeDefinition.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find GCP GKE kubernetes runtime definition with name %s: %w", *gcpGkeKubernetesRuntimeInstanceValues.GcpGkeKubernetesRuntimeDefinition.Name, err)
+	}
+
+	// look up GCP account by name
+	gcpAccount, err := client_v0.GetGcpAccountByName(apiClient, apiEndpoint, *gcpGkeKubernetesRuntimeInstanceValues.GcpAccountName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find GCP account with name %s: %w", *gcpGkeKubernetesRuntimeInstanceValues.GcpAccountName, err)
 	}
 
 	// get location for provider GCP region
@@ -190,6 +198,7 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Create(
 		Instance: api_v0.Instance{
 			Name: gcpGkeKubernetesRuntimeInstanceValues.Name,
 		},
+		GcpAccountID:                        gcpAccount.ID,
 		Region:                              gcpGkeKubernetesRuntimeInstanceValues.Region,
 		KubernetesRuntimeInstanceID:         createdKubernetesRuntimeInstance.ID,
 		GcpGkeKubernetesRuntimeDefinitionID: gcpGkeKubernetesRuntimeDefinition.ID,
@@ -212,6 +221,7 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Create(
 			Age:                               util.Ptr(util.GetAgeFormatted(createdGcpGkeKubernetesRuntimeInstance.CreatedAt)),
 			Name:                              createdGcpGkeKubernetesRuntimeInstance.Name,
 			Region:                            createdGcpGkeKubernetesRuntimeInstance.Region,
+			GcpAccountName:                    gcpGkeKubernetesRuntimeInstanceValues.GcpAccountName,
 			GcpGkeKubernetesRuntimeDefinition: gcpGkeKubernetesRuntimeInstanceValues.GcpGkeKubernetesRuntimeDefinition,
 			Reconciled:                        createdGcpGkeKubernetesRuntimeInstance.Reconciled,
 		},
@@ -402,6 +412,11 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Validate() error {
 	// ensure region is set
 	if gcpGkeKubernetesRuntimeInstanceValues.Region == nil {
 		multiError.AppendError(errors.New("missing required field in config: Region"))
+	}
+
+	// ensure gcp account name is set
+	if gcpGkeKubernetesRuntimeInstanceValues.GcpAccountName == nil {
+		multiError.AppendError(errors.New("missing required field in config: GcpAccountName"))
 	}
 
 	// ensure gcp gke kubernetes runtime definition is set

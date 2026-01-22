@@ -1,6 +1,6 @@
 KubernetesRuntime:
   Name: eks-remote
-  InfraProvider: eks
+  InfraProvider: ekszzz
   InfraProviderAccountName: default-account
   HighAvailability: false
   Location: NorthAmerica:NewYork

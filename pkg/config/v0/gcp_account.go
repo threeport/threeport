@@ -5,10 +5,13 @@ package v0
 import (
 	errors "errors"
 	"fmt"
+	"net/http"
+
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"net/http"
+
+	provider "github.com/threeport/threeport/internal/provider"
 )
 
 // GcpAccountConfig is a config abstraction for the GcpAccount API object.
@@ -24,7 +27,24 @@ type GcpAccountConfig struct {
 type GcpAccountValues struct {
 	// TODO: add config abstraction fields needed for user to manage a GcpAccount
 	Name *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	Age  *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+
+	// The GCP project ID. This is the unique identifier for the GCP project.
+	ProjectID *string `json:"ProjectID,omitempty" yaml:"ProjectID,omitempty"`
+
+	// If true, this GCP account will be used as the default when none is specified.
+	DefaultAccount *bool `json:"DefaultAccount,omitempty" yaml:"DefaultAccount,omitempty"`
+
+	// The default GCP region for resources created in this account.
+	DefaultRegion *string `json:"DefaultRegion,omitempty" yaml:"DefaultRegion,omitempty"`
+
+	// If true, sync the GCP service account credentials with the GcpAccount API object.
+	// If true on create, a GCP service account will be created and the credentials will be exported.
+	// if true on delete, the GCP service account will be deleted and the credentials will be removed.
+	// Defaults to true when creating via tptctl.
+	SyncServiceAccount *bool `json:"SyncServiceAccount,omitempty" yaml:"SyncServiceAccount,omitempty"`
+
+	// Age is a computed field showing how long ago the object was created.
+	Age *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets gcp accounts from the Threeport API.
@@ -61,8 +81,11 @@ func (g *GcpAccountConfig) Get(
 		// TODO: add config abstraction fields needed for user to manage a GcpAccount
 		gcpAccountConfig := GcpAccountConfig{
 			GcpAccount: GcpAccountValues{
-				Age:  util.Ptr(util.GetAgeFormatted(gcpAccount.CreatedAt)),
-				Name: gcpAccount.Name,
+				Name:           gcpAccount.Name,
+				ProjectID:      gcpAccount.ProjectID,
+				DefaultAccount: gcpAccount.DefaultAccount,
+				DefaultRegion:  gcpAccount.DefaultRegion,
+				Age:            util.Ptr(util.GetAgeFormatted(gcpAccount.CreatedAt)),
 			},
 		}
 		gcpAccountConfigs = append(gcpAccountConfigs, gcpAccountConfig)
@@ -72,6 +95,9 @@ func (g *GcpAccountConfig) Get(
 }
 
 // Create creates a gcp account in the Threeport API.
+// If SyncServiceAccount is true (or not set, defaulting to true), this function
+// will also create a GCP service account with the necessary permissions and export
+// its credentials for use by controllers running outside GCP.
 func (g *GcpAccountConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -86,10 +112,37 @@ func (g *GcpAccountConfig) Create(
 	// construct gcp account object
 	// TODO: add API object fields as needed for GcpAccount
 	gcpAccount := api_v0.GcpAccount{
-		Name: gcpAccountValues.Name,
+		Name:           gcpAccountValues.Name,
+		ProjectID:      gcpAccountValues.ProjectID,
+		DefaultAccount: gcpAccountValues.DefaultAccount,
+		DefaultRegion:  gcpAccountValues.DefaultRegion,
 	}
 
-	// create gcp account
+	// determine if we should sync the service account
+	// default to true if not specified
+	syncServiceAccount := true
+	if gcpAccountValues.SyncServiceAccount != nil {
+		syncServiceAccount = *gcpAccountValues.SyncServiceAccount
+	}
+
+	// create GCP service account and export credentials if requested
+	if syncServiceAccount {
+		fmt.Println("Creating GCP service account and exporting credentials...")
+
+		saWithKey, err := provider.CreateGCPServiceAccountWithKey(
+			*gcpAccountValues.ProjectID,
+			*gcpAccountValues.Name,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create GCP service account: %w", err)
+		}
+
+		// store the credentials in the GcpAccount object
+		gcpAccount.ServiceAccountCredentials = &saWithKey.KeyJSON
+		fmt.Printf("GCP service account %s created and credentials exported\n", saWithKey.Email)
+	}
+
+	// create gcp account in Threeport API
 	createdGcpAccount, err := client_v0.CreateGcpAccount(
 		apiClient,
 		apiEndpoint,
@@ -103,8 +156,11 @@ func (g *GcpAccountConfig) Create(
 	// TODO: add config abstraction fields needed for user to manage a GcpAccount
 	createdGcpAccountConfig := &GcpAccountConfig{
 		GcpAccount: GcpAccountValues{
-			Age:  util.Ptr(util.GetAgeFormatted(createdGcpAccount.CreatedAt)),
-			Name: createdGcpAccount.Name,
+			Name:           createdGcpAccount.Name,
+			ProjectID:      createdGcpAccount.ProjectID,
+			DefaultAccount: createdGcpAccount.DefaultAccount,
+			DefaultRegion:  createdGcpAccount.DefaultRegion,
+			Age:            util.Ptr(util.GetAgeFormatted(createdGcpAccount.CreatedAt)),
 		},
 	}
 
@@ -115,6 +171,7 @@ func (g *GcpAccountConfig) Create(
 // This is a full replacement of all fields in the gcp account object.
 // This function takes a name parameter to identify the gcp account to replace.
 // This allows a different name to be provided in the values object for name changes.
+// Note: ServiceAccountCredentials are preserved from the existing account.
 func (g *GcpAccountConfig) Replace(
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -139,11 +196,16 @@ func (g *GcpAccountConfig) Replace(
 
 	// construct updated gcp account object
 	// TODO: add API object fields as needed for GcpAccount
+	// preserve existing ServiceAccountCredentials
 	updatedGcpAccount := &api_v0.GcpAccount{
 		Common: api_v0.Common{
 			ID: existingGcpAccount.ID,
 		},
-		Name: gcpAccountValues.Name,
+		Name:                      gcpAccountValues.Name,
+		ProjectID:                 gcpAccountValues.ProjectID,
+		DefaultAccount:            gcpAccountValues.DefaultAccount,
+		DefaultRegion:             gcpAccountValues.DefaultRegion,
+		ServiceAccountCredentials: existingGcpAccount.ServiceAccountCredentials,
 	}
 
 	// replace gcp account
@@ -160,8 +222,11 @@ func (g *GcpAccountConfig) Replace(
 	// TODO: add config abstraction fields needed for user to manage a GcpAccount
 	updatedGcpAccountConfig := &GcpAccountConfig{
 		GcpAccount: GcpAccountValues{
-			Age:  util.Ptr(util.GetAgeFormatted(replacedGcpAccount.CreatedAt)),
-			Name: replacedGcpAccount.Name,
+			Name:           replacedGcpAccount.Name,
+			ProjectID:      replacedGcpAccount.ProjectID,
+			DefaultAccount: replacedGcpAccount.DefaultAccount,
+			DefaultRegion:  replacedGcpAccount.DefaultRegion,
+			Age:            util.Ptr(util.GetAgeFormatted(replacedGcpAccount.CreatedAt)),
 		},
 	}
 
@@ -169,6 +234,8 @@ func (g *GcpAccountConfig) Replace(
 }
 
 // Delete deletes a gcp account from the Threeport API.
+// If SyncServiceAccount is true (or not set, defaulting to true), this function
+// will also delete the GCP service account that was created for this account.
 func (g *GcpAccountConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -195,11 +262,35 @@ func (g *GcpAccountConfig) Delete(
 		return nil, fmt.Errorf("failed to delete gcp account from Threeport API: %w", err)
 	}
 
+	// determine if we should sync (delete) the service account
+	// default to true if not specified
+	syncServiceAccount := true
+	if gcpAccountValues.SyncServiceAccount != nil {
+		syncServiceAccount = *gcpAccountValues.SyncServiceAccount
+	}
+
+	// delete GCP service account if requested
+	if syncServiceAccount && gcpAccount.ProjectID != nil {
+		fmt.Println("Deleting GCP service account...")
+
+		if err := provider.DeleteGCPServiceAccountWithKey(
+			*gcpAccount.ProjectID,
+			*gcpAccount.Name,
+		); err != nil {
+			return nil, fmt.Errorf("failed to delete GCP service account: %w", err)
+		}
+
+		fmt.Println("GCP service account deleted")
+	}
+
 	// construct deleted gcp account config
 	// TODO: add config abstraction fields needed for user to manage a GcpAccount
 	deletedGcpAccountConfig := &GcpAccountConfig{
 		GcpAccount: GcpAccountValues{
-			Name: deletedGcpAccount.Name,
+			Name:           deletedGcpAccount.Name,
+			ProjectID:      deletedGcpAccount.ProjectID,
+			DefaultAccount: deletedGcpAccount.DefaultAccount,
+			DefaultRegion:  deletedGcpAccount.DefaultRegion,
 		},
 	}
 
@@ -212,8 +303,18 @@ func (g *GcpAccountConfig) Validate() error {
 	multiError := util.MultiError{}
 
 	// ensure name is set
-	if gcpAccountValues.Name == nil {
+	if gcpAccountValues.Name == nil || *gcpAccountValues.Name == "" {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
+	}
+
+	// ensure project ID (GCP project ID) is set
+	if gcpAccountValues.ProjectID == nil || *gcpAccountValues.ProjectID == "" {
+		multiError.AppendError(errors.New("missing required field in config: ProjectID (GCP project ID)"))
+	}
+
+	// ensure default region is set
+	if gcpAccountValues.DefaultRegion == nil || *gcpAccountValues.DefaultRegion == "" {
+		multiError.AppendError(errors.New("missing required field in config: DefaultRegion"))
 	}
 
 	// TODO: add additional validation as needed

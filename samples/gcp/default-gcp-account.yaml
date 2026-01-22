@@ -1,0 +1,5 @@
+GcpAccount:
+  Name: default-account
+  ProjectID: qleet-service
+  DefaultAccount: true
+  DefaultRegion: "us-east4"

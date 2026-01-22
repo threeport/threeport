@@ -26,7 +26,6 @@ type GcpGkeKubernetesRuntimeDefinitionConfig struct {
 type GcpGkeKubernetesRuntimeDefinitionValues struct {
 	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition
 	Name                         *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	GcpAccountName               *string `json:"GcpAccountName,omitempty" yaml:"GcpAccountName,omitempty"`
 	ZoneCount                    *int    `json:"ZoneCount,omitempty" yaml:"ZoneCount,omitempty"`
 	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" yaml:"DefaultNodeGroupInstanceType,omitempty"`
 	DefaultNodeGroupInitialSize  *int    `json:"DefaultNodeGroupInitialSize,omitempty" yaml:"DefaultNodeGroupInitialSize,omitempty"`
@@ -66,17 +65,10 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Get(
 	// assemble config objects from API objects
 	var gcpGkeKubernetesRuntimeDefinitionConfigs []GcpGkeKubernetesRuntimeDefinitionConfig
 	for _, gcpGkeKubernetesRuntimeDefinition := range *gcpGkeKubernetesRuntimeDefinitions {
-		// get GCP account by ID
-		gcpAccount, err := client_v0.GetGcpAccountByID(apiClient, apiEndpoint, *gcpGkeKubernetesRuntimeDefinition.GcpAccountID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find GCP account with ID %d: %w", *gcpGkeKubernetesRuntimeDefinition.GcpAccountID, err)
-		}
-
 		// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition
 		gcpGkeKubernetesRuntimeDefinitionConfig := GcpGkeKubernetesRuntimeDefinitionConfig{
 			GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
 				Name:                         gcpGkeKubernetesRuntimeDefinition.Name,
-				GcpAccountName:               gcpAccount.Name,
 				ZoneCount:                    gcpGkeKubernetesRuntimeDefinition.ZoneCount,
 				DefaultNodeGroupInstanceType: gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 				DefaultNodeGroupInitialSize:  gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
@@ -103,12 +95,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		return nil, fmt.Errorf("failed to validate values for gcp gke kubernetes runtime definition with name %s: %w", *gcpGkeKubernetesRuntimeDefinitionValues.Name, err)
 	}
 
-	// look up GCP account by name
-	gcpAccount, err := client_v0.GetGcpAccountByName(apiClient, apiEndpoint, *gcpGkeKubernetesRuntimeDefinitionValues.GcpAccountName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find GCP account with name %s: %w", *gcpGkeKubernetesRuntimeDefinitionValues.GcpAccountName, err)
-	}
-
 	// construct kubernetes runtime definition
 	infraProvider := api_v0.KubernetesRuntimeInfraProviderGKE
 	kubernetesRuntimeDefinition := api_v0.KubernetesRuntimeDefinition{
@@ -118,8 +104,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		Reconciliation: api_v0.Reconciliation{
 			Reconciled: util.Ptr(true),
 		},
-		InfraProvider:            &infraProvider,
-		InfraProviderAccountName: gcpAccount.Name,
+		InfraProvider: &infraProvider,
 	}
 
 	// create kubernetes runtime definition
@@ -134,7 +119,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		Definition: api_v0.Definition{
 			Name: gcpGkeKubernetesRuntimeDefinitionValues.Name,
 		},
-		GcpAccountID:                  gcpAccount.ID,
 		ZoneCount:                     gcpGkeKubernetesRuntimeDefinitionValues.ZoneCount,
 		DefaultNodeGroupInstanceType:  gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType,
 		DefaultNodeGroupInitialSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
@@ -159,7 +143,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 		GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
 			Age:                          util.Ptr(util.GetAgeFormatted(createdGcpGkeKubernetesRuntimeDefinition.CreatedAt)),
 			Name:                         createdGcpGkeKubernetesRuntimeDefinition.Name,
-			GcpAccountName:               gcpGkeKubernetesRuntimeDefinitionValues.GcpAccountName,
 			ZoneCount:                    createdGcpGkeKubernetesRuntimeDefinition.ZoneCount,
 			DefaultNodeGroupInstanceType: createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 			DefaultNodeGroupInitialSize:  createdGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
@@ -206,7 +189,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 		Definition: api_v0.Definition{
 			Name: gcpGkeKubernetesRuntimeDefinitionValues.Name,
 		},
-		GcpAccountID:                  existingGcpGkeKubernetesRuntimeDefinition.GcpAccountID,
 		ZoneCount:                     gcpGkeKubernetesRuntimeDefinitionValues.ZoneCount,
 		DefaultNodeGroupInstanceType:  gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType,
 		DefaultNodeGroupInitialSize:   gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
@@ -231,7 +213,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 		GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
 			Age:                          util.Ptr(util.GetAgeFormatted(replacedGcpGkeKubernetesRuntimeDefinition.CreatedAt)),
 			Name:                         replacedGcpGkeKubernetesRuntimeDefinition.Name,
-			GcpAccountName:               gcpGkeKubernetesRuntimeDefinitionValues.GcpAccountName,
 			ZoneCount:                    replacedGcpGkeKubernetesRuntimeDefinition.ZoneCount,
 			DefaultNodeGroupInstanceType: replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 			DefaultNodeGroupInitialSize:  replacedGcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
@@ -304,11 +285,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Validate() error {
 	// ensure name is set
 	if gcpGkeKubernetesRuntimeDefinitionValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
-	}
-
-	// ensure gcp account name is set
-	if gcpGkeKubernetesRuntimeDefinitionValues.GcpAccountName == nil {
-		multiError.AppendError(errors.New("missing required field in config: GcpAccountName"))
 	}
 
 	// ensure zone count is set
