@@ -4,8 +4,9 @@ package v0
 
 import (
 	"fmt"
-	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
+
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // GcpGkeKubernetesRuntimeConfig is a container for a GcpGkeKubernetesRuntime which is a config abstraction for
@@ -20,9 +21,16 @@ type GcpGkeKubernetesRuntimeConfig struct {
 // GcpGkeKubernetesRuntimeDefinition and GcpGkeKubernetesRuntimeInstance API objects
 // together with a single operation.
 type GcpGkeKubernetesRuntimeValues struct {
-	// TODO: add fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition and GcpGkeKubernetesRuntimeInstance together
-	Name *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	Age  *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                         *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	GcpAccountName               *string `json:"GcpAccountName,omitempty" yaml:"GcpAccountName,omitempty"`
+	ZoneCount                    *int    `json:"ZoneCount,omitempty" yaml:"ZoneCount,omitempty"`
+	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" yaml:"DefaultNodeGroupInstanceType,omitempty"`
+	DefaultNodeGroupInitialSize  *int    `json:"DefaultNodeGroupInitialSize,omitempty" yaml:"DefaultNodeGroupInitialSize,omitempty"`
+	DefaultNodeGroupMinimumSize  *int    `json:"DefaultNodeGroupMinimumSize,omitempty" yaml:"DefaultNodeGroupMinimumSize,omitempty"`
+	DefaultNodeGroupMaximumSize  *int    `json:"DefaultNodeGroupMaximumSize,omitempty" yaml:"DefaultNodeGroupMaximumSize,omitempty"`
+	Region                       *string `json:"Region,omitempty" yaml:"Region,omitempty"`
+	Reconciled                   *bool   `json:"Reconciled,omitempty" yaml:"Reconciled,omitempty"`
+	Age                          *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets a gcp gke kubernetes runtime definition and instance from the Threeport API.
@@ -139,10 +147,14 @@ func (g *GcpGkeKubernetesRuntimeConfig) GetOperations(
 	operations := util.Operations{}
 
 	// add gcp gke kubernetes runtime definition operation
-	// TODO: add appropriate fields to definition values object
 	gcpGkeKubernetesRuntimeDefinitionConfig := GcpGkeKubernetesRuntimeDefinitionConfig{
 		GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
-			Name: g.GcpGkeKubernetesRuntime.Name,
+			Name:                         g.GcpGkeKubernetesRuntime.Name,
+			ZoneCount:                    g.GcpGkeKubernetesRuntime.ZoneCount,
+			DefaultNodeGroupInstanceType: g.GcpGkeKubernetesRuntime.DefaultNodeGroupInstanceType,
+			DefaultNodeGroupInitialSize:  g.GcpGkeKubernetesRuntime.DefaultNodeGroupInitialSize,
+			DefaultNodeGroupMinimumSize:  g.GcpGkeKubernetesRuntime.DefaultNodeGroupMinimumSize,
+			DefaultNodeGroupMaximumSize:  g.GcpGkeKubernetesRuntime.DefaultNodeGroupMaximumSize,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -181,11 +193,14 @@ func (g *GcpGkeKubernetesRuntimeConfig) GetOperations(
 	})
 
 	// add gcp gke kubernetes runtime instance operation
-	// TODO: add appropriate fields to instance values object
 	gcpGkeKubernetesRuntimeInstanceConfig := GcpGkeKubernetesRuntimeInstanceConfig{
 		GcpGkeKubernetesRuntimeInstance: GcpGkeKubernetesRuntimeInstanceValues{
-			GcpGkeKubernetesRuntimeDefinition: &gcpGkeKubernetesRuntimeDefinitionConfig.GcpGkeKubernetesRuntimeDefinition,
-			Name:                              g.GcpGkeKubernetesRuntime.Name,
+			Name:           g.GcpGkeKubernetesRuntime.Name,
+			Region:         g.GcpGkeKubernetesRuntime.Region,
+			GcpAccountName: g.GcpGkeKubernetesRuntime.GcpAccountName,
+			GcpGkeKubernetesRuntimeDefinition: &GcpGkeKubernetesRuntimeDefinitionValues{
+				Name: g.GcpGkeKubernetesRuntime.Name,
+			},
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -240,11 +255,18 @@ func mapToGcpGkeKubernetesRuntimeDefinedInstances(
 			// a defined instance must have matching names for definition and instance
 			// and the definition must be associated with the instance
 			if instName == defName && *inst.GcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeDefinition.Name == *def.GcpGkeKubernetesRuntimeDefinition.Name {
-				// TODO: add fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition and GcpGkeKubernetesRuntimeInstance together
 				gcpGkeKubernetesRuntimeConfig := GcpGkeKubernetesRuntimeConfig{
 					GcpGkeKubernetesRuntime: GcpGkeKubernetesRuntimeValues{
-						Age:  inst.GcpGkeKubernetesRuntimeInstance.Age,
-						Name: inst.GcpGkeKubernetesRuntimeInstance.Name,
+						Name:                         inst.GcpGkeKubernetesRuntimeInstance.Name,
+						GcpAccountName:               inst.GcpGkeKubernetesRuntimeInstance.GcpAccountName,
+						ZoneCount:                    def.GcpGkeKubernetesRuntimeDefinition.ZoneCount,
+						DefaultNodeGroupInstanceType: def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
+						DefaultNodeGroupInitialSize:  def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
+						DefaultNodeGroupMinimumSize:  def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
+						DefaultNodeGroupMaximumSize:  def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
+						Region:                       inst.GcpGkeKubernetesRuntimeInstance.Region,
+						Reconciled:                   inst.GcpGkeKubernetesRuntimeInstance.Reconciled,
+						Age:                          inst.GcpGkeKubernetesRuntimeInstance.Age,
 					},
 				}
 				gcpGkeKubernetesRuntimeConfigs = append(gcpGkeKubernetesRuntimeConfigs, gcpGkeKubernetesRuntimeConfig)
