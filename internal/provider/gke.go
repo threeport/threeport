@@ -28,7 +28,10 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/cloudresourcemanager/v1"
+	"google.golang.org/api/iam/v1"
 	gcpiam "google.golang.org/api/iam/v1"
+	"google.golang.org/api/option"
 	gcpoption "google.golang.org/api/option"
 	"gopkg.in/ini.v1"
 	"gorm.io/datatypes"
@@ -83,12 +86,23 @@ type KubernetesRuntimeInfraGKE struct {
 	// This service account is used with Workload Identity to allow
 	// Threeport controllers to manage GCP resources.
 	ServiceAccountEmail string
+
+	// ServiceAccountCredentials contains the JSON key for a GCP service account.
+	// Used when running outside GCP (e.g., in AWS or on-prem) where Workload
+	// Identity is not available. This is the contents of a service account key
+	// file exported from GCP Console.
+	ServiceAccountCredentials string
+
+	// credentialsFilePath stores the path to a temporary file containing
+	// the service account credentials. This is set internally when
+	// ServiceAccountCredentials is used.
+	credentialsFilePath string
 }
 
 // Create installs a Kubernetes cluster using Google Cloud GKE for threeport workloads.
 func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 	// ensure GCP authentication is in place
-	if err := EnsureGCPAuth(); err != nil {
+	if err := EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
 
@@ -308,24 +322,10 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 	return i.GetConnection()
 }
 
-// configureWorkloadIdentityBindingPostCreate sets up the Workload Identity binding
-// after the GKE cluster has been created.
-func (i *KubernetesRuntimeInfraGKE) configureWorkloadIdentityBindingPostCreate() error {
-	ctx := context.Background()
-
-	// Create IAM service client
-	iamService, err := gcpiam.NewService(ctx, gcpoption.WithScopes(gcpiam.CloudPlatformScope))
-	if err != nil {
-		return fmt.Errorf("failed to create IAM service client: %w", err)
-	}
-
-	return i.configureWorkloadIdentityBinding(iamService)
-}
-
 // Delete deletes a GKE cluster and the threeport control plane with it.
 func (i *KubernetesRuntimeInfraGKE) Delete() error {
 	// ensure GCP authentication is in place
-	if err := EnsureGCPAuth(); err != nil {
+	if err := EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
 
@@ -360,10 +360,40 @@ func (i *KubernetesRuntimeInfraGKE) Delete() error {
 	return nil
 }
 
+// DeleteGCPResources deletes all GCP resources created for this Threeport instance
+// that are not managed by Pulumi.
+func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
+	ctx := context.Background()
+
+	// Create IAM service client
+	iamService, err := iam.NewService(ctx, option.WithScopes(iam.CloudPlatformScope))
+	if err != nil {
+		return fmt.Errorf("failed to create IAM service client: %w", err)
+	}
+
+	// Create Cloud Resource Manager service client for IAM bindings
+	crmService, err := cloudresourcemanager.NewService(ctx, option.WithScopes(cloudresourcemanager.CloudPlatformScope))
+	if err != nil {
+		return fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
+	}
+
+	// Remove IAM role bindings
+	if err := i.removeServiceAccountRoles(crmService); err != nil {
+		return fmt.Errorf("failed to remove IAM roles: %w", err)
+	}
+
+	// Delete the service account
+	if err := i.deleteGCPServiceAccount(iamService); err != nil {
+		return fmt.Errorf("failed to delete service account: %w", err)
+	}
+
+	return nil
+}
+
 // GetConnection returns the connection information for the GKE cluster.
 func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, error) {
 	// ensure GCP authentication is in place
-	if err := EnsureGCPAuth(); err != nil {
+	if err := EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
 
@@ -429,28 +459,6 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 	}
 
 	return kubeConnInfo, nil
-}
-
-// EnsureGCPAuth checks for valid GCP Application Default Credentials and initiates
-// the OAuth flow if credentials are missing or invalid. This allows users to
-// authenticate without manually running `gcloud auth application-default login`.
-func EnsureGCPAuth() error {
-	ctx := context.Background()
-
-	// first, check if valid credentials already exist
-	if hasValidGCPCredentials(ctx) {
-		return nil
-	}
-
-	fmt.Println("GCP credentials not found or expired. Initiating authentication...")
-
-	// perform the OAuth flow
-	if err := performGCPOAuthFlow(ctx); err != nil {
-		return fmt.Errorf("failed to authenticate with GCP: %w", err)
-	}
-
-	fmt.Println("GCP authentication successful!")
-	return nil
 }
 
 // LoadConfigFromStack loads the GCP project ID and region from the existing
@@ -602,6 +610,301 @@ description: Google Kubernetes Engine (GKE) cluster for Threeport
 	if err != nil {
 		return fmt.Errorf("failed to import stack state: %w", err)
 	}
+
+	return nil
+}
+
+// configureWorkloadIdentityBindingPostCreate sets up the Workload Identity binding
+// after the GKE cluster has been created.
+func (i *KubernetesRuntimeInfraGKE) configureWorkloadIdentityBindingPostCreate() error {
+	ctx := context.Background()
+
+	// Create IAM service client
+	iamService, err := gcpiam.NewService(ctx, gcpoption.WithScopes(gcpiam.CloudPlatformScope))
+	if err != nil {
+		return fmt.Errorf("failed to create IAM service client: %w", err)
+	}
+
+	return i.configureWorkloadIdentityBinding(iamService)
+}
+
+// setupPulumiWorkspace sets up the Pulumi workspace and environment for GKE operations
+func (i *KubernetesRuntimeInfraGKE) setupPulumiWorkspace(program pulumi.RunFunc) (auto.Stack, error) {
+	// set up state directory
+	if err := i.setStateDir(); err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to set state directory: %w", err)
+	}
+
+	// set environment variables for Pulumi configuration
+	if err := i.setPulumiEnvVars(); err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to set Pulumi environment variables: %w", err)
+	}
+
+	// load GCP configuration from gcloud CLI config or environment variables
+	if err := i.loadGCPConfig(); err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to load GCP configuration: %w", err)
+	}
+
+	// create Pulumi.yaml project file
+	pulumiYaml := `name: gke
+runtime: go
+description: Google Kubernetes Engine (GKE) cluster for Threeport
+`
+	pulumiYamlPath := filepath.Join(i.stateDir, "Pulumi.yaml")
+	if err := os.WriteFile(pulumiYamlPath, []byte(pulumiYaml), 0644); err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to create Pulumi.yaml: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// create a new workspace with local state backend
+	workspace, err := auto.NewLocalWorkspace(
+		ctx,
+		auto.Program(program),
+		auto.WorkDir(i.stateDir),
+	)
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// create or select a stack with fully qualified name
+	stack, err := auto.UpsertStack(ctx, i.getStackName(), workspace)
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to create/select stack: %w", err)
+	}
+
+	// set up stack configuration
+	err = stack.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: i.ProjectID})
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to set project config: %w", err)
+	}
+
+	err = stack.SetConfig(ctx, "gcp:region", auto.ConfigValue{Value: i.Region})
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to set region config: %w", err)
+	}
+
+	return stack, nil
+}
+
+// setPulumiEnvVars sets the environment variables for Pulumi
+func (i *KubernetesRuntimeInfraGKE) setPulumiEnvVars() error {
+	os.Setenv("PULUMI_BACKEND_URL", "file://"+i.stateDir)
+	os.Setenv("PULUMI_HOME", i.stateDir)
+	os.Setenv("PULUMI_ORGANIZATION", "organization") // TODO: make this configurable
+	os.Setenv("PULUMI_PROJECT", "gke")
+	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "threeport")
+
+	// set plugin path to the default location
+	userHomeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+	defaultPluginPath := filepath.Join(userHomeDir, ".pulumi", "plugins")
+	os.Setenv("PULUMI_PLUGIN_PATH", defaultPluginPath)
+
+	return nil
+}
+
+// setStateDir sets the state directory for the GKE stack
+func (i *KubernetesRuntimeInfraGKE) setStateDir() error {
+	pulumiStateDir, err := GetPulumiStateDir()
+	if err != nil {
+		return fmt.Errorf("failed to get pulumi state directory: %w", err)
+	}
+
+	i.stateDir = filepath.Join(pulumiStateDir, i.RuntimeInstanceName)
+
+	// ensure state directory exists
+	if err := os.MkdirAll(i.stateDir, 0755); err != nil {
+		return fmt.Errorf("failed to create state directory: %w", err)
+	}
+
+	return nil
+}
+
+// getStackName returns the name of the GKE stack
+func (i *KubernetesRuntimeInfraGKE) getStackName() string {
+	return fmt.Sprintf("organization/gke/%s", i.RuntimeInstanceName)
+}
+
+// loadGCPConfig reads the GCP configuration from gcloud CLI config files
+// or environment variables and populates KubernetesRuntimeInfraGKE struct fields.
+// It follows a similar pattern to loadOCIConfig in OKE.
+func (i *KubernetesRuntimeInfraGKE) loadGCPConfig() error {
+	// first check environment variables
+	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
+	if projectID == "" {
+		projectID = os.Getenv("CLOUDSDK_CORE_PROJECT")
+	}
+	if projectID == "" {
+		projectID = os.Getenv("GCLOUD_PROJECT")
+	}
+
+	region := os.Getenv("CLOUDSDK_COMPUTE_REGION")
+	if region == "" {
+		region = os.Getenv("GOOGLE_REGION")
+	}
+
+	// if environment variables provided the values, use them
+	if projectID != "" && i.ProjectID == "" {
+		i.ProjectID = projectID
+	}
+	if region != "" && i.Region == "" {
+		i.Region = region
+	}
+
+	// if we already have both values, return early
+	if i.ProjectID != "" && i.Region != "" {
+		return nil
+	}
+
+	// try to read from gcloud configuration files
+	if err := i.loadGCPConfigFromFile(); err != nil {
+		// if we still don't have required values, return error
+		if i.ProjectID == "" {
+			return fmt.Errorf("GCP project ID not found in environment variables or gcloud config: %w", err)
+		}
+		if i.Region == "" {
+			return fmt.Errorf("GCP region not found in environment variables or gcloud config: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// loadGCPConfigFromFile reads the gcloud CLI configuration files
+// to get project ID and region settings.
+func (i *KubernetesRuntimeInfraGKE) loadGCPConfigFromFile() error {
+	// get user's home directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	// gcloud config directory path
+	var gcloudConfigDir string
+	if runtime.GOOS == "windows" {
+		gcloudConfigDir = filepath.Join(homeDir, "AppData", "Roaming", "gcloud")
+	} else {
+		gcloudConfigDir = filepath.Join(homeDir, ".config", "gcloud")
+	}
+
+	// try to determine the active configuration
+	activeConfig := "default"
+	activeConfigPath := filepath.Join(gcloudConfigDir, "active_config")
+	if activeConfigData, err := os.ReadFile(activeConfigPath); err == nil {
+		activeConfig = strings.TrimSpace(string(activeConfigData))
+	}
+
+	// try to read the configuration file for the active configuration
+	configFilePath := filepath.Join(gcloudConfigDir, "configurations", fmt.Sprintf("config_%s", activeConfig))
+
+	// check if config file exists
+	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
+		// fall back to properties file
+		configFilePath = filepath.Join(gcloudConfigDir, "properties")
+		if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
+			return fmt.Errorf("gcloud config file not found at %s or properties file", configFilePath)
+		}
+	}
+
+	// load the configuration file (INI format)
+	cfg, err := ini.Load(configFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read gcloud config file: %w", err)
+	}
+
+	// get project ID from [core] section
+	if i.ProjectID == "" {
+		projectID := cfg.Section("core").Key("project").String()
+		if projectID != "" {
+			i.ProjectID = projectID
+		}
+	}
+
+	// get region from [compute] section
+	if i.Region == "" {
+		region := cfg.Section("compute").Key("region").String()
+		if region != "" {
+			i.Region = region
+		}
+	}
+
+	return nil
+}
+
+// EnsureGCPAuth checks for valid GCP Application Default Credentials and initiates
+// the OAuth flow if credentials are missing or invalid. This allows users to
+// authenticate without manually running `gcloud auth application-default login`.
+//
+// This function handles three authentication scenarios:
+// 1. CLI usage (tptctl): Uses browser-based OAuth flow for user authentication
+// 2. Controller in GKE: Uses Workload Identity (automatic via metadata server)
+// 3. Controller outside GCP: Uses service account credentials JSON
+//
+// The serviceAccountCredentials parameter should contain the JSON contents of a
+// GCP service account key file. If empty, the function will check for existing
+// credentials (scenarios 1 and 2) and fall back to browser-based auth if needed.
+func EnsureGCPAuth(serviceAccountCredentials string) error {
+	ctx := context.Background()
+
+	// FIRST: Check if valid credentials already exist
+	// This covers (in order of preference):
+	// - Workload Identity in GKE (scenario 2) - most secure, uses short-lived tokens
+	// - User credentials from gcloud auth (scenario 1)
+	// - Previously configured service account key file via GOOGLE_APPLICATION_CREDENTIALS
+	if hasValidGCPCredentials(ctx) {
+		return nil
+	}
+
+	// SECOND: If no valid credentials exist and service account credentials are
+	// provided, use them. This is the fallback for controllers running outside GCP.
+	if serviceAccountCredentials != "" {
+		if err := configureServiceAccountCredentials(serviceAccountCredentials); err != nil {
+			return fmt.Errorf("failed to configure service account credentials: %w", err)
+		}
+		return nil
+	}
+
+	// THIRD: Fall back to browser-based OAuth flow (scenario 1 - CLI only)
+	// This only works for CLI usage (tptctl), not for controllers
+	fmt.Println("GCP credentials not found or expired. Initiating authentication...")
+
+	// perform the OAuth flow
+	if err := performGCPOAuthFlow(ctx); err != nil {
+		return fmt.Errorf("failed to authenticate with GCP: %w", err)
+	}
+
+	fmt.Println("GCP authentication successful!")
+	return nil
+}
+
+// configureServiceAccountCredentials writes the service account JSON to a
+// temporary file and sets the GOOGLE_APPLICATION_CREDENTIALS environment
+// variable to point to it. This allows all GCP client libraries to automatically
+// use these credentials.
+func configureServiceAccountCredentials(credentialsJSON string) error {
+	// create a temporary file for the credentials
+	tmpFile, err := os.CreateTemp("", "gcp-sa-*.json")
+	if err != nil {
+		return fmt.Errorf("failed to create temp credentials file: %w", err)
+	}
+
+	// write the credentials JSON to the file
+	if _, err := tmpFile.WriteString(credentialsJSON); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+		return fmt.Errorf("failed to write credentials to temp file: %w", err)
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpFile.Name())
+		return fmt.Errorf("failed to close temp credentials file: %w", err)
+	}
+
+	// set the environment variable so all GCP client libraries use these credentials
+	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", tmpFile.Name())
 
 	return nil
 }
@@ -826,210 +1129,4 @@ func openBrowser(url string) error {
 	}
 
 	return cmd.Start()
-}
-
-// setupPulumiWorkspace sets up the Pulumi workspace and environment for GKE operations
-func (i *KubernetesRuntimeInfraGKE) setupPulumiWorkspace(program pulumi.RunFunc) (auto.Stack, error) {
-	// set up state directory
-	if err := i.setStateDir(); err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to set state directory: %w", err)
-	}
-
-	// set environment variables for Pulumi configuration
-	if err := i.setPulumiEnvVars(); err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to set Pulumi environment variables: %w", err)
-	}
-
-	// load GCP configuration from gcloud CLI config or environment variables
-	if err := i.loadGCPConfig(); err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to load GCP configuration: %w", err)
-	}
-
-	// create Pulumi.yaml project file
-	pulumiYaml := `name: gke
-runtime: go
-description: Google Kubernetes Engine (GKE) cluster for Threeport
-`
-	pulumiYamlPath := filepath.Join(i.stateDir, "Pulumi.yaml")
-	if err := os.WriteFile(pulumiYamlPath, []byte(pulumiYaml), 0644); err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to create Pulumi.yaml: %w", err)
-	}
-
-	ctx := context.Background()
-
-	// create a new workspace with local state backend
-	workspace, err := auto.NewLocalWorkspace(
-		ctx,
-		auto.Program(program),
-		auto.WorkDir(i.stateDir),
-	)
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to create workspace: %w", err)
-	}
-
-	// create or select a stack with fully qualified name
-	stack, err := auto.UpsertStack(ctx, i.getStackName(), workspace)
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to create/select stack: %w", err)
-	}
-
-	// set up stack configuration
-	err = stack.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: i.ProjectID})
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to set project config: %w", err)
-	}
-
-	err = stack.SetConfig(ctx, "gcp:region", auto.ConfigValue{Value: i.Region})
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to set region config: %w", err)
-	}
-
-	return stack, nil
-}
-
-// setPulumiEnvVars sets the environment variables for Pulumi
-func (i *KubernetesRuntimeInfraGKE) setPulumiEnvVars() error {
-	os.Setenv("PULUMI_BACKEND_URL", "file://"+i.stateDir)
-	os.Setenv("PULUMI_HOME", i.stateDir)
-	os.Setenv("PULUMI_ORGANIZATION", "organization") // TODO: make this configurable
-	os.Setenv("PULUMI_PROJECT", "gke")
-	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "threeport")
-
-	// set plugin path to the default location
-	userHomeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-	defaultPluginPath := filepath.Join(userHomeDir, ".pulumi", "plugins")
-	os.Setenv("PULUMI_PLUGIN_PATH", defaultPluginPath)
-
-	return nil
-}
-
-// setStateDir sets the state directory for the GKE stack
-func (i *KubernetesRuntimeInfraGKE) setStateDir() error {
-	pulumiStateDir, err := GetPulumiStateDir()
-	if err != nil {
-		return fmt.Errorf("failed to get pulumi state directory: %w", err)
-	}
-
-	i.stateDir = filepath.Join(pulumiStateDir, i.RuntimeInstanceName)
-
-	// ensure state directory exists
-	if err := os.MkdirAll(i.stateDir, 0755); err != nil {
-		return fmt.Errorf("failed to create state directory: %w", err)
-	}
-
-	return nil
-}
-
-// getStackName returns the name of the GKE stack
-func (i *KubernetesRuntimeInfraGKE) getStackName() string {
-	return fmt.Sprintf("organization/gke/%s", i.RuntimeInstanceName)
-}
-
-// loadGCPConfig reads the GCP configuration from gcloud CLI config files
-// or environment variables and populates KubernetesRuntimeInfraGKE struct fields.
-// It follows a similar pattern to loadOCIConfig in OKE.
-func (i *KubernetesRuntimeInfraGKE) loadGCPConfig() error {
-	// first check environment variables
-	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
-	if projectID == "" {
-		projectID = os.Getenv("CLOUDSDK_CORE_PROJECT")
-	}
-	if projectID == "" {
-		projectID = os.Getenv("GCLOUD_PROJECT")
-	}
-
-	region := os.Getenv("CLOUDSDK_COMPUTE_REGION")
-	if region == "" {
-		region = os.Getenv("GOOGLE_REGION")
-	}
-
-	// if environment variables provided the values, use them
-	if projectID != "" && i.ProjectID == "" {
-		i.ProjectID = projectID
-	}
-	if region != "" && i.Region == "" {
-		i.Region = region
-	}
-
-	// if we already have both values, return early
-	if i.ProjectID != "" && i.Region != "" {
-		return nil
-	}
-
-	// try to read from gcloud configuration files
-	if err := i.loadGCPConfigFromFile(); err != nil {
-		// if we still don't have required values, return error
-		if i.ProjectID == "" {
-			return fmt.Errorf("GCP project ID not found in environment variables or gcloud config: %w", err)
-		}
-		if i.Region == "" {
-			return fmt.Errorf("GCP region not found in environment variables or gcloud config: %w", err)
-		}
-	}
-
-	return nil
-}
-
-// loadGCPConfigFromFile reads the gcloud CLI configuration files
-// to get project ID and region settings.
-func (i *KubernetesRuntimeInfraGKE) loadGCPConfigFromFile() error {
-	// get user's home directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	// gcloud config directory path
-	var gcloudConfigDir string
-	if runtime.GOOS == "windows" {
-		gcloudConfigDir = filepath.Join(homeDir, "AppData", "Roaming", "gcloud")
-	} else {
-		gcloudConfigDir = filepath.Join(homeDir, ".config", "gcloud")
-	}
-
-	// try to determine the active configuration
-	activeConfig := "default"
-	activeConfigPath := filepath.Join(gcloudConfigDir, "active_config")
-	if activeConfigData, err := os.ReadFile(activeConfigPath); err == nil {
-		activeConfig = strings.TrimSpace(string(activeConfigData))
-	}
-
-	// try to read the configuration file for the active configuration
-	configFilePath := filepath.Join(gcloudConfigDir, "configurations", fmt.Sprintf("config_%s", activeConfig))
-
-	// check if config file exists
-	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
-		// fall back to properties file
-		configFilePath = filepath.Join(gcloudConfigDir, "properties")
-		if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
-			return fmt.Errorf("gcloud config file not found at %s or properties file", configFilePath)
-		}
-	}
-
-	// load the configuration file (INI format)
-	cfg, err := ini.Load(configFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to read gcloud config file: %w", err)
-	}
-
-	// get project ID from [core] section
-	if i.ProjectID == "" {
-		projectID := cfg.Section("core").Key("project").String()
-		if projectID != "" {
-			i.ProjectID = projectID
-		}
-	}
-
-	// get region from [compute] section
-	if i.Region == "" {
-		region := cfg.Section("compute").Key("region").String()
-		if region != "" {
-			i.Region = region
-		}
-	}
-
-	return nil
 }
