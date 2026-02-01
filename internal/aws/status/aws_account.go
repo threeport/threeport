@@ -10,7 +10,7 @@ import (
 
 // AwsProviderStatusDetail contains all the data for AWS provider status info.
 type AwsProviderStatusDetail struct {
-	AwsEksKubernetesRuntimeDefinitions *[]v0.AwsEksKubernetesRuntimeDefinition
+	AwsEksKubernetesRuntimeInstances *[]v0.AwsEksKubernetesRuntimeInstance
 }
 
 // GetAwsProviderStatus inspects an AWS Provider and returns the status details
@@ -22,16 +22,16 @@ func GetAwsProviderStatus(
 ) (*AwsProviderStatusDetail, error) {
 	var awsProviderStatus AwsProviderStatusDetail
 
-	// retrieve AWS EKS Kubernetes runtime definitions related to this provider
-	eksRuntimeDefs, err := client.GetAwsEksKubernetesRuntimeDefinitionsByQueryString(
+	// retrieve AWS EKS Kubernetes runtime instances related to this provider
+	eksRuntimeInstances, err := client.GetAwsEksKubernetesRuntimeInstancesByQueryString(
 		apiClient,
 		apiEndpoint,
 		fmt.Sprintf("awsproviderid=%d", awsProviderId),
 	)
 	if err != nil {
-		return &awsProviderStatus, fmt.Errorf("failed to retrieve AWS EKS Kubernetes runtime definitions related to AWS provider: %w", err)
+		return &awsProviderStatus, fmt.Errorf("failed to retrieve AWS EKS Kubernetes runtime instances related to AWS provider: %w", err)
 	}
-	awsProviderStatus.AwsEksKubernetesRuntimeDefinitions = eksRuntimeDefs
+	awsProviderStatus.AwsEksKubernetesRuntimeInstances = eksRuntimeInstances
 
 	return &awsProviderStatus, nil
 }

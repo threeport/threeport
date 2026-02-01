@@ -32,31 +32,6 @@ func v0KubernetesRuntimeDefinitionCreated(
 		// kind clusters not managed by k8s runtime controller
 		return 0, nil
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		// look up AWS provider
-		var awsProvider v0.AwsProvider
-		if kubernetesRuntimeDefinition.InfraProviderAccountName != nil {
-			// look up provider by provider name
-			provider, err := client.GetAwsProviderByName(
-				r.APIClient,
-				r.APIServer,
-				*kubernetesRuntimeDefinition.InfraProviderAccountName,
-			)
-			if err != nil {
-				return 0, fmt.Errorf("failed to get AWS provider by provider name: %w", err)
-			}
-			awsProvider = *provider
-		} else {
-			// look up default provider
-			provider, err := client.GetAwsProviderByDefaultProvider(
-				r.APIClient,
-				r.APIServer,
-			)
-			if err != nil {
-				return 0, fmt.Errorf("failed to get AWS provider by default: %w", err)
-			}
-			awsProvider = *provider
-		}
-
 		// create an AWS EKS cluster definition
 		var zoneCount int
 		if *kubernetesRuntimeDefinition.HighAvailability {
@@ -78,7 +53,6 @@ func v0KubernetesRuntimeDefinitionCreated(
 			Definition: v0.Definition{
 				Name: kubernetesRuntimeDefinition.Name,
 			},
-			AwsProviderID:                 awsProvider.ID,
 			ZoneCount:                     &zoneCount,
 			DefaultNodeGroupInstanceType:  &nodeGroupInstanceType,
 			DefaultNodeGroupInitialSize:   &defaultNodeGroupInitialSize,

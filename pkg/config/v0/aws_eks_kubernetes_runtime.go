@@ -150,7 +150,6 @@ func (a *AwsEksKubernetesRuntimeConfig) GetOperations(
 	awsEksKubernetesRuntimeDefinitionConfig := AwsEksKubernetesRuntimeDefinitionConfig{
 		AwsEksKubernetesRuntimeDefinition: AwsEksKubernetesRuntimeDefinitionValues{
 			Name:                         a.AwsEksKubernetesRuntime.Name,
-			AwsProviderName:              a.AwsEksKubernetesRuntime.AwsProviderName,
 			ZoneCount:                    a.AwsEksKubernetesRuntime.ZoneCount,
 			DefaultNodeGroupInstanceType: a.AwsEksKubernetesRuntime.DefaultNodeGroupInstanceType,
 			DefaultNodeGroupInitialSize:  a.AwsEksKubernetesRuntime.DefaultNodeGroupInitialSize,
@@ -196,8 +195,9 @@ func (a *AwsEksKubernetesRuntimeConfig) GetOperations(
 	// add aws eks kubernetes runtime instance operation
 	awsEksKubernetesRuntimeInstanceConfig := AwsEksKubernetesRuntimeInstanceConfig{
 		AwsEksKubernetesRuntimeInstance: AwsEksKubernetesRuntimeInstanceValues{
-			Name:   a.AwsEksKubernetesRuntime.Name,
-			Region: a.AwsEksKubernetesRuntime.Region,
+			Name:            a.AwsEksKubernetesRuntime.Name,
+			AwsProviderName: a.AwsEksKubernetesRuntime.AwsProviderName,
+			Region:          a.AwsEksKubernetesRuntime.Region,
 			AwsEksKubernetesRuntimeDefinition: &AwsEksKubernetesRuntimeDefinitionValues{
 				Name: a.AwsEksKubernetesRuntime.Name,
 			},
@@ -258,7 +258,7 @@ func mapToAwsEksKubernetesRuntimeDefinedInstances(
 				awsEksKubernetesRuntimeConfig := AwsEksKubernetesRuntimeConfig{
 					AwsEksKubernetesRuntime: AwsEksKubernetesRuntimeValues{
 						Name:                         inst.AwsEksKubernetesRuntimeInstance.Name,
-						AwsProviderName:              def.AwsEksKubernetesRuntimeDefinition.AwsProviderName,
+						AwsProviderName:              inst.AwsEksKubernetesRuntimeInstance.AwsProviderName,
 						ZoneCount:                    def.AwsEksKubernetesRuntimeDefinition.ZoneCount,
 						DefaultNodeGroupInstanceType: def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 						DefaultNodeGroupInitialSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,

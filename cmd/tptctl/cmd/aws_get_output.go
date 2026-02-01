@@ -77,7 +77,7 @@ func outputGetv0AwsEksKubernetesRuntimeDefinitionsCmd(
 	awsEksKubernetesRuntimeDefinitions *[]config_v0.AwsEksKubernetesRuntimeDefinitionConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t AWS ACCOUNT\t ZONE COUNT\t DEFAULT NODE GROUP INSTANCE TYPE\t DEFAULT NODE GROUP MINIMUM SIZE\t DEFAULT NODE GROUP MAXIMUM SIZE\t AGE")
+	fmt.Fprintln(writer, "NAME\t ZONE COUNT\t DEFAULT NODE GROUP INSTANCE TYPE\t DEFAULT NODE GROUP MINIMUM SIZE\t DEFAULT NODE GROUP MAXIMUM SIZE\t AGE")
 	for _, awsEksKubernetesRuntimeDefinition := range *awsEksKubernetesRuntimeDefinitions {
 		age := ""
 		if awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.Age != nil {
@@ -86,7 +86,6 @@ func outputGetv0AwsEksKubernetesRuntimeDefinitionsCmd(
 		fmt.Fprintln(
 			writer,
 			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.Name, "\t",
-			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.AwsProviderName, "\t",
 			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.ZoneCount, "\t",
 			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType, "\t",
 			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize, "\t",
@@ -105,8 +104,12 @@ func outputGetv0AwsEksKubernetesRuntimeInstancesCmd(
 	awsEksKubernetesRuntimeInstances *[]config_v0.AwsEksKubernetesRuntimeInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t REGION\t KUBERNETES RUNTIME INSTANCE NAME\t AWS EKS KUBERNETES DEFINITION NAME\t RECONCILED\t AGE")
+	fmt.Fprintln(writer, "NAME\t AWS PROVIDER\t REGION\t KUBERNETES RUNTIME INSTANCE NAME\t AWS EKS KUBERNETES DEFINITION NAME\t RECONCILED\t AGE")
 	for _, awsEksKubernetesRuntimeInstance := range *awsEksKubernetesRuntimeInstances {
+		awsProviderName := ""
+		if awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeInstance.AwsProviderName != nil {
+			awsProviderName = *awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeInstance.AwsProviderName
+		}
 		region := ""
 		if awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeInstance.Region != nil {
 			region = *awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeInstance.Region
@@ -132,6 +135,7 @@ func outputGetv0AwsEksKubernetesRuntimeInstancesCmd(
 		fmt.Fprintln(
 			writer,
 			*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeInstance.Name, "\t",
+			awsProviderName, "\t",
 			region, "\t",
 			kubernetesRuntimeInstanceName, "\t",
 			awsEksDefinitionName, "\t",

@@ -352,7 +352,6 @@ func ConfigureControlPlaneWithEksConfig(
 		Definition: v0.Definition{
 			Name: &eksRuntimeDefName,
 		},
-		AwsProviderID:                 createdAwsProvider.ID,
 		ZoneCount:                     &zoneCount,
 		DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfraEKS.DefaultNodeGroupInstanceType,
 		DefaultNodeGroupInitialSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)),
@@ -390,6 +389,7 @@ func ConfigureControlPlaneWithEksConfig(
 		Reconciliation: v0.Reconciliation{
 			Reconciled: &reconciled,
 		},
+		AwsProviderID:                       createdAwsProvider.ID,
 		Region:                              &awsConfigResourceManager.Region,
 		AwsEksKubernetesRuntimeDefinitionID: createdAwsEksKubernetesRuntimeDef.ID,
 		KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,

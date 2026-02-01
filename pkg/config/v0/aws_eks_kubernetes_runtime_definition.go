@@ -25,7 +25,6 @@ type AwsEksKubernetesRuntimeDefinitionConfig struct {
 // the AwsEksKubernetesRuntimeDefinition API object.
 type AwsEksKubernetesRuntimeDefinitionValues struct {
 	Name                         *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	AwsProviderName               *string `json:"AwsProviderName,omitempty" yaml:"AwsProviderName,omitempty"`
 	ZoneCount                    *int    `json:"ZoneCount,omitempty" yaml:"ZoneCount,omitempty"`
 	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" yaml:"DefaultNodeGroupInstanceType,omitempty"`
 	DefaultNodeGroupInitialSize  *int    `json:"DefaultNodeGroupInitialSize,omitempty" yaml:"DefaultNodeGroupInitialSize,omitempty"`
@@ -93,12 +92,6 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 		return nil, fmt.Errorf("failed to validate values for aws eks kubernetes runtime definition with name %s: %w", *awsEksKubernetesRuntimeDefinitionValues.Name, err)
 	}
 
-	// look up AWS provider by name
-	awsAccount, err := client_v0.GetAwsProviderByName(apiClient, apiEndpoint, *awsEksKubernetesRuntimeDefinitionValues.AwsProviderName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS provider with name %s: %w", *awsEksKubernetesRuntimeDefinitionValues.AwsProviderName, err)
-	}
-
 	// construct kubernetes runtime definition
 	infraProvider := api_v0.KubernetesRuntimeInfraProviderEKS
 	kubernetesRuntimeDefinition := api_v0.KubernetesRuntimeDefinition{
@@ -108,8 +101,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 		Reconciliation: api_v0.Reconciliation{
 			Reconciled: util.Ptr(true),
 		},
-		InfraProvider:            &infraProvider,
-		InfraProviderAccountName: awsAccount.Name,
+		InfraProvider: &infraProvider,
 	}
 
 	// create kubernetes runtime definition
@@ -123,7 +115,6 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 		Definition: api_v0.Definition{
 			Name: awsEksKubernetesRuntimeDefinitionValues.Name,
 		},
-		AwsProviderID:                  awsAccount.ID,
 		ZoneCount:                     awsEksKubernetesRuntimeDefinitionValues.ZoneCount,
 		DefaultNodeGroupInstanceType:  awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType,
 		DefaultNodeGroupInitialSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
@@ -147,7 +138,6 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 		AwsEksKubernetesRuntimeDefinition: AwsEksKubernetesRuntimeDefinitionValues{
 			Age:                          util.Ptr(util.GetAgeFormatted(createdAwsEksKubernetesRuntimeDefinition.CreatedAt)),
 			Name:                         createdAwsEksKubernetesRuntimeDefinition.Name,
-			AwsProviderName:               awsEksKubernetesRuntimeDefinitionValues.AwsProviderName,
 			ZoneCount:                    createdAwsEksKubernetesRuntimeDefinition.ZoneCount,
 			DefaultNodeGroupInstanceType: createdAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 			DefaultNodeGroupInitialSize:  createdAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
@@ -193,7 +183,6 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 		Definition: api_v0.Definition{
 			Name: awsEksKubernetesRuntimeDefinitionValues.Name,
 		},
-		AwsProviderID:                  existingAwsEksKubernetesRuntimeDefinition.AwsProviderID,
 		ZoneCount:                     awsEksKubernetesRuntimeDefinitionValues.ZoneCount,
 		DefaultNodeGroupInstanceType:  awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInstanceType,
 		DefaultNodeGroupInitialSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupInitialSize,
@@ -217,7 +206,6 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 		AwsEksKubernetesRuntimeDefinition: AwsEksKubernetesRuntimeDefinitionValues{
 			Age:                          util.Ptr(util.GetAgeFormatted(replacedAwsEksKubernetesRuntimeDefinition.CreatedAt)),
 			Name:                         replacedAwsEksKubernetesRuntimeDefinition.Name,
-			AwsProviderName:               awsEksKubernetesRuntimeDefinitionValues.AwsProviderName,
 			ZoneCount:                    replacedAwsEksKubernetesRuntimeDefinition.ZoneCount,
 			DefaultNodeGroupInstanceType: replacedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 			DefaultNodeGroupInitialSize:  replacedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,
@@ -289,11 +277,6 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Validate() error {
 	// ensure name is set
 	if awsEksKubernetesRuntimeDefinitionValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
-	}
-
-	// ensure aws account name is set
-	if awsEksKubernetesRuntimeDefinitionValues.AwsProviderName == nil {
-		multiError.AppendError(errors.New("missing required field in config: AwsProviderName"))
 	}
 
 	// ensure zone count is set

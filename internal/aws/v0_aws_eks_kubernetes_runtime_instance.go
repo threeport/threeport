@@ -60,19 +60,11 @@ func v0AwsEksKubernetesRuntimeInstanceCreated(
 			return 0, fmt.Errorf("failed to check if EKS cluster infra resources have been created: %w", err)
 		}
 		if creationComplete {
-			// get cluster definition and aws account info
-			awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
-				r.APIClient,
-				r.APIServer,
-				*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
-			)
-			if err != nil {
-				return 0, fmt.Errorf("failed to retreive cluster definition by ID: %w", err)
-			}
+			// get aws provider info
 			awsProvider, err := client.GetAwsProviderByID(
 				r.APIClient,
 				r.APIServer,
-				*awsEksKubernetesRuntimeDefinition.AwsProviderID,
+				*awsEksKubernetesRuntimeInstance.AwsProviderID,
 			)
 			if err != nil {
 				return 0, fmt.Errorf("failed to retrieve AWS provider by ID: %w", err)
@@ -174,7 +166,7 @@ func v0AwsEksKubernetesRuntimeInstanceCreated(
 		return 0, fmt.Errorf("failed to set creation acknowledged timestamp: %w", err)
 	}
 
-	// get cluster definition and aws account info
+	// get cluster definition and aws provider info
 	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
 		r.APIClient,
 		r.APIServer,
@@ -186,7 +178,7 @@ func v0AwsEksKubernetesRuntimeInstanceCreated(
 	awsProvider, err := client.GetAwsProviderByID(
 		r.APIClient,
 		r.APIServer,
-		*awsEksKubernetesRuntimeDefinition.AwsProviderID,
+		*awsEksKubernetesRuntimeInstance.AwsProviderID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve AWS provider by ID: %w", err)
@@ -328,19 +320,11 @@ func v0AwsEksKubernetesRuntimeInstanceDeleted(
 		return 0, fmt.Errorf("failed to set deletion acknowledge timestamp: %w", err)
 	}
 
-	// get cluster definition and aws account info
-	awsEksKubernetesRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
-		r.APIClient,
-		r.APIServer,
-		*awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to retreive cluster definition by ID: %w", err)
-	}
+	// get aws provider info
 	awsProvider, err := client.GetAwsProviderByID(
 		r.APIClient,
 		r.APIServer,
-		*awsEksKubernetesRuntimeDefinition.AwsProviderID,
+		*awsEksKubernetesRuntimeInstance.AwsProviderID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve AWS provider by ID: %w", err)

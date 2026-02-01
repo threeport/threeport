@@ -27,6 +27,7 @@ type AwsEksKubernetesRuntimeInstanceConfig struct {
 // the AwsEksKubernetesRuntimeInstance API object.
 type AwsEksKubernetesRuntimeInstanceValues struct {
 	Name                              *string                                  `json:"Name,omitempty" yaml:"Name,omitempty"`
+	AwsProviderName                   *string                                  `json:"AwsProviderName,omitempty" yaml:"AwsProviderName,omitempty"`
 	Region                            *string                                  `json:"Region,omitempty" yaml:"Region,omitempty"`
 	AwsEksKubernetesRuntimeDefinition *AwsEksKubernetesRuntimeDefinitionValues `json:"AwsEksKubernetesRuntimeDefinition,omitempty" yaml:"AwsEksKubernetesRuntimeDefinition,omitempty"`
 	KubernetesRuntimeInstance         *KubernetesRuntimeInstanceValues         `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
@@ -67,6 +68,19 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Get(
 		// related objects
 		var awsEksKubernetesRuntimeDefinition *AwsEksKubernetesRuntimeDefinitionValues
 		var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+		var awsProviderName *string
+
+		// get AWS provider name
+		if awsEksKubernetesRuntimeInstance.AwsProviderID != nil {
+			awsProvider, err := client_v0.GetAwsProviderByID(
+				apiClient,
+				apiEndpoint,
+				*awsEksKubernetesRuntimeInstance.AwsProviderID,
+			)
+			if err == nil {
+				awsProviderName = awsProvider.Name
+			}
+		}
 
 		// get AWS EKS kubernetes runtime definition
 		if awsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID != nil {
@@ -82,21 +96,8 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Get(
 					err,
 				)
 			}
-			// get AWS provider name
-			var awsProviderName *string
-			if awsEksKubernetesRuntimeDefinitionObj.AwsProviderID != nil {
-				awsProvider, err := client_v0.GetAwsProviderByID(
-					apiClient,
-					apiEndpoint,
-					*awsEksKubernetesRuntimeDefinitionObj.AwsProviderID,
-				)
-				if err == nil {
-					awsProviderName = awsProvider.Name
-				}
-			}
 			awsEksKubernetesRuntimeDefinition = &AwsEksKubernetesRuntimeDefinitionValues{
-				Name:            awsEksKubernetesRuntimeDefinitionObj.Name,
-				AwsProviderName: awsProviderName,
+				Name: awsEksKubernetesRuntimeDefinitionObj.Name,
 			}
 		}
 
@@ -122,6 +123,7 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Get(
 		awsEksKubernetesRuntimeInstanceConfig := AwsEksKubernetesRuntimeInstanceConfig{
 			AwsEksKubernetesRuntimeInstance: AwsEksKubernetesRuntimeInstanceValues{
 				Name:                              awsEksKubernetesRuntimeInstance.Name,
+				AwsProviderName:                   awsProviderName,
 				Region:                            awsEksKubernetesRuntimeInstance.Region,
 				AwsEksKubernetesRuntimeDefinition: awsEksKubernetesRuntimeDefinition,
 				KubernetesRuntimeInstance:         kubernetesRuntimeInstance,
@@ -151,6 +153,12 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Create(
 	awsEksKubernetesRuntimeDefinition, err := client_v0.GetAwsEksKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, *awsEksKubernetesRuntimeInstanceValues.AwsEksKubernetesRuntimeDefinition.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find AWS EKS kubernetes runtime definition with name %s: %w", *awsEksKubernetesRuntimeInstanceValues.AwsEksKubernetesRuntimeDefinition.Name, err)
+	}
+
+	// look up AWS provider by name
+	awsProvider, err := client_v0.GetAwsProviderByName(apiClient, apiEndpoint, *awsEksKubernetesRuntimeInstanceValues.AwsProviderName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find AWS provider with name %s: %w", *awsEksKubernetesRuntimeInstanceValues.AwsProviderName, err)
 	}
 
 	// get location for provider AWS region
@@ -186,6 +194,7 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Create(
 		Instance: api_v0.Instance{
 			Name: awsEksKubernetesRuntimeInstanceValues.Name,
 		},
+		AwsProviderID:                       awsProvider.ID,
 		Region:                              awsEksKubernetesRuntimeInstanceValues.Region,
 		KubernetesRuntimeInstanceID:         createdKubernetesRuntimeInstance.ID,
 		AwsEksKubernetesRuntimeDefinitionID: awsEksKubernetesRuntimeDefinition.ID,
@@ -206,6 +215,7 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Create(
 		AwsEksKubernetesRuntimeInstance: AwsEksKubernetesRuntimeInstanceValues{
 			Age:                               util.Ptr(util.GetAgeFormatted(createdAwsEksKubernetesRuntimeInstance.CreatedAt)),
 			Name:                              createdAwsEksKubernetesRuntimeInstance.Name,
+			AwsProviderName:                   awsEksKubernetesRuntimeInstanceValues.AwsProviderName,
 			Region:                            createdAwsEksKubernetesRuntimeInstance.Region,
 			AwsEksKubernetesRuntimeDefinition: awsEksKubernetesRuntimeInstanceValues.AwsEksKubernetesRuntimeDefinition,
 			Reconciled:                        createdAwsEksKubernetesRuntimeInstance.Reconciled,
@@ -249,6 +259,7 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Replace(
 		Instance: api_v0.Instance{
 			Name: awsEksKubernetesRuntimeInstanceValues.Name,
 		},
+		AwsProviderID:                       existingAwsEksKubernetesRuntimeInstance.AwsProviderID,
 		Region:                              awsEksKubernetesRuntimeInstanceValues.Region,
 		KubernetesRuntimeInstanceID:         existingAwsEksKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
 		AwsEksKubernetesRuntimeDefinitionID: existingAwsEksKubernetesRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
@@ -269,6 +280,7 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Replace(
 		AwsEksKubernetesRuntimeInstance: AwsEksKubernetesRuntimeInstanceValues{
 			Age:                               util.Ptr(util.GetAgeFormatted(replacedAwsEksKubernetesRuntimeInstance.CreatedAt)),
 			Name:                              replacedAwsEksKubernetesRuntimeInstance.Name,
+			AwsProviderName:                   awsEksKubernetesRuntimeInstanceValues.AwsProviderName,
 			Region:                            replacedAwsEksKubernetesRuntimeInstance.Region,
 			AwsEksKubernetesRuntimeDefinition: awsEksKubernetesRuntimeInstanceValues.AwsEksKubernetesRuntimeDefinition,
 			Reconciled:                        replacedAwsEksKubernetesRuntimeInstance.Reconciled,
@@ -389,6 +401,11 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Validate() error {
 	// ensure name is set
 	if awsEksKubernetesRuntimeInstanceValues.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
+	}
+
+	// ensure aws provider name is set
+	if awsEksKubernetesRuntimeInstanceValues.AwsProviderName == nil {
+		multiError.AppendError(errors.New("missing required field in config: AwsProviderName"))
 	}
 
 	// ensure region is set

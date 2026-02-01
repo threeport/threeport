@@ -449,24 +449,14 @@ func refreshEKSConnection(
 		return nil, fmt.Errorf("failed to get AWS EKS kubernetes runtime instance by kubernetes runtime instance ID %d: %w", runtimeInstance.ID, err)
 	}
 
-	// get EKS runtime definition
-	eksRuntimeDefinition, err := client.GetAwsEksKubernetesRuntimeDefinitionByID(
-		threeportAPIClient,
-		threeportAPIEndpoint,
-		*eksRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to AWS EKS kubernetes runtime definition by ID %d: %w", eksRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID, err)
-	}
-
 	// get AWS provider
 	awsProvider, err := client.GetAwsProviderByID(
 		threeportAPIClient,
 		threeportAPIEndpoint,
-		*eksRuntimeDefinition.AwsProviderID,
+		*eksRuntimeInstance.AwsProviderID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get AWS provider by ID %d: %w", *eksRuntimeDefinition.AwsProviderID, err)
+		return nil, fmt.Errorf("failed to get AWS provider by ID %d: %w", *eksRuntimeInstance.AwsProviderID, err)
 	}
 
 	awsConfig, err := GetAwsConfigFromAwsProvider(encryptionKey, *eksRuntimeInstance.Region, awsProvider)

@@ -185,27 +185,7 @@ func v0ControlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to get resource inventory: %w", err)
 		}
 
-		// get awsKubernetesRuntimeDef
-		awsKubernetesRuntimeDef, err := client.GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef(
-			r.APIClient,
-			r.APIServer,
-			*kubernetesRuntimeDefinition.ID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get aws eks kubernetes runtime definition: %w", err)
-		}
-
-		// get AWS config
-		awsProvider, err := client.GetAwsProviderByID(
-			r.APIClient,
-			r.APIServer,
-			*awsKubernetesRuntimeDef.AwsProviderID,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get awsProvider: %w", err)
-		}
-
-		// Get region
+		// Get AWS EKS runtime instance
 		awsEksKubernetesRuntimeInstance, err := client.GetAwsEksKubernetesRuntimeInstanceByK8sRuntimeInst(
 			r.APIClient,
 			r.APIServer,
@@ -213,6 +193,16 @@ func v0ControlPlaneInstanceCreated(
 		)
 		if err != nil {
 			return 0, fmt.Errorf("could not get awk eks kubernetes runtime instance: %w", err)
+		}
+
+		// get AWS config
+		awsProvider, err := client.GetAwsProviderByID(
+			r.APIClient,
+			r.APIServer,
+			*awsEksKubernetesRuntimeInstance.AwsProviderID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get awsProvider: %w", err)
 		}
 
 		awsConfig, err := kube.GetAwsConfigFromAwsProvider(
@@ -631,7 +621,7 @@ func v0ControlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to get AwsEksKubernetesRuntimeInstance: %w", err)
 		}
 
-		awsProvider, err := client.GetAwsProviderByAccountID(r.APIClient, r.APIServer, fmt.Sprint(awsRuntimeDef.AwsProviderID))
+		awsProvider, err := client.GetAwsProviderByID(r.APIClient, r.APIServer, *awsRuntimeInstance.AwsProviderID)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get AwsProvider: %w", err)
 		}
@@ -661,13 +651,13 @@ func v0ControlPlaneInstanceCreated(
 		}
 
 		awsRuntimeDef.Common = v0.Common{}
-		awsRuntimeDef.AwsProviderID = createdAwsProvider.ID
 		createdAwsRuntimDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, awsRuntimeDef)
 		if err != nil {
 			return 0, fmt.Errorf("failed to create AwsEksKubernetesRuntimeDefinition: %w", err)
 		}
 
 		awsRuntimeInstance.Common = v0.Common{}
+		awsRuntimeInstance.AwsProviderID = createdAwsProvider.ID
 		awsRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID = createdAwsRuntimDef.ID
 		_, err = client.CreateAwsEksKubernetesRuntimeInstance(newApiClient, threeportAPIEndpoint, awsRuntimeInstance)
 		if err != nil {
