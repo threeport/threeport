@@ -94,6 +94,43 @@ func v0KubernetesRuntimeDefinitionCreated(
 		if err != nil {
 			return 0, fmt.Errorf("failed to create new AWS EKS kubernetes runtime: %w", err)
 		}
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		// create a GCP GKE cluster definition
+		var zoneCount int
+		if *kubernetesRuntimeDefinition.HighAvailability {
+			zoneCount = 3
+		} else {
+			zoneCount = 2
+		}
+		nodeGroupInstanceType, err := mapping.GetMachineType(
+			"gcp",
+			*kubernetesRuntimeDefinition.NodeProfile,
+			*kubernetesRuntimeDefinition.NodeSize,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to map node size and profile to GCP machine type: %w", err)
+		}
+		defaultNodeGroupInitialSize := 2
+		defaultNodeGroupMinSize := 0
+		gcpGkeKubernetesRuntimeDefinition := v0.GcpGkeKubernetesRuntimeDefinition{
+			Definition: v0.Definition{
+				Name: kubernetesRuntimeDefinition.Name,
+			},
+			ZoneCount:                     &zoneCount,
+			DefaultNodeGroupInstanceType:  &nodeGroupInstanceType,
+			DefaultNodeGroupInitialSize:   &defaultNodeGroupInitialSize,
+			DefaultNodeGroupMinimumSize:   &defaultNodeGroupMinSize,
+			DefaultNodeGroupMaximumSize:   kubernetesRuntimeDefinition.NodeMaximum,
+			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,
+		}
+		_, err = client.CreateGcpGkeKubernetesRuntimeDefinition(
+			r.APIClient,
+			r.APIServer,
+			&gcpGkeKubernetesRuntimeDefinition,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create new GCP GKE kubernetes runtime definition: %w", err)
+		}
 	}
 
 	return 0, nil

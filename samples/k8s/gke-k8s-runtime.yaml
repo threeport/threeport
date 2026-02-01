@@ -1,0 +1,7 @@
+KubernetesRuntime:
+  Name: gke-remote
+  InfraProvider: gke
+  InfraProviderAccountName: default-account
+  HighAvailability: false
+  Location: NorthAmerica:NewYork
+  DefaultRuntime: true

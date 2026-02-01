@@ -79,6 +79,64 @@ func v0KubernetesRuntimeInstanceCreated(
 		if err != nil {
 			return 0, fmt.Errorf("failed to create EKS kubernetes runtime instance: %w", err)
 		}
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		// get GCP GKE runtime definition
+		gcpGkeKubernetesRuntimeDefinition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByK8sRuntimeDef(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeDefinition.ID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get GCP GKE runtime definition by kubernetes runtime definition ID: %w", err)
+		}
+
+		// look up GCP account
+		var gcpAccount v0.GcpAccount
+		if kubernetesRuntimeDefinition.InfraProviderAccountName != nil {
+			// look up account by account name
+			account, err := client.GetGcpAccountByName(
+				r.APIClient,
+				r.APIServer,
+				*kubernetesRuntimeDefinition.InfraProviderAccountName,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to get GCP account by account name: %w", err)
+			}
+			gcpAccount = *account
+		} else {
+			// look up default account
+			account, err := client.GetGcpAccountByDefaultAccount(
+				r.APIClient,
+				r.APIServer,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to get GCP account by default: %w", err)
+			}
+			gcpAccount = *account
+		}
+
+		// add GCP GKE runtime instance
+		region, err := mapping.GetProviderRegionForLocation(util.GcpProvider, *kubernetesRuntimeInstance.Location)
+		if err != nil {
+			return 0, fmt.Errorf("failed to map threeport location to GCP region: %w", err)
+		}
+		gcpGkeKubernetesRuntimeInstance := v0.GcpGkeKubernetesRuntimeInstance{
+			Instance: v0.Instance{
+				Name: kubernetesRuntimeInstance.Name,
+			},
+			GcpAccountID:                        gcpAccount.ID,
+			Region:                              &region,
+			KubernetesRuntimeInstanceID:         kubernetesRuntimeInstance.ID,
+			GcpGkeKubernetesRuntimeDefinitionID: gcpGkeKubernetesRuntimeDefinition.ID,
+		}
+		_, err = client.CreateGcpGkeKubernetesRuntimeInstance(
+			r.APIClient,
+			r.APIServer,
+			&gcpGkeKubernetesRuntimeInstance,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create GKE kubernetes runtime instance: %w", err)
+		}
 	}
 
 	return 0, nil
@@ -250,6 +308,26 @@ func v0KubernetesRuntimeInstanceDeleted(
 		if err != nil {
 			return 0, fmt.Errorf("failed to delete aws eks runtime instance by ID: %w", err)
 		}
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		// get GCP GKE runtime instance
+		gcpGkeKubernetesRuntimeInstance, err := client.GetGcpGkeKubernetesRuntimeInstanceByK8sRuntimeInst(
+			r.APIClient,
+			r.APIServer,
+			*kubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get GCP GKE runtime instance by kubernetes runtime instance ID: %w", err)
+		}
+
+		// delete GCP GKE runtime instance
+		_, err = client.DeleteGcpGkeKubernetesRuntimeInstance(
+			r.APIClient,
+			r.APIServer,
+			*gcpGkeKubernetesRuntimeInstance.ID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to delete GCP GKE runtime instance by ID: %w", err)
+		}
 	}
 
 	return 0, nil
@@ -261,6 +339,8 @@ func GetCloudProviderForInfraProvider(input string) (string, error) {
 	switch input {
 	case v0.KubernetesRuntimeInfraProviderEKS:
 		return util.AwsProvider, nil
+	case v0.KubernetesRuntimeInfraProviderGKE:
+		return util.GcpProvider, nil
 	case v0.KubernetesRuntimeInfraProviderKind:
 		return util.AwsProvider, nil // default to AWS values for testing purposes
 	default:

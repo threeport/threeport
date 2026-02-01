@@ -143,13 +143,14 @@ func (k *KubernetesRuntimeInstanceConfig) Create(
 	// construct kubernetes runtime instance config
 	createdKubernetesRuntimeInstanceConfig := &KubernetesRuntimeInstanceConfig{
 		KubernetesRuntimeInstance: KubernetesRuntimeInstanceValues{
-			Age:                       util.Ptr(util.GetAgeFormatted(createdKubernetesRuntimeInstance.CreatedAt)),
-			Name:                      createdKubernetesRuntimeInstance.Name,
-			DefaultRuntime:            createdKubernetesRuntimeInstance.DefaultRuntime,
-			Location:                  createdKubernetesRuntimeInstance.Location,
-			ThreeportAgentImage:       createdKubernetesRuntimeInstance.ThreeportAgentImage,
-			ThreeportControlPlaneHost: createdKubernetesRuntimeInstance.ThreeportControlPlaneHost,
-			ForceDelete:               createdKubernetesRuntimeInstance.ForceDelete,
+			Age:                         util.Ptr(util.GetAgeFormatted(createdKubernetesRuntimeInstance.CreatedAt)),
+			Name:                        createdKubernetesRuntimeInstance.Name,
+			DefaultRuntime:              createdKubernetesRuntimeInstance.DefaultRuntime,
+			Location:                    createdKubernetesRuntimeInstance.Location,
+			ThreeportAgentImage:         createdKubernetesRuntimeInstance.ThreeportAgentImage,
+			ThreeportControlPlaneHost:   createdKubernetesRuntimeInstance.ThreeportControlPlaneHost,
+			ForceDelete:                 createdKubernetesRuntimeInstance.ForceDelete,
+			KubernetesRuntimeDefinition: kubernetesRuntimeInstanceValues.KubernetesRuntimeDefinition,
 		},
 	}
 
