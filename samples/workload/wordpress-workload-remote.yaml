@@ -5,7 +5,7 @@ Workload:
     Name: eks-k8s-runtime
   AwsRelationalDatabase:
     Name: wordpress-db
-    AwsAccountName: default-account
+    AwsProviderName: default-account
     Engine: mariadb
     EngineVersion: "10.11"
     DatabaseName: wordpress
@@ -15,7 +15,7 @@ Workload:
     WorkloadSecretName: wordpress-db-conn
   AwsObjectStorageBucket:
     Name: s3-client-bucket
-    AwsAccountName: default-account
+    AwsProviderName: default-account
     PublicReadAccess: false
     WorkloadServiceAccountName: s3-client
     WorkloadBucketEnvVar: S3_BUCKET_NAME
@@ -26,7 +26,7 @@ Workload:
     AdminEmail: admin@example.com
   Secret:
     Name: wordpress-secret
-    AwsAccountName: default-account
+    AwsProviderName: default-account
     Data:
       WORDPRESS_PASSWORD: admin_password
       WORDPRESS_SMTP_PASSWORD: smtp_password

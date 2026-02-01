@@ -10,9 +10,9 @@ import (
 // AddRoutes adds routes for all objects of a particular API version.
 func AddRoutes(e *echo.Echo, h *handlers.Handler) {
 	AttachedObjectReferenceRoutes(e, h)
-	AwsAccountRoutes(e, h)
 	AwsEksKubernetesRuntimeDefinitionRoutes(e, h)
 	AwsEksKubernetesRuntimeInstanceRoutes(e, h)
+	AwsProviderRoutes(e, h)
 	ControlPlaneDefinitionRoutes(e, h)
 	ControlPlaneInstanceRoutes(e, h)
 	DomainNameDefinitionRoutes(e, h)

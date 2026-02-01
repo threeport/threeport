@@ -272,50 +272,6 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register aws-controller: %w", result.Error)
 	}
 
-	// registering object AwsAccount
-	object = api_v0.ModuleObject{
-		Description: util.Ptr("AwsAccount is a user account with the Amazon Web Services service provider."),
-		ModuleApiID: moduleApi.ID,
-		Name:        util.Ptr("AwsAccount"),
-		Version:     util.Ptr("v0"),
-	}
-	result = db.Where(api_v0.ModuleObject{
-		ModuleApiID: moduleApi.ID,
-		Name:        object.Name,
-		Version:     object.Version,
-	}).FirstOrCreate(&object)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register AwsAccount: %w", result.Error)
-	}
-
-	// registering routes for AwsAccount
-	route = api_v0.ModuleApiRoute{
-		ModuleApiID:   moduleApi.ID,
-		ModuleObjects: []*api_v0.ModuleObject{&object},
-		Path:          util.Ptr(api_v0.PathAwsAccountVersions),
-	}
-	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
-		ModuleApiID:   moduleApi.ID,
-		ModuleObjects: []*api_v0.ModuleObject{&object},
-		Path:          route.Path,
-	}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register version route for AwsAccount: %w", result.Error)
-	}
-	route = api_v0.ModuleApiRoute{
-		ModuleApiID:   moduleApi.ID,
-		ModuleObjects: []*api_v0.ModuleObject{&object},
-		Path:          util.Ptr(api_v0.PathAwsAccounts),
-	}
-	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
-		ModuleApiID:   moduleApi.ID,
-		ModuleObjects: []*api_v0.ModuleObject{&object},
-		Path:          route.Path,
-	}).FirstOrCreate(&route)
-	if result.Error != nil {
-		return fmt.Errorf("failed to register object route for AwsAccount: %w", result.Error)
-	}
-
 	// registering object AwsEksKubernetesRuntimeDefinition
 	object = api_v0.ModuleObject{
 		Description: util.Ptr("AwsEksKubernetesRuntimeDefinition provides the configuration for EKS cluster instances."),
@@ -403,6 +359,50 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 	}).FirstOrCreate(&route)
 	if result.Error != nil {
 		return fmt.Errorf("failed to register object route for AwsEksKubernetesRuntimeInstance: %w", result.Error)
+	}
+
+	// registering object AwsProvider
+	object = api_v0.ModuleObject{
+		Description: util.Ptr("AwsProvider represents an account with the Amazon Web Services (AWS) service provider."),
+		ModuleApiID: moduleApi.ID,
+		Name:        util.Ptr("AwsProvider"),
+		Version:     util.Ptr("v0"),
+	}
+	result = db.Where(api_v0.ModuleObject{
+		ModuleApiID: moduleApi.ID,
+		Name:        object.Name,
+		Version:     object.Version,
+	}).FirstOrCreate(&object)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register AwsProvider: %w", result.Error)
+	}
+
+	// registering routes for AwsProvider
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsProviderVersions),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register version route for AwsProvider: %w", result.Error)
+	}
+	route = api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          util.Ptr(api_v0.PathAwsProviders),
+	}
+	result = db.Omit("ModuleObjects.*").Where(api_v0.ModuleApiRoute{
+		ModuleApiID:   moduleApi.ID,
+		ModuleObjects: []*api_v0.ModuleObject{&object},
+		Path:          route.Path,
+	}).FirstOrCreate(&route)
+	if result.Error != nil {
+		return fmt.Errorf("failed to register object route for AwsProvider: %w", result.Error)
 	}
 
 	// /////////////////////////////////////////////////////////////////////////////

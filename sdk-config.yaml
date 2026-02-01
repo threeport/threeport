@@ -35,7 +35,7 @@ ApiObjectGroups:
         Enabled: true
 - Name: aws
   Objects:
-    - Name: AwsAccount
+    - Name: AwsProvider
       Versions:
         - v0
       Tptctl:

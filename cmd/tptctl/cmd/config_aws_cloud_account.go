@@ -23,7 +23,7 @@ import (
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
-var awsAccountName string
+var awsProviderName string
 var awsProfile string
 var awsRegion string
 var providerRegion string
@@ -34,11 +34,11 @@ var externalRoleName string
 
 // ConfigCurrentInstanceCmd represents the current-instance command
 var ConfigAwsCloudAccountCmd = &cobra.Command{
-	Use:     "aws-account",
-	Example: "tptctl config aws-account --aws-account-name my-account --aws-region us-east-1 --aws-profile my-profile --aws-account-id 123456789012",
-	Short:   "Configure an aws account",
-	Long: `Configure AWS account permissions. This creates an account in the Threeport API
-	and the configures the respective customer-managed AWS account.`,
+	Use:     "aws-provider",
+	Example: "tptctl config aws-provider --aws-provider-name my-aws-provider --aws-region us-east-1 --aws-profile my-profile --aws-account-id 123456789012",
+	Short:   "Configure an aws provider",
+	Long: `Configure AWS provider permissions. This creates a provider in the Threeport API
+	and the configures the respective customer-managed AWS provider.`,
 	SilenceUsage: true,
 	PreRun:       CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -95,13 +95,13 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 		}
 
 		// create aws account in threeport API to generate an external ID value
-		awsAccount := v0.AwsAccount{
-			Name:           ptr.String(awsAccountName),
-			AccountID:      callerIdentity.Account,
-			DefaultAccount: ptr.Bool(defaultAccount),
-			DefaultRegion:  ptr.String(awsRegion),
+		awsProvider := v0.AwsProvider{
+			Name:            ptr.String(awsProviderName),
+			AccountID:       callerIdentity.Account,
+			DefaultProvider: ptr.Bool(defaultAccount),
+			DefaultRegion:   ptr.String(awsRegion),
 		}
-		createdAwsAccount, err := client.CreateAwsAccount(apiClient, apiEndpoint, &awsAccount)
+		createdAwsProvider, err := client.CreateAwsProvider(apiClient, apiEndpoint, &awsProvider)
 		if err != nil {
 			cli.Error("failed to create aws account", err)
 			os.Exit(1)
@@ -123,7 +123,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			*callerIdentity.Account,
 			awsAccountId,
 			externalRoleName,
-			*createdAwsAccount.ExternalId,
+			*createdAwsProvider.ExternalId,
 			true,
 			true,
 			*awsConf,
@@ -132,7 +132,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 		if err != nil {
 			cli.Error("failed to create role", err)
 
-			_, err = client.DeleteAwsAccount(apiClient, apiEndpoint, *createdAwsAccount.ID)
+			_, err = client.DeleteAwsProvider(apiClient, apiEndpoint, *createdAwsProvider.ID)
 			if err != nil {
 				cli.Error("failed to delete aws account", err)
 			}
@@ -140,12 +140,12 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 		}
 
 		// update aws account with role arn
-		createdAwsAccount.RoleArn = role.Arn
-		_, err = client.UpdateAwsAccount(apiClient, apiEndpoint, createdAwsAccount)
+		createdAwsProvider.RoleArn = role.Arn
+		_, err = client.UpdateAwsProvider(apiClient, apiEndpoint, createdAwsProvider)
 		if err != nil {
 			cli.Error("failed to update aws account", err)
 
-			_, err = client.DeleteAwsAccount(apiClient, apiEndpoint, *createdAwsAccount.ID)
+			_, err = client.DeleteAwsProvider(apiClient, apiEndpoint, *createdAwsProvider.ID)
 			if err != nil {
 				cli.Error("failed to delete aws account", err)
 			}
@@ -157,7 +157,7 @@ var ConfigAwsCloudAccountCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		cli.Complete(fmt.Sprintf("Configured AWS account with runtime manager role: %s", *role.Arn))
+		cli.Complete(fmt.Sprintf("Configured AWS provider with runtime manager role: %s", *role.Arn))
 	},
 }
 
@@ -165,10 +165,10 @@ func init() {
 	ConfigCmd.AddCommand(ConfigAwsCloudAccountCmd)
 
 	ConfigAwsCloudAccountCmd.Flags().StringVar(
-		&awsAccountName,
-		"aws-account-name",
+		&awsProviderName,
+		"aws-provider-name",
 		"",
-		"The name of the AwsAccount object to create in the Threeport API.",
+		"The name of the AwsProvider object to create in the Threeport API.",
 	)
 	ConfigAwsCloudAccountCmd.Flags().StringVar(
 		&awsRegion,
@@ -204,10 +204,10 @@ func init() {
 		&defaultAccount,
 		"default-account",
 		false,
-		"Set whether the created AwsAccount object in Threeport should be used by default.",
+		"Set whether the created AwsProvider object in Threeport should be used by default.",
 	)
-	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-account-name")
+	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-provider-name")
 	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-region")
 	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-profile")
-	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-account-id")
+	ConfigAwsCloudAccountCmd.MarkFlagRequired("aws-provider-id")
 }

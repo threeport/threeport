@@ -8,30 +8,30 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 )
 
-// AwsAccountStatusDetail contains all the data for AWS account status info.
-type AwsAccountStatusDetail struct {
+// AwsProviderStatusDetail contains all the data for AWS provider status info.
+type AwsProviderStatusDetail struct {
 	AwsEksKubernetesRuntimeDefinitions *[]v0.AwsEksKubernetesRuntimeDefinition
 }
 
-// GetAwsAccountStatus inspects an AWS Account and returns the status details
+// GetAwsProviderStatus inspects an AWS Provider and returns the status details
 // for it.
-func GetAwsAccountStatus(
+func GetAwsProviderStatus(
 	apiClient *http.Client,
 	apiEndpoint string,
-	awsAccountId uint,
-) (*AwsAccountStatusDetail, error) {
-	var awsAccountStatus AwsAccountStatusDetail
+	awsProviderId uint,
+) (*AwsProviderStatusDetail, error) {
+	var awsProviderStatus AwsProviderStatusDetail
 
-	// retrieve AWS EKS Kubernetes runtime definitions related to this account
+	// retrieve AWS EKS Kubernetes runtime definitions related to this provider
 	eksRuntimeDefs, err := client.GetAwsEksKubernetesRuntimeDefinitionsByQueryString(
 		apiClient,
 		apiEndpoint,
-		fmt.Sprintf("awsaccountid=%d", awsAccountId),
+		fmt.Sprintf("awsproviderid=%d", awsProviderId),
 	)
 	if err != nil {
-		return &awsAccountStatus, fmt.Errorf("failed to retrieve AWS EKS Kubernetes runtime definitions related to AWS account: %w", err)
+		return &awsProviderStatus, fmt.Errorf("failed to retrieve AWS EKS Kubernetes runtime definitions related to AWS provider: %w", err)
 	}
-	awsAccountStatus.AwsEksKubernetesRuntimeDefinitions = eksRuntimeDefs
+	awsProviderStatus.AwsEksKubernetesRuntimeDefinitions = eksRuntimeDefs
 
-	return &awsAccountStatus, nil
+	return &awsProviderStatus, nil
 }

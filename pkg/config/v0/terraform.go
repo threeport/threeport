@@ -23,7 +23,7 @@ type TerraformConfig struct {
 type TerraformValues struct {
 	Name                *string           `json:"Name,omitempty" yaml:"Name,omitempty"`
 	ConfigDir           *string           `json:"ConfigDir,omitempty" yaml:"ConfigDir,omitempty"`
-	AwsAccount          *AwsAccountValues `json:"AwsAccount,omitempty" yaml:"AwsAccount,omitempty"`
+	AwsProvider          *AwsProviderValues `json:"AwsProvider,omitempty" yaml:"AwsProvider,omitempty"`
 	VarsDocument        *string           `json:"VarsDocument,omitempty" yaml:"VarsDocument,omitempty"`
 	StateDocument       *string           `json:"StateDocument,omitempty" yaml:"StateDocument,omitempty"`
 	Outputs             *string           `json:"Outputs,omitempty" yaml:"Outputs,omitempty"`
@@ -201,7 +201,7 @@ func (t *TerraformConfig) GetOperations(
 	terraformInstanceConfig := TerraformInstanceConfig{
 		TerraformInstance: TerraformInstanceValues{
 			Name:                terraformValues.Name,
-			AwsAccount:          terraformValues.AwsAccount,
+			AwsProvider:          terraformValues.AwsProvider,
 			VarsDocument:        terraformValues.VarsDocument,
 			StateDocument:       terraformValues.StateDocument,
 			Outputs:             terraformValues.Outputs,
@@ -266,7 +266,7 @@ func mapToTerraformDefinedInstances(
 					Terraform: TerraformValues{
 						Name:                inst.TerraformInstance.Name,
 						ConfigDir:           def.TerraformDefinition.ConfigDir,
-						AwsAccount:          inst.TerraformInstance.AwsAccount,
+						AwsProvider:          inst.TerraformInstance.AwsProvider,
 						VarsDocument:        inst.TerraformInstance.VarsDocument,
 						TerraformConfigPath: inst.TerraformInstance.TerraformConfigPath,
 						Status:              inst.TerraformInstance.Status,

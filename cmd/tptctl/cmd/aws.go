@@ -23,14 +23,14 @@ var (
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-// AwsAccount
+// AwsProvider
 ///////////////////////////////////////////////////////////////////////////////
 
-// GetAwsAccountsCmd represents the command 'tptctl get aws-accounts'
-var GetAwsAccountsCmd = &cobra.Command{
-	Aliases: []string{"aws-account"},
-	Example: "  # get all aws accounts\n  tptctl get aws-accounts\n\n  # get a specific aws account\n  tptctl get aws-account --name some-aws-account",
-	Long:    "Get aws accounts from the system. Use --name to get a specific aws account.",
+// GetAwsProvidersCmd represents the command 'tptctl get aws-providers'
+var GetAwsProvidersCmd = &cobra.Command{
+	Aliases: []string{"aws-provider"},
+	Example: "  # get all aws providers\n  tptctl get aws-providers\n\n  # get a specific aws provider\n  tptctl get aws-provider --name some-aws-provider",
+	Long:    "Get aws providers from the system. Use --name to get a specific aws provider.",
 	PreRun:  CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := GetClientContext(cmd)
@@ -55,7 +55,7 @@ var GetAwsAccountsCmd = &cobra.Command{
 		if err := cli.ValidateConfigNameFlags(
 			awsConfigPath,
 			awsName,
-			"aws account",
+			"aws provider",
 		); err != nil {
 			cli.Error("flag validation failed", err)
 			os.Exit(1)
@@ -64,36 +64,36 @@ var GetAwsAccountsCmd = &cobra.Command{
 		switch awsVersion {
 		case "v0":
 			// load values
-			awsAccountConfig := config_v0.AwsAccountConfig{}
+			awsProviderConfig := config_v0.AwsProviderConfig{}
 			if awsConfigPath != "" {
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
 					os.Exit(1)
 				}
-				if err := yaml.UnmarshalStrict(configContent, &awsAccountConfig); err != nil {
+				if err := yaml.UnmarshalStrict(configContent, &awsProviderConfig); err != nil {
 					cli.Error("failed to unmarshal config file yaml content", err)
 					os.Exit(1)
 				}
 			} else if awsName != "" {
-				awsAccountConfig = config_v0.AwsAccountConfig{
-					AwsAccount: config_v0.AwsAccountValues{
+				awsProviderConfig = config_v0.AwsProviderConfig{
+					AwsProvider: config_v0.AwsProviderValues{
 						Name: &awsName,
 					},
 				}
 			}
 
-			// get aws accounts
-			awsAccounts, err := awsAccountConfig.Get(apiClient, apiEndpoint, encryptionKey)
+			// get aws providers
+			awsProviders, err := awsProviderConfig.Get(apiClient, apiEndpoint, encryptionKey)
 			if err != nil {
-				cli.Error("failed to retrieve aws accounts", err)
+				cli.Error("failed to retrieve aws providers", err)
 				os.Exit(1)
 			}
 
-			// check if aws account exists
-			if len(*awsAccounts) == 0 {
+			// check if aws provider exists
+			if len(*awsProviders) == 0 {
 				cli.Info(fmt.Sprintf(
-					"no aws accounts found that are currently managed by %s threeport control plane",
+					"no aws providers found that are currently managed by %s threeport control plane",
 					requestedControlPlane,
 				))
 				os.Exit(0)
@@ -102,17 +102,17 @@ var GetAwsAccountsCmd = &cobra.Command{
 			// write the output
 			switch awsOutput {
 			case "tabular":
-				if err := outputGetv0AwsAccountsCmd(awsAccounts); err != nil {
+				if err := outputGetv0AwsProvidersCmd(awsProviders); err != nil {
 					cli.Error("failed to produce output", err)
 					os.Exit(1)
 				}
 			case "yaml":
-				if err := cli.YamlObjectOutput(*awsAccounts); err != nil {
+				if err := cli.YamlObjectOutput(*awsProviders); err != nil {
 					cli.Error("failed to produce YAML output", err)
 					os.Exit(1)
 				}
 			case "json":
-				if err := cli.JsonObjectOutput(*awsAccounts); err != nil {
+				if err := cli.JsonObjectOutput(*awsProviders); err != nil {
 					cli.Error("failed to produce JSON output", err)
 					os.Exit(1)
 				}
@@ -125,173 +125,173 @@ var GetAwsAccountsCmd = &cobra.Command{
 			os.Exit(1)
 		}
 	},
-	Short:        "Get aws accounts from the system",
+	Short:        "Get aws providers from the system",
 	SilenceUsage: true,
-	Use:          "aws-accounts",
+	Use:          "aws-providers",
 }
 
 func init() {
-	GetCmd.AddCommand(GetAwsAccountsCmd)
+	GetCmd.AddCommand(GetAwsProvidersCmd)
 
-	GetAwsAccountsCmd.Flags().StringVarP(
+	GetAwsProvidersCmd.Flags().StringVarP(
 		&awsName,
-		"name", "n", "", "Name of aws account.",
+		"name", "n", "", "Name of aws provider.",
 	)
-	GetAwsAccountsCmd.Flags().StringVarP(
+	GetAwsProvidersCmd.Flags().StringVarP(
 		&awsConfigPath,
-		"config", "c", "", "Path to file with aws account config.",
+		"config", "c", "", "Path to file with aws provider config.",
 	)
-	GetAwsAccountsCmd.Flags().StringVarP(
+	GetAwsProvidersCmd.Flags().StringVarP(
 		&awsVersion,
-		"version", "v", "v0", "Version of aws account objects to retrieve. One of: [v0]",
+		"version", "v", "v0", "Version of aws provider objects to retrieve. One of: [v0]",
 	)
-	GetAwsAccountsCmd.Flags().StringVarP(
+	GetAwsProvidersCmd.Flags().StringVarP(
 		&awsOutput,
-		"output", "o", "tabular", "Output format for aws account objects. One of: [tabular, yaml, json]",
+		"output", "o", "tabular", "Output format for aws provider objects. One of: [tabular, yaml, json]",
 	)
-	GetAwsAccountsCmd.Flags().BoolVarP(
+	GetAwsProvidersCmd.Flags().BoolVarP(
 		&awsDecrypt,
 		"decrypt-secrets", "d", false, "Decrypt any encrypted secrets in output.",
 	)
-	GetAwsAccountsCmd.Flags().StringVarP(
+	GetAwsProvidersCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
 }
 
-// CreateAwsAccountCmd represents the command 'tptctl create aws-account'
-var CreateAwsAccountCmd = &cobra.Command{
-	Example: "  # create a new aws account using a config file\n  tptctl create aws-account --config path/to/config.yaml",
-	Long:    "Create a new aws account.",
+// CreateAwsProviderCmd represents the command 'tptctl create aws-provider'
+var CreateAwsProviderCmd = &cobra.Command{
+	Example: "  # create a new aws provider using a config file\n  tptctl create aws-provider --config path/to/config.yaml",
+	Long:    "Create a new aws provider.",
 	PreRun:  CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// read aws account config
+		// read aws provider config
 		configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 		if err != nil {
 			cli.Error("failed to read config", err)
 			os.Exit(1)
 		}
-		// create aws account based on version
+		// create aws provider based on version
 		switch awsVersion {
 		case "v0":
-			var awsAccountConfig config_v0.AwsAccountConfig
-			if err := yaml.UnmarshalStrict(configContent, &awsAccountConfig); err != nil {
+			var awsProviderConfig config_v0.AwsProviderConfig
+			if err := yaml.UnmarshalStrict(configContent, &awsProviderConfig); err != nil {
 				cli.Error("failed to unmarshal config file yaml content", err)
 				os.Exit(1)
 			}
 
-			// create aws account
-			createdAwsAccount, err := awsAccountConfig.Create(apiClient, apiEndpoint)
+			// create aws provider
+			createdAwsProvider, err := awsProviderConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				cli.Error("failed to create aws account", err)
+				cli.Error("failed to create aws provider", err)
 				os.Exit(1)
 			}
 
-			cli.Complete(fmt.Sprintf("aws account %s created", *createdAwsAccount.AwsAccount.Name))
+			cli.Complete(fmt.Sprintf("aws provider %s created", *createdAwsProvider.AwsProvider.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
 	},
-	Short:        "Create a new aws account",
+	Short:        "Create a new aws provider",
 	SilenceUsage: true,
-	Use:          "aws-account",
+	Use:          "aws-provider",
 }
 
 func init() {
-	CreateCmd.AddCommand(CreateAwsAccountCmd)
+	CreateCmd.AddCommand(CreateAwsProviderCmd)
 
-	CreateAwsAccountCmd.Flags().StringVarP(
+	CreateAwsProviderCmd.Flags().StringVarP(
 		&awsConfigPath,
-		"config", "c", "", "Path to file with aws account config.",
+		"config", "c", "", "Path to file with aws provider config.",
 	)
-	CreateAwsAccountCmd.Flags().BoolVar(
+	CreateAwsProviderCmd.Flags().BoolVar(
 		&awsStdin,
 		"stdin", false, "Read config from stdin instead of file.",
 	)
-	CreateAwsAccountCmd.Flags().StringVarP(
+	CreateAwsProviderCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
-	CreateAwsAccountCmd.Flags().StringVarP(
+	CreateAwsProviderCmd.Flags().StringVarP(
 		&awsVersion,
-		"version", "v", "v0", "Version of aws accounts object to create. One of: [v0]",
+		"version", "v", "v0", "Version of aws providers object to create. One of: [v0]",
 	)
 }
 
-// ReplaceAwsAccountCmd represents the command 'tptctl replace aws-account'
-var ReplaceAwsAccountCmd = &cobra.Command{
-	Example: "  # replace using a config file\n  tptctl replace aws-account --config path/to/config.yaml --name some-aws-account",
-	Long:    "Replace an existing aws account.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
+// ReplaceAwsProviderCmd represents the command 'tptctl replace aws-provider'
+var ReplaceAwsProviderCmd = &cobra.Command{
+	Example: "  # replace using a config file\n  tptctl replace aws-provider --config path/to/config.yaml --name some-aws-provider",
+	Long:    "Replace an existing aws provider.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// replace aws account based on version
+		// replace aws provider based on version
 		switch awsVersion {
 		case "v0":
-			var awsAccountConfig config_v0.AwsAccountConfig
-			// load aws account config
+			var awsProviderConfig config_v0.AwsProviderConfig
+			// load aws provider config
 			configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 			if err != nil {
 				cli.Error("failed to read config", err)
 				os.Exit(1)
 			}
-			if err := yaml.UnmarshalStrict(configContent, &awsAccountConfig); err != nil {
+			if err := yaml.UnmarshalStrict(configContent, &awsProviderConfig); err != nil {
 				cli.Error("failed to unmarshal config file yaml content", err)
 				os.Exit(1)
 			}
 
-			// replace aws account
-			updatedAwsAccount, err := awsAccountConfig.Replace(apiClient, apiEndpoint, awsName)
+			// replace aws provider
+			updatedAwsProvider, err := awsProviderConfig.Replace(apiClient, apiEndpoint, awsName)
 			if err != nil {
-				cli.Error("failed to update aws account", err)
+				cli.Error("failed to update aws provider", err)
 				os.Exit(1)
 			}
 
-			cli.Complete(fmt.Sprintf("aws account %s updated", *updatedAwsAccount.AwsAccount.Name))
+			cli.Complete(fmt.Sprintf("aws provider %s updated", *updatedAwsProvider.AwsProvider.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
 	},
-	Short:        "Replace an existing aws account",
+	Short:        "Replace an existing aws provider",
 	SilenceUsage: true,
-	Use:          "aws-account",
+	Use:          "aws-provider",
 }
 
 func init() {
-	ReplaceCmd.AddCommand(ReplaceAwsAccountCmd)
+	ReplaceCmd.AddCommand(ReplaceAwsProviderCmd)
 
-	ReplaceAwsAccountCmd.Flags().StringVarP(
+	ReplaceAwsProviderCmd.Flags().StringVarP(
 		&awsConfigPath,
-		"config", "c", "", "Path to file with aws account config.  The config file must be a complete config, i.e. the provided config will be used to replace the entire existing config for the object with a PUT request.",
+		"config", "c", "", "Path to file with aws provider config.  The config file must be a complete config, i.e. the provided config will be used to replace the entire existing config for the object with a PUT request.",
 	)
-	ReplaceAwsAccountCmd.Flags().BoolVar(
+	ReplaceAwsProviderCmd.Flags().BoolVar(
 		&awsStdin,
 		"stdin", false, "Read config from stdin instead of file.",
 	)
-	ReplaceAwsAccountCmd.Flags().StringVarP(
+	ReplaceAwsProviderCmd.Flags().StringVarP(
 		&awsName,
-		"name", "n", "", "Name of existing aws account to replace.  If the name in the aws account config is different from the name provided here, the name of the existing object will be updated with the name in the config.",
+		"name", "n", "", "Name of existing aws provider to replace.  If the name in the aws provider config is different from the name provided here, the name of the existing object will be updated with the name in the config.",
 	)
-	ReplaceAwsAccountCmd.MarkFlagRequired("name")
-	ReplaceAwsAccountCmd.Flags().StringVarP(
+	ReplaceAwsProviderCmd.MarkFlagRequired("name")
+	ReplaceAwsProviderCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
-	ReplaceAwsAccountCmd.Flags().StringVarP(
+	ReplaceAwsProviderCmd.Flags().StringVarP(
 		&awsVersion,
-		"version", "v", "v0", "Version of aws accounts object to replace. One of: [v0]",
+		"version", "v", "v0", "Version of aws providers object to replace. One of: [v0]",
 	)
 }
 
-// DeleteAwsAccountCmd represents the command 'tptctl delete aws-account'
-var DeleteAwsAccountCmd = &cobra.Command{
-	Example: "  # delete using a config file\n  tptctl delete aws-account --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete aws-account --name some-aws-account",
-	Long:    "Delete an existing aws account.",
+// DeleteAwsProviderCmd represents the command 'tptctl delete aws-provider'
+var DeleteAwsProviderCmd = &cobra.Command{
+	Example: "  # delete using a config file\n  tptctl delete aws-provider --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete aws-provider --name some-aws-provider",
+	Long:    "Delete an existing aws provider.",
 	PreRun:  CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
@@ -300,71 +300,71 @@ var DeleteAwsAccountCmd = &cobra.Command{
 		if err := cli.ValidateConfigNameFlags(
 			awsConfigPath,
 			awsName,
-			"aws account",
+			"aws provider",
 		); err != nil {
 			cli.Error("flag validation failed", err)
 			os.Exit(1)
 		}
 
-		// delete aws account based on version
+		// delete aws provider based on version
 		switch awsVersion {
 		case "v0":
-			var awsAccountConfig config_v0.AwsAccountConfig
+			var awsProviderConfig config_v0.AwsProviderConfig
 			if awsConfigPath != "" {
-				// load aws account config
+				// load aws provider config
 				configContent, err := cli.ReadConfigContent(awsConfigPath, awsStdin)
 				if err != nil {
 					cli.Error("failed to read config", err)
 					os.Exit(1)
 				}
-				if err := yaml.UnmarshalStrict(configContent, &awsAccountConfig); err != nil {
+				if err := yaml.UnmarshalStrict(configContent, &awsProviderConfig); err != nil {
 					cli.Error("failed to unmarshal config file yaml content", err)
 					os.Exit(1)
 				}
 			} else {
-				awsAccountConfig = config_v0.AwsAccountConfig{
-					AwsAccount: config_v0.AwsAccountValues{
+				awsProviderConfig = config_v0.AwsProviderConfig{
+					AwsProvider: config_v0.AwsProviderValues{
 						Name: &awsName,
 					},
 				}
 			}
 
-			// delete aws account
-			deletedAwsAccount, err := awsAccountConfig.Delete(apiClient, apiEndpoint)
+			// delete aws provider
+			deletedAwsProvider, err := awsProviderConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				cli.Error("failed to delete aws account", err)
+				cli.Error("failed to delete aws provider", err)
 				os.Exit(1)
 			}
 
-			cli.Complete(fmt.Sprintf("aws account %s deleted", *deletedAwsAccount.AwsAccount.Name))
+			cli.Complete(fmt.Sprintf("aws provider %s deleted", *deletedAwsProvider.AwsProvider.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
 	},
-	Short:        "Delete an existing aws account",
+	Short:        "Delete an existing aws provider",
 	SilenceUsage: true,
-	Use:          "aws-account",
+	Use:          "aws-provider",
 }
 
 func init() {
-	DeleteCmd.AddCommand(DeleteAwsAccountCmd)
+	DeleteCmd.AddCommand(DeleteAwsProviderCmd)
 
-	DeleteAwsAccountCmd.Flags().StringVarP(
+	DeleteAwsProviderCmd.Flags().StringVarP(
 		&awsConfigPath,
-		"config", "c", "", "Path to file with aws account config.",
+		"config", "c", "", "Path to file with aws provider config.",
 	)
-	DeleteAwsAccountCmd.Flags().StringVarP(
+	DeleteAwsProviderCmd.Flags().StringVarP(
 		&awsName,
-		"name", "n", "", "Name of aws account.",
+		"name", "n", "", "Name of aws provider.",
 	)
-	DeleteAwsAccountCmd.Flags().StringVarP(
+	DeleteAwsProviderCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
-	DeleteAwsAccountCmd.Flags().StringVarP(
+	DeleteAwsProviderCmd.Flags().StringVarP(
 		&awsVersion,
-		"version", "v", "v0", "Version of aws accounts object to delete. One of: [v0]",
+		"version", "v", "v0", "Version of aws providers object to delete. One of: [v0]",
 	)
 }
 

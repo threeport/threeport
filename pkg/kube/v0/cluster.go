@@ -459,17 +459,17 @@ func refreshEKSConnection(
 		return nil, fmt.Errorf("failed to AWS EKS kubernetes runtime definition by ID %d: %w", eksRuntimeInstance.AwsEksKubernetesRuntimeDefinitionID, err)
 	}
 
-	// get AWS account
-	awsAccount, err := client.GetAwsAccountByID(
+	// get AWS provider
+	awsProvider, err := client.GetAwsProviderByID(
 		threeportAPIClient,
 		threeportAPIEndpoint,
-		*eksRuntimeDefinition.AwsAccountID,
+		*eksRuntimeDefinition.AwsProviderID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get AWS account by ID %d: %w", *eksRuntimeDefinition.AwsAccountID, err)
+		return nil, fmt.Errorf("failed to get AWS provider by ID %d: %w", *eksRuntimeDefinition.AwsProviderID, err)
 	}
 
-	awsConfig, err := GetAwsConfigFromAwsAccount(encryptionKey, *eksRuntimeInstance.Region, awsAccount)
+	awsConfig, err := GetAwsConfigFromAwsProvider(encryptionKey, *eksRuntimeInstance.Region, awsProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config for EKS cluster token refresh: %w", err)
 	}
@@ -551,19 +551,19 @@ func refreshGKEConnection(
 	return &restConfig, nil
 }
 
-// GetAwsConfigFromAwsAccount returns an aws config from an aws account.
-func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.AwsAccount) (*aws.Config, error) {
+// GetAwsConfigFromAwsProvider returns an aws config from an aws account.
+func GetAwsConfigFromAwsProvider(encryptionKey, region string, awsProvider *v0.AwsProvider) (*aws.Config, error) {
 	accessKeyId := ""
 	secretAccessKey := ""
 
 	// if API keys are provided, decrypt and return aws config
-	if awsAccount.AccessKeyID != nil && awsAccount.SecretAccessKey != nil {
+	if awsProvider.AccessKeyID != nil && awsProvider.SecretAccessKey != nil {
 		// decrypt access key id and secret access key
-		aki, err := encryption.Decrypt(encryptionKey, *awsAccount.AccessKeyID)
+		aki, err := encryption.Decrypt(encryptionKey, *awsProvider.AccessKeyID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decrypt access key id: %w", err)
 		}
-		sak, err := encryption.Decrypt(encryptionKey, *awsAccount.SecretAccessKey)
+		sak, err := encryption.Decrypt(encryptionKey, *awsProvider.SecretAccessKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decrypt secret access key: %w", err)
 		}
@@ -593,7 +593,7 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 	// pod will be authenticated via IRSA to an IAM role.
 	// https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html
 	if strings.Contains(*callerIdentity.Arn, "assumed-role") &&
-		*callerIdentity.Account == *awsAccount.AccountID {
+		*callerIdentity.Account == *awsProvider.AccountID {
 		return awsConfig, nil
 	}
 
@@ -601,12 +601,12 @@ func GetAwsConfigFromAwsAccount(encryptionKey, region string, awsAccount *v0.Aws
 	externalId := ""
 
 	// if a role arn is provided, use it
-	if awsAccount.RoleArn != nil {
-		roleArn = *awsAccount.RoleArn
+	if awsProvider.RoleArn != nil {
+		roleArn = *awsProvider.RoleArn
 
 		// if an external ID is provided with role arn, use it
-		if awsAccount.ExternalId != nil {
-			externalId = *awsAccount.ExternalId
+		if awsProvider.ExternalId != nil {
+			externalId = *awsProvider.ExternalId
 		}
 	}
 

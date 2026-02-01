@@ -6,9 +6,9 @@ import apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 
 var (
 	AttachedObjectReferenceTaggedFields           = make(map[string]*apiserver_lib.FieldsByTag)
-	AwsAccountTaggedFields                        = make(map[string]*apiserver_lib.FieldsByTag)
 	AwsEksKubernetesRuntimeDefinitionTaggedFields = make(map[string]*apiserver_lib.FieldsByTag)
 	AwsEksKubernetesRuntimeInstanceTaggedFields   = make(map[string]*apiserver_lib.FieldsByTag)
+	AwsProviderTaggedFields                       = make(map[string]*apiserver_lib.FieldsByTag)
 	ControlPlaneComponentTaggedFields             = make(map[string]*apiserver_lib.FieldsByTag)
 	KubernetesRuntimeDefinitionTaggedFields       = make(map[string]*apiserver_lib.FieldsByTag)
 	KubernetesRuntimeInstanceTaggedFields         = make(map[string]*apiserver_lib.FieldsByTag)

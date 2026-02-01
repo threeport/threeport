@@ -11,65 +11,65 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
 
-// GetAwsAccountByDefaultAccount fetches the default AWS account.
-func GetAwsAccountByDefaultAccount(apiClient *http.Client, apiAddr string) (*v0.AwsAccount, error) {
-	var awsAccount v0.AwsAccount
+// GetAwsProviderByDefaultProvider fetches the default AWS provider.
+func GetAwsProviderByDefaultProvider(apiClient *http.Client, apiAddr string) (*v0.AwsProvider, error) {
+	var awsProvider v0.AwsProvider
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-accounts?default=true", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/aws-providers?defaultprovider=true", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &awsProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 	// TODO: check for response.Data len == 0
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &awsProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsAccount); err != nil {
+	if err := decoder.Decode(&awsProvider); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &awsAccount, nil
+	return &awsProvider, nil
 }
 
-// GetAwsAccountByAccountID fetches a AWS account by the AWS Account ID.
-func GetAwsAccountByAccountID(apiClient *http.Client, apiAddr string, accountID string) (*v0.AwsAccount, error) {
-	var awsAccount v0.AwsAccount
+// GetAwsProviderByAccountID fetches a AWS provider by the AWS Account ID.
+func GetAwsProviderByAccountID(apiClient *http.Client, apiAddr string, accountID string) (*v0.AwsProvider, error) {
+	var awsProvider v0.AwsProvider
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/aws-accounts?accountid=%s", apiAddr, ApiVersion, accountID),
+		fmt.Sprintf("%s/%s/aws-providers?accountid=%s", apiAddr, ApiVersion, accountID),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
-		return &awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &awsProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &awsProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&awsAccount); err != nil {
+	if err := decoder.Decode(&awsProvider); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &awsAccount, nil
+	return &awsProvider, nil
 }
 
 // GetAwsEksKubernetesRuntimeDefinitionByK8sRuntimeDef fetches a aws eks kubernetes runtime definition by ID.

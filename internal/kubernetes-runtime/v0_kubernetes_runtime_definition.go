@@ -32,29 +32,29 @@ func v0KubernetesRuntimeDefinitionCreated(
 		// kind clusters not managed by k8s runtime controller
 		return 0, nil
 	case v0.KubernetesRuntimeInfraProviderEKS:
-		// look up AWS account
-		var awsAccount v0.AwsAccount
+		// look up AWS provider
+		var awsProvider v0.AwsProvider
 		if kubernetesRuntimeDefinition.InfraProviderAccountName != nil {
-			// look up account by account name
-			account, err := client.GetAwsAccountByName(
+			// look up provider by provider name
+			provider, err := client.GetAwsProviderByName(
 				r.APIClient,
 				r.APIServer,
 				*kubernetesRuntimeDefinition.InfraProviderAccountName,
 			)
 			if err != nil {
-				return 0, fmt.Errorf("failed to get AWS account by account name: %w", err)
+				return 0, fmt.Errorf("failed to get AWS provider by provider name: %w", err)
 			}
-			awsAccount = *account
+			awsProvider = *provider
 		} else {
-			// look up default account
-			account, err := client.GetAwsAccountByDefaultAccount(
+			// look up default provider
+			provider, err := client.GetAwsProviderByDefaultProvider(
 				r.APIClient,
 				r.APIServer,
 			)
 			if err != nil {
-				return 0, fmt.Errorf("failed to AWS account by ID: %w", err)
+				return 0, fmt.Errorf("failed to get AWS provider by default: %w", err)
 			}
-			awsAccount = *account
+			awsProvider = *provider
 		}
 
 		// create an AWS EKS cluster definition
@@ -78,7 +78,7 @@ func v0KubernetesRuntimeDefinitionCreated(
 			Definition: v0.Definition{
 				Name: kubernetesRuntimeDefinition.Name,
 			},
-			AwsAccountID:                  awsAccount.ID,
+			AwsProviderID:                 awsProvider.ID,
 			ZoneCount:                     &zoneCount,
 			DefaultNodeGroupInstanceType:  &nodeGroupInstanceType,
 			DefaultNodeGroupInitialSize:   &defaultNodeGroupInitialSize,

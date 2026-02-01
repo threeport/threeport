@@ -9,7 +9,7 @@ type SecretDefinition struct {
 	Reconciliation `mapstructure:",squash"`
 
 	// The AWS account ID, if the provider is AWS.
-	AwsAccountID *uint `json:"AwsAccountID,omitempty" query:"awsaccountid" validate:"optional"`
+	AwsProviderID *uint `json:"AwsProviderID,omitempty" query:"awsproviderid" validate:"optional"`
 
 	// The secret value to be stored in the provider.
 	Data *datatypes.JSON `json:"Data,omitempty" query:"data" validate:"required" persist:"false"`

@@ -13,303 +13,6 @@ import (
 	"net/http"
 )
 
-// GetAwsAccounts fetches all aws accounts.
-func GetAwsAccounts(apiClient *http.Client, apiAddr string) (*[]v0.AwsAccount, error) {
-	var awsAccounts []v0.AwsAccount
-
-	allPagesReceived := false
-	var allPageData []apiserver_lib.Object
-	nextCursor := uint(0)
-	queryId := ""
-	for !allPagesReceived {
-		url := fmt.Sprintf("%s%s", apiAddr, v0.PathAwsAccounts)
-		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathAwsAccounts, queryId, nextCursor)
-		}
-
-		response, err := client_lib.GetResponse(
-			apiClient,
-			url,
-			http.MethodGet,
-			new(bytes.Buffer),
-			map[string]string{},
-			http.StatusOK,
-		)
-		if err != nil {
-			return &awsAccounts, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-		}
-
-		allPageData = append(allPageData, response.Data...)
-
-		if response.Meta.Pagination.HasMore {
-			nextCursor = response.Meta.Pagination.NextCursor
-			queryId = response.Meta.Pagination.QueryId
-		} else {
-			allPagesReceived = true
-		}
-	}
-
-	jsonData, err := json.Marshal(allPageData)
-	if err != nil {
-		return &awsAccounts, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&awsAccounts); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &awsAccounts, nil
-}
-
-// GetAwsAccountByID fetches a aws account by ID.
-func GetAwsAccountByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsAccount, error) {
-	var awsAccount v0.AwsAccount
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsAccounts, id),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return &awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&awsAccount); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &awsAccount, nil
-}
-
-// GetAwsAccountsByQueryString fetches aws accounts by provided query string.
-func GetAwsAccountsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsAccount, error) {
-	var awsAccounts []v0.AwsAccount
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathAwsAccounts, queryString),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &awsAccounts, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &awsAccounts, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&awsAccounts); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &awsAccounts, nil
-}
-
-// GetAwsAccountByName fetches a aws account by name.
-func GetAwsAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsAccount, error) {
-	var awsAccounts []v0.AwsAccount
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsAccounts, name),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &v0.AwsAccount{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &v0.AwsAccount{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&awsAccounts); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	switch {
-	case len(awsAccounts) < 1:
-		return &v0.AwsAccount{}, client_lib.ErrObjectNotFound
-	case len(awsAccounts) > 1:
-		return &v0.AwsAccount{}, fmt.Errorf("more than one aws account with name %s returned", name)
-	}
-
-	return &awsAccounts[0], nil
-}
-
-// CreateAwsAccount creates a new aws account.
-func CreateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.AwsAccount) (*v0.AwsAccount, error) {
-	client_lib.ReplaceAssociatedObjectsWithNil(awsAccount)
-	jsonAwsAccount, err := util.MarshalObject(awsAccount)
-	if err != nil {
-		return awsAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsAccounts),
-		http.MethodPost,
-		bytes.NewBuffer(jsonAwsAccount),
-		map[string]string{},
-		http.StatusCreated,
-	)
-	if err != nil {
-		return awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&awsAccount); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return awsAccount, nil
-}
-
-// UpdateAwsAccount updates a aws account with a PATCH request.
-func UpdateAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.AwsAccount) (*v0.AwsAccount, error) {
-	client_lib.ReplaceAssociatedObjectsWithNil(awsAccount)
-	// capture the object ID, make a copy of the object, then remove fields that
-	// cannot be updated in the API
-	awsAccountID := *awsAccount.ID
-	payloadAwsAccount := *awsAccount
-	payloadAwsAccount.ID = nil
-	payloadAwsAccount.CreatedAt = nil
-	payloadAwsAccount.UpdatedAt = nil
-
-	jsonAwsAccount, err := util.MarshalObject(payloadAwsAccount)
-	if err != nil {
-		return awsAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsAccounts, awsAccountID),
-		http.MethodPatch,
-		bytes.NewBuffer(jsonAwsAccount),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&payloadAwsAccount); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	payloadAwsAccount.ID = &awsAccountID
-	return &payloadAwsAccount, nil
-}
-
-// ReplaceAwsAccount updates a aws account with a PUT request.
-func ReplaceAwsAccount(apiClient *http.Client, apiAddr string, awsAccount *v0.AwsAccount) (*v0.AwsAccount, error) {
-	client_lib.ReplaceAssociatedObjectsWithNil(awsAccount)
-	// capture the object ID, make a copy of the object, then remove fields that
-	// cannot be updated in the API
-	awsAccountID := *awsAccount.ID
-	payloadAwsAccount := *awsAccount
-	payloadAwsAccount.ID = nil
-	payloadAwsAccount.CreatedAt = nil
-	payloadAwsAccount.UpdatedAt = nil
-
-	jsonAwsAccount, err := util.MarshalObject(payloadAwsAccount)
-	if err != nil {
-		return awsAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsAccounts, awsAccountID),
-		http.MethodPut,
-		bytes.NewBuffer(jsonAwsAccount),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&payloadAwsAccount); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	payloadAwsAccount.ID = &awsAccountID
-	return &payloadAwsAccount, nil
-}
-
-// DeleteAwsAccount deletes a aws account by ID.
-func DeleteAwsAccount(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsAccount, error) {
-	var awsAccount v0.AwsAccount
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsAccounts, id),
-		http.MethodDelete,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &awsAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return &awsAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&awsAccount); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &awsAccount, nil
-}
-
 // GetAwsEksKubernetesRuntimeDefinitions fetches all aws eks kubernetes runtime definitions.
 func GetAwsEksKubernetesRuntimeDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.AwsEksKubernetesRuntimeDefinition, error) {
 	var awsEksKubernetesRuntimeDefinitions []v0.AwsEksKubernetesRuntimeDefinition
@@ -902,4 +605,301 @@ func DeleteAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 	}
 
 	return &awsEksKubernetesRuntimeInstance, nil
+}
+
+// GetAwsProviders fetches all aws providers.
+func GetAwsProviders(apiClient *http.Client, apiAddr string) (*[]v0.AwsProvider, error) {
+	var awsProviders []v0.AwsProvider
+
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathAwsProviders)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathAwsProviders, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &awsProviders, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
+	}
+
+	jsonData, err := json.Marshal(allPageData)
+	if err != nil {
+		return &awsProviders, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsProviders); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsProviders, nil
+}
+
+// GetAwsProviderByID fetches a aws provider by ID.
+func GetAwsProviderByID(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsProvider, error) {
+	var awsProvider v0.AwsProvider
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsProviders, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsProvider); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsProvider, nil
+}
+
+// GetAwsProvidersByQueryString fetches aws providers by provided query string.
+func GetAwsProvidersByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.AwsProvider, error) {
+	var awsProviders []v0.AwsProvider
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathAwsProviders, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsProviders, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &awsProviders, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsProviders); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsProviders, nil
+}
+
+// GetAwsProviderByName fetches a aws provider by name.
+func GetAwsProviderByName(apiClient *http.Client, apiAddr, name string) (*v0.AwsProvider, error) {
+	var awsProviders []v0.AwsProvider
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathAwsProviders, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.AwsProvider{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.AwsProvider{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsProviders); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(awsProviders) < 1:
+		return &v0.AwsProvider{}, client_lib.ErrObjectNotFound
+	case len(awsProviders) > 1:
+		return &v0.AwsProvider{}, fmt.Errorf("more than one aws provider with name %s returned", name)
+	}
+
+	return &awsProviders[0], nil
+}
+
+// CreateAwsProvider creates a new aws provider.
+func CreateAwsProvider(apiClient *http.Client, apiAddr string, awsProvider *v0.AwsProvider) (*v0.AwsProvider, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(awsProvider)
+	jsonAwsProvider, err := util.MarshalObject(awsProvider)
+	if err != nil {
+		return awsProvider, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s", apiAddr, v0.PathAwsProviders),
+		http.MethodPost,
+		bytes.NewBuffer(jsonAwsProvider),
+		map[string]string{},
+		http.StatusCreated,
+	)
+	if err != nil {
+		return awsProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsProvider); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return awsProvider, nil
+}
+
+// UpdateAwsProvider updates a aws provider with a PATCH request.
+func UpdateAwsProvider(apiClient *http.Client, apiAddr string, awsProvider *v0.AwsProvider) (*v0.AwsProvider, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(awsProvider)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	awsProviderID := *awsProvider.ID
+	payloadAwsProvider := *awsProvider
+	payloadAwsProvider.ID = nil
+	payloadAwsProvider.CreatedAt = nil
+	payloadAwsProvider.UpdatedAt = nil
+
+	jsonAwsProvider, err := util.MarshalObject(payloadAwsProvider)
+	if err != nil {
+		return awsProvider, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsProviders, awsProviderID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonAwsProvider),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return awsProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadAwsProvider); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadAwsProvider.ID = &awsProviderID
+	return &payloadAwsProvider, nil
+}
+
+// ReplaceAwsProvider updates a aws provider with a PUT request.
+func ReplaceAwsProvider(apiClient *http.Client, apiAddr string, awsProvider *v0.AwsProvider) (*v0.AwsProvider, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(awsProvider)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	awsProviderID := *awsProvider.ID
+	payloadAwsProvider := *awsProvider
+	payloadAwsProvider.ID = nil
+	payloadAwsProvider.CreatedAt = nil
+	payloadAwsProvider.UpdatedAt = nil
+
+	jsonAwsProvider, err := util.MarshalObject(payloadAwsProvider)
+	if err != nil {
+		return awsProvider, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsProviders, awsProviderID),
+		http.MethodPut,
+		bytes.NewBuffer(jsonAwsProvider),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return awsProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return awsProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadAwsProvider); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadAwsProvider.ID = &awsProviderID
+	return &payloadAwsProvider, nil
+}
+
+// DeleteAwsProvider deletes a aws provider by ID.
+func DeleteAwsProvider(apiClient *http.Client, apiAddr string, id uint) (*v0.AwsProvider, error) {
+	var awsProvider v0.AwsProvider
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathAwsProviders, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &awsProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &awsProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&awsProvider); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &awsProvider, nil
 }

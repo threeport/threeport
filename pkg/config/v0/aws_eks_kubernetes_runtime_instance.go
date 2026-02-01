@@ -82,21 +82,21 @@ func (a *AwsEksKubernetesRuntimeInstanceConfig) Get(
 					err,
 				)
 			}
-			// get AWS account name
-			var awsAccountName *string
-			if awsEksKubernetesRuntimeDefinitionObj.AwsAccountID != nil {
-				awsAccount, err := client_v0.GetAwsAccountByID(
+			// get AWS provider name
+			var awsProviderName *string
+			if awsEksKubernetesRuntimeDefinitionObj.AwsProviderID != nil {
+				awsProvider, err := client_v0.GetAwsProviderByID(
 					apiClient,
 					apiEndpoint,
-					*awsEksKubernetesRuntimeDefinitionObj.AwsAccountID,
+					*awsEksKubernetesRuntimeDefinitionObj.AwsProviderID,
 				)
 				if err == nil {
-					awsAccountName = awsAccount.Name
+					awsProviderName = awsProvider.Name
 				}
 			}
 			awsEksKubernetesRuntimeDefinition = &AwsEksKubernetesRuntimeDefinitionValues{
-				Name:           awsEksKubernetesRuntimeDefinitionObj.Name,
-				AwsAccountName: awsAccountName,
+				Name:            awsEksKubernetesRuntimeDefinitionObj.Name,
+				AwsProviderName: awsProviderName,
 			}
 		}
 

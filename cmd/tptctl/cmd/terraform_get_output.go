@@ -16,12 +16,12 @@ func outputGetv0TerraformsCmd(
 	terraforms *[]config_v0.TerraformConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t TERRAFORM DEFINITION\t TERRAFORM INSTANCE\t AWS ACCOUNT\t STATUS\t AGE")
+	fmt.Fprintln(writer, "NAME\t TERRAFORM DEFINITION\t TERRAFORM INSTANCE\t AWS PROVIDER\t STATUS\t AGE")
 	for _, terraform := range *terraforms {
-		awsAccountName := ""
-		if terraform.Terraform.AwsAccount != nil &&
-			terraform.Terraform.AwsAccount.Name != nil {
-			awsAccountName = *terraform.Terraform.AwsAccount.Name
+		awsProviderName := ""
+		if terraform.Terraform.AwsProvider != nil &&
+			terraform.Terraform.AwsProvider.Name != nil {
+			awsProviderName = *terraform.Terraform.AwsProvider.Name
 		}
 		status := ""
 		if terraform.Terraform.Status != nil {
@@ -36,7 +36,7 @@ func outputGetv0TerraformsCmd(
 			*terraform.Terraform.Name, "\t",
 			*terraform.Terraform.Name, "\t",
 			*terraform.Terraform.Name, "\t",
-			awsAccountName, "\t",
+			awsProviderName, "\t",
 			status, "\t",
 			age,
 		)
@@ -75,17 +75,17 @@ func outputGetv0TerraformInstancesCmd(
 	terraformInstances *[]config_v0.TerraformInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	fmt.Fprintln(writer, "NAME\t TERRAFORM DEFINITION\t AWS ACCOUNT NAME\t STATUS\t AGE")
+	fmt.Fprintln(writer, "NAME\t TERRAFORM DEFINITION\t AWS PROVIDER NAME\t STATUS\t AGE")
 	for _, terraformInstance := range *terraformInstances {
 		terraformDefinitionName := ""
 		if terraformInstance.TerraformInstance.TerraformDefinition != nil &&
 			terraformInstance.TerraformInstance.TerraformDefinition.Name != nil {
 			terraformDefinitionName = *terraformInstance.TerraformInstance.TerraformDefinition.Name
 		}
-		awsAccountName := ""
-		if terraformInstance.TerraformInstance.AwsAccount != nil &&
-			terraformInstance.TerraformInstance.AwsAccount.Name != nil {
-			awsAccountName = *terraformInstance.TerraformInstance.AwsAccount.Name
+		awsProviderName := ""
+		if terraformInstance.TerraformInstance.AwsProvider != nil &&
+			terraformInstance.TerraformInstance.AwsProvider.Name != nil {
+			awsProviderName = *terraformInstance.TerraformInstance.AwsProvider.Name
 		}
 		status := ""
 		if terraformInstance.TerraformInstance.Status != nil {
@@ -99,7 +99,7 @@ func outputGetv0TerraformInstancesCmd(
 			writer,
 			*terraformInstance.TerraformInstance.Name, "\t",
 			terraformDefinitionName, "\t",
-			awsAccountName, "\t",
+			awsProviderName, "\t",
 			status, "\t",
 			age,
 		)

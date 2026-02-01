@@ -22,7 +22,7 @@ type AwsEksKubernetesRuntimeConfig struct {
 // together with a single operation.
 type AwsEksKubernetesRuntimeValues struct {
 	Name                         *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	AwsAccountName               *string `json:"AwsAccountName,omitempty" yaml:"AwsAccountName,omitempty"`
+	AwsProviderName              *string `json:"AwsProviderName,omitempty" yaml:"AwsProviderName,omitempty"`
 	ZoneCount                    *int    `json:"ZoneCount,omitempty" yaml:"ZoneCount,omitempty"`
 	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" yaml:"DefaultNodeGroupInstanceType,omitempty"`
 	DefaultNodeGroupInitialSize  *int    `json:"DefaultNodeGroupInitialSize,omitempty" yaml:"DefaultNodeGroupInitialSize,omitempty"`
@@ -150,7 +150,7 @@ func (a *AwsEksKubernetesRuntimeConfig) GetOperations(
 	awsEksKubernetesRuntimeDefinitionConfig := AwsEksKubernetesRuntimeDefinitionConfig{
 		AwsEksKubernetesRuntimeDefinition: AwsEksKubernetesRuntimeDefinitionValues{
 			Name:                         a.AwsEksKubernetesRuntime.Name,
-			AwsAccountName:               a.AwsEksKubernetesRuntime.AwsAccountName,
+			AwsProviderName:              a.AwsEksKubernetesRuntime.AwsProviderName,
 			ZoneCount:                    a.AwsEksKubernetesRuntime.ZoneCount,
 			DefaultNodeGroupInstanceType: a.AwsEksKubernetesRuntime.DefaultNodeGroupInstanceType,
 			DefaultNodeGroupInitialSize:  a.AwsEksKubernetesRuntime.DefaultNodeGroupInitialSize,
@@ -258,7 +258,7 @@ func mapToAwsEksKubernetesRuntimeDefinedInstances(
 				awsEksKubernetesRuntimeConfig := AwsEksKubernetesRuntimeConfig{
 					AwsEksKubernetesRuntime: AwsEksKubernetesRuntimeValues{
 						Name:                         inst.AwsEksKubernetesRuntimeInstance.Name,
-						AwsAccountName:               def.AwsEksKubernetesRuntimeDefinition.AwsAccountName,
+						AwsProviderName:              def.AwsEksKubernetesRuntimeDefinition.AwsProviderName,
 						ZoneCount:                    def.AwsEksKubernetesRuntimeDefinition.ZoneCount,
 						DefaultNodeGroupInstanceType: def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 						DefaultNodeGroupInitialSize:  def.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,

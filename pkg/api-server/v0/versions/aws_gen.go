@@ -9,38 +9,6 @@ import (
 	"reflect"
 )
 
-// AddAwsAccountVersions adds field validation info and adds it
-// to the REST API versions.
-func AddAwsAccountVersions() {
-	apiserver_v0.AwsAccountTaggedFields[apiserver_lib.TagNameValidate] = &apiserver_lib.FieldsByTag{
-		Optional:             []string{},
-		OptionalAssociations: []string{},
-		Required:             []string{},
-		TagName:              apiserver_lib.TagNameValidate,
-	}
-
-	// parse struct and populate the FieldsByTag object
-	apiserver_lib.ParseStruct(
-		apiserver_lib.TagNameValidate,
-		reflect.ValueOf(new(api_v0.AwsAccount)),
-		"",
-		apiserver_lib.Translate,
-		apiserver_v0.AwsAccountTaggedFields,
-	)
-
-	// create a version object which contains the object name and versions
-	versionObj := apiserver_lib.VersionObject{
-		Object:  string(api_v0.ObjectTypeAwsAccount),
-		Version: "v0",
-	}
-
-	// add the object tagged fields to the global tagged fields map
-	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.AwsAccountTaggedFields[apiserver_lib.TagNameValidate]
-
-	// add the object tagged fields to the rest API version
-	apiserver_lib.AddObjectVersion(versionObj)
-}
-
 // AddAwsEksKubernetesRuntimeDefinitionVersions adds field validation info and adds it
 // to the REST API versions.
 func AddAwsEksKubernetesRuntimeDefinitionVersions() {
@@ -100,6 +68,38 @@ func AddAwsEksKubernetesRuntimeInstanceVersions() {
 
 	// add the object tagged fields to the global tagged fields map
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.AwsEksKubernetesRuntimeInstanceTaggedFields[apiserver_lib.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	apiserver_lib.AddObjectVersion(versionObj)
+}
+
+// AddAwsProviderVersions adds field validation info and adds it
+// to the REST API versions.
+func AddAwsProviderVersions() {
+	apiserver_v0.AwsProviderTaggedFields[apiserver_lib.TagNameValidate] = &apiserver_lib.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              apiserver_lib.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	apiserver_lib.ParseStruct(
+		apiserver_lib.TagNameValidate,
+		reflect.ValueOf(new(api_v0.AwsProvider)),
+		"",
+		apiserver_lib.Translate,
+		apiserver_v0.AwsProviderTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := apiserver_lib.VersionObject{
+		Object:  string(api_v0.ObjectTypeAwsProvider),
+		Version: "v0",
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.AwsProviderTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
 	apiserver_lib.AddObjectVersion(versionObj)

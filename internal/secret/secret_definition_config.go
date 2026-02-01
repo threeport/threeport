@@ -33,7 +33,7 @@ func (c *SecretDefinitionConfig) PushSecret() error {
 	// push secret to secret store based
 	// on the secret definition's provider
 	switch {
-	case c.secretDefinition.AwsAccountID != nil:
+	case c.secretDefinition.AwsProviderID != nil:
 		if err := c.PushSecretToAwsSecretsManager(); err != nil {
 			return fmt.Errorf("failed to push secret to AWS Secrets Manager: %w", err)
 		}
@@ -48,7 +48,7 @@ func (c *SecretDefinitionConfig) DeleteSecret() error {
 	// delete secret from secret store based
 	// on the secret definition's provider
 	switch {
-	case c.secretDefinition.AwsAccountID != nil:
+	case c.secretDefinition.AwsProviderID != nil:
 		if err := c.DeleteSecretFromAwsSecretsManager(); err != nil {
 			return fmt.Errorf("failed to delete secret from AWS Secrets Manager: %w", err)
 		}
@@ -61,19 +61,19 @@ func (c *SecretDefinitionConfig) DeleteSecret() error {
 func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 
 	// configure aws session
-	awsAccount, err := client.GetAwsAccountByID(
+	awsProvider, err := client.GetAwsProviderByID(
 		c.r.APIClient,
 		c.r.APIServer,
-		*c.secretDefinition.AwsAccountID,
+		*c.secretDefinition.AwsProviderID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
+		return fmt.Errorf("failed to retrieve AWS provider by ID: %w", err)
 	}
 
 	// get aws config
-	awsConfig, err := kube.GetAwsConfigFromAwsAccount(c.r.EncryptionKey, *awsAccount.DefaultRegion, awsAccount)
+	awsConfig, err := kube.GetAwsConfigFromAwsProvider(c.r.EncryptionKey, *awsProvider.DefaultRegion, awsProvider)
 	if err != nil {
-		return fmt.Errorf("failed to get AWS config from AWS account: %w", err)
+		return fmt.Errorf("failed to get AWS config from AWS provider: %w", err)
 	}
 
 	// Create a Secrets Manager awssmClient
@@ -170,19 +170,19 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 	// }
 
 	// // configure aws session
-	// awsAccount, err := client.GetAwsAccountByID(
+	// awsProvider, err := client.GetAwsProviderByID(
 	// 	r.APIClient,
 	// 	r.APIServer,
-	// 	*secretDefinition.AwsAccountID,
+	// 	*secretDefinition.AwsProviderID,
 	// )
 	// if err != nil {
-	// 	return fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
+	// 	return fmt.Errorf("failed to retrieve AWS provider by ID: %w", err)
 	// }
 
 	// // get aws config
-	// awsConfig, err := kube.GetAwsConfigFromAwsAccount(r.EncryptionKey, "us-east-2", awsAccount)
+	// awsConfig, err := kube.GetAwsConfigFromAwsProvider(r.EncryptionKey, "us-east-2", awsProvider)
 	// if err != nil {
-	// 	return fmt.Errorf("failed to get AWS config from AWS account: %w", err)
+	// 	return fmt.Errorf("failed to get AWS config from AWS provider: %w", err)
 	// }
 
 	// cfg := awsv1.NewConfig().WithRegion("eu-west-1").WithEndpointResolver(awsauth.ResolveEndpoint())
@@ -229,19 +229,19 @@ func (c *SecretDefinitionConfig) PushSecretToAwsSecretsManager() error {
 func (c *SecretDefinitionConfig) DeleteSecretFromAwsSecretsManager() error {
 
 	// configure aws session
-	awsAccount, err := client.GetAwsAccountByID(
+	awsProvider, err := client.GetAwsProviderByID(
 		c.r.APIClient,
 		c.r.APIServer,
-		*c.secretDefinition.AwsAccountID,
+		*c.secretDefinition.AwsProviderID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
+		return fmt.Errorf("failed to retrieve AWS provider by ID: %w", err)
 	}
 
 	// get aws config
-	awsConfig, err := kube.GetAwsConfigFromAwsAccount(c.r.EncryptionKey, *awsAccount.DefaultRegion, awsAccount)
+	awsConfig, err := kube.GetAwsConfigFromAwsProvider(c.r.EncryptionKey, *awsProvider.DefaultRegion, awsProvider)
 	if err != nil {
-		return fmt.Errorf("failed to get AWS config from AWS account: %w", err)
+		return fmt.Errorf("failed to get AWS config from AWS provider: %w", err)
 	}
 
 	// Create a Secrets Manager awssmClient

@@ -306,7 +306,7 @@ func InstallEksKubernetesResources(
 }
 
 // ConfigureControlPlaneWithEksConfig creates the following objects in the Threeport API:
-// - the default AWS account that was used to create the Threeport control plane runtime environment
+// - the default AWS provider that was used to create the Threeport control plane runtime environment
 // - the AWS EKS kubernetes runtime definition that was used to create the EKS kubernetes runtime for the control plane
 // - the AWS EKS kubernetes runtime instance that was used to create the EKS kubernetes runtime for the control plane
 func ConfigureControlPlaneWithEksConfig(
@@ -322,12 +322,12 @@ func ConfigureControlPlaneWithEksConfig(
 	kubernetesRuntimeInstResult *v0.KubernetesRuntimeInstance,
 ) error {
 
-	// create default AWS account
-	awsAccount := v0.AwsAccount{
-		Name:           util.Ptr(provider.DefaultAccountName),
-		AccountID:      callerIdentity.Account,
-		DefaultAccount: util.Ptr(true),
-		DefaultRegion:  &awsConfigResourceManager.Region,
+	// create default AWS provider
+	awsProvider := v0.AwsProvider{
+		Name:            util.Ptr(provider.DefaultAccountName),
+		AccountID:       callerIdentity.Account,
+		DefaultProvider: util.Ptr(true),
+		DefaultRegion:   &awsConfigResourceManager.Region,
 		RoleArn: util.Ptr(
 			provider.GetResourceManagerRoleArn(
 				cpi.Opts.ControlPlaneName,
@@ -335,13 +335,13 @@ func ConfigureControlPlaneWithEksConfig(
 			),
 		),
 	}
-	createdAwsAccount, err := client.CreateAwsAccount(
+	createdAwsProvider, err := client.CreateAwsProvider(
 		apiClient,
 		threeportAPIEndpoint,
-		&awsAccount,
+		&awsProvider,
 	)
 	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to create new default AWS account", err)
+		return uninstaller.cleanOnCreateError("failed to create new default AWS provider", err)
 	}
 
 	// create aws eks k8s runtime definition
@@ -352,7 +352,7 @@ func ConfigureControlPlaneWithEksConfig(
 		Definition: v0.Definition{
 			Name: &eksRuntimeDefName,
 		},
-		AwsAccountID:                  createdAwsAccount.ID,
+		AwsProviderID:                 createdAwsProvider.ID,
 		ZoneCount:                     &zoneCount,
 		DefaultNodeGroupInstanceType:  &kubernetesRuntimeInfraEKS.DefaultNodeGroupInstanceType,
 		DefaultNodeGroupInitialSize:   util.Ptr(int(kubernetesRuntimeInfraEKS.DefaultNodeGroupInitialNodes)),

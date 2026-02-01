@@ -26,7 +26,7 @@ type SecretDefinitionConfig struct {
 // the SecretDefinition API object.
 type SecretDefinitionValues struct {
 	Name             *string            `json:"Name,omitempty" yaml:"Name,omitempty"`
-	AwsAccountName   *string            `json:"AwsAccountName,omitempty" yaml:"AwsAccountName,omitempty"`
+	AwsProviderName  *string            `json:"AwsProviderName,omitempty" yaml:"AwsProviderName,omitempty"`
 	Data             *map[string]string `json:"Data,omitempty" yaml:"Data,omitempty"`
 	SecretConfigPath *string            `json:"SecretConfigPath,omitempty" yaml:"SecretConfigPath,omitempty"`
 	Age              *string            `json:"Age,omitempty" yaml:"Age,omitempty"`
@@ -62,12 +62,12 @@ func (s *SecretDefinitionConfig) Get(
 	// assemble config objects from API objects
 	var secretDefinitionConfigs []SecretDefinitionConfig
 	for _, secretDefinition := range *secretDefinitions {
-		// get AWS account name by looking up account ID
-		var awsAccountName *string
-		if secretDefinition.AwsAccountID != nil {
-			awsAccount, err := client_v0.GetAwsAccountByID(apiClient, apiEndpoint, *secretDefinition.AwsAccountID)
+		// get AWS provider name by looking up account ID
+		var awsProviderName *string
+		if secretDefinition.AwsProviderID != nil {
+			awsProvider, err := client_v0.GetAwsProviderByID(apiClient, apiEndpoint, *secretDefinition.AwsProviderID)
 			if err == nil {
-				awsAccountName = awsAccount.Name
+				awsProviderName = awsProvider.Name
 			}
 		}
 
@@ -82,10 +82,10 @@ func (s *SecretDefinitionConfig) Get(
 
 		secretDefinitionConfig := SecretDefinitionConfig{
 			SecretDefinition: SecretDefinitionValues{
-				Age:            util.Ptr(util.GetAgeFormatted(secretDefinition.CreatedAt)),
-				AwsAccountName: awsAccountName,
-				Data:           data,
-				Name:           secretDefinition.Name,
+				Age:             util.Ptr(util.GetAgeFormatted(secretDefinition.CreatedAt)),
+				AwsProviderName: awsProviderName,
+				Data:            data,
+				Name:            secretDefinition.Name,
 			},
 		}
 		secretDefinitionConfigs = append(secretDefinitionConfigs, secretDefinitionConfig)
@@ -105,10 +105,10 @@ func (s *SecretDefinitionConfig) Create(
 		return nil, fmt.Errorf("failed to validate values for secret definition with name %s: %w", *secretDefinitionValues.Name, err)
 	}
 
-	// get AWS account by name
-	awsAccount, err := client_v0.GetAwsAccountByName(apiClient, apiEndpoint, *secretDefinitionValues.AwsAccountName)
+	// get AWS provider by name
+	awsProvider, err := client_v0.GetAwsProviderByName(apiClient, apiEndpoint, *secretDefinitionValues.AwsProviderName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get AWS account with name %s: %w", *secretDefinitionValues.AwsAccountName, err)
+		return nil, fmt.Errorf("failed to get AWS provider with name %s: %w", *secretDefinitionValues.AwsProviderName, err)
 	}
 
 	// marshal data to JSON
@@ -122,8 +122,8 @@ func (s *SecretDefinitionConfig) Create(
 		Definition: api_v0.Definition{
 			Name: secretDefinitionValues.Name,
 		},
-		AwsAccountID: awsAccount.ID,
-		Data:         util.Ptr(datatypes.JSON(jsonData)),
+		AwsProviderID: awsProvider.ID,
+		Data:          util.Ptr(datatypes.JSON(jsonData)),
 	}
 
 	// create secret definition
@@ -139,10 +139,10 @@ func (s *SecretDefinitionConfig) Create(
 	// construct secret definition config
 	createdSecretDefinitionConfig := &SecretDefinitionConfig{
 		SecretDefinition: SecretDefinitionValues{
-			Name:           createdSecretDefinition.Name,
-			AwsAccountName: secretDefinitionValues.AwsAccountName,
-			Data:           secretDefinitionValues.Data,
-			Age:            util.Ptr(util.GetAgeFormatted(createdSecretDefinition.CreatedAt)),
+			Name:            createdSecretDefinition.Name,
+			AwsProviderName: secretDefinitionValues.AwsProviderName,
+			Data:            secretDefinitionValues.Data,
+			Age:             util.Ptr(util.GetAgeFormatted(createdSecretDefinition.CreatedAt)),
 		},
 	}
 
@@ -174,10 +174,10 @@ func (s *SecretDefinitionConfig) Replace(
 		return nil, fmt.Errorf("failed to find secret definition with name %s: %w", name, err)
 	}
 
-	// get AWS account by name
-	awsAccount, err := client_v0.GetAwsAccountByName(apiClient, apiEndpoint, *secretDefinitionValues.AwsAccountName)
+	// get AWS provider by name
+	awsProvider, err := client_v0.GetAwsProviderByName(apiClient, apiEndpoint, *secretDefinitionValues.AwsProviderName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get AWS account with name %s: %w", *secretDefinitionValues.AwsAccountName, err)
+		return nil, fmt.Errorf("failed to get AWS provider with name %s: %w", *secretDefinitionValues.AwsProviderName, err)
 	}
 
 	// marshal data to JSON
@@ -194,8 +194,8 @@ func (s *SecretDefinitionConfig) Replace(
 		Definition: api_v0.Definition{
 			Name: secretDefinitionValues.Name,
 		},
-		AwsAccountID: awsAccount.ID,
-		Data:         util.Ptr(datatypes.JSON(jsonData)),
+		AwsProviderID: awsProvider.ID,
+		Data:          util.Ptr(datatypes.JSON(jsonData)),
 	}
 
 	// replace secret definition
@@ -211,10 +211,10 @@ func (s *SecretDefinitionConfig) Replace(
 	// construct updated secret definition config
 	updatedSecretDefinitionConfig := &SecretDefinitionConfig{
 		SecretDefinition: SecretDefinitionValues{
-			Name:           replacedSecretDefinition.Name,
-			AwsAccountName: secretDefinitionValues.AwsAccountName,
-			Data:           secretDefinitionValues.Data,
-			Age:            util.Ptr(util.GetAgeFormatted(replacedSecretDefinition.CreatedAt)),
+			Name:            replacedSecretDefinition.Name,
+			AwsProviderName: secretDefinitionValues.AwsProviderName,
+			Data:            secretDefinitionValues.Data,
+			Age:             util.Ptr(util.GetAgeFormatted(replacedSecretDefinition.CreatedAt)),
 		},
 	}
 
@@ -272,9 +272,9 @@ func (s *SecretDefinitionConfig) Validate() error {
 		multiError.AppendError(errors.New("missing required field in config: Data"))
 	}
 
-	// ensure AWS account name is set
-	if secretDefinitionValues.AwsAccountName == nil {
-		multiError.AppendError(errors.New("missing required field in config: AwsAccountName"))
+	// ensure AWS provider name is set
+	if secretDefinitionValues.AwsProviderName == nil {
+		multiError.AppendError(errors.New("missing required field in config: AwsProviderName"))
 	}
 
 	return multiError.Error()

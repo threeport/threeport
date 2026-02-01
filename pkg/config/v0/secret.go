@@ -23,7 +23,7 @@ type SecretConfig struct {
 type SecretValues struct {
 	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
 	Data                      *map[string]string               `json:"Data,omitempty" yaml:"Data,omitempty"`
-	AwsAccountName            *string                          `json:"AwsAccountName,omitempty" yaml:"AwsAccountName,omitempty"`
+	AwsProviderName            *string                          `json:"AwsProviderName,omitempty" yaml:"AwsProviderName,omitempty"`
 	SecretConfigPath          *string                          `json:"SecretConfigPath,omitempty" yaml:"SecretConfigPath,omitempty"`
 	WorkloadInstance          *WorkloadInstanceValues          `json:"WorkloadInstance,omitempty" yaml:"WorkloadInstance,omitempty"`
 	HelmWorkloadInstance      *HelmWorkloadInstanceValues      `json:"HelmWorkloadInstance,omitempty" yaml:"HelmWorkloadInstance,omitempty"`
@@ -151,7 +151,7 @@ func (s *SecretConfig) GetOperations(
 	secretDefinitionConfig := SecretDefinitionConfig{
 		SecretDefinition: SecretDefinitionValues{
 			Name:             secretValues.Name,
-			AwsAccountName:   secretValues.AwsAccountName,
+			AwsProviderName:   secretValues.AwsProviderName,
 			Data:             secretValues.Data,
 			SecretConfigPath: secretValues.SecretConfigPath,
 		},
@@ -258,7 +258,7 @@ func mapToSecretDefinedInstances(
 					Secret: SecretValues{
 						Name:                      inst.SecretInstance.Name,
 						Data:                      def.SecretDefinition.Data,
-						AwsAccountName:            def.SecretDefinition.AwsAccountName,
+						AwsProviderName:            def.SecretDefinition.AwsProviderName,
 						SecretConfigPath:          inst.SecretInstance.SecretConfigPath,
 						WorkloadInstance:          inst.SecretInstance.WorkloadInstance,
 						HelmWorkloadInstance:      inst.SecretInstance.HelmWorkloadInstance,

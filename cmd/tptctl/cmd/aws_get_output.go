@@ -10,24 +10,24 @@ import (
 	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 )
 
-// outputGetv0AwsAccountsCmd produces the tabular output for the
-// `get aws-accounts` command.
-func outputGetv0AwsAccountsCmd(
-	awsAccounts *[]config_v0.AwsAccountConfig,
+// outputGetv0AwsProvidersCmd produces the tabular output for the
+// `get aws-providers` command.
+func outputGetv0AwsProvidersCmd(
+	awsProviders *[]config_v0.AwsProviderConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	fmt.Fprintln(writer, "NAME\t DEFAULT ACCOUNT\t DEFAULT REGION\t ACCOUNT ID\t AGE")
-	for _, awsAccount := range *awsAccounts {
+	for _, awsProvider := range *awsProviders {
 		age := ""
-		if awsAccount.AwsAccount.Age != nil {
-			age = *awsAccount.AwsAccount.Age
+		if awsProvider.AwsProvider.Age != nil {
+			age = *awsProvider.AwsProvider.Age
 		}
 		fmt.Fprintln(
 			writer,
-			*awsAccount.AwsAccount.Name, "\t",
-			*awsAccount.AwsAccount.DefaultAccount, "\t",
-			*awsAccount.AwsAccount.DefaultRegion, "\t",
-			*awsAccount.AwsAccount.AccountID, "\t",
+			*awsProvider.AwsProvider.Name, "\t",
+			*awsProvider.AwsProvider.DefaultProvider, "\t",
+			*awsProvider.AwsProvider.DefaultRegion, "\t",
+			*awsProvider.AwsProvider.AccountID, "\t",
 			age,
 		)
 	}
@@ -86,7 +86,7 @@ func outputGetv0AwsEksKubernetesRuntimeDefinitionsCmd(
 		fmt.Fprintln(
 			writer,
 			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.Name, "\t",
-			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.AwsAccountName, "\t",
+			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.AwsProviderName, "\t",
 			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.ZoneCount, "\t",
 			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType, "\t",
 			*awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize, "\t",

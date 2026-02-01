@@ -232,14 +232,14 @@ func v0KubernetesRuntimeInstanceUpdated(
 	}
 
 	if *kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderEKS {
-		// get aws account
-		awsAccount, err := client.GetAwsAccountByName(
+		// get aws provider
+		awsProvider, err := client.GetAwsProviderByName(
 			r.APIClient,
 			r.APIServer,
 			*kubernetesRuntimeDefinition.InfraProviderAccountName,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to get AWS account by name: %w", err)
+			return 0, fmt.Errorf("failed to get AWS provider by name: %w", err)
 		}
 
 		// system components e.g. cluster-autoscaler
@@ -247,7 +247,7 @@ func v0KubernetesRuntimeInstanceUpdated(
 			dynamicKubeClient,
 			mapper,
 			*kubernetesRuntimeInstance.Name,
-			*awsAccount.AccountID,
+			*awsProvider.AccountID,
 		); err != nil {
 			return 0, fmt.Errorf("failed to install system services: %w", err)
 		}

@@ -69,19 +69,19 @@ func v0AwsEksKubernetesRuntimeInstanceCreated(
 			if err != nil {
 				return 0, fmt.Errorf("failed to retreive cluster definition by ID: %w", err)
 			}
-			awsAccount, err := client.GetAwsAccountByID(
+			awsProvider, err := client.GetAwsProviderByID(
 				r.APIClient,
 				r.APIServer,
-				*awsEksKubernetesRuntimeDefinition.AwsAccountID,
+				*awsEksKubernetesRuntimeDefinition.AwsProviderID,
 			)
 			if err != nil {
-				return 0, fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
+				return 0, fmt.Errorf("failed to retrieve AWS provider by ID: %w", err)
 			}
 
-			awsConfig, err := kube.GetAwsConfigFromAwsAccount(
+			awsConfig, err := kube.GetAwsConfigFromAwsProvider(
 				r.EncryptionKey,
 				*awsEksKubernetesRuntimeInstance.Region,
-				awsAccount,
+				awsProvider,
 			)
 			if err != nil {
 				return 0, fmt.Errorf("failed to create AWS config: %w", err)
@@ -183,13 +183,13 @@ func v0AwsEksKubernetesRuntimeInstanceCreated(
 	if err != nil {
 		return 0, fmt.Errorf("failed to retreive cluster definition by ID: %w", err)
 	}
-	awsAccount, err := client.GetAwsAccountByID(
+	awsProvider, err := client.GetAwsProviderByID(
 		r.APIClient,
 		r.APIServer,
-		*awsEksKubernetesRuntimeDefinition.AwsAccountID,
+		*awsEksKubernetesRuntimeDefinition.AwsProviderID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
+		return 0, fmt.Errorf("failed to retrieve AWS provider by ID: %w", err)
 	}
 
 	// add log metadata
@@ -199,7 +199,7 @@ func v0AwsEksKubernetesRuntimeInstanceCreated(
 		"awsEksClusterDefinitionDefaultNodeGroupInstanceType", *awsEksKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 	)
 
-	awsConfig, err := kube.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
+	awsConfig, err := kube.GetAwsConfigFromAwsProvider(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsProvider)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config: %w", err)
 	}
@@ -245,7 +245,7 @@ func v0AwsEksKubernetesRuntimeInstanceCreated(
 
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName:          *awsEksKubernetesRuntimeInstance.Name,
-		AwsAccountID:                 *awsAccount.AccountID,
+		AwsAccountID:                 *awsProvider.AccountID,
 		AwsConfig:                    awsConfig,
 		ResourceClient:               &eksClient,
 		ZoneCount:                    int32(*awsEksKubernetesRuntimeDefinition.ZoneCount),
@@ -337,16 +337,16 @@ func v0AwsEksKubernetesRuntimeInstanceDeleted(
 	if err != nil {
 		return 0, fmt.Errorf("failed to retreive cluster definition by ID: %w", err)
 	}
-	awsAccount, err := client.GetAwsAccountByID(
+	awsProvider, err := client.GetAwsProviderByID(
 		r.APIClient,
 		r.APIServer,
-		*awsEksKubernetesRuntimeDefinition.AwsAccountID,
+		*awsEksKubernetesRuntimeDefinition.AwsProviderID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve AWS account by ID: %w", err)
+		return 0, fmt.Errorf("failed to retrieve AWS provider by ID: %w", err)
 	}
 
-	awsConfig, err := kube.GetAwsConfigFromAwsAccount(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsAccount)
+	awsConfig, err := kube.GetAwsConfigFromAwsProvider(r.EncryptionKey, *awsEksKubernetesRuntimeInstance.Region, awsProvider)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create AWS config: %w", err)
 	}
@@ -403,7 +403,7 @@ func v0AwsEksKubernetesRuntimeInstanceDeleted(
 	// construct the infra object for deletion
 	clusterInfra := provider.KubernetesRuntimeInfraEKS{
 		RuntimeInstanceName: *awsEksKubernetesRuntimeInstance.Name,
-		AwsAccountID:        *awsAccount.AccountID,
+		AwsAccountID:        *awsProvider.AccountID,
 		AwsConfig:           awsConfig,
 		ResourceClient:      &eksClient,
 		ResourceInventory:   &resourceInventory,

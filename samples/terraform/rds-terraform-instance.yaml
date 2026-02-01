@@ -3,6 +3,6 @@ TerraformInstance:
   VarsDocument: config/terraform.tfvars
   TerraformDefinition:
     Name: rds-instance
-  AwsAccount:
+  AwsProvider:
     Name: default-account
 

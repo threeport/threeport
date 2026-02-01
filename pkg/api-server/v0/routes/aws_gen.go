@@ -8,18 +8,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// AwsAccountRoutes sets up all routes for the AwsAccount handlers.
-func AwsAccountRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET(v0.PathAwsAccountVersions, h.GetAwsAccountVersions)
-
-	e.POST(v0.PathAwsAccounts, h.AddAwsAccount)
-	e.GET(v0.PathAwsAccounts, h.GetAwsAccounts)
-	e.GET(v0.PathAwsAccounts+"/:id", h.GetAwsAccount)
-	e.PATCH(v0.PathAwsAccounts+"/:id", h.UpdateAwsAccount)
-	e.PUT(v0.PathAwsAccounts+"/:id", h.ReplaceAwsAccount)
-	e.DELETE(v0.PathAwsAccounts+"/:id", h.DeleteAwsAccount)
-}
-
 // AwsEksKubernetesRuntimeDefinitionRoutes sets up all routes for the AwsEksKubernetesRuntimeDefinition handlers.
 func AwsEksKubernetesRuntimeDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.GET(v0.PathAwsEksKubernetesRuntimeDefinitionVersions, h.GetAwsEksKubernetesRuntimeDefinitionVersions)
@@ -42,4 +30,16 @@ func AwsEksKubernetesRuntimeInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.PATCH(v0.PathAwsEksKubernetesRuntimeInstances+"/:id", h.UpdateAwsEksKubernetesRuntimeInstance)
 	e.PUT(v0.PathAwsEksKubernetesRuntimeInstances+"/:id", h.ReplaceAwsEksKubernetesRuntimeInstance)
 	e.DELETE(v0.PathAwsEksKubernetesRuntimeInstances+"/:id", h.DeleteAwsEksKubernetesRuntimeInstance)
+}
+
+// AwsProviderRoutes sets up all routes for the AwsProvider handlers.
+func AwsProviderRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET(v0.PathAwsProviderVersions, h.GetAwsProviderVersions)
+
+	e.POST(v0.PathAwsProviders, h.AddAwsProvider)
+	e.GET(v0.PathAwsProviders, h.GetAwsProviders)
+	e.GET(v0.PathAwsProviders+"/:id", h.GetAwsProvider)
+	e.PATCH(v0.PathAwsProviders+"/:id", h.UpdateAwsProvider)
+	e.PUT(v0.PathAwsProviders+"/:id", h.ReplaceAwsProvider)
+	e.DELETE(v0.PathAwsProviders+"/:id", h.DeleteAwsProvider)
 }

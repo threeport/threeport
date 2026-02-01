@@ -167,21 +167,21 @@ func setupTerraform(
 	)
 
 	// get AWS credentials
-	awsAccount, err := client.GetAwsAccountByID(
+	awsProvider, err := client.GetAwsProviderByID(
 		r.APIClient,
 		r.APIServer,
-		*terraformInstance.AwsAccountID,
+		*terraformInstance.AwsProviderID,
 	)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to get AWS account to use for terraform resource management: %w", err)
+		return "", nil, fmt.Errorf("failed to get AWS provider to use for terraform resource management: %w", err)
 	}
-	awsConfig, err := kube.GetAwsConfigFromAwsAccount(
+	awsConfig, err := kube.GetAwsConfigFromAwsProvider(
 		r.EncryptionKey,
-		*awsAccount.DefaultRegion,
-		awsAccount,
+		*awsProvider.DefaultRegion,
+		awsProvider,
 	)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to get AWS config from AWS account to use for terraform resource management: %w", err)
+		return "", nil, fmt.Errorf("failed to get AWS config from AWS provider to use for terraform resource management: %w", err)
 	}
 
 	// decrypt encrypted values

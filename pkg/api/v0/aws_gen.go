@@ -10,71 +10,17 @@ import (
 )
 
 const (
-	ObjectTypeAwsAccount                        string = "AwsAccount"
 	ObjectTypeAwsEksKubernetesRuntimeDefinition string = "AwsEksKubernetesRuntimeDefinition"
 	ObjectTypeAwsEksKubernetesRuntimeInstance   string = "AwsEksKubernetesRuntimeInstance"
+	ObjectTypeAwsProvider                       string = "AwsProvider"
 
-	PathAwsAccountVersions                        = "/aws-accounts/versions"
-	PathAwsAccounts                               = "/v0/aws-accounts"
 	PathAwsEksKubernetesRuntimeDefinitionVersions = "/aws-eks-kubernetes-runtime-definitions/versions"
 	PathAwsEksKubernetesRuntimeDefinitions        = "/v0/aws-eks-kubernetes-runtime-definitions"
 	PathAwsEksKubernetesRuntimeInstanceVersions   = "/aws-eks-kubernetes-runtime-instances/versions"
 	PathAwsEksKubernetesRuntimeInstances          = "/v0/aws-eks-kubernetes-runtime-instances"
+	PathAwsProviderVersions                       = "/aws-providers/versions"
+	PathAwsProviders                              = "/v0/aws-providers"
 )
-
-// NotificationPayload returns the notification payload that is delivered to the
-// controller when a change is made.  It includes the object as presented by the
-// client when the change was made.
-func (aa *AwsAccount) NotificationPayload(
-	operation notifications.NotificationOperation,
-	requeue bool,
-	creationTime int64,
-) (*[]byte, error) {
-	notif := notifications.Notification{
-		CreationTime:  &creationTime,
-		Object:        aa,
-		ObjectVersion: aa.GetVersion(),
-		Operation:     operation,
-	}
-
-	payload, err := json.Marshal(notif)
-	if err != nil {
-		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", aa, err)
-	}
-
-	return &payload, nil
-}
-
-// DecodeNotifObject takes the threeport object in the form of a
-// map[string]interface and returns the typed object by marshalling into JSON
-// and then unmarshalling into the typed object.  We are not using the
-// mapstructure library here as that requires custom decode hooks to manage
-// fields with non-native go types.
-func (aa *AwsAccount) DecodeNotifObject(object interface{}) error {
-	jsonObject, err := json.Marshal(object)
-	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
-	}
-	if err := json.Unmarshal(jsonObject, &aa); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
-	}
-	return nil
-}
-
-// GetId returns the unique ID for the object.
-func (aa *AwsAccount) GetId() uint {
-	return *aa.ID
-}
-
-// Type returns the object type.
-func (aa *AwsAccount) GetType() string {
-	return "AwsAccount"
-}
-
-// Version returns the version of the API object.
-func (aa *AwsAccount) GetVersion() string {
-	return "v0"
-}
 
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
@@ -188,4 +134,58 @@ func (aekri *AwsEksKubernetesRuntimeInstance) GetVersion() string {
 // if scheduled for deletion or nil if not scheduled for deletion.
 func (aekri *AwsEksKubernetesRuntimeInstance) ScheduledForDeletion() *time.Time {
 	return aekri.DeletionScheduled
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (ap *AwsProvider) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime:  &creationTime,
+		Object:        ap,
+		ObjectVersion: ap.GetVersion(),
+		Operation:     operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", ap, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (ap *AwsProvider) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &ap); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetId returns the unique ID for the object.
+func (ap *AwsProvider) GetId() uint {
+	return *ap.ID
+}
+
+// Type returns the object type.
+func (ap *AwsProvider) GetType() string {
+	return "AwsProvider"
+}
+
+// Version returns the version of the API object.
+func (ap *AwsProvider) GetVersion() string {
+	return "v0"
 }

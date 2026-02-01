@@ -27,7 +27,7 @@ type TerraformInstanceConfig struct {
 // the TerraformInstance API object.
 type TerraformInstanceValues struct {
 	Name                *string                    `json:"Name,omitempty" yaml:"Name,omitempty"`
-	AwsAccount          *AwsAccountValues          `json:"AwsAccount,omitempty" yaml:"AwsAccount,omitempty"`
+	AwsProvider         *AwsProviderValues         `json:"AwsProvider,omitempty" yaml:"AwsProvider,omitempty"`
 	VarsDocument        *string                    `json:"VarsDocument,omitempty" yaml:"VarsDocument,omitempty"`
 	StateDocument       *string                    `json:"StateDocument,omitempty" yaml:"StateDocument,omitempty"`
 	Outputs             *string                    `json:"Outputs,omitempty" yaml:"Outputs,omitempty"`
@@ -81,15 +81,15 @@ func (t *TerraformInstanceConfig) Get(
 		}
 
 		// related objects
-		var awsAccount *AwsAccountValues
+		var awsProvider *AwsProviderValues
 		var terraformDefinition *TerraformDefinitionValues
 
-		// get AWS account
-		if terraformInstance.AwsAccountID != nil {
-			awsAcc, err := client_v0.GetAwsAccountByID(apiClient, apiEndpoint, *terraformInstance.AwsAccountID)
+		// get AWS provider
+		if terraformInstance.AwsProviderID != nil {
+			awsProv, err := client_v0.GetAwsProviderByID(apiClient, apiEndpoint, *terraformInstance.AwsProviderID)
 			if err == nil {
-				awsAccount = &AwsAccountValues{
-					Name: awsAcc.Name,
+				awsProvider = &AwsProviderValues{
+					Name: awsProv.Name,
 				}
 			}
 		}
@@ -116,7 +116,7 @@ func (t *TerraformInstanceConfig) Get(
 		terraformInstanceConfig := TerraformInstanceConfig{
 			TerraformInstance: TerraformInstanceValues{
 				Name:                terraformInstance.Name,
-				AwsAccount:          awsAccount,
+				AwsProvider:         awsProvider,
 				VarsDocument:        terraformInstance.VarsDocument,
 				TerraformDefinition: terraformDefinition,
 				Status:              &terraformInstanceStatus,
@@ -151,13 +151,13 @@ func (t *TerraformInstanceConfig) Create(
 	}
 
 	// get AWS Account by name
-	awsAccount, err := client_v0.GetAwsAccountByName(
+	awsProvider, err := client_v0.GetAwsProviderByName(
 		apiClient,
 		apiEndpoint,
-		*terraformInstanceValues.AwsAccount.Name,
+		*terraformInstanceValues.AwsProvider.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", *terraformInstanceValues.AwsAccount.Name, err)
+		return nil, fmt.Errorf("failed to find AWS provider with name %s: %w", *terraformInstanceValues.AwsProvider.Name, err)
 	}
 
 	// construct terraform instance object
@@ -165,7 +165,7 @@ func (t *TerraformInstanceConfig) Create(
 		Instance: api_v0.Instance{
 			Name: terraformInstanceValues.Name,
 		},
-		AwsAccountID:          awsAccount.ID,
+		AwsProviderID:         awsProvider.ID,
 		TerraformDefinitionID: terraformDefinition.ID,
 	}
 
@@ -198,7 +198,7 @@ func (t *TerraformInstanceConfig) Create(
 	createdTerraformInstanceConfig := &TerraformInstanceConfig{
 		TerraformInstance: TerraformInstanceValues{
 			Name:                createdTerraformInstance.Name,
-			AwsAccount:          terraformInstanceValues.AwsAccount,
+			AwsProvider:         terraformInstanceValues.AwsProvider,
 			VarsDocument:        terraformInstanceValues.VarsDocument,
 			TerraformDefinition: terraformInstanceValues.TerraformDefinition,
 			TerraformConfigPath: terraformInstanceValues.TerraformConfigPath,
@@ -246,13 +246,13 @@ func (t *TerraformInstanceConfig) Replace(
 	}
 
 	// get AWS Account by name
-	awsAccount, err := client_v0.GetAwsAccountByName(
+	awsProvider, err := client_v0.GetAwsProviderByName(
 		apiClient,
 		apiEndpoint,
-		*terraformInstanceValues.AwsAccount.Name,
+		*terraformInstanceValues.AwsProvider.Name,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find AWS account with name %s: %w", *terraformInstanceValues.AwsAccount.Name, err)
+		return nil, fmt.Errorf("failed to find AWS provider with name %s: %w", *terraformInstanceValues.AwsProvider.Name, err)
 	}
 
 	// construct updated terraform instance object
@@ -263,7 +263,7 @@ func (t *TerraformInstanceConfig) Replace(
 		Instance: api_v0.Instance{
 			Name: terraformInstanceValues.Name,
 		},
-		AwsAccountID:          awsAccount.ID,
+		AwsProviderID:         awsProvider.ID,
 		TerraformDefinitionID: terraformDefinition.ID,
 	}
 
@@ -296,7 +296,7 @@ func (t *TerraformInstanceConfig) Replace(
 	updatedTerraformInstanceConfig := &TerraformInstanceConfig{
 		TerraformInstance: TerraformInstanceValues{
 			Name:                replacedTerraformInstance.Name,
-			AwsAccount:          terraformInstanceValues.AwsAccount,
+			AwsProvider:         terraformInstanceValues.AwsProvider,
 			VarsDocument:        terraformInstanceValues.VarsDocument,
 			TerraformDefinition: terraformInstanceValues.TerraformDefinition,
 			TerraformConfigPath: terraformInstanceValues.TerraformConfigPath,
@@ -362,9 +362,9 @@ func (t *TerraformInstanceConfig) Validate() error {
 		multiError.AppendError(errors.New("missing required field in config: Name"))
 	}
 
-	// ensure AWS account name is set
-	if terraformInstanceValues.AwsAccount == nil || terraformInstanceValues.AwsAccount.Name == nil {
-		multiError.AppendError(errors.New("missing required field in config: AwsAccounterraformInstanceValues.Name"))
+	// ensure AWS provider name is set
+	if terraformInstanceValues.AwsProvider == nil || terraformInstanceValues.AwsProvider.Name == nil {
+		multiError.AppendError(errors.New("missing required field in config: AwsProvidererraformInstanceValues.Name"))
 	}
 
 	// ensure the terraform definition name is set

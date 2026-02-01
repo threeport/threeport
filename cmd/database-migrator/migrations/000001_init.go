@@ -47,7 +47,7 @@ func Down000001(ctx context.Context, db *sql.DB) error {
 func dbInterfaces000001() []interface{} {
 	return []interface{}{
 		&v0.AttachedObjectReference{},
-		&v0.AwsAccount{},
+		&v0.AwsProvider{},
 		&v0.AwsEksKubernetesRuntimeDefinition{},
 		&v0.AwsEksKubernetesRuntimeInstance{},
 		&v0.GcpProvider{},

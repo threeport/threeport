@@ -1,7 +1,7 @@
-AwsAccount:
+AwsProvider:
   Name: default-account
   AccountID: "555555555555"
-  DefaultAccount: true
+  DefaultProvider: true
 
   # option 1: provide explicit configs/credentials
   #DefaultRegion: us-east-1

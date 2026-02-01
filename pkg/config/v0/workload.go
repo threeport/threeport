@@ -400,7 +400,7 @@ func (w *WorkloadConfig) GetOperations(
 		secretConfig := SecretConfig{
 			Secret: SecretValues{
 				Name:                      workloadValues.Secret.Name,
-				AwsAccountName:            workloadValues.Secret.AwsAccountName,
+				AwsProviderName:           workloadValues.Secret.AwsProviderName,
 				Data:                      workloadValues.Secret.Data,
 				KubernetesRuntimeInstance: workloadValues.KubernetesRuntimeInstance,
 				WorkloadInstance:          &workloadInstanceConfig.WorkloadInstance,

@@ -18,440 +18,6 @@ import (
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-// AwsAccount
-///////////////////////////////////////////////////////////////////////////////
-
-// @Summary GetAwsAccountVersions gets the supported versions for the aws account API.
-// @Description Get the supported API versions for aws accounts.
-// @ID awsAccount-get-versions
-// @Produce json
-// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
-// @Router /aws-accounts/versions [GET]
-func (h Handler) GetAwsAccountVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAwsAccount)])
-}
-
-// @Summary adds a new aws account.
-// @Description Add a new aws account to the Threeport database.
-// @ID add-v0-awsAccount
-// @Accept json
-// @Produce json
-// @Param awsAccount body api_v0.AwsAccount true "AwsAccount object"
-// @Success 201 {object} v0.Response "Created"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-accounts [POST]
-func (h Handler) AddAwsAccount(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsAccount
-	var awsAccount api_v0.AwsAccount
-
-	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsAccount); err != nil {
-		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	if err := c.Bind(&awsAccount); err != nil {
-		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, awsAccount, objectType); err != nil {
-		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// check for duplicate names
-	var existingAwsAccount api_v0.AwsAccount
-	nameUsed := true
-	result := h.DB.Where("name = ?", awsAccount.Name).First(&existingAwsAccount)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			nameUsed = false
-		} else {
-			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-		}
-	}
-	if nameUsed {
-		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
-	}
-
-	// persist to DB
-	if result := h.DB.Create(&awsAccount); result.Error != nil {
-		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
-		// check if this is a custom HTTP error with specific status code
-		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
-			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
-			)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(
-		apiserver_lib.SingleObjectMeta(),
-		awsAccount,
-		objectType,
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus201(c, *response)
-}
-
-// @Summary gets all aws accounts.
-// @Description Get all aws accounts from the Threeport database.
-// @ID get-v0-awsAccounts
-// @Accept json
-// @Produce json
-// @Param name query string false "aws account search by name"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-accounts [GET]
-func (h Handler) GetAwsAccounts(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsAccount
-
-	// get pagination parameters
-	pageParams, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
-	if err != nil {
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
-	}
-
-	// bind filter
-	var filter api_v0.AwsAccount
-	if err := c.Bind(&filter); err != nil {
-		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-	}
-
-	pagination := new(apiserver_lib.Pagination)
-	pagination.Limit = pageParams.Limit
-
-	records := &[]api_v0.AwsAccount{}
-	var returnedCount int64
-
-	switch {
-	case pageParams.QueryId == "":
-		// no query ID provided, so the client is not requesting a specific page of results
-		// count total number of objects
-		var totalCount int64
-		if result := h.DB.Model(&api_v0.AwsAccount{}).Where(&filter).Count(&totalCount); result.Error != nil {
-			h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
-		}
-
-		// see if total count is greater than the limit
-		pagination.HasMore = totalCount > pagination.Limit
-
-		switch pagination.HasMore {
-		case false:
-			// if we don't have to paginate, return all records
-			if result := h.DB.Order("ID asc").Where(&filter).Find(records); result.Error != nil {
-				h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
-				return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
-			}
-			returnedCount = int64(len(*records))
-		case true:
-			// if we have to paginate, create the materialized view and use it to fetch the first page of records
-			queryTable := filter.TableName()
-			viewName, qid, err := h.CreateMaterializedView(queryTable)
-			if err != nil {
-				h.Logger.Error("handler error: error creating materialized view", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-			}
-			pagination.QueryId = qid
-
-			// fetch records from the new materialized view
-			returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-			if err != nil {
-				h.Logger.Error("handler error: error finding records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-			}
-
-			// set the cursor for the next page of results
-			if len(*records) > 0 {
-				pagination.NextCursor = *(*records)[len(*records)-1].ID
-			} else {
-				pagination.NextCursor = 0
-			}
-		}
-	case pageParams.QueryId != "" && pageParams.Cursor == 0:
-		// client provided a query ID but no cursor, so we cannot fetch the next page of results
-		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), objectType)
-	case pageParams.QueryId != "" && pageParams.Cursor != 0:
-		// use query ID to find the materialized view name
-		viewName, err := h.GetMaterializedViewName(pageParams.QueryId)
-		if err != nil {
-			h.Logger.Error("handler error: error finding materialized view", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-		}
-
-		// fetch records from the materialized view based on cursor
-		returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-		if err != nil {
-			h.Logger.Error("handler error: error finding records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-		}
-
-		// set the query ID for the next page of results
-		pagination.QueryId = pageParams.QueryId
-
-		// set the cursor for the next page of results
-		if len(*records) > 0 {
-			pagination.NextCursor = *(*records)[len(*records)-1].ID
-		} else {
-			pagination.NextCursor = 0
-		}
-
-		// see if we fetched the last of the records
-		pagination.HasMore = returnedCount >= pagination.Limit
-	}
-
-	// construct response
-	response, err := apiserver_lib.CreateResponse(
-		&apiserver_lib.Meta{
-			ObjectCount: returnedCount,
-			Pagination:  *pagination,
-		},
-		*records,
-		objectType,
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary gets a aws account.
-// @Description Get a particular aws account from the database.
-// @ID get-v0-awsAccount
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-accounts/{id} [GET]
-func (h Handler) GetAwsAccount(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsAccount
-	awsAccountID := c.Param("id")
-	var awsAccount api_v0.AwsAccount
-	if result := h.DB.First(&awsAccount, awsAccountID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(
-		apiserver_lib.SingleObjectMeta(),
-		awsAccount,
-		objectType,
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary updates specific fields for an existing aws account.
-// @Description Update a aws account in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating aws account objects only.
-// @Description Request bodies that include related objects will be accepted, however
-// @Description the related objects will not be changed.  Call the patch or put method for
-// @Description each particular existing object to change them.
-// @ID update-v0-awsAccount
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Param awsAccount body api_v0.AwsAccount true "AwsAccount object"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-accounts/{id} [PATCH]
-func (h Handler) UpdateAwsAccount(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsAccount
-	awsAccountID := c.Param("id")
-	var existingAwsAccount api_v0.AwsAccount
-	if result := h.DB.First(&existingAwsAccount, awsAccountID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsAccount); err != nil {
-		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// bind payload
-	var updatedAwsAccount api_v0.AwsAccount
-	if err := c.Bind(&updatedAwsAccount); err != nil {
-		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// update object in database
-	if result := h.DB.Model(&existingAwsAccount).Updates(updatedAwsAccount); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(
-		apiserver_lib.SingleObjectMeta(),
-		existingAwsAccount,
-		objectType,
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary updates an existing aws account by replacing the entire object.
-// @Description Replace a aws account in the database.  All required fields must be provided.
-// @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating aws account objects only.
-// @Description Request bodies that include related objects will be accepted, however
-// @Description the related objects will not be changed.  Call the patch or put method for
-// @Description each particular existing object to change them.
-// @ID replace-v0-awsAccount
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Param awsAccount body api_v0.AwsAccount true "AwsAccount object"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-accounts/{id} [PUT]
-func (h Handler) ReplaceAwsAccount(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsAccount
-	awsAccountID := c.Param("id")
-	var existingAwsAccount api_v0.AwsAccount
-	if result := h.DB.First(&existingAwsAccount, awsAccountID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsAccount); err != nil {
-		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// bind payload
-	var updatedAwsAccount api_v0.AwsAccount
-	if err := c.Bind(&updatedAwsAccount); err != nil {
-		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, updatedAwsAccount, objectType); err != nil {
-		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// persist provided data
-	updatedAwsAccount.ID = existingAwsAccount.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsAccount); result.Error != nil {
-		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// reload updated data from DB
-	if result := h.DB.First(&existingAwsAccount, awsAccountID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(
-		apiserver_lib.SingleObjectMeta(),
-		existingAwsAccount,
-		objectType,
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary deletes a aws account.
-// @Description Delete a aws account by ID from the database.
-// @ID delete-v0-awsAccount
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 409 {object} v0.Response "Conflict"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/aws-accounts/{id} [DELETE]
-func (h Handler) DeleteAwsAccount(c echo.Context) error {
-	objectType := api_v0.ObjectTypeAwsAccount
-	awsAccountID := c.Param("id")
-	var awsAccount api_v0.AwsAccount
-	if result := h.DB.First(&awsAccount, awsAccountID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// delete object
-	if result := h.DB.Delete(&awsAccount); result.Error != nil {
-		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
-		// check if this is a custom HTTP error with specific status code
-		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
-			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
-			)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(
-		apiserver_lib.SingleObjectMeta(),
-		awsAccount,
-		objectType,
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // AwsEksKubernetesRuntimeDefinition
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1382,6 +948,440 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		awsEksKubernetesRuntimeInstance,
+		objectType,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// AwsProvider
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetAwsProviderVersions gets the supported versions for the aws provider API.
+// @Description Get the supported API versions for aws providers.
+// @ID awsProvider-get-versions
+// @Produce json
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
+// @Router /aws-providers/versions [GET]
+func (h Handler) GetAwsProviderVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeAwsProvider)])
+}
+
+// @Summary adds a new aws provider.
+// @Description Add a new aws provider to the Threeport database.
+// @ID add-v0-awsProvider
+// @Accept json
+// @Produce json
+// @Param awsProvider body api_v0.AwsProvider true "AwsProvider object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-providers [POST]
+func (h Handler) AddAwsProvider(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAwsProvider
+	var awsProvider api_v0.AwsProvider
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, awsProvider); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&awsProvider); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := apiserver_lib.ValidateBoundData(c, awsProvider, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingAwsProvider api_v0.AwsProvider
+	nameUsed := true
+	result := h.DB.Where("name = ?", awsProvider.Name).First(&existingAwsProvider)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&awsProvider); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		awsProvider,
+		objectType,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all aws providers.
+// @Description Get all aws providers from the Threeport database.
+// @ID get-v0-awsProviders
+// @Accept json
+// @Produce json
+// @Param name query string false "aws provider search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-providers [GET]
+func (h Handler) GetAwsProviders(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAwsProvider
+
+	// get pagination parameters
+	pageParams, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+	}
+
+	// bind filter
+	var filter api_v0.AwsProvider
+	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+	}
+
+	pagination := new(apiserver_lib.Pagination)
+	pagination.Limit = pageParams.Limit
+
+	records := &[]api_v0.AwsProvider{}
+	var returnedCount int64
+
+	switch {
+	case pageParams.QueryId == "":
+		// no query ID provided, so the client is not requesting a specific page of results
+		// count total number of objects
+		var totalCount int64
+		if result := h.DB.Model(&api_v0.AwsProvider{}).Where(&filter).Count(&totalCount); result.Error != nil {
+			h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
+			return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
+		}
+
+		// see if total count is greater than the limit
+		pagination.HasMore = totalCount > pagination.Limit
+
+		switch pagination.HasMore {
+		case false:
+			// if we don't have to paginate, return all records
+			if result := h.DB.Order("ID asc").Where(&filter).Find(records); result.Error != nil {
+				h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
+				return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
+			}
+			returnedCount = int64(len(*records))
+		case true:
+			// if we have to paginate, create the materialized view and use it to fetch the first page of records
+			queryTable := filter.TableName()
+			viewName, qid, err := h.CreateMaterializedView(queryTable)
+			if err != nil {
+				h.Logger.Error("handler error: error creating materialized view", zap.Error(err))
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			}
+			pagination.QueryId = qid
+
+			// fetch records from the new materialized view
+			returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
+			if err != nil {
+				h.Logger.Error("handler error: error finding records", zap.Error(err))
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			}
+
+			// set the cursor for the next page of results
+			if len(*records) > 0 {
+				pagination.NextCursor = *(*records)[len(*records)-1].ID
+			} else {
+				pagination.NextCursor = 0
+			}
+		}
+	case pageParams.QueryId != "" && pageParams.Cursor == 0:
+		// client provided a query ID but no cursor, so we cannot fetch the next page of results
+		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), objectType)
+	case pageParams.QueryId != "" && pageParams.Cursor != 0:
+		// use query ID to find the materialized view name
+		viewName, err := h.GetMaterializedViewName(pageParams.QueryId)
+		if err != nil {
+			h.Logger.Error("handler error: error finding materialized view", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+		}
+
+		// fetch records from the materialized view based on cursor
+		returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
+		if err != nil {
+			h.Logger.Error("handler error: error finding records", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+		}
+
+		// set the query ID for the next page of results
+		pagination.QueryId = pageParams.QueryId
+
+		// set the cursor for the next page of results
+		if len(*records) > 0 {
+			pagination.NextCursor = *(*records)[len(*records)-1].ID
+		} else {
+			pagination.NextCursor = 0
+		}
+
+		// see if we fetched the last of the records
+		pagination.HasMore = returnedCount >= pagination.Limit
+	}
+
+	// construct response
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a aws provider.
+// @Description Get a particular aws provider from the database.
+// @ID get-v0-awsProvider
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-providers/{id} [GET]
+func (h Handler) GetAwsProvider(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAwsProvider
+	awsProviderID := c.Param("id")
+	var awsProvider api_v0.AwsProvider
+	if result := h.DB.First(&awsProvider, awsProviderID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		awsProvider,
+		objectType,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing aws provider.
+// @Description Update a aws provider in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating aws provider objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-v0-awsProvider
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param awsProvider body api_v0.AwsProvider true "AwsProvider object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-providers/{id} [PATCH]
+func (h Handler) UpdateAwsProvider(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAwsProvider
+	awsProviderID := c.Param("id")
+	var existingAwsProvider api_v0.AwsProvider
+	if result := h.DB.First(&existingAwsProvider, awsProviderID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsProvider); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedAwsProvider api_v0.AwsProvider
+	if err := c.Bind(&updatedAwsProvider); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingAwsProvider).Updates(updatedAwsProvider); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingAwsProvider,
+		objectType,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing aws provider by replacing the entire object.
+// @Description Replace a aws provider in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating aws provider objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-v0-awsProvider
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param awsProvider body api_v0.AwsProvider true "AwsProvider object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-providers/{id} [PUT]
+func (h Handler) ReplaceAwsProvider(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAwsProvider
+	awsProviderID := c.Param("id")
+	var existingAwsProvider api_v0.AwsProvider
+	if result := h.DB.First(&existingAwsProvider, awsProviderID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingAwsProvider); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedAwsProvider api_v0.AwsProvider
+	if err := c.Bind(&updatedAwsProvider); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := apiserver_lib.ValidateBoundData(c, updatedAwsProvider, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedAwsProvider.ID = existingAwsProvider.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsProvider); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingAwsProvider, awsProviderID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingAwsProvider,
+		objectType,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a aws provider.
+// @Description Delete a aws provider by ID from the database.
+// @ID delete-v0-awsProvider
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/aws-providers/{id} [DELETE]
+func (h Handler) DeleteAwsProvider(c echo.Context) error {
+	objectType := api_v0.ObjectTypeAwsProvider
+	awsProviderID := c.Param("id")
+	var awsProvider api_v0.AwsProvider
+	if result := h.DB.First(&awsProvider, awsProviderID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// delete object
+	if result := h.DB.Delete(&awsProvider); result.Error != nil {
+		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		awsProvider,
 		objectType,
 	)
 	if err != nil {

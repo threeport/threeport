@@ -196,13 +196,13 @@ func v0ControlPlaneInstanceCreated(
 		}
 
 		// get AWS config
-		awsAccount, err := client.GetAwsAccountByID(
+		awsProvider, err := client.GetAwsProviderByID(
 			r.APIClient,
 			r.APIServer,
-			*awsKubernetesRuntimeDef.AwsAccountID,
+			*awsKubernetesRuntimeDef.AwsProviderID,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to get awsAccount: %w", err)
+			return 0, fmt.Errorf("failed to get awsProvider: %w", err)
 		}
 
 		// Get region
@@ -215,10 +215,10 @@ func v0ControlPlaneInstanceCreated(
 			return 0, fmt.Errorf("could not get awk eks kubernetes runtime instance: %w", err)
 		}
 
-		awsConfig, err := kube.GetAwsConfigFromAwsAccount(
+		awsConfig, err := kube.GetAwsConfigFromAwsProvider(
 			r.EncryptionKey,
 			*awsEksKubernetesRuntimeInstance.Region,
-			awsAccount,
+			awsProvider,
 		)
 		if err != nil {
 			return 0, fmt.Errorf("could not get aws config from aws account: %w", err)
@@ -631,37 +631,37 @@ func v0ControlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to get AwsEksKubernetesRuntimeInstance: %w", err)
 		}
 
-		awsAccount, err := client.GetAwsAccountByAccountID(r.APIClient, r.APIServer, fmt.Sprint(awsRuntimeDef.AwsAccountID))
+		awsProvider, err := client.GetAwsProviderByAccountID(r.APIClient, r.APIServer, fmt.Sprint(awsRuntimeDef.AwsProviderID))
 		if err != nil {
-			return 0, fmt.Errorf("failed to get AwsAccount: %w", err)
+			return 0, fmt.Errorf("failed to get AwsProvider: %w", err)
 		}
 
-		awsAccount.Common = v0.Common{}
-		if awsAccount.AccessKeyID != nil && *awsAccount.AccessKeyID != "" {
-			decryptedKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.AccessKeyID)
+		awsProvider.Common = v0.Common{}
+		if awsProvider.AccessKeyID != nil && *awsProvider.AccessKeyID != "" {
+			decryptedKey, err := encryption.Decrypt(r.EncryptionKey, *awsProvider.AccessKeyID)
 			if err != nil {
 				return 0, fmt.Errorf("failed to decrypt access key id on aws account: %w", err)
 			}
 
-			awsAccount.AccessKeyID = &decryptedKey
+			awsProvider.AccessKeyID = &decryptedKey
 		}
 
-		if awsAccount.SecretAccessKey != nil && *awsAccount.SecretAccessKey != "" {
-			decryptedKey, err := encryption.Decrypt(r.EncryptionKey, *awsAccount.SecretAccessKey)
+		if awsProvider.SecretAccessKey != nil && *awsProvider.SecretAccessKey != "" {
+			decryptedKey, err := encryption.Decrypt(r.EncryptionKey, *awsProvider.SecretAccessKey)
 			if err != nil {
 				return 0, fmt.Errorf("failed to decrypt secret access key on aws account: %w", err)
 			}
 
-			awsAccount.SecretAccessKey = &decryptedKey
+			awsProvider.SecretAccessKey = &decryptedKey
 		}
 
-		createdAwsAccount, err := client.CreateAwsAccount(newApiClient, threeportAPIEndpoint, awsAccount)
+		createdAwsProvider, err := client.CreateAwsProvider(newApiClient, threeportAPIEndpoint, awsProvider)
 		if err != nil {
-			return 0, fmt.Errorf("failed to create AwsAccount: %w", err)
+			return 0, fmt.Errorf("failed to create AwsProvider: %w", err)
 		}
 
 		awsRuntimeDef.Common = v0.Common{}
-		awsRuntimeDef.AwsAccountID = createdAwsAccount.ID
+		awsRuntimeDef.AwsProviderID = createdAwsProvider.ID
 		createdAwsRuntimDef, err := client.CreateAwsEksKubernetesRuntimeDefinition(newApiClient, threeportAPIEndpoint, awsRuntimeDef)
 		if err != nil {
 			return 0, fmt.Errorf("failed to create AwsEksKubernetesRuntimeDefinition: %w", err)

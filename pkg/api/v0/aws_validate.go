@@ -14,9 +14,9 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// BeforeCreate validates a AWS Account before persisting to the
+// BeforeCreate validates a AWS Provider before persisting to the
 // database.
-func (a *AwsAccount) BeforeCreate(tx *gorm.DB) error {
+func (a *AwsProvider) BeforeCreate(tx *gorm.DB) error {
 	// encrypt sensitive values
 	var encryptionKey = os.Getenv("ENCRYPTION_KEY")
 	if encryptionKey == "" {
@@ -100,13 +100,13 @@ func (a *AwsAccount) BeforeCreate(tx *gorm.DB) error {
 
 // BeforeUpdate validates that no immutable fields are attempting to be changed
 // before updates are persisted.
-func (a *AwsAccount) BeforeUpdate(tx *gorm.DB) error {
+func (a *AwsProvider) BeforeUpdate(tx *gorm.DB) error {
 	// encrypt sensitive values
 	var encryptionKey = os.Getenv("ENCRYPTION_KEY")
 	if encryptionKey == "" {
 		return errors.New("environment variable ENCRYPTION_KEY is not set")
 	}
-	updatedObj := tx.Statement.Dest.(AwsAccount)
+	updatedObj := tx.Statement.Dest.(AwsProvider)
 	objVal := reflect.ValueOf(&updatedObj).Elem()
 	objType := objVal.Type()
 	for i := 0; i < objType.NumField(); i++ {

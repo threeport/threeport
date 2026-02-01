@@ -22,8 +22,8 @@ type TerraformInstance struct {
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// The AWS account in which the resources will be provisioned.
-	AwsAccountID *uint `json:"AwsAccountID,omitempty" query:"awsaccountid" gorm:"not null" validate:"required"`
+	// The AWS provider in which the resources will be provisioned.
+	AwsProviderID *uint `json:"AwsProviderID,omitempty" query:"awsproviderid" gorm:"not null" validate:"required"`
 
 	// The .tfvars document that contains runtime parameters for an instance of
 	// some terraform resources.
