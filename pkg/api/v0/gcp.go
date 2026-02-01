@@ -2,18 +2,18 @@ package v0
 
 import "gorm.io/datatypes"
 
-// GcpAccount is a user account with the Google Cloud Platform service provider.
-type GcpAccount struct {
+// GcpProvider represents a Google Cloud Platform (GCP) project in an account with the GCP service provider.
+type GcpProvider struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
-	// The unique name of an Google account.
+	// The unique name of a GCP provider.
 	Name *string `json:"Name,omitempty" query:"name" gorm:"not null" validate:"required"`
 
 	// The GCP project ID for the Google Cloud account.
 	ProjectID *string `json:"ProjectID,omitempty" query:"projectid" gorm:"not null" validate:"required"`
 
-	// If true is the Google Account used if none specified in a definition.
-	DefaultAccount *bool `json:"DefaultAccount,omitempty" query:"defaultaccount" gorm:"default:false" validate:"optional"`
+	// If true, is the GCP provider used when none specified for an instance.
+	DefaultProvider *bool `json:"DefaultProvider,omitempty" query:"defaultprovider" gorm:"default:false" validate:"optional"`
 
 	// The region to use for GCP managed services if not specified.
 	DefaultRegion *string `json:"DefaultRegion,omitempty" query:"defaultregion" gorm:"not null" validate:"required"`
@@ -23,7 +23,7 @@ type GcpAccount struct {
 	// Used when the gcp-controller runs outside GCP (e.g., in AWS or on-prem).
 	ServiceAccountCredentials *string `json:"ServiceAccountCredentials,omitempty" validate:"optional" encrypt:"true"`
 
-	// The cluster instances deployed in this GCP account.
+	// The cluster instances deployed with this GCP provider.
 	GcpGkeKubernetesRuntimeInstances []*GcpGkeKubernetesRuntimeInstance `json:"GcpGkeKubernetesRuntimeInstances,omitempty" validate:"optional,association"`
 }
 
@@ -64,8 +64,8 @@ type GcpGkeKubernetesRuntimeInstance struct {
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// The GCP account in which the GKE cluster is provisioned.
-	GcpAccountID *uint `json:"GcpAccountID,omitempty" query:"gcpaccountid" gorm:"not null" validate:"required"`
+	// The GCP provider in which the GKE cluster is provisioned.
+	GcpProviderID *uint `json:"GcpProviderID,omitempty" query:"gcpproviderid" gorm:"not null" validate:"required"`
 
 	// The GCP region in which the cluster is provisioned.
 	Region *string `json:"Region,omitempty" query:"region" validate:"optional"`

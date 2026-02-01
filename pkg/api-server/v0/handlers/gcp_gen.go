@@ -18,440 +18,6 @@ import (
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-// GcpAccount
-///////////////////////////////////////////////////////////////////////////////
-
-// @Summary GetGcpAccountVersions gets the supported versions for the gcp account API.
-// @Description Get the supported API versions for gcp accounts.
-// @ID gcpAccount-get-versions
-// @Produce json
-// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
-// @Router /gcp-accounts/versions [GET]
-func (h Handler) GetGcpAccountVersions(c echo.Context) error {
-	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeGcpAccount)])
-}
-
-// @Summary adds a new gcp account.
-// @Description Add a new gcp account to the Threeport database.
-// @ID add-v0-gcpAccount
-// @Accept json
-// @Produce json
-// @Param gcpAccount body api_v0.GcpAccount true "GcpAccount object"
-// @Success 201 {object} v0.Response "Created"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gcp-accounts [POST]
-func (h Handler) AddGcpAccount(c echo.Context) error {
-	objectType := api_v0.ObjectTypeGcpAccount
-	var gcpAccount api_v0.GcpAccount
-
-	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, gcpAccount); err != nil {
-		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	if err := c.Bind(&gcpAccount); err != nil {
-		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, gcpAccount, objectType); err != nil {
-		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// check for duplicate names
-	var existingGcpAccount api_v0.GcpAccount
-	nameUsed := true
-	result := h.DB.Where("name = ?", gcpAccount.Name).First(&existingGcpAccount)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			nameUsed = false
-		} else {
-			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-		}
-	}
-	if nameUsed {
-		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
-	}
-
-	// persist to DB
-	if result := h.DB.Create(&gcpAccount); result.Error != nil {
-		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
-		// check if this is a custom HTTP error with specific status code
-		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
-			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
-			)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(
-		apiserver_lib.SingleObjectMeta(),
-		gcpAccount,
-		objectType,
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus201(c, *response)
-}
-
-// @Summary gets all gcp accounts.
-// @Description Get all gcp accounts from the Threeport database.
-// @ID get-v0-gcpAccounts
-// @Accept json
-// @Produce json
-// @Param name query string false "gcp account search by name"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gcp-accounts [GET]
-func (h Handler) GetGcpAccounts(c echo.Context) error {
-	objectType := api_v0.ObjectTypeGcpAccount
-
-	// get pagination parameters
-	pageParams, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
-	if err != nil {
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
-	}
-
-	// bind filter
-	var filter api_v0.GcpAccount
-	if err := c.Bind(&filter); err != nil {
-		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-	}
-
-	pagination := new(apiserver_lib.Pagination)
-	pagination.Limit = pageParams.Limit
-
-	records := &[]api_v0.GcpAccount{}
-	var returnedCount int64
-
-	switch {
-	case pageParams.QueryId == "":
-		// no query ID provided, so the client is not requesting a specific page of results
-		// count total number of objects
-		var totalCount int64
-		if result := h.DB.Model(&api_v0.GcpAccount{}).Where(&filter).Count(&totalCount); result.Error != nil {
-			h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
-		}
-
-		// see if total count is greater than the limit
-		pagination.HasMore = totalCount > pagination.Limit
-
-		switch pagination.HasMore {
-		case false:
-			// if we don't have to paginate, return all records
-			if result := h.DB.Order("ID asc").Where(&filter).Find(records); result.Error != nil {
-				h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
-				return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
-			}
-			returnedCount = int64(len(*records))
-		case true:
-			// if we have to paginate, create the materialized view and use it to fetch the first page of records
-			queryTable := filter.TableName()
-			viewName, qid, err := h.CreateMaterializedView(queryTable)
-			if err != nil {
-				h.Logger.Error("handler error: error creating materialized view", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-			}
-			pagination.QueryId = qid
-
-			// fetch records from the new materialized view
-			returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-			if err != nil {
-				h.Logger.Error("handler error: error finding records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-			}
-
-			// set the cursor for the next page of results
-			if len(*records) > 0 {
-				pagination.NextCursor = *(*records)[len(*records)-1].ID
-			} else {
-				pagination.NextCursor = 0
-			}
-		}
-	case pageParams.QueryId != "" && pageParams.Cursor == 0:
-		// client provided a query ID but no cursor, so we cannot fetch the next page of results
-		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), objectType)
-	case pageParams.QueryId != "" && pageParams.Cursor != 0:
-		// use query ID to find the materialized view name
-		viewName, err := h.GetMaterializedViewName(pageParams.QueryId)
-		if err != nil {
-			h.Logger.Error("handler error: error finding materialized view", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-		}
-
-		// fetch records from the materialized view based on cursor
-		returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-		if err != nil {
-			h.Logger.Error("handler error: error finding records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-		}
-
-		// set the query ID for the next page of results
-		pagination.QueryId = pageParams.QueryId
-
-		// set the cursor for the next page of results
-		if len(*records) > 0 {
-			pagination.NextCursor = *(*records)[len(*records)-1].ID
-		} else {
-			pagination.NextCursor = 0
-		}
-
-		// see if we fetched the last of the records
-		pagination.HasMore = returnedCount >= pagination.Limit
-	}
-
-	// construct response
-	response, err := apiserver_lib.CreateResponse(
-		&apiserver_lib.Meta{
-			ObjectCount: returnedCount,
-			Pagination:  *pagination,
-		},
-		*records,
-		objectType,
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary gets a gcp account.
-// @Description Get a particular gcp account from the database.
-// @ID get-v0-gcpAccount
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gcp-accounts/{id} [GET]
-func (h Handler) GetGcpAccount(c echo.Context) error {
-	objectType := api_v0.ObjectTypeGcpAccount
-	gcpAccountID := c.Param("id")
-	var gcpAccount api_v0.GcpAccount
-	if result := h.DB.First(&gcpAccount, gcpAccountID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(
-		apiserver_lib.SingleObjectMeta(),
-		gcpAccount,
-		objectType,
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary updates specific fields for an existing gcp account.
-// @Description Update a gcp account in the database.  Provide one or more fields to update.
-// @Description Note: This API endpint is for updating gcp account objects only.
-// @Description Request bodies that include related objects will be accepted, however
-// @Description the related objects will not be changed.  Call the patch or put method for
-// @Description each particular existing object to change them.
-// @ID update-v0-gcpAccount
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Param gcpAccount body api_v0.GcpAccount true "GcpAccount object"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gcp-accounts/{id} [PATCH]
-func (h Handler) UpdateGcpAccount(c echo.Context) error {
-	objectType := api_v0.ObjectTypeGcpAccount
-	gcpAccountID := c.Param("id")
-	var existingGcpAccount api_v0.GcpAccount
-	if result := h.DB.First(&existingGcpAccount, gcpAccountID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGcpAccount); err != nil {
-		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// bind payload
-	var updatedGcpAccount api_v0.GcpAccount
-	if err := c.Bind(&updatedGcpAccount); err != nil {
-		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// update object in database
-	if result := h.DB.Model(&existingGcpAccount).Updates(updatedGcpAccount); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(
-		apiserver_lib.SingleObjectMeta(),
-		existingGcpAccount,
-		objectType,
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary updates an existing gcp account by replacing the entire object.
-// @Description Replace a gcp account in the database.  All required fields must be provided.
-// @Description If any optional fields are not provided, they will be null post-update.
-// @Description Note: This API endpint is for updating gcp account objects only.
-// @Description Request bodies that include related objects will be accepted, however
-// @Description the related objects will not be changed.  Call the patch or put method for
-// @Description each particular existing object to change them.
-// @ID replace-v0-gcpAccount
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Param gcpAccount body api_v0.GcpAccount true "GcpAccount object"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 400 {object} v0.Response "Bad Request"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gcp-accounts/{id} [PUT]
-func (h Handler) ReplaceGcpAccount(c echo.Context) error {
-	objectType := api_v0.ObjectTypeGcpAccount
-	gcpAccountID := c.Param("id")
-	var existingGcpAccount api_v0.GcpAccount
-	if result := h.DB.First(&existingGcpAccount, gcpAccountID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// check for empty payload, invalid or unsupported fields, optional associations, etc.
-	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGcpAccount); err != nil {
-		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// bind payload
-	var updatedGcpAccount api_v0.GcpAccount
-	if err := c.Bind(&updatedGcpAccount); err != nil {
-		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	// check for missing required fields
-	if id, err := apiserver_lib.ValidateBoundData(c, updatedGcpAccount, objectType); err != nil {
-		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
-	}
-
-	// persist provided data
-	updatedGcpAccount.ID = existingGcpAccount.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedGcpAccount); result.Error != nil {
-		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// reload updated data from DB
-	if result := h.DB.First(&existingGcpAccount, gcpAccountID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(
-		apiserver_lib.SingleObjectMeta(),
-		existingGcpAccount,
-		objectType,
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-// @Summary deletes a gcp account.
-// @Description Delete a gcp account by ID from the database.
-// @ID delete-v0-gcpAccount
-// @Accept json
-// @Produce json
-// @Param id path int true "ID"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 404 {object} v0.Response "Not Found"
-// @Failure 409 {object} v0.Response "Conflict"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/gcp-accounts/{id} [DELETE]
-func (h Handler) DeleteGcpAccount(c echo.Context) error {
-	objectType := api_v0.ObjectTypeGcpAccount
-	gcpAccountID := c.Param("id")
-	var gcpAccount api_v0.GcpAccount
-	if result := h.DB.First(&gcpAccount, gcpAccountID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// delete object
-	if result := h.DB.Delete(&gcpAccount); result.Error != nil {
-		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
-		// check if this is a custom HTTP error with specific status code
-		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
-			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
-			)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(
-		apiserver_lib.SingleObjectMeta(),
-		gcpAccount,
-		objectType,
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // GcpGkeKubernetesRuntimeDefinition
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1382,6 +948,440 @@ func (h Handler) DeleteGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		gcpGkeKubernetesRuntimeInstance,
+		objectType,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// GcpProvider
+///////////////////////////////////////////////////////////////////////////////
+
+// @Summary GetGcpProviderVersions gets the supported versions for the gcp provider API.
+// @Description Get the supported API versions for gcp providers.
+// @ID gcpProvider-get-versions
+// @Produce json
+// @Success 200 {object} apiserver_lib.ApiObjectVersions "OK"
+// @Router /gcp-providers/versions [GET]
+func (h Handler) GetGcpProviderVersions(c echo.Context) error {
+	return c.JSON(http.StatusOK, apiserver_lib.ObjectVersions[string(api_v0.ObjectTypeGcpProvider)])
+}
+
+// @Summary adds a new gcp provider.
+// @Description Add a new gcp provider to the Threeport database.
+// @ID add-v0-gcpProvider
+// @Accept json
+// @Produce json
+// @Param gcpProvider body api_v0.GcpProvider true "GcpProvider object"
+// @Success 201 {object} v0.Response "Created"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gcp-providers [POST]
+func (h Handler) AddGcpProvider(c echo.Context) error {
+	objectType := api_v0.ObjectTypeGcpProvider
+	var gcpProvider api_v0.GcpProvider
+
+	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, gcpProvider); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	if err := c.Bind(&gcpProvider); err != nil {
+		h.Logger.Error("handler error: error binding object", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := apiserver_lib.ValidateBoundData(c, gcpProvider, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// check for duplicate names
+	var existingGcpProvider api_v0.GcpProvider
+	nameUsed := true
+	result := h.DB.Where("name = ?", gcpProvider.Name).First(&existingGcpProvider)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			nameUsed = false
+		} else {
+			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
+			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		}
+	}
+	if nameUsed {
+		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// persist to DB
+	if result := h.DB.Create(&gcpProvider); result.Error != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		gcpProvider,
+		objectType,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus201(c, *response)
+}
+
+// @Summary gets all gcp providers.
+// @Description Get all gcp providers from the Threeport database.
+// @ID get-v0-gcpProviders
+// @Accept json
+// @Produce json
+// @Param name query string false "gcp provider search by name"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gcp-providers [GET]
+func (h Handler) GetGcpProviders(c echo.Context) error {
+	objectType := api_v0.ObjectTypeGcpProvider
+
+	// get pagination parameters
+	pageParams, err := c.(*apiserver_lib.CustomContext).GetPaginationParams()
+	if err != nil {
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+	}
+
+	// bind filter
+	var filter api_v0.GcpProvider
+	if err := c.Bind(&filter); err != nil {
+		h.Logger.Error("handler error: error binding filter", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+	}
+
+	pagination := new(apiserver_lib.Pagination)
+	pagination.Limit = pageParams.Limit
+
+	records := &[]api_v0.GcpProvider{}
+	var returnedCount int64
+
+	switch {
+	case pageParams.QueryId == "":
+		// no query ID provided, so the client is not requesting a specific page of results
+		// count total number of objects
+		var totalCount int64
+		if result := h.DB.Model(&api_v0.GcpProvider{}).Where(&filter).Count(&totalCount); result.Error != nil {
+			h.Logger.Error("handler error: error counting objects", zap.Error(result.Error))
+			return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
+		}
+
+		// see if total count is greater than the limit
+		pagination.HasMore = totalCount > pagination.Limit
+
+		switch pagination.HasMore {
+		case false:
+			// if we don't have to paginate, return all records
+			if result := h.DB.Order("ID asc").Where(&filter).Find(records); result.Error != nil {
+				h.Logger.Error("handler error: error finding objects", zap.Error(result.Error))
+				return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
+			}
+			returnedCount = int64(len(*records))
+		case true:
+			// if we have to paginate, create the materialized view and use it to fetch the first page of records
+			queryTable := filter.TableName()
+			viewName, qid, err := h.CreateMaterializedView(queryTable)
+			if err != nil {
+				h.Logger.Error("handler error: error creating materialized view", zap.Error(err))
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			}
+			pagination.QueryId = qid
+
+			// fetch records from the new materialized view
+			returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
+			if err != nil {
+				h.Logger.Error("handler error: error finding records", zap.Error(err))
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			}
+
+			// set the cursor for the next page of results
+			if len(*records) > 0 {
+				pagination.NextCursor = *(*records)[len(*records)-1].ID
+			} else {
+				pagination.NextCursor = 0
+			}
+		}
+	case pageParams.QueryId != "" && pageParams.Cursor == 0:
+		// client provided a query ID but no cursor, so we cannot fetch the next page of results
+		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), objectType)
+	case pageParams.QueryId != "" && pageParams.Cursor != 0:
+		// use query ID to find the materialized view name
+		viewName, err := h.GetMaterializedViewName(pageParams.QueryId)
+		if err != nil {
+			h.Logger.Error("handler error: error finding materialized view", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+		}
+
+		// fetch records from the materialized view based on cursor
+		returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
+		if err != nil {
+			h.Logger.Error("handler error: error finding records", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+		}
+
+		// set the query ID for the next page of results
+		pagination.QueryId = pageParams.QueryId
+
+		// set the cursor for the next page of results
+		if len(*records) > 0 {
+			pagination.NextCursor = *(*records)[len(*records)-1].ID
+		} else {
+			pagination.NextCursor = 0
+		}
+
+		// see if we fetched the last of the records
+		pagination.HasMore = returnedCount >= pagination.Limit
+	}
+
+	// construct response
+	response, err := apiserver_lib.CreateResponse(
+		&apiserver_lib.Meta{
+			ObjectCount: returnedCount,
+			Pagination:  *pagination,
+		},
+		*records,
+		objectType,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary gets a gcp provider.
+// @Description Get a particular gcp provider from the database.
+// @ID get-v0-gcpProvider
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gcp-providers/{id} [GET]
+func (h Handler) GetGcpProvider(c echo.Context) error {
+	objectType := api_v0.ObjectTypeGcpProvider
+	gcpProviderID := c.Param("id")
+	var gcpProvider api_v0.GcpProvider
+	if result := h.DB.First(&gcpProvider, gcpProviderID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		gcpProvider,
+		objectType,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary updates specific fields for an existing gcp provider.
+// @Description Update a gcp provider in the database.  Provide one or more fields to update.
+// @Description Note: This API endpint is for updating gcp provider objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID update-v0-gcpProvider
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param gcpProvider body api_v0.GcpProvider true "GcpProvider object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gcp-providers/{id} [PATCH]
+func (h Handler) UpdateGcpProvider(c echo.Context) error {
+	objectType := api_v0.ObjectTypeGcpProvider
+	gcpProviderID := c.Param("id")
+	var existingGcpProvider api_v0.GcpProvider
+	if result := h.DB.First(&existingGcpProvider, gcpProviderID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGcpProvider); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedGcpProvider api_v0.GcpProvider
+	if err := c.Bind(&updatedGcpProvider); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// update object in database
+	if result := h.DB.Model(&existingGcpProvider).Updates(updatedGcpProvider); result.Error != nil {
+		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingGcpProvider,
+		objectType,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary updates an existing gcp provider by replacing the entire object.
+// @Description Replace a gcp provider in the database.  All required fields must be provided.
+// @Description If any optional fields are not provided, they will be null post-update.
+// @Description Note: This API endpint is for updating gcp provider objects only.
+// @Description Request bodies that include related objects will be accepted, however
+// @Description the related objects will not be changed.  Call the patch or put method for
+// @Description each particular existing object to change them.
+// @ID replace-v0-gcpProvider
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Param gcpProvider body api_v0.GcpProvider true "GcpProvider object"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 400 {object} v0.Response "Bad Request"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gcp-providers/{id} [PUT]
+func (h Handler) ReplaceGcpProvider(c echo.Context) error {
+	objectType := api_v0.ObjectTypeGcpProvider
+	gcpProviderID := c.Param("id")
+	var existingGcpProvider api_v0.GcpProvider
+	if result := h.DB.First(&existingGcpProvider, gcpProviderID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for empty payload, invalid or unsupported fields, optional associations, etc.
+	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGcpProvider); err != nil {
+		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// bind payload
+	var updatedGcpProvider api_v0.GcpProvider
+	if err := c.Bind(&updatedGcpProvider); err != nil {
+		h.Logger.Error("handler error: error binding payload", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// check for missing required fields
+	if id, err := apiserver_lib.ValidateBoundData(c, updatedGcpProvider, objectType); err != nil {
+		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+	}
+
+	// persist provided data
+	updatedGcpProvider.ID = existingGcpProvider.ID
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedGcpProvider); result.Error != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// reload updated data from DB
+	if result := h.DB.First(&existingGcpProvider, gcpProviderID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		existingGcpProvider,
+		objectType,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error creating response", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	return apiserver_lib.ResponseStatus200(c, *response)
+}
+
+// @Summary deletes a gcp provider.
+// @Description Delete a gcp provider by ID from the database.
+// @ID delete-v0-gcpProvider
+// @Accept json
+// @Produce json
+// @Param id path int true "ID"
+// @Success 200 {object} v0.Response "OK"
+// @Failure 404 {object} v0.Response "Not Found"
+// @Failure 409 {object} v0.Response "Conflict"
+// @Failure 500 {object} v0.Response "Internal Server Error"
+// @Router /v0/gcp-providers/{id} [DELETE]
+func (h Handler) DeleteGcpProvider(c echo.Context) error {
+	objectType := api_v0.ObjectTypeGcpProvider
+	gcpProviderID := c.Param("id")
+	var gcpProvider api_v0.GcpProvider
+	if result := h.DB.First(&gcpProvider, gcpProviderID); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
+		}
+		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// delete object
+	if result := h.DB.Delete(&gcpProvider); result.Error != nil {
+		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
+		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	response, err := apiserver_lib.CreateResponse(
+		apiserver_lib.SingleObjectMeta(),
+		gcpProvider,
 		objectType,
 	)
 	if err != nil {

@@ -8,18 +8,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// GcpAccountRoutes sets up all routes for the GcpAccount handlers.
-func GcpAccountRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET(v0.PathGcpAccountVersions, h.GetGcpAccountVersions)
-
-	e.POST(v0.PathGcpAccounts, h.AddGcpAccount)
-	e.GET(v0.PathGcpAccounts, h.GetGcpAccounts)
-	e.GET(v0.PathGcpAccounts+"/:id", h.GetGcpAccount)
-	e.PATCH(v0.PathGcpAccounts+"/:id", h.UpdateGcpAccount)
-	e.PUT(v0.PathGcpAccounts+"/:id", h.ReplaceGcpAccount)
-	e.DELETE(v0.PathGcpAccounts+"/:id", h.DeleteGcpAccount)
-}
-
 // GcpGkeKubernetesRuntimeDefinitionRoutes sets up all routes for the GcpGkeKubernetesRuntimeDefinition handlers.
 func GcpGkeKubernetesRuntimeDefinitionRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.GET(v0.PathGcpGkeKubernetesRuntimeDefinitionVersions, h.GetGcpGkeKubernetesRuntimeDefinitionVersions)
@@ -42,4 +30,16 @@ func GcpGkeKubernetesRuntimeInstanceRoutes(e *echo.Echo, h *handlers.Handler) {
 	e.PATCH(v0.PathGcpGkeKubernetesRuntimeInstances+"/:id", h.UpdateGcpGkeKubernetesRuntimeInstance)
 	e.PUT(v0.PathGcpGkeKubernetesRuntimeInstances+"/:id", h.ReplaceGcpGkeKubernetesRuntimeInstance)
 	e.DELETE(v0.PathGcpGkeKubernetesRuntimeInstances+"/:id", h.DeleteGcpGkeKubernetesRuntimeInstance)
+}
+
+// GcpProviderRoutes sets up all routes for the GcpProvider handlers.
+func GcpProviderRoutes(e *echo.Echo, h *handlers.Handler) {
+	e.GET(v0.PathGcpProviderVersions, h.GetGcpProviderVersions)
+
+	e.POST(v0.PathGcpProviders, h.AddGcpProvider)
+	e.GET(v0.PathGcpProviders, h.GetGcpProviders)
+	e.GET(v0.PathGcpProviders+"/:id", h.GetGcpProvider)
+	e.PATCH(v0.PathGcpProviders+"/:id", h.UpdateGcpProvider)
+	e.PUT(v0.PathGcpProviders+"/:id", h.ReplaceGcpProvider)
+	e.DELETE(v0.PathGcpProviders+"/:id", h.DeleteGcpProvider)
 }

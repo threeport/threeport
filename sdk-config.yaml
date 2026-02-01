@@ -71,7 +71,7 @@ ApiObjectGroups:
         Enabled: true
 - Name: gcp
   Objects:
-    - Name: GcpAccount
+    - Name: GcpProvider
       Versions:
         - v0
       Tptctl:

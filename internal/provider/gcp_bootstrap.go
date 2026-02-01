@@ -422,7 +422,7 @@ func (i *KubernetesRuntimeInfraGKE) getServiceAccountEmail() string {
 
 // CreateGCPServiceAccountWithKey creates a GCP service account with the necessary
 // permissions for Threeport to manage GCP resources, and exports a JSON key.
-// This is used when creating a GcpAccount via tptctl, where we need to store
+// This is used when creating a GcpProvider via tptctl, where we need to store
 // the service account credentials for use by controllers running outside GCP.
 //
 // Parameters:
@@ -453,7 +453,7 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 	// Generate service account ID and create the service account
 	serviceAccountID := generateServiceAccountID(accountName)
 	displayName := fmt.Sprintf(serviceAccountDisplayFormat, accountName)
-	description := fmt.Sprintf("Service account for Threeport GcpAccount %s to manage GCP resources", accountName)
+	description := fmt.Sprintf("Service account for Threeport GcpProvider %s to manage GCP resources", accountName)
 
 	account, err := createServiceAccountForProject(iamService, projectID, serviceAccountID, displayName, description)
 	if err != nil {
@@ -493,8 +493,8 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 }
 
 // DeleteGCPServiceAccountWithKey deletes a GCP service account that was created
-// for a GcpAccount. This removes the IAM role bindings and deletes the service account.
-// This is used when deleting a GcpAccount via tptctl.
+// for a GcpProvider. This removes the IAM role bindings and deletes the service account.
+// This is used when deleting a GcpProvider via tptctl.
 //
 // Parameters:
 //   - projectID: The GCP project ID where the service account exists
@@ -691,7 +691,7 @@ func isNotFoundError(err error) bool {
 }
 
 // generateServiceAccountID generates a valid GCP service account ID from the given name.
-// This is used when creating service accounts via tptctl create gcp-account.
+// This is used when creating service accounts via tptctl create gcp-provider.
 func generateServiceAccountID(name string) string {
 	return formatServiceAccountID(serviceAccountNameFormat, name)
 }

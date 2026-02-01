@@ -5,11 +5,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
+
 	cobra "github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	yaml "gopkg.in/yaml.v2"
-	"os"
 )
 
 var (
@@ -20,14 +21,14 @@ var (
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-// GcpAccount
+// GcpProvider
 ///////////////////////////////////////////////////////////////////////////////
 
-// GetGcpAccountsCmd represents the command 'tptctl get gcp-accounts'
-var GetGcpAccountsCmd = &cobra.Command{
-	Aliases: []string{"gcp-account"},
-	Example: "  # get all gcp accounts\n  tptctl get gcp-accounts\n\n  # get a specific gcp account\n  tptctl get gcp-account --name some-gcp-account",
-	Long:    "Get gcp accounts from the system. Use --name to get a specific gcp account.",
+// GetGcpProvidersCmd represents the command 'tptctl get gcp-providers'
+var GetGcpProvidersCmd = &cobra.Command{
+	Aliases: []string{"gcp-provider"},
+	Example: "  # get all gcp providers\n  tptctl get gcp-providers\n\n  # get a specific gcp provider\n  tptctl get gcp-provider --name some-gcp-provider",
+	Long:    "Get gcp providers from the system. Use --name to get a specific gcp provider.",
 	PreRun:  CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := GetClientContext(cmd)
@@ -36,7 +37,7 @@ var GetGcpAccountsCmd = &cobra.Command{
 		if err := cli.ValidateConfigNameFlags(
 			gcpConfigPath,
 			gcpName,
-			"gcp account",
+			"gcp provider",
 		); err != nil {
 			cli.Error("flag validation failed", err)
 			os.Exit(1)
@@ -45,36 +46,36 @@ var GetGcpAccountsCmd = &cobra.Command{
 		switch gcpVersion {
 		case "v0":
 			// load values
-			gcpAccountConfig := config_v0.GcpAccountConfig{}
+			gcpProviderConfig := config_v0.GcpProviderConfig{}
 			if gcpConfigPath != "" {
 				configContent, err := os.ReadFile(gcpConfigPath)
 				if err != nil {
 					cli.Error("failed to read config file", err)
 					os.Exit(1)
 				}
-				if err := yaml.UnmarshalStrict(configContent, &gcpAccountConfig); err != nil {
+				if err := yaml.UnmarshalStrict(configContent, &gcpProviderConfig); err != nil {
 					cli.Error("failed to unmarshal config file yaml content", err)
 					os.Exit(1)
 				}
 			} else if gcpName != "" {
-				gcpAccountConfig = config_v0.GcpAccountConfig{
-					GcpAccount: config_v0.GcpAccountValues{
+				gcpProviderConfig = config_v0.GcpProviderConfig{
+					GcpProvider: config_v0.GcpProviderValues{
 						Name: &gcpName,
 					},
 				}
 			}
 
-			// get gcp accounts
-			gcpAccounts, err := gcpAccountConfig.Get(apiClient, apiEndpoint)
+			// get gcp providers
+			gcpProviders, err := gcpProviderConfig.Get(apiClient, apiEndpoint)
 			if err != nil {
-				cli.Error("failed to retrieve gcp accounts", err)
+				cli.Error("failed to retrieve gcp providers", err)
 				os.Exit(1)
 			}
 
-			// check if gcp account exists
-			if len(*gcpAccounts) == 0 {
+			// check if gcp provider exists
+			if len(*gcpProviders) == 0 {
 				cli.Info(fmt.Sprintf(
-					"no gcp accounts found that are currently managed by %s threeport control plane",
+					"no gcp providers found that are currently managed by %s threeport control plane",
 					requestedControlPlane,
 				))
 				os.Exit(0)
@@ -83,17 +84,17 @@ var GetGcpAccountsCmd = &cobra.Command{
 			// write the output
 			switch gcpOutput {
 			case "tabular":
-				if err := outputGetv0GcpAccountsCmd(gcpAccounts); err != nil {
+				if err := outputGetv0GcpProvidersCmd(gcpProviders); err != nil {
 					cli.Error("failed to produce output", err)
 					os.Exit(1)
 				}
 			case "yaml":
-				if err := cli.YamlObjectOutput(*gcpAccounts); err != nil {
+				if err := cli.YamlObjectOutput(*gcpProviders); err != nil {
 					cli.Error("failed to produce YAML output", err)
 					os.Exit(1)
 				}
 			case "json":
-				if err := cli.JsonObjectOutput(*gcpAccounts); err != nil {
+				if err := cli.JsonObjectOutput(*gcpProviders); err != nil {
 					cli.Error("failed to produce JSON output", err)
 					os.Exit(1)
 				}
@@ -106,163 +107,163 @@ var GetGcpAccountsCmd = &cobra.Command{
 			os.Exit(1)
 		}
 	},
-	Short:        "Get gcp accounts from the system",
+	Short:        "Get gcp providers from the system",
 	SilenceUsage: true,
-	Use:          "gcp-accounts",
+	Use:          "gcp-providers",
 }
 
 func init() {
-	GetCmd.AddCommand(GetGcpAccountsCmd)
+	GetCmd.AddCommand(GetGcpProvidersCmd)
 
-	GetGcpAccountsCmd.Flags().StringVarP(
+	GetGcpProvidersCmd.Flags().StringVarP(
 		&gcpName,
-		"name", "n", "", "Name of gcp account.",
+		"name", "n", "", "Name of gcp provider.",
 	)
-	GetGcpAccountsCmd.Flags().StringVarP(
+	GetGcpProvidersCmd.Flags().StringVarP(
 		&gcpConfigPath,
-		"config", "c", "", "Path to file with gcp account config.",
+		"config", "c", "", "Path to file with gcp provider config.",
 	)
-	GetGcpAccountsCmd.Flags().StringVarP(
+	GetGcpProvidersCmd.Flags().StringVarP(
 		&gcpVersion,
-		"version", "v", "v0", "Version of gcp account objects to retrieve. One of: [v0]",
+		"version", "v", "v0", "Version of gcp provider objects to retrieve. One of: [v0]",
 	)
-	GetGcpAccountsCmd.Flags().StringVarP(
+	GetGcpProvidersCmd.Flags().StringVarP(
 		&gcpOutput,
-		"output", "o", "tabular", "Output format for gcp account objects. One of: [tabular, yaml, json]",
+		"output", "o", "tabular", "Output format for gcp provider objects. One of: [tabular, yaml, json]",
 	)
-	GetGcpAccountsCmd.Flags().StringVarP(
+	GetGcpProvidersCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
 }
 
-// CreateGcpAccountCmd represents the command 'tptctl create gcp-account'
-var CreateGcpAccountCmd = &cobra.Command{
-	Example: "  # create a new gcp account using a config file\n  tptctl create gcp-account --config path/to/config.yaml",
-	Long:    "Create a new gcp account.",
+// CreateGcpProviderCmd represents the command 'tptctl create gcp-provider'
+var CreateGcpProviderCmd = &cobra.Command{
+	Example: "  # create a new gcp provider using a config file\n  tptctl create gcp-provider --config path/to/config.yaml",
+	Long:    "Create a new gcp provider.",
 	PreRun:  CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// read gcp account config
+		// read gcp provider config
 		configContent, err := os.ReadFile(gcpConfigPath)
 		if err != nil {
 			cli.Error("failed to read config file", err)
 			os.Exit(1)
 		}
-		// create gcp account based on version
+		// create gcp provider based on version
 		switch gcpVersion {
 		case "v0":
-			var gcpAccountConfig config_v0.GcpAccountConfig
-			if err := yaml.UnmarshalStrict(configContent, &gcpAccountConfig); err != nil {
+			var gcpProviderConfig config_v0.GcpProviderConfig
+			if err := yaml.UnmarshalStrict(configContent, &gcpProviderConfig); err != nil {
 				cli.Error("failed to unmarshal config file yaml content", err)
 				os.Exit(1)
 			}
 
-			// create gcp account
-			createdGcpAccount, err := gcpAccountConfig.Create(apiClient, apiEndpoint)
+			// create gcp provider
+			createdGcpProvider, err := gcpProviderConfig.Create(apiClient, apiEndpoint)
 			if err != nil {
-				cli.Error("failed to create gcp account", err)
+				cli.Error("failed to create gcp provider", err)
 				os.Exit(1)
 			}
 
-			cli.Complete(fmt.Sprintf("gcp account %s created", *createdGcpAccount.GcpAccount.Name))
+			cli.Complete(fmt.Sprintf("gcp provider %s created", *createdGcpProvider.GcpProvider.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
 	},
-	Short:        "Create a new gcp account",
+	Short:        "Create a new gcp provider",
 	SilenceUsage: true,
-	Use:          "gcp-account",
+	Use:          "gcp-provider",
 }
 
 func init() {
-	CreateCmd.AddCommand(CreateGcpAccountCmd)
+	CreateCmd.AddCommand(CreateGcpProviderCmd)
 
-	CreateGcpAccountCmd.Flags().StringVarP(
+	CreateGcpProviderCmd.Flags().StringVarP(
 		&gcpConfigPath,
-		"config", "c", "", "Path to file with gcp account config.",
+		"config", "c", "", "Path to file with gcp provider config.",
 	)
-	CreateGcpAccountCmd.MarkFlagRequired("config")
-	CreateGcpAccountCmd.Flags().StringVarP(
+	CreateGcpProviderCmd.MarkFlagRequired("config")
+	CreateGcpProviderCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
-	CreateGcpAccountCmd.Flags().StringVarP(
+	CreateGcpProviderCmd.Flags().StringVarP(
 		&gcpVersion,
-		"version", "v", "v0", "Version of gcp accounts object to create. One of: [v0]",
+		"version", "v", "v0", "Version of gcp providers object to create. One of: [v0]",
 	)
 }
 
-// ReplaceGcpAccountCmd represents the command 'tptctl replace gcp-account'
-var ReplaceGcpAccountCmd = &cobra.Command{
-	Example: "  # replace using a config file\n  tptctl replace gcp-account --config path/to/config.yaml --name some-gcp-account",
-	Long:    "Replace an existing gcp account.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
+// ReplaceGcpProviderCmd represents the command 'tptctl replace gcp-provider'
+var ReplaceGcpProviderCmd = &cobra.Command{
+	Example: "  # replace using a config file\n  tptctl replace gcp-provider --config path/to/config.yaml --name some-gcp-provider",
+	Long:    "Replace an existing gcp provider.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
 
-		// replace gcp account based on version
+		// replace gcp provider based on version
 		switch gcpVersion {
 		case "v0":
-			var gcpAccountConfig config_v0.GcpAccountConfig
-			// load gcp account config
+			var gcpProviderConfig config_v0.GcpProviderConfig
+			// load gcp provider config
 			configContent, err := os.ReadFile(gcpConfigPath)
 			if err != nil {
 				cli.Error("failed to read config file", err)
 				os.Exit(1)
 			}
-			if err := yaml.UnmarshalStrict(configContent, &gcpAccountConfig); err != nil {
+			if err := yaml.UnmarshalStrict(configContent, &gcpProviderConfig); err != nil {
 				cli.Error("failed to unmarshal config file yaml content", err)
 				os.Exit(1)
 			}
 
-			// replace gcp account
-			updatedGcpAccount, err := gcpAccountConfig.Replace(apiClient, apiEndpoint, gcpName)
+			// replace gcp provider
+			updatedGcpProvider, err := gcpProviderConfig.Replace(apiClient, apiEndpoint, gcpName)
 			if err != nil {
-				cli.Error("failed to update gcp account", err)
+				cli.Error("failed to update gcp provider", err)
 				os.Exit(1)
 			}
 
-			cli.Complete(fmt.Sprintf("gcp account %s updated", *updatedGcpAccount.GcpAccount.Name))
+			cli.Complete(fmt.Sprintf("gcp provider %s updated", *updatedGcpProvider.GcpProvider.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
 	},
-	Short:        "Replace an existing gcp account",
+	Short:        "Replace an existing gcp provider",
 	SilenceUsage: true,
-	Use:          "gcp-account",
+	Use:          "gcp-provider",
 }
 
 func init() {
-	ReplaceCmd.AddCommand(ReplaceGcpAccountCmd)
+	ReplaceCmd.AddCommand(ReplaceGcpProviderCmd)
 
-	ReplaceGcpAccountCmd.Flags().StringVarP(
+	ReplaceGcpProviderCmd.Flags().StringVarP(
 		&gcpConfigPath,
-		"config", "c", "", "Path to file with gcp account config.  The config file must be a complete config, i.e. the provided config will be used to replace the entire existing config for the object with a PUT request.",
+		"config", "c", "", "Path to file with gcp provider config.  The config file must be a complete config, i.e. the provided config will be used to replace the entire existing config for the object with a PUT request.",
 	)
-	ReplaceGcpAccountCmd.MarkFlagRequired("config")
-	ReplaceGcpAccountCmd.Flags().StringVarP(
+	ReplaceGcpProviderCmd.MarkFlagRequired("config")
+	ReplaceGcpProviderCmd.Flags().StringVarP(
 		&gcpName,
-		"name", "n", "", "Name of existing gcp account to replace.  If the name in the gcp account config is different from the name provided here, the name of the existing object will be updated with the name in the config.",
+		"name", "n", "", "Name of existing gcp provider to replace.  If the name in the gcp provider config is different from the name provided here, the name of the existing object will be updated with the name in the config.",
 	)
-	ReplaceGcpAccountCmd.MarkFlagRequired("name")
-	ReplaceGcpAccountCmd.Flags().StringVarP(
+	ReplaceGcpProviderCmd.MarkFlagRequired("name")
+	ReplaceGcpProviderCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
-	ReplaceGcpAccountCmd.Flags().StringVarP(
+	ReplaceGcpProviderCmd.Flags().StringVarP(
 		&gcpVersion,
-		"version", "v", "v0", "Version of gcp accounts object to replace. One of: [v0]",
+		"version", "v", "v0", "Version of gcp providers object to replace. One of: [v0]",
 	)
 }
 
-// DeleteGcpAccountCmd represents the command 'tptctl delete gcp-account'
-var DeleteGcpAccountCmd = &cobra.Command{
-	Example: "  # delete using a config file\n  tptctl delete gcp-account --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete gcp-account --name some-gcp-account",
-	Long:    "Delete an existing gcp account.",
+// DeleteGcpProviderCmd represents the command 'tptctl delete gcp-provider'
+var DeleteGcpProviderCmd = &cobra.Command{
+	Example: "  # delete using a config file\n  tptctl delete gcp-provider --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete gcp-provider --name some-gcp-provider",
+	Long:    "Delete an existing gcp provider.",
 	PreRun:  CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, _ := GetClientContext(cmd)
@@ -271,71 +272,71 @@ var DeleteGcpAccountCmd = &cobra.Command{
 		if err := cli.ValidateConfigNameFlags(
 			gcpConfigPath,
 			gcpName,
-			"gcp account",
+			"gcp provider",
 		); err != nil {
 			cli.Error("flag validation failed", err)
 			os.Exit(1)
 		}
 
-		// delete gcp account based on version
+		// delete gcp provider based on version
 		switch gcpVersion {
 		case "v0":
-			var gcpAccountConfig config_v0.GcpAccountConfig
+			var gcpProviderConfig config_v0.GcpProviderConfig
 			if gcpConfigPath != "" {
-				// load gcp account config
+				// load gcp provider config
 				configContent, err := os.ReadFile(gcpConfigPath)
 				if err != nil {
 					cli.Error("failed to read config file", err)
 					os.Exit(1)
 				}
-				if err := yaml.UnmarshalStrict(configContent, &gcpAccountConfig); err != nil {
+				if err := yaml.UnmarshalStrict(configContent, &gcpProviderConfig); err != nil {
 					cli.Error("failed to unmarshal config file yaml content", err)
 					os.Exit(1)
 				}
 			} else {
-				gcpAccountConfig = config_v0.GcpAccountConfig{
-					GcpAccount: config_v0.GcpAccountValues{
+				gcpProviderConfig = config_v0.GcpProviderConfig{
+					GcpProvider: config_v0.GcpProviderValues{
 						Name: &gcpName,
 					},
 				}
 			}
 
-			// delete gcp account
-			deletedGcpAccount, err := gcpAccountConfig.Delete(apiClient, apiEndpoint)
+			// delete gcp provider
+			deletedGcpProvider, err := gcpProviderConfig.Delete(apiClient, apiEndpoint)
 			if err != nil {
-				cli.Error("failed to delete gcp account", err)
+				cli.Error("failed to delete gcp provider", err)
 				os.Exit(1)
 			}
 
-			cli.Complete(fmt.Sprintf("gcp account %s deleted", *deletedGcpAccount.GcpAccount.Name))
+			cli.Complete(fmt.Sprintf("gcp provider %s deleted", *deletedGcpProvider.GcpProvider.Name))
 		default:
 			cli.Error("", errors.New("unrecognized object version"))
 			os.Exit(1)
 		}
 	},
-	Short:        "Delete an existing gcp account",
+	Short:        "Delete an existing gcp provider",
 	SilenceUsage: true,
-	Use:          "gcp-account",
+	Use:          "gcp-provider",
 }
 
 func init() {
-	DeleteCmd.AddCommand(DeleteGcpAccountCmd)
+	DeleteCmd.AddCommand(DeleteGcpProviderCmd)
 
-	DeleteGcpAccountCmd.Flags().StringVarP(
+	DeleteGcpProviderCmd.Flags().StringVarP(
 		&gcpConfigPath,
-		"config", "c", "", "Path to file with gcp account config.",
+		"config", "c", "", "Path to file with gcp provider config.",
 	)
-	DeleteGcpAccountCmd.Flags().StringVarP(
+	DeleteGcpProviderCmd.Flags().StringVarP(
 		&gcpName,
-		"name", "n", "", "Name of gcp account.",
+		"name", "n", "", "Name of gcp provider.",
 	)
-	DeleteGcpAccountCmd.Flags().StringVarP(
+	DeleteGcpProviderCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneName,
 		"control-plane-name", "i", "", "Optional. Name of control plane. Will default to current control plane if not provided.",
 	)
-	DeleteGcpAccountCmd.Flags().StringVarP(
+	DeleteGcpProviderCmd.Flags().StringVarP(
 		&gcpVersion,
-		"version", "v", "v0", "Version of gcp accounts object to delete. One of: [v0]",
+		"version", "v", "v0", "Version of gcp providers object to delete. One of: [v0]",
 	)
 }
 

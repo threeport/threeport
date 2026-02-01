@@ -4,26 +4,27 @@ package cmd
 
 import (
 	"fmt"
-	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 	"os"
 	"text/tabwriter"
+
+	config_v0 "github.com/threeport/threeport/pkg/config/v0"
 )
 
-// outputGetv0GcpAccountsCmd produces the tabular output for the
-// `get gcp-accounts` command.
-func outputGetv0GcpAccountsCmd(
-	gcpAccounts *[]config_v0.GcpAccountConfig,
+// outputGetv0GcpProvidersCmd produces the tabular output for the
+// `get gcp-providers` command.
+func outputGetv0GcpProvidersCmd(
+	gcpProviders *[]config_v0.GcpProviderConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 	// TODO: add columns for each field that users should see
-	// TODO: available fields are defined in the GcpAccountValues object in pkg/config/v0/gcp_account.go
+	// TODO: available fields are defined in the GcpProviderValues object in pkg/config/v0/gcp_provider.go
 	fmt.Fprintln(writer, "VERSION\t NAME\t AGE")
-	for _, gcpAccount := range *gcpAccounts {
+	for _, gcpProvider := range *gcpProviders {
 		fmt.Fprintln(
 			writer,
 			"v0", "\t",
-			*gcpAccount.GcpAccount.Name, "\t",
-			*gcpAccount.GcpAccount.Age,
+			*gcpProvider.GcpProvider.Name, "\t",
+			*gcpProvider.GcpProvider.Age,
 		)
 	}
 	writer.Flush()

@@ -12,7 +12,7 @@ import (
 )
 
 // ConfigureControlPlaneWithGkeConfig creates the following objects in the Threeport API:
-// - the default GCP account that was used to create the Threeport control plane runtime environment
+// - the default GCP provider that was used to create the Threeport control plane runtime environment
 // - the GCP GKE kubernetes runtime definition that was used to create the GKE kubernetes runtime for the control plane
 // - the GCP GKE kubernetes runtime instance that was used to create the GKE kubernetes runtime for the control plane
 func ConfigureControlPlaneWithGkeConfig(
@@ -27,20 +27,20 @@ func ConfigureControlPlaneWithGkeConfig(
 
 	kubernetesRuntimeInfraGKE := (*kubernetesRuntimeInfra).(*provider.KubernetesRuntimeInfraGKE)
 
-	// create default GCP account
-	gcpAccount := v0.GcpAccount{
-		Name:           util.Ptr(provider.DefaultAccountName),
-		ProjectID:      &kubernetesRuntimeInfraGKE.ProjectID,
-		DefaultAccount: util.Ptr(true),
-		DefaultRegion:  &kubernetesRuntimeInfraGKE.Region,
+	// create default GCP provider
+	gcpProvider := v0.GcpProvider{
+		Name:            util.Ptr(provider.DefaultAccountName),
+		ProjectID:       &kubernetesRuntimeInfraGKE.ProjectID,
+		DefaultProvider: util.Ptr(true),
+		DefaultRegion:   &kubernetesRuntimeInfraGKE.Region,
 	}
-	createdGcpAccount, err := client.CreateGcpAccount(
+	createdGcpProvider, err := client.CreateGcpProvider(
 		apiClient,
 		threeportAPIEndpoint,
-		&gcpAccount,
+		&gcpProvider,
 	)
 	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to create new default GCP account", err)
+		return uninstaller.cleanOnCreateError("failed to create new default GCP provider", err)
 	}
 
 	// create GCP GKE kubernetes runtime definition
@@ -82,7 +82,7 @@ func ConfigureControlPlaneWithGkeConfig(
 		Reconciliation: v0.Reconciliation{
 			Reconciled: util.Ptr(true),
 		},
-		GcpAccountID:                        createdGcpAccount.ID,
+		GcpProviderID:                       createdGcpProvider.ID,
 		Region:                              &kubernetesRuntimeInfraGKE.Region,
 		GcpGkeKubernetesRuntimeDefinitionID: createdGcpGkeKubernetesRuntimeDef.ID,
 		KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,

@@ -13,303 +13,6 @@ import (
 	"net/http"
 )
 
-// GetGcpAccounts fetches all gcp accounts.
-func GetGcpAccounts(apiClient *http.Client, apiAddr string) (*[]v0.GcpAccount, error) {
-	var gcpAccounts []v0.GcpAccount
-
-	allPagesReceived := false
-	var allPageData []apiserver_lib.Object
-	nextCursor := uint(0)
-	queryId := ""
-	for !allPagesReceived {
-		url := fmt.Sprintf("%s%s", apiAddr, v0.PathGcpAccounts)
-		if queryId != "" {
-			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGcpAccounts, queryId, nextCursor)
-		}
-
-		response, err := client_lib.GetResponse(
-			apiClient,
-			url,
-			http.MethodGet,
-			new(bytes.Buffer),
-			map[string]string{},
-			http.StatusOK,
-		)
-		if err != nil {
-			return &gcpAccounts, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-		}
-
-		allPageData = append(allPageData, response.Data...)
-
-		if response.Meta.Pagination.HasMore {
-			nextCursor = response.Meta.Pagination.NextCursor
-			queryId = response.Meta.Pagination.QueryId
-		} else {
-			allPagesReceived = true
-		}
-	}
-
-	jsonData, err := json.Marshal(allPageData)
-	if err != nil {
-		return &gcpAccounts, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&gcpAccounts); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &gcpAccounts, nil
-}
-
-// GetGcpAccountByID fetches a gcp account by ID.
-func GetGcpAccountByID(apiClient *http.Client, apiAddr string, id uint) (*v0.GcpAccount, error) {
-	var gcpAccount v0.GcpAccount
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGcpAccounts, id),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &gcpAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return &gcpAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&gcpAccount); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &gcpAccount, nil
-}
-
-// GetGcpAccountsByQueryString fetches gcp accounts by provided query string.
-func GetGcpAccountsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.GcpAccount, error) {
-	var gcpAccounts []v0.GcpAccount
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathGcpAccounts, queryString),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &gcpAccounts, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &gcpAccounts, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&gcpAccounts); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &gcpAccounts, nil
-}
-
-// GetGcpAccountByName fetches a gcp account by name.
-func GetGcpAccountByName(apiClient *http.Client, apiAddr, name string) (*v0.GcpAccount, error) {
-	var gcpAccounts []v0.GcpAccount
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGcpAccounts, name),
-		http.MethodGet,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &v0.GcpAccount{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &v0.GcpAccount{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&gcpAccounts); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	switch {
-	case len(gcpAccounts) < 1:
-		return &v0.GcpAccount{}, client_lib.ErrObjectNotFound
-	case len(gcpAccounts) > 1:
-		return &v0.GcpAccount{}, fmt.Errorf("more than one gcp account with name %s returned", name)
-	}
-
-	return &gcpAccounts[0], nil
-}
-
-// CreateGcpAccount creates a new gcp account.
-func CreateGcpAccount(apiClient *http.Client, apiAddr string, gcpAccount *v0.GcpAccount) (*v0.GcpAccount, error) {
-	client_lib.ReplaceAssociatedObjectsWithNil(gcpAccount)
-	jsonGcpAccount, err := util.MarshalObject(gcpAccount)
-	if err != nil {
-		return gcpAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s", apiAddr, v0.PathGcpAccounts),
-		http.MethodPost,
-		bytes.NewBuffer(jsonGcpAccount),
-		map[string]string{},
-		http.StatusCreated,
-	)
-	if err != nil {
-		return gcpAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return gcpAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&gcpAccount); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return gcpAccount, nil
-}
-
-// UpdateGcpAccount updates a gcp account with a PATCH request.
-func UpdateGcpAccount(apiClient *http.Client, apiAddr string, gcpAccount *v0.GcpAccount) (*v0.GcpAccount, error) {
-	client_lib.ReplaceAssociatedObjectsWithNil(gcpAccount)
-	// capture the object ID, make a copy of the object, then remove fields that
-	// cannot be updated in the API
-	gcpAccountID := *gcpAccount.ID
-	payloadGcpAccount := *gcpAccount
-	payloadGcpAccount.ID = nil
-	payloadGcpAccount.CreatedAt = nil
-	payloadGcpAccount.UpdatedAt = nil
-
-	jsonGcpAccount, err := util.MarshalObject(payloadGcpAccount)
-	if err != nil {
-		return gcpAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGcpAccounts, gcpAccountID),
-		http.MethodPatch,
-		bytes.NewBuffer(jsonGcpAccount),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return gcpAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return gcpAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&payloadGcpAccount); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	payloadGcpAccount.ID = &gcpAccountID
-	return &payloadGcpAccount, nil
-}
-
-// ReplaceGcpAccount updates a gcp account with a PUT request.
-func ReplaceGcpAccount(apiClient *http.Client, apiAddr string, gcpAccount *v0.GcpAccount) (*v0.GcpAccount, error) {
-	client_lib.ReplaceAssociatedObjectsWithNil(gcpAccount)
-	// capture the object ID, make a copy of the object, then remove fields that
-	// cannot be updated in the API
-	gcpAccountID := *gcpAccount.ID
-	payloadGcpAccount := *gcpAccount
-	payloadGcpAccount.ID = nil
-	payloadGcpAccount.CreatedAt = nil
-	payloadGcpAccount.UpdatedAt = nil
-
-	jsonGcpAccount, err := util.MarshalObject(payloadGcpAccount)
-	if err != nil {
-		return gcpAccount, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
-	}
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGcpAccounts, gcpAccountID),
-		http.MethodPut,
-		bytes.NewBuffer(jsonGcpAccount),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return gcpAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return gcpAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&payloadGcpAccount); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	payloadGcpAccount.ID = &gcpAccountID
-	return &payloadGcpAccount, nil
-}
-
-// DeleteGcpAccount deletes a gcp account by ID.
-func DeleteGcpAccount(apiClient *http.Client, apiAddr string, id uint) (*v0.GcpAccount, error) {
-	var gcpAccount v0.GcpAccount
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGcpAccounts, id),
-		http.MethodDelete,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		return &gcpAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data[0])
-	if err != nil {
-		return &gcpAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&gcpAccount); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &gcpAccount, nil
-}
-
 // GetGcpGkeKubernetesRuntimeDefinitions fetches all gcp gke kubernetes runtime definitions.
 func GetGcpGkeKubernetesRuntimeDefinitions(apiClient *http.Client, apiAddr string) (*[]v0.GcpGkeKubernetesRuntimeDefinition, error) {
 	var gcpGkeKubernetesRuntimeDefinitions []v0.GcpGkeKubernetesRuntimeDefinition
@@ -902,4 +605,301 @@ func DeleteGcpGkeKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 	}
 
 	return &gcpGkeKubernetesRuntimeInstance, nil
+}
+
+// GetGcpProviders fetches all gcp providers.
+func GetGcpProviders(apiClient *http.Client, apiAddr string) (*[]v0.GcpProvider, error) {
+	var gcpProviders []v0.GcpProvider
+
+	allPagesReceived := false
+	var allPageData []apiserver_lib.Object
+	nextCursor := uint(0)
+	queryId := ""
+	for !allPagesReceived {
+		url := fmt.Sprintf("%s%s", apiAddr, v0.PathGcpProviders)
+		if queryId != "" {
+			url = fmt.Sprintf("%s%s?queryid=%s&cursor=%d", apiAddr, v0.PathGcpProviders, queryId, nextCursor)
+		}
+
+		response, err := client_lib.GetResponse(
+			apiClient,
+			url,
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			return &gcpProviders, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		}
+
+		allPageData = append(allPageData, response.Data...)
+
+		if response.Meta.Pagination.HasMore {
+			nextCursor = response.Meta.Pagination.NextCursor
+			queryId = response.Meta.Pagination.QueryId
+		} else {
+			allPagesReceived = true
+		}
+	}
+
+	jsonData, err := json.Marshal(allPageData)
+	if err != nil {
+		return &gcpProviders, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gcpProviders); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gcpProviders, nil
+}
+
+// GetGcpProviderByID fetches a gcp provider by ID.
+func GetGcpProviderByID(apiClient *http.Client, apiAddr string, id uint) (*v0.GcpProvider, error) {
+	var gcpProvider v0.GcpProvider
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGcpProviders, id),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gcpProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &gcpProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gcpProvider); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gcpProvider, nil
+}
+
+// GetGcpProvidersByQueryString fetches gcp providers by provided query string.
+func GetGcpProvidersByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.GcpProvider, error) {
+	var gcpProviders []v0.GcpProvider
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s?%s", apiAddr, v0.PathGcpProviders, queryString),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gcpProviders, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &gcpProviders, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gcpProviders); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gcpProviders, nil
+}
+
+// GetGcpProviderByName fetches a gcp provider by name.
+func GetGcpProviderByName(apiClient *http.Client, apiAddr, name string) (*v0.GcpProvider, error) {
+	var gcpProviders []v0.GcpProvider
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s?name=%s", apiAddr, v0.PathGcpProviders, name),
+		http.MethodGet,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &v0.GcpProvider{}, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data)
+	if err != nil {
+		return &v0.GcpProvider{}, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gcpProviders); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	switch {
+	case len(gcpProviders) < 1:
+		return &v0.GcpProvider{}, client_lib.ErrObjectNotFound
+	case len(gcpProviders) > 1:
+		return &v0.GcpProvider{}, fmt.Errorf("more than one gcp provider with name %s returned", name)
+	}
+
+	return &gcpProviders[0], nil
+}
+
+// CreateGcpProvider creates a new gcp provider.
+func CreateGcpProvider(apiClient *http.Client, apiAddr string, gcpProvider *v0.GcpProvider) (*v0.GcpProvider, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(gcpProvider)
+	jsonGcpProvider, err := util.MarshalObject(gcpProvider)
+	if err != nil {
+		return gcpProvider, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s", apiAddr, v0.PathGcpProviders),
+		http.MethodPost,
+		bytes.NewBuffer(jsonGcpProvider),
+		map[string]string{},
+		http.StatusCreated,
+	)
+	if err != nil {
+		return gcpProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return gcpProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gcpProvider); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return gcpProvider, nil
+}
+
+// UpdateGcpProvider updates a gcp provider with a PATCH request.
+func UpdateGcpProvider(apiClient *http.Client, apiAddr string, gcpProvider *v0.GcpProvider) (*v0.GcpProvider, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(gcpProvider)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	gcpProviderID := *gcpProvider.ID
+	payloadGcpProvider := *gcpProvider
+	payloadGcpProvider.ID = nil
+	payloadGcpProvider.CreatedAt = nil
+	payloadGcpProvider.UpdatedAt = nil
+
+	jsonGcpProvider, err := util.MarshalObject(payloadGcpProvider)
+	if err != nil {
+		return gcpProvider, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGcpProviders, gcpProviderID),
+		http.MethodPatch,
+		bytes.NewBuffer(jsonGcpProvider),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return gcpProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return gcpProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadGcpProvider); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadGcpProvider.ID = &gcpProviderID
+	return &payloadGcpProvider, nil
+}
+
+// ReplaceGcpProvider updates a gcp provider with a PUT request.
+func ReplaceGcpProvider(apiClient *http.Client, apiAddr string, gcpProvider *v0.GcpProvider) (*v0.GcpProvider, error) {
+	client_lib.ReplaceAssociatedObjectsWithNil(gcpProvider)
+	// capture the object ID, make a copy of the object, then remove fields that
+	// cannot be updated in the API
+	gcpProviderID := *gcpProvider.ID
+	payloadGcpProvider := *gcpProvider
+	payloadGcpProvider.ID = nil
+	payloadGcpProvider.CreatedAt = nil
+	payloadGcpProvider.UpdatedAt = nil
+
+	jsonGcpProvider, err := util.MarshalObject(payloadGcpProvider)
+	if err != nil {
+		return gcpProvider, fmt.Errorf("failed to marshal provided object to JSON: %w", err)
+	}
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGcpProviders, gcpProviderID),
+		http.MethodPut,
+		bytes.NewBuffer(jsonGcpProvider),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return gcpProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return gcpProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payloadGcpProvider); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	payloadGcpProvider.ID = &gcpProviderID
+	return &payloadGcpProvider, nil
+}
+
+// DeleteGcpProvider deletes a gcp provider by ID.
+func DeleteGcpProvider(apiClient *http.Client, apiAddr string, id uint) (*v0.GcpProvider, error) {
+	var gcpProvider v0.GcpProvider
+
+	response, err := client_lib.GetResponse(
+		apiClient,
+		fmt.Sprintf("%s%s/%d", apiAddr, v0.PathGcpProviders, id),
+		http.MethodDelete,
+		new(bytes.Buffer),
+		map[string]string{},
+		http.StatusOK,
+	)
+	if err != nil {
+		return &gcpProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	jsonData, err := json.Marshal(response.Data[0])
+	if err != nil {
+		return &gcpProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.UseNumber()
+	if err := decoder.Decode(&gcpProvider); err != nil {
+		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
+	}
+
+	return &gcpProvider, nil
 }

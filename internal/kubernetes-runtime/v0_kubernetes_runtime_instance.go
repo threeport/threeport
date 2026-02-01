@@ -90,29 +90,29 @@ func v0KubernetesRuntimeInstanceCreated(
 			return 0, fmt.Errorf("failed to get GCP GKE runtime definition by kubernetes runtime definition ID: %w", err)
 		}
 
-		// look up GCP account
-		var gcpAccount v0.GcpAccount
+		// look up GCP provider
+		var gcpProvider v0.GcpProvider
 		if kubernetesRuntimeDefinition.InfraProviderAccountName != nil {
-			// look up account by account name
-			account, err := client.GetGcpAccountByName(
+			// look up provider by provider name
+			provider, err := client.GetGcpProviderByName(
 				r.APIClient,
 				r.APIServer,
 				*kubernetesRuntimeDefinition.InfraProviderAccountName,
 			)
 			if err != nil {
-				return 0, fmt.Errorf("failed to get GCP account by account name: %w", err)
+				return 0, fmt.Errorf("failed to get GCP provider by provider name: %w", err)
 			}
-			gcpAccount = *account
+			gcpProvider = *provider
 		} else {
-			// look up default account
-			account, err := client.GetGcpAccountByDefaultAccount(
+			// look up default provider
+			provider, err := client.GetGcpProviderByDefaultProvider(
 				r.APIClient,
 				r.APIServer,
 			)
 			if err != nil {
-				return 0, fmt.Errorf("failed to get GCP account by default: %w", err)
+				return 0, fmt.Errorf("failed to get GCP provider by default: %w", err)
 			}
-			gcpAccount = *account
+			gcpProvider = *provider
 		}
 
 		// add GCP GKE runtime instance
@@ -124,7 +124,7 @@ func v0KubernetesRuntimeInstanceCreated(
 			Instance: v0.Instance{
 				Name: kubernetesRuntimeInstance.Name,
 			},
-			GcpAccountID:                        gcpAccount.ID,
+			GcpProviderID:                       gcpProvider.ID,
 			Region:                              &region,
 			KubernetesRuntimeInstanceID:         kubernetesRuntimeInstance.ID,
 			GcpGkeKubernetesRuntimeDefinitionID: gcpGkeKubernetesRuntimeDefinition.ID,

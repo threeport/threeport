@@ -22,7 +22,7 @@ type GcpGkeKubernetesRuntimeConfig struct {
 // together with a single operation.
 type GcpGkeKubernetesRuntimeValues struct {
 	Name                         *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	GcpAccountName               *string `json:"GcpAccountName,omitempty" yaml:"GcpAccountName,omitempty"`
+	GcpProviderName              *string `json:"GcpProviderName,omitempty" yaml:"GcpProviderName,omitempty"`
 	ZoneCount                    *int    `json:"ZoneCount,omitempty" yaml:"ZoneCount,omitempty"`
 	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" yaml:"DefaultNodeGroupInstanceType,omitempty"`
 	DefaultNodeGroupInitialSize  *int    `json:"DefaultNodeGroupInitialSize,omitempty" yaml:"DefaultNodeGroupInitialSize,omitempty"`
@@ -195,9 +195,9 @@ func (g *GcpGkeKubernetesRuntimeConfig) GetOperations(
 	// add gcp gke kubernetes runtime instance operation
 	gcpGkeKubernetesRuntimeInstanceConfig := GcpGkeKubernetesRuntimeInstanceConfig{
 		GcpGkeKubernetesRuntimeInstance: GcpGkeKubernetesRuntimeInstanceValues{
-			Name:           g.GcpGkeKubernetesRuntime.Name,
-			Region:         g.GcpGkeKubernetesRuntime.Region,
-			GcpAccountName: g.GcpGkeKubernetesRuntime.GcpAccountName,
+			Name:            g.GcpGkeKubernetesRuntime.Name,
+			Region:          g.GcpGkeKubernetesRuntime.Region,
+			GcpProviderName: g.GcpGkeKubernetesRuntime.GcpProviderName,
 			GcpGkeKubernetesRuntimeDefinition: &GcpGkeKubernetesRuntimeDefinitionValues{
 				Name: g.GcpGkeKubernetesRuntime.Name,
 			},
@@ -258,7 +258,7 @@ func mapToGcpGkeKubernetesRuntimeDefinedInstances(
 				gcpGkeKubernetesRuntimeConfig := GcpGkeKubernetesRuntimeConfig{
 					GcpGkeKubernetesRuntime: GcpGkeKubernetesRuntimeValues{
 						Name:                         inst.GcpGkeKubernetesRuntimeInstance.Name,
-						GcpAccountName:               inst.GcpGkeKubernetesRuntimeInstance.GcpAccountName,
+						GcpProviderName:              inst.GcpGkeKubernetesRuntimeInstance.GcpProviderName,
 						ZoneCount:                    def.GcpGkeKubernetesRuntimeDefinition.ZoneCount,
 						DefaultNodeGroupInstanceType: def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInstanceType,
 						DefaultNodeGroupInitialSize:  def.GcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize,

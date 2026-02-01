@@ -50,7 +50,7 @@ func dbInterfaces000001() []interface{} {
 		&v0.AwsAccount{},
 		&v0.AwsEksKubernetesRuntimeDefinition{},
 		&v0.AwsEksKubernetesRuntimeInstance{},
-		&v0.GcpAccount{},
+		&v0.GcpProvider{},
 		&v0.GcpGkeKubernetesRuntimeDefinition{},
 		&v0.GcpGkeKubernetesRuntimeInstance{},
 		&v0.KubernetesRuntimeDefinition{},

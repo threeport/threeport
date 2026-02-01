@@ -82,11 +82,6 @@ func (GatewayTcpPort) TableName() string {
 	return "v0_gateway_tcp_ports"
 }
 
-// TableName sets the name of the table for the GcpAccount objects in the database.
-func (GcpAccount) TableName() string {
-	return "v0_gcp_accounts"
-}
-
 // TableName sets the name of the table for the GcpGkeKubernetesRuntimeDefinition objects in the database.
 func (GcpGkeKubernetesRuntimeDefinition) TableName() string {
 	return "v0_gcp_gke_kubernetes_runtime_definitions"
@@ -95,6 +90,11 @@ func (GcpGkeKubernetesRuntimeDefinition) TableName() string {
 // TableName sets the name of the table for the GcpGkeKubernetesRuntimeInstance objects in the database.
 func (GcpGkeKubernetesRuntimeInstance) TableName() string {
 	return "v0_gcp_gke_kubernetes_runtime_instances"
+}
+
+// TableName sets the name of the table for the GcpProvider objects in the database.
+func (GcpProvider) TableName() string {
+	return "v0_gcp_providers"
 }
 
 // TableName sets the name of the table for the HelmWorkloadDefinition objects in the database.

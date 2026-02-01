@@ -57,27 +57,27 @@ func v0GcpGkeKubernetesRuntimeInstanceCreated(
 			return 0, fmt.Errorf("failed to check if GKE cluster infra resources have been created: %w", err)
 		}
 		if creationComplete {
-			// get GCP account info
-			gcpAccount, err := client.GetGcpAccountByID(
+			// get GCP provider info
+			gcpProvider, err := client.GetGcpProviderByID(
 				r.APIClient,
 				r.APIServer,
-				*gcpGkeKubernetesRuntimeInstance.GcpAccountID,
+				*gcpGkeKubernetesRuntimeInstance.GcpProviderID,
 			)
 			if err != nil {
-				return 0, fmt.Errorf("failed to retrieve GCP account by ID: %w", err)
+				return 0, fmt.Errorf("failed to retrieve GCP provider by ID: %w", err)
 			}
 
 			// get kubernetes cluster connection info
 			clusterInfra := provider.KubernetesRuntimeInfraGKE{
 				RuntimeInstanceName: *gcpGkeKubernetesRuntimeInstance.Name,
-				ProjectID:           *gcpAccount.ProjectID,
+				ProjectID:           *gcpProvider.ProjectID,
 				Region:              *gcpGkeKubernetesRuntimeInstance.Region,
 			}
 
-			// if service account credentials are provided in the GCP account, use them
+			// if service account credentials are provided in the GCP provider, use them
 			// this enables the controller to authenticate to GCP when running outside GCP
-			if gcpAccount.ServiceAccountCredentials != nil && *gcpAccount.ServiceAccountCredentials != "" {
-				clusterInfra.ServiceAccountCredentials = *gcpAccount.ServiceAccountCredentials
+			if gcpProvider.ServiceAccountCredentials != nil && *gcpProvider.ServiceAccountCredentials != "" {
+				clusterInfra.ServiceAccountCredentials = *gcpProvider.ServiceAccountCredentials
 			}
 
 			kubeConnectionInfo, err := clusterInfra.GetConnection()
@@ -162,7 +162,7 @@ func v0GcpGkeKubernetesRuntimeInstanceCreated(
 		return 0, fmt.Errorf("failed to set creation acknowledged timestamp: %w", err)
 	}
 
-	// get cluster definition and GCP account info
+	// get cluster definition and GCP provider info
 	gcpGkeKubernetesRuntimeDefinition, err := client.GetGcpGkeKubernetesRuntimeDefinitionByID(
 		r.APIClient,
 		r.APIServer,
@@ -171,13 +171,13 @@ func v0GcpGkeKubernetesRuntimeInstanceCreated(
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve cluster definition by ID: %w", err)
 	}
-	gcpAccount, err := client.GetGcpAccountByID(
+	gcpProvider, err := client.GetGcpProviderByID(
 		r.APIClient,
 		r.APIServer,
-		*gcpGkeKubernetesRuntimeInstance.GcpAccountID,
+		*gcpGkeKubernetesRuntimeInstance.GcpProviderID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve GCP account by ID: %w", err)
+		return 0, fmt.Errorf("failed to retrieve GCP provider by ID: %w", err)
 	}
 
 	// add log metadata
@@ -190,15 +190,15 @@ func v0GcpGkeKubernetesRuntimeInstanceCreated(
 	// construct cluster infra object
 	clusterInfra := provider.KubernetesRuntimeInfraGKE{
 		RuntimeInstanceName:    *gcpGkeKubernetesRuntimeInstance.Name,
-		ProjectID:              *gcpAccount.ProjectID,
+		ProjectID:              *gcpProvider.ProjectID,
 		Region:                 *gcpGkeKubernetesRuntimeInstance.Region,
 		WorkerNodeInitialCount: int32(*gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize),
 	}
 
-	// if service account credentials are provided in the GCP account, use them
+	// if service account credentials are provided in the GCP provider, use them
 	// this enables the controller to authenticate to GCP when running outside GCP
-	if gcpAccount.ServiceAccountCredentials != nil && *gcpAccount.ServiceAccountCredentials != "" {
-		clusterInfra.ServiceAccountCredentials = *gcpAccount.ServiceAccountCredentials
+	if gcpProvider.ServiceAccountCredentials != nil && *gcpProvider.ServiceAccountCredentials != "" {
+		clusterInfra.ServiceAccountCredentials = *gcpProvider.ServiceAccountCredentials
 	}
 
 	// if there is existing resource inventory (Pulumi state), restore it before creating
@@ -280,27 +280,27 @@ func v0GcpGkeKubernetesRuntimeInstanceDeleted(
 		return 0, fmt.Errorf("failed to set deletion acknowledge timestamp: %w", err)
 	}
 
-	// get GCP account info
-	gcpAccount, err := client.GetGcpAccountByID(
+	// get GCP provider info
+	gcpProvider, err := client.GetGcpProviderByID(
 		r.APIClient,
 		r.APIServer,
-		*gcpGkeKubernetesRuntimeInstance.GcpAccountID,
+		*gcpGkeKubernetesRuntimeInstance.GcpProviderID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve GCP account by ID: %w", err)
+		return 0, fmt.Errorf("failed to retrieve GCP provider by ID: %w", err)
 	}
 
 	// construct the infra object for deletion
 	clusterInfra := provider.KubernetesRuntimeInfraGKE{
 		RuntimeInstanceName: *gcpGkeKubernetesRuntimeInstance.Name,
-		ProjectID:           *gcpAccount.ProjectID,
+		ProjectID:           *gcpProvider.ProjectID,
 		Region:              *gcpGkeKubernetesRuntimeInstance.Region,
 	}
 
-	// if service account credentials are provided in the GCP account, use them
+	// if service account credentials are provided in the GCP provider, use them
 	// this enables the controller to authenticate to GCP when running outside GCP
-	if gcpAccount.ServiceAccountCredentials != nil && *gcpAccount.ServiceAccountCredentials != "" {
-		clusterInfra.ServiceAccountCredentials = *gcpAccount.ServiceAccountCredentials
+	if gcpProvider.ServiceAccountCredentials != nil && *gcpProvider.ServiceAccountCredentials != "" {
+		clusterInfra.ServiceAccountCredentials = *gcpProvider.ServiceAccountCredentials
 	}
 
 	// if there is existing resource inventory (Pulumi state), restore it before deleting

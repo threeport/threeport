@@ -1,6 +1,6 @@
 GcpGkeKubernetesRuntime:
   Name: test-runtime
-  GcpAccountName: default-account
+  GcpProviderName: default-account
   ZoneCount: 2
   DefaultNodeGroupInstanceType: e2-small
   DefaultNodeGroupInitialSize: 2

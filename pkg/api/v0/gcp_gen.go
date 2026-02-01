@@ -10,71 +10,17 @@ import (
 )
 
 const (
-	ObjectTypeGcpAccount                        string = "GcpAccount"
 	ObjectTypeGcpGkeKubernetesRuntimeDefinition string = "GcpGkeKubernetesRuntimeDefinition"
 	ObjectTypeGcpGkeKubernetesRuntimeInstance   string = "GcpGkeKubernetesRuntimeInstance"
+	ObjectTypeGcpProvider                       string = "GcpProvider"
 
-	PathGcpAccountVersions                        = "/gcp-accounts/versions"
-	PathGcpAccounts                               = "/v0/gcp-accounts"
 	PathGcpGkeKubernetesRuntimeDefinitionVersions = "/gcp-gke-kubernetes-runtime-definitions/versions"
 	PathGcpGkeKubernetesRuntimeDefinitions        = "/v0/gcp-gke-kubernetes-runtime-definitions"
 	PathGcpGkeKubernetesRuntimeInstanceVersions   = "/gcp-gke-kubernetes-runtime-instances/versions"
 	PathGcpGkeKubernetesRuntimeInstances          = "/v0/gcp-gke-kubernetes-runtime-instances"
+	PathGcpProviderVersions                       = "/gcp-providers/versions"
+	PathGcpProviders                              = "/v0/gcp-providers"
 )
-
-// NotificationPayload returns the notification payload that is delivered to the
-// controller when a change is made.  It includes the object as presented by the
-// client when the change was made.
-func (ga *GcpAccount) NotificationPayload(
-	operation notifications.NotificationOperation,
-	requeue bool,
-	creationTime int64,
-) (*[]byte, error) {
-	notif := notifications.Notification{
-		CreationTime:  &creationTime,
-		Object:        ga,
-		ObjectVersion: ga.GetVersion(),
-		Operation:     operation,
-	}
-
-	payload, err := json.Marshal(notif)
-	if err != nil {
-		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", ga, err)
-	}
-
-	return &payload, nil
-}
-
-// DecodeNotifObject takes the threeport object in the form of a
-// map[string]interface and returns the typed object by marshalling into JSON
-// and then unmarshalling into the typed object.  We are not using the
-// mapstructure library here as that requires custom decode hooks to manage
-// fields with non-native go types.
-func (ga *GcpAccount) DecodeNotifObject(object interface{}) error {
-	jsonObject, err := json.Marshal(object)
-	if err != nil {
-		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
-	}
-	if err := json.Unmarshal(jsonObject, &ga); err != nil {
-		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
-	}
-	return nil
-}
-
-// GetId returns the unique ID for the object.
-func (ga *GcpAccount) GetId() uint {
-	return *ga.ID
-}
-
-// Type returns the object type.
-func (ga *GcpAccount) GetType() string {
-	return "GcpAccount"
-}
-
-// Version returns the version of the API object.
-func (ga *GcpAccount) GetVersion() string {
-	return "v0"
-}
 
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
@@ -188,4 +134,58 @@ func (ggkri *GcpGkeKubernetesRuntimeInstance) GetVersion() string {
 // if scheduled for deletion or nil if not scheduled for deletion.
 func (ggkri *GcpGkeKubernetesRuntimeInstance) ScheduledForDeletion() *time.Time {
 	return ggkri.DeletionScheduled
+}
+
+// NotificationPayload returns the notification payload that is delivered to the
+// controller when a change is made.  It includes the object as presented by the
+// client when the change was made.
+func (gp *GcpProvider) NotificationPayload(
+	operation notifications.NotificationOperation,
+	requeue bool,
+	creationTime int64,
+) (*[]byte, error) {
+	notif := notifications.Notification{
+		CreationTime:  &creationTime,
+		Object:        gp,
+		ObjectVersion: gp.GetVersion(),
+		Operation:     operation,
+	}
+
+	payload, err := json.Marshal(notif)
+	if err != nil {
+		return &payload, fmt.Errorf("failed to marshal notification payload %+v: %w", gp, err)
+	}
+
+	return &payload, nil
+}
+
+// DecodeNotifObject takes the threeport object in the form of a
+// map[string]interface and returns the typed object by marshalling into JSON
+// and then unmarshalling into the typed object.  We are not using the
+// mapstructure library here as that requires custom decode hooks to manage
+// fields with non-native go types.
+func (gp *GcpProvider) DecodeNotifObject(object interface{}) error {
+	jsonObject, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object map from consumed notification message: %w", err)
+	}
+	if err := json.Unmarshal(jsonObject, &gp); err != nil {
+		return fmt.Errorf("failed to unmarshal json object to typed object: %w", err)
+	}
+	return nil
+}
+
+// GetId returns the unique ID for the object.
+func (gp *GcpProvider) GetId() uint {
+	return *gp.ID
+}
+
+// Type returns the object type.
+func (gp *GcpProvider) GetType() string {
+	return "GcpProvider"
+}
+
+// Version returns the version of the API object.
+func (gp *GcpProvider) GetVersion() string {
+	return "v0"
 }

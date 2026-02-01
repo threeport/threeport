@@ -9,38 +9,6 @@ import (
 	"reflect"
 )
 
-// AddGcpAccountVersions adds field validation info and adds it
-// to the REST API versions.
-func AddGcpAccountVersions() {
-	apiserver_v0.GcpAccountTaggedFields[apiserver_lib.TagNameValidate] = &apiserver_lib.FieldsByTag{
-		Optional:             []string{},
-		OptionalAssociations: []string{},
-		Required:             []string{},
-		TagName:              apiserver_lib.TagNameValidate,
-	}
-
-	// parse struct and populate the FieldsByTag object
-	apiserver_lib.ParseStruct(
-		apiserver_lib.TagNameValidate,
-		reflect.ValueOf(new(api_v0.GcpAccount)),
-		"",
-		apiserver_lib.Translate,
-		apiserver_v0.GcpAccountTaggedFields,
-	)
-
-	// create a version object which contains the object name and versions
-	versionObj := apiserver_lib.VersionObject{
-		Object:  string(api_v0.ObjectTypeGcpAccount),
-		Version: "v0",
-	}
-
-	// add the object tagged fields to the global tagged fields map
-	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.GcpAccountTaggedFields[apiserver_lib.TagNameValidate]
-
-	// add the object tagged fields to the rest API version
-	apiserver_lib.AddObjectVersion(versionObj)
-}
-
 // AddGcpGkeKubernetesRuntimeDefinitionVersions adds field validation info and adds it
 // to the REST API versions.
 func AddGcpGkeKubernetesRuntimeDefinitionVersions() {
@@ -100,6 +68,38 @@ func AddGcpGkeKubernetesRuntimeInstanceVersions() {
 
 	// add the object tagged fields to the global tagged fields map
 	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.GcpGkeKubernetesRuntimeInstanceTaggedFields[apiserver_lib.TagNameValidate]
+
+	// add the object tagged fields to the rest API version
+	apiserver_lib.AddObjectVersion(versionObj)
+}
+
+// AddGcpProviderVersions adds field validation info and adds it
+// to the REST API versions.
+func AddGcpProviderVersions() {
+	apiserver_v0.GcpProviderTaggedFields[apiserver_lib.TagNameValidate] = &apiserver_lib.FieldsByTag{
+		Optional:             []string{},
+		OptionalAssociations: []string{},
+		Required:             []string{},
+		TagName:              apiserver_lib.TagNameValidate,
+	}
+
+	// parse struct and populate the FieldsByTag object
+	apiserver_lib.ParseStruct(
+		apiserver_lib.TagNameValidate,
+		reflect.ValueOf(new(api_v0.GcpProvider)),
+		"",
+		apiserver_lib.Translate,
+		apiserver_v0.GcpProviderTaggedFields,
+	)
+
+	// create a version object which contains the object name and versions
+	versionObj := apiserver_lib.VersionObject{
+		Object:  string(api_v0.ObjectTypeGcpProvider),
+		Version: "v0",
+	}
+
+	// add the object tagged fields to the global tagged fields map
+	apiserver_lib.ObjectTaggedFields[versionObj] = apiserver_v0.GcpProviderTaggedFields[apiserver_lib.TagNameValidate]
 
 	// add the object tagged fields to the rest API version
 	apiserver_lib.AddObjectVersion(versionObj)

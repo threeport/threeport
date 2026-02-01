@@ -1,5 +1,5 @@
-GcpAccount:
+GcpProvider:
   Name: default-account
   ProjectID: qleet-service
-  DefaultAccount: true
+  DefaultProvider: true
   DefaultRegion: "us-east4"

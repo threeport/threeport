@@ -11,72 +11,72 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
 
-// GetGcpAccountByDefaultAccount fetches the default GCP account.
-func GetGcpAccountByDefaultAccount(apiClient *http.Client, apiAddr string) (*v0.GcpAccount, error) {
-	var gcpAccount v0.GcpAccount
+// GetGcpProviderByDefaultProvider fetches the default GCP provider.
+func GetGcpProviderByDefaultProvider(apiClient *http.Client, apiAddr string) (*v0.GcpProvider, error) {
+	var gcpProvider v0.GcpProvider
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/gcp-accounts?default=true", apiAddr, ApiVersion),
+		fmt.Sprintf("%s/%s/gcp-providers?defaultprovider=true", apiAddr, ApiVersion),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
-		return &gcpAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &gcpProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	if len(response.Data) < 1 {
-		return &gcpAccount, errors.New("no default GCP account found")
+		return &gcpProvider, errors.New("no default GCP provider found")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &gcpAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &gcpProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&gcpAccount); err != nil {
+	if err := decoder.Decode(&gcpProvider); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &gcpAccount, nil
+	return &gcpProvider, nil
 }
 
-// GetGcpAccountByProjectID fetches a GCP account by the GCP Project ID.
-func GetGcpAccountByProjectID(apiClient *http.Client, apiAddr string, projectID string) (*v0.GcpAccount, error) {
-	var gcpAccount v0.GcpAccount
+// GetGcpProviderByProjectID fetches a GCP provider by the GCP Project ID.
+func GetGcpProviderByProjectID(apiClient *http.Client, apiAddr string, projectID string) (*v0.GcpProvider, error) {
+	var gcpProvider v0.GcpProvider
 
 	response, err := client_lib.GetResponse(
 		apiClient,
-		fmt.Sprintf("%s/%s/gcp-accounts?projectid=%s", apiAddr, ApiVersion, projectID),
+		fmt.Sprintf("%s/%s/gcp-providers?projectid=%s", apiAddr, ApiVersion, projectID),
 		http.MethodGet,
 		new(bytes.Buffer),
 		map[string]string{},
 		http.StatusOK,
 	)
 	if err != nil {
-		return &gcpAccount, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+		return &gcpProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
 	if len(response.Data) < 1 {
-		return &gcpAccount, fmt.Errorf("no GCP account found with project ID %s", projectID)
+		return &gcpProvider, fmt.Errorf("no GCP provider found with project ID %s", projectID)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
-		return &gcpAccount, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
+		return &gcpProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(jsonData))
 	decoder.UseNumber()
-	if err := decoder.Decode(&gcpAccount); err != nil {
+	if err := decoder.Decode(&gcpProvider); err != nil {
 		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
 	}
 
-	return &gcpAccount, nil
+	return &gcpProvider, nil
 }
 
 // GetGcpGkeKubernetesRuntimeDefinitionByK8sRuntimeDef fetches a GCP GKE kubernetes runtime definition by ID.
