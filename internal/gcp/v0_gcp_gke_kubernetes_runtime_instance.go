@@ -72,6 +72,7 @@ func v0GcpGkeKubernetesRuntimeInstanceCreated(
 				RuntimeInstanceName: *gcpGkeKubernetesRuntimeInstance.Name,
 				ProjectID:           *gcpProvider.ProjectID,
 				Region:              *gcpGkeKubernetesRuntimeInstance.Region,
+				Logger:              &reconLog,
 			}
 
 			// if service account credentials are provided in the GCP provider, use them
@@ -193,6 +194,7 @@ func v0GcpGkeKubernetesRuntimeInstanceCreated(
 		ProjectID:              *gcpProvider.ProjectID,
 		Region:                 *gcpGkeKubernetesRuntimeInstance.Region,
 		WorkerNodeInitialCount: int32(*gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize),
+		Logger:                 &reconLog,
 	}
 
 	// if service account credentials are provided in the GCP provider, use them
@@ -295,6 +297,7 @@ func v0GcpGkeKubernetesRuntimeInstanceDeleted(
 		RuntimeInstanceName: *gcpGkeKubernetesRuntimeInstance.Name,
 		ProjectID:           *gcpProvider.ProjectID,
 		Region:              *gcpGkeKubernetesRuntimeInstance.Region,
+		Logger:              &reconLog,
 	}
 
 	// if service account credentials are provided in the GCP provider, use them

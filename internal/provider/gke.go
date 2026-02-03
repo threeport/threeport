@@ -18,10 +18,12 @@ import (
 
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
+	"github.com/go-logr/logr"
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp"
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/compute"
 	gkecontainer "github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/container"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/events"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
@@ -97,6 +99,10 @@ type KubernetesRuntimeInfraGKE struct {
 	// the service account credentials. This is set internally when
 	// ServiceAccountCredentials is used.
 	credentialsFilePath string
+
+	// Logger for structured logging of Pulumi operations. If nil, Pulumi
+	// events will not be logged.
+	Logger *logr.Logger
 }
 
 // Create installs a Kubernetes cluster using Google Cloud GKE for threeport workloads.
@@ -307,8 +313,8 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 	// create a context for the automation API
 	ctx := context.Background()
 
-	// deploy the stack
-	_, err = stack.Up(ctx, optup.ProgressStreams(os.Stdout))
+	// deploy the stack with structured event logging
+	_, err = i.runPulumiUp(ctx, stack)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy stack: %w", err)
 	}
@@ -340,8 +346,8 @@ func (i *KubernetesRuntimeInfraGKE) Delete() error {
 	// create a context for the automation API
 	ctx := context.Background()
 
-	// destroy the stack
-	_, err = stack.Destroy(ctx, optdestroy.ProgressStreams(os.Stdout))
+	// destroy the stack with structured event logging
+	_, err = i.runPulumiDestroy(ctx, stack)
 	if err != nil {
 		return fmt.Errorf("failed to destroy stack: %w", err)
 	}
@@ -354,10 +360,161 @@ func (i *KubernetesRuntimeInfraGKE) Delete() error {
 	// clean up GCP resources (service account, IAM bindings)
 	if err := i.DeleteGCPResources(); err != nil {
 		// Log warning but don't fail - the cluster is already deleted
-		fmt.Printf("Warning: failed to clean up GCP resources: %v\n", err)
+		if i.Logger != nil {
+			i.Logger.Info("warning: failed to clean up GCP resources", "error", err.Error())
+		} else {
+			fmt.Printf("Warning: failed to clean up GCP resources: %v\n", err)
+		}
 	}
 
 	return nil
+}
+
+// runPulumiUp runs the Pulumi stack.Up operation.
+// If a logger is configured, it uses structured event logging.
+// Otherwise, it falls back to ProgressStreams for CLI-friendly output.
+func (i *KubernetesRuntimeInfraGKE) runPulumiUp(ctx context.Context, stack auto.Stack) (auto.UpResult, error) {
+	// if no logger is configured, use ProgressStreams for CLI-friendly output
+	if i.Logger == nil {
+		return stack.Up(ctx, optup.ProgressStreams(os.Stdout))
+	}
+
+	// create event channel for structured Pulumi events
+	eventChan := make(chan events.EngineEvent)
+
+	// start goroutine to process events and log them structurally
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for event := range eventChan {
+			i.logPulumiEvent(event, "up")
+		}
+	}()
+
+	// run the stack update with event streaming
+	result, err := stack.Up(ctx, optup.EventStreams(eventChan))
+
+	// wait for event processing to complete
+	<-done
+
+	return result, err
+}
+
+// runPulumiDestroy runs the Pulumi stack.Destroy operation.
+// If a logger is configured, it uses structured event logging.
+// Otherwise, it falls back to ProgressStreams for CLI-friendly output.
+func (i *KubernetesRuntimeInfraGKE) runPulumiDestroy(ctx context.Context, stack auto.Stack) (auto.DestroyResult, error) {
+	// if no logger is configured, use ProgressStreams for CLI-friendly output
+	if i.Logger == nil {
+		return stack.Destroy(ctx, optdestroy.ProgressStreams(os.Stdout))
+	}
+
+	// create event channel for structured Pulumi events
+	eventChan := make(chan events.EngineEvent)
+
+	// start goroutine to process events and log them structurally
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for event := range eventChan {
+			i.logPulumiEvent(event, "destroy")
+		}
+	}()
+
+	// run the stack destroy with event streaming
+	result, err := stack.Destroy(ctx, optdestroy.EventStreams(eventChan))
+
+	// wait for event processing to complete
+	<-done
+
+	return result, err
+}
+
+// logPulumiEvent converts Pulumi engine events to structured log entries.
+// The operation parameter indicates whether this is an "up" or "destroy" operation.
+func (i *KubernetesRuntimeInfraGKE) logPulumiEvent(event events.EngineEvent, operation string) {
+	// if no logger is configured, skip logging
+	if i.Logger == nil {
+		return
+	}
+
+	log := i.Logger.WithValues(
+		"component", "pulumi",
+		"pulumiOperation", operation,
+		"runtimeInstance", i.RuntimeInstanceName,
+		"sequence", event.Sequence,
+	)
+
+	// handle errors from event processing
+	if event.Error != nil {
+		log.Error(event.Error, "pulumi event processing error")
+		return
+	}
+
+	switch {
+	case event.DiagnosticEvent != nil:
+		e := event.DiagnosticEvent
+		logEntry := log.WithValues("urn", e.URN)
+		// clean the message by removing ANSI color codes for structured logging
+		message := strings.TrimSpace(e.Message)
+		switch e.Severity {
+		case "error":
+			logEntry.Error(nil, message)
+		case "warning":
+			logEntry.Info(message, "severity", "warning")
+		case "info#err":
+			// info#err is used for stderr output that isn't necessarily an error
+			logEntry.V(1).Info(message, "severity", "info")
+		default:
+			logEntry.V(1).Info(message, "severity", e.Severity)
+		}
+
+	case event.ResourcePreEvent != nil:
+		e := event.ResourcePreEvent
+		log.Info("resource operation starting",
+			"urn", e.Metadata.URN,
+			"op", string(e.Metadata.Op),
+			"type", string(e.Metadata.Type),
+			"provider", e.Metadata.Provider,
+		)
+
+	case event.ResOutputsEvent != nil:
+		e := event.ResOutputsEvent
+		log.Info("resource operation completed",
+			"urn", e.Metadata.URN,
+			"op", string(e.Metadata.Op),
+			"type", string(e.Metadata.Type),
+		)
+
+	case event.ResOpFailedEvent != nil:
+		e := event.ResOpFailedEvent
+		log.Error(nil, "resource operation failed",
+			"urn", e.Metadata.URN,
+			"op", string(e.Metadata.Op),
+			"type", string(e.Metadata.Type),
+		)
+
+	case event.SummaryEvent != nil:
+		e := event.SummaryEvent
+		log.Info("pulumi operation summary",
+			"durationSeconds", e.DurationSeconds,
+			"resourceChanges", e.ResourceChanges,
+			"maybeCorrupt", e.MaybeCorrupt,
+		)
+
+	case event.PreludeEvent != nil:
+		log.Info("pulumi operation starting")
+
+	case event.CancelEvent != nil:
+		log.Info("pulumi operation cancelled or completed")
+
+	case event.StdoutEvent != nil:
+		// log stdout events at verbose level
+		e := event.StdoutEvent
+		if e.Message != "" {
+			log.V(1).Info(strings.TrimSpace(e.Message), "eventType", "stdout")
+		}
+	}
 }
 
 // DeleteGCPResources deletes all GCP resources created for this Threeport instance
