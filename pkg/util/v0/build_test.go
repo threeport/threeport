@@ -1,12 +1,6 @@
 package v0
 
-//**
-// repair documentation for commit messages
-// .github/workflows/commit-messages.yml
-//**
-
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,9 +9,8 @@ import (
 
 // TestBuildBinary tests the BuildBinary function with a valid input.
 func TestBuildBinary(t *testing.T) {
-	// Skip if Go is not installed.
 	if _, err := exec.LookPath("go"); err != nil {
-		t.Skip("go not installed")
+		t.Fatalf("go not installed: %v", err)
 	}
 
 	// Create a real temporary Go project.
@@ -57,9 +50,8 @@ func main() {
 
 // TestBuildBinary_Failure tests the BuildBinary function with a failing command.
 func TestBuildBinary_Failure(t *testing.T) {
-	// Skip if Go is not installed.
 	if _, err := exec.LookPath("go"); err != nil {
-		t.Skip("go not installed")
+		t.Fatalf("go not installed: %v", err)
 	}
 
 	// Create a real temporary Go project.
@@ -82,25 +74,18 @@ go 1.22
 
 // TestBuildImage tests the BuildImage function with valid inputs.
 func TestBuildImage(t *testing.T) {
-	// Skip if Docker is not installed.
-	// dont skip --> fail (same error message)
-
-	//if _, err := exec.LookPath("docker"); err != nil {
-	//	t.Skip("docker not installed")
-	//}
-	// Skip if docker buildx isn't available.
-	//if err := exec.Command("docker", "buildx", "version").Run(); err != nil {
-	//	t.Skip("docker buildx not available")
-	//}
-	// Skip if Docker daemon isn't running.
-	//if err := exec.Command("docker", "info").Run(); err != nil {
-	//	t.Skip("docker daemon not running")
-	//}
+	if _, err := exec.LookPath("docker"); err != nil {
+		t.Fatalf("docker not installed: %v", err)
+	}
+	if err := exec.Command("docker", "buildx", "version").Run(); err != nil {
+		t.Fatalf("docker buildx not available: %v", err)
+	}
+	if err := exec.Command("docker", "info").Run(); err != nil {
+		t.Skip("docker daemon not running")
+	}
 
 	// Create a real temporary Docker build context.
-	// rootDir := t.TempDir()
-	rootDir := "/tmp/threeport"
-	fmt.Println(rootDir)
+	rootDir := t.TempDir()
 
 	err := os.MkdirAll(filepath.Join(rootDir, "cmd", "rest-api", "image"), 0755)
 	if err != nil {
@@ -119,19 +104,17 @@ COPY hello.txt /hello.txt
 		t.Fatalf("failed to write Dockerfile: %v", err)
 	}
 
-	// Call BuildImage with valid inputs.
 	dockerfilePath := filepath.Join(rootDir, "cmd", "rest-api", "image", "Dockerfile")
 	err = BuildImage(rootDir, dockerfilePath, "amd64", "test-repo", "test-image", "latest", false, false, "")
 	if err != nil {
-		t.Errorf(`BuildImage(rootDir, "cmd/rest-api/image/Dockerfile", "amd64", "test-repo", "test-image", "latest", false, false, "") failed: %v`, err)
+		t.Errorf(`BuildImage failed: %v`, err)
 	}
 }
 
 // TestBuildImage_Failure tests the BuildImage function with a failing command.
 func TestBuildImage_Failure(t *testing.T) {
-	// Skip if Docker is not installed.
 	if _, err := exec.LookPath("docker"); err != nil {
-		t.Skip("docker not installed")
+		t.Fatalf("docker not installed: %v", err)
 	}
 
 	// Create a real temporary directory with no Dockerfile.
