@@ -149,15 +149,26 @@ func IsEncryptedField(obj interface{}, fieldName string) (bool, error) {
 
 // RedactEncryptedValues takes an API object, redacts the value on any
 // encrypted fields and returns the object with encrypted fields redacted.
+// Nil pointer fields are left as-is since there is nothing to redact.
 func RedactEncryptedValues(obj interface{}) interface{} {
 	objVal := reflect.ValueOf(obj).Elem()
 	objType := objVal.Type()
 	for i := 0; i < objType.NumField(); i++ {
 		field := objType.Field(i)
 		fieldVal := objVal.Field(i)
-		encrypt := field.Tag.Get("encrypt")
-		if encrypt == "true" {
+		if field.Tag.Get("encrypt") != "true" {
+			continue
+		}
+		switch fieldVal.Kind() {
+		case reflect.Ptr:
+			if fieldVal.IsNil() {
+				continue
+			}
 			fieldVal.Elem().SetString("[encrypted value redacted]")
+		case reflect.Slice:
+			for j := 0; j < fieldVal.Len(); j++ {
+				fieldVal.Index(j).SetString("[encrypted value redacted]")
+			}
 		}
 	}
 
