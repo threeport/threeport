@@ -161,6 +161,36 @@ func GetRestConfig(
 		kubeAPIEndpoint = "kubernetes.default.svc.cluster.local"
 	}
 
+	// OKE tokens are cheap (local RSA signature) and short-lived, so always
+	// mint a fresh one per request rather than maintaining a stored
+	// ConnectionToken. Handled before the authN-type switch below because it
+	// doesn't rely on any stored credentials on the runtime.
+	if runtime.KubernetesRuntimeDefinitionID != nil {
+		definition, err := client.GetKubernetesRuntimeDefinitionByID(
+			threeportAPIClient,
+			threeportAPIEndpoint,
+			*runtime.KubernetesRuntimeDefinitionID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get kubernetes runtime definition: %w", err)
+		}
+		if *definition.InfraProvider == v0.KubernetesRuntimeInfraProviderOKE {
+			tokenGenerator, err := buildOKETokenGenerator(runtime, threeportAPIClient, threeportAPIEndpoint, encryptionKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to build OKE token generator: %w", err)
+			}
+			return &rest.Config{
+				Host: kubeAPIEndpoint,
+				TLSClientConfig: rest.TLSClientConfig{
+					CAData: []byte(*runtime.CACertificate),
+				},
+				WrapTransport: func(rt http.RoundTripper) http.RoundTripper {
+					return &tokenRefreshTransport{base: rt, tokenGenerator: tokenGenerator}
+				},
+			}, nil
+		}
+	}
+
 	// set tlsConfig according to authN type
 	var restConfig rest.Config
 	switch {
@@ -241,16 +271,6 @@ func GetRestConfig(
 						return nil, fmt.Errorf("failed to refresh connection token for EKS cluster: %w", err)
 					}
 					restConfig = *config
-				case v0.KubernetesRuntimeInfraProviderOKE:
-					if config, err = refreshOKEConnection(
-						runtime,
-						threeportAPIClient,
-						threeportAPIEndpoint,
-						encryptionKey,
-					); err != nil {
-						return nil, fmt.Errorf("failed to refresh connection token for OKE cluster: %w", err)
-					}
-					restConfig = *config
 				case v0.KubernetesRuntimeInfraProviderGKE:
 					if config, err = refreshGKEConnection(
 						runtime,
@@ -291,6 +311,50 @@ func (t *tokenRefreshTransport) RoundTrip(req *http.Request) (*http.Response, er
 	req = req.Clone(req.Context())
 	req.Header.Set("Authorization", "Bearer "+token)
 	return t.base.RoundTrip(req)
+}
+
+// buildOKETokenGenerator fetches OCI credentials from the threeport API and
+// returns a closure that mints a fresh OKE bearer token on each call via
+// util.GenerateOkeToken.
+func buildOKETokenGenerator(
+	runtime *v0.KubernetesRuntimeInstance,
+	threeportAPIClient *http.Client,
+	threeportAPIEndpoint string,
+	encryptionKey string,
+) (func() (string, error), error) {
+	okeRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		*runtime.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OCI OKE kubernetes runtime instance: %w", err)
+	}
+	ociProvider, err := client.GetOciProviderByID(
+		threeportAPIClient,
+		threeportAPIEndpoint,
+		*okeRuntimeInstance.OciProviderID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OCI provider: %w", err)
+	}
+	decryptedPrivateKey, err := encryption.Decrypt(encryptionKey, *ociProvider.PrivateKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt OCI provider private key: %w", err)
+	}
+	configProvider := common.NewRawConfigurationProvider(
+		*ociProvider.TenancyOCID,
+		*ociProvider.UserOCID,
+		*ociProvider.DefaultRegion,
+		*ociProvider.KeyFingerprint,
+		decryptedPrivateKey,
+		nil,
+	)
+	clusterOCID := *okeRuntimeInstance.ClusterOCID
+	return func() (string, error) {
+		token, _, err := util.GenerateOkeToken(clusterOCID, configProvider)
+		return token, err
+	}, nil
 }
 
 // GetClientWithTokenRefresh creates a dynamic client interface and rest mapper
@@ -358,79 +422,6 @@ func checkTokenExpiring(
 	return expiring, nil
 }
 
-// refreshOKEConnection refreshes the connection token for an OKE cluster.
-func refreshOKEConnection(
-	runtimeInstance *v0.KubernetesRuntimeInstance,
-	threeportAPIClient *http.Client,
-	threeportAPIEndpoint string,
-	encryptionKey string,
-) (*rest.Config, error) {
-	// get OKE runtime instance
-	okeRuntimeInstance, err := client.GetOciOkeKubernetesRuntimeInstanceByK8sRuntimeInst(
-		threeportAPIClient,
-		threeportAPIEndpoint,
-		*runtimeInstance.ID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get OCI OKE kubernetes runtime instance by kubernetes runtime instance ID %d: %w", runtimeInstance.ID, err)
-	}
-
-	// get OCI provider
-	var ociProvider *v0.OciProvider
-	if ociProvider, err = client.GetOciProviderByID(
-		threeportAPIClient,
-		threeportAPIEndpoint,
-		*okeRuntimeInstance.OciProviderID,
-	); err != nil {
-		return nil, fmt.Errorf("failed to get OCI provider by ID %d: %w", *okeRuntimeInstance.OciProviderID, err)
-	}
-
-	// decrypt the private key before passing to OCI SDK
-	decryptedPrivateKey, err := encryption.Decrypt(encryptionKey, *ociProvider.PrivateKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt OCI provider private key: %w", err)
-	}
-
-	var token string
-	var tokenExpirationTime time.Time
-
-	if token, tokenExpirationTime, err = util.GenerateOkeToken(
-		*okeRuntimeInstance.ClusterOCID,
-		common.NewRawConfigurationProvider(
-			*ociProvider.CompartmentOCID,
-			*ociProvider.UserOCID,
-			*ociProvider.DefaultRegion,
-			*ociProvider.KeyFingerprint,
-			decryptedPrivateKey,
-			nil,
-		),
-	); err != nil {
-		return nil, fmt.Errorf("failed to generate token for OKE cluster: %w", err)
-	}
-
-	// generate updated rest config
-	restConfig := rest.Config{
-		Host:        *runtimeInstance.APIEndpoint,
-		BearerToken: token,
-		TLSClientConfig: rest.TLSClientConfig{
-			CAData: []byte(*runtimeInstance.CACertificate),
-		},
-	}
-
-	// update threeport API with new connection info
-	runtimeInstance.ConnectionToken = &token
-	runtimeInstance.ConnectionTokenExpiration = &tokenExpirationTime
-	_, err = client.UpdateKubernetesRuntimeInstance(
-		threeportAPIClient,
-		threeportAPIEndpoint,
-		runtimeInstance,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update kubernetes runtime instance kubernetes connection info: %w", err)
-	}
-
-	return &restConfig, nil
-}
 
 // refreshEKSConnection retrieves a new EKS token when it expires.
 func refreshEKSConnection(
