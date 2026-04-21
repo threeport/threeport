@@ -28,6 +28,11 @@ type SdkConfig struct {
 	// A repository for each module will be created in this namespace.
 	ImageNamespace string `yaml:"ImageNamespace"`
 
+	// The CPU architecture used for release image builds, e.g. `amd64` or
+	// `arm64`. Defaults to `amd64` when unset. Dev image builds always use
+	// the host architecture.
+	ReleaseArch string `yaml:"ReleaseArch"`
+
 	// Details to be displayed with the API swagger docs that are served by the
 	// API server.
 	ApiDocs ApiDocs `yaml:"ApiDocs"`

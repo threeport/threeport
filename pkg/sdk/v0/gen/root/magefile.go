@@ -71,7 +71,11 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	buildAgentReleaseImageFuncName := "AgentImageRelease"
 	buildReleaseImageFuncNames := []string{buildApiReleaseImageFuncName, buildDbMigratorReleaseImageFuncName}
 
-	f.Const().Id("releaseArch").Op("=").Lit("amd64")
+	releaseArch := sdkConfig.ReleaseArch
+	if releaseArch == "" {
+		releaseArch = "amd64"
+	}
+	f.Const().Id("releaseArch").Op("=").Lit(releaseArch)
 	f.Line()
 
 	namespaces := []string{"Build", "Test", "Install", "Dev"}
