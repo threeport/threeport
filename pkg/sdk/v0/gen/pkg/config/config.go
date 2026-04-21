@@ -91,7 +91,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						instObject,
 					)
 					f.Comment("together with a single operation.")
-					f.Type().Id(defInstValuesObjectName).Struct(
+					defInstFields := []Code{
 						Commentf(
 							"TODO: add fields needed for user to manage a %s and %s together",
 							defObject,
@@ -99,7 +99,12 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						),
 						Id("Name").Op("*").String().Tag(map[string]string{"yaml": "Name,omitempty", "json": "Name,omitempty"}),
 						Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age,omitempty", "json": "Age,omitempty"}),
-					)
+					}
+					if apiObject.TptctlConfigPath || apiObject.DefinedInstanceTptctlConfigPath {
+						configPathField := fmt.Sprintf("%sConfigPath", strcase.ToCamel(objGroup.Name))
+						defInstFields = append(defInstFields, Id(configPathField).Op("*").String().Tag(map[string]string{"yaml": configPathField + ",omitempty", "json": configPathField + ",omitempty"}))
+					}
+					f.Type().Id(defInstValuesObjectName).Struct(defInstFields...)
 					f.Line()
 
 					// Get method
@@ -707,35 +712,41 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						valuesObjectName,
 					)
 					f.Commentf("the %s API object.", apiObject.TypeName)
+					var valuesFields []Code
 					if apiObject.NameField {
 						if apiObject.DefinedInstanceInstance {
-							f.Type().Id(valuesObjectName).Struct(
+							valuesFields = []Code{
 								Comment(configFieldTodoComment),
 								Id("Name").Op("*").String().Tag(map[string]string{"yaml": "Name,omitempty", "json": "Name,omitempty"}),
 								Id(defObject).Op("*").Id(defValuesObject).Tag(map[string]string{"yaml": defObject + ",omitempty", "json": defObject + ",omitempty"}),
 								Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age,omitempty", "json": "Age,omitempty"}),
-							)
+							}
 						} else {
-							f.Type().Id(valuesObjectName).Struct(
+							valuesFields = []Code{
 								Comment(configFieldTodoComment),
 								Id("Name").Op("*").String().Tag(map[string]string{"yaml": "Name,omitempty", "json": "Name,omitempty"}),
 								Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age,omitempty", "json": "Age,omitempty"}),
-							)
+							}
 						}
 					} else {
 						if apiObject.DefinedInstanceInstance {
-							f.Type().Id(valuesObjectName).Struct(
+							valuesFields = []Code{
 								Comment(configFieldTodoComment),
 								Id(defObject).Op("*").Id(defValuesObject).Tag(map[string]string{"yaml": defObject + ",omitempty", "json": defObject + ",omitempty"}),
 								Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age,omitempty", "json": "Age,omitempty"}),
-							)
+							}
 						} else {
-							f.Type().Id(valuesObjectName).Struct(
+							valuesFields = []Code{
 								Comment(configFieldTodoComment),
 								Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age,omitempty", "json": "Age,omitempty"}),
-							)
+							}
 						}
 					}
+					if apiObject.TptctlConfigPath {
+						configPathField := fmt.Sprintf("%sConfigPath", strcase.ToCamel(objGroup.Name))
+						valuesFields = append(valuesFields, Id(configPathField).Op("*").String().Tag(map[string]string{"yaml": configPathField + ",omitempty", "json": configPathField + ",omitempty"}))
+					}
+					f.Type().Id(valuesObjectName).Struct(valuesFields...)
 					f.Line()
 
 					// Generate Get method

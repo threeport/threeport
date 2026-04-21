@@ -392,7 +392,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					// path variable must be set on the config object
 					setConfigPath := &Statement{}
 					if apiObj.TptctlConfigPath || apiObj.DefinedInstanceTptctlConfigPath {
-						setConfigPath.Id(rootObjectVar).Dot(configPathField).Op("=").Op("&").Id(configPathVar)
+						setConfigPath.Id(rootObjectConfigVar).Dot(rootObj).Dot(configPathField).Op("=").Op("&").Id(configPathVar)
 					}
 
 					commandCode.Comment(fmt.Sprintf(
@@ -597,7 +597,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					// path variable must be set on the config object
 					setConfigPath = &Statement{}
 					if apiObj.TptctlConfigPath {
-						setConfigPath.Id(rootObjectVar).Dot(configPathField).Op("=").Op("&").Id(configPathVar)
+						setConfigPath.Id(rootObjectConfigVar).Dot(rootObj).Dot(configPathField).Op("=").Op("&").Id(configPathVar)
 					}
 
 					commandCode.Comment(fmt.Sprintf(
@@ -1078,7 +1078,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				// path variable must be set on the config object
 				setConfigPath := &Statement{}
 				if apiObj.TptctlConfigPath {
-					setConfigPath.Id(objectVar).Dot(configPathField).Op("=").Op("&").Id(configPathVar)
+					setConfigPath.Id(objectConfigVar).Dot(apiObj.TypeName).Dot(configPathField).Op("=").Op("&").Id(configPathVar)
 				}
 
 				commandCode.Comment(fmt.Sprintf(
@@ -1437,7 +1437,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				// path variable must be set on the config object
 				setConfigPath = &Statement{}
 				if apiObj.TptctlConfigPath {
-					setConfigPath.Id(objectVar).Dot(configPathField).Op("=").Op("&").Id(configPathVar)
+					setConfigPath.Id(objectConfigVar).Dot(apiObj.TypeName).Dot(configPathField).Op("=").Op("&").Id(configPathVar)
 				}
 
 				commandCode.Comment(fmt.Sprintf(
