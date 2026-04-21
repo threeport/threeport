@@ -17,7 +17,7 @@ on the versioning of objects and library packages.
 ## Threeport Config
 
 The Threeport config is a file that resides on a user's workstation at
-`~/.config/threeport/config.yaml` by default.  It provides configuration for a user to
+`~/.threeport/config.yaml` by default.  It provides configuration for a user to
 connect to Threeport control planes and to switch between different instances of
 Threeport if need be.
 

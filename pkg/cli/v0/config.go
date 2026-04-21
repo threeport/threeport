@@ -451,14 +451,14 @@ func DeleteThreeportConfigControlPlane(threeportConfig *ThreeportConfig, deleteT
 	viper.WriteConfig()
 }
 
-// DefaultThreeportConfigPath returns the default path to the threeport config
-// file on the user's filesystem.
+// DefaultThreeportConfigPath returns the default directory for Threeport CLI
+// data on the user's filesystem (config file, provider inventory, etc.).
 func DefaultThreeportConfigPath(homedir string) string {
 	return filepath.Join(homedir, ".threeport")
 }
 
 // DefaultProviderConfigDir returns the default path to the directory for storing
-// infra provider inventory and config if not set which is ~/.config/threeport.
+// infra provider inventory and config when not overridden (~/.threeport).
 func DefaultProviderConfigDir() (string, error) {
 	home, err := homedir.Dir()
 	if err != nil {
