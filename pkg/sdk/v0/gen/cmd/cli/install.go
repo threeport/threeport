@@ -227,7 +227,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().List(
 				Lit("control-plane-image-namespace"),
 				Lit("r"),
-				Qual(installerPkg, "ReleaseImageRepo"),
+				Qual(installerPkg, "ReleaseImageNamespace"),
 				Lit("Image namespace to pull threeport control plane images from."),
 			),
 			Line(),
