@@ -163,8 +163,7 @@ func GetRestConfig(
 
 	// OKE tokens are cheap (local RSA signature) and short-lived, so always
 	// mint a fresh one per request rather than maintaining a stored
-	// ConnectionToken. Handled before the authN-type switch below because it
-	// doesn't rely on any stored credentials on the runtime.
+	// ConnectionToken.
 	if runtime.KubernetesRuntimeDefinitionID != nil {
 		definition, err := client.GetKubernetesRuntimeDefinitionByID(
 			threeportAPIClient,
