@@ -388,7 +388,7 @@ func refreshOKEConnection(
 	if token, tokenExpirationTime, err = util.GenerateOkeToken(
 		*okeRuntimeInstance.ClusterOCID,
 		common.NewRawConfigurationProvider(
-			*ociProvider.CompartmentOCID,
+			*ociProvider.TenancyOCID,
 			*ociProvider.UserOCID,
 			*ociProvider.DefaultRegion,
 			*ociProvider.KeyFingerprint,
