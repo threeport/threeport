@@ -149,8 +149,8 @@ func (k *KubernetesRuntimeInstance) BeforeUpdate(tx *gorm.DB) error {
 	if encryptionKey == "" {
 		return errors.New("environment variable ENCRYPTION_KEY is not set")
 	}
-	updatedObj := tx.Statement.Dest.(KubernetesRuntimeInstance)
-	objVal := reflect.ValueOf(&updatedObj).Elem()
+	updatedObj := tx.Statement.Dest.(*KubernetesRuntimeInstance)
+	objVal := reflect.ValueOf(updatedObj).Elem()
 	objType := objVal.Type()
 	for i := 0; i < objType.NumField(); i++ {
 		field := objType.Field(i)
