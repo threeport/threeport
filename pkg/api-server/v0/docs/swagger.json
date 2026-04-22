@@ -28,24 +28,6 @@
                 }
             }
         },
-        "/aws-accounts/versions": {
-            "get": {
-                "description": "Get the supported API versions for aws accounts.",
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "GetAwsAccountVersions gets the supported versions for the aws account API.",
-                "operationId": "awsAccount-get-versions",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.ApiObjectVersions"
-                        }
-                    }
-                }
-            }
-        },
         "/aws-eks-kubernetes-runtime-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for aws eks kubernetes runtime definitions.",
@@ -72,6 +54,24 @@
                 ],
                 "summary": "GetAwsEksKubernetesRuntimeInstanceVersions gets the supported versions for the aws eks kubernetes runtime instance API.",
                 "operationId": "awsEksKubernetesRuntimeInstance-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/aws-providers/versions": {
+            "get": {
+                "description": "Get the supported API versions for aws providers.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetAwsProviderVersions gets the supported versions for the aws provider API.",
+                "operationId": "awsProvider-get-versions",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -234,6 +234,60 @@
                 ],
                 "summary": "GetGatewayTcpPortVersions gets the supported versions for the gateway tcp port API.",
                 "operationId": "gatewayTcpPort-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/gcp-gke-kubernetes-runtime-definitions/versions": {
+            "get": {
+                "description": "Get the supported API versions for gcp gke kubernetes runtime definitions.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetGcpGkeKubernetesRuntimeDefinitionVersions gets the supported versions for the gcp gke kubernetes runtime definition API.",
+                "operationId": "gcpGkeKubernetesRuntimeDefinition-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/gcp-gke-kubernetes-runtime-instances/versions": {
+            "get": {
+                "description": "Get the supported API versions for gcp gke kubernetes runtime instances.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetGcpGkeKubernetesRuntimeInstanceVersions gets the supported versions for the gcp gke kubernetes runtime instance API.",
+                "operationId": "gcpGkeKubernetesRuntimeInstance-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/gcp-providers/versions": {
+            "get": {
+                "description": "Get the supported API versions for gcp providers.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetGcpProviderVersions gets the supported versions for the gcp provider API.",
+                "operationId": "gcpProvider-get-versions",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -586,24 +640,6 @@
                 }
             }
         },
-        "/oci-accounts/versions": {
-            "get": {
-                "description": "Get the supported API versions for oci accounts.",
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "GetOciAccountVersions gets the supported versions for the oci account API.",
-                "operationId": "ociAccount-get-versions",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.ApiObjectVersions"
-                        }
-                    }
-                }
-            }
-        },
         "/oci-oke-kubernetes-runtime-definitions/versions": {
             "get": {
                 "description": "Get the supported API versions for oci oke kubernetes runtime definitions.",
@@ -630,6 +666,24 @@
                 ],
                 "summary": "GetOciOkeKubernetesRuntimeInstanceVersions gets the supported versions for the oci oke kubernetes runtime instance API.",
                 "operationId": "ociOkeKubernetesRuntimeInstance-get-versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.ApiObjectVersions"
+                        }
+                    }
+                }
+            }
+        },
+        "/oci-providers/versions": {
+            "get": {
+                "description": "Get the supported API versions for oci providers.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "GetOciProviderVersions gets the supported versions for the oci provider API.",
+                "operationId": "ociProvider-get-versions",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -998,287 +1052,6 @@
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.AttachedObjectReference"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/aws-accounts": {
-            "get": {
-                "description": "Get all aws accounts from the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets all aws accounts.",
-                "operationId": "get-v0-awsAccounts",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "aws account search by name",
-                        "name": "name",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Add a new aws account to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new aws account.",
-                "operationId": "add-v0-awsAccount",
-                "parameters": [
-                    {
-                        "description": "AwsAccount object",
-                        "name": "awsAccount",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.AwsAccount"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/aws-accounts/{id}": {
-            "get": {
-                "description": "Get a particular aws account from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets a aws account.",
-                "operationId": "get-v0-awsAccount",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Replace a aws account in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating aws account objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates an existing aws account by replacing the entire object.",
-                "operationId": "replace-v0-awsAccount",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "AwsAccount object",
-                        "name": "awsAccount",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.AwsAccount"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a aws account by ID from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "deletes a aws account.",
-                "operationId": "delete-v0-awsAccount",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "description": "Update a aws account in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating aws account objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates specific fields for an existing aws account.",
-                "operationId": "update-v0-awsAccount",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "AwsAccount object",
-                        "name": "awsAccount",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.AwsAccount"
                         }
                     }
                 ],
@@ -1841,6 +1614,287 @@
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/aws-providers": {
+            "get": {
+                "description": "Get all aws providers from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all aws providers.",
+                "operationId": "get-v0-awsProviders",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "aws provider search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new aws provider to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new aws provider.",
+                "operationId": "add-v0-awsProvider",
+                "parameters": [
+                    {
+                        "description": "AwsProvider object",
+                        "name": "awsProvider",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.AwsProvider"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/aws-providers/{id}": {
+            "get": {
+                "description": "Get a particular aws provider from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a aws provider.",
+                "operationId": "get-v0-awsProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a aws provider in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating aws provider objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing aws provider by replacing the entire object.",
+                "operationId": "replace-v0-awsProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "AwsProvider object",
+                        "name": "awsProvider",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.AwsProvider"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a aws provider by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a aws provider.",
+                "operationId": "delete-v0-awsProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a aws provider in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating aws provider objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing aws provider.",
+                "operationId": "update-v0-awsProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "AwsProvider object",
+                        "name": "awsProvider",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.AwsProvider"
                         }
                     }
                 ],
@@ -4411,6 +4465,849 @@
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.GatewayTcpPort"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/gcp-gke-kubernetes-runtime-definitions": {
+            "get": {
+                "description": "Get all gcp gke kubernetes runtime definitions from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all gcp gke kubernetes runtime definitions.",
+                "operationId": "get-v0-gcpGkeKubernetesRuntimeDefinitions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "gcp gke kubernetes runtime definition search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new gcp gke kubernetes runtime definition to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new gcp gke kubernetes runtime definition.",
+                "operationId": "add-v0-gcpGkeKubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "description": "GcpGkeKubernetesRuntimeDefinition object",
+                        "name": "gcpGkeKubernetesRuntimeDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GcpGkeKubernetesRuntimeDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/gcp-gke-kubernetes-runtime-definitions/{id}": {
+            "get": {
+                "description": "Get a particular gcp gke kubernetes runtime definition from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a gcp gke kubernetes runtime definition.",
+                "operationId": "get-v0-gcpGkeKubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a gcp gke kubernetes runtime definition in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating gcp gke kubernetes runtime definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing gcp gke kubernetes runtime definition by replacing the entire object.",
+                "operationId": "replace-v0-gcpGkeKubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GcpGkeKubernetesRuntimeDefinition object",
+                        "name": "gcpGkeKubernetesRuntimeDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GcpGkeKubernetesRuntimeDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a gcp gke kubernetes runtime definition by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a gcp gke kubernetes runtime definition.",
+                "operationId": "delete-v0-gcpGkeKubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a gcp gke kubernetes runtime definition in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating gcp gke kubernetes runtime definition objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing gcp gke kubernetes runtime definition.",
+                "operationId": "update-v0-gcpGkeKubernetesRuntimeDefinition",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GcpGkeKubernetesRuntimeDefinition object",
+                        "name": "gcpGkeKubernetesRuntimeDefinition",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GcpGkeKubernetesRuntimeDefinition"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/gcp-gke-kubernetes-runtime-instances": {
+            "get": {
+                "description": "Get all gcp gke kubernetes runtime instances from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all gcp gke kubernetes runtime instances.",
+                "operationId": "get-v0-gcpGkeKubernetesRuntimeInstances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "gcp gke kubernetes runtime instance search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new gcp gke kubernetes runtime instance to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new gcp gke kubernetes runtime instance.",
+                "operationId": "add-v0-gcpGkeKubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "description": "GcpGkeKubernetesRuntimeInstance object",
+                        "name": "gcpGkeKubernetesRuntimeInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GcpGkeKubernetesRuntimeInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/gcp-gke-kubernetes-runtime-instances/{id}": {
+            "get": {
+                "description": "Get a particular gcp gke kubernetes runtime instance from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a gcp gke kubernetes runtime instance.",
+                "operationId": "get-v0-gcpGkeKubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a gcp gke kubernetes runtime instance in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating gcp gke kubernetes runtime instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing gcp gke kubernetes runtime instance by replacing the entire object.",
+                "operationId": "replace-v0-gcpGkeKubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GcpGkeKubernetesRuntimeInstance object",
+                        "name": "gcpGkeKubernetesRuntimeInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GcpGkeKubernetesRuntimeInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a gcp gke kubernetes runtime instance by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a gcp gke kubernetes runtime instance.",
+                "operationId": "delete-v0-gcpGkeKubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a gcp gke kubernetes runtime instance in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating gcp gke kubernetes runtime instance objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing gcp gke kubernetes runtime instance.",
+                "operationId": "update-v0-gcpGkeKubernetesRuntimeInstance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GcpGkeKubernetesRuntimeInstance object",
+                        "name": "gcpGkeKubernetesRuntimeInstance",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GcpGkeKubernetesRuntimeInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/gcp-providers": {
+            "get": {
+                "description": "Get all gcp providers from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all gcp providers.",
+                "operationId": "get-v0-gcpProviders",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "gcp provider search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new gcp provider to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new gcp provider.",
+                "operationId": "add-v0-gcpProvider",
+                "parameters": [
+                    {
+                        "description": "GcpProvider object",
+                        "name": "gcpProvider",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GcpProvider"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/gcp-providers/{id}": {
+            "get": {
+                "description": "Get a particular gcp provider from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a gcp provider.",
+                "operationId": "get-v0-gcpProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a gcp provider in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating gcp provider objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing gcp provider by replacing the entire object.",
+                "operationId": "replace-v0-gcpProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GcpProvider object",
+                        "name": "gcpProvider",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GcpProvider"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a gcp provider by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a gcp provider.",
+                "operationId": "delete-v0-gcpProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a gcp provider in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating gcp provider objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing gcp provider.",
+                "operationId": "update-v0-gcpProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "GcpProvider object",
+                        "name": "gcpProvider",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.GcpProvider"
                         }
                     }
                 ],
@@ -9908,287 +10805,6 @@
                 }
             }
         },
-        "/v0/oci-accounts": {
-            "get": {
-                "description": "Get all oci accounts from the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets all oci accounts.",
-                "operationId": "get-v0-ociAccounts",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "oci account search by name",
-                        "name": "name",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Add a new oci account to the Threeport database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "adds a new oci account.",
-                "operationId": "add-v0-ociAccount",
-                "parameters": [
-                    {
-                        "description": "OciAccount object",
-                        "name": "ociAccount",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.OciAccount"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/v0/oci-accounts/{id}": {
-            "get": {
-                "description": "Get a particular oci account from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "gets a oci account.",
-                "operationId": "get-v0-ociAccount",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Replace a oci account in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating oci account objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates an existing oci account by replacing the entire object.",
-                "operationId": "replace-v0-ociAccount",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "OciAccount object",
-                        "name": "ociAccount",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.OciAccount"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a oci account by ID from the database.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "deletes a oci account.",
-                "operationId": "delete-v0-ociAccount",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "description": "Update a oci account in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating oci account objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "updates specific fields for an existing oci account.",
-                "operationId": "update-v0-ociAccount",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "OciAccount object",
-                        "name": "ociAccount",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v0.OciAccount"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v0.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/v0/oci-oke-kubernetes-runtime-definitions": {
             "get": {
                 "description": "Get all oci oke kubernetes runtime definitions from the Threeport database.",
@@ -10720,6 +11336,287 @@
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v0.OciOkeKubernetesRuntimeInstance"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/oci-providers": {
+            "get": {
+                "description": "Get all oci providers from the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets all oci providers.",
+                "operationId": "get-v0-ociProviders",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "oci provider search by name",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new oci provider to the Threeport database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "adds a new oci provider.",
+                "operationId": "add-v0-ociProvider",
+                "parameters": [
+                    {
+                        "description": "OciProvider object",
+                        "name": "ociProvider",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.OciProvider"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v0/oci-providers/{id}": {
+            "get": {
+                "description": "Get a particular oci provider from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "gets a oci provider.",
+                "operationId": "get-v0-ociProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace a oci provider in the database.  All required fields must be provided.\nIf any optional fields are not provided, they will be null post-update.\nNote: This API endpint is for updating oci provider objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates an existing oci provider by replacing the entire object.",
+                "operationId": "replace-v0-ociProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "OciProvider object",
+                        "name": "ociProvider",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.OciProvider"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a oci provider by ID from the database.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "deletes a oci provider.",
+                "operationId": "delete-v0-ociProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v0.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update a oci provider in the database.  Provide one or more fields to update.\nNote: This API endpint is for updating oci provider objects only.\nRequest bodies that include related objects will be accepted, however\nthe related objects will not be changed.  Call the patch or put method for\neach particular existing object to change them.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "updates specific fields for an existing oci provider.",
+                "operationId": "update-v0-ociProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "OciProvider object",
+                        "name": "ociProvider",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.OciProvider"
                         }
                     }
                 ],
@@ -14070,14 +14967,60 @@
                 }
             }
         },
-        "v0.AwsAccount": {
-            "type": "object"
-        },
         "v0.AwsEksKubernetesRuntimeDefinition": {
             "type": "object"
         },
         "v0.AwsEksKubernetesRuntimeInstance": {
             "type": "object"
+        },
+        "v0.AwsProvider": {
+            "type": "object",
+            "required": [
+                "AccountID",
+                "DefaultRegion",
+                "Name"
+            ],
+            "properties": {
+                "AccessKeyID": {
+                    "description": "The access key ID credentials for the AWS account.",
+                    "type": "string"
+                },
+                "AccountID": {
+                    "description": "The account ID for the AWS account.",
+                    "type": "string"
+                },
+                "AwsEksKubernetesRuntimeInstances": {
+                    "description": "The cluster instances deployed with this AWS provider.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.AwsEksKubernetesRuntimeInstance"
+                    }
+                },
+                "DefaultProvider": {
+                    "description": "If true is the AWS provider used if none specified in a definition.",
+                    "type": "boolean"
+                },
+                "DefaultRegion": {
+                    "description": "The region to use for AWS managed services if not specified.",
+                    "type": "string"
+                },
+                "ExternalId": {
+                    "description": "The ExternalId to use when assuming a RoleArn for the AWS account. This is\nautomatically generated by the API server if RoleArn is set.",
+                    "type": "string"
+                },
+                "Name": {
+                    "description": "The unique name of an AWS provider.",
+                    "type": "string"
+                },
+                "RoleArn": {
+                    "description": "The RoleArn to assume for the AWS account.",
+                    "type": "string"
+                },
+                "SecretAccessKey": {
+                    "description": "The secret key credentials for the AWS account.",
+                    "type": "string"
+                }
+            }
         },
         "v0.ControlPlaneComponent": {
             "type": "object",
@@ -14087,7 +15030,7 @@
             ],
             "properties": {
                 "AdditionalEnvRef": {
-                    "description": "The additional env reference to be added to the environment variables of the component",
+                    "description": "The additional env reference to be added to the environment variables of the component.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/datatypes.JSON"
@@ -14095,7 +15038,7 @@
                     ]
                 },
                 "AdditionalVolumeMounts": {
-                    "description": "The additional volume mounts to be added to the deployment spec of the component",
+                    "description": "The additional volume mounts to be added to the deployment spec of the component.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/datatypes.JSON"
@@ -14103,7 +15046,7 @@
                     ]
                 },
                 "AdditionalVolumes": {
-                    "description": "The additional volumes to be added to the deployment spec of the component",
+                    "description": "The additional volumes to be added to the deployment spec of the component.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/datatypes.JSON"
@@ -14111,43 +15054,43 @@
                     ]
                 },
                 "BinaryName": {
-                    "description": "The binary name of the component",
+                    "description": "The binary name of the component.",
                     "type": "string"
                 },
                 "ControlPlaneInstanceID": {
-                    "description": "The control plane instance ID that this component belongs to",
+                    "description": "The control plane instance ID that this component belongs to.",
                     "type": "integer"
                 },
                 "Enabled": {
-                    "description": "Indicate whether the component is enabled to be deployed. Currently only respected by controllers",
+                    "description": "Indicate whether the component is enabled to be deployed. Currently only respected by controllers.",
                     "type": "boolean"
                 },
                 "ImageName": {
-                    "description": "The image name of the component",
-                    "type": "string"
-                },
-                "ImagePullSecretName": {
-                    "description": "The name of the secret with credentials to pull a private container image",
+                    "description": "The image name of the control plane component.  If the complete image\nreference is 'ghcr.io/threeport/threeport-rest-api:v0.6.1', the ImageName\ncomponent would be 'threeport-rest-api'.",
                     "type": "string"
                 },
                 "ImageNamespace": {
-                    "description": "The image namespace of the component",
+                    "description": "The image registry and namespace of the control planecomponent.  If the complete image\nreference is 'ghcr.io/threeport/threeport-rest-api:v0.6.1', the ImageNamespace\ncomponent would be 'ghcr.io/threeport'.",
+                    "type": "string"
+                },
+                "ImagePullSecretName": {
+                    "description": "The name of the secret with credentials to pull a private container image.",
                     "type": "string"
                 },
                 "ImageTag": {
-                    "description": "The image tag of the component",
+                    "description": "The image tag of the control plane component.  If the complete image\nreference is 'ghcr.io/threeport/threeport-rest-api:v0.6.1', the ImageTag\ncomponent would be 'v0.6.1'.",
                     "type": "string"
                 },
                 "Name": {
-                    "description": "The name of the component",
+                    "description": "The name of the component.",
                     "type": "string"
                 },
                 "ServiceAccountName": {
-                    "description": "The service account name to use when deploying",
+                    "description": "The service account name to use when deploying.",
                     "type": "string"
                 },
                 "ServiceResourceName": {
-                    "description": "The service resource name to use when deploying",
+                    "description": "The service resource name to use when deploying.",
                     "type": "string"
                 }
             }
@@ -14710,6 +15653,175 @@
                 }
             }
         },
+        "v0.GcpGkeKubernetesRuntimeDefinition": {
+            "type": "object",
+            "required": [
+                "DefaultNodeGroupInitialSize",
+                "DefaultNodeGroupInstanceType",
+                "DefaultNodeGroupMaximumSize",
+                "DefaultNodeGroupMinimumSize",
+                "KubernetesRuntimeDefinitionID",
+                "Name",
+                "ZoneCount"
+            ],
+            "properties": {
+                "DefaultNodeGroupInitialSize": {
+                    "description": "The number of nodes in the default initial node group.",
+                    "type": "integer"
+                },
+                "DefaultNodeGroupInstanceType": {
+                    "description": "The GCP instance type for the default initial node group.",
+                    "type": "string"
+                },
+                "DefaultNodeGroupMaximumSize": {
+                    "description": "The maximum number of nodes the default initial node group should have.",
+                    "type": "integer"
+                },
+                "DefaultNodeGroupMinimumSize": {
+                    "description": "The minimum number of nodes the default initial node group should have.",
+                    "type": "integer"
+                },
+                "GcpGkeKubernetesRuntimeInstances": {
+                    "description": "The GCP GKE kubernetes runtime instances derived from this definition.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.GcpGkeKubernetesRuntimeInstance"
+                    }
+                },
+                "KubernetesRuntimeDefinitionID": {
+                    "description": "The kubernetes runtime definition for a GKE cluster in GCP.",
+                    "type": "integer"
+                },
+                "Name": {
+                    "description": "An arbitrary name for the definition.",
+                    "type": "string"
+                },
+                "ProfileID": {
+                    "description": "The profile to associate with the definition.  Profile is a named\nstandard configuration for a definition object.",
+                    "type": "integer"
+                },
+                "TierID": {
+                    "description": "The tier to associate with the definition.  Tier is a level of\ncriticality for access control.",
+                    "type": "integer"
+                },
+                "ZoneCount": {
+                    "description": "The number of zones the cluster should span for availability.",
+                    "type": "integer"
+                }
+            }
+        },
+        "v0.GcpGkeKubernetesRuntimeInstance": {
+            "type": "object",
+            "required": [
+                "GcpGkeKubernetesRuntimeDefinitionID",
+                "GcpProviderID",
+                "KubernetesRuntimeInstanceID",
+                "Name"
+            ],
+            "properties": {
+                "CreationAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "CreationConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "CreationFailed": {
+                    "description": "Gets set to true if creation process fails.",
+                    "type": "boolean"
+                },
+                "DeletionAcknowledged": {
+                    "description": "Used by controllers to acknowledge deletion and indicate that deletion\nreconciliation has begun so that subsequent reconciliation attempts can\nact accordingly.",
+                    "type": "string"
+                },
+                "DeletionConfirmed": {
+                    "description": "Used by controllers to confirm deletion of an object.",
+                    "type": "string"
+                },
+                "DeletionScheduled": {
+                    "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
+                    "type": "string"
+                },
+                "GcpGkeKubernetesRuntimeDefinitionID": {
+                    "description": "The definition that configures this instance.",
+                    "type": "integer"
+                },
+                "GcpProviderID": {
+                    "description": "The GCP provider in which the GKE cluster is provisioned.",
+                    "type": "integer"
+                },
+                "InterruptReconciliation": {
+                    "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
+                    "type": "boolean"
+                },
+                "KubernetesRuntimeInstanceID": {
+                    "description": "The kubernetes runtime instance associated with the GKE cluster.",
+                    "type": "integer"
+                },
+                "Name": {
+                    "description": "An arbitrary name the instance",
+                    "type": "string"
+                },
+                "Reconciled": {
+                    "description": "Indicates if object is considered to be reconciled by the object's controller.",
+                    "type": "boolean"
+                },
+                "Region": {
+                    "description": "The GCP region in which the cluster is provisioned.",
+                    "type": "string"
+                },
+                "ResourceInventory": {
+                    "description": "An inventory of all GCP resources for the GKE cluster.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
+                },
+                "Status": {
+                    "description": "The status of the instance.\nTODO: use a custom type",
+                    "type": "string"
+                }
+            }
+        },
+        "v0.GcpProvider": {
+            "type": "object",
+            "required": [
+                "DefaultRegion",
+                "Name",
+                "ProjectID"
+            ],
+            "properties": {
+                "DefaultProvider": {
+                    "description": "If true, is the GCP provider used when none specified for an instance.",
+                    "type": "boolean"
+                },
+                "DefaultRegion": {
+                    "description": "The region to use for GCP managed services if not specified.",
+                    "type": "string"
+                },
+                "GcpGkeKubernetesRuntimeInstances": {
+                    "description": "The cluster instances deployed with this GCP provider.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.GcpGkeKubernetesRuntimeInstance"
+                    }
+                },
+                "Name": {
+                    "description": "The unique name of a GCP provider.",
+                    "type": "string"
+                },
+                "ProjectID": {
+                    "description": "The GCP project ID for the Google Cloud account.",
+                    "type": "string"
+                },
+                "ServiceAccountCredentials": {
+                    "description": "The service account key JSON for authenticating to GCP from outside GCP.\nThis is the contents of a service account key file exported from GCP Console.\nUsed when the gcp-controller runs outside GCP (e.g., in AWS or on-prem).",
+                    "type": "string"
+                }
+            }
+        },
         "v0.HelmWorkloadDefinition": {
             "type": "object",
             "required": [
@@ -15192,7 +16304,7 @@
                     "type": "boolean"
                 },
                 "LoggingInstances": {
-                    "description": "The associated metrics instances that are deployed from this definition.",
+                    "description": "The associated logging instances that are deployed from this definition.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/v0.LoggingInstance"
@@ -15277,19 +16389,19 @@
                     "type": "boolean"
                 },
                 "KubernetesRuntimeInstanceID": {
-                    "description": "The kubernetes runtime where the ingress layer is installed.",
+                    "description": "The kubernetes runtime where the logging is installed.",
                     "type": "integer"
                 },
                 "LoggingDefinitionID": {
-                    "description": "MetricsDefinitionID is the definition used to configure the workload instance.",
+                    "description": "The logging definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "LokiHelmValuesDocument": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying loki chart.",
+                    "description": "Optional Helm workload instance values that can be provided to configure the\nunderlying loki chart.",
                     "type": "string"
                 },
                 "LokiHelmWorkloadInstanceID": {
-                    "description": "The loki Helm workload definition that belongs to this resource.",
+                    "description": "The loki helm workload instance that belongs to this resource.",
                     "type": "integer"
                 },
                 "Name": {
@@ -15297,11 +16409,11 @@
                     "type": "string"
                 },
                 "PromtailHelmValuesDocument": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying promtail chart.",
+                    "description": "Optional Helm workload instance values that can be provided to configure the\nunderlying promtail chart.",
                     "type": "string"
                 },
                 "PromtailHelmWorkloadInstanceID": {
-                    "description": "The promtail Helm workload definition that belongs to this resource.",
+                    "description": "The promtail helm workload instance that belongs to this resource.",
                     "type": "integer"
                 },
                 "Reconciled": {
@@ -15317,20 +16429,18 @@
         "v0.Meta": {
             "type": "object",
             "properties": {
-                "Page": {
-                    "description": "current Page",
+                "ObjectCount": {
+                    "description": "The number of objects returned in the response.",
                     "type": "integer",
                     "example": 1
                 },
-                "Size": {
-                    "description": "Size of the current page (number of returned Object elements)",
-                    "type": "integer",
-                    "example": 1
-                },
-                "TotalCount": {
-                    "description": "TotalCount of returned Object elements",
-                    "type": "integer",
-                    "example": 1
+                "Pagination": {
+                    "description": "Pagination contains the pagination information for a paginated response.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/v0.Pagination"
+                        }
+                    ]
                 }
             }
         },
@@ -15442,19 +16552,19 @@
                     "type": "boolean"
                 },
                 "KubePrometheusStackHelmValuesDocument": {
-                    "description": "Optional Helm workload definition values that can be provided to configure the\nunderlying kube-prometheus-stack chart.",
+                    "description": "Optional Helm workload instance values that can be provided to configure the\nunderlying kube-prometheus-stack chart.",
                     "type": "string"
                 },
                 "KubePrometheusStackHelmWorkloadInstanceID": {
-                    "description": "The kube-prometheus-stack Helm workload definition that belongs to this resource.",
+                    "description": "The kube-prometheus-stack helm workload instance that belongs to this resource.",
                     "type": "integer"
                 },
                 "KubernetesRuntimeInstanceID": {
-                    "description": "The kubernetes runtime where the ingress layer is installed.",
+                    "description": "The kubernetes runtime where the metrics is installed.",
                     "type": "integer"
                 },
                 "MetricsDefinitionID": {
-                    "description": "MetricsDefinitionID is the definition used to configure the workload instance.",
+                    "description": "The metrics definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "Name": {
@@ -15712,7 +16822,7 @@
                     "type": "boolean"
                 },
                 "KubernetesRuntimeInstanceID": {
-                    "description": "The kubernetes runtime where the ingress layer is installed.",
+                    "description": "The kubernetes runtime where the observability dashboard is installed.",
                     "type": "integer"
                 },
                 "Name": {
@@ -15720,7 +16830,7 @@
                     "type": "string"
                 },
                 "ObservabilityDashboardDefinitionID": {
-                    "description": "ObservabilityDashboardDefinitionID is the definition used to configure the workload instance.",
+                    "description": "The observability dashboard definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "Reconciled": {
@@ -15881,7 +16991,7 @@
                     "type": "string"
                 },
                 "KubernetesRuntimeInstanceID": {
-                    "description": "The kubernetes runtime where the ingress layer is installed.",
+                    "description": "The kubernetes runtime where the observability stack is installed.",
                     "type": "integer"
                 },
                 "LoggingEnabled": {
@@ -15913,7 +17023,7 @@
                     "type": "integer"
                 },
                 "ObservabilityStackDefinitionID": {
-                    "description": "ObservabilityStackDefinitionID is the definition used to configure the workload instance.",
+                    "description": "The observability stack definition that belongs to this resource.",
                     "type": "integer"
                 },
                 "PromtailHelmValuesDocument": {
@@ -15930,60 +17040,11 @@
                 }
             }
         },
-        "v0.OciAccount": {
-            "type": "object",
-            "required": [
-                "DefaultRegion",
-                "KeyFingerprint",
-                "Name",
-                "PrivateKey",
-                "TenancyOCID",
-                "UserOCID"
-            ],
-            "properties": {
-                "DefaultAccount": {
-                    "description": "If true is the OCI Account used if none specified in a definition.",
-                    "type": "boolean"
-                },
-                "DefaultRegion": {
-                    "description": "The region to use for OCI managed services if not specified.",
-                    "type": "string"
-                },
-                "KeyFingerprint": {
-                    "description": "The fingerprint of the API key for the OCI account.",
-                    "type": "string"
-                },
-                "Name": {
-                    "description": "The unique name of an OCI account.",
-                    "type": "string"
-                },
-                "OciOkeKubernetesRuntimeDefinitions": {
-                    "description": "The cluster instances deployed in this OCI account.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v0.OciOkeKubernetesRuntimeDefinition"
-                    }
-                },
-                "PrivateKey": {
-                    "description": "The private key for the OCI account.",
-                    "type": "string"
-                },
-                "TenancyOCID": {
-                    "description": "The tenancy OCID for the OCI account.",
-                    "type": "string"
-                },
-                "UserOCID": {
-                    "description": "The user OCID credentials for the OCI account.",
-                    "type": "string"
-                }
-            }
-        },
         "v0.OciOkeKubernetesRuntimeDefinition": {
             "type": "object",
             "required": [
                 "KubernetesRuntimeDefinitionID",
                 "Name",
-                "OciAccountID",
                 "WorkerNodeInitialCount",
                 "WorkerNodeShape"
             ],
@@ -15995,10 +17056,6 @@
                 "Name": {
                     "description": "An arbitrary name for the definition.",
                     "type": "string"
-                },
-                "OciAccountID": {
-                    "description": "The OCI account in which the OKE cluster is provisioned. This is the\nThreeport-managed OCI account ID, not the OCI account OCID.",
-                    "type": "integer"
                 },
                 "OciOkeKubernetesRuntimeInstances": {
                     "description": "The OCI OKE kubernetes runtime instances derived from this definition.",
@@ -16028,14 +17085,14 @@
         "v0.OciOkeKubernetesRuntimeInstance": {
             "type": "object",
             "required": [
-                "ClusterOCID",
                 "KubernetesRuntimeInstanceID",
                 "Name",
-                "OciOkeKubernetesRuntimeDefinitionID"
+                "OciOkeKubernetesRuntimeDefinitionID",
+                "OciProviderID"
             ],
             "properties": {
                 "ClusterOCID": {
-                    "description": "The OCID for the OKE cluster.",
+                    "description": "The OCID for the OKE cluster. Populated by the controller after cluster creation.",
                     "type": "string"
                 },
                 "CreationAcknowledged": {
@@ -16078,6 +17135,10 @@
                     "description": "The definition that configures this instance.",
                     "type": "integer"
                 },
+                "OciProviderID": {
+                    "description": "The OCI provider used to provision this instance.",
+                    "type": "integer"
+                },
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
@@ -16100,6 +17161,84 @@
                 }
             }
         },
+        "v0.OciProvider": {
+            "type": "object",
+            "required": [
+                "CompartmentOCID",
+                "DefaultRegion",
+                "KeyFingerprint",
+                "Name",
+                "PrivateKey",
+                "TenancyOCID",
+                "UserOCID"
+            ],
+            "properties": {
+                "CompartmentOCID": {
+                    "description": "The compartment OCID for the OCI provider.",
+                    "type": "string"
+                },
+                "DefaultProvider": {
+                    "description": "If true is the OCI provider used if none specified in an instance.",
+                    "type": "boolean"
+                },
+                "DefaultRegion": {
+                    "description": "The region to use for OCI managed services if not specified.",
+                    "type": "string"
+                },
+                "KeyFingerprint": {
+                    "description": "The fingerprint of the API key for the OCI provider.",
+                    "type": "string"
+                },
+                "Name": {
+                    "description": "The unique name of an OCI provider.",
+                    "type": "string"
+                },
+                "OciOkeKubernetesRuntimeInstances": {
+                    "description": "The cluster instances deployed with this OCI provider.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v0.OciOkeKubernetesRuntimeInstance"
+                    }
+                },
+                "PrivateKey": {
+                    "description": "The private key for the OCI provider.",
+                    "type": "string"
+                },
+                "TenancyOCID": {
+                    "description": "The tenancy OCID for the OCI provider account.",
+                    "type": "string"
+                },
+                "UserOCID": {
+                    "description": "The user OCID credentials for the OCI provider.",
+                    "type": "string"
+                }
+            }
+        },
+        "v0.Pagination": {
+            "type": "object",
+            "properties": {
+                "HasMore": {
+                    "description": "HasMore is a boolean indicating if there are more objects to fetch after the current page.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "Limit": {
+                    "description": "Limit is the maximum number of objects returned.  This is either set in the client's\nrequest or set to a default value by the server.  In any case, this field informs the\nclient of the maximum number of objects they can expect to receive.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "NextCursor": {
+                    "description": "NextCursor is the ID of the last object in the previous page of results.",
+                    "type": "integer",
+                    "example": 1234567890
+                },
+                "QueryId": {
+                    "description": "QueryId is the ID of the query that produced the paginated objects.  This must be\nreferenced by the client to fetch subsequent pages of results.",
+                    "type": "string",
+                    "example": "1234567890-1234567890-1234567890"
+                }
+            }
+        },
         "v0.Profile": {
             "type": "object",
             "required": [
@@ -16113,11 +17252,10 @@
             }
         },
         "v0.Response": {
-            "description": "Meta info with ObjectType array of Data of Object",
             "type": "object",
             "properties": {
                 "Data": {
-                    "description": "Data contains array of returned Object elements",
+                    "description": "Data contains array of returned Object elements.",
                     "type": "array",
                     "items": {}
                 },
@@ -16130,7 +17268,7 @@
                     ]
                 },
                 "Status": {
-                    "description": "Status represents an error that occurred while handling a request",
+                    "description": "Status represents an error that occurred while handling a request.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/v0.Status"
@@ -16138,9 +17276,9 @@
                     ]
                 },
                 "Type": {
-                    "description": "Type contains ObjectType of returned Data elements",
+                    "description": "Type contains ObjectType of returned Data elements.",
                     "type": "string",
-                    "example": "Transfer"
+                    "example": "WorkloadInstance"
                 }
             }
         },
@@ -16151,7 +17289,7 @@
                 "Name"
             ],
             "properties": {
-                "AwsAccountID": {
+                "AwsProviderID": {
                     "description": "The AWS account ID, if the provider is AWS.",
                     "type": "integer"
                 },
@@ -16369,13 +17507,13 @@
         "v0.TerraformInstance": {
             "type": "object",
             "required": [
-                "AwsAccountID",
+                "AwsProviderID",
                 "Name",
                 "TerraformDefinitionID"
             ],
             "properties": {
-                "AwsAccountID": {
-                    "description": "The AWS account in which the resources will be provisioned.",
+                "AwsProviderID": {
+                    "description": "The AWS provider in which the resources will be provisioned.",
                     "type": "integer"
                 },
                 "CreationAcknowledged": {
