@@ -42,6 +42,11 @@ func (o *OciProvider) BeforeCreate(tx *gorm.DB) error {
 				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
 			}
 
+			// caller round-tripped without decrypting; preserve existing DB ciphertext
+			if underlyingValue == encryption.RedactedValuePlaceholder {
+				continue
+			}
+
 			encryptedVal, err := encryption.Encrypt(encryptionKey, underlyingValue)
 			if err != nil {
 				return fmt.Errorf("failed to encrypt %s for storage: %w", field.Name, err)
@@ -82,6 +87,11 @@ func (o *OciProvider) BeforeUpdate(tx *gorm.DB) error {
 			underlyingValue, err := util.GetPtrValue(fieldVal)
 			if err != nil {
 				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
+			}
+
+			// caller round-tripped without decrypting; preserve existing DB ciphertext
+			if underlyingValue == encryption.RedactedValuePlaceholder {
+				continue
 			}
 
 			encryptedVal, err := encryption.Encrypt(encryptionKey, underlyingValue)

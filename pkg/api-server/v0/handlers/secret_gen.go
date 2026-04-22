@@ -321,7 +321,7 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	}
 
 	// update object in database
-	if result := h.DB.Model(&existingSecretDefinition).Updates(updatedSecretDefinition); result.Error != nil {
+	if result := h.DB.Model(&existingSecretDefinition).Updates(&updatedSecretDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -403,7 +403,7 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 
 	// persist provided data
 	updatedSecretDefinition.ID = existingSecretDefinition.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedSecretDefinition); result.Error != nil {
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingSecretDefinition).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedSecretDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -471,7 +471,7 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.DB.Model(&secretDefinition).Updates(scheduledSecretDefinition); result.Error != nil {
+		if result := h.DB.Model(&secretDefinition).Updates(&scheduledSecretDefinition); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
@@ -828,7 +828,7 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	}
 
 	// update object in database
-	if result := h.DB.Model(&existingSecretInstance).Updates(updatedSecretInstance); result.Error != nil {
+	if result := h.DB.Model(&existingSecretInstance).Updates(&updatedSecretInstance); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -910,7 +910,7 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 
 	// persist provided data
 	updatedSecretInstance.ID = existingSecretInstance.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedSecretInstance); result.Error != nil {
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingSecretInstance).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedSecretInstance); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -972,7 +972,7 @@ func (h Handler) DeleteSecretInstance(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.DB.Model(&secretInstance).Updates(scheduledSecretInstance); result.Error != nil {
+		if result := h.DB.Model(&secretInstance).Updates(&scheduledSecretInstance); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}

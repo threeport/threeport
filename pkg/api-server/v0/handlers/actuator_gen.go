@@ -303,7 +303,7 @@ func (h Handler) UpdateProfile(c echo.Context) error {
 	}
 
 	// update object in database
-	if result := h.DB.Model(&existingProfile).Updates(updatedProfile); result.Error != nil {
+	if result := h.DB.Model(&existingProfile).Updates(&updatedProfile); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -371,7 +371,7 @@ func (h Handler) ReplaceProfile(c echo.Context) error {
 
 	// persist provided data
 	updatedProfile.ID = existingProfile.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedProfile); result.Error != nil {
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingProfile).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedProfile); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -737,7 +737,7 @@ func (h Handler) UpdateTier(c echo.Context) error {
 	}
 
 	// update object in database
-	if result := h.DB.Model(&existingTier).Updates(updatedTier); result.Error != nil {
+	if result := h.DB.Model(&existingTier).Updates(&updatedTier); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -805,7 +805,7 @@ func (h Handler) ReplaceTier(c echo.Context) error {
 
 	// persist provided data
 	updatedTier.ID = existingTier.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedTier); result.Error != nil {
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingTier).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedTier); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}

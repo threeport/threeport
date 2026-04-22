@@ -148,6 +148,15 @@ func IsEncryptedField(obj interface{}, fieldName string) (bool, error) {
 	return false, nil
 }
 
+// RedactedValuePlaceholder is the string substituted for the plaintext of an
+// encrypted field when an API object is serialized for display without the
+// encryption key. Callers that round-trip an object through tptctl get →
+// tptctl replace (without --decrypt-secrets) will see this value in their
+// config file; BeforeCreate / BeforeUpdate hooks skip encryption on fields
+// whose incoming value equals this placeholder, so the DB retains its
+// existing ciphertext rather than storing the marker as plaintext.
+const RedactedValuePlaceholder = "[encrypted value redacted]"
+
 // RedactEncryptedValues takes an API object, redacts the value on any
 // encrypted fields and returns the object with encrypted fields redacted.
 // Nil pointer fields are left as-is since there is nothing to redact.
@@ -165,10 +174,10 @@ func RedactEncryptedValues(obj interface{}) interface{} {
 			if fieldVal.IsNil() {
 				continue
 			}
-			fieldVal.Elem().SetString("[encrypted value redacted]")
+			fieldVal.Elem().SetString(RedactedValuePlaceholder)
 		case reflect.Slice:
 			for j := 0; j < fieldVal.Len(); j++ {
-				fieldVal.Index(j).SetString("[encrypted value redacted]")
+				fieldVal.Index(j).SetString(RedactedValuePlaceholder)
 			}
 		}
 	}

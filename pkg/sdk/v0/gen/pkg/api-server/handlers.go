@@ -282,7 +282,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							}).Dot("DB").Dot("Model").Call(
 								Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
 							).Dot("Updates").Call(
-								Id(fmt.Sprintf("scheduled%s", apiObject.TypeName)),
+								Op("&").Id(fmt.Sprintf("scheduled%s", apiObject.TypeName)),
 							),
 							Id("result").Dot("Error").Op("!=").Nil(),
 						).BlockFunc(func(h *Group) {
@@ -1635,7 +1635,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}).Dot("DB").Dot("Model").Call(
 							Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
 						).Dot("Updates").Call(
-							Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
+							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
 						).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
 							if gen.Module {
 								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
@@ -1953,9 +1953,11 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								"Session",
 							).Values(Dict{
 								Id("FullSaveAssociations"): Lit(false),
-							})).Dot("Omit").Call(
+							})).Dot("Model").Call(
+							Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+						).Dot("Select").Call(Lit("*")).Dot("Omit").Call(
 							Lit("CreatedAt").Op(",").Lit("DeletedAt"),
-						).Dot("Save").Call(
+						).Dot("Updates").Call(
 							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
 						).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
 							if gen.Module {

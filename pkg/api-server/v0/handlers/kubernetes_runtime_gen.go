@@ -321,7 +321,7 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 	}
 
 	// update object in database
-	if result := h.DB.Model(&existingKubernetesRuntimeDefinition).Updates(updatedKubernetesRuntimeDefinition); result.Error != nil {
+	if result := h.DB.Model(&existingKubernetesRuntimeDefinition).Updates(&updatedKubernetesRuntimeDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -403,7 +403,7 @@ func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 
 	// persist provided data
 	updatedKubernetesRuntimeDefinition.ID = existingKubernetesRuntimeDefinition.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedKubernetesRuntimeDefinition); result.Error != nil {
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingKubernetesRuntimeDefinition).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedKubernetesRuntimeDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -471,7 +471,7 @@ func (h Handler) DeleteKubernetesRuntimeDefinition(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.DB.Model(&kubernetesRuntimeDefinition).Updates(scheduledKubernetesRuntimeDefinition); result.Error != nil {
+		if result := h.DB.Model(&kubernetesRuntimeDefinition).Updates(&scheduledKubernetesRuntimeDefinition); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}
@@ -828,7 +828,7 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// update object in database
-	if result := h.DB.Model(&existingKubernetesRuntimeInstance).Updates(updatedKubernetesRuntimeInstance); result.Error != nil {
+	if result := h.DB.Model(&existingKubernetesRuntimeInstance).Updates(&updatedKubernetesRuntimeInstance); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -910,7 +910,7 @@ func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 
 	// persist provided data
 	updatedKubernetesRuntimeInstance.ID = existingKubernetesRuntimeInstance.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedKubernetesRuntimeInstance); result.Error != nil {
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingKubernetesRuntimeInstance).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedKubernetesRuntimeInstance); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -972,7 +972,7 @@ func (h Handler) DeleteKubernetesRuntimeInstance(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.DB.Model(&kubernetesRuntimeInstance).Updates(scheduledKubernetesRuntimeInstance); result.Error != nil {
+		if result := h.DB.Model(&kubernetesRuntimeInstance).Updates(&scheduledKubernetesRuntimeInstance); result.Error != nil {
 			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
 			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 		}

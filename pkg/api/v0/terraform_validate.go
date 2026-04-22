@@ -42,6 +42,10 @@ func (t *TerraformInstance) BeforeCreate(tx *gorm.DB) error {
 			if err != nil {
 				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
 			}
+			// caller round-tripped without decrypting; preserve existing DB ciphertext
+			if underlyingValue == encryption.RedactedValuePlaceholder {
+				continue
+			}
 
 			encryptedVal, err := encryption.Encrypt(encryptionKey, underlyingValue)
 			if err != nil {
@@ -85,6 +89,10 @@ func (t *TerraformInstance) BeforeUpdate(tx *gorm.DB) error {
 			underlyingValue, err := util.GetPtrValue(fieldVal)
 			if err != nil {
 				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
+			}
+			// caller round-tripped without decrypting; preserve existing DB ciphertext
+			if underlyingValue == encryption.RedactedValuePlaceholder {
+				continue
 			}
 			// check to see if the input value is already encrypted - if so skip
 			// so the value isn't double-encryped

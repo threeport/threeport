@@ -1339,6 +1339,24 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										Qual("os", "Exit").Call(Lit(1)),
 									),
 									Line(),
+									Comment("refuse configs that still contain the redacted placeholder for encrypted values"),
+									If(Qual("bytes", "Contains").Call(
+										Id("configContent"),
+										Index().Byte().Parens(Qual(
+											"github.com/threeport/threeport/pkg/encryption/v0",
+											"RedactedValuePlaceholder",
+										)),
+									)).Block(
+										Qual(
+											"github.com/threeport/threeport/pkg/cli/v0",
+											"Error",
+										).Call(
+											Lit("config contains redacted secret values; re-run 'tptctl get ... --decrypt-secrets' and edit the decrypted output before replacing"),
+											Nil(),
+										),
+										Qual("os", "Exit").Call(Lit(1)),
+									),
+									Line(),
 									Comment(fmt.Sprintf(
 										"replace %s",
 										cmdStrHuman,
