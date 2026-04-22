@@ -211,7 +211,7 @@ func PushDockerImage(tag string) error {
 		isDockerConfigPresent = false
 	}
 
-	imagePushOptions := image.PushOptions{All: true}
+	imagePushOptions := image.PushOptions{}
 
 	dockerUsername := os.Getenv("DOCKER_USERNAME")
 	dockerPassword := os.Getenv("DOCKER_PASSWORD")
