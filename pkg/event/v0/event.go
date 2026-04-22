@@ -112,6 +112,8 @@ func (r *EventRecorder) RecordEvent(
 						ObjectID:           util.Ptr(objectId),
 						AttachedObjectType: util.Ptr(util.TypeName(v0.Event{})),
 						AttachedObjectID:   createdEvent.ID,
+						// events are informational attachments, not dependencies
+						Blocking: util.Ptr(false),
 					},
 				)
 				if err != nil {

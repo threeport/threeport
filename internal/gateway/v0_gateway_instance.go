@@ -38,6 +38,7 @@ func v0GatewayInstanceCreated(
 		gatewayInstance.WorkloadInstanceID,
 		util.TypeName(*gatewayInstance),
 		gatewayInstance.ID,
+		true,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)

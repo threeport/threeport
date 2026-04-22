@@ -586,6 +586,38 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 									}
 									tagMap := util.ParseStructTag(field.Tag.Value)
 									structTags[objectName][fieldName] = tagMap
+
+									// validate `guard` tag: only valid on
+									// *uint pointer FK fields named <T>ID
+									// with values `skip` or `informational`.
+									if guardVal, hasGuard := tagMap["guard"]; hasGuard {
+										if guardVal != "skip" && guardVal != "informational" {
+											return fmt.Errorf(
+												"field %s in object %s has invalid guard tag %q: expected \"skip\" or \"informational\"",
+												fieldName, objectName, guardVal,
+											)
+										}
+										if !strings.HasSuffix(fieldName, "ID") {
+											return fmt.Errorf(
+												"field %s in object %s has guard tag but is not a foreign key (expected field name ending in ID)",
+												fieldName, objectName,
+											)
+										}
+										star, ok := field.Type.(*ast.StarExpr)
+										if !ok {
+											return fmt.Errorf(
+												"field %s in object %s has guard tag but is not a pointer (expected *uint)",
+												fieldName, objectName,
+											)
+										}
+										ident, ok := star.X.(*ast.Ident)
+										if !ok || ident.Name != "uint" {
+											return fmt.Errorf(
+												"field %s in object %s has guard tag but is not *uint",
+												fieldName, objectName,
+											)
+										}
+									}
 								}
 							}
 						}

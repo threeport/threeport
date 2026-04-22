@@ -33,6 +33,7 @@ func v0DomainNameInstanceCreated(
 		domainNameInstance.WorkloadInstanceID,
 		util.TypeName(*domainNameInstance),
 		domainNameInstance.ID,
+		true,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)

@@ -218,8 +218,9 @@ func GetAttachedObjectReferencesByObjectID(
 	return &attachedObjectReferences, nil
 }
 
-// EnsureAttachedObjectReferenceExists ensures that an attached object reference
-// exists for the given object type and ID.
+// EnsureAttachedObjectReferenceExists ensures an AOR exists. blocking=true
+// means the base (ObjectType/ObjectID) cannot be deleted while this row
+// exists; blocking=false marks it as informational (e.g. events).
 func EnsureAttachedObjectReferenceExists(
 	apiClient *http.Client,
 	apiAddr string,
@@ -227,6 +228,7 @@ func EnsureAttachedObjectReferenceExists(
 	objectID *uint,
 	attachedObjectType string,
 	attachedObjectID *uint,
+	blocking bool,
 ) error {
 	attachedObjectReferences, err := GetAttachedObjectReferencesByObjectID(apiClient, apiAddr, *objectID)
 	if err != nil {
@@ -242,14 +244,14 @@ func EnsureAttachedObjectReferenceExists(
 	}
 
 	// create attached object reference
-	workloadInstanceAttachedObjectReference := &v0.AttachedObjectReference{
+	ref := &v0.AttachedObjectReference{
 		ObjectID:           objectID,
 		ObjectType:         &objectType,
 		AttachedObjectType: &attachedObjectType,
 		AttachedObjectID:   attachedObjectID,
+		Blocking:           &blocking,
 	}
-	_, err = CreateAttachedObjectReference(apiClient, apiAddr, workloadInstanceAttachedObjectReference)
-	if err != nil {
+	if _, err := CreateAttachedObjectReference(apiClient, apiAddr, ref); err != nil {
 		return fmt.Errorf("failed to create attached object reference: %w", err)
 	}
 

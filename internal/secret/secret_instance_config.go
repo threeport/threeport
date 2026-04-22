@@ -68,6 +68,7 @@ func (c *SecretInstanceConfig) createAttachedObjectReference() error {
 		c.workloadInstanceId,
 		util.TypeName(*c.secretInstance),
 		c.secretInstance.ID,
+		true,
 	); err != nil {
 		return fmt.Errorf("failed to ensure attached object reference exists: %w", err)
 	}

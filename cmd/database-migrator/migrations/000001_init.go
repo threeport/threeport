@@ -25,6 +25,14 @@ func Up000001(ctx context.Context, db *sql.DB) error {
 		return fmt.Errorf("could not run gorm AutoMigrate: %w", err)
 	}
 
+	// set blocking=false on event AORs so they don't guard base-object deletion
+	if result := gormDb.
+		Model(&v0.AttachedObjectReference{}).
+		Where("attached_object_type IN (?, ?)", "v0.Event", "v0.WorkloadEvent").
+		Update("blocking", false); result.Error != nil {
+		return fmt.Errorf("could not set blocking=false on event AOR rows: %w", result.Error)
+	}
+
 	return nil
 }
 
