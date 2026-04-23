@@ -1940,7 +1940,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.Line()
 					g.Comment("persist provided data")
 					g.Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("ID")
-					g.Id("updateSession").Op(":=").Do(func(s *Statement) {
+					g.Id("updateModel").Op(":=").Do(func(s *Statement) {
 						if gen.Module {
 							s.Id("h").Dot("Handler")
 						} else {
@@ -1950,11 +1950,11 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Op("&").Qual("gorm.io/gorm", "Session").Values(Dict{
 							Id("FullSaveAssociations"): Lit(false),
 						}),
+					).Dot("Model").Call(
+						Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
 					)
 					g.If(
-						Id("result").Op(":=").Id("updateSession").Dot("Model").Call(
-							Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-						).Dot("Select").Call(Lit("*")).Dot("Omit").Call(
+						Id("result").Op(":=").Id("updateModel").Dot("Select").Call(Lit("*")).Dot("Omit").Call(
 							Lit("CreatedAt"), Lit("DeletedAt"),
 						).Dot("Updates").Call(
 							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
