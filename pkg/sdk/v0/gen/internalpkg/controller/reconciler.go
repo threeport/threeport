@@ -623,6 +623,77 @@ func operationCase(
 			),
 			Continue(),
 		)
+
+		// emit AOR upserts for tagged FKs on Created and Updated
+		// (owns FKs are often nil at Create and populated later).
+		if (op == "create" || op == "update") && len(obj.ForeignKeys) > 0 {
+			var depFKs, ownsFKs []gen.ForeignKeyField
+			for _, fk := range obj.ForeignKeys {
+				switch fk.Relationship {
+				case "dependency":
+					depFKs = append(depFKs, fk)
+				case "owns":
+					ownsFKs = append(ownsFKs, fk)
+				}
+			}
+			if len(depFKs) > 0 || len(ownsFKs) > 0 {
+				emitAorUpserts(h, obj, varObjectName, modulePath, depFKs, ownsFKs)
+			}
+		}
+
+		// on delete, clean up AORs where self is the attacher so the
+		// base it pointed at becomes deletable. Skip when no FK opted
+		// into emission (nothing to clean).
+		hasEmittingFK := false
+		for _, fk := range obj.ForeignKeys {
+			switch fk.Relationship {
+			case "dependency", "owns":
+				hasEmittingFK = true
+			}
+		}
+		if op == "delete" && hasEmittingFK {
+			h.If(
+				List(Id("refs"), Id("err")).Op(":=").Qual(
+					"github.com/threeport/threeport/pkg/client/v0",
+					"GetAttachedObjectReferencesByAttachedObjectID",
+				).Call(
+					Line().Id("r").Dot("APIClient"),
+					Line().Id("r").Dot("APIServer"),
+					Line().Id(varObjectName).Dot("GetId").Call(),
+					Line(),
+				),
+				Id("err").Op("!=").Nil(),
+			).Block(
+				Id("log").Dot("Error").Call(Id("err"), Lit("failed to get attached object references for cleanup")),
+				Id("r").Dot("UnlockAndRequeue").Call(
+					Id(varObjectName),
+					Id("requeueDelay"),
+					Id("lockReleased"),
+					Id("msg"),
+				),
+				Continue(),
+			).Else().BlockFunc(func(g *Group) {
+				g.For(List(Id("_"), Id("ref")).Op(":=").Range().Op("*").Id("refs")).Block(
+					If(
+						List(Id("_"), Id("err")).Op(":=").Qual(
+							"github.com/threeport/threeport/pkg/client/v0",
+							"DeleteAttachedObjectReference",
+						).Call(
+							Id("r").Dot("APIClient"),
+							Id("r").Dot("APIServer"),
+							Op("*").Id("ref").Dot("ID"),
+						),
+						Id("err").Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
+							Id("err"),
+							Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrObjectNotFound"),
+						),
+					).Block(
+						Id("log").Dot("Error").Call(Id("err"), Lit("failed to delete attached object reference")),
+					),
+				)
+			})
+		}
+
 		if op == "delete" {
 			h.Id("deletionTimestamp").Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/util/v0",
@@ -706,4 +777,117 @@ func operationCase(
 			)
 		}
 	})
+}
+
+// aorEntry holds pre-resolved object/attached positions for one FK.
+// dependency FKs put target on the object side; owns FKs flip it.
+type aorEntry struct {
+	objectType   *Statement
+	objectID     *Statement
+	attachedType *Statement
+	attachedID   *Statement
+	fieldName    string
+}
+
+// emitAorUpserts emits a single for-loop that Ensures one AOR row per
+// dep/owns FK. Idempotent so it can run in Created and Updated paths.
+
+func emitAorUpserts(
+	h *jen.Group,
+	obj *gen.ReconciledObject,
+	varObjectName string,
+	modulePath string,
+	depFKs []gen.ForeignKeyField,
+	ownsFKs []gen.ForeignKeyField,
+) {
+	ownerVersion := obj.Versions[0]
+	ownerPkg := fmt.Sprintf("%s/pkg/api/%s", modulePath, ownerVersion)
+	ownerTypeName := Qual(
+		"github.com/threeport/threeport/pkg/util/v0",
+		"TypeName",
+	).Call(Qual(ownerPkg, obj.Name).Values())
+
+	typedVar := fmt.Sprintf("typed%s", obj.Name)
+	h.Id(typedVar).Op(":=").Id(varObjectName).Assert(Op("*").Qual(ownerPkg, obj.Name))
+
+	var entries []aorEntry
+	for _, fk := range depFKs {
+		entries = append(entries, aorEntry{
+			objectType:   Lit(fmt.Sprintf("%s.%s", ownerVersion, fk.TargetType)),
+			objectID:     Id(typedVar).Dot(fk.FieldName),
+			attachedType: ownerTypeName,
+			attachedID:   Id(typedVar).Dot("ID"),
+			fieldName:    fk.FieldName,
+		})
+	}
+	for _, fk := range ownsFKs {
+		entries = append(entries, aorEntry{
+			objectType:   ownerTypeName,
+			objectID:     Id(typedVar).Dot("ID"),
+			attachedType: Lit(fmt.Sprintf("%s.%s", ownerVersion, fk.TargetType)),
+			attachedID:   Id(typedVar).Dot(fk.FieldName),
+			fieldName:    fk.FieldName,
+		})
+	}
+
+	h.Var().Id("aorErr").Error()
+	h.For(
+		List(Id("_"), Id("ref")).Op(":=").Range().Index().Struct(
+			Id("objectType").String(),
+			Id("objectID").Op("*").Uint(),
+			Id("attachedType").String(),
+			Id("attachedID").Op("*").Uint(),
+			Id("fieldName").String(),
+		).Values(ListFunc(func(vg *Group) {
+			for _, e := range entries {
+				vg.Line().Values(
+					Line().Add(e.objectType.Clone()),
+					Line().Add(e.objectID.Clone()),
+					Line().Add(e.attachedType.Clone()),
+					Line().Add(e.attachedID.Clone()),
+					Line().Lit(e.fieldName),
+					Line(),
+				)
+			}
+			vg.Line()
+		})),
+	).Block(
+		// nil check covers both sides; self.ID is always set so this
+		// effectively gates on the FK pointer being non-nil.
+		If(Id("ref").Dot("objectID").Op("==").Nil().Op("||").Id("ref").Dot("attachedID").Op("==").Nil()).Block(
+			Continue(),
+		),
+		If(Id("aorErr").Op("!=").Nil()).Block(Break()),
+		If(
+			Id("err").Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/client/v0",
+				"EnsureAttachedObjectReferenceExists",
+			).Call(
+				Line().Id("r").Dot("APIClient"),
+				Line().Id("r").Dot("APIServer"),
+				Line().Id("ref").Dot("objectType"),
+				Line().Id("ref").Dot("objectID"),
+				Line().Id("ref").Dot("attachedType"),
+				Line().Id("ref").Dot("attachedID"),
+				Line().Lit(true),
+				Line(),
+			),
+			Id("err").Op("!=").Nil(),
+		).Block(
+			Id("log").Dot("Error").Call(Id("err"), Qual("fmt", "Sprintf").Call(
+				Lit("failed to ensure attached object reference for %s"),
+				Id("ref").Dot("fieldName"),
+			)),
+			Id("aorErr").Op("=").Id("err"),
+		),
+	)
+	h.If(Id("aorErr").Op("!=").Nil()).Block(
+		Id("r").Dot("UnlockAndRequeue").Call(
+			Id(varObjectName),
+			Id("requeueDelay"),
+			Id("lockReleased"),
+			Id("msg"),
+		),
+		Continue(),
+	)
 }
