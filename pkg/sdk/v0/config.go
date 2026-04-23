@@ -189,6 +189,15 @@ func ValidateSdkConfig(sdkConfig *SdkConfig) error {
 		return fmt.Errorf("ApiNamespace is a required field")
 	}
 
+	switch sdkConfig.ReleaseArch {
+	case "", "amd64", "arm64":
+	default:
+		return fmt.Errorf(
+			"invalid ReleaseArch %q: supported values are amd64, arm64 (default: amd64)",
+			sdkConfig.ReleaseArch,
+		)
+	}
+
 	// check to make sure that defined instance objects have matching values for
 	// the `DefinedInstance` field.  If they don't the API object definitions
 	// will be incompatible.
