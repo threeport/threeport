@@ -356,8 +356,7 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 	// persist provided data
 	updatedAttachedObjectReference.ID = existingAttachedObjectReference.ID
 	updateSession := h.DB.Session(&gorm.Session{FullSaveAssociations: false})
-	result := updateSession.Model(&existingAttachedObjectReference).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedAttachedObjectReference)
-	if result.Error != nil {
+	if result := updateSession.Model(&existingAttachedObjectReference).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedAttachedObjectReference); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}

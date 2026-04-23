@@ -1951,14 +1951,15 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Id("FullSaveAssociations"): Lit(false),
 						}),
 					)
-					g.Id("result").Op(":=").Id("updateSession").Dot("Model").Call(
-						Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-					).Dot("Select").Call(Lit("*")).Dot("Omit").Call(
-						Lit("CreatedAt"), Lit("DeletedAt"),
-					).Dot("Updates").Call(
-						Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
-					)
-					g.If(Id("result").Dot("Error").Op("!=").Nil()).BlockFunc(func(h *Group) {
+					g.If(
+						Id("result").Op(":=").Id("updateSession").Dot("Model").Call(
+							Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+						).Dot("Select").Call(Lit("*")).Dot("Omit").Call(
+							Lit("CreatedAt"), Lit("DeletedAt"),
+						).Dot("Updates").Call(
+							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
+						).Op(";").Id("result").Dot("Error").Op("!=").Nil(),
+					).BlockFunc(func(h *Group) {
 							if gen.Module {
 								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error persisting object"),
