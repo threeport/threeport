@@ -1940,26 +1940,25 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.Line()
 					g.Comment("persist provided data")
 					g.Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("ID")
-					g.If(
-						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Module {
-								s.Id("h").Dot("Handler")
-							} else {
-								s.Id("h")
-							}
-						}).Dot("DB").Dot("Session").Call(
-							Op("&").Qual(
-								"gorm.io/gorm",
-								"Session",
-							).Values(Dict{
-								Id("FullSaveAssociations"): Lit(false),
-							})).Dot("Model").Call(
-							Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-						).Dot("Select").Call(Lit("*")).Dot("Omit").Call(
-							Lit("CreatedAt").Op(",").Lit("DeletedAt"),
-						).Dot("Updates").Call(
-							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
-						).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+					g.Id("updateSession").Op(":=").Do(func(s *Statement) {
+						if gen.Module {
+							s.Id("h").Dot("Handler")
+						} else {
+							s.Id("h")
+						}
+					}).Dot("DB").Dot("Session").Call(
+						Op("&").Qual("gorm.io/gorm", "Session").Values(Dict{
+							Id("FullSaveAssociations"): Lit(false),
+						}),
+					)
+					g.Id("result").Op(":=").Id("updateSession").Dot("Model").Call(
+						Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+					).Dot("Select").Call(Lit("*")).Dot("Omit").Call(
+						Lit("CreatedAt"), Lit("DeletedAt"),
+					).Dot("Updates").Call(
+						Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
+					)
+					g.If(Id("result").Dot("Error").Op("!=").Nil()).BlockFunc(func(h *Group) {
 							if gen.Module {
 								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error persisting object"),
@@ -1975,8 +1974,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
 							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
-						}),
-					)
+					})
 					g.Line()
 					g.Comment("reload updated data from DB")
 					g.If(

@@ -371,7 +371,9 @@ func (h Handler) ReplaceLogBackend(c echo.Context) error {
 
 	// persist provided data
 	updatedLogBackend.ID = existingLogBackend.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingLogBackend).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedLogBackend); result.Error != nil {
+	updateSession := h.DB.Session(&gorm.Session{FullSaveAssociations: false})
+	result := updateSession.Model(&existingLogBackend).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedLogBackend)
+	if result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -805,7 +807,9 @@ func (h Handler) ReplaceLogStorageDefinition(c echo.Context) error {
 
 	// persist provided data
 	updatedLogStorageDefinition.ID = existingLogStorageDefinition.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingLogStorageDefinition).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedLogStorageDefinition); result.Error != nil {
+	updateSession := h.DB.Session(&gorm.Session{FullSaveAssociations: false})
+	result := updateSession.Model(&existingLogStorageDefinition).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedLogStorageDefinition)
+	if result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -1245,7 +1249,9 @@ func (h Handler) ReplaceLogStorageInstance(c echo.Context) error {
 
 	// persist provided data
 	updatedLogStorageInstance.ID = existingLogStorageInstance.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingLogStorageInstance).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedLogStorageInstance); result.Error != nil {
+	updateSession := h.DB.Session(&gorm.Session{FullSaveAssociations: false})
+	result := updateSession.Model(&existingLogStorageInstance).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedLogStorageInstance)
+	if result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}

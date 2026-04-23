@@ -375,7 +375,9 @@ func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 
 	// persist provided data
 	updatedDomainNameDefinition.ID = existingDomainNameDefinition.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingDomainNameDefinition).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedDomainNameDefinition); result.Error != nil {
+	updateSession := h.DB.Session(&gorm.Session{FullSaveAssociations: false})
+	result := updateSession.Model(&existingDomainNameDefinition).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedDomainNameDefinition)
+	if result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -843,7 +845,9 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 
 	// persist provided data
 	updatedDomainNameInstance.ID = existingDomainNameInstance.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingDomainNameInstance).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedDomainNameInstance); result.Error != nil {
+	updateSession := h.DB.Session(&gorm.Session{FullSaveAssociations: false})
+	result := updateSession.Model(&existingDomainNameInstance).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedDomainNameInstance)
+	if result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -1344,7 +1348,9 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 
 	// persist provided data
 	updatedGatewayDefinition.ID = existingGatewayDefinition.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingGatewayDefinition).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedGatewayDefinition); result.Error != nil {
+	updateSession := h.DB.Session(&gorm.Session{FullSaveAssociations: false})
+	result := updateSession.Model(&existingGatewayDefinition).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedGatewayDefinition)
+	if result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -1807,7 +1813,9 @@ func (h Handler) ReplaceGatewayHttpPort(c echo.Context) error {
 
 	// persist provided data
 	updatedGatewayHttpPort.ID = existingGatewayHttpPort.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingGatewayHttpPort).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedGatewayHttpPort); result.Error != nil {
+	updateSession := h.DB.Session(&gorm.Session{FullSaveAssociations: false})
+	result := updateSession.Model(&existingGatewayHttpPort).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedGatewayHttpPort)
+	if result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -2269,7 +2277,9 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 
 	// persist provided data
 	updatedGatewayInstance.ID = existingGatewayInstance.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingGatewayInstance).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedGatewayInstance); result.Error != nil {
+	updateSession := h.DB.Session(&gorm.Session{FullSaveAssociations: false})
+	result := updateSession.Model(&existingGatewayInstance).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedGatewayInstance)
+	if result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -2726,7 +2736,9 @@ func (h Handler) ReplaceGatewayTcpPort(c echo.Context) error {
 
 	// persist provided data
 	updatedGatewayTcpPort.ID = existingGatewayTcpPort.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingGatewayTcpPort).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedGatewayTcpPort); result.Error != nil {
+	updateSession := h.DB.Session(&gorm.Session{FullSaveAssociations: false})
+	result := updateSession.Model(&existingGatewayTcpPort).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedGatewayTcpPort)
+	if result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}

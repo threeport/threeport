@@ -404,7 +404,9 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 
 	// persist provided data
 	updatedControlPlaneDefinition.ID = existingControlPlaneDefinition.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingControlPlaneDefinition).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedControlPlaneDefinition); result.Error != nil {
+	updateSession := h.DB.Session(&gorm.Session{FullSaveAssociations: false})
+	result := updateSession.Model(&existingControlPlaneDefinition).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedControlPlaneDefinition)
+	if result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -911,7 +913,9 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 
 	// persist provided data
 	updatedControlPlaneInstance.ID = existingControlPlaneInstance.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingControlPlaneInstance).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedControlPlaneInstance); result.Error != nil {
+	updateSession := h.DB.Session(&gorm.Session{FullSaveAssociations: false})
+	result := updateSession.Model(&existingControlPlaneInstance).Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedControlPlaneInstance)
+	if result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
