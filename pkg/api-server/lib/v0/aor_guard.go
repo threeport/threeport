@@ -8,6 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
+// CountBlockingAORs returns the number of non-soft-deleted AOR rows with
+// blocking=true that reference the given base object.
 func CountBlockingAORs(db *gorm.DB, objectType string, objectID *uint) (int64, error) {
 	var count int64
 	result := db.Model(&api_v0.AttachedObjectReference{}).

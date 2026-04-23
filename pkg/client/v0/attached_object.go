@@ -218,9 +218,8 @@ func GetAttachedObjectReferencesByObjectID(
 	return &attachedObjectReferences, nil
 }
 
-// EnsureAttachedObjectReferenceExists ensures an AOR exists. blocking=true
-// means the base (ObjectType/ObjectID) cannot be deleted while this row
-// exists; blocking=false marks it as informational (e.g. events).
+// EnsureAttachedObjectReferenceExists ensures that an attached object reference
+// exists for the given object type and ID.
 func EnsureAttachedObjectReferenceExists(
 	apiClient *http.Client,
 	apiAddr string,
