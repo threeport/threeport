@@ -473,6 +473,21 @@ func (h Handler) DeleteWorkloadDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
 	}
 
+	// check for blocking AORs before deletion
+	blockingErr, err := apiserver_lib.BlockingAORsError(
+		h.DB,
+		"workload definition",
+		util_v0.TypeName(workloadDefinition),
+		workloadDefinition.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if blockingErr != nil {
+		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
+	}
+
 	// schedule for deletion if not already scheduled
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
@@ -942,6 +957,21 @@ func (h Handler) DeleteWorkloadEvent(c echo.Context) error {
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for blocking AORs before deletion
+	blockingErr, err := apiserver_lib.BlockingAORsError(
+		h.DB,
+		"workload event",
+		util_v0.TypeName(workloadEvent),
+		workloadEvent.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if blockingErr != nil {
+		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
 	}
 
 	// delete object
@@ -1420,6 +1450,21 @@ func (h Handler) DeleteWorkloadInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// check for blocking AORs before deletion
+	blockingErr, err := apiserver_lib.BlockingAORsError(
+		h.DB,
+		"workload instance",
+		util_v0.TypeName(workloadInstance),
+		workloadInstance.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if blockingErr != nil {
+		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
+	}
+
 	// schedule for deletion if not already scheduled
 	// if scheduled and reconciled, delete object from DB
 	// if scheduled but not reconciled, return 409 (controller is working on it)
@@ -1891,6 +1936,21 @@ func (h Handler) DeleteWorkloadResourceDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
+	// check for blocking AORs before deletion
+	blockingErr, err := apiserver_lib.BlockingAORsError(
+		h.DB,
+		"workload resource definition",
+		util_v0.TypeName(workloadResourceDefinition),
+		workloadResourceDefinition.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if blockingErr != nil {
+		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
+	}
+
 	// delete object
 	if result := h.DB.Delete(&workloadResourceDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
@@ -2321,6 +2381,21 @@ func (h Handler) DeleteWorkloadResourceInstance(c echo.Context) error {
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for blocking AORs before deletion
+	blockingErr, err := apiserver_lib.BlockingAORsError(
+		h.DB,
+		"workload resource instance",
+		util_v0.TypeName(workloadResourceInstance),
+		workloadResourceInstance.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if blockingErr != nil {
+		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
 	}
 
 	// delete object

@@ -445,6 +445,21 @@ func (h Handler) DeleteOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
 	}
 
+	// check for blocking AORs before deletion
+	blockingErr, err := apiserver_lib.BlockingAORsError(
+		h.DB,
+		"oci oke kubernetes runtime definition",
+		util_v0.TypeName(ociOkeKubernetesRuntimeDefinition),
+		ociOkeKubernetesRuntimeDefinition.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if blockingErr != nil {
+		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
+	}
+
 	// delete object
 	if result := h.DB.Delete(&ociOkeKubernetesRuntimeDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
@@ -919,6 +934,21 @@ func (h Handler) DeleteOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for blocking AORs before deletion
+	blockingErr, err := apiserver_lib.BlockingAORsError(
+		h.DB,
+		"oci oke kubernetes runtime instance",
+		util_v0.TypeName(ociOkeKubernetesRuntimeInstance),
+		ociOkeKubernetesRuntimeInstance.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if blockingErr != nil {
+		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
 	}
 
 	// schedule for deletion if not already scheduled
@@ -1406,6 +1436,21 @@ func (h Handler) DeleteOciProvider(c echo.Context) error {
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for blocking AORs before deletion
+	blockingErr, err := apiserver_lib.BlockingAORsError(
+		h.DB,
+		"oci provider",
+		util_v0.TypeName(ociProvider),
+		ociProvider.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if blockingErr != nil {
+		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
 	}
 
 	// delete object

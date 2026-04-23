@@ -575,6 +575,60 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					).Line()
 				}
 
+				// emitted in every Delete handler; generic over type name
+				// so it works for core and module objects alike.
+				aorBlockingScan := &Statement{}
+				aorBlockingScan.Comment("check for blocking AORs before deletion")
+				aorBlockingScan.Line()
+				aorBlockingScan.List(Id("blockingErr"), Id("err")).Op(":=").Qual(
+					"github.com/threeport/threeport/pkg/api-server/lib/v0",
+					"BlockingAORsError",
+				).Call(
+					Line().Do(func(s *Statement) {
+						if gen.Module {
+							s.Id("h").Dot("Handler")
+						} else {
+							s.Id("h")
+						}
+					}).Dot("DB"),
+					Line().Lit(strcase.ToDelimited(apiObject.TypeName, ' ')),
+					Line().Qual("github.com/threeport/threeport/pkg/util/v0", "TypeName").Call(
+						Id(strcase.ToLowerCamel(apiObject.TypeName)),
+					),
+					Line().Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("ID"),
+					Line(),
+				)
+				aorBlockingScan.Line()
+				aorBlockingScan.If(Id("err").Op("!=").Nil()).BlockFunc(func(g *Group) {
+					if gen.Module {
+						g.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+							Lit("handler error: error listing blocking attached object references"),
+							Qual("go.uber.org/zap", "Error").Call(Id("err")),
+						)
+					} else {
+						g.Id("h").Dot("Logger").Dot("Error").Call(
+							Lit("handler error: error listing blocking attached object references"),
+							Qual("go.uber.org/zap", "Error").Call(Id("err")),
+						)
+					}
+					g.Return(Qual(
+						"github.com/threeport/threeport/pkg/api-server/lib/v0",
+						"ResponseStatus500",
+					).Call(Id("c"), Nil(), Id("err"), Id("objectType")))
+				})
+				aorBlockingScan.Line()
+				aorBlockingScan.If(Id("blockingErr").Op("!=").Nil()).Block(
+					Return().Qual(
+						"github.com/threeport/threeport/pkg/api-server/lib/v0",
+						"ResponseStatus409",
+					).Call(
+						Id("c"), Nil(),
+						Id("blockingErr"),
+						Id("objectType"),
+					),
+				)
+				_ = aorBlockingScan
+
 				f.Comment("///////////////////////////////////////////////////////////////////////////////")
 				f.Comment(apiObject.TypeName)
 				f.Comment("///////////////////////////////////////////////////////////////////////////////")
@@ -2154,6 +2208,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					),
 					// TODO: figure out all preload objects
 					deleteObjectChecks,
+					Line(),
+					aorBlockingScan,
 					Line(),
 					deleteObjectExecution,
 					Line(),
