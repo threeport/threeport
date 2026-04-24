@@ -474,22 +474,25 @@ func (h Handler) DeleteSecretDefinition(c echo.Context) error {
 	}
 
 	// check for blocking attached object references before deletion
-	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
+	attachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
 		util_v0.TypeName(secretDefinition),
 		secretDefinition.ID,
-		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
-		"secret definition",
-		attachedObjectReferences,
-		totalBlockingAttachedObjectReferences,
-	); blockingErr != nil {
-		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
+	if len(attachedObjectReferences) > 0 {
+		return apiserver_lib.ResponseStatus409(
+			c,
+			nil,
+			apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+				"secret definition",
+				attachedObjectReferences,
+			),
+			objectType,
+		)
 	}
 
 	// schedule for deletion if not already scheduled
@@ -1008,22 +1011,25 @@ func (h Handler) DeleteSecretInstance(c echo.Context) error {
 	}
 
 	// check for blocking attached object references before deletion
-	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
+	attachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
 		util_v0.TypeName(secretInstance),
 		secretInstance.ID,
-		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
-		"secret instance",
-		attachedObjectReferences,
-		totalBlockingAttachedObjectReferences,
-	); blockingErr != nil {
-		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
+	if len(attachedObjectReferences) > 0 {
+		return apiserver_lib.ResponseStatus409(
+			c,
+			nil,
+			apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+				"secret instance",
+				attachedObjectReferences,
+			),
+			objectType,
+		)
 	}
 
 	// schedule for deletion if not already scheduled

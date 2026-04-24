@@ -436,22 +436,25 @@ func (h Handler) DeleteModuleApi(c echo.Context) error {
 	}
 
 	// check for blocking attached object references before deletion
-	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
+	attachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
 		util_v0.TypeName(moduleApi),
 		moduleApi.ID,
-		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
-		"module api",
-		attachedObjectReferences,
-		totalBlockingAttachedObjectReferences,
-	); blockingErr != nil {
-		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
+	if len(attachedObjectReferences) > 0 {
+		return apiserver_lib.ResponseStatus409(
+			c,
+			nil,
+			apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+				"module api",
+				attachedObjectReferences,
+			),
+			objectType,
+		)
 	}
 
 	// delete object
@@ -887,22 +890,25 @@ func (h Handler) DeleteModuleApiRoute(c echo.Context) error {
 	}
 
 	// check for blocking attached object references before deletion
-	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
+	attachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
 		util_v0.TypeName(moduleApiRoute),
 		moduleApiRoute.ID,
-		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
-		"module api route",
-		attachedObjectReferences,
-		totalBlockingAttachedObjectReferences,
-	); blockingErr != nil {
-		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
+	if len(attachedObjectReferences) > 0 {
+		return apiserver_lib.ResponseStatus409(
+			c,
+			nil,
+			apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+				"module api route",
+				attachedObjectReferences,
+			),
+			objectType,
+		)
 	}
 
 	// delete object
@@ -1354,22 +1360,25 @@ func (h Handler) DeleteModuleController(c echo.Context) error {
 	}
 
 	// check for blocking attached object references before deletion
-	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
+	attachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
 		util_v0.TypeName(moduleController),
 		moduleController.ID,
-		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
-		"module controller",
-		attachedObjectReferences,
-		totalBlockingAttachedObjectReferences,
-	); blockingErr != nil {
-		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
+	if len(attachedObjectReferences) > 0 {
+		return apiserver_lib.ResponseStatus409(
+			c,
+			nil,
+			apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+				"module controller",
+				attachedObjectReferences,
+			),
+			objectType,
+		)
 	}
 
 	// delete object
@@ -1805,22 +1814,25 @@ func (h Handler) DeleteModuleObject(c echo.Context) error {
 	}
 
 	// check for blocking attached object references before deletion
-	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
+	attachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
 		util_v0.TypeName(moduleObject),
 		moduleObject.ID,
-		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
-		"module object",
-		attachedObjectReferences,
-		totalBlockingAttachedObjectReferences,
-	); blockingErr != nil {
-		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
+	if len(attachedObjectReferences) > 0 {
+		return apiserver_lib.ResponseStatus409(
+			c,
+			nil,
+			apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+				"module object",
+				attachedObjectReferences,
+			),
+			objectType,
+		)
 	}
 
 	// delete object

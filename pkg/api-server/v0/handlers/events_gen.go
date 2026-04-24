@@ -420,22 +420,25 @@ func (h Handler) DeleteEvent(c echo.Context) error {
 	}
 
 	// check for blocking attached object references before deletion
-	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
+	attachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
 		util_v0.TypeName(event),
 		event.ID,
-		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
-		"event",
-		attachedObjectReferences,
-		totalBlockingAttachedObjectReferences,
-	); blockingErr != nil {
-		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
+	if len(attachedObjectReferences) > 0 {
+		return apiserver_lib.ResponseStatus409(
+			c,
+			nil,
+			apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+				"event",
+				attachedObjectReferences,
+			),
+			objectType,
+		)
 	}
 
 	// delete object

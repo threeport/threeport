@@ -582,7 +582,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				attachedObjectReferenceBlockingScan.Line()
 				attachedObjectReferenceBlockingScan.List(
 					Id("attachedObjectReferences"),
-					Id("totalBlockingAttachedObjectReferences"),
 					Id("err"),
 				).Op(":=").Qual(
 					"github.com/threeport/threeport/pkg/api-server/lib/v0",
@@ -599,7 +598,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Id(strcase.ToLowerCamel(apiObject.TypeName)),
 					),
 					Line().Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("ID"),
-					Line().Lit(10),
 					Line(),
 				)
 				attachedObjectReferenceBlockingScan.Line()
@@ -622,24 +620,24 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				})
 				attachedObjectReferenceBlockingScan.Line()
 				attachedObjectReferenceBlockingScan.If(
-					Id("blockingErr").Op(":=").Qual(
-						"github.com/threeport/threeport/pkg/api-server/lib/v0",
-						"FormatBlockingAttachedObjectReferencesError",
-					).Call(
-						Line().Lit(strcase.ToDelimited(apiObject.TypeName, ' ')),
-						Line().Id("attachedObjectReferences"),
-						Line().Id("totalBlockingAttachedObjectReferences"),
-						Line(),
-					),
-					Id("blockingErr").Op("!=").Nil(),
+					Id("len").Call(Id("attachedObjectReferences")).Op(">").Lit(0),
 				).Block(
 					Return().Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"ResponseStatus409",
 					).Call(
-						Id("c"), Nil(),
-						Id("blockingErr"),
-						Id("objectType"),
+						Line().Id("c"),
+						Line().Nil(),
+						Line().Qual(
+							"github.com/threeport/threeport/pkg/api-server/lib/v0",
+							"FormatBlockingAttachedObjectReferencesError",
+						).Call(
+							Line().Lit(strcase.ToDelimited(apiObject.TypeName, ' ')),
+							Line().Id("attachedObjectReferences"),
+							Line(),
+						),
+						Line().Id("objectType"),
+						Line(),
 					),
 				)
 				_ = attachedObjectReferenceBlockingScan

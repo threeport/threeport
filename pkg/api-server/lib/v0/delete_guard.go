@@ -10,64 +10,34 @@ import (
 	"gorm.io/gorm"
 )
 
-// maxBlockingAttachedObjectReferencesInMessage caps the number of rows
-// listed in the 409 body so the error message stays a readable size.
-const maxBlockingAttachedObjectReferencesInMessage = 10
-
 // FindBlockingAttachedObjectReferences returns attached object references that
 // point at the given object and are marked blocking.  Results are soft-delete
-// aware and ordered by ID.  When limit > 0, at most `limit` references are
-// returned along with the unlimited total count.
+// aware and ordered by ID.
 func FindBlockingAttachedObjectReferences(
 	db *gorm.DB,
 	objectType string,
 	objectID *uint,
-	limit int,
-) ([]api_v0.AttachedObjectReference, int64, error) {
-	// count the total blocking references for the object
-	var total int64
-	if err := db.Model(&api_v0.AttachedObjectReference{}).
-		Where(
-			"object_type = ? AND object_id = ? AND blocking = true AND deleted_at IS NULL",
-			objectType, objectID,
-		).
-		Count(&total).Error; err != nil {
-		return nil, 0, fmt.Errorf("failed to count blocking attached object references: %w", err)
-	}
-	if total == 0 {
-		return nil, 0, nil
-	}
-
-	// fetch the blocking references up to the given limit
+) ([]api_v0.AttachedObjectReference, error) {
 	var attachedObjectReferences []api_v0.AttachedObjectReference
-	fetch := db.
+	if err := db.
 		Where(
 			"object_type = ? AND object_id = ? AND blocking = true AND deleted_at IS NULL",
 			objectType, objectID,
 		).
-		Order("id")
-	if limit > 0 {
-		fetch = fetch.Limit(limit)
+		Order("id").
+		Find(&attachedObjectReferences).Error; err != nil {
+		return nil, fmt.Errorf("failed to list blocking attached object references: %w", err)
 	}
-	if err := fetch.Find(&attachedObjectReferences).Error; err != nil {
-		return nil, 0, fmt.Errorf("failed to list blocking attached object references: %w", err)
-	}
-
-	return attachedObjectReferences, total, nil
+	return attachedObjectReferences, nil
 }
 
 // FormatBlockingAttachedObjectReferencesError returns an error describing the
 // blocking attached object references as an aligned two-column table,
-// suitable for a 409 response body.  Returns nil when totalCount is zero.
+// suitable for a 409 response body.
 func FormatBlockingAttachedObjectReferencesError(
 	baseTypeLabel string,
 	attachedObjectReferences []api_v0.AttachedObjectReference,
-	totalCount int64,
 ) error {
-	if totalCount == 0 {
-		return nil
-	}
-
 	// build the aligned table of blocking references
 	var buf bytes.Buffer
 	writer := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
@@ -85,15 +55,9 @@ func FormatBlockingAttachedObjectReferencesError(
 	}
 	writer.Flush()
 
-	// assemble the header, table, and trailer
 	msg := fmt.Sprintf(
-		"%s cannot be deleted while %d object(s) still reference it:\n\n%s",
-		baseTypeLabel, totalCount, buf.String(),
+		"%s cannot be deleted while %d object(s) still reference it:\n\n%s\nRemove dependents first.",
+		baseTypeLabel, len(attachedObjectReferences), buf.String(),
 	)
-	if totalCount > int64(len(attachedObjectReferences)) {
-		msg += fmt.Sprintf("\n...and %d more\n", totalCount-int64(len(attachedObjectReferences)))
-	}
-	msg += "\nRemove dependents first."
-
 	return errors.New(msg)
 }
