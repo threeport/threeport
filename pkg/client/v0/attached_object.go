@@ -243,14 +243,13 @@ func EnsureAttachedObjectReferenceExists(
 	}
 
 	// create attached object reference
-	ref := &v0.AttachedObjectReference{
+	if _, err := CreateAttachedObjectReference(apiClient, apiAddr, &v0.AttachedObjectReference{
 		ObjectID:           objectID,
 		ObjectType:         &objectType,
 		AttachedObjectType: &attachedObjectType,
 		AttachedObjectID:   attachedObjectID,
 		Blocking:           &blocking,
-	}
-	if _, err := CreateAttachedObjectReference(apiClient, apiAddr, ref); err != nil {
+	}); err != nil {
 		return fmt.Errorf("failed to create attached object reference: %w", err)
 	}
 

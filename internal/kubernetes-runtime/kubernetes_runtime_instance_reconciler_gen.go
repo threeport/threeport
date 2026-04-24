@@ -298,6 +298,21 @@ func KubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if attachedObjectReferences, err := client_v0.GetAttachedObjectReferencesByAttachedObjectID(
+					r.APIClient,
+					r.APIServer,
+					kubernetesRuntimeInstance.GetId(),
+				); err != nil {
+					log.Error(err, "failed to get attached object references for cleanup")
+					r.UnlockAndRequeue(kubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
+					continue
+				} else {
+					for _, attachedObjectReference := range *attachedObjectReferences {
+						if _, err := client_v0.DeleteAttachedObjectReference(r.APIClient, r.APIServer, *attachedObjectReference.ID); err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+							log.Error(err, "failed to delete attached object reference")
+						}
+					}
+				}
 				deletionTimestamp := util.Ptr(time.Now().UTC())
 				deletedKubernetesRuntimeInstance := api_v0.KubernetesRuntimeInstance{
 					Common: api_v0.Common{ID: util.Ptr(kubernetesRuntimeInstance.GetId())},

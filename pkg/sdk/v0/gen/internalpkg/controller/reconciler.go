@@ -624,9 +624,9 @@ func operationCase(
 			Continue(),
 		)
 
-		// emit attached object reference upserts for tagged foreign keys
-		// on Created and Updated — "owns" foreign keys are often nil at
-		// Create and populated later.
+		// on Create and Update, ensure attached object references for tagged
+		// foreign keys. "owns" foreign keys are often nil at Create and
+		// populated later.
 		if (op == "create" || op == "update") && len(obj.ForeignKeys) > 0 {
 			var dependencyForeignKeys, ownsForeignKeys []gen.ForeignKeyField
 			for _, foreignKey := range obj.ForeignKeys {
@@ -638,21 +638,15 @@ func operationCase(
 				}
 			}
 			if len(dependencyForeignKeys) > 0 || len(ownsForeignKeys) > 0 {
-				emitAttachedObjectReferenceUpserts(h, obj, varObjectName, modulePath, dependencyForeignKeys, ownsForeignKeys)
+				emitAttachedObjectReferenceEnsures(h, obj, varObjectName, modulePath, dependencyForeignKeys, ownsForeignKeys)
 			}
 		}
 
-		// on delete, clean up attached object references where this object
-		// is the attacher so the base it pointed at becomes deletable; skip
-		// when no foreign key opted into emission.
-		hasEmittingForeignKey := false
-		for _, foreignKey := range obj.ForeignKeys {
-			switch foreignKey.Relationship {
-			case "dependency", "owns":
-				hasEmittingForeignKey = true
-			}
-		}
-		if op == "delete" && hasEmittingForeignKey {
+		// on delete, clean up attached object references where this object is
+		// the attacher so the base it pointed at becomes deletable. Emitted
+		// unconditionally because other types may attach to this one even when
+		// this type has no tagged foreign keys of its own.
+		if op == "delete" {
 			h.If(
 				List(Id("attachedObjectReferences"), Id("err")).Op(":=").Qual(
 					"github.com/threeport/threeport/pkg/client/v0",
@@ -791,10 +785,10 @@ type attachedObjectReferenceEntry struct {
 	fieldName    string
 }
 
-// emitAttachedObjectReferenceUpserts emits a single for-loop that ensures
+// emitAttachedObjectReferenceEnsures emits a single for-loop that ensures
 // one attached object reference row per dependency/owns foreign key.
 // Idempotent so it can run in both Created and Updated paths.
-func emitAttachedObjectReferenceUpserts(
+func emitAttachedObjectReferenceEnsures(
 	h *jen.Group,
 	obj *gen.ReconciledObject,
 	varObjectName string,

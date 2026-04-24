@@ -208,8 +208,6 @@ type ApiObject struct {
 	DeleteHandlerName        string
 	DeleteMiddlewareFuncName string
 
-	// Foreign-key fields detected during struct parsing; drives attached
-	// object reference emission in reconciler_gen.go.
 	ForeignKeys []ForeignKeyField
 }
 
@@ -265,8 +263,6 @@ type ReconciledObject struct {
 	// If true, do not persist notifications in NATS JetStream.
 	DisableNotificationPersistence bool
 
-	// Foreign keys on this object (used by reconciler codegen to emit
-	// attached object reference calls in Created/Updated/Deleted paths).
 	ForeignKeys []ForeignKeyField
 }
 

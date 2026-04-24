@@ -7,6 +7,7 @@ import (
 	"fmt"
 	tpapi_lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
@@ -267,6 +268,21 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 						msg,
 					)
 					continue
+				}
+				if attachedObjectReferences, err := client_v0.GetAttachedObjectReferencesByAttachedObjectID(
+					r.APIClient,
+					r.APIServer,
+					secretDefinition.GetId(),
+				); err != nil {
+					log.Error(err, "failed to get attached object references for cleanup")
+					r.UnlockAndRequeue(secretDefinition, requeueDelay, lockReleased, msg)
+					continue
+				} else {
+					for _, attachedObjectReference := range *attachedObjectReferences {
+						if _, err := client_v0.DeleteAttachedObjectReference(r.APIClient, r.APIServer, *attachedObjectReference.ID); err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+							log.Error(err, "failed to delete attached object reference")
+						}
+					}
 				}
 				deletionTimestamp := util.Ptr(time.Now().UTC())
 				deletedSecretDefinition := api_v0.SecretDefinition{

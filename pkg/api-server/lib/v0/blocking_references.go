@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"text/tabwriter"
 
+	"github.com/iancoleman/strcase"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	"gorm.io/gorm"
 )
 
 // FindBlockingAttachedObjectReferences returns attached object references that
-// point at the given object and are marked blocking.  Results are soft-delete
-// aware and ordered by ID.
+// point at the given object and are marked blocking, ordered by ID.
 func FindBlockingAttachedObjectReferences(
 	db *gorm.DB,
 	objectType string,
@@ -20,10 +20,7 @@ func FindBlockingAttachedObjectReferences(
 ) ([]api_v0.AttachedObjectReference, error) {
 	var attachedObjectReferences []api_v0.AttachedObjectReference
 	if err := db.
-		Where(
-			"object_type = ? AND object_id = ? AND blocking = true AND deleted_at IS NULL",
-			objectType, objectID,
-		).
+		Where("object_type = ? AND object_id = ? AND blocking = true", objectType, objectID).
 		Order("id").
 		Find(&attachedObjectReferences).Error; err != nil {
 		return nil, fmt.Errorf("failed to list blocking attached object references: %w", err)
@@ -35,10 +32,13 @@ func FindBlockingAttachedObjectReferences(
 // blocking attached object references as an aligned two-column table,
 // suitable for a 409 response body.
 func FormatBlockingAttachedObjectReferencesError(
-	baseTypeLabel string,
 	attachedObjectReferences []api_v0.AttachedObjectReference,
 ) error {
-	// build the aligned table of blocking references
+	baseType := "object"
+	if len(attachedObjectReferences) > 0 && attachedObjectReferences[0].ObjectType != nil {
+		baseType = strcase.ToDelimited(*attachedObjectReferences[0].ObjectType, ' ')
+	}
+
 	var buf bytes.Buffer
 	writer := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(writer, "  TYPE\tID")
@@ -57,7 +57,7 @@ func FormatBlockingAttachedObjectReferencesError(
 
 	msg := fmt.Sprintf(
 		"%s cannot be deleted while %d object(s) still reference it:\n\n%s\nRemove dependents first.",
-		baseTypeLabel, len(attachedObjectReferences), buf.String(),
+		baseType, len(attachedObjectReferences), buf.String(),
 	)
 	return errors.New(msg)
 }

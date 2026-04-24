@@ -298,6 +298,21 @@ func ControlPlaneInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
+				if attachedObjectReferences, err := client_v0.GetAttachedObjectReferencesByAttachedObjectID(
+					r.APIClient,
+					r.APIServer,
+					controlPlaneInstance.GetId(),
+				); err != nil {
+					log.Error(err, "failed to get attached object references for cleanup")
+					r.UnlockAndRequeue(controlPlaneInstance, requeueDelay, lockReleased, msg)
+					continue
+				} else {
+					for _, attachedObjectReference := range *attachedObjectReferences {
+						if _, err := client_v0.DeleteAttachedObjectReference(r.APIClient, r.APIServer, *attachedObjectReference.ID); err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+							log.Error(err, "failed to delete attached object reference")
+						}
+					}
+				}
 				deletionTimestamp := util.Ptr(time.Now().UTC())
 				deletedControlPlaneInstance := api_v0.ControlPlaneInstance{
 					Common: api_v0.Common{ID: util.Ptr(controlPlaneInstance.GetId())},
