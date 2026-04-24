@@ -435,18 +435,22 @@ func (h Handler) DeleteModuleApi(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// check for blocking AORs before deletion
-	blockingErr, err := apiserver_lib.BlockingAORsError(
+	// check for blocking attached object references before deletion
+	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
-		"module api",
 		util_v0.TypeName(moduleApi),
 		moduleApi.ID,
+		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr != nil {
+	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+		"module api",
+		attachedObjectReferences,
+		totalBlockingAttachedObjectReferences,
+	); blockingErr != nil {
 		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
 	}
 
@@ -882,18 +886,22 @@ func (h Handler) DeleteModuleApiRoute(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// check for blocking AORs before deletion
-	blockingErr, err := apiserver_lib.BlockingAORsError(
+	// check for blocking attached object references before deletion
+	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
-		"module api route",
 		util_v0.TypeName(moduleApiRoute),
 		moduleApiRoute.ID,
+		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr != nil {
+	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+		"module api route",
+		attachedObjectReferences,
+		totalBlockingAttachedObjectReferences,
+	); blockingErr != nil {
 		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
 	}
 
@@ -1345,18 +1353,22 @@ func (h Handler) DeleteModuleController(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// check for blocking AORs before deletion
-	blockingErr, err := apiserver_lib.BlockingAORsError(
+	// check for blocking attached object references before deletion
+	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
-		"module controller",
 		util_v0.TypeName(moduleController),
 		moduleController.ID,
+		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr != nil {
+	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+		"module controller",
+		attachedObjectReferences,
+		totalBlockingAttachedObjectReferences,
+	); blockingErr != nil {
 		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
 	}
 
@@ -1792,18 +1804,22 @@ func (h Handler) DeleteModuleObject(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// check for blocking AORs before deletion
-	blockingErr, err := apiserver_lib.BlockingAORsError(
+	// check for blocking attached object references before deletion
+	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
-		"module object",
 		util_v0.TypeName(moduleObject),
 		moduleObject.ID,
+		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr != nil {
+	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+		"module object",
+		attachedObjectReferences,
+		totalBlockingAttachedObjectReferences,
+	); blockingErr != nil {
 		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
 	}
 

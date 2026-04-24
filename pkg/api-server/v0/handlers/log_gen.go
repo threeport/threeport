@@ -435,18 +435,22 @@ func (h Handler) DeleteLogBackend(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// check for blocking AORs before deletion
-	blockingErr, err := apiserver_lib.BlockingAORsError(
+	// check for blocking attached object references before deletion
+	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
-		"log backend",
 		util_v0.TypeName(logBackend),
 		logBackend.ID,
+		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr != nil {
+	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+		"log backend",
+		attachedObjectReferences,
+		totalBlockingAttachedObjectReferences,
+	); blockingErr != nil {
 		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
 	}
 
@@ -904,18 +908,22 @@ func (h Handler) DeleteLogStorageDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
 	}
 
-	// check for blocking AORs before deletion
-	blockingErr, err := apiserver_lib.BlockingAORsError(
+	// check for blocking attached object references before deletion
+	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
-		"log storage definition",
 		util_v0.TypeName(logStorageDefinition),
 		logStorageDefinition.ID,
+		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr != nil {
+	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+		"log storage definition",
+		attachedObjectReferences,
+		totalBlockingAttachedObjectReferences,
+	); blockingErr != nil {
 		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
 	}
 
@@ -1367,18 +1375,22 @@ func (h Handler) DeleteLogStorageInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
-	// check for blocking AORs before deletion
-	blockingErr, err := apiserver_lib.BlockingAORsError(
+	// check for blocking attached object references before deletion
+	attachedObjectReferences, totalBlockingAttachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
 		h.DB,
-		"log storage instance",
 		util_v0.TypeName(logStorageInstance),
 		logStorageInstance.ID,
+		10,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
-	if blockingErr != nil {
+	if blockingErr := apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+		"log storage instance",
+		attachedObjectReferences,
+		totalBlockingAttachedObjectReferences,
+	); blockingErr != nil {
 		return apiserver_lib.ResponseStatus409(c, nil, blockingErr, objectType)
 	}
 
