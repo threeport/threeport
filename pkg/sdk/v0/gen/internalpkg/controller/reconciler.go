@@ -648,7 +648,7 @@ func operationCase(
 		// this type has no tagged foreign keys of its own.
 		if op == "delete" {
 			h.Var().Id("attachedObjectReferences").Op("*").Index().Qual(
-				fmt.Sprintf("%s/pkg/api/v0", modulePath),
+				"github.com/threeport/threeport/pkg/api/v0",
 				"AttachedObjectReference",
 			)
 			h.If(
