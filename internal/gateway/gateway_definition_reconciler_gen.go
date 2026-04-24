@@ -253,6 +253,32 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				var operationErr error
 				var customRequeueDelay int64
+				var attachedObjectReferences *[]api_v0.AttachedObjectReference
+				if attachedObjectReferences, err = client_v0.GetAttachedObjectReferencesByAttachedObjectID(
+					r.APIClient,
+					r.APIServer,
+					gatewayDefinition.GetId(),
+				); err != nil {
+					log.Error(err, "failed to get attached object references for cleanup")
+					r.UnlockAndRequeue(gatewayDefinition, requeueDelay, lockReleased, msg)
+					continue
+				}
+				cleanupErr := false
+				for _, attachedObjectReference := range *attachedObjectReferences {
+					if _, err := client_v0.DeleteAttachedObjectReference(
+						r.APIClient,
+						r.APIServer,
+						*attachedObjectReference.ID,
+					); err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						log.Error(err, "failed to delete attached object reference")
+						cleanupErr = true
+						break
+					}
+				}
+				if cleanupErr {
+					r.UnlockAndRequeue(gatewayDefinition, requeueDelay, lockReleased, msg)
+					continue
+				}
 				switch gatewayDefinition.GetVersion() {
 				case "v0":
 					requeueDelay, err := v0GatewayDefinitionDeleted(
@@ -296,32 +322,6 @@ func GatewayDefinitionReconciler(r *controller.Reconciler) {
 						lockReleased,
 						msg,
 					)
-					continue
-				}
-				var attachedObjectReferences *[]api_v0.AttachedObjectReference
-				if attachedObjectReferences, err = client_v0.GetAttachedObjectReferencesByAttachedObjectID(
-					r.APIClient,
-					r.APIServer,
-					gatewayDefinition.GetId(),
-				); err != nil {
-					log.Error(err, "failed to get attached object references for cleanup")
-					r.UnlockAndRequeue(gatewayDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
-				cleanupErr := false
-				for _, attachedObjectReference := range *attachedObjectReferences {
-					if _, err := client_v0.DeleteAttachedObjectReference(
-						r.APIClient,
-						r.APIServer,
-						*attachedObjectReference.ID,
-					); err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
-						log.Error(err, "failed to delete attached object reference")
-						cleanupErr = true
-						break
-					}
-				}
-				if cleanupErr {
-					r.UnlockAndRequeue(gatewayDefinition, requeueDelay, lockReleased, msg)
 					continue
 				}
 				deletionTimestamp := util.Ptr(time.Now().UTC())

@@ -212,12 +212,11 @@ type ApiObject struct {
 }
 
 // ForeignKeyField describes one *uint <T>ID field that references another
-// API object, along with its `relationship` tag.
+// API object, along with its `dependsOn` tag.
 type ForeignKeyField struct {
 	FieldName  string
 	TargetType string
-	// "" (untagged, no emission), "dependency", or "owns".
-	Relationship string
+	DependsOn  bool
 }
 
 // UnversionedApiObject represents one API object regardless of how many
@@ -613,34 +612,31 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 										}
 									}
 
-									// `relationship` is opt-in; untagged foreign keys
+									// `dependsOn` is opt-in; untagged foreign keys
 									// produce no attached object reference emission.
-									relVal, hasRel := tagMap["relationship"]
-									if hasRel {
-										switch relVal {
-										case "dependency", "owns":
-											// valid
-										default:
+									dependsOnVal, hasDependsOn := tagMap["dependsOn"]
+									if hasDependsOn {
+										if dependsOnVal != "true" {
 											return fmt.Errorf(
-												"field %s in object %s has invalid relationship tag %q: expected one of dependency, owns",
-												fieldName, objectName, relVal,
+												"field %s in object %s has invalid dependsOn tag %q: expected \"true\"",
+												fieldName, objectName, dependsOnVal,
 											)
 										}
 										if !isFK {
 											return fmt.Errorf(
-												"field %s in object %s has relationship tag but is not a foreign key (expected *uint field named <T>ID)",
+												"field %s in object %s has dependsOn tag but is not a foreign key (expected *uint field named <T>ID)",
 												fieldName, objectName,
 											)
 										}
 									}
 
 									// record every FK; emission decisions happen at
-									// reconciler-codegen time based on Relationship.
+									// reconciler-codegen time based on DependsOn.
 									if isFK {
 										fkFields[objectName] = append(fkFields[objectName], ForeignKeyField{
-											FieldName:    fieldName,
-											TargetType:   strings.TrimSuffix(fieldName, "ID"),
-											Relationship: relVal,
+											FieldName:  fieldName,
+											TargetType: strings.TrimSuffix(fieldName, "ID"),
+											DependsOn:  hasDependsOn,
 										})
 									}
 								}
