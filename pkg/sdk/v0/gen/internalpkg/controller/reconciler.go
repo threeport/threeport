@@ -672,6 +672,7 @@ func operationCase(
 				),
 				Continue(),
 			)
+			h.Id("cleanupErr").Op(":=").False()
 			h.For(List(Id("_"), Id("attachedObjectReference")).Op(":=").Range().Op("*").Id("attachedObjectReferences")).Block(
 				If(
 					List(Id("_"), Id("err")).Op(":=").Qual(
@@ -689,7 +690,18 @@ func operationCase(
 					),
 				).Block(
 					Id("log").Dot("Error").Call(Id("err"), Lit("failed to delete attached object reference")),
+					Id("cleanupErr").Op("=").True(),
+					Break(),
 				),
+			)
+			h.If(Id("cleanupErr")).Block(
+				Id("r").Dot("UnlockAndRequeue").Call(
+					Id(varObjectName),
+					Id("requeueDelay"),
+					Id("lockReleased"),
+					Id("msg"),
+				),
+				Continue(),
 			)
 		}
 

@@ -308,6 +308,7 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 					r.UnlockAndRequeue(metricsDefinition, requeueDelay, lockReleased, msg)
 					continue
 				}
+				cleanupErr := false
 				for _, attachedObjectReference := range *attachedObjectReferences {
 					if _, err := client_v0.DeleteAttachedObjectReference(
 						r.APIClient,
@@ -315,7 +316,13 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 						*attachedObjectReference.ID,
 					); err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
 						log.Error(err, "failed to delete attached object reference")
+						cleanupErr = true
+						break
 					}
+				}
+				if cleanupErr {
+					r.UnlockAndRequeue(metricsDefinition, requeueDelay, lockReleased, msg)
+					continue
 				}
 				deletionTimestamp := util.Ptr(time.Now().UTC())
 				deletedMetricsDefinition := api_v0.MetricsDefinition{
