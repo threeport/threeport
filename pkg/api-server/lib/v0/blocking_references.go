@@ -12,7 +12,7 @@ import (
 )
 
 // FindBlockingAttachedObjectReferences returns attached object references that
-// point at the given object and are marked blocking, ordered by ID.
+// point at the given object and are marked blocking.
 func FindBlockingAttachedObjectReferences(
 	db *gorm.DB,
 	objectType string,
@@ -21,7 +21,6 @@ func FindBlockingAttachedObjectReferences(
 	var attachedObjectReferences []api_v0.AttachedObjectReference
 	if err := db.
 		Where("object_type = ? AND object_id = ? AND blocking = true", objectType, objectID).
-		Order("id").
 		Find(&attachedObjectReferences).Error; err != nil {
 		return nil, fmt.Errorf("failed to list blocking attached object references: %w", err)
 	}
