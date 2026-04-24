@@ -298,7 +298,8 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
-				if attachedObjectReferences, err := client_v0.GetAttachedObjectReferencesByAttachedObjectID(
+				var attachedObjectReferences *[]api_v0.AttachedObjectReference
+				if attachedObjectReferences, err = client_v0.GetAttachedObjectReferencesByAttachedObjectID(
 					r.APIClient,
 					r.APIServer,
 					awsEksKubernetesRuntimeInstance.GetId(),
@@ -306,11 +307,14 @@ func AwsEksKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to get attached object references for cleanup")
 					r.UnlockAndRequeue(awsEksKubernetesRuntimeInstance, requeueDelay, lockReleased, msg)
 					continue
-				} else {
-					for _, attachedObjectReference := range *attachedObjectReferences {
-						if _, err := client_v0.DeleteAttachedObjectReference(r.APIClient, r.APIServer, *attachedObjectReference.ID); err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
-							log.Error(err, "failed to delete attached object reference")
-						}
+				}
+				for _, attachedObjectReference := range *attachedObjectReferences {
+					if _, err := client_v0.DeleteAttachedObjectReference(
+						r.APIClient,
+						r.APIServer,
+						*attachedObjectReference.ID,
+					); err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						log.Error(err, "failed to delete attached object reference")
 					}
 				}
 				deletionTimestamp := util.Ptr(time.Now().UTC())

@@ -647,8 +647,12 @@ func operationCase(
 		// unconditionally because other types may attach to this one even when
 		// this type has no tagged foreign keys of its own.
 		if op == "delete" {
+			h.Var().Id("attachedObjectReferences").Op("*").Index().Qual(
+				fmt.Sprintf("%s/pkg/api/v0", modulePath),
+				"AttachedObjectReference",
+			)
 			h.If(
-				List(Id("attachedObjectReferences"), Id("err")).Op(":=").Qual(
+				List(Id("attachedObjectReferences"), Id("err")).Op("=").Qual(
 					"github.com/threeport/threeport/pkg/client/v0",
 					"GetAttachedObjectReferencesByAttachedObjectID",
 				).Call(
@@ -667,26 +671,26 @@ func operationCase(
 					Id("msg"),
 				),
 				Continue(),
-			).Else().BlockFunc(func(g *Group) {
-				g.For(List(Id("_"), Id("attachedObjectReference")).Op(":=").Range().Op("*").Id("attachedObjectReferences")).Block(
-					If(
-						List(Id("_"), Id("err")).Op(":=").Qual(
-							"github.com/threeport/threeport/pkg/client/v0",
-							"DeleteAttachedObjectReference",
-						).Call(
-							Id("r").Dot("APIClient"),
-							Id("r").Dot("APIServer"),
-							Op("*").Id("attachedObjectReference").Dot("ID"),
-						),
-						Id("err").Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
-							Id("err"),
-							Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrObjectNotFound"),
-						),
-					).Block(
-						Id("log").Dot("Error").Call(Id("err"), Lit("failed to delete attached object reference")),
+			)
+			h.For(List(Id("_"), Id("attachedObjectReference")).Op(":=").Range().Op("*").Id("attachedObjectReferences")).Block(
+				If(
+					List(Id("_"), Id("err")).Op(":=").Qual(
+						"github.com/threeport/threeport/pkg/client/v0",
+						"DeleteAttachedObjectReference",
+					).Call(
+						Line().Id("r").Dot("APIClient"),
+						Line().Id("r").Dot("APIServer"),
+						Line().Op("*").Id("attachedObjectReference").Dot("ID"),
+						Line(),
 					),
-				)
-			})
+					Id("err").Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
+						Id("err"),
+						Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrObjectNotFound"),
+					),
+				).Block(
+					Id("log").Dot("Error").Call(Id("err"), Lit("failed to delete attached object reference")),
+				),
+			)
 		}
 
 		if op == "delete" {

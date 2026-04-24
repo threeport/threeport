@@ -269,7 +269,8 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					)
 					continue
 				}
-				if attachedObjectReferences, err := client_v0.GetAttachedObjectReferencesByAttachedObjectID(
+				var attachedObjectReferences *[]api_v0.AttachedObjectReference
+				if attachedObjectReferences, err = client_v0.GetAttachedObjectReferencesByAttachedObjectID(
 					r.APIClient,
 					r.APIServer,
 					secretDefinition.GetId(),
@@ -277,11 +278,14 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					log.Error(err, "failed to get attached object references for cleanup")
 					r.UnlockAndRequeue(secretDefinition, requeueDelay, lockReleased, msg)
 					continue
-				} else {
-					for _, attachedObjectReference := range *attachedObjectReferences {
-						if _, err := client_v0.DeleteAttachedObjectReference(r.APIClient, r.APIServer, *attachedObjectReference.ID); err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
-							log.Error(err, "failed to delete attached object reference")
-						}
+				}
+				for _, attachedObjectReference := range *attachedObjectReferences {
+					if _, err := client_v0.DeleteAttachedObjectReference(
+						r.APIClient,
+						r.APIServer,
+						*attachedObjectReference.ID,
+					); err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
+						log.Error(err, "failed to delete attached object reference")
 					}
 				}
 				deletionTimestamp := util.Ptr(time.Now().UTC())
