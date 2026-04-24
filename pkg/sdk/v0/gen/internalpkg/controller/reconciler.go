@@ -624,36 +624,37 @@ func operationCase(
 			Continue(),
 		)
 
-		// emit AOR upserts for tagged FKs on Created and Updated
-		// (owns FKs are often nil at Create and populated later).
+		// emit attached object reference upserts for tagged foreign keys
+		// on Created and Updated — "owns" foreign keys are often nil at
+		// Create and populated later.
 		if (op == "create" || op == "update") && len(obj.ForeignKeys) > 0 {
-			var depFKs, ownsFKs []gen.ForeignKeyField
-			for _, fk := range obj.ForeignKeys {
-				switch fk.Relationship {
+			var dependencyForeignKeys, ownsForeignKeys []gen.ForeignKeyField
+			for _, foreignKey := range obj.ForeignKeys {
+				switch foreignKey.Relationship {
 				case "dependency":
-					depFKs = append(depFKs, fk)
+					dependencyForeignKeys = append(dependencyForeignKeys, foreignKey)
 				case "owns":
-					ownsFKs = append(ownsFKs, fk)
+					ownsForeignKeys = append(ownsForeignKeys, foreignKey)
 				}
 			}
-			if len(depFKs) > 0 || len(ownsFKs) > 0 {
-				emitAorUpserts(h, obj, varObjectName, modulePath, depFKs, ownsFKs)
+			if len(dependencyForeignKeys) > 0 || len(ownsForeignKeys) > 0 {
+				emitAttachedObjectReferenceUpserts(h, obj, varObjectName, modulePath, dependencyForeignKeys, ownsForeignKeys)
 			}
 		}
 
-		// on delete, clean up AORs where self is the attacher so the
-		// base it pointed at becomes deletable. Skip when no FK opted
-		// into emission (nothing to clean).
-		hasEmittingFK := false
-		for _, fk := range obj.ForeignKeys {
-			switch fk.Relationship {
+		// on delete, clean up attached object references where this object
+		// is the attacher so the base it pointed at becomes deletable; skip
+		// when no foreign key opted into emission.
+		hasEmittingForeignKey := false
+		for _, foreignKey := range obj.ForeignKeys {
+			switch foreignKey.Relationship {
 			case "dependency", "owns":
-				hasEmittingFK = true
+				hasEmittingForeignKey = true
 			}
 		}
-		if op == "delete" && hasEmittingFK {
+		if op == "delete" && hasEmittingForeignKey {
 			h.If(
-				List(Id("refs"), Id("err")).Op(":=").Qual(
+				List(Id("attachedObjectReferences"), Id("err")).Op(":=").Qual(
 					"github.com/threeport/threeport/pkg/client/v0",
 					"GetAttachedObjectReferencesByAttachedObjectID",
 				).Call(
@@ -673,7 +674,7 @@ func operationCase(
 				),
 				Continue(),
 			).Else().BlockFunc(func(g *Group) {
-				g.For(List(Id("_"), Id("ref")).Op(":=").Range().Op("*").Id("refs")).Block(
+				g.For(List(Id("_"), Id("attachedObjectReference")).Op(":=").Range().Op("*").Id("attachedObjectReferences")).Block(
 					If(
 						List(Id("_"), Id("err")).Op(":=").Qual(
 							"github.com/threeport/threeport/pkg/client/v0",
@@ -681,7 +682,7 @@ func operationCase(
 						).Call(
 							Id("r").Dot("APIClient"),
 							Id("r").Dot("APIServer"),
-							Op("*").Id("ref").Dot("ID"),
+							Op("*").Id("attachedObjectReference").Dot("ID"),
 						),
 						Id("err").Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
 							Id("err"),
@@ -779,9 +780,10 @@ func operationCase(
 	})
 }
 
-// aorEntry holds pre-resolved object/attached positions for one FK.
-// dependency FKs put target on the object side; owns FKs flip it.
-type aorEntry struct {
+// attachedObjectReferenceEntry holds the pre-resolved object and attached
+// positions for one foreign key.  "dependency" foreign keys put the target
+// on the object side; "owns" foreign keys flip it.
+type attachedObjectReferenceEntry struct {
 	objectType   *Statement
 	objectID     *Statement
 	attachedType *Statement
@@ -789,16 +791,16 @@ type aorEntry struct {
 	fieldName    string
 }
 
-// emitAorUpserts emits a single for-loop that Ensures one AOR row per
-// dep/owns FK. Idempotent so it can run in Created and Updated paths.
-
-func emitAorUpserts(
+// emitAttachedObjectReferenceUpserts emits a single for-loop that ensures
+// one attached object reference row per dependency/owns foreign key.
+// Idempotent so it can run in both Created and Updated paths.
+func emitAttachedObjectReferenceUpserts(
 	h *jen.Group,
 	obj *gen.ReconciledObject,
 	varObjectName string,
 	modulePath string,
-	depFKs []gen.ForeignKeyField,
-	ownsFKs []gen.ForeignKeyField,
+	dependencyForeignKeys []gen.ForeignKeyField,
+	ownsForeignKeys []gen.ForeignKeyField,
 ) {
 	ownerVersion := obj.Versions[0]
 	ownerPkg := fmt.Sprintf("%s/pkg/api/%s", modulePath, ownerVersion)
@@ -810,54 +812,54 @@ func emitAorUpserts(
 	typedVar := fmt.Sprintf("typed%s", obj.Name)
 	h.Id(typedVar).Op(":=").Id(varObjectName).Assert(Op("*").Qual(ownerPkg, obj.Name))
 
-	var entries []aorEntry
-	for _, fk := range depFKs {
-		entries = append(entries, aorEntry{
-			objectType:   Lit(fmt.Sprintf("%s.%s", ownerVersion, fk.TargetType)),
-			objectID:     Id(typedVar).Dot(fk.FieldName),
+	var entries []attachedObjectReferenceEntry
+	for _, foreignKey := range dependencyForeignKeys {
+		entries = append(entries, attachedObjectReferenceEntry{
+			objectType:   Lit(fmt.Sprintf("%s.%s", ownerVersion, foreignKey.TargetType)),
+			objectID:     Id(typedVar).Dot(foreignKey.FieldName),
 			attachedType: ownerTypeName,
 			attachedID:   Id(typedVar).Dot("ID"),
-			fieldName:    fk.FieldName,
+			fieldName:    foreignKey.FieldName,
 		})
 	}
-	for _, fk := range ownsFKs {
-		entries = append(entries, aorEntry{
+	for _, foreignKey := range ownsForeignKeys {
+		entries = append(entries, attachedObjectReferenceEntry{
 			objectType:   ownerTypeName,
 			objectID:     Id(typedVar).Dot("ID"),
-			attachedType: Lit(fmt.Sprintf("%s.%s", ownerVersion, fk.TargetType)),
-			attachedID:   Id(typedVar).Dot(fk.FieldName),
-			fieldName:    fk.FieldName,
+			attachedType: Lit(fmt.Sprintf("%s.%s", ownerVersion, foreignKey.TargetType)),
+			attachedID:   Id(typedVar).Dot(foreignKey.FieldName),
+			fieldName:    foreignKey.FieldName,
 		})
 	}
 
-	h.Var().Id("aorErr").Error()
+	h.Var().Id("attachedObjectReferenceErr").Error()
 	h.For(
-		List(Id("_"), Id("ref")).Op(":=").Range().Index().Struct(
+		List(Id("_"), Id("entry")).Op(":=").Range().Index().Struct(
 			Id("objectType").String(),
 			Id("objectID").Op("*").Uint(),
 			Id("attachedType").String(),
 			Id("attachedID").Op("*").Uint(),
 			Id("fieldName").String(),
 		).Values(ListFunc(func(vg *Group) {
-			for _, e := range entries {
+			for _, entry := range entries {
 				vg.Line().Values(
-					Line().Add(e.objectType.Clone()),
-					Line().Add(e.objectID.Clone()),
-					Line().Add(e.attachedType.Clone()),
-					Line().Add(e.attachedID.Clone()),
-					Line().Lit(e.fieldName),
+					Line().Add(entry.objectType.Clone()),
+					Line().Add(entry.objectID.Clone()),
+					Line().Add(entry.attachedType.Clone()),
+					Line().Add(entry.attachedID.Clone()),
+					Line().Lit(entry.fieldName),
 					Line(),
 				)
 			}
 			vg.Line()
 		})),
 	).Block(
-		// nil check covers both sides; self.ID is always set so this
-		// effectively gates on the FK pointer being non-nil.
-		If(Id("ref").Dot("objectID").Op("==").Nil().Op("||").Id("ref").Dot("attachedID").Op("==").Nil()).Block(
+		// check both sides for nil; the object's own ID is always set, so
+		// this effectively gates on the foreign-key pointer being non-nil.
+		If(Id("entry").Dot("objectID").Op("==").Nil().Op("||").Id("entry").Dot("attachedID").Op("==").Nil()).Block(
 			Continue(),
 		),
-		If(Id("aorErr").Op("!=").Nil()).Block(Break()),
+		If(Id("attachedObjectReferenceErr").Op("!=").Nil()).Block(Break()),
 		If(
 			Id("err").Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/client/v0",
@@ -865,10 +867,10 @@ func emitAorUpserts(
 			).Call(
 				Line().Id("r").Dot("APIClient"),
 				Line().Id("r").Dot("APIServer"),
-				Line().Id("ref").Dot("objectType"),
-				Line().Id("ref").Dot("objectID"),
-				Line().Id("ref").Dot("attachedType"),
-				Line().Id("ref").Dot("attachedID"),
+				Line().Id("entry").Dot("objectType"),
+				Line().Id("entry").Dot("objectID"),
+				Line().Id("entry").Dot("attachedType"),
+				Line().Id("entry").Dot("attachedID"),
 				Line().Lit(true),
 				Line(),
 			),
@@ -876,12 +878,12 @@ func emitAorUpserts(
 		).Block(
 			Id("log").Dot("Error").Call(Id("err"), Qual("fmt", "Sprintf").Call(
 				Lit("failed to ensure attached object reference for %s"),
-				Id("ref").Dot("fieldName"),
+				Id("entry").Dot("fieldName"),
 			)),
-			Id("aorErr").Op("=").Id("err"),
+			Id("attachedObjectReferenceErr").Op("=").Id("err"),
 		),
 	)
-	h.If(Id("aorErr").Op("!=").Nil()).Block(
+	h.If(Id("attachedObjectReferenceErr").Op("!=").Nil()).Block(
 		Id("r").Dot("UnlockAndRequeue").Call(
 			Id(varObjectName),
 			Id("requeueDelay"),

@@ -208,8 +208,8 @@ type ApiObject struct {
 	DeleteHandlerName        string
 	DeleteMiddlewareFuncName string
 
-	// Foreign-key fields detected during struct parsing; drives AOR
-	// emission in reconciler_gen.go.
+	// Foreign-key fields detected during struct parsing; drives attached
+	// object reference emission in reconciler_gen.go.
 	ForeignKeys []ForeignKeyField
 }
 
@@ -266,7 +266,7 @@ type ReconciledObject struct {
 	DisableNotificationPersistence bool
 
 	// Foreign keys on this object (used by reconciler codegen to emit
-	// AOR calls in Created/Updated/Deleted paths).
+	// attached object reference calls in Created/Updated/Deleted paths).
 	ForeignKeys []ForeignKeyField
 }
 
@@ -617,8 +617,8 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 										}
 									}
 
-									// `relationship` is opt-in; untagged FKs produce
-									// no AOR emission.
+									// `relationship` is opt-in; untagged foreign keys
+									// produce no attached object reference emission.
 									relVal, hasRel := tagMap["relationship"]
 									if hasRel {
 										switch relVal {
@@ -655,7 +655,8 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 			}
 
 			// attach detected foreign-key fields to each ApiObject so
-			// downstream codegen (reconciler AOR emission) can access them
+			// downstream codegen (reconciler attached object reference
+			// emission) can access them
 			for _, mc := range apiObjects {
 				mc.ForeignKeys = fkFields[mc.TypeName]
 			}
