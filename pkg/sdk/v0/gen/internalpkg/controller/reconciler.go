@@ -255,11 +255,25 @@ func GenReconcilers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							}
 
 							g.Line()
+							// build set of types defined in this gen run so emitted AOR
+							// entries can use the qualified GetType form for same-module
+							// targets while keeping core targets bare.
+							localTypes := map[string]bool{}
+							for _, g2 := range gen.ApiObjectGroups {
+								for _, o := range g2.ApiObjects {
+									localTypes[o.TypeName] = true
+								}
+							}
+							apiNamespace := ""
+							if gen.Module {
+								apiNamespace = sdkConfig.ApiNamespace
+							}
+
 							g.Comment("determine which operation and act accordingly")
 							g.Switch(Id("notif").Dot("Operation")).BlockFunc(func(h *Group) {
-								operationCase(h, "create", &obj, varObjectName, gen.ModulePath)
-								operationCase(h, "update", &obj, varObjectName, gen.ModulePath)
-								operationCase(h, "delete", &obj, varObjectName, gen.ModulePath)
+								operationCase(h, "create", &obj, varObjectName, gen.ModulePath, apiNamespace, localTypes)
+								operationCase(h, "update", &obj, varObjectName, gen.ModulePath, apiNamespace, localTypes)
+								operationCase(h, "delete", &obj, varObjectName, gen.ModulePath, apiNamespace, localTypes)
 								h.Default().Block(
 									Id("log").Dot("Error").Call(
 										Line().Id("errors").Dot("New").Call(Lit("unrecognized notifcation operation")),
@@ -514,6 +528,8 @@ func operationCase(
 	obj *gen.ReconciledObject,
 	varObjectName string,
 	modulePath string,
+	apiNamespace string,
+	localTypes map[string]bool,
 ) {
 	uppoerOp := strcase.ToCamel(op)
 	lowerOpPast := op + "d"
@@ -698,7 +714,7 @@ func operationCase(
 				}
 			}
 			if len(dependsOnForeignKeys) > 0 {
-				emitAttachedObjectReferenceEnsures(h, obj, varObjectName, modulePath, dependsOnForeignKeys)
+				emitAttachedObjectReferenceEnsures(h, obj, varObjectName, modulePath, apiNamespace, localTypes, dependsOnForeignKeys)
 			}
 		}
 
@@ -801,19 +817,33 @@ type attachedObjectReferenceEntry struct {
 // emitAttachedObjectReferenceEnsures emits a single for-loop that ensures
 // one attached object reference row per tagged foreign key. Idempotent so
 // it can run in both Created and Updated paths.
+//
+// The owner's ObjectType literal is namespace-qualified for module gen runs
+// (apiNamespace is non-empty); core gen runs keep the bare "<version>.<TypeName>"
+// form. FK target types are qualified the same way when the target is local
+// to the current gen run (in localTypes); otherwise they're treated as core
+// targets and stay bare. This keeps the AOR ObjectType strings produced by
+// generated reconcilers consistent with what obj.GetType() returns.
 func emitAttachedObjectReferenceEnsures(
 	h *jen.Group,
 	obj *gen.ReconciledObject,
 	varObjectName string,
 	modulePath string,
+	apiNamespace string,
+	localTypes map[string]bool,
 	foreignKeys []gen.ForeignKeyField,
 ) {
 	ownerVersion := obj.Versions[0]
 	ownerPkg := fmt.Sprintf("%s/pkg/api/%s", modulePath, ownerVersion)
-	ownerTypeName := Qual(
-		"github.com/threeport/threeport/pkg/util/v0",
-		"TypeName",
-	).Call(Qual(ownerPkg, obj.Name).Values())
+
+	qualifyType := func(typeName string, local bool) string {
+		if apiNamespace != "" && local {
+			return fmt.Sprintf("%s/%s.%s", apiNamespace, ownerVersion, typeName)
+		}
+		return fmt.Sprintf("%s.%s", ownerVersion, typeName)
+	}
+
+	ownerTypeName := Lit(qualifyType(obj.Name, true))
 
 	typedVar := fmt.Sprintf("typed%s", obj.Name)
 	h.Id(typedVar).Op(":=").Id(varObjectName).Assert(Op("*").Qual(ownerPkg, obj.Name))
@@ -821,7 +851,7 @@ func emitAttachedObjectReferenceEnsures(
 	var entries []attachedObjectReferenceEntry
 	for _, foreignKey := range foreignKeys {
 		entries = append(entries, attachedObjectReferenceEntry{
-			objectType:   Lit(fmt.Sprintf("%s.%s", ownerVersion, foreignKey.TargetType)),
+			objectType:   Lit(qualifyType(foreignKey.TargetType, localTypes[foreignKey.TargetType])),
 			objectID:     Id(typedVar).Dot(foreignKey.FieldName),
 			attachedType: ownerTypeName,
 			attachedID:   Id(typedVar).Dot("ID"),
