@@ -22,7 +22,9 @@ nav:
   - Install:
     - 'Threeport CLI': 'install/install-tptctl.md'
     - 'Local Threeport': 'install/install-threeport-local.md'
-    - 'Remote Threeport': 'install/install-threeport-aws.md'
+    - 'Remote Threeport on AWS': 'install/install-threeport-aws.md'
+    - 'Remote Threeport on GCP': 'install/install-threeport-gcp.md'
+    - 'Remote Threeport on OCI': 'install/install-threeport-oci.md'
   - Threeport Objects:
     - Kubernetes Runtimes:
       - 'Introduction': 'kubernetes-runtime/kubernetes-intro.md'
