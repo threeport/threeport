@@ -25,7 +25,6 @@ type GcpProviderConfig struct {
 // GcpProviderValues contains all the attributes needed to manage
 // the GcpProvider API object.
 type GcpProviderValues struct {
-	// TODO: add config abstraction fields needed for user to manage a GcpProvider
 	Name *string `json:"Name,omitempty" yaml:"Name,omitempty"`
 
 	// The GCP project ID. This is the unique identifier for the GCP project.
@@ -78,7 +77,6 @@ func (g *GcpProviderConfig) Get(
 	// assemble config objects from API objects
 	var gcpProviderConfigs []GcpProviderConfig
 	for _, gcpProvider := range *gcpProviders {
-		// TODO: add config abstraction fields needed for user to manage a GcpProvider
 		gcpProviderConfig := GcpProviderConfig{
 			GcpProvider: GcpProviderValues{
 				Name:            gcpProvider.Name,
@@ -110,7 +108,6 @@ func (g *GcpProviderConfig) Create(
 	}
 
 	// construct gcp provider object
-	// TODO: add API object fields as needed for GcpProvider
 	gcpProvider := api_v0.GcpProvider{
 		Name:            gcpProviderValues.Name,
 		ProjectID:       gcpProviderValues.ProjectID,
@@ -153,7 +150,6 @@ func (g *GcpProviderConfig) Create(
 	}
 
 	// construct gcp provider config
-	// TODO: add config abstraction fields needed for user to manage a GcpProvider
 	createdGcpProviderConfig := &GcpProviderConfig{
 		GcpProvider: GcpProviderValues{
 			Name:            createdGcpProvider.Name,
@@ -195,7 +191,6 @@ func (g *GcpProviderConfig) Replace(
 	}
 
 	// construct updated gcp provider object
-	// TODO: add API object fields as needed for GcpProvider
 	// preserve existing ServiceAccountCredentials
 	updatedGcpProvider := &api_v0.GcpProvider{
 		Common: api_v0.Common{
@@ -219,7 +214,6 @@ func (g *GcpProviderConfig) Replace(
 	}
 
 	// construct updated gcp provider config
-	// TODO: add config abstraction fields needed for user to manage a GcpProvider
 	updatedGcpProviderConfig := &GcpProviderConfig{
 		GcpProvider: GcpProviderValues{
 			Name:            replacedGcpProvider.Name,
@@ -284,7 +278,6 @@ func (g *GcpProviderConfig) Delete(
 	}
 
 	// construct deleted gcp provider config
-	// TODO: add config abstraction fields needed for user to manage a GcpProvider
 	deletedGcpProviderConfig := &GcpProviderConfig{
 		GcpProvider: GcpProviderValues{
 			Name:            deletedGcpProvider.Name,
@@ -316,8 +309,6 @@ func (g *GcpProviderConfig) Validate() error {
 	if gcpProviderValues.DefaultRegion == nil || *gcpProviderValues.DefaultRegion == "" {
 		multiError.AppendError(errors.New("missing required field in config: DefaultRegion"))
 	}
-
-	// TODO: add additional validation as needed
 
 	return multiError.Error()
 }

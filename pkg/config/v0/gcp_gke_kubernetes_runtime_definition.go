@@ -24,7 +24,6 @@ type GcpGkeKubernetesRuntimeDefinitionConfig struct {
 // GcpGkeKubernetesRuntimeDefinitionValues contains all the attributes needed to manage
 // the GcpGkeKubernetesRuntimeDefinition API object.
 type GcpGkeKubernetesRuntimeDefinitionValues struct {
-	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition
 	Name                         *string `json:"Name,omitempty" yaml:"Name,omitempty"`
 	ZoneCount                    *int    `json:"ZoneCount,omitempty" yaml:"ZoneCount,omitempty"`
 	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" yaml:"DefaultNodeGroupInstanceType,omitempty"`
@@ -65,7 +64,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Get(
 	// assemble config objects from API objects
 	var gcpGkeKubernetesRuntimeDefinitionConfigs []GcpGkeKubernetesRuntimeDefinitionConfig
 	for _, gcpGkeKubernetesRuntimeDefinition := range *gcpGkeKubernetesRuntimeDefinitions {
-		// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition
 		gcpGkeKubernetesRuntimeDefinitionConfig := GcpGkeKubernetesRuntimeDefinitionConfig{
 			GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
 				Name:                         gcpGkeKubernetesRuntimeDefinition.Name,
@@ -114,7 +112,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 	}
 
 	// construct GCP GKE kubernetes runtime definition object
-	// TODO: add API object fields as needed for GcpGkeKubernetesRuntimeDefinition
 	gcpGkeKubernetesRuntimeDefinition := api_v0.GcpGkeKubernetesRuntimeDefinition{
 		Definition: api_v0.Definition{
 			Name: gcpGkeKubernetesRuntimeDefinitionValues.Name,
@@ -138,7 +135,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Create(
 	}
 
 	// construct gcp gke kubernetes runtime definition config
-	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition
 	createdGcpGkeKubernetesRuntimeDefinitionConfig := &GcpGkeKubernetesRuntimeDefinitionConfig{
 		GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
 			Age:                          util.Ptr(util.GetAgeFormatted(createdGcpGkeKubernetesRuntimeDefinition.CreatedAt)),
@@ -181,7 +177,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 	}
 
 	// construct updated gcp gke kubernetes runtime definition object
-	// TODO: add API object fields as needed for GcpGkeKubernetesRuntimeDefinition
 	updatedGcpGkeKubernetesRuntimeDefinition := &api_v0.GcpGkeKubernetesRuntimeDefinition{
 		Common: api_v0.Common{
 			ID: existingGcpGkeKubernetesRuntimeDefinition.ID,
@@ -208,7 +203,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 	}
 
 	// construct updated gcp gke kubernetes runtime definition config
-	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition
 	updatedGcpGkeKubernetesRuntimeDefinitionConfig := &GcpGkeKubernetesRuntimeDefinitionConfig{
 		GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
 			Age:                          util.Ptr(util.GetAgeFormatted(replacedGcpGkeKubernetesRuntimeDefinition.CreatedAt)),
@@ -262,7 +256,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 	}
 
 	// construct deleted gcp gke kubernetes runtime definition config
-	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeDefinition
 	deletedGcpGkeKubernetesRuntimeDefinitionConfig := &GcpGkeKubernetesRuntimeDefinitionConfig{
 		GcpGkeKubernetesRuntimeDefinition: GcpGkeKubernetesRuntimeDefinitionValues{
 			Name:                         deletedGcpGkeKubernetesRuntimeDefinition.Name,
@@ -311,8 +304,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Validate() error {
 	if gcpGkeKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize == nil {
 		multiError.AppendError(errors.New("missing required field in config: DefaultNodeGroupMaximumSize"))
 	}
-
-	// TODO: add additional validation as needed
 
 	return multiError.Error()
 }

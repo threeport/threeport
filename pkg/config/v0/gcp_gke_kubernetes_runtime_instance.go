@@ -26,7 +26,6 @@ type GcpGkeKubernetesRuntimeInstanceConfig struct {
 // GcpGkeKubernetesRuntimeInstanceValues contains all the attributes needed to manage
 // the GcpGkeKubernetesRuntimeInstance API object.
 type GcpGkeKubernetesRuntimeInstanceValues struct {
-	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeInstance
 	Name                              *string                                  `json:"Name,omitempty" yaml:"Name,omitempty"`
 	Region                            *string                                  `json:"Region,omitempty" yaml:"Region,omitempty"`
 	GcpProviderName                   *string                                  `json:"GcpProviderName,omitempty" yaml:"GcpProviderName,omitempty"`
@@ -67,7 +66,6 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Get(
 	// assemble config objects from API objects
 	var gcpGkeKubernetesRuntimeInstanceConfigs []GcpGkeKubernetesRuntimeInstanceConfig
 	for _, gcpGkeKubernetesRuntimeInstance := range *gcpGkeKubernetesRuntimeInstances {
-		// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeInstance
 		// related objects
 		var gcpGkeKubernetesRuntimeDefinition *GcpGkeKubernetesRuntimeDefinitionValues
 		var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
@@ -193,7 +191,6 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Create(
 	}
 
 	// construct GCP GKE kubernetes runtime instance object
-	// TODO: add API object fields as needed for GcpGkeKubernetesRuntimeInstance
 	gcpGkeKubernetesRuntimeInstance := api_v0.GcpGkeKubernetesRuntimeInstance{
 		Instance: api_v0.Instance{
 			Name: gcpGkeKubernetesRuntimeInstanceValues.Name,
@@ -215,7 +212,6 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Create(
 	}
 
 	// construct gcp gke kubernetes runtime instance config
-	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeInstance
 	createdGcpGkeKubernetesRuntimeInstanceConfig := &GcpGkeKubernetesRuntimeInstanceConfig{
 		GcpGkeKubernetesRuntimeInstance: GcpGkeKubernetesRuntimeInstanceValues{
 			Age:                               util.Ptr(util.GetAgeFormatted(createdGcpGkeKubernetesRuntimeInstance.CreatedAt)),
@@ -257,7 +253,6 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Replace(
 	}
 
 	// construct updated gcp gke kubernetes runtime instance object
-	// TODO: add API object fields as needed for GcpGkeKubernetesRuntimeInstance
 	updatedGcpGkeKubernetesRuntimeInstance := &api_v0.GcpGkeKubernetesRuntimeInstance{
 		Common: api_v0.Common{
 			ID: existingGcpGkeKubernetesRuntimeInstance.ID,
@@ -281,7 +276,6 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Replace(
 	}
 
 	// construct updated gcp gke kubernetes runtime instance config
-	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeInstance
 	updatedGcpGkeKubernetesRuntimeInstanceConfig := &GcpGkeKubernetesRuntimeInstanceConfig{
 		GcpGkeKubernetesRuntimeInstance: GcpGkeKubernetesRuntimeInstanceValues{
 			Age:                               util.Ptr(util.GetAgeFormatted(replacedGcpGkeKubernetesRuntimeInstance.CreatedAt)),
@@ -387,7 +381,6 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Delete(
 	}
 
 	// construct deleted gcp gke kubernetes runtime instance config
-	// TODO: add config abstraction fields needed for user to manage a GcpGkeKubernetesRuntimeInstance
 	deletedGcpGkeKubernetesRuntimeInstanceConfig := &GcpGkeKubernetesRuntimeInstanceConfig{
 		GcpGkeKubernetesRuntimeInstance: GcpGkeKubernetesRuntimeInstanceValues{
 			Name:       deletedGcpGkeKubernetesRuntimeInstance.Name,
@@ -423,8 +416,6 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Validate() error {
 	if gcpGkeKubernetesRuntimeInstanceValues.GcpGkeKubernetesRuntimeDefinition == nil || gcpGkeKubernetesRuntimeInstanceValues.GcpGkeKubernetesRuntimeDefinition.Name == nil {
 		multiError.AppendError(errors.New("missing required field in config: GcpGkeKubernetesRuntimeDefinition.Name"))
 	}
-
-	// TODO: add additional validation as needed
 
 	return multiError.Error()
 }

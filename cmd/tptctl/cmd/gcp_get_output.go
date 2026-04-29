@@ -5,6 +5,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"text/tabwriter"
 
 	config_v0 "github.com/threeport/threeport/pkg/config/v0"
@@ -16,15 +17,32 @@ func outputGetv0GcpProvidersCmd(
 	gcpProviders *[]config_v0.GcpProviderConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	// TODO: add columns for each field that users should see
-	// TODO: available fields are defined in the GcpProviderValues object in pkg/config/v0/gcp_provider.go
-	fmt.Fprintln(writer, "VERSION\t NAME\t AGE")
+	fmt.Fprintln(writer, "VERSION\t NAME\t PROJECT ID\t DEFAULT PROVIDER\t DEFAULT REGION\t AGE")
 	for _, gcpProvider := range *gcpProviders {
+		projectID := ""
+		if gcpProvider.GcpProvider.ProjectID != nil {
+			projectID = *gcpProvider.GcpProvider.ProjectID
+		}
+		defaultProvider := false
+		if gcpProvider.GcpProvider.DefaultProvider != nil {
+			defaultProvider = *gcpProvider.GcpProvider.DefaultProvider
+		}
+		defaultRegion := ""
+		if gcpProvider.GcpProvider.DefaultRegion != nil {
+			defaultRegion = *gcpProvider.GcpProvider.DefaultRegion
+		}
+		age := ""
+		if gcpProvider.GcpProvider.Age != nil {
+			age = *gcpProvider.GcpProvider.Age
+		}
 		fmt.Fprintln(
 			writer,
 			"v0", "\t",
 			*gcpProvider.GcpProvider.Name, "\t",
-			*gcpProvider.GcpProvider.Age,
+			projectID, "\t",
+			defaultProvider, "\t",
+			defaultRegion, "\t",
+			age,
 		)
 	}
 	writer.Flush()
@@ -38,15 +56,58 @@ func outputGetv0GcpGkeKubernetesRuntimesCmd(
 	gcpGkeKubernetesRuntimes *[]config_v0.GcpGkeKubernetesRuntimeConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	// TODO: add columns for each field that users should see
-	// TODO: available fields are defined in the GcpGkeKubernetesRuntimeValues object in pkg/config/v0/gcp_gke_kubernetes_runtime.go
-	fmt.Fprintln(writer, "VERSION\t NAME\t AGE")
+	fmt.Fprintln(writer, "VERSION\t NAME\t GCP PROVIDER\t REGION\t ZONE COUNT\t DEFAULT NODE GROUP INSTANCE TYPE\t DEFAULT NODE GROUP INITIAL SIZE\t DEFAULT NODE GROUP MINIMUM SIZE\t DEFAULT NODE GROUP MAXIMUM SIZE\t RECONCILED\t AGE")
 	for _, gcpGkeKubernetesRuntime := range *gcpGkeKubernetesRuntimes {
+		v := gcpGkeKubernetesRuntime.GcpGkeKubernetesRuntime
+		gcpProviderName := ""
+		if v.GcpProviderName != nil {
+			gcpProviderName = *v.GcpProviderName
+		}
+		region := ""
+		if v.Region != nil {
+			region = *v.Region
+		}
+		zoneCount := ""
+		if v.ZoneCount != nil {
+			zoneCount = strconv.Itoa(*v.ZoneCount)
+		}
+		instanceType := ""
+		if v.DefaultNodeGroupInstanceType != nil {
+			instanceType = *v.DefaultNodeGroupInstanceType
+		}
+		initialSize := ""
+		if v.DefaultNodeGroupInitialSize != nil {
+			initialSize = strconv.Itoa(*v.DefaultNodeGroupInitialSize)
+		}
+		minSize := ""
+		if v.DefaultNodeGroupMinimumSize != nil {
+			minSize = strconv.Itoa(*v.DefaultNodeGroupMinimumSize)
+		}
+		maxSize := ""
+		if v.DefaultNodeGroupMaximumSize != nil {
+			maxSize = strconv.Itoa(*v.DefaultNodeGroupMaximumSize)
+		}
+		reconciled := false
+		if v.Reconciled != nil {
+			reconciled = *v.Reconciled
+		}
+		age := ""
+		if v.Age != nil {
+			age = *v.Age
+		}
 		fmt.Fprintln(
 			writer,
 			"v0", "\t",
-			*gcpGkeKubernetesRuntime.GcpGkeKubernetesRuntime.Name, "\t",
-			*gcpGkeKubernetesRuntime.GcpGkeKubernetesRuntime.Age,
+			*v.Name, "\t",
+			gcpProviderName, "\t",
+			region, "\t",
+			zoneCount, "\t",
+			instanceType, "\t",
+			initialSize, "\t",
+			minSize, "\t",
+			maxSize, "\t",
+			reconciled, "\t",
+			age,
 		)
 	}
 	writer.Flush()
@@ -60,15 +121,43 @@ func outputGetv0GcpGkeKubernetesRuntimeDefinitionsCmd(
 	gcpGkeKubernetesRuntimeDefinitions *[]config_v0.GcpGkeKubernetesRuntimeDefinitionConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	// TODO: add columns for each field that users should see
-	// TODO: available fields are defined in the GcpGkeKubernetesRuntimeDefinitionValues object in pkg/config/v0/gcp_gke_kubernetes_runtime_definition.go
-	fmt.Fprintln(writer, "VERSION\t NAME\t AGE")
-	for _, gcpGkeKubernetesRuntimeDefinition := range *gcpGkeKubernetesRuntimeDefinitions {
+	fmt.Fprintln(writer, "VERSION\t NAME\t ZONE COUNT\t DEFAULT NODE GROUP INSTANCE TYPE\t DEFAULT NODE GROUP INITIAL SIZE\t DEFAULT NODE GROUP MINIMUM SIZE\t DEFAULT NODE GROUP MAXIMUM SIZE\t AGE")
+	for _, d := range *gcpGkeKubernetesRuntimeDefinitions {
+		v := d.GcpGkeKubernetesRuntimeDefinition
+		zoneCount := ""
+		if v.ZoneCount != nil {
+			zoneCount = strconv.Itoa(*v.ZoneCount)
+		}
+		instanceType := ""
+		if v.DefaultNodeGroupInstanceType != nil {
+			instanceType = *v.DefaultNodeGroupInstanceType
+		}
+		initialSize := ""
+		if v.DefaultNodeGroupInitialSize != nil {
+			initialSize = strconv.Itoa(*v.DefaultNodeGroupInitialSize)
+		}
+		minSize := ""
+		if v.DefaultNodeGroupMinimumSize != nil {
+			minSize = strconv.Itoa(*v.DefaultNodeGroupMinimumSize)
+		}
+		maxSize := ""
+		if v.DefaultNodeGroupMaximumSize != nil {
+			maxSize = strconv.Itoa(*v.DefaultNodeGroupMaximumSize)
+		}
+		age := ""
+		if v.Age != nil {
+			age = *v.Age
+		}
 		fmt.Fprintln(
 			writer,
 			"v0", "\t",
-			*gcpGkeKubernetesRuntimeDefinition.GcpGkeKubernetesRuntimeDefinition.Name, "\t",
-			*gcpGkeKubernetesRuntimeDefinition.GcpGkeKubernetesRuntimeDefinition.Age,
+			*v.Name, "\t",
+			zoneCount, "\t",
+			instanceType, "\t",
+			initialSize, "\t",
+			minSize, "\t",
+			maxSize, "\t",
+			age,
 		)
 	}
 	writer.Flush()
@@ -82,15 +171,43 @@ func outputGetv0GcpGkeKubernetesRuntimeInstancesCmd(
 	gcpGkeKubernetesRuntimeInstances *[]config_v0.GcpGkeKubernetesRuntimeInstanceConfig,
 ) error {
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-	// TODO: add columns for each field that users should see
-	// TODO: available fields are defined in the GcpGkeKubernetesRuntimeInstanceValues object in pkg/config/v0/gcp_gke_kubernetes_runtime_instance.go
-	fmt.Fprintln(writer, "VERSION\t NAME\t AGE")
+	fmt.Fprintln(writer, "VERSION\t NAME\t GCP PROVIDER\t REGION\t KUBERNETES RUNTIME INSTANCE NAME\t GCP GKE KUBERNETES RUNTIME DEFINITION NAME\t RECONCILED\t AGE")
 	for _, gcpGkeKubernetesRuntimeInstance := range *gcpGkeKubernetesRuntimeInstances {
+		v := gcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeInstance
+		gcpProviderName := ""
+		if v.GcpProviderName != nil {
+			gcpProviderName = *v.GcpProviderName
+		}
+		region := ""
+		if v.Region != nil {
+			region = *v.Region
+		}
+		kubernetesRuntimeInstanceName := ""
+		if v.KubernetesRuntimeInstance != nil && v.KubernetesRuntimeInstance.Name != nil {
+			kubernetesRuntimeInstanceName = *v.KubernetesRuntimeInstance.Name
+		}
+		definitionName := ""
+		if v.GcpGkeKubernetesRuntimeDefinition != nil && v.GcpGkeKubernetesRuntimeDefinition.Name != nil {
+			definitionName = *v.GcpGkeKubernetesRuntimeDefinition.Name
+		}
+		reconciled := false
+		if v.Reconciled != nil {
+			reconciled = *v.Reconciled
+		}
+		age := ""
+		if v.Age != nil {
+			age = *v.Age
+		}
 		fmt.Fprintln(
 			writer,
 			"v0", "\t",
-			*gcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeInstance.Name, "\t",
-			*gcpGkeKubernetesRuntimeInstance.GcpGkeKubernetesRuntimeInstance.Age,
+			*v.Name, "\t",
+			gcpProviderName, "\t",
+			region, "\t",
+			kubernetesRuntimeInstanceName, "\t",
+			definitionName, "\t",
+			reconciled, "\t",
+			age,
 		)
 	}
 	writer.Flush()
