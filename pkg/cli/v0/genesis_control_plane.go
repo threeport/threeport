@@ -301,7 +301,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	case v0.KubernetesRuntimeInfraProviderGKE:
 		// Create GKE infrastructure
 		kubernetesRuntimeInfraGKE := provider.KubernetesRuntimeInfraGKE{
-			RuntimeInstanceName:    provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			PulumiWorkspace: provider.PulumiWorkspace{
+				RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			},
 			Version:                kube.KubernetesDefaultVersion,
 			WorkerNodeInitialCount: int32(2),
 			ProjectID:              cpi.Opts.GcpProjectId,
@@ -1037,7 +1039,9 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	case v0.KubernetesRuntimeInfraProviderGKE:
 		kubernetesRuntimeInfraGKE := provider.KubernetesRuntimeInfraGKE{
-			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			PulumiWorkspace: provider.PulumiWorkspace{
+				RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			},
 		}
 		// load the GCP project ID and region from the existing Pulumi stack configuration
 		if err := kubernetesRuntimeInfraGKE.LoadConfigFromStack(); err != nil {

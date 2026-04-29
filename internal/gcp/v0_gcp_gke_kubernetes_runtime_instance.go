@@ -69,10 +69,12 @@ func v0GcpGkeKubernetesRuntimeInstanceCreated(
 
 			// get kubernetes cluster connection info
 			clusterInfra := provider.KubernetesRuntimeInfraGKE{
-				RuntimeInstanceName: *gcpGkeKubernetesRuntimeInstance.Name,
-				ProjectID:           *gcpProvider.ProjectID,
-				Region:              *gcpGkeKubernetesRuntimeInstance.Region,
-				Logger:              &reconLog,
+				PulumiWorkspace: provider.PulumiWorkspace{
+					RuntimeInstanceName: *gcpGkeKubernetesRuntimeInstance.Name,
+					Logger:              &reconLog,
+				},
+				ProjectID: *gcpProvider.ProjectID,
+				Region:    *gcpGkeKubernetesRuntimeInstance.Region,
 			}
 
 			// if service account credentials are provided in the GCP provider, use them
@@ -190,11 +192,13 @@ func v0GcpGkeKubernetesRuntimeInstanceCreated(
 
 	// construct cluster infra object
 	clusterInfra := provider.KubernetesRuntimeInfraGKE{
-		RuntimeInstanceName:    *gcpGkeKubernetesRuntimeInstance.Name,
+		PulumiWorkspace: provider.PulumiWorkspace{
+			RuntimeInstanceName: *gcpGkeKubernetesRuntimeInstance.Name,
+			Logger:              &reconLog,
+		},
 		ProjectID:              *gcpProvider.ProjectID,
 		Region:                 *gcpGkeKubernetesRuntimeInstance.Region,
 		WorkerNodeInitialCount: int32(*gcpGkeKubernetesRuntimeDefinition.DefaultNodeGroupInitialSize),
-		Logger:                 &reconLog,
 	}
 
 	// if service account credentials are provided in the GCP provider, use them
@@ -294,10 +298,12 @@ func v0GcpGkeKubernetesRuntimeInstanceDeleted(
 
 	// construct the infra object for deletion
 	clusterInfra := provider.KubernetesRuntimeInfraGKE{
-		RuntimeInstanceName: *gcpGkeKubernetesRuntimeInstance.Name,
-		ProjectID:           *gcpProvider.ProjectID,
-		Region:              *gcpGkeKubernetesRuntimeInstance.Region,
-		Logger:              &reconLog,
+		PulumiWorkspace: provider.PulumiWorkspace{
+			RuntimeInstanceName: *gcpGkeKubernetesRuntimeInstance.Name,
+			Logger:              &reconLog,
+		},
+		ProjectID: *gcpProvider.ProjectID,
+		Region:    *gcpGkeKubernetesRuntimeInstance.Region,
 	}
 
 	// if service account credentials are provided in the GCP provider, use them

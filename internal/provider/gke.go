@@ -18,15 +18,10 @@ import (
 
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
-	"github.com/go-logr/logr"
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp"
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/compute"
 	gkecontainer "github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/container"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
-	"github.com/pulumi/pulumi/sdk/v3/go/auto/events"
-	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
-	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -66,8 +61,9 @@ type adcCredentials struct {
 // KubernetesRuntimeInfraGKE represents the infrastructure for a threeport-managed
 // GKE (Google Kubernetes Engine) cluster.
 type KubernetesRuntimeInfraGKE struct {
-	// The unique name of the kubernetes runtime instance managed by threeport.
-	RuntimeInstanceName string
+	// PulumiWorkspace provides workspace, stack, state, and automation API helpers
+	// (aligned with KubernetesRuntimeInfraOKE).
+	PulumiWorkspace
 
 	// Kubernetes version of the GKE cluster.
 	Version string
@@ -80,9 +76,6 @@ type KubernetesRuntimeInfraGKE struct {
 
 	// The number of nodes initially created for the worker node pool.
 	WorkerNodeInitialCount int32
-
-	// The path to the Pulumi state directory
-	stateDir string
 
 	// The email address of the GCP service account created for Threeport.
 	// This service account is used with Workload Identity to allow
@@ -99,10 +92,24 @@ type KubernetesRuntimeInfraGKE struct {
 	// the service account credentials. This is set internally when
 	// ServiceAccountCredentials is used.
 	credentialsFilePath string
+}
 
-	// Logger for structured logging of Pulumi operations. If nil, Pulumi
-	// events will not be logged.
-	Logger *logr.Logger
+// ensurePulumiProjectDefaults sets Pulumi project metadata when not provided by callers.
+func (i *KubernetesRuntimeInfraGKE) ensurePulumiProjectDefaults() {
+	if i.ProjectName == "" {
+		i.ProjectName = "gke"
+	}
+	if i.ProjectDescription == "" {
+		i.ProjectDescription = "Google Kubernetes Engine (GKE) cluster for Threeport"
+	}
+}
+
+// syncStackConfigs updates stack config keys from the current ProjectID and Region.
+func (i *KubernetesRuntimeInfraGKE) syncStackConfigs() {
+	i.StackConfigs = map[string]string{
+		"gcp:project": i.ProjectID,
+		"gcp:region":  i.Region,
+	}
 }
 
 // Create installs a Kubernetes cluster using Google Cloud GKE for threeport workloads.
@@ -123,10 +130,51 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 		return nil, fmt.Errorf("failed to create GCP service account: %w", err)
 	}
 
-	// set up Pulumi workspace and get stack
-	stack, err := i.setupPulumiWorkspace(func(ctx *pulumi.Context) error {
+	return i.CreateInfra()
+}
 
-		// create GCP provider with explicit configuration
+// CreateInfra provisions GKE cluster infrastructure via Pulumi (network, cluster, node pool)
+// and configures Workload Identity. It does not create the Threeport GCP service account —
+// call createGCPServiceAccountAndCredentials first for the bootstrap path, or ensure
+// credentials and Workload Identity are already configured for the controller path.
+func (i *KubernetesRuntimeInfraGKE) CreateInfra() (*kube.KubeConnectionInfo, error) {
+	i.ensurePulumiProjectDefaults()
+	i.syncStackConfigs()
+
+	stack, err := i.SetupStack(i.pulumiProgram())
+	if err != nil {
+		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
+	}
+
+	ctx := context.Background()
+	if _, err = i.RunUp(ctx, stack); err != nil {
+		return nil, fmt.Errorf("failed to deploy stack: %w", err)
+	}
+
+	// configure Workload Identity binding after cluster is created
+	// This allows Kubernetes service accounts to impersonate the GCP service account
+	if err := i.configureWorkloadIdentityBindingPostCreate(); err != nil {
+		return nil, fmt.Errorf("failed to configure Workload Identity binding: %w", err)
+	}
+
+	return i.GetConnection()
+}
+
+// DeployInfra runs CreateInfra and discards connection info. It satisfies InfraProvider
+// for the shared infrastructure lifecycle (same pattern as KubernetesRuntimeInfraOKE).
+func (i *KubernetesRuntimeInfraGKE) DeployInfra() error {
+	_, err := i.CreateInfra()
+	return err
+}
+
+// DestroyInfra tears down GKE infrastructure via Delete. It satisfies InfraProvider.
+func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
+	return i.Delete()
+}
+
+// pulumiProgram defines the Pulumi resources for the GKE stack.
+func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
+	return func(ctx *pulumi.Context) error {
 		gcpProvider, err := gcp.NewProvider(ctx, "gcp-provider", &gcp.ProviderArgs{
 			Project: pulumi.String(i.ProjectID),
 			Region:  pulumi.String(i.Region),
@@ -135,7 +183,6 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create GCP provider: %w", err)
 		}
 
-		// create VPC network for the cluster
 		network, err := compute.NewNetwork(ctx, fmt.Sprintf("%s-vpc", i.RuntimeInstanceName), &compute.NetworkArgs{
 			Name:                  pulumi.String(fmt.Sprintf("%s-vpc", i.RuntimeInstanceName)),
 			AutoCreateSubnetworks: pulumi.Bool(false),
@@ -145,7 +192,6 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create VPC network: %w", err)
 		}
 
-		// create subnet for the cluster
 		subnet, err := compute.NewSubnetwork(ctx, fmt.Sprintf("%s-subnet", i.RuntimeInstanceName), &compute.SubnetworkArgs{
 			Name:        pulumi.String(fmt.Sprintf("%s-subnet", i.RuntimeInstanceName)),
 			IpCidrRange: pulumi.String("10.0.0.0/16"),
@@ -167,10 +213,6 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create subnet: %w", err)
 		}
 
-		// TODO: Add firewall rules for more restrictive network access
-		// For now, GKE will use default firewall rules
-
-		// Create Cloud Router for Cloud NAT (required for private nodes to access internet)
 		router, err := compute.NewRouter(ctx, fmt.Sprintf("%s-router", i.RuntimeInstanceName), &compute.RouterArgs{
 			Name:    pulumi.String(fmt.Sprintf("%s-router", i.RuntimeInstanceName)),
 			Network: network.ID(),
@@ -181,7 +223,6 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create Cloud Router: %w", err)
 		}
 
-		// Create Cloud NAT for outbound internet access from private nodes
 		_, err = compute.NewRouterNat(ctx, fmt.Sprintf("%s-nat", i.RuntimeInstanceName), &compute.RouterNatArgs{
 			Name:                          pulumi.String(fmt.Sprintf("%s-nat", i.RuntimeInstanceName)),
 			Router:                        router.Name,
@@ -198,53 +239,35 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create Cloud NAT: %w", err)
 		}
 
-		// Create GKE cluster in Standard mode with separately managed node pools.
-		// This pattern creates a cluster, removes the default node pool, and uses
-		// explicitly defined node pools for more control over node configuration.
 		cluster, err := gkecontainer.NewCluster(ctx, i.RuntimeInstanceName, &gkecontainer.ClusterArgs{
 			Name:       pulumi.String(i.RuntimeInstanceName),
 			Location:   pulumi.String(i.Region),
 			Network:    network.Name,
 			Subnetwork: subnet.Name,
 
-			// Use VPC-native (alias IP) mode for better pod networking
 			IpAllocationPolicy: &gkecontainer.ClusterIpAllocationPolicyArgs{
 				ClusterSecondaryRangeName:  pulumi.String("pods"),
 				ServicesSecondaryRangeName: pulumi.String("services"),
 			},
 
-			// InitialNodeCount is required by GKE API but the default node pool
-			// is immediately removed so we can use separately managed node pools.
 			InitialNodeCount:      pulumi.Int(1),
 			RemoveDefaultNodePool: pulumi.Bool(true),
 
-			// Private cluster configuration - nodes have no public IPs but
-			// the API server remains publicly accessible.
 			PrivateClusterConfig: &gkecontainer.ClusterPrivateClusterConfigArgs{
 				EnablePrivateNodes:    pulumi.Bool(true),
-				EnablePrivateEndpoint: pulumi.Bool(false), // Keep API server publicly accessible
+				EnablePrivateEndpoint: pulumi.Bool(false),
 				MasterIpv4CidrBlock:   pulumi.String("172.16.0.0/28"),
 			},
 
-			// Enable Kubernetes NetworkPolicy enforcement using Calico
 			NetworkPolicy: &gkecontainer.ClusterNetworkPolicyArgs{
 				Enabled:  pulumi.Bool(true),
 				Provider: pulumi.String("CALICO"),
 			},
 
-			// Enable Workload Identity - GKE's recommended way to authenticate
-			// workloads to other GCP services. This allows Kubernetes service
-			// accounts to act as GCP service accounts.
 			WorkloadIdentityConfig: &gkecontainer.ClusterWorkloadIdentityConfigArgs{
 				WorkloadPool: pulumi.String(fmt.Sprintf("%s.svc.id.goog", i.ProjectID)),
 			},
 
-			// TODO: Cluster config options to consider:
-			// - Master authorized networks.  This is a  GKE feature for restricting IP addresses that can access the Kubernetes API server.
-			// - Binary authorization.  Ensure only trusted images can be deployed to the cluster.
-
-			// Enable deletion protection in production
-			// TODO: Make this configurable via 'tier' flag with tptctl up
 			DeletionProtection: pulumi.Bool(false),
 		}, pulumi.Provider(gcpProvider),
 			pulumi.DependsOn([]pulumi.Resource{subnet}))
@@ -252,8 +275,6 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 			return fmt.Errorf("failed to create GKE cluster: %w", err)
 		}
 
-		// create a separately managed node pool with Workload Identity enabled
-		// This gives us more control over node configuration
 		_, err = gkecontainer.NewNodePool(ctx, fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName), &gkecontainer.NodePoolArgs{
 			Name:     pulumi.String(fmt.Sprintf("%s-nodepool", i.RuntimeInstanceName)),
 			Cluster:  cluster.Name,
@@ -262,36 +283,24 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 			NodeCount: pulumi.Int(int(i.WorkerNodeInitialCount)),
 
 			NodeConfig: &gkecontainer.NodePoolNodeConfigArgs{
-				// TODO: Make machine type configurable, perhaps via the 'tier' flag with tptctl up
 				MachineType: pulumi.String("e2-medium"),
-
-				// TODO: Make disk size and type configurable, perhaps via the 'tier' flag with tptctl up
-				DiskSizeGb: pulumi.Int(50),
-				DiskType:   pulumi.String("pd-standard"),
-
-				// OAuth scopes for the node - with Workload Identity, nodes need
-				// minimal scopes as workloads use their own service accounts
+				DiskSizeGb:  pulumi.Int(50),
+				DiskType:    pulumi.String("pd-standard"),
 				OauthScopes: pulumi.StringArray{
 					pulumi.String("https://www.googleapis.com/auth/cloud-platform"),
 				},
-
 				Labels: pulumi.StringMap{
 					kube.ThreeportManagedByLabelKey: pulumi.String(kube.ThreeportManagedByLabelValue),
 				},
-
-				// Enable Workload Identity on this node pool
-				// GKE_METADATA enables the GKE metadata server for Workload Identity
 				WorkloadMetadataConfig: &gkecontainer.NodePoolNodeConfigWorkloadMetadataConfigArgs{
 					Mode: pulumi.String("GKE_METADATA"),
 				},
-
-				// TODO: Add taints, metadata, and other node config options as needed
 			},
 
 			Autoscaling: &gkecontainer.NodePoolAutoscalingArgs{
 				MinNodeCount:   pulumi.Int(1),
-				MaxNodeCount:   pulumi.Int(10),       // TODO: Make this configurable, perhaps via the 'tier' flag with tptctl up
-				LocationPolicy: pulumi.String("ANY"), // Allow nodes to be placed in any zone
+				MaxNodeCount:   pulumi.Int(10),
+				LocationPolicy: pulumi.String("ANY"),
 			},
 
 			Management: &gkecontainer.NodePoolManagementArgs{
@@ -305,61 +314,27 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 		}
 
 		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to set up Pulumi workspace: %w", err)
 	}
-
-	// create a context for the automation API
-	ctx := context.Background()
-
-	// deploy the stack with structured event logging
-	_, err = i.runPulumiUp(ctx, stack)
-	if err != nil {
-		return nil, fmt.Errorf("failed to deploy stack: %w", err)
-	}
-
-	// configure Workload Identity binding after cluster is created
-	// This allows Kubernetes service accounts to impersonate the GCP service account
-	if err := i.configureWorkloadIdentityBindingPostCreate(); err != nil {
-		return nil, fmt.Errorf("failed to configure Workload Identity binding: %w", err)
-	}
-
-	return i.GetConnection()
 }
 
 // Delete deletes a GKE cluster and the threeport control plane with it.
 func (i *KubernetesRuntimeInfraGKE) Delete() error {
-	// ensure GCP authentication is in place
 	if err := EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
 
-	// set up Pulumi workspace and get stack
-	stack, err := i.setupPulumiWorkspace(func(ctx *pulumi.Context) error {
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to set up Pulumi workspace: %w", err)
+	if err := i.loadGCPConfig(); err != nil {
+		return fmt.Errorf("failed to load GCP configuration: %w", err)
 	}
 
-	// create a context for the automation API
-	ctx := context.Background()
+	i.ensurePulumiProjectDefaults()
+	i.syncStackConfigs()
 
-	// destroy the stack with structured event logging
-	_, err = i.runPulumiDestroy(ctx, stack)
-	if err != nil {
-		return fmt.Errorf("failed to destroy stack: %w", err)
+	if err := i.DestroyStack(); err != nil {
+		return fmt.Errorf("failed to destroy Pulumi stack: %w", err)
 	}
 
-	// remove the state directory after successful destruction
-	if err := os.RemoveAll(i.stateDir); err != nil {
-		return fmt.Errorf("failed to remove state directory: %w", err)
-	}
-
-	// clean up GCP resources (service account, IAM bindings)
 	if err := i.DeleteGCPResources(); err != nil {
-		// Log warning but don't fail - the cluster is already deleted
 		if i.Logger != nil {
 			i.Logger.Info("warning: failed to clean up GCP resources", "error", err.Error())
 		} else {
@@ -368,153 +343,6 @@ func (i *KubernetesRuntimeInfraGKE) Delete() error {
 	}
 
 	return nil
-}
-
-// runPulumiUp runs the Pulumi stack.Up operation.
-// If a logger is configured, it uses structured event logging.
-// Otherwise, it falls back to ProgressStreams for CLI-friendly output.
-func (i *KubernetesRuntimeInfraGKE) runPulumiUp(ctx context.Context, stack auto.Stack) (auto.UpResult, error) {
-	// if no logger is configured, use ProgressStreams for CLI-friendly output
-	if i.Logger == nil {
-		return stack.Up(ctx, optup.ProgressStreams(os.Stdout))
-	}
-
-	// create event channel for structured Pulumi events
-	eventChan := make(chan events.EngineEvent)
-
-	// start goroutine to process events and log them structurally
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for event := range eventChan {
-			i.logPulumiEvent(event, "up")
-		}
-	}()
-
-	// run the stack update with event streaming
-	result, err := stack.Up(ctx, optup.EventStreams(eventChan))
-
-	// wait for event processing to complete
-	<-done
-
-	return result, err
-}
-
-// runPulumiDestroy runs the Pulumi stack.Destroy operation.
-// If a logger is configured, it uses structured event logging.
-// Otherwise, it falls back to ProgressStreams for CLI-friendly output.
-func (i *KubernetesRuntimeInfraGKE) runPulumiDestroy(ctx context.Context, stack auto.Stack) (auto.DestroyResult, error) {
-	// if no logger is configured, use ProgressStreams for CLI-friendly output
-	if i.Logger == nil {
-		return stack.Destroy(ctx, optdestroy.ProgressStreams(os.Stdout))
-	}
-
-	// create event channel for structured Pulumi events
-	eventChan := make(chan events.EngineEvent)
-
-	// start goroutine to process events and log them structurally
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for event := range eventChan {
-			i.logPulumiEvent(event, "destroy")
-		}
-	}()
-
-	// run the stack destroy with event streaming
-	result, err := stack.Destroy(ctx, optdestroy.EventStreams(eventChan))
-
-	// wait for event processing to complete
-	<-done
-
-	return result, err
-}
-
-// logPulumiEvent converts Pulumi engine events to structured log entries.
-// The operation parameter indicates whether this is an "up" or "destroy" operation.
-func (i *KubernetesRuntimeInfraGKE) logPulumiEvent(event events.EngineEvent, operation string) {
-	// if no logger is configured, skip logging
-	if i.Logger == nil {
-		return
-	}
-
-	log := i.Logger.WithValues(
-		"component", "pulumi",
-		"pulumiOperation", operation,
-		"runtimeInstance", i.RuntimeInstanceName,
-		"sequence", event.Sequence,
-	)
-
-	// handle errors from event processing
-	if event.Error != nil {
-		log.Error(event.Error, "pulumi event processing error")
-		return
-	}
-
-	switch {
-	case event.DiagnosticEvent != nil:
-		e := event.DiagnosticEvent
-		logEntry := log.WithValues("urn", e.URN)
-		// clean the message by removing ANSI color codes for structured logging
-		message := strings.TrimSpace(e.Message)
-		switch e.Severity {
-		case "error":
-			logEntry.Error(nil, message)
-		case "warning":
-			logEntry.Info(message, "severity", "warning")
-		case "info#err":
-			// info#err is used for stderr output that isn't necessarily an error
-			logEntry.V(1).Info(message, "severity", "info")
-		default:
-			logEntry.V(1).Info(message, "severity", e.Severity)
-		}
-
-	case event.ResourcePreEvent != nil:
-		e := event.ResourcePreEvent
-		log.Info("resource operation starting",
-			"urn", e.Metadata.URN,
-			"op", string(e.Metadata.Op),
-			"type", string(e.Metadata.Type),
-			"provider", e.Metadata.Provider,
-		)
-
-	case event.ResOutputsEvent != nil:
-		e := event.ResOutputsEvent
-		log.Info("resource operation completed",
-			"urn", e.Metadata.URN,
-			"op", string(e.Metadata.Op),
-			"type", string(e.Metadata.Type),
-		)
-
-	case event.ResOpFailedEvent != nil:
-		e := event.ResOpFailedEvent
-		log.Error(nil, "resource operation failed",
-			"urn", e.Metadata.URN,
-			"op", string(e.Metadata.Op),
-			"type", string(e.Metadata.Type),
-		)
-
-	case event.SummaryEvent != nil:
-		e := event.SummaryEvent
-		log.Info("pulumi operation summary",
-			"durationSeconds", e.DurationSeconds,
-			"resourceChanges", e.ResourceChanges,
-			"maybeCorrupt", e.MaybeCorrupt,
-		)
-
-	case event.PreludeEvent != nil:
-		log.Info("pulumi operation starting")
-
-	case event.CancelEvent != nil:
-		log.Info("pulumi operation cancelled or completed")
-
-	case event.StdoutEvent != nil:
-		// log stdout events at verbose level
-		e := event.StdoutEvent
-		if e.Message != "" {
-			log.V(1).Info(strings.TrimSpace(e.Message), "eventType", "stdout")
-		}
-	}
 }
 
 // DeleteGCPResources deletes all GCP resources created for this Threeport instance
@@ -623,42 +451,25 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 // we only have the runtime instance name but need the project and region
 // to connect to GCP.
 func (i *KubernetesRuntimeInfraGKE) LoadConfigFromStack() error {
-	// set up state directory
-	if err := i.setStateDir(); err != nil {
-		return fmt.Errorf("failed to set state directory: %w", err)
-	}
+	i.ensurePulumiProjectDefaults()
 
-	// set environment variables for Pulumi configuration
-	if err := i.setPulumiEnvVars(); err != nil {
-		return fmt.Errorf("failed to set Pulumi environment variables: %w", err)
+	workspace, err := i.initWorkspace(auto.Program(func(ctx *pulumi.Context) error { return nil }))
+	if err != nil {
+		return fmt.Errorf("failed to initialize Pulumi workspace: %w", err)
 	}
 
 	ctx := context.Background()
-
-	// create a new workspace with local state backend
-	workspace, err := auto.NewLocalWorkspace(
-		ctx,
-		auto.Program(func(ctx *pulumi.Context) error { return nil }),
-		auto.WorkDir(i.stateDir),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create workspace: %w", err)
-	}
-
-	// select the existing stack
 	stack, err := auto.SelectStack(ctx, i.getStackName(), workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack: %w", err)
 	}
 
-	// get the project configuration
 	projectConfig, err := stack.GetConfig(ctx, "gcp:project")
 	if err != nil {
 		return fmt.Errorf("failed to get gcp:project config: %w", err)
 	}
 	i.ProjectID = projectConfig.Value
 
-	// get the region configuration
 	regionConfig, err := stack.GetConfig(ctx, "gcp:region")
 	if err != nil {
 		return fmt.Errorf("failed to get gcp:region config: %w", err)
@@ -668,107 +479,18 @@ func (i *KubernetesRuntimeInfraGKE) LoadConfigFromStack() error {
 	return nil
 }
 
-// GetStackState returns the state of the GKE stack as a JSON object
+// GetStackState returns the state of the GKE stack as a JSON object.
 func (i *KubernetesRuntimeInfraGKE) GetStackState() (*datatypes.JSON, error) {
-
-	// set up state directory
-	if err := i.setStateDir(); err != nil {
-		return nil, fmt.Errorf("failed to set state directory: %w", err)
-	}
-
-	// set environment variables for Pulumi configuration
-	if err := i.setPulumiEnvVars(); err != nil {
-		return nil, fmt.Errorf("failed to set Pulumi environment variables: %w", err)
-	}
-
-	ctx := context.Background()
-
-	// create a new workspace with local state backend
-	workspace, err := auto.NewLocalWorkspace(
-		ctx,
-		auto.WorkDir(i.stateDir),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create workspace: %w", err)
-	}
-
-	// load stack from workspace
-	stack, err := auto.SelectStack(ctx, i.getStackName(), workspace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to select stack: %w", err)
-	}
-
-	// get the stack's state
-	state, err := stack.Export(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to export stack state: %w", err)
-	}
-
-	// convert state to JSON
-	stateJSON, err := json.Marshal(state)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal state to JSON: %w", err)
-	}
-
-	jsonState := datatypes.JSON(stateJSON)
-	return &jsonState, nil
+	i.ensurePulumiProjectDefaults()
+	i.syncStackConfigs()
+	return i.PulumiWorkspace.GetStackState()
 }
 
-// SetStackState sets the state of the GKE stack from a JSON object
+// SetStackState restores Pulumi state from a JSON object (export or checkpoint format).
 func (i *KubernetesRuntimeInfraGKE) SetStackState(state *datatypes.JSON) error {
-
-	// set up state directory
-	if err := i.setStateDir(); err != nil {
-		return fmt.Errorf("failed to set state directory: %w", err)
-	}
-
-	// set environment variables for Pulumi configuration
-	if err := i.setPulumiEnvVars(); err != nil {
-		return fmt.Errorf("failed to set Pulumi environment variables: %w", err)
-	}
-
-	// create Pulumi.yaml project file (required for stack operations)
-	// This file may not exist if the controller restarted or is running in a fresh container
-	pulumiYaml := `name: gke
-runtime: go
-description: Google Kubernetes Engine (GKE) cluster for Threeport
-`
-	pulumiYamlPath := filepath.Join(i.stateDir, "Pulumi.yaml")
-	if err := os.WriteFile(pulumiYamlPath, []byte(pulumiYaml), 0644); err != nil {
-		return fmt.Errorf("failed to create Pulumi.yaml: %w", err)
-	}
-
-	ctx := context.Background()
-
-	// create a new workspace with local state backend
-	workspace, err := auto.NewLocalWorkspace(
-		ctx,
-		auto.WorkDir(i.stateDir),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create workspace: %w", err)
-	}
-
-	// create/select stack
-	stack, err := auto.UpsertStack(ctx, i.getStackName(), workspace)
-	if err != nil {
-		return fmt.Errorf("failed to create/select stack: %w", err)
-	}
-
-	// unmarshal state
-	var pulumiState apitype.UntypedDeployment
-	err = json.Unmarshal(*state, &pulumiState)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal state from JSON: %w", err)
-	}
-
-	// set the stack's state and persist to disk
-	err = stack.Import(ctx, pulumiState)
-	if err != nil {
-		return fmt.Errorf("failed to import stack state: %w", err)
-	}
-
-	return nil
+	i.ensurePulumiProjectDefaults()
+	i.syncStackConfigs()
+	return i.PulumiWorkspace.SetStackState(state)
 }
 
 // configureWorkloadIdentityBindingPostCreate sets up the Workload Identity binding
@@ -783,106 +505,6 @@ func (i *KubernetesRuntimeInfraGKE) configureWorkloadIdentityBindingPostCreate()
 	}
 
 	return i.configureWorkloadIdentityBinding(iamService)
-}
-
-// setupPulumiWorkspace sets up the Pulumi workspace and environment for GKE operations
-func (i *KubernetesRuntimeInfraGKE) setupPulumiWorkspace(program pulumi.RunFunc) (auto.Stack, error) {
-	// set up state directory
-	if err := i.setStateDir(); err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to set state directory: %w", err)
-	}
-
-	// set environment variables for Pulumi configuration
-	if err := i.setPulumiEnvVars(); err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to set Pulumi environment variables: %w", err)
-	}
-
-	// load GCP configuration from gcloud CLI config or environment variables
-	if err := i.loadGCPConfig(); err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to load GCP configuration: %w", err)
-	}
-
-	// create Pulumi.yaml project file
-	pulumiYaml := `name: gke
-runtime: go
-description: Google Kubernetes Engine (GKE) cluster for Threeport
-`
-	pulumiYamlPath := filepath.Join(i.stateDir, "Pulumi.yaml")
-	if err := os.WriteFile(pulumiYamlPath, []byte(pulumiYaml), 0644); err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to create Pulumi.yaml: %w", err)
-	}
-
-	ctx := context.Background()
-
-	// create a new workspace with local state backend
-	workspace, err := auto.NewLocalWorkspace(
-		ctx,
-		auto.Program(program),
-		auto.WorkDir(i.stateDir),
-	)
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to create workspace: %w", err)
-	}
-
-	// create or select a stack with fully qualified name
-	stack, err := auto.UpsertStack(ctx, i.getStackName(), workspace)
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to create/select stack: %w", err)
-	}
-
-	// set up stack configuration
-	err = stack.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: i.ProjectID})
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to set project config: %w", err)
-	}
-
-	err = stack.SetConfig(ctx, "gcp:region", auto.ConfigValue{Value: i.Region})
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to set region config: %w", err)
-	}
-
-	return stack, nil
-}
-
-// setPulumiEnvVars sets the environment variables for Pulumi
-func (i *KubernetesRuntimeInfraGKE) setPulumiEnvVars() error {
-	os.Setenv("PULUMI_BACKEND_URL", "file://"+i.stateDir)
-	os.Setenv("PULUMI_HOME", i.stateDir)
-	os.Setenv("PULUMI_ORGANIZATION", "organization") // TODO: make this configurable
-	os.Setenv("PULUMI_PROJECT", "gke")
-	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "threeport")
-
-	// set plugin path to the default location
-	userHomeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-	defaultPluginPath := filepath.Join(userHomeDir, ".pulumi", "plugins")
-	os.Setenv("PULUMI_PLUGIN_PATH", defaultPluginPath)
-
-	return nil
-}
-
-// setStateDir sets the state directory for the GKE stack
-func (i *KubernetesRuntimeInfraGKE) setStateDir() error {
-	pulumiStateDir, err := GetPulumiStateDir()
-	if err != nil {
-		return fmt.Errorf("failed to get pulumi state directory: %w", err)
-	}
-
-	i.stateDir = filepath.Join(pulumiStateDir, i.RuntimeInstanceName)
-
-	// ensure state directory exists
-	if err := os.MkdirAll(i.stateDir, 0755); err != nil {
-		return fmt.Errorf("failed to create state directory: %w", err)
-	}
-
-	return nil
-}
-
-// getStackName returns the name of the GKE stack
-func (i *KubernetesRuntimeInfraGKE) getStackName() string {
-	return fmt.Sprintf("organization/gke/%s", i.RuntimeInstanceName)
 }
 
 // loadGCPConfig reads the GCP configuration from gcloud CLI config files
