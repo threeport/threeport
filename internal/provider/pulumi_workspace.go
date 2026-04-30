@@ -17,6 +17,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"gopkg.in/yaml.v2"
 	"gorm.io/datatypes"
+
+	climsg "github.com/threeport/threeport/pkg/msg"
 )
 
 // PulumiWorkspace encapsulates all Pulumi workspace, stack, and state management
@@ -47,12 +49,12 @@ type PulumiWorkspace struct {
 }
 
 // logInfo logs an informational message using the structured logger if
-// available, otherwise falls back to fmt.Println for the CLI path.
+// available, otherwise falls back to CLI info formatting for the CLI path.
 func (w *PulumiWorkspace) logInfo(msg string, keysAndValues ...interface{}) {
 	if w.Logger != nil {
 		w.Logger.Info(msg, keysAndValues...)
 	} else {
-		fmt.Println(msg)
+		climsg.Info(msg)
 	}
 }
 

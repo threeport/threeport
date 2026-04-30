@@ -9,6 +9,7 @@ import (
 
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
+	"github.com/threeport/threeport/pkg/msg"
 	util "github.com/threeport/threeport/pkg/util/v0"
 
 	provider "github.com/threeport/threeport/internal/provider"
@@ -124,7 +125,7 @@ func (g *GcpProviderConfig) Create(
 
 	// create GCP service account and export credentials if requested
 	if syncServiceAccount {
-		fmt.Println("Creating GCP service account and exporting credentials...")
+		msg.Info("Creating GCP service account and exporting credentials...")
 
 		saWithKey, err := provider.CreateGCPServiceAccountWithKey(
 			*gcpProviderValues.ProjectID,
@@ -265,7 +266,7 @@ func (g *GcpProviderConfig) Delete(
 
 	// delete GCP service account if requested
 	if syncServiceAccount && gcpProvider.ProjectID != nil {
-		fmt.Println("Deleting GCP service account...")
+		msg.Info("Deleting GCP service account...")
 
 		if err := provider.DeleteGCPServiceAccountWithKey(
 			*gcpProvider.ProjectID,
@@ -274,7 +275,7 @@ func (g *GcpProviderConfig) Delete(
 			return nil, fmt.Errorf("failed to delete GCP service account: %w", err)
 		}
 
-		fmt.Println("GCP service account deleted")
+		msg.Complete("GCP service account deleted")
 	}
 
 	// construct deleted gcp provider config

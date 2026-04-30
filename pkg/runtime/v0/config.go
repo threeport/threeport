@@ -7,6 +7,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
+
+	"github.com/threeport/threeport/pkg/msg"
 )
 
 // LoadRuntimeConfig loads the config file with runtime parameters for the API
@@ -37,7 +39,7 @@ func LoadRuntimeConfig(configFile string) error {
 	viper.SetConfigFile(cfgFile)
 
 	viper.OnConfigChange(func(e fsnotify.Event) {
-		fmt.Println("server config file changed:", e.Name)
+		msg.Info(fmt.Sprintf("server config file changed: %s", e.Name))
 	})
 	viper.WatchConfig()
 

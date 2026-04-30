@@ -5,38 +5,34 @@ import (
 	"fmt"
 	"reflect"
 
-	. "github.com/logrusorgru/aurora"
+	"github.com/threeport/threeport/pkg/msg"
 	yaml "gopkg.in/yaml.v2"
 )
 
 // Error returns a formatted error message in red.
 func Error(message string, err error) {
-	if err != nil {
-		fmt.Println(Red(fmt.Sprintf("Error: %s\n%s", message, err)))
-	} else {
-		fmt.Println(Red(fmt.Sprintf("Error: %s", message)))
-	}
+	msg.Error(message, err)
 }
 
 // Info returns a formatted info message.
 func Info(message string) {
-	fmt.Printf("Info: %s\n", message)
+	msg.Info(message)
 }
 
 // Notice returns a formatted notice message in blue.
 func Notice(message string) {
-	fmt.Println(Blue(fmt.Sprintf("Notice: %s", message)))
+	msg.Notice(message)
 }
 
 // Warning returns a formatted warning message in yellow.
 func Warning(message string) {
-	fmt.Println(Yellow(fmt.Sprintf("Warning: %s", message)))
+	msg.Warning(message)
 }
 
 // Complete returns a formatted message in green.  Used when operations are
 // finished.
 func Complete(message string) {
-	fmt.Println(Green(fmt.Sprintf("Complete: %s", message)))
+	msg.Complete(message)
 }
 
 // YamlObjectOutput marshals an object or slice of objects to YAML and prints the output.

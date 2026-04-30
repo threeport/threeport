@@ -33,6 +33,7 @@ import (
 	"gorm.io/datatypes"
 
 	kube "github.com/threeport/threeport/pkg/kube/v0"
+	"github.com/threeport/threeport/pkg/msg"
 )
 
 // GCP OAuth2 configuration for Application Default Credentials
@@ -350,7 +351,7 @@ func (i *KubernetesRuntimeInfraGKE) Delete() error {
 		if i.Logger != nil {
 			i.Logger.Info("warning: failed to clean up GCP resources", "error", err.Error())
 		} else {
-			fmt.Printf("Warning: failed to clean up GCP resources: %v\n", err)
+			msg.Warning(fmt.Sprintf("failed to clean up GCP resources: %v", err))
 		}
 	}
 
@@ -631,14 +632,14 @@ func EnsureGCPAuth(serviceAccountCredentials string) error {
 
 	// THIRD: Fall back to browser-based OAuth flow (scenario 1 - CLI only)
 	// This only works for CLI usage (tptctl), not for controllers
-	fmt.Println("GCP credentials not found or expired. Initiating authentication...")
+	msg.Info("GCP credentials not found or expired. Initiating authentication...")
 
 	// perform the OAuth flow
 	if err := performGCPOAuthFlow(ctx); err != nil {
 		return fmt.Errorf("failed to authenticate with GCP: %w", err)
 	}
 
-	fmt.Println("GCP authentication successful!")
+	msg.Complete("GCP authentication successful!")
 	return nil
 }
 
@@ -760,14 +761,14 @@ func performGCPOAuthFlow(ctx context.Context) error {
 	// generate the authorization URL
 	authURL := oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
 
-	fmt.Println("\nOpening browser for GCP authentication...")
-	fmt.Println("If the browser doesn't open automatically, please visit:")
-	fmt.Println(authURL)
+	msg.Notice("Opening browser for GCP authentication...")
+	msg.Info("If the browser doesn't open automatically, please visit:")
+	msg.Info(authURL)
 	fmt.Println()
 
 	// try to open the browser
 	if err := openBrowser(authURL); err != nil {
-		fmt.Println("Failed to open browser automatically. Please open the URL above manually.")
+		msg.Warning("Failed to open browser automatically. Please open the URL above manually.")
 	}
 
 	// wait for the authorization code or error

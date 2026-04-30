@@ -244,7 +244,7 @@ func v0ControlPlaneInstanceCreated(
 			return 0, fmt.Errorf("failed to create runtime manager role: %w", err)
 		}
 
-		fmt.Println("Waiting for IAM role to become available...")
+		cli.Info("Waiting for IAM role to become available...")
 		if err = util.Retry(30, 1, func() error {
 			svcIam := aws_iam.NewFromConfig(*awsConfig)
 			if _, err = svcIam.GetRole(
@@ -258,7 +258,7 @@ func v0ControlPlaneInstanceCreated(
 			// wait 5 seconds to allow IAM resources to become available
 			time.Sleep(time.Second * 5)
 
-			fmt.Println("IAM resources created")
+			cli.Complete("IAM resources created")
 			return nil
 		}); err != nil {
 			return 0, fmt.Errorf("failed to wait for IAM resources to be available: %w", err)
@@ -530,7 +530,7 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to install threeport support services operator: %w", err)
 	}
 
-	fmt.Println("Waiting for threeport API to start running...")
+	cli.Info("Waiting for threeport API to start running...")
 	if err = util.Retry(30, 10, func() error {
 		_, err := client_lib.GetResponse(
 			newApiClient,
@@ -547,7 +547,7 @@ func v0ControlPlaneInstanceCreated(
 	}); err != nil {
 		return 0, fmt.Errorf("threeport API did not come up: %w", err)
 	}
-	fmt.Println("Threeport API is running")
+	cli.Complete("Threeport API is running")
 
 	// update the newly created instance with parent
 	controlPlaneInstance.ParentControlPlaneInstanceID = selfInstance.ID
