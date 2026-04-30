@@ -41,8 +41,6 @@ type GenesisControlPlaneCLIArgs struct {
 	AwsRegion             string
 	OciRegion             string
 	OciConfigProfile      string
-	AwsRoleArn            string
-	AwsSerialNumber       string
 	GcpProjectId          string
 	GcpRegion             string
 	CfgFile               string
