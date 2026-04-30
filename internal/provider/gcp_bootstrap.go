@@ -2,12 +2,14 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	"google.golang.org/api/cloudresourcemanager/v1"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iam/v1"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
@@ -576,7 +578,7 @@ func createServiceAccountForProject(
 		createRequest,
 	).Do()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create service account: %w", err)
+		return nil, wrapIAMServiceAccountCreateError(projectID, err)
 	}
 
 	fmt.Printf("Created GCP service account: %s\n", account.Email)
@@ -642,6 +644,39 @@ func deleteServiceAccountForProject(iamService *iam.Service, projectID, serviceA
 
 	fmt.Printf("Deleted GCP service account %s\n", serviceAccountEmail)
 	return nil
+}
+
+func wrapIAMServiceAccountCreateError(projectID string, invokeErr error) error {
+	if invokeErr == nil {
+		return nil
+	}
+	if isIAMServiceAccountCreatePermissionDenied(invokeErr) {
+		return fmt.Errorf("failed to create service account: %w%s", invokeErr, formatIAMServiceAccountCreate403Hint(projectID))
+	}
+	return fmt.Errorf("failed to create service account: %w", invokeErr)
+}
+
+func isIAMServiceAccountCreatePermissionDenied(err error) bool {
+	var gerr *googleapi.Error
+	if !errors.As(err, &gerr) || gerr.Code != 403 {
+		return false
+	}
+	aggregate := strings.ToLower(gerr.Message)
+	for _, e := range gerr.Errors {
+		aggregate += " " + strings.ToLower(e.Message) + " " + strings.ToLower(e.Reason)
+	}
+	return strings.Contains(aggregate, "iam.serviceaccounts.create")
+}
+
+func formatIAMServiceAccountCreate403Hint(projectID string) string {
+	return fmt.Sprintf(
+		"\n\nHint: Your credentials may lack permission to create service accounts in project %q. "+
+			"This commonly happens when the Google account used for Application Default Credentials "+
+			"does not match the account in your active gcloud configuration (`gcloud config get-value account`) "+
+			"while project and region are read from gcloud, or when the principal needs roles such as Owner, "+
+			"Editor, or IAM Administrator. Confirm the project ID and pass --gcp-project-id if needed.",
+		projectID,
+	)
 }
 
 // formatServiceAccountID generates a valid GCP service account ID from the given

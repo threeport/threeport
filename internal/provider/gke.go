@@ -30,7 +30,6 @@ import (
 	gcpiam "google.golang.org/api/iam/v1"
 	"google.golang.org/api/option"
 	gcpoption "google.golang.org/api/option"
-	"gopkg.in/ini.v1"
 	"gorm.io/datatypes"
 
 	kube "github.com/threeport/threeport/pkg/kube/v0"
@@ -92,6 +91,11 @@ type KubernetesRuntimeInfraGKE struct {
 	// the service account credentials. This is set internally when
 	// ServiceAccountCredentials is used.
 	credentialsFilePath string
+
+	// gcpProjectResolvedFromGcloudINI is true when loadGCPConfig set ProjectID from the active gcloud INI.
+	gcpProjectResolvedFromGcloudINI bool
+	// gcpRegionResolvedFromGcloudINI is true when loadGCPConfig set Region from the active gcloud INI.
+	gcpRegionResolvedFromGcloudINI bool
 }
 
 // ensurePulumiProjectDefaults sets Pulumi project metadata when not provided by callers.
@@ -122,6 +126,14 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 	// load GCP configuration to ensure ProjectID is set
 	if err := i.loadGCPConfig(); err != nil {
 		return nil, fmt.Errorf("failed to load GCP configuration: %w", err)
+	}
+
+	// Only compare ADC identity to gcloud core.account when project or region came from the
+	// gcloud profile; explicit flags/env avoid implying that profile's user context.
+	if i.gcpProjectResolvedFromGcloudINI || i.gcpRegionResolvedFromGcloudINI {
+		if err := validateADCUserMatchesGcloudAccount(context.Background()); err != nil {
+			return nil, err
+		}
 	}
 
 	// create GCP service account for Threeport to manage GCP resources
@@ -507,40 +519,43 @@ func (i *KubernetesRuntimeInfraGKE) configureWorkloadIdentityBindingPostCreate()
 	return i.configureWorkloadIdentityBinding(iamService)
 }
 
-// loadGCPConfig reads the GCP configuration from gcloud CLI config files
-// or environment variables and populates KubernetesRuntimeInfraGKE struct fields.
-// It follows a similar pattern to loadOCIConfig in OKE.
+// loadGCPConfig populates ProjectID and Region when they are not already set.
+// Priority for each field independently:
+//  1. Caller-provided values (e.g. CLI flags) already on the receiver — never overwritten
+//  2. Environment variables (only if that field is still empty)
+//  3. Active gcloud configuration INI ([core] project, [compute] region)
 func (i *KubernetesRuntimeInfraGKE) loadGCPConfig() error {
-	// first check environment variables
-	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
-	if projectID == "" {
-		projectID = os.Getenv("CLOUDSDK_CORE_PROJECT")
-	}
-	if projectID == "" {
-		projectID = os.Getenv("GCLOUD_PROJECT")
+	i.gcpProjectResolvedFromGcloudINI = false
+	i.gcpRegionResolvedFromGcloudINI = false
+
+	if i.ProjectID == "" {
+		projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
+		if projectID == "" {
+			projectID = os.Getenv("CLOUDSDK_CORE_PROJECT")
+		}
+		if projectID == "" {
+			projectID = os.Getenv("GCLOUD_PROJECT")
+		}
+		if projectID != "" {
+			i.ProjectID = projectID
+		}
 	}
 
-	region := os.Getenv("CLOUDSDK_COMPUTE_REGION")
-	if region == "" {
-		region = os.Getenv("GOOGLE_REGION")
+	if i.Region == "" {
+		region := os.Getenv("CLOUDSDK_COMPUTE_REGION")
+		if region == "" {
+			region = os.Getenv("GOOGLE_REGION")
+		}
+		if region != "" {
+			i.Region = region
+		}
 	}
 
-	// if environment variables provided the values, use them
-	if projectID != "" && i.ProjectID == "" {
-		i.ProjectID = projectID
-	}
-	if region != "" && i.Region == "" {
-		i.Region = region
-	}
-
-	// if we already have both values, return early
 	if i.ProjectID != "" && i.Region != "" {
 		return nil
 	}
 
-	// try to read from gcloud configuration files
 	if err := i.loadGCPConfigFromFile(); err != nil {
-		// if we still don't have required values, return error
 		if i.ProjectID == "" {
 			return fmt.Errorf("GCP project ID not found in environment variables or gcloud config: %w", err)
 		}
@@ -555,43 +570,9 @@ func (i *KubernetesRuntimeInfraGKE) loadGCPConfig() error {
 // loadGCPConfigFromFile reads the gcloud CLI configuration files
 // to get project ID and region settings.
 func (i *KubernetesRuntimeInfraGKE) loadGCPConfigFromFile() error {
-	// get user's home directory
-	homeDir, err := os.UserHomeDir()
+	cfg, err := loadActiveGcloudConfigINI()
 	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	// gcloud config directory path
-	var gcloudConfigDir string
-	if runtime.GOOS == "windows" {
-		gcloudConfigDir = filepath.Join(homeDir, "AppData", "Roaming", "gcloud")
-	} else {
-		gcloudConfigDir = filepath.Join(homeDir, ".config", "gcloud")
-	}
-
-	// try to determine the active configuration
-	activeConfig := "default"
-	activeConfigPath := filepath.Join(gcloudConfigDir, "active_config")
-	if activeConfigData, err := os.ReadFile(activeConfigPath); err == nil {
-		activeConfig = strings.TrimSpace(string(activeConfigData))
-	}
-
-	// try to read the configuration file for the active configuration
-	configFilePath := filepath.Join(gcloudConfigDir, "configurations", fmt.Sprintf("config_%s", activeConfig))
-
-	// check if config file exists
-	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
-		// fall back to properties file
-		configFilePath = filepath.Join(gcloudConfigDir, "properties")
-		if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
-			return fmt.Errorf("gcloud config file not found at %s or properties file", configFilePath)
-		}
-	}
-
-	// load the configuration file (INI format)
-	cfg, err := ini.Load(configFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to read gcloud config file: %w", err)
+		return err
 	}
 
 	// get project ID from [core] section
@@ -599,6 +580,7 @@ func (i *KubernetesRuntimeInfraGKE) loadGCPConfigFromFile() error {
 		projectID := cfg.Section("core").Key("project").String()
 		if projectID != "" {
 			i.ProjectID = projectID
+			i.gcpProjectResolvedFromGcloudINI = true
 		}
 	}
 
@@ -607,6 +589,7 @@ func (i *KubernetesRuntimeInfraGKE) loadGCPConfigFromFile() error {
 		region := cfg.Section("compute").Key("region").String()
 		if region != "" {
 			i.Region = region
+			i.gcpRegionResolvedFromGcloudINI = true
 		}
 	}
 

@@ -1214,8 +1214,6 @@ func ValidateCreateGenesisControlPlaneFlags(
 	createRootDomain string,
 	authEnabled bool,
 	kindPortMappings []string,
-	gcpRegion string,
-	gcpProjectID string,
 ) error {
 	// ensure name length doesn't exceed maximum
 	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
@@ -1236,15 +1234,6 @@ func ValidateCreateGenesisControlPlaneFlags(
 			"invalid provider value '%s' - must be one of %s",
 			infraProvider, allowedInfraProviders,
 		)
-	}
-
-	if infraProvider == v0.KubernetesRuntimeInfraProviderGKE {
-		if gcpRegion == "" {
-			return errors.New("gke provider requires --gcp-region to be set")
-		}
-		if gcpProjectID == "" {
-			return errors.New("gke provider requires --gcp-project-id to be set")
-		}
 	}
 
 	// return an error if kind port mappings are provided for a non-kind provider

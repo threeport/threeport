@@ -82,8 +82,6 @@ control planes if they are used to create or are created by another control plan
 			cliArgs.CreateRootDomain,
 			cliArgs.AuthEnabled,
 			cliArgs.KindPortMappings,
-			cliArgs.GcpRegion,
-			cliArgs.GcpProjectId,
 		); err != nil {
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
