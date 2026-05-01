@@ -275,7 +275,7 @@ func (g *GcpProviderConfig) Delete(
 			return nil, fmt.Errorf("failed to delete GCP service account: %w", err)
 		}
 
-		msg.Complete("GCP service account deleted")
+		msg.Info("GCP service account deleted")
 	}
 
 	// construct deleted gcp provider config

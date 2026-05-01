@@ -487,7 +487,7 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		return nil, fmt.Errorf("failed to decode service account key: %w", err)
 	}
 
-	msg.Complete("Created and exported GCP service account key")
+	msg.Info("Created and exported GCP service account key")
 
 	return &GCPServiceAccountWithKey{
 		Email:   account.Email,

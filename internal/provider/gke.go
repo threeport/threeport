@@ -639,7 +639,7 @@ func EnsureGCPAuth(serviceAccountCredentials string) error {
 		return fmt.Errorf("failed to authenticate with GCP: %w", err)
 	}
 
-	msg.Complete("GCP authentication successful!")
+	msg.Info("GCP authentication successful!")
 	return nil
 }
 

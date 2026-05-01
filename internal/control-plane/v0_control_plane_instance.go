@@ -258,7 +258,7 @@ func v0ControlPlaneInstanceCreated(
 			// wait 5 seconds to allow IAM resources to become available
 			time.Sleep(time.Second * 5)
 
-			cli.Complete("IAM resources created")
+			cli.Info("IAM resources created")
 			return nil
 		}); err != nil {
 			return 0, fmt.Errorf("failed to wait for IAM resources to be available: %w", err)
@@ -547,7 +547,7 @@ func v0ControlPlaneInstanceCreated(
 	}); err != nil {
 		return 0, fmt.Errorf("threeport API did not come up: %w", err)
 	}
-	cli.Complete("Threeport API is running")
+	cli.Info("Threeport API is running")
 
 	// update the newly created instance with parent
 	controlPlaneInstance.ParentControlPlaneInstanceID = selfInstance.ID
