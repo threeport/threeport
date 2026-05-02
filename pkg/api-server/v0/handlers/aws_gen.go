@@ -382,7 +382,8 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeDefinition(c echo.Context) error 
 
 	// persist provided data
 	updatedAwsEksKubernetesRuntimeDefinition.ID = existingAwsEksKubernetesRuntimeDefinition.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsEksKubernetesRuntimeDefinition); result.Error != nil {
+	updateModel := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingAwsEksKubernetesRuntimeDefinition)
+	if result := updateModel.Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedAwsEksKubernetesRuntimeDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
@@ -443,6 +444,27 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	if len(awsEksKubernetesRuntimeDefinition.AwsEksKubernetesRuntimeInstances) != 0 {
 		err := errors.New("aws eks kubernetes runtime definition has related aws eks kubernetes runtime instances - cannot be deleted")
 		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
+	}
+
+	// check for blocking attached object references before deletion
+	attachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
+		h.DB,
+		util_v0.TypeName(awsEksKubernetesRuntimeDefinition),
+		awsEksKubernetesRuntimeDefinition.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if len(attachedObjectReferences) > 0 {
+		return apiserver_lib.ResponseStatus409(
+			c,
+			nil,
+			apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+				attachedObjectReferences,
+			),
+			objectType,
+		)
 	}
 
 	// delete object
@@ -864,7 +886,8 @@ func (h Handler) ReplaceAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 
 	// persist provided data
 	updatedAwsEksKubernetesRuntimeInstance.ID = existingAwsEksKubernetesRuntimeInstance.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsEksKubernetesRuntimeInstance); result.Error != nil {
+	updateModel := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingAwsEksKubernetesRuntimeInstance)
+	if result := updateModel.Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedAwsEksKubernetesRuntimeInstance); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
@@ -919,6 +942,27 @@ func (h Handler) DeleteAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for blocking attached object references before deletion
+	attachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
+		h.DB,
+		util_v0.TypeName(awsEksKubernetesRuntimeInstance),
+		awsEksKubernetesRuntimeInstance.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if len(attachedObjectReferences) > 0 {
+		return apiserver_lib.ResponseStatus409(
+			c,
+			nil,
+			apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+				attachedObjectReferences,
+			),
+			objectType,
+		)
 	}
 
 	// schedule for deletion if not already scheduled
@@ -1351,7 +1395,8 @@ func (h Handler) ReplaceAwsProvider(c echo.Context) error {
 
 	// persist provided data
 	updatedAwsProvider.ID = existingAwsProvider.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedAwsProvider); result.Error != nil {
+	updateModel := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingAwsProvider)
+	if result := updateModel.Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedAwsProvider); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
@@ -1406,6 +1451,27 @@ func (h Handler) DeleteAwsProvider(c echo.Context) error {
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for blocking attached object references before deletion
+	attachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
+		h.DB,
+		util_v0.TypeName(awsProvider),
+		awsProvider.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if len(attachedObjectReferences) > 0 {
+		return apiserver_lib.ResponseStatus409(
+			c,
+			nil,
+			apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+				attachedObjectReferences,
+			),
+			objectType,
+		)
 	}
 
 	// delete object

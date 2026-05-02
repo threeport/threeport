@@ -382,7 +382,8 @@ func (h Handler) ReplaceGcpGkeKubernetesRuntimeDefinition(c echo.Context) error 
 
 	// persist provided data
 	updatedGcpGkeKubernetesRuntimeDefinition.ID = existingGcpGkeKubernetesRuntimeDefinition.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedGcpGkeKubernetesRuntimeDefinition); result.Error != nil {
+	updateModel := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingGcpGkeKubernetesRuntimeDefinition)
+	if result := updateModel.Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedGcpGkeKubernetesRuntimeDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
@@ -443,6 +444,27 @@ func (h Handler) DeleteGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 	if len(gcpGkeKubernetesRuntimeDefinition.GcpGkeKubernetesRuntimeInstances) != 0 {
 		err := errors.New("gcp gke kubernetes runtime definition has related gcp gke kubernetes runtime instances - cannot be deleted")
 		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
+	}
+
+	// check for blocking attached object references before deletion
+	attachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
+		h.DB,
+		util_v0.TypeName(gcpGkeKubernetesRuntimeDefinition),
+		gcpGkeKubernetesRuntimeDefinition.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if len(attachedObjectReferences) > 0 {
+		return apiserver_lib.ResponseStatus409(
+			c,
+			nil,
+			apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+				attachedObjectReferences,
+			),
+			objectType,
+		)
 	}
 
 	// delete object
@@ -864,7 +886,8 @@ func (h Handler) ReplaceGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 
 	// persist provided data
 	updatedGcpGkeKubernetesRuntimeInstance.ID = existingGcpGkeKubernetesRuntimeInstance.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedGcpGkeKubernetesRuntimeInstance); result.Error != nil {
+	updateModel := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingGcpGkeKubernetesRuntimeInstance)
+	if result := updateModel.Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedGcpGkeKubernetesRuntimeInstance); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
@@ -919,6 +942,27 @@ func (h Handler) DeleteGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for blocking attached object references before deletion
+	attachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
+		h.DB,
+		util_v0.TypeName(gcpGkeKubernetesRuntimeInstance),
+		gcpGkeKubernetesRuntimeInstance.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if len(attachedObjectReferences) > 0 {
+		return apiserver_lib.ResponseStatus409(
+			c,
+			nil,
+			apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+				attachedObjectReferences,
+			),
+			objectType,
+		)
 	}
 
 	// schedule for deletion if not already scheduled
@@ -1351,7 +1395,8 @@ func (h Handler) ReplaceGcpProvider(c echo.Context) error {
 
 	// persist provided data
 	updatedGcpProvider.ID = existingGcpProvider.ID
-	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedGcpProvider); result.Error != nil {
+	updateModel := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingGcpProvider)
+	if result := updateModel.Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedGcpProvider); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
@@ -1406,6 +1451,27 @@ func (h Handler) DeleteGcpProvider(c echo.Context) error {
 		}
 		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	}
+
+	// check for blocking attached object references before deletion
+	attachedObjectReferences, err := apiserver_lib.FindBlockingAttachedObjectReferences(
+		h.DB,
+		util_v0.TypeName(gcpProvider),
+		gcpProvider.ID,
+	)
+	if err != nil {
+		h.Logger.Error("handler error: error listing blocking attached object references", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+	if len(attachedObjectReferences) > 0 {
+		return apiserver_lib.ResponseStatus409(
+			c,
+			nil,
+			apiserver_lib.FormatBlockingAttachedObjectReferencesError(
+				attachedObjectReferences,
+			),
+			objectType,
+		)
 	}
 
 	// delete object
