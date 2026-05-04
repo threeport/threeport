@@ -403,8 +403,7 @@ func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 
 	// persist provided data
 	updatedHelmWorkloadDefinition.ID = existingHelmWorkloadDefinition.ID
-	updateModel := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingHelmWorkloadDefinition)
-	if result := updateModel.Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedHelmWorkloadDefinition); result.Error != nil {
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedHelmWorkloadDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
@@ -911,8 +910,7 @@ func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 
 	// persist provided data
 	updatedHelmWorkloadInstance.ID = existingHelmWorkloadInstance.ID
-	updateModel := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Model(&existingHelmWorkloadInstance)
-	if result := updateModel.Select("*").Omit("CreatedAt", "DeletedAt").Updates(&updatedHelmWorkloadInstance); result.Error != nil {
+	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedHelmWorkloadInstance); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
