@@ -71,9 +71,8 @@ func (a *AwsProvider) BeforeCreate(tx *gorm.DB) error {
 				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
 			}
 
-			// reject the redacted placeholder — it is only emitted by the
-			// server when redacting responses and must never round-trip
-			// back as input
+			// reject the redacted placeholder — clients should send a real
+			// value to change the field, or omit it to leave it unchanged
 			if underlyingValue == encryption.RedactedValuePlaceholder {
 				return util.NewBadRequestError(
 					fmt.Sprintf(
