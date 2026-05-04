@@ -323,6 +323,13 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 	// update object in database
 	if result := h.DB.Model(&existingLoggingDefinition).Updates(&updatedLoggingDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -405,6 +412,13 @@ func (h Handler) ReplaceLoggingDefinition(c echo.Context) error {
 	updatedLoggingDefinition.ID = existingLoggingDefinition.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedLoggingDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -830,6 +844,13 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 	// update object in database
 	if result := h.DB.Model(&existingLoggingInstance).Updates(&updatedLoggingInstance); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -912,6 +933,13 @@ func (h Handler) ReplaceLoggingInstance(c echo.Context) error {
 	updatedLoggingInstance.ID = existingLoggingInstance.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedLoggingInstance); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1331,6 +1359,13 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 	// update object in database
 	if result := h.DB.Model(&existingMetricsDefinition).Updates(&updatedMetricsDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1413,6 +1448,13 @@ func (h Handler) ReplaceMetricsDefinition(c echo.Context) error {
 	updatedMetricsDefinition.ID = existingMetricsDefinition.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedMetricsDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1838,6 +1880,13 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 	// update object in database
 	if result := h.DB.Model(&existingMetricsInstance).Updates(&updatedMetricsInstance); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1920,6 +1969,13 @@ func (h Handler) ReplaceMetricsInstance(c echo.Context) error {
 	updatedMetricsInstance.ID = existingMetricsInstance.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedMetricsInstance); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -2339,6 +2395,13 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 	// update object in database
 	if result := h.DB.Model(&existingObservabilityDashboardDefinition).Updates(&updatedObservabilityDashboardDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -2421,6 +2484,13 @@ func (h Handler) ReplaceObservabilityDashboardDefinition(c echo.Context) error {
 	updatedObservabilityDashboardDefinition.ID = existingObservabilityDashboardDefinition.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedObservabilityDashboardDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -2846,6 +2916,13 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 	// update object in database
 	if result := h.DB.Model(&existingObservabilityDashboardInstance).Updates(&updatedObservabilityDashboardInstance); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -2928,6 +3005,13 @@ func (h Handler) ReplaceObservabilityDashboardInstance(c echo.Context) error {
 	updatedObservabilityDashboardInstance.ID = existingObservabilityDashboardInstance.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedObservabilityDashboardInstance); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -3347,6 +3431,13 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 	// update object in database
 	if result := h.DB.Model(&existingObservabilityStackDefinition).Updates(&updatedObservabilityStackDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -3429,6 +3520,13 @@ func (h Handler) ReplaceObservabilityStackDefinition(c echo.Context) error {
 	updatedObservabilityStackDefinition.ID = existingObservabilityStackDefinition.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedObservabilityStackDefinition); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -3854,6 +3952,13 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 	// update object in database
 	if result := h.DB.Model(&existingObservabilityStackInstance).Updates(&updatedObservabilityStackInstance); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -3936,6 +4041,13 @@ func (h Handler) ReplaceObservabilityStackInstance(c echo.Context) error {
 	updatedObservabilityStackInstance.ID = existingObservabilityStackInstance.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedObservabilityStackInstance); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 

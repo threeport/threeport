@@ -305,6 +305,13 @@ func (h Handler) UpdateModuleApi(c echo.Context) error {
 	// update object in database
 	if result := h.DB.Model(&existingModuleApi).Updates(&updatedModuleApi); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -373,6 +380,13 @@ func (h Handler) ReplaceModuleApi(c echo.Context) error {
 	updatedModuleApi.ID = existingModuleApi.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedModuleApi); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -723,6 +737,13 @@ func (h Handler) UpdateModuleApiRoute(c echo.Context) error {
 	// update object in database
 	if result := h.DB.Model(&existingModuleApiRoute).Updates(&updatedModuleApiRoute); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -791,6 +812,13 @@ func (h Handler) ReplaceModuleApiRoute(c echo.Context) error {
 	updatedModuleApiRoute.ID = existingModuleApiRoute.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedModuleApiRoute); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1157,6 +1185,13 @@ func (h Handler) UpdateModuleController(c echo.Context) error {
 	// update object in database
 	if result := h.DB.Model(&existingModuleController).Updates(&updatedModuleController); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1225,6 +1260,13 @@ func (h Handler) ReplaceModuleController(c echo.Context) error {
 	updatedModuleController.ID = existingModuleController.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedModuleController); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1575,6 +1617,13 @@ func (h Handler) UpdateModuleObject(c echo.Context) error {
 	// update object in database
 	if result := h.DB.Model(&existingModuleObject).Updates(&updatedModuleObject); result.Error != nil {
 		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
@@ -1643,6 +1692,13 @@ func (h Handler) ReplaceModuleObject(c echo.Context) error {
 	updatedModuleObject.ID = existingModuleObject.ID
 	if result := h.DB.Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedModuleObject); result.Error != nil {
 		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(result.Error, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+			)
+		}
 		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 

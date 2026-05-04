@@ -1648,6 +1648,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
 								)
 							}
+							h.Comment("check if this is a custom HTTP error with specific status code")
+							h.Var().Id("httpErr").Op("*").Qual(
+								"github.com/threeport/threeport/pkg/util/v0",
+								"HttpError",
+							)
+							h.If(Qual("errors", "As").Call(Id("result").Dot("Error"), Op("&").Id("httpErr"))).Block(
+								Return(Qual(
+									"github.com/threeport/threeport/pkg/api-server/lib/v0",
+									"ResponseStatusErr",
+								).Call(
+									Line().Id("httpErr").Dot("GetStatusCode").Call(),
+									Id("c"),
+									Nil(),
+									Id("result").Dot("Error"),
+									Id("objectType").Op(",").Line(),
+								)),
+							)
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
@@ -1969,6 +1986,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
 								)
 							}
+							h.Comment("check if this is a custom HTTP error with specific status code")
+							h.Var().Id("httpErr").Op("*").Qual(
+								"github.com/threeport/threeport/pkg/util/v0",
+								"HttpError",
+							)
+							h.If(Qual("errors", "As").Call(Id("result").Dot("Error"), Op("&").Id("httpErr"))).Block(
+								Return(Qual(
+									"github.com/threeport/threeport/pkg/api-server/lib/v0",
+									"ResponseStatusErr",
+								).Call(
+									Line().Id("httpErr").Dot("GetStatusCode").Call(),
+									Id("c"),
+									Nil(),
+									Id("result").Dot("Error"),
+									Id("objectType").Op(",").Line(),
+								)),
+							)
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
