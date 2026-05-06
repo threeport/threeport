@@ -4,74 +4,146 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// BeforeCreate is the GORM create hook for LogBackend.
+// BeforeCreate is the GORM before-create hook for LogBackend.
 func (l *LogBackend) BeforeCreate(tx *gorm.DB) error {
-	if err := l.validateBeforeCreate(tx); err != nil {
+	if err := l.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, l)
 }
 
-// BeforeUpdate is the GORM update hook for LogBackend.
+// BeforeUpdate is the GORM before-update hook for LogBackend.
 func (l *LogBackend) BeforeUpdate(tx *gorm.DB) error {
-	if err := l.validateBeforeUpdate(tx); err != nil {
+	if err := l.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, l)
 }
 
-// BeforeDelete is the GORM delete hook for LogBackend.
+// BeforeDelete is the GORM before-delete hook for LogBackend.
 func (l *LogBackend) BeforeDelete(tx *gorm.DB) error {
-	if err := l.validateBeforeDelete(tx); err != nil {
+	if err := l.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, l)
 }
 
-// BeforeCreate is the GORM create hook for LogStorageDefinition.
+// AfterCreate is the GORM after-create hook for LogBackend.
+func (l *LogBackend) AfterCreate(tx *gorm.DB) error {
+	if err := l.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, l)
+}
+
+// AfterUpdate is the GORM after-update hook for LogBackend.
+func (l *LogBackend) AfterUpdate(tx *gorm.DB) error {
+	if err := l.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, l)
+}
+
+// AfterDelete is the GORM after-delete hook for LogBackend.
+func (l *LogBackend) AfterDelete(tx *gorm.DB) error {
+	if err := l.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, l)
+}
+
+// BeforeCreate is the GORM before-create hook for LogStorageDefinition.
 func (l *LogStorageDefinition) BeforeCreate(tx *gorm.DB) error {
-	if err := l.validateBeforeCreate(tx); err != nil {
+	if err := l.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, l)
 }
 
-// BeforeUpdate is the GORM update hook for LogStorageDefinition.
+// BeforeUpdate is the GORM before-update hook for LogStorageDefinition.
 func (l *LogStorageDefinition) BeforeUpdate(tx *gorm.DB) error {
-	if err := l.validateBeforeUpdate(tx); err != nil {
+	if err := l.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, l)
 }
 
-// BeforeDelete is the GORM delete hook for LogStorageDefinition.
+// BeforeDelete is the GORM before-delete hook for LogStorageDefinition.
 func (l *LogStorageDefinition) BeforeDelete(tx *gorm.DB) error {
-	if err := l.validateBeforeDelete(tx); err != nil {
+	if err := l.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, l)
 }
 
-// BeforeCreate is the GORM create hook for LogStorageInstance.
+// AfterCreate is the GORM after-create hook for LogStorageDefinition.
+func (l *LogStorageDefinition) AfterCreate(tx *gorm.DB) error {
+	if err := l.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, l)
+}
+
+// AfterUpdate is the GORM after-update hook for LogStorageDefinition.
+func (l *LogStorageDefinition) AfterUpdate(tx *gorm.DB) error {
+	if err := l.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, l)
+}
+
+// AfterDelete is the GORM after-delete hook for LogStorageDefinition.
+func (l *LogStorageDefinition) AfterDelete(tx *gorm.DB) error {
+	if err := l.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, l)
+}
+
+// BeforeCreate is the GORM before-create hook for LogStorageInstance.
 func (l *LogStorageInstance) BeforeCreate(tx *gorm.DB) error {
-	if err := l.validateBeforeCreate(tx); err != nil {
+	if err := l.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, l)
 }
 
-// BeforeUpdate is the GORM update hook for LogStorageInstance.
+// BeforeUpdate is the GORM before-update hook for LogStorageInstance.
 func (l *LogStorageInstance) BeforeUpdate(tx *gorm.DB) error {
-	if err := l.validateBeforeUpdate(tx); err != nil {
+	if err := l.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, l)
 }
 
-// BeforeDelete is the GORM delete hook for LogStorageInstance.
+// BeforeDelete is the GORM before-delete hook for LogStorageInstance.
 func (l *LogStorageInstance) BeforeDelete(tx *gorm.DB) error {
-	if err := l.validateBeforeDelete(tx); err != nil {
+	if err := l.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, l)
+}
+
+// AfterCreate is the GORM after-create hook for LogStorageInstance.
+func (l *LogStorageInstance) AfterCreate(tx *gorm.DB) error {
+	if err := l.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, l)
+}
+
+// AfterUpdate is the GORM after-update hook for LogStorageInstance.
+func (l *LogStorageInstance) AfterUpdate(tx *gorm.DB) error {
+	if err := l.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, l)
+}
+
+// AfterDelete is the GORM after-delete hook for LogStorageInstance.
+func (l *LogStorageInstance) AfterDelete(tx *gorm.DB) error {
+	if err := l.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, l)
 }

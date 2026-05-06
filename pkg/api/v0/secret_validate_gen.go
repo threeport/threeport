@@ -4,50 +4,98 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// BeforeCreate is the GORM create hook for SecretDefinition.
+// BeforeCreate is the GORM before-create hook for SecretDefinition.
 func (s *SecretDefinition) BeforeCreate(tx *gorm.DB) error {
-	if err := s.validateBeforeCreate(tx); err != nil {
+	if err := s.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, s)
 }
 
-// BeforeUpdate is the GORM update hook for SecretDefinition.
+// BeforeUpdate is the GORM before-update hook for SecretDefinition.
 func (s *SecretDefinition) BeforeUpdate(tx *gorm.DB) error {
-	if err := s.validateBeforeUpdate(tx); err != nil {
+	if err := s.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, s)
 }
 
-// BeforeDelete is the GORM delete hook for SecretDefinition.
+// BeforeDelete is the GORM before-delete hook for SecretDefinition.
 func (s *SecretDefinition) BeforeDelete(tx *gorm.DB) error {
-	if err := s.validateBeforeDelete(tx); err != nil {
+	if err := s.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, s)
 }
 
-// BeforeCreate is the GORM create hook for SecretInstance.
+// AfterCreate is the GORM after-create hook for SecretDefinition.
+func (s *SecretDefinition) AfterCreate(tx *gorm.DB) error {
+	if err := s.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, s)
+}
+
+// AfterUpdate is the GORM after-update hook for SecretDefinition.
+func (s *SecretDefinition) AfterUpdate(tx *gorm.DB) error {
+	if err := s.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, s)
+}
+
+// AfterDelete is the GORM after-delete hook for SecretDefinition.
+func (s *SecretDefinition) AfterDelete(tx *gorm.DB) error {
+	if err := s.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, s)
+}
+
+// BeforeCreate is the GORM before-create hook for SecretInstance.
 func (s *SecretInstance) BeforeCreate(tx *gorm.DB) error {
-	if err := s.validateBeforeCreate(tx); err != nil {
+	if err := s.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, s)
 }
 
-// BeforeUpdate is the GORM update hook for SecretInstance.
+// BeforeUpdate is the GORM before-update hook for SecretInstance.
 func (s *SecretInstance) BeforeUpdate(tx *gorm.DB) error {
-	if err := s.validateBeforeUpdate(tx); err != nil {
+	if err := s.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, s)
 }
 
-// BeforeDelete is the GORM delete hook for SecretInstance.
+// BeforeDelete is the GORM before-delete hook for SecretInstance.
 func (s *SecretInstance) BeforeDelete(tx *gorm.DB) error {
-	if err := s.validateBeforeDelete(tx); err != nil {
+	if err := s.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, s)
+}
+
+// AfterCreate is the GORM after-create hook for SecretInstance.
+func (s *SecretInstance) AfterCreate(tx *gorm.DB) error {
+	if err := s.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, s)
+}
+
+// AfterUpdate is the GORM after-update hook for SecretInstance.
+func (s *SecretInstance) AfterUpdate(tx *gorm.DB) error {
+	if err := s.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, s)
+}
+
+// AfterDelete is the GORM after-delete hook for SecretInstance.
+func (s *SecretInstance) AfterDelete(tx *gorm.DB) error {
+	if err := s.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, s)
 }

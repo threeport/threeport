@@ -34,8 +34,30 @@ func ProcessCoreTaggedFieldsBeforeDelete(tx *gorm.DB, obj interface{}) error {
 	return nil
 }
 
+// ProcessCoreTaggedFieldsAfterCreate runs core tag-triggered behavior on
+// an API object after create.
+func ProcessCoreTaggedFieldsAfterCreate(tx *gorm.DB, obj interface{}) error {
+	// TODO: tag-driven AOR creation lands here
+	return nil
+}
+
+// ProcessCoreTaggedFieldsAfterUpdate runs core tag-triggered behavior on
+// an API object after update.
+func ProcessCoreTaggedFieldsAfterUpdate(tx *gorm.DB, obj interface{}) error {
+	// TODO: tag-driven AOR diff/sync lands here
+	return nil
+}
+
+// ProcessCoreTaggedFieldsAfterDelete runs core tag-triggered behavior on
+// an API object after delete.
+func ProcessCoreTaggedFieldsAfterDelete(tx *gorm.DB, obj interface{}) error {
+	// TODO: tag-driven AOR cascade-cleanup lands here
+	return nil
+}
+
 // processEncryptTaggedFields encrypts struct fields tagged `encrypt:"true"`
-// and rejects the redacted placeholder.
+// and rejects the redacted placeholder. encrypts tagged fields, provided they are not
+// already encrypted.
 func processEncryptTaggedFields(tx *gorm.DB, obj interface{}, checkChanged bool) error {
 	// shared symmetric key for AES-GCM, sourced from the API server's env
 	encryptionKey := os.Getenv("ENCRYPTION_KEY")

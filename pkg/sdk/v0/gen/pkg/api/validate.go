@@ -14,8 +14,29 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
+// hookSpec describes one GORM lifecycle hook the generator emits and its
+// matching user-facing extension method and core dispatcher.
+type hookSpec struct {
+	gormName string // exported: BeforeCreate, AfterCreate, ...
+	userName string // unexported: beforeCreate, afterCreate, ...
+	coreName string // ProcessCoreTaggedFieldsBeforeCreate, ...
+	phase    string // before-create, after-create, ...
+	verb     string // created, updated, deleted
+}
+
+// hooks is the canonical ordered list of GORM lifecycle hooks the generator
+// emits for every API type.
+var hooks = []hookSpec{
+	{"BeforeCreate", "beforeCreate", "ProcessCoreTaggedFieldsBeforeCreate", "before-create", "created"},
+	{"BeforeUpdate", "beforeUpdate", "ProcessCoreTaggedFieldsBeforeUpdate", "before-update", "updated"},
+	{"BeforeDelete", "beforeDelete", "ProcessCoreTaggedFieldsBeforeDelete", "before-delete", "deleted"},
+	{"AfterCreate", "afterCreate", "ProcessCoreTaggedFieldsAfterCreate", "after-create", "created"},
+	{"AfterUpdate", "afterUpdate", "ProcessCoreTaggedFieldsAfterUpdate", "after-update", "updated"},
+	{"AfterDelete", "afterDelete", "ProcessCoreTaggedFieldsAfterDelete", "after-delete", "deleted"},
+}
+
 // GenValidationHooks emits per-group GORM hook boilerplate and scaffolds a
-// companion file of empty Validate* stubs for hand-written validation.
+// companion file of empty extension-point stubs for hand-written logic.
 func GenValidationHooks(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objCollection := range generator.VersionedApiObjectCollections {
 		for _, objGroup := range objCollection.VersionedApiObjectGroups {
@@ -58,65 +79,26 @@ func emitValidateGen(
 			return Id(funcName).Call(Id("tx"), Id(receiver))
 		}
 
-		// BeforeCreate
-		f.Comment(fmt.Sprintf(
-			"BeforeCreate is the GORM create hook for %s.",
-			typeName,
-		))
-		f.Func().Params(
-			Id(receiver).Op("*").Id(typeName),
-		).Id("BeforeCreate").Params(
-			Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
-		).Error().Block(
-			If(
-				Err().Op(":=").Id(receiver).Dot("validateBeforeCreate").Call(Id("tx")),
-				Err().Op("!=").Nil(),
-			).Block(
-				Return(Err()),
-			),
-			Return(processCall("ProcessCoreTaggedFieldsBeforeCreate")),
-		)
-		f.Line()
-
-		// BeforeUpdate
-		f.Comment(fmt.Sprintf(
-			"BeforeUpdate is the GORM update hook for %s.",
-			typeName,
-		))
-		f.Func().Params(
-			Id(receiver).Op("*").Id(typeName),
-		).Id("BeforeUpdate").Params(
-			Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
-		).Error().Block(
-			If(
-				Err().Op(":=").Id(receiver).Dot("validateBeforeUpdate").Call(Id("tx")),
-				Err().Op("!=").Nil(),
-			).Block(
-				Return(Err()),
-			),
-			Return(processCall("ProcessCoreTaggedFieldsBeforeUpdate")),
-		)
-		f.Line()
-
-		// BeforeDelete
-		f.Comment(fmt.Sprintf(
-			"BeforeDelete is the GORM delete hook for %s.",
-			typeName,
-		))
-		f.Func().Params(
-			Id(receiver).Op("*").Id(typeName),
-		).Id("BeforeDelete").Params(
-			Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
-		).Error().Block(
-			If(
-				Err().Op(":=").Id(receiver).Dot("validateBeforeDelete").Call(Id("tx")),
-				Err().Op("!=").Nil(),
-			).Block(
-				Return(Err()),
-			),
-			Return(processCall("ProcessCoreTaggedFieldsBeforeDelete")),
-		)
-		f.Line()
+		for _, h := range hooks {
+			f.Comment(fmt.Sprintf(
+				"%s is the GORM %s hook for %s.",
+				h.gormName, h.phase, typeName,
+			))
+			f.Func().Params(
+				Id(receiver).Op("*").Id(typeName),
+			).Id(h.gormName).Params(
+				Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
+			).Error().Block(
+				If(
+					Err().Op(":=").Id(receiver).Dot(h.userName).Call(Id("tx")),
+					Err().Op("!=").Nil(),
+				).Block(
+					Return(Err()),
+				),
+				Return(processCall(h.coreName)),
+			)
+			f.Line()
+		}
 	}
 
 	outputPath := filepath.Join(
@@ -131,7 +113,7 @@ func emitValidateGen(
 }
 
 // emitValidateScaffoldIfMissing writes a one-time scaffolded
-// <group>_validate.go of empty Validate* stubs if no such file exists.
+// <group>_validate.go of empty extension-point stubs if no such file exists.
 func emitValidateScaffoldIfMissing(
 	generator *gen.Generator,
 	version string,
@@ -150,38 +132,24 @@ func emitValidateScaffoldIfMissing(
 		typeName := apiObj.TypeName
 		receiver := strings.ToLower(string(typeName[0]))
 
-		// validateBeforeCreate
-		f.Comment(fmt.Sprintf("validateBeforeCreate validates the %s before create.", typeName))
-		f.Func().Params(
-			Id(receiver).Op("*").Id(typeName),
-		).Id("validateBeforeCreate").Params(
-			Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
-		).Error().Block(
-			Return(Nil()),
-		)
-		f.Line()
-
-		// validateBeforeUpdate
-		f.Comment(fmt.Sprintf("validateBeforeUpdate validates the %s before update.", typeName))
-		f.Func().Params(
-			Id(receiver).Op("*").Id(typeName),
-		).Id("validateBeforeUpdate").Params(
-			Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
-		).Error().Block(
-			Return(Nil()),
-		)
-		f.Line()
-
-		// validateBeforeDelete
-		f.Comment(fmt.Sprintf("validateBeforeDelete validates the %s before delete.", typeName))
-		f.Func().Params(
-			Id(receiver).Op("*").Id(typeName),
-		).Id("validateBeforeDelete").Params(
-			Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
-		).Error().Block(
-			Return(Nil()),
-		)
-		f.Line()
+		for _, h := range hooks {
+			tense := "before"
+			if strings.HasPrefix(h.gormName, "After") {
+				tense = "after"
+			}
+			f.Comment(fmt.Sprintf(
+				"%s runs %s the %s is %s.",
+				h.userName, tense, typeName, h.verb,
+			))
+			f.Func().Params(
+				Id(receiver).Op("*").Id(typeName),
+			).Id(h.userName).Params(
+				Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
+			).Error().Block(
+				Return(Nil()),
+			)
+			f.Line()
+		}
 	}
 
 	written, err := util.WriteCodeToFile(f, outputPath, false)

@@ -4,194 +4,386 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// BeforeCreate is the GORM create hook for LoggingDefinition.
+// BeforeCreate is the GORM before-create hook for LoggingDefinition.
 func (l *LoggingDefinition) BeforeCreate(tx *gorm.DB) error {
-	if err := l.validateBeforeCreate(tx); err != nil {
+	if err := l.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, l)
 }
 
-// BeforeUpdate is the GORM update hook for LoggingDefinition.
+// BeforeUpdate is the GORM before-update hook for LoggingDefinition.
 func (l *LoggingDefinition) BeforeUpdate(tx *gorm.DB) error {
-	if err := l.validateBeforeUpdate(tx); err != nil {
+	if err := l.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, l)
 }
 
-// BeforeDelete is the GORM delete hook for LoggingDefinition.
+// BeforeDelete is the GORM before-delete hook for LoggingDefinition.
 func (l *LoggingDefinition) BeforeDelete(tx *gorm.DB) error {
-	if err := l.validateBeforeDelete(tx); err != nil {
+	if err := l.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, l)
 }
 
-// BeforeCreate is the GORM create hook for LoggingInstance.
+// AfterCreate is the GORM after-create hook for LoggingDefinition.
+func (l *LoggingDefinition) AfterCreate(tx *gorm.DB) error {
+	if err := l.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, l)
+}
+
+// AfterUpdate is the GORM after-update hook for LoggingDefinition.
+func (l *LoggingDefinition) AfterUpdate(tx *gorm.DB) error {
+	if err := l.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, l)
+}
+
+// AfterDelete is the GORM after-delete hook for LoggingDefinition.
+func (l *LoggingDefinition) AfterDelete(tx *gorm.DB) error {
+	if err := l.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, l)
+}
+
+// BeforeCreate is the GORM before-create hook for LoggingInstance.
 func (l *LoggingInstance) BeforeCreate(tx *gorm.DB) error {
-	if err := l.validateBeforeCreate(tx); err != nil {
+	if err := l.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, l)
 }
 
-// BeforeUpdate is the GORM update hook for LoggingInstance.
+// BeforeUpdate is the GORM before-update hook for LoggingInstance.
 func (l *LoggingInstance) BeforeUpdate(tx *gorm.DB) error {
-	if err := l.validateBeforeUpdate(tx); err != nil {
+	if err := l.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, l)
 }
 
-// BeforeDelete is the GORM delete hook for LoggingInstance.
+// BeforeDelete is the GORM before-delete hook for LoggingInstance.
 func (l *LoggingInstance) BeforeDelete(tx *gorm.DB) error {
-	if err := l.validateBeforeDelete(tx); err != nil {
+	if err := l.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, l)
 }
 
-// BeforeCreate is the GORM create hook for MetricsDefinition.
+// AfterCreate is the GORM after-create hook for LoggingInstance.
+func (l *LoggingInstance) AfterCreate(tx *gorm.DB) error {
+	if err := l.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, l)
+}
+
+// AfterUpdate is the GORM after-update hook for LoggingInstance.
+func (l *LoggingInstance) AfterUpdate(tx *gorm.DB) error {
+	if err := l.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, l)
+}
+
+// AfterDelete is the GORM after-delete hook for LoggingInstance.
+func (l *LoggingInstance) AfterDelete(tx *gorm.DB) error {
+	if err := l.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, l)
+}
+
+// BeforeCreate is the GORM before-create hook for MetricsDefinition.
 func (m *MetricsDefinition) BeforeCreate(tx *gorm.DB) error {
-	if err := m.validateBeforeCreate(tx); err != nil {
+	if err := m.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, m)
 }
 
-// BeforeUpdate is the GORM update hook for MetricsDefinition.
+// BeforeUpdate is the GORM before-update hook for MetricsDefinition.
 func (m *MetricsDefinition) BeforeUpdate(tx *gorm.DB) error {
-	if err := m.validateBeforeUpdate(tx); err != nil {
+	if err := m.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, m)
 }
 
-// BeforeDelete is the GORM delete hook for MetricsDefinition.
+// BeforeDelete is the GORM before-delete hook for MetricsDefinition.
 func (m *MetricsDefinition) BeforeDelete(tx *gorm.DB) error {
-	if err := m.validateBeforeDelete(tx); err != nil {
+	if err := m.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, m)
 }
 
-// BeforeCreate is the GORM create hook for MetricsInstance.
+// AfterCreate is the GORM after-create hook for MetricsDefinition.
+func (m *MetricsDefinition) AfterCreate(tx *gorm.DB) error {
+	if err := m.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, m)
+}
+
+// AfterUpdate is the GORM after-update hook for MetricsDefinition.
+func (m *MetricsDefinition) AfterUpdate(tx *gorm.DB) error {
+	if err := m.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, m)
+}
+
+// AfterDelete is the GORM after-delete hook for MetricsDefinition.
+func (m *MetricsDefinition) AfterDelete(tx *gorm.DB) error {
+	if err := m.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, m)
+}
+
+// BeforeCreate is the GORM before-create hook for MetricsInstance.
 func (m *MetricsInstance) BeforeCreate(tx *gorm.DB) error {
-	if err := m.validateBeforeCreate(tx); err != nil {
+	if err := m.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, m)
 }
 
-// BeforeUpdate is the GORM update hook for MetricsInstance.
+// BeforeUpdate is the GORM before-update hook for MetricsInstance.
 func (m *MetricsInstance) BeforeUpdate(tx *gorm.DB) error {
-	if err := m.validateBeforeUpdate(tx); err != nil {
+	if err := m.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, m)
 }
 
-// BeforeDelete is the GORM delete hook for MetricsInstance.
+// BeforeDelete is the GORM before-delete hook for MetricsInstance.
 func (m *MetricsInstance) BeforeDelete(tx *gorm.DB) error {
-	if err := m.validateBeforeDelete(tx); err != nil {
+	if err := m.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, m)
 }
 
-// BeforeCreate is the GORM create hook for ObservabilityDashboardDefinition.
+// AfterCreate is the GORM after-create hook for MetricsInstance.
+func (m *MetricsInstance) AfterCreate(tx *gorm.DB) error {
+	if err := m.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, m)
+}
+
+// AfterUpdate is the GORM after-update hook for MetricsInstance.
+func (m *MetricsInstance) AfterUpdate(tx *gorm.DB) error {
+	if err := m.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, m)
+}
+
+// AfterDelete is the GORM after-delete hook for MetricsInstance.
+func (m *MetricsInstance) AfterDelete(tx *gorm.DB) error {
+	if err := m.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, m)
+}
+
+// BeforeCreate is the GORM before-create hook for ObservabilityDashboardDefinition.
 func (o *ObservabilityDashboardDefinition) BeforeCreate(tx *gorm.DB) error {
-	if err := o.validateBeforeCreate(tx); err != nil {
+	if err := o.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, o)
 }
 
-// BeforeUpdate is the GORM update hook for ObservabilityDashboardDefinition.
+// BeforeUpdate is the GORM before-update hook for ObservabilityDashboardDefinition.
 func (o *ObservabilityDashboardDefinition) BeforeUpdate(tx *gorm.DB) error {
-	if err := o.validateBeforeUpdate(tx); err != nil {
+	if err := o.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, o)
 }
 
-// BeforeDelete is the GORM delete hook for ObservabilityDashboardDefinition.
+// BeforeDelete is the GORM before-delete hook for ObservabilityDashboardDefinition.
 func (o *ObservabilityDashboardDefinition) BeforeDelete(tx *gorm.DB) error {
-	if err := o.validateBeforeDelete(tx); err != nil {
+	if err := o.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, o)
 }
 
-// BeforeCreate is the GORM create hook for ObservabilityDashboardInstance.
+// AfterCreate is the GORM after-create hook for ObservabilityDashboardDefinition.
+func (o *ObservabilityDashboardDefinition) AfterCreate(tx *gorm.DB) error {
+	if err := o.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, o)
+}
+
+// AfterUpdate is the GORM after-update hook for ObservabilityDashboardDefinition.
+func (o *ObservabilityDashboardDefinition) AfterUpdate(tx *gorm.DB) error {
+	if err := o.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, o)
+}
+
+// AfterDelete is the GORM after-delete hook for ObservabilityDashboardDefinition.
+func (o *ObservabilityDashboardDefinition) AfterDelete(tx *gorm.DB) error {
+	if err := o.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, o)
+}
+
+// BeforeCreate is the GORM before-create hook for ObservabilityDashboardInstance.
 func (o *ObservabilityDashboardInstance) BeforeCreate(tx *gorm.DB) error {
-	if err := o.validateBeforeCreate(tx); err != nil {
+	if err := o.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, o)
 }
 
-// BeforeUpdate is the GORM update hook for ObservabilityDashboardInstance.
+// BeforeUpdate is the GORM before-update hook for ObservabilityDashboardInstance.
 func (o *ObservabilityDashboardInstance) BeforeUpdate(tx *gorm.DB) error {
-	if err := o.validateBeforeUpdate(tx); err != nil {
+	if err := o.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, o)
 }
 
-// BeforeDelete is the GORM delete hook for ObservabilityDashboardInstance.
+// BeforeDelete is the GORM before-delete hook for ObservabilityDashboardInstance.
 func (o *ObservabilityDashboardInstance) BeforeDelete(tx *gorm.DB) error {
-	if err := o.validateBeforeDelete(tx); err != nil {
+	if err := o.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, o)
 }
 
-// BeforeCreate is the GORM create hook for ObservabilityStackDefinition.
+// AfterCreate is the GORM after-create hook for ObservabilityDashboardInstance.
+func (o *ObservabilityDashboardInstance) AfterCreate(tx *gorm.DB) error {
+	if err := o.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, o)
+}
+
+// AfterUpdate is the GORM after-update hook for ObservabilityDashboardInstance.
+func (o *ObservabilityDashboardInstance) AfterUpdate(tx *gorm.DB) error {
+	if err := o.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, o)
+}
+
+// AfterDelete is the GORM after-delete hook for ObservabilityDashboardInstance.
+func (o *ObservabilityDashboardInstance) AfterDelete(tx *gorm.DB) error {
+	if err := o.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, o)
+}
+
+// BeforeCreate is the GORM before-create hook for ObservabilityStackDefinition.
 func (o *ObservabilityStackDefinition) BeforeCreate(tx *gorm.DB) error {
-	if err := o.validateBeforeCreate(tx); err != nil {
+	if err := o.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, o)
 }
 
-// BeforeUpdate is the GORM update hook for ObservabilityStackDefinition.
+// BeforeUpdate is the GORM before-update hook for ObservabilityStackDefinition.
 func (o *ObservabilityStackDefinition) BeforeUpdate(tx *gorm.DB) error {
-	if err := o.validateBeforeUpdate(tx); err != nil {
+	if err := o.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, o)
 }
 
-// BeforeDelete is the GORM delete hook for ObservabilityStackDefinition.
+// BeforeDelete is the GORM before-delete hook for ObservabilityStackDefinition.
 func (o *ObservabilityStackDefinition) BeforeDelete(tx *gorm.DB) error {
-	if err := o.validateBeforeDelete(tx); err != nil {
+	if err := o.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, o)
 }
 
-// BeforeCreate is the GORM create hook for ObservabilityStackInstance.
+// AfterCreate is the GORM after-create hook for ObservabilityStackDefinition.
+func (o *ObservabilityStackDefinition) AfterCreate(tx *gorm.DB) error {
+	if err := o.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, o)
+}
+
+// AfterUpdate is the GORM after-update hook for ObservabilityStackDefinition.
+func (o *ObservabilityStackDefinition) AfterUpdate(tx *gorm.DB) error {
+	if err := o.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, o)
+}
+
+// AfterDelete is the GORM after-delete hook for ObservabilityStackDefinition.
+func (o *ObservabilityStackDefinition) AfterDelete(tx *gorm.DB) error {
+	if err := o.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, o)
+}
+
+// BeforeCreate is the GORM before-create hook for ObservabilityStackInstance.
 func (o *ObservabilityStackInstance) BeforeCreate(tx *gorm.DB) error {
-	if err := o.validateBeforeCreate(tx); err != nil {
+	if err := o.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, o)
 }
 
-// BeforeUpdate is the GORM update hook for ObservabilityStackInstance.
+// BeforeUpdate is the GORM before-update hook for ObservabilityStackInstance.
 func (o *ObservabilityStackInstance) BeforeUpdate(tx *gorm.DB) error {
-	if err := o.validateBeforeUpdate(tx); err != nil {
+	if err := o.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, o)
 }
 
-// BeforeDelete is the GORM delete hook for ObservabilityStackInstance.
+// BeforeDelete is the GORM before-delete hook for ObservabilityStackInstance.
 func (o *ObservabilityStackInstance) BeforeDelete(tx *gorm.DB) error {
-	if err := o.validateBeforeDelete(tx); err != nil {
+	if err := o.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, o)
+}
+
+// AfterCreate is the GORM after-create hook for ObservabilityStackInstance.
+func (o *ObservabilityStackInstance) AfterCreate(tx *gorm.DB) error {
+	if err := o.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, o)
+}
+
+// AfterUpdate is the GORM after-update hook for ObservabilityStackInstance.
+func (o *ObservabilityStackInstance) AfterUpdate(tx *gorm.DB) error {
+	if err := o.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, o)
+}
+
+// AfterDelete is the GORM after-delete hook for ObservabilityStackInstance.
+func (o *ObservabilityStackInstance) AfterDelete(tx *gorm.DB) error {
+	if err := o.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, o)
 }

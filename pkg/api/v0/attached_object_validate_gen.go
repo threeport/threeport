@@ -4,26 +4,50 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// BeforeCreate is the GORM create hook for AttachedObjectReference.
+// BeforeCreate is the GORM before-create hook for AttachedObjectReference.
 func (a *AttachedObjectReference) BeforeCreate(tx *gorm.DB) error {
-	if err := a.validateBeforeCreate(tx); err != nil {
+	if err := a.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, a)
 }
 
-// BeforeUpdate is the GORM update hook for AttachedObjectReference.
+// BeforeUpdate is the GORM before-update hook for AttachedObjectReference.
 func (a *AttachedObjectReference) BeforeUpdate(tx *gorm.DB) error {
-	if err := a.validateBeforeUpdate(tx); err != nil {
+	if err := a.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, a)
 }
 
-// BeforeDelete is the GORM delete hook for AttachedObjectReference.
+// BeforeDelete is the GORM before-delete hook for AttachedObjectReference.
 func (a *AttachedObjectReference) BeforeDelete(tx *gorm.DB) error {
-	if err := a.validateBeforeDelete(tx); err != nil {
+	if err := a.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, a)
+}
+
+// AfterCreate is the GORM after-create hook for AttachedObjectReference.
+func (a *AttachedObjectReference) AfterCreate(tx *gorm.DB) error {
+	if err := a.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, a)
+}
+
+// AfterUpdate is the GORM after-update hook for AttachedObjectReference.
+func (a *AttachedObjectReference) AfterUpdate(tx *gorm.DB) error {
+	if err := a.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, a)
+}
+
+// AfterDelete is the GORM after-delete hook for AttachedObjectReference.
+func (a *AttachedObjectReference) AfterDelete(tx *gorm.DB) error {
+	if err := a.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, a)
 }

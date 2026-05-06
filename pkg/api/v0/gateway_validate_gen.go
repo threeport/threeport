@@ -4,146 +4,290 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// BeforeCreate is the GORM create hook for DomainNameDefinition.
+// BeforeCreate is the GORM before-create hook for DomainNameDefinition.
 func (d *DomainNameDefinition) BeforeCreate(tx *gorm.DB) error {
-	if err := d.validateBeforeCreate(tx); err != nil {
+	if err := d.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, d)
 }
 
-// BeforeUpdate is the GORM update hook for DomainNameDefinition.
+// BeforeUpdate is the GORM before-update hook for DomainNameDefinition.
 func (d *DomainNameDefinition) BeforeUpdate(tx *gorm.DB) error {
-	if err := d.validateBeforeUpdate(tx); err != nil {
+	if err := d.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, d)
 }
 
-// BeforeDelete is the GORM delete hook for DomainNameDefinition.
+// BeforeDelete is the GORM before-delete hook for DomainNameDefinition.
 func (d *DomainNameDefinition) BeforeDelete(tx *gorm.DB) error {
-	if err := d.validateBeforeDelete(tx); err != nil {
+	if err := d.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, d)
 }
 
-// BeforeCreate is the GORM create hook for DomainNameInstance.
+// AfterCreate is the GORM after-create hook for DomainNameDefinition.
+func (d *DomainNameDefinition) AfterCreate(tx *gorm.DB) error {
+	if err := d.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, d)
+}
+
+// AfterUpdate is the GORM after-update hook for DomainNameDefinition.
+func (d *DomainNameDefinition) AfterUpdate(tx *gorm.DB) error {
+	if err := d.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, d)
+}
+
+// AfterDelete is the GORM after-delete hook for DomainNameDefinition.
+func (d *DomainNameDefinition) AfterDelete(tx *gorm.DB) error {
+	if err := d.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, d)
+}
+
+// BeforeCreate is the GORM before-create hook for DomainNameInstance.
 func (d *DomainNameInstance) BeforeCreate(tx *gorm.DB) error {
-	if err := d.validateBeforeCreate(tx); err != nil {
+	if err := d.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, d)
 }
 
-// BeforeUpdate is the GORM update hook for DomainNameInstance.
+// BeforeUpdate is the GORM before-update hook for DomainNameInstance.
 func (d *DomainNameInstance) BeforeUpdate(tx *gorm.DB) error {
-	if err := d.validateBeforeUpdate(tx); err != nil {
+	if err := d.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, d)
 }
 
-// BeforeDelete is the GORM delete hook for DomainNameInstance.
+// BeforeDelete is the GORM before-delete hook for DomainNameInstance.
 func (d *DomainNameInstance) BeforeDelete(tx *gorm.DB) error {
-	if err := d.validateBeforeDelete(tx); err != nil {
+	if err := d.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, d)
 }
 
-// BeforeCreate is the GORM create hook for GatewayDefinition.
+// AfterCreate is the GORM after-create hook for DomainNameInstance.
+func (d *DomainNameInstance) AfterCreate(tx *gorm.DB) error {
+	if err := d.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, d)
+}
+
+// AfterUpdate is the GORM after-update hook for DomainNameInstance.
+func (d *DomainNameInstance) AfterUpdate(tx *gorm.DB) error {
+	if err := d.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, d)
+}
+
+// AfterDelete is the GORM after-delete hook for DomainNameInstance.
+func (d *DomainNameInstance) AfterDelete(tx *gorm.DB) error {
+	if err := d.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, d)
+}
+
+// BeforeCreate is the GORM before-create hook for GatewayDefinition.
 func (g *GatewayDefinition) BeforeCreate(tx *gorm.DB) error {
-	if err := g.validateBeforeCreate(tx); err != nil {
+	if err := g.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, g)
 }
 
-// BeforeUpdate is the GORM update hook for GatewayDefinition.
+// BeforeUpdate is the GORM before-update hook for GatewayDefinition.
 func (g *GatewayDefinition) BeforeUpdate(tx *gorm.DB) error {
-	if err := g.validateBeforeUpdate(tx); err != nil {
+	if err := g.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, g)
 }
 
-// BeforeDelete is the GORM delete hook for GatewayDefinition.
+// BeforeDelete is the GORM before-delete hook for GatewayDefinition.
 func (g *GatewayDefinition) BeforeDelete(tx *gorm.DB) error {
-	if err := g.validateBeforeDelete(tx); err != nil {
+	if err := g.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, g)
 }
 
-// BeforeCreate is the GORM create hook for GatewayHttpPort.
+// AfterCreate is the GORM after-create hook for GatewayDefinition.
+func (g *GatewayDefinition) AfterCreate(tx *gorm.DB) error {
+	if err := g.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, g)
+}
+
+// AfterUpdate is the GORM after-update hook for GatewayDefinition.
+func (g *GatewayDefinition) AfterUpdate(tx *gorm.DB) error {
+	if err := g.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, g)
+}
+
+// AfterDelete is the GORM after-delete hook for GatewayDefinition.
+func (g *GatewayDefinition) AfterDelete(tx *gorm.DB) error {
+	if err := g.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, g)
+}
+
+// BeforeCreate is the GORM before-create hook for GatewayHttpPort.
 func (g *GatewayHttpPort) BeforeCreate(tx *gorm.DB) error {
-	if err := g.validateBeforeCreate(tx); err != nil {
+	if err := g.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, g)
 }
 
-// BeforeUpdate is the GORM update hook for GatewayHttpPort.
+// BeforeUpdate is the GORM before-update hook for GatewayHttpPort.
 func (g *GatewayHttpPort) BeforeUpdate(tx *gorm.DB) error {
-	if err := g.validateBeforeUpdate(tx); err != nil {
+	if err := g.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, g)
 }
 
-// BeforeDelete is the GORM delete hook for GatewayHttpPort.
+// BeforeDelete is the GORM before-delete hook for GatewayHttpPort.
 func (g *GatewayHttpPort) BeforeDelete(tx *gorm.DB) error {
-	if err := g.validateBeforeDelete(tx); err != nil {
+	if err := g.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, g)
 }
 
-// BeforeCreate is the GORM create hook for GatewayInstance.
+// AfterCreate is the GORM after-create hook for GatewayHttpPort.
+func (g *GatewayHttpPort) AfterCreate(tx *gorm.DB) error {
+	if err := g.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, g)
+}
+
+// AfterUpdate is the GORM after-update hook for GatewayHttpPort.
+func (g *GatewayHttpPort) AfterUpdate(tx *gorm.DB) error {
+	if err := g.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, g)
+}
+
+// AfterDelete is the GORM after-delete hook for GatewayHttpPort.
+func (g *GatewayHttpPort) AfterDelete(tx *gorm.DB) error {
+	if err := g.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, g)
+}
+
+// BeforeCreate is the GORM before-create hook for GatewayInstance.
 func (g *GatewayInstance) BeforeCreate(tx *gorm.DB) error {
-	if err := g.validateBeforeCreate(tx); err != nil {
+	if err := g.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, g)
 }
 
-// BeforeUpdate is the GORM update hook for GatewayInstance.
+// BeforeUpdate is the GORM before-update hook for GatewayInstance.
 func (g *GatewayInstance) BeforeUpdate(tx *gorm.DB) error {
-	if err := g.validateBeforeUpdate(tx); err != nil {
+	if err := g.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, g)
 }
 
-// BeforeDelete is the GORM delete hook for GatewayInstance.
+// BeforeDelete is the GORM before-delete hook for GatewayInstance.
 func (g *GatewayInstance) BeforeDelete(tx *gorm.DB) error {
-	if err := g.validateBeforeDelete(tx); err != nil {
+	if err := g.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, g)
 }
 
-// BeforeCreate is the GORM create hook for GatewayTcpPort.
+// AfterCreate is the GORM after-create hook for GatewayInstance.
+func (g *GatewayInstance) AfterCreate(tx *gorm.DB) error {
+	if err := g.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, g)
+}
+
+// AfterUpdate is the GORM after-update hook for GatewayInstance.
+func (g *GatewayInstance) AfterUpdate(tx *gorm.DB) error {
+	if err := g.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, g)
+}
+
+// AfterDelete is the GORM after-delete hook for GatewayInstance.
+func (g *GatewayInstance) AfterDelete(tx *gorm.DB) error {
+	if err := g.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, g)
+}
+
+// BeforeCreate is the GORM before-create hook for GatewayTcpPort.
 func (g *GatewayTcpPort) BeforeCreate(tx *gorm.DB) error {
-	if err := g.validateBeforeCreate(tx); err != nil {
+	if err := g.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, g)
 }
 
-// BeforeUpdate is the GORM update hook for GatewayTcpPort.
+// BeforeUpdate is the GORM before-update hook for GatewayTcpPort.
 func (g *GatewayTcpPort) BeforeUpdate(tx *gorm.DB) error {
-	if err := g.validateBeforeUpdate(tx); err != nil {
+	if err := g.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, g)
 }
 
-// BeforeDelete is the GORM delete hook for GatewayTcpPort.
+// BeforeDelete is the GORM before-delete hook for GatewayTcpPort.
 func (g *GatewayTcpPort) BeforeDelete(tx *gorm.DB) error {
-	if err := g.validateBeforeDelete(tx); err != nil {
+	if err := g.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, g)
+}
+
+// AfterCreate is the GORM after-create hook for GatewayTcpPort.
+func (g *GatewayTcpPort) AfterCreate(tx *gorm.DB) error {
+	if err := g.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, g)
+}
+
+// AfterUpdate is the GORM after-update hook for GatewayTcpPort.
+func (g *GatewayTcpPort) AfterUpdate(tx *gorm.DB) error {
+	if err := g.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, g)
+}
+
+// AfterDelete is the GORM after-delete hook for GatewayTcpPort.
+func (g *GatewayTcpPort) AfterDelete(tx *gorm.DB) error {
+	if err := g.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, g)
 }

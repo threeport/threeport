@@ -32,10 +32,10 @@ func SupportedInfraProviders() []KubernetesRuntimeInfraProvider {
 	}
 }
 
-// validateBeforeCreate validates the KubernetesRuntimeDefinition before create.
+// beforeCreate validates the KubernetesRuntimeDefinition before create.
 //
 // Why: InfraProvider must be one of the values returned by SupportedInfraProviders.
-func (k *KubernetesRuntimeDefinition) validateBeforeCreate(tx *gorm.DB) error {
+func (k *KubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 	infraProviders := SupportedInfraProviders()
 	for _, provider := range infraProviders {
 		if *k.InfraProvider == string(provider) {
@@ -50,11 +50,11 @@ func (k *KubernetesRuntimeDefinition) validateBeforeCreate(tx *gorm.DB) error {
 	)
 }
 
-// validateBeforeUpdate validates the KubernetesRuntimeDefinition before update.
+// beforeUpdate validates the KubernetesRuntimeDefinition before update.
 //
 // Why: InfraProvider and HighAvailability are immutable; changing either
 // would orphan existing infrastructure.
-func (k *KubernetesRuntimeDefinition) validateBeforeUpdate(tx *gorm.DB) error {
+func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	if tx.Statement.Changed("InfraProvider") {
 		return util.NewBadRequestError(
 			"kubernetes runtime definition infra provider cannot be changed after creation",
@@ -68,15 +68,15 @@ func (k *KubernetesRuntimeDefinition) validateBeforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the KubernetesRuntimeDefinition before delete.
-func (k *KubernetesRuntimeDefinition) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete validates the KubernetesRuntimeDefinition before delete.
+func (k *KubernetesRuntimeDefinition) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the KubernetesRuntimeInstance before create.
+// beforeCreate validates the KubernetesRuntimeInstance before create.
 //
 // Why: Location must be one supported by the runtime mapping.
-func (k *KubernetesRuntimeInstance) validateBeforeCreate(tx *gorm.DB) error {
+func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 	if !mapping.ValidLocation(*k.Location) {
 		return util.NewBadRequestError(
 			fmt.Sprintf(
@@ -88,10 +88,10 @@ func (k *KubernetesRuntimeInstance) validateBeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the KubernetesRuntimeInstance before update.
+// beforeUpdate validates the KubernetesRuntimeInstance before update.
 //
 // Why: Location is immutable. Moving a runtime instance would orphan its cluster.
-func (k *KubernetesRuntimeInstance) validateBeforeUpdate(tx *gorm.DB) error {
+func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 	if tx.Statement.Changed("Location") {
 		return util.NewBadRequestError(
 			fmt.Sprintf(
@@ -103,11 +103,11 @@ func (k *KubernetesRuntimeInstance) validateBeforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the KubernetesRuntimeInstance before delete.
+// beforeDelete validates the KubernetesRuntimeInstance before delete.
 //
 // Why: a runtime instance may not be removed while any workload instance still
 // references it. Returns 400 with the requirement to remove dependents first.
-func (k *KubernetesRuntimeInstance) validateBeforeDelete(tx *gorm.DB) error {
+func (k *KubernetesRuntimeInstance) beforeDelete(tx *gorm.DB) error {
 	var workloadInstances []WorkloadInstance
 	if result := tx.Where(
 		&WorkloadInstance{KubernetesRuntimeInstanceID: k.ID},
@@ -127,5 +127,35 @@ func (k *KubernetesRuntimeInstance) validateBeforeDelete(tx *gorm.DB) error {
 		)
 	}
 
+	return nil
+}
+
+// afterCreate runs after the KubernetesRuntimeDefinition is created.
+func (k *KubernetesRuntimeDefinition) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the KubernetesRuntimeDefinition is updated.
+func (k *KubernetesRuntimeDefinition) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the KubernetesRuntimeDefinition is deleted.
+func (k *KubernetesRuntimeDefinition) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the KubernetesRuntimeInstance is created.
+func (k *KubernetesRuntimeInstance) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the KubernetesRuntimeInstance is updated.
+func (k *KubernetesRuntimeInstance) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the KubernetesRuntimeInstance is deleted.
+func (k *KubernetesRuntimeInstance) afterDelete(tx *gorm.DB) error {
 	return nil
 }

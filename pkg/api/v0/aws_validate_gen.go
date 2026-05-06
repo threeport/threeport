@@ -4,74 +4,146 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// BeforeCreate is the GORM create hook for AwsEksKubernetesRuntimeDefinition.
+// BeforeCreate is the GORM before-create hook for AwsEksKubernetesRuntimeDefinition.
 func (a *AwsEksKubernetesRuntimeDefinition) BeforeCreate(tx *gorm.DB) error {
-	if err := a.validateBeforeCreate(tx); err != nil {
+	if err := a.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, a)
 }
 
-// BeforeUpdate is the GORM update hook for AwsEksKubernetesRuntimeDefinition.
+// BeforeUpdate is the GORM before-update hook for AwsEksKubernetesRuntimeDefinition.
 func (a *AwsEksKubernetesRuntimeDefinition) BeforeUpdate(tx *gorm.DB) error {
-	if err := a.validateBeforeUpdate(tx); err != nil {
+	if err := a.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, a)
 }
 
-// BeforeDelete is the GORM delete hook for AwsEksKubernetesRuntimeDefinition.
+// BeforeDelete is the GORM before-delete hook for AwsEksKubernetesRuntimeDefinition.
 func (a *AwsEksKubernetesRuntimeDefinition) BeforeDelete(tx *gorm.DB) error {
-	if err := a.validateBeforeDelete(tx); err != nil {
+	if err := a.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, a)
 }
 
-// BeforeCreate is the GORM create hook for AwsEksKubernetesRuntimeInstance.
+// AfterCreate is the GORM after-create hook for AwsEksKubernetesRuntimeDefinition.
+func (a *AwsEksKubernetesRuntimeDefinition) AfterCreate(tx *gorm.DB) error {
+	if err := a.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, a)
+}
+
+// AfterUpdate is the GORM after-update hook for AwsEksKubernetesRuntimeDefinition.
+func (a *AwsEksKubernetesRuntimeDefinition) AfterUpdate(tx *gorm.DB) error {
+	if err := a.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, a)
+}
+
+// AfterDelete is the GORM after-delete hook for AwsEksKubernetesRuntimeDefinition.
+func (a *AwsEksKubernetesRuntimeDefinition) AfterDelete(tx *gorm.DB) error {
+	if err := a.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, a)
+}
+
+// BeforeCreate is the GORM before-create hook for AwsEksKubernetesRuntimeInstance.
 func (a *AwsEksKubernetesRuntimeInstance) BeforeCreate(tx *gorm.DB) error {
-	if err := a.validateBeforeCreate(tx); err != nil {
+	if err := a.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, a)
 }
 
-// BeforeUpdate is the GORM update hook for AwsEksKubernetesRuntimeInstance.
+// BeforeUpdate is the GORM before-update hook for AwsEksKubernetesRuntimeInstance.
 func (a *AwsEksKubernetesRuntimeInstance) BeforeUpdate(tx *gorm.DB) error {
-	if err := a.validateBeforeUpdate(tx); err != nil {
+	if err := a.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, a)
 }
 
-// BeforeDelete is the GORM delete hook for AwsEksKubernetesRuntimeInstance.
+// BeforeDelete is the GORM before-delete hook for AwsEksKubernetesRuntimeInstance.
 func (a *AwsEksKubernetesRuntimeInstance) BeforeDelete(tx *gorm.DB) error {
-	if err := a.validateBeforeDelete(tx); err != nil {
+	if err := a.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, a)
 }
 
-// BeforeCreate is the GORM create hook for AwsProvider.
+// AfterCreate is the GORM after-create hook for AwsEksKubernetesRuntimeInstance.
+func (a *AwsEksKubernetesRuntimeInstance) AfterCreate(tx *gorm.DB) error {
+	if err := a.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, a)
+}
+
+// AfterUpdate is the GORM after-update hook for AwsEksKubernetesRuntimeInstance.
+func (a *AwsEksKubernetesRuntimeInstance) AfterUpdate(tx *gorm.DB) error {
+	if err := a.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, a)
+}
+
+// AfterDelete is the GORM after-delete hook for AwsEksKubernetesRuntimeInstance.
+func (a *AwsEksKubernetesRuntimeInstance) AfterDelete(tx *gorm.DB) error {
+	if err := a.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, a)
+}
+
+// BeforeCreate is the GORM before-create hook for AwsProvider.
 func (a *AwsProvider) BeforeCreate(tx *gorm.DB) error {
-	if err := a.validateBeforeCreate(tx); err != nil {
+	if err := a.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, a)
 }
 
-// BeforeUpdate is the GORM update hook for AwsProvider.
+// BeforeUpdate is the GORM before-update hook for AwsProvider.
 func (a *AwsProvider) BeforeUpdate(tx *gorm.DB) error {
-	if err := a.validateBeforeUpdate(tx); err != nil {
+	if err := a.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, a)
 }
 
-// BeforeDelete is the GORM delete hook for AwsProvider.
+// BeforeDelete is the GORM before-delete hook for AwsProvider.
 func (a *AwsProvider) BeforeDelete(tx *gorm.DB) error {
-	if err := a.validateBeforeDelete(tx); err != nil {
+	if err := a.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, a)
+}
+
+// AfterCreate is the GORM after-create hook for AwsProvider.
+func (a *AwsProvider) AfterCreate(tx *gorm.DB) error {
+	if err := a.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, a)
+}
+
+// AfterUpdate is the GORM after-update hook for AwsProvider.
+func (a *AwsProvider) AfterUpdate(tx *gorm.DB) error {
+	if err := a.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, a)
+}
+
+// AfterDelete is the GORM after-delete hook for AwsProvider.
+func (a *AwsProvider) AfterDelete(tx *gorm.DB) error {
+	if err := a.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, a)
 }

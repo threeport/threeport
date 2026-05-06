@@ -4,77 +4,152 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// validateBeforeCreate validates the WorkloadDefinition before create.
-func (w *WorkloadDefinition) validateBeforeCreate(tx *gorm.DB) error {
+// beforeCreate runs before the WorkloadDefinition is created.
+func (w *WorkloadDefinition) beforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the WorkloadDefinition before update.
-func (w *WorkloadDefinition) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate runs before the WorkloadDefinition is updated.
+func (w *WorkloadDefinition) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the WorkloadDefinition before delete.
-func (w *WorkloadDefinition) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete runs before the WorkloadDefinition is deleted.
+func (w *WorkloadDefinition) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the WorkloadEvent before create.
-func (w *WorkloadEvent) validateBeforeCreate(tx *gorm.DB) error {
+// afterCreate runs after the WorkloadDefinition is created.
+func (w *WorkloadDefinition) afterCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the WorkloadEvent before update.
-func (w *WorkloadEvent) validateBeforeUpdate(tx *gorm.DB) error {
+// afterUpdate runs after the WorkloadDefinition is updated.
+func (w *WorkloadDefinition) afterUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the WorkloadEvent before delete.
-func (w *WorkloadEvent) validateBeforeDelete(tx *gorm.DB) error {
+// afterDelete runs after the WorkloadDefinition is deleted.
+func (w *WorkloadDefinition) afterDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the WorkloadInstance before create.
-func (w *WorkloadInstance) validateBeforeCreate(tx *gorm.DB) error {
+// beforeCreate runs before the WorkloadEvent is created.
+func (w *WorkloadEvent) beforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the WorkloadInstance before update.
-func (w *WorkloadInstance) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate runs before the WorkloadEvent is updated.
+func (w *WorkloadEvent) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the WorkloadInstance before delete.
-func (w *WorkloadInstance) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete runs before the WorkloadEvent is deleted.
+func (w *WorkloadEvent) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the WorkloadResourceDefinition before create.
-func (w *WorkloadResourceDefinition) validateBeforeCreate(tx *gorm.DB) error {
+// afterCreate runs after the WorkloadEvent is created.
+func (w *WorkloadEvent) afterCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the WorkloadResourceDefinition before update.
-func (w *WorkloadResourceDefinition) validateBeforeUpdate(tx *gorm.DB) error {
+// afterUpdate runs after the WorkloadEvent is updated.
+func (w *WorkloadEvent) afterUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the WorkloadResourceDefinition before delete.
-func (w *WorkloadResourceDefinition) validateBeforeDelete(tx *gorm.DB) error {
+// afterDelete runs after the WorkloadEvent is deleted.
+func (w *WorkloadEvent) afterDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the WorkloadResourceInstance before create.
-func (w *WorkloadResourceInstance) validateBeforeCreate(tx *gorm.DB) error {
+// beforeCreate runs before the WorkloadInstance is created.
+func (w *WorkloadInstance) beforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the WorkloadResourceInstance before update.
-func (w *WorkloadResourceInstance) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate runs before the WorkloadInstance is updated.
+func (w *WorkloadInstance) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the WorkloadResourceInstance before delete.
-func (w *WorkloadResourceInstance) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete runs before the WorkloadInstance is deleted.
+func (w *WorkloadInstance) beforeDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the WorkloadInstance is created.
+func (w *WorkloadInstance) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the WorkloadInstance is updated.
+func (w *WorkloadInstance) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the WorkloadInstance is deleted.
+func (w *WorkloadInstance) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeCreate runs before the WorkloadResourceDefinition is created.
+func (w *WorkloadResourceDefinition) beforeCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeUpdate runs before the WorkloadResourceDefinition is updated.
+func (w *WorkloadResourceDefinition) beforeUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeDelete runs before the WorkloadResourceDefinition is deleted.
+func (w *WorkloadResourceDefinition) beforeDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the WorkloadResourceDefinition is created.
+func (w *WorkloadResourceDefinition) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the WorkloadResourceDefinition is updated.
+func (w *WorkloadResourceDefinition) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the WorkloadResourceDefinition is deleted.
+func (w *WorkloadResourceDefinition) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeCreate runs before the WorkloadResourceInstance is created.
+func (w *WorkloadResourceInstance) beforeCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeUpdate runs before the WorkloadResourceInstance is updated.
+func (w *WorkloadResourceInstance) beforeUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeDelete runs before the WorkloadResourceInstance is deleted.
+func (w *WorkloadResourceInstance) beforeDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the WorkloadResourceInstance is created.
+func (w *WorkloadResourceInstance) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the WorkloadResourceInstance is updated.
+func (w *WorkloadResourceInstance) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the WorkloadResourceInstance is deleted.
+func (w *WorkloadResourceInstance) afterDelete(tx *gorm.DB) error {
 	return nil
 }

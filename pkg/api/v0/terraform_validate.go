@@ -6,32 +6,62 @@ import (
 	"gorm.io/gorm"
 )
 
-// validateBeforeCreate validates the TerraformDefinition before create.
-func (t *TerraformDefinition) validateBeforeCreate(tx *gorm.DB) error {
+// beforeCreate validates the TerraformDefinition before create.
+func (t *TerraformDefinition) beforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the TerraformDefinition before update.
-func (t *TerraformDefinition) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate validates the TerraformDefinition before update.
+func (t *TerraformDefinition) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the TerraformDefinition before delete.
-func (t *TerraformDefinition) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete validates the TerraformDefinition before delete.
+func (t *TerraformDefinition) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the TerraformInstance before create.
-func (t *TerraformInstance) validateBeforeCreate(tx *gorm.DB) error {
+// beforeCreate validates the TerraformInstance before create.
+func (t *TerraformInstance) beforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the TerraformInstance before update.
-func (t *TerraformInstance) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate validates the TerraformInstance before update.
+func (t *TerraformInstance) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the TerraformInstance before delete.
-func (t *TerraformInstance) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete validates the TerraformInstance before delete.
+func (t *TerraformInstance) beforeDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the TerraformDefinition is created.
+func (t *TerraformDefinition) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the TerraformDefinition is updated.
+func (t *TerraformDefinition) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the TerraformDefinition is deleted.
+func (t *TerraformDefinition) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the TerraformInstance is created.
+func (t *TerraformInstance) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the TerraformInstance is updated.
+func (t *TerraformInstance) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the TerraformInstance is deleted.
+func (t *TerraformInstance) afterDelete(tx *gorm.DB) error {
 	return nil
 }

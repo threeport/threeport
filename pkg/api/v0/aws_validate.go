@@ -10,12 +10,12 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// validateBeforeCreate validates the AwsProvider before create.
+// beforeCreate validates the AwsProvider before create.
 //
 // Why: AccessKeyID and SecretAccessKey must be set together (or neither),
 // and a per-account ExternalId is generated for use in cross-account
 // assume-role trust policies.
-func (a *AwsProvider) validateBeforeCreate(tx *gorm.DB) error {
+func (a *AwsProvider) beforeCreate(tx *gorm.DB) error {
 	accessKeyIDSet := a.AccessKeyID != nil && *a.AccessKeyID != ""
 	secretAccessKeySet := a.SecretAccessKey != nil && *a.SecretAccessKey != ""
 	if accessKeyIDSet != secretAccessKeySet {
@@ -31,42 +31,87 @@ func (a *AwsProvider) validateBeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the AwsProvider before update.
-func (a *AwsProvider) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate validates the AwsProvider before update.
+func (a *AwsProvider) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the AwsProvider before delete.
-func (a *AwsProvider) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete validates the AwsProvider before delete.
+func (a *AwsProvider) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the AwsEksKubernetesRuntimeDefinition before create.
-func (a *AwsEksKubernetesRuntimeDefinition) validateBeforeCreate(tx *gorm.DB) error {
+// beforeCreate validates the AwsEksKubernetesRuntimeDefinition before create.
+func (a *AwsEksKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the AwsEksKubernetesRuntimeDefinition before update.
-func (a *AwsEksKubernetesRuntimeDefinition) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate validates the AwsEksKubernetesRuntimeDefinition before update.
+func (a *AwsEksKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the AwsEksKubernetesRuntimeDefinition before delete.
-func (a *AwsEksKubernetesRuntimeDefinition) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete validates the AwsEksKubernetesRuntimeDefinition before delete.
+func (a *AwsEksKubernetesRuntimeDefinition) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the AwsEksKubernetesRuntimeInstance before create.
-func (a *AwsEksKubernetesRuntimeInstance) validateBeforeCreate(tx *gorm.DB) error {
+// beforeCreate validates the AwsEksKubernetesRuntimeInstance before create.
+func (a *AwsEksKubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the AwsEksKubernetesRuntimeInstance before update.
-func (a *AwsEksKubernetesRuntimeInstance) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate validates the AwsEksKubernetesRuntimeInstance before update.
+func (a *AwsEksKubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the AwsEksKubernetesRuntimeInstance before delete.
-func (a *AwsEksKubernetesRuntimeInstance) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete validates the AwsEksKubernetesRuntimeInstance before delete.
+func (a *AwsEksKubernetesRuntimeInstance) beforeDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the AwsProvider is created.
+func (a *AwsProvider) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the AwsProvider is updated.
+func (a *AwsProvider) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the AwsProvider is deleted.
+func (a *AwsProvider) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the AwsEksKubernetesRuntimeDefinition is created.
+func (a *AwsEksKubernetesRuntimeDefinition) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the AwsEksKubernetesRuntimeDefinition is updated.
+func (a *AwsEksKubernetesRuntimeDefinition) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the AwsEksKubernetesRuntimeDefinition is deleted.
+func (a *AwsEksKubernetesRuntimeDefinition) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the AwsEksKubernetesRuntimeInstance is created.
+func (a *AwsEksKubernetesRuntimeInstance) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the AwsEksKubernetesRuntimeInstance is updated.
+func (a *AwsEksKubernetesRuntimeInstance) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the AwsEksKubernetesRuntimeInstance is deleted.
+func (a *AwsEksKubernetesRuntimeInstance) afterDelete(tx *gorm.DB) error {
 	return nil
 }

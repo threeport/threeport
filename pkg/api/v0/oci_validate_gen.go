@@ -4,74 +4,146 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// BeforeCreate is the GORM create hook for OciOkeKubernetesRuntimeDefinition.
+// BeforeCreate is the GORM before-create hook for OciOkeKubernetesRuntimeDefinition.
 func (o *OciOkeKubernetesRuntimeDefinition) BeforeCreate(tx *gorm.DB) error {
-	if err := o.validateBeforeCreate(tx); err != nil {
+	if err := o.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, o)
 }
 
-// BeforeUpdate is the GORM update hook for OciOkeKubernetesRuntimeDefinition.
+// BeforeUpdate is the GORM before-update hook for OciOkeKubernetesRuntimeDefinition.
 func (o *OciOkeKubernetesRuntimeDefinition) BeforeUpdate(tx *gorm.DB) error {
-	if err := o.validateBeforeUpdate(tx); err != nil {
+	if err := o.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, o)
 }
 
-// BeforeDelete is the GORM delete hook for OciOkeKubernetesRuntimeDefinition.
+// BeforeDelete is the GORM before-delete hook for OciOkeKubernetesRuntimeDefinition.
 func (o *OciOkeKubernetesRuntimeDefinition) BeforeDelete(tx *gorm.DB) error {
-	if err := o.validateBeforeDelete(tx); err != nil {
+	if err := o.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, o)
 }
 
-// BeforeCreate is the GORM create hook for OciOkeKubernetesRuntimeInstance.
+// AfterCreate is the GORM after-create hook for OciOkeKubernetesRuntimeDefinition.
+func (o *OciOkeKubernetesRuntimeDefinition) AfterCreate(tx *gorm.DB) error {
+	if err := o.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, o)
+}
+
+// AfterUpdate is the GORM after-update hook for OciOkeKubernetesRuntimeDefinition.
+func (o *OciOkeKubernetesRuntimeDefinition) AfterUpdate(tx *gorm.DB) error {
+	if err := o.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, o)
+}
+
+// AfterDelete is the GORM after-delete hook for OciOkeKubernetesRuntimeDefinition.
+func (o *OciOkeKubernetesRuntimeDefinition) AfterDelete(tx *gorm.DB) error {
+	if err := o.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, o)
+}
+
+// BeforeCreate is the GORM before-create hook for OciOkeKubernetesRuntimeInstance.
 func (o *OciOkeKubernetesRuntimeInstance) BeforeCreate(tx *gorm.DB) error {
-	if err := o.validateBeforeCreate(tx); err != nil {
+	if err := o.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, o)
 }
 
-// BeforeUpdate is the GORM update hook for OciOkeKubernetesRuntimeInstance.
+// BeforeUpdate is the GORM before-update hook for OciOkeKubernetesRuntimeInstance.
 func (o *OciOkeKubernetesRuntimeInstance) BeforeUpdate(tx *gorm.DB) error {
-	if err := o.validateBeforeUpdate(tx); err != nil {
+	if err := o.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, o)
 }
 
-// BeforeDelete is the GORM delete hook for OciOkeKubernetesRuntimeInstance.
+// BeforeDelete is the GORM before-delete hook for OciOkeKubernetesRuntimeInstance.
 func (o *OciOkeKubernetesRuntimeInstance) BeforeDelete(tx *gorm.DB) error {
-	if err := o.validateBeforeDelete(tx); err != nil {
+	if err := o.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, o)
 }
 
-// BeforeCreate is the GORM create hook for OciProvider.
+// AfterCreate is the GORM after-create hook for OciOkeKubernetesRuntimeInstance.
+func (o *OciOkeKubernetesRuntimeInstance) AfterCreate(tx *gorm.DB) error {
+	if err := o.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, o)
+}
+
+// AfterUpdate is the GORM after-update hook for OciOkeKubernetesRuntimeInstance.
+func (o *OciOkeKubernetesRuntimeInstance) AfterUpdate(tx *gorm.DB) error {
+	if err := o.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, o)
+}
+
+// AfterDelete is the GORM after-delete hook for OciOkeKubernetesRuntimeInstance.
+func (o *OciOkeKubernetesRuntimeInstance) AfterDelete(tx *gorm.DB) error {
+	if err := o.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, o)
+}
+
+// BeforeCreate is the GORM before-create hook for OciProvider.
 func (o *OciProvider) BeforeCreate(tx *gorm.DB) error {
-	if err := o.validateBeforeCreate(tx); err != nil {
+	if err := o.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, o)
 }
 
-// BeforeUpdate is the GORM update hook for OciProvider.
+// BeforeUpdate is the GORM before-update hook for OciProvider.
 func (o *OciProvider) BeforeUpdate(tx *gorm.DB) error {
-	if err := o.validateBeforeUpdate(tx); err != nil {
+	if err := o.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, o)
 }
 
-// BeforeDelete is the GORM delete hook for OciProvider.
+// BeforeDelete is the GORM before-delete hook for OciProvider.
 func (o *OciProvider) BeforeDelete(tx *gorm.DB) error {
-	if err := o.validateBeforeDelete(tx); err != nil {
+	if err := o.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, o)
+}
+
+// AfterCreate is the GORM after-create hook for OciProvider.
+func (o *OciProvider) AfterCreate(tx *gorm.DB) error {
+	if err := o.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, o)
+}
+
+// AfterUpdate is the GORM after-update hook for OciProvider.
+func (o *OciProvider) AfterUpdate(tx *gorm.DB) error {
+	if err := o.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, o)
+}
+
+// AfterDelete is the GORM after-delete hook for OciProvider.
+func (o *OciProvider) AfterDelete(tx *gorm.DB) error {
+	if err := o.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, o)
 }

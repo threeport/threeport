@@ -4,26 +4,50 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// BeforeCreate is the GORM create hook for Event.
+// BeforeCreate is the GORM before-create hook for Event.
 func (e *Event) BeforeCreate(tx *gorm.DB) error {
-	if err := e.validateBeforeCreate(tx); err != nil {
+	if err := e.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, e)
 }
 
-// BeforeUpdate is the GORM update hook for Event.
+// BeforeUpdate is the GORM before-update hook for Event.
 func (e *Event) BeforeUpdate(tx *gorm.DB) error {
-	if err := e.validateBeforeUpdate(tx); err != nil {
+	if err := e.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, e)
 }
 
-// BeforeDelete is the GORM delete hook for Event.
+// BeforeDelete is the GORM before-delete hook for Event.
 func (e *Event) BeforeDelete(tx *gorm.DB) error {
-	if err := e.validateBeforeDelete(tx); err != nil {
+	if err := e.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, e)
+}
+
+// AfterCreate is the GORM after-create hook for Event.
+func (e *Event) AfterCreate(tx *gorm.DB) error {
+	if err := e.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, e)
+}
+
+// AfterUpdate is the GORM after-update hook for Event.
+func (e *Event) AfterUpdate(tx *gorm.DB) error {
+	if err := e.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, e)
+}
+
+// AfterDelete is the GORM after-delete hook for Event.
+func (e *Event) AfterDelete(tx *gorm.DB) error {
+	if err := e.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, e)
 }

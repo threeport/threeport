@@ -4,32 +4,62 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// validateBeforeCreate validates the HelmWorkloadDefinition before create.
-func (h *HelmWorkloadDefinition) validateBeforeCreate(tx *gorm.DB) error {
+// beforeCreate runs before the HelmWorkloadDefinition is created.
+func (h *HelmWorkloadDefinition) beforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the HelmWorkloadDefinition before update.
-func (h *HelmWorkloadDefinition) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate runs before the HelmWorkloadDefinition is updated.
+func (h *HelmWorkloadDefinition) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the HelmWorkloadDefinition before delete.
-func (h *HelmWorkloadDefinition) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete runs before the HelmWorkloadDefinition is deleted.
+func (h *HelmWorkloadDefinition) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the HelmWorkloadInstance before create.
-func (h *HelmWorkloadInstance) validateBeforeCreate(tx *gorm.DB) error {
+// afterCreate runs after the HelmWorkloadDefinition is created.
+func (h *HelmWorkloadDefinition) afterCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the HelmWorkloadInstance before update.
-func (h *HelmWorkloadInstance) validateBeforeUpdate(tx *gorm.DB) error {
+// afterUpdate runs after the HelmWorkloadDefinition is updated.
+func (h *HelmWorkloadDefinition) afterUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the HelmWorkloadInstance before delete.
-func (h *HelmWorkloadInstance) validateBeforeDelete(tx *gorm.DB) error {
+// afterDelete runs after the HelmWorkloadDefinition is deleted.
+func (h *HelmWorkloadDefinition) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeCreate runs before the HelmWorkloadInstance is created.
+func (h *HelmWorkloadInstance) beforeCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeUpdate runs before the HelmWorkloadInstance is updated.
+func (h *HelmWorkloadInstance) beforeUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeDelete runs before the HelmWorkloadInstance is deleted.
+func (h *HelmWorkloadInstance) beforeDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the HelmWorkloadInstance is created.
+func (h *HelmWorkloadInstance) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the HelmWorkloadInstance is updated.
+func (h *HelmWorkloadInstance) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the HelmWorkloadInstance is deleted.
+func (h *HelmWorkloadInstance) afterDelete(tx *gorm.DB) error {
 	return nil
 }

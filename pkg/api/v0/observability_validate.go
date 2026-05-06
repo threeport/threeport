@@ -4,122 +4,242 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// validateBeforeCreate validates the LoggingDefinition before create.
-func (l *LoggingDefinition) validateBeforeCreate(tx *gorm.DB) error {
+// beforeCreate runs before the LoggingDefinition is created.
+func (l *LoggingDefinition) beforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the LoggingDefinition before update.
-func (l *LoggingDefinition) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate runs before the LoggingDefinition is updated.
+func (l *LoggingDefinition) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the LoggingDefinition before delete.
-func (l *LoggingDefinition) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete runs before the LoggingDefinition is deleted.
+func (l *LoggingDefinition) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the LoggingInstance before create.
-func (l *LoggingInstance) validateBeforeCreate(tx *gorm.DB) error {
+// afterCreate runs after the LoggingDefinition is created.
+func (l *LoggingDefinition) afterCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the LoggingInstance before update.
-func (l *LoggingInstance) validateBeforeUpdate(tx *gorm.DB) error {
+// afterUpdate runs after the LoggingDefinition is updated.
+func (l *LoggingDefinition) afterUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the LoggingInstance before delete.
-func (l *LoggingInstance) validateBeforeDelete(tx *gorm.DB) error {
+// afterDelete runs after the LoggingDefinition is deleted.
+func (l *LoggingDefinition) afterDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the MetricsDefinition before create.
-func (m *MetricsDefinition) validateBeforeCreate(tx *gorm.DB) error {
+// beforeCreate runs before the LoggingInstance is created.
+func (l *LoggingInstance) beforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the MetricsDefinition before update.
-func (m *MetricsDefinition) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate runs before the LoggingInstance is updated.
+func (l *LoggingInstance) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the MetricsDefinition before delete.
-func (m *MetricsDefinition) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete runs before the LoggingInstance is deleted.
+func (l *LoggingInstance) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the MetricsInstance before create.
-func (m *MetricsInstance) validateBeforeCreate(tx *gorm.DB) error {
+// afterCreate runs after the LoggingInstance is created.
+func (l *LoggingInstance) afterCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the MetricsInstance before update.
-func (m *MetricsInstance) validateBeforeUpdate(tx *gorm.DB) error {
+// afterUpdate runs after the LoggingInstance is updated.
+func (l *LoggingInstance) afterUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the MetricsInstance before delete.
-func (m *MetricsInstance) validateBeforeDelete(tx *gorm.DB) error {
+// afterDelete runs after the LoggingInstance is deleted.
+func (l *LoggingInstance) afterDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the ObservabilityDashboardDefinition before create.
-func (o *ObservabilityDashboardDefinition) validateBeforeCreate(tx *gorm.DB) error {
+// beforeCreate runs before the MetricsDefinition is created.
+func (m *MetricsDefinition) beforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the ObservabilityDashboardDefinition before update.
-func (o *ObservabilityDashboardDefinition) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate runs before the MetricsDefinition is updated.
+func (m *MetricsDefinition) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the ObservabilityDashboardDefinition before delete.
-func (o *ObservabilityDashboardDefinition) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete runs before the MetricsDefinition is deleted.
+func (m *MetricsDefinition) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the ObservabilityDashboardInstance before create.
-func (o *ObservabilityDashboardInstance) validateBeforeCreate(tx *gorm.DB) error {
+// afterCreate runs after the MetricsDefinition is created.
+func (m *MetricsDefinition) afterCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the ObservabilityDashboardInstance before update.
-func (o *ObservabilityDashboardInstance) validateBeforeUpdate(tx *gorm.DB) error {
+// afterUpdate runs after the MetricsDefinition is updated.
+func (m *MetricsDefinition) afterUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the ObservabilityDashboardInstance before delete.
-func (o *ObservabilityDashboardInstance) validateBeforeDelete(tx *gorm.DB) error {
+// afterDelete runs after the MetricsDefinition is deleted.
+func (m *MetricsDefinition) afterDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the ObservabilityStackDefinition before create.
-func (o *ObservabilityStackDefinition) validateBeforeCreate(tx *gorm.DB) error {
+// beforeCreate runs before the MetricsInstance is created.
+func (m *MetricsInstance) beforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the ObservabilityStackDefinition before update.
-func (o *ObservabilityStackDefinition) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate runs before the MetricsInstance is updated.
+func (m *MetricsInstance) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the ObservabilityStackDefinition before delete.
-func (o *ObservabilityStackDefinition) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete runs before the MetricsInstance is deleted.
+func (m *MetricsInstance) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the ObservabilityStackInstance before create.
-func (o *ObservabilityStackInstance) validateBeforeCreate(tx *gorm.DB) error {
+// afterCreate runs after the MetricsInstance is created.
+func (m *MetricsInstance) afterCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the ObservabilityStackInstance before update.
-func (o *ObservabilityStackInstance) validateBeforeUpdate(tx *gorm.DB) error {
+// afterUpdate runs after the MetricsInstance is updated.
+func (m *MetricsInstance) afterUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the ObservabilityStackInstance before delete.
-func (o *ObservabilityStackInstance) validateBeforeDelete(tx *gorm.DB) error {
+// afterDelete runs after the MetricsInstance is deleted.
+func (m *MetricsInstance) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeCreate runs before the ObservabilityDashboardDefinition is created.
+func (o *ObservabilityDashboardDefinition) beforeCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeUpdate runs before the ObservabilityDashboardDefinition is updated.
+func (o *ObservabilityDashboardDefinition) beforeUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeDelete runs before the ObservabilityDashboardDefinition is deleted.
+func (o *ObservabilityDashboardDefinition) beforeDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the ObservabilityDashboardDefinition is created.
+func (o *ObservabilityDashboardDefinition) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the ObservabilityDashboardDefinition is updated.
+func (o *ObservabilityDashboardDefinition) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the ObservabilityDashboardDefinition is deleted.
+func (o *ObservabilityDashboardDefinition) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeCreate runs before the ObservabilityDashboardInstance is created.
+func (o *ObservabilityDashboardInstance) beforeCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeUpdate runs before the ObservabilityDashboardInstance is updated.
+func (o *ObservabilityDashboardInstance) beforeUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeDelete runs before the ObservabilityDashboardInstance is deleted.
+func (o *ObservabilityDashboardInstance) beforeDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the ObservabilityDashboardInstance is created.
+func (o *ObservabilityDashboardInstance) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the ObservabilityDashboardInstance is updated.
+func (o *ObservabilityDashboardInstance) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the ObservabilityDashboardInstance is deleted.
+func (o *ObservabilityDashboardInstance) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeCreate runs before the ObservabilityStackDefinition is created.
+func (o *ObservabilityStackDefinition) beforeCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeUpdate runs before the ObservabilityStackDefinition is updated.
+func (o *ObservabilityStackDefinition) beforeUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeDelete runs before the ObservabilityStackDefinition is deleted.
+func (o *ObservabilityStackDefinition) beforeDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the ObservabilityStackDefinition is created.
+func (o *ObservabilityStackDefinition) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the ObservabilityStackDefinition is updated.
+func (o *ObservabilityStackDefinition) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the ObservabilityStackDefinition is deleted.
+func (o *ObservabilityStackDefinition) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeCreate runs before the ObservabilityStackInstance is created.
+func (o *ObservabilityStackInstance) beforeCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeUpdate runs before the ObservabilityStackInstance is updated.
+func (o *ObservabilityStackInstance) beforeUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeDelete runs before the ObservabilityStackInstance is deleted.
+func (o *ObservabilityStackInstance) beforeDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the ObservabilityStackInstance is created.
+func (o *ObservabilityStackInstance) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the ObservabilityStackInstance is updated.
+func (o *ObservabilityStackInstance) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the ObservabilityStackInstance is deleted.
+func (o *ObservabilityStackInstance) afterDelete(tx *gorm.DB) error {
 	return nil
 }

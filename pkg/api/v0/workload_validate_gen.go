@@ -4,122 +4,242 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// BeforeCreate is the GORM create hook for WorkloadDefinition.
+// BeforeCreate is the GORM before-create hook for WorkloadDefinition.
 func (w *WorkloadDefinition) BeforeCreate(tx *gorm.DB) error {
-	if err := w.validateBeforeCreate(tx); err != nil {
+	if err := w.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, w)
 }
 
-// BeforeUpdate is the GORM update hook for WorkloadDefinition.
+// BeforeUpdate is the GORM before-update hook for WorkloadDefinition.
 func (w *WorkloadDefinition) BeforeUpdate(tx *gorm.DB) error {
-	if err := w.validateBeforeUpdate(tx); err != nil {
+	if err := w.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, w)
 }
 
-// BeforeDelete is the GORM delete hook for WorkloadDefinition.
+// BeforeDelete is the GORM before-delete hook for WorkloadDefinition.
 func (w *WorkloadDefinition) BeforeDelete(tx *gorm.DB) error {
-	if err := w.validateBeforeDelete(tx); err != nil {
+	if err := w.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, w)
 }
 
-// BeforeCreate is the GORM create hook for WorkloadEvent.
+// AfterCreate is the GORM after-create hook for WorkloadDefinition.
+func (w *WorkloadDefinition) AfterCreate(tx *gorm.DB) error {
+	if err := w.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, w)
+}
+
+// AfterUpdate is the GORM after-update hook for WorkloadDefinition.
+func (w *WorkloadDefinition) AfterUpdate(tx *gorm.DB) error {
+	if err := w.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, w)
+}
+
+// AfterDelete is the GORM after-delete hook for WorkloadDefinition.
+func (w *WorkloadDefinition) AfterDelete(tx *gorm.DB) error {
+	if err := w.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, w)
+}
+
+// BeforeCreate is the GORM before-create hook for WorkloadEvent.
 func (w *WorkloadEvent) BeforeCreate(tx *gorm.DB) error {
-	if err := w.validateBeforeCreate(tx); err != nil {
+	if err := w.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, w)
 }
 
-// BeforeUpdate is the GORM update hook for WorkloadEvent.
+// BeforeUpdate is the GORM before-update hook for WorkloadEvent.
 func (w *WorkloadEvent) BeforeUpdate(tx *gorm.DB) error {
-	if err := w.validateBeforeUpdate(tx); err != nil {
+	if err := w.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, w)
 }
 
-// BeforeDelete is the GORM delete hook for WorkloadEvent.
+// BeforeDelete is the GORM before-delete hook for WorkloadEvent.
 func (w *WorkloadEvent) BeforeDelete(tx *gorm.DB) error {
-	if err := w.validateBeforeDelete(tx); err != nil {
+	if err := w.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, w)
 }
 
-// BeforeCreate is the GORM create hook for WorkloadInstance.
+// AfterCreate is the GORM after-create hook for WorkloadEvent.
+func (w *WorkloadEvent) AfterCreate(tx *gorm.DB) error {
+	if err := w.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, w)
+}
+
+// AfterUpdate is the GORM after-update hook for WorkloadEvent.
+func (w *WorkloadEvent) AfterUpdate(tx *gorm.DB) error {
+	if err := w.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, w)
+}
+
+// AfterDelete is the GORM after-delete hook for WorkloadEvent.
+func (w *WorkloadEvent) AfterDelete(tx *gorm.DB) error {
+	if err := w.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, w)
+}
+
+// BeforeCreate is the GORM before-create hook for WorkloadInstance.
 func (w *WorkloadInstance) BeforeCreate(tx *gorm.DB) error {
-	if err := w.validateBeforeCreate(tx); err != nil {
+	if err := w.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, w)
 }
 
-// BeforeUpdate is the GORM update hook for WorkloadInstance.
+// BeforeUpdate is the GORM before-update hook for WorkloadInstance.
 func (w *WorkloadInstance) BeforeUpdate(tx *gorm.DB) error {
-	if err := w.validateBeforeUpdate(tx); err != nil {
+	if err := w.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, w)
 }
 
-// BeforeDelete is the GORM delete hook for WorkloadInstance.
+// BeforeDelete is the GORM before-delete hook for WorkloadInstance.
 func (w *WorkloadInstance) BeforeDelete(tx *gorm.DB) error {
-	if err := w.validateBeforeDelete(tx); err != nil {
+	if err := w.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, w)
 }
 
-// BeforeCreate is the GORM create hook for WorkloadResourceDefinition.
+// AfterCreate is the GORM after-create hook for WorkloadInstance.
+func (w *WorkloadInstance) AfterCreate(tx *gorm.DB) error {
+	if err := w.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, w)
+}
+
+// AfterUpdate is the GORM after-update hook for WorkloadInstance.
+func (w *WorkloadInstance) AfterUpdate(tx *gorm.DB) error {
+	if err := w.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, w)
+}
+
+// AfterDelete is the GORM after-delete hook for WorkloadInstance.
+func (w *WorkloadInstance) AfterDelete(tx *gorm.DB) error {
+	if err := w.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, w)
+}
+
+// BeforeCreate is the GORM before-create hook for WorkloadResourceDefinition.
 func (w *WorkloadResourceDefinition) BeforeCreate(tx *gorm.DB) error {
-	if err := w.validateBeforeCreate(tx); err != nil {
+	if err := w.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, w)
 }
 
-// BeforeUpdate is the GORM update hook for WorkloadResourceDefinition.
+// BeforeUpdate is the GORM before-update hook for WorkloadResourceDefinition.
 func (w *WorkloadResourceDefinition) BeforeUpdate(tx *gorm.DB) error {
-	if err := w.validateBeforeUpdate(tx); err != nil {
+	if err := w.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, w)
 }
 
-// BeforeDelete is the GORM delete hook for WorkloadResourceDefinition.
+// BeforeDelete is the GORM before-delete hook for WorkloadResourceDefinition.
 func (w *WorkloadResourceDefinition) BeforeDelete(tx *gorm.DB) error {
-	if err := w.validateBeforeDelete(tx); err != nil {
+	if err := w.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, w)
 }
 
-// BeforeCreate is the GORM create hook for WorkloadResourceInstance.
+// AfterCreate is the GORM after-create hook for WorkloadResourceDefinition.
+func (w *WorkloadResourceDefinition) AfterCreate(tx *gorm.DB) error {
+	if err := w.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, w)
+}
+
+// AfterUpdate is the GORM after-update hook for WorkloadResourceDefinition.
+func (w *WorkloadResourceDefinition) AfterUpdate(tx *gorm.DB) error {
+	if err := w.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, w)
+}
+
+// AfterDelete is the GORM after-delete hook for WorkloadResourceDefinition.
+func (w *WorkloadResourceDefinition) AfterDelete(tx *gorm.DB) error {
+	if err := w.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, w)
+}
+
+// BeforeCreate is the GORM before-create hook for WorkloadResourceInstance.
 func (w *WorkloadResourceInstance) BeforeCreate(tx *gorm.DB) error {
-	if err := w.validateBeforeCreate(tx); err != nil {
+	if err := w.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, w)
 }
 
-// BeforeUpdate is the GORM update hook for WorkloadResourceInstance.
+// BeforeUpdate is the GORM before-update hook for WorkloadResourceInstance.
 func (w *WorkloadResourceInstance) BeforeUpdate(tx *gorm.DB) error {
-	if err := w.validateBeforeUpdate(tx); err != nil {
+	if err := w.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, w)
 }
 
-// BeforeDelete is the GORM delete hook for WorkloadResourceInstance.
+// BeforeDelete is the GORM before-delete hook for WorkloadResourceInstance.
 func (w *WorkloadResourceInstance) BeforeDelete(tx *gorm.DB) error {
-	if err := w.validateBeforeDelete(tx); err != nil {
+	if err := w.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, w)
+}
+
+// AfterCreate is the GORM after-create hook for WorkloadResourceInstance.
+func (w *WorkloadResourceInstance) AfterCreate(tx *gorm.DB) error {
+	if err := w.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, w)
+}
+
+// AfterUpdate is the GORM after-update hook for WorkloadResourceInstance.
+func (w *WorkloadResourceInstance) AfterUpdate(tx *gorm.DB) error {
+	if err := w.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, w)
+}
+
+// AfterDelete is the GORM after-delete hook for WorkloadResourceInstance.
+func (w *WorkloadResourceInstance) AfterDelete(tx *gorm.DB) error {
+	if err := w.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, w)
 }

@@ -4,50 +4,98 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// BeforeCreate is the GORM create hook for ControlPlaneDefinition.
+// BeforeCreate is the GORM before-create hook for ControlPlaneDefinition.
 func (c *ControlPlaneDefinition) BeforeCreate(tx *gorm.DB) error {
-	if err := c.validateBeforeCreate(tx); err != nil {
+	if err := c.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, c)
 }
 
-// BeforeUpdate is the GORM update hook for ControlPlaneDefinition.
+// BeforeUpdate is the GORM before-update hook for ControlPlaneDefinition.
 func (c *ControlPlaneDefinition) BeforeUpdate(tx *gorm.DB) error {
-	if err := c.validateBeforeUpdate(tx); err != nil {
+	if err := c.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, c)
 }
 
-// BeforeDelete is the GORM delete hook for ControlPlaneDefinition.
+// BeforeDelete is the GORM before-delete hook for ControlPlaneDefinition.
 func (c *ControlPlaneDefinition) BeforeDelete(tx *gorm.DB) error {
-	if err := c.validateBeforeDelete(tx); err != nil {
+	if err := c.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, c)
 }
 
-// BeforeCreate is the GORM create hook for ControlPlaneInstance.
+// AfterCreate is the GORM after-create hook for ControlPlaneDefinition.
+func (c *ControlPlaneDefinition) AfterCreate(tx *gorm.DB) error {
+	if err := c.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, c)
+}
+
+// AfterUpdate is the GORM after-update hook for ControlPlaneDefinition.
+func (c *ControlPlaneDefinition) AfterUpdate(tx *gorm.DB) error {
+	if err := c.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, c)
+}
+
+// AfterDelete is the GORM after-delete hook for ControlPlaneDefinition.
+func (c *ControlPlaneDefinition) AfterDelete(tx *gorm.DB) error {
+	if err := c.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, c)
+}
+
+// BeforeCreate is the GORM before-create hook for ControlPlaneInstance.
 func (c *ControlPlaneInstance) BeforeCreate(tx *gorm.DB) error {
-	if err := c.validateBeforeCreate(tx); err != nil {
+	if err := c.beforeCreate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeCreate(tx, c)
 }
 
-// BeforeUpdate is the GORM update hook for ControlPlaneInstance.
+// BeforeUpdate is the GORM before-update hook for ControlPlaneInstance.
 func (c *ControlPlaneInstance) BeforeUpdate(tx *gorm.DB) error {
-	if err := c.validateBeforeUpdate(tx); err != nil {
+	if err := c.beforeUpdate(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeUpdate(tx, c)
 }
 
-// BeforeDelete is the GORM delete hook for ControlPlaneInstance.
+// BeforeDelete is the GORM before-delete hook for ControlPlaneInstance.
 func (c *ControlPlaneInstance) BeforeDelete(tx *gorm.DB) error {
-	if err := c.validateBeforeDelete(tx); err != nil {
+	if err := c.beforeDelete(tx); err != nil {
 		return err
 	}
 	return ProcessCoreTaggedFieldsBeforeDelete(tx, c)
+}
+
+// AfterCreate is the GORM after-create hook for ControlPlaneInstance.
+func (c *ControlPlaneInstance) AfterCreate(tx *gorm.DB) error {
+	if err := c.afterCreate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterCreate(tx, c)
+}
+
+// AfterUpdate is the GORM after-update hook for ControlPlaneInstance.
+func (c *ControlPlaneInstance) AfterUpdate(tx *gorm.DB) error {
+	if err := c.afterUpdate(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterUpdate(tx, c)
+}
+
+// AfterDelete is the GORM after-delete hook for ControlPlaneInstance.
+func (c *ControlPlaneInstance) AfterDelete(tx *gorm.DB) error {
+	if err := c.afterDelete(tx); err != nil {
+		return err
+	}
+	return ProcessCoreTaggedFieldsAfterDelete(tx, c)
 }

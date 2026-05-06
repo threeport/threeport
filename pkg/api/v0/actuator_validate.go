@@ -4,32 +4,62 @@ package v0
 
 import gorm "gorm.io/gorm"
 
-// validateBeforeCreate validates the Profile before create.
-func (p *Profile) validateBeforeCreate(tx *gorm.DB) error {
+// beforeCreate runs before the Profile is created.
+func (p *Profile) beforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the Profile before update.
-func (p *Profile) validateBeforeUpdate(tx *gorm.DB) error {
+// beforeUpdate runs before the Profile is updated.
+func (p *Profile) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the Profile before delete.
-func (p *Profile) validateBeforeDelete(tx *gorm.DB) error {
+// beforeDelete runs before the Profile is deleted.
+func (p *Profile) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeCreate validates the Tier before create.
-func (t *Tier) validateBeforeCreate(tx *gorm.DB) error {
+// afterCreate runs after the Profile is created.
+func (p *Profile) afterCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeUpdate validates the Tier before update.
-func (t *Tier) validateBeforeUpdate(tx *gorm.DB) error {
+// afterUpdate runs after the Profile is updated.
+func (p *Profile) afterUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// validateBeforeDelete validates the Tier before delete.
-func (t *Tier) validateBeforeDelete(tx *gorm.DB) error {
+// afterDelete runs after the Profile is deleted.
+func (p *Profile) afterDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeCreate runs before the Tier is created.
+func (t *Tier) beforeCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeUpdate runs before the Tier is updated.
+func (t *Tier) beforeUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// beforeDelete runs before the Tier is deleted.
+func (t *Tier) beforeDelete(tx *gorm.DB) error {
+	return nil
+}
+
+// afterCreate runs after the Tier is created.
+func (t *Tier) afterCreate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterUpdate runs after the Tier is updated.
+func (t *Tier) afterUpdate(tx *gorm.DB) error {
+	return nil
+}
+
+// afterDelete runs after the Tier is deleted.
+func (t *Tier) afterDelete(tx *gorm.DB) error {
 	return nil
 }
