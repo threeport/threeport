@@ -32,39 +32,48 @@ func SupportedInfraProviders() []KubernetesRuntimeInfraProvider {
 	}
 }
 
-// beforeCreate validates the KubernetesRuntimeDefinition before create.
-//
-// Why: InfraProvider must be one of the values returned by SupportedInfraProviders.
+// beforeCreate validates a KubernetesRuntimeDefinition object before creating
+// in the database.
 func (k *KubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
+	// validate infra provider is one of the supported types
 	infraProviders := SupportedInfraProviders()
+	providerValid := false
 	for _, provider := range infraProviders {
 		if *k.InfraProvider == string(provider) {
-			return nil
+			providerValid = true
+			break
 		}
 	}
-	return util.NewBadRequestError(
-		fmt.Sprintf(
-			"%s provider is not valid, valid providers: %s",
-			*k.InfraProvider, infraProviders,
-		),
-	)
+	if !providerValid {
+		return util.NewBadRequestError(
+			fmt.Sprintf(
+				"%s provider is not valid, valid providers: %s",
+				*k.InfraProvider,
+				infraProviders,
+			),
+		)
+	}
+
+	return nil
 }
 
-// beforeUpdate validates the KubernetesRuntimeDefinition before update.
-//
-// Why: InfraProvider and HighAvailability are immutable; changing either
-// would orphan existing infrastructure.
+// beforeUpdate validates that no immutable fields are being changed
+// before updates are persisted.
 func (k *KubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
+	// ensure infra provider is not changed
 	if tx.Statement.Changed("InfraProvider") {
 		return util.NewBadRequestError(
 			"kubernetes runtime definition infra provider cannot be changed after creation",
 		)
 	}
+
+	// ensure high availability is not changed
 	if tx.Statement.Changed("HighAvailability") {
 		return util.NewBadRequestError(
 			"kubernetes runtime definition high availability cannot be changed after creation",
 		)
 	}
+
 	return nil
 }
 
@@ -73,10 +82,10 @@ func (k *KubernetesRuntimeDefinition) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// beforeCreate validates the KubernetesRuntimeInstance before create.
-//
-// Why: Location must be one supported by the runtime mapping.
+// beforeCreate validates a KubernetesRuntimeInstance before persisting to the
+// database.
 func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
+	// validate location
 	if !mapping.ValidLocation(*k.Location) {
 		return util.NewBadRequestError(
 			fmt.Sprintf(
@@ -85,13 +94,14 @@ func (k *KubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 			),
 		)
 	}
+
 	return nil
 }
 
-// beforeUpdate validates the KubernetesRuntimeInstance before update.
-//
-// Why: Location is immutable. Moving a runtime instance would orphan its cluster.
+// beforeUpdate validates that no immutable fields are being changed
+// before updates are persisted.
 func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
+	// ensure runtime location is not changed
 	if tx.Statement.Changed("Location") {
 		return util.NewBadRequestError(
 			fmt.Sprintf(
@@ -100,14 +110,14 @@ func (k *KubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 			),
 		)
 	}
+
 	return nil
 }
 
-// beforeDelete validates the KubernetesRuntimeInstance before delete.
-//
-// Why: a runtime instance may not be removed while any workload instance still
-// references it. Returns 400 with the requirement to remove dependents first.
+// beforeDelete validates a delete request on a kubernetes runtime instance
+// deletion to ensure deletion is possible.
 func (k *KubernetesRuntimeInstance) beforeDelete(tx *gorm.DB) error {
+	// validate that no workloads exist or that ForceDelete is true
 	var workloadInstances []WorkloadInstance
 	if result := tx.Where(
 		&WorkloadInstance{KubernetesRuntimeInstanceID: k.ID},

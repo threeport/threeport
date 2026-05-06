@@ -9,21 +9,27 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// beforeCreate validates the SecretDefinition before create.
-//
-// Why: the Data field carries plaintext that the controller resolves into a
-// secret store; it must NOT be persisted to the threeport DB. The persist:"false"
-// struct tag is honored here by clearing the column at create time.
+// beforeCreate validates a secret definition before
+// persisting to the database.
 func (s *SecretDefinition) beforeCreate(tx *gorm.DB) error {
-	objVal := reflect.ValueOf(s).Elem()
+	createdObj := *s
+	objVal := reflect.ValueOf(&createdObj).Elem()
 	objType := objVal.Type()
 	ns := schema.NamingStrategy{}
+
+	// ensure Data is not persisted
 	for i := 0; i < objType.NumField(); i++ {
 		field := objType.Field(i)
-		if field.Name == "Data" && field.Tag.Get("persist") == "false" {
-			tx.Statement.SetColumn(ns.ColumnName("", field.Name), nil)
+
+		if field.Name == "Data" {
+			persist := field.Tag.Get("persist")
+			if persist == "false" {
+				columnName := ns.ColumnName("", field.Name)
+				tx.Statement.SetColumn(columnName, nil)
+			}
 		}
 	}
+
 	return nil
 }
 

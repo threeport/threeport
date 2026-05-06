@@ -24,31 +24,37 @@ func (m *ModuleApi) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// beforeDelete validates the ModuleApi before delete.
-//
-// Why: a module API may not be removed while any of its routes still exist.
+// beforeDelete ensures that no associated routes exist for this API module
+// before deleting it.
 func (m *ModuleApi) beforeDelete(tx *gorm.DB) error {
 	var moduleRoutes []ModuleApiRoute
 	if result := tx.Where("module_api_id = ?", *m.ID).Find(&moduleRoutes); result.Error != nil {
 		return fmt.Errorf("failed to retrieve routes for module API with ID %d: %w", *m.ID, result.Error)
 	}
+
+	// return error if associated routes are present
 	if len(moduleRoutes) != 0 {
 		return fmt.Errorf("module API with ID %d cannot be deleted - has associated routes", *m.ID)
 	}
+
 	return nil
 }
 
-// beforeCreate validates the ModuleApiRoute before create.
-//
-// Why: prevent two routes from registering the same path.
+// beforeCreate ensures no API route with the route path already exists
+// before persisting an API route.
 func (m *ModuleApiRoute) beforeCreate(tx *gorm.DB) error {
 	var existingRoute ModuleApiRoute
 	if result := tx.Where("path = ?", *m.Path).First(&existingRoute); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			// no existing API module route with this path - return without
+			// error
 			return nil
 		}
+		// return any error that is NotFound
 		return fmt.Errorf("failed to look up API routes for matching paths: %w", result.Error)
 	}
+
+	// no error returned from API route lookup - return conflict error
 	return util_v0.NewConflictError(
 		fmt.Sprintf(
 			"module API route already exists with path %s for module API with D %d",
@@ -68,16 +74,21 @@ func (m *ModuleApiRoute) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// afterCreate adds the route path to the module router for non-core APIs so
-// proxied requests reach the right module endpoint.
+// afterCreate updates the module router after new non-coremodule API routes are
+// created.
 func (m *ModuleApiRoute) afterCreate(tx *gorm.DB) error {
+	// retrieve the API module
 	var modApi ModuleApi
 	if result := tx.Where("id = ?", *m.ModuleApiID).First(&modApi); result.Error != nil {
 		return fmt.Errorf("failed to retrieve module API for route %s: %w", *m.Path, result.Error)
 	}
+
+	// if the module API is core, do not add the route to the module router
 	if *modApi.Core {
 		return nil
 	}
+
+	// add the route path to the module router
 	ModRouter.AddRoute(*m.Path, func(c echo.Context) error {
 		proxyUrl, err := url.Parse(
 			fmt.Sprintf("http://%s", *modApi.Endpoint),
@@ -89,10 +100,12 @@ func (m *ModuleApiRoute) afterCreate(tx *gorm.DB) error {
 		proxy.ServeHTTP(c.Response().Writer, c.Request())
 		return nil
 	})
+
 	return nil
 }
 
-// afterDelete removes the route path from the module router.
+// afterDelete updates the module router after a module API route has
+// been removed.
 func (m *ModuleApiRoute) afterDelete(tx *gorm.DB) error {
 	ModRouter.RemoveRoute(*m.Path)
 	return nil
@@ -113,17 +126,21 @@ func (m *ModuleController) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// beforeCreate validates the ModuleObject before create.
-//
-// Why: prevent two objects with the same name within a module API.
+// beforeCreate ensures no API object with the object name for a given
+// module API already exists before persisting an API object.
 func (m *ModuleObject) beforeCreate(tx *gorm.DB) error {
 	var existingObject ModuleObject
 	if result := tx.Where("name = ? AND module_api_id = ?", *m.Name, *m.ModuleApiID).First(&existingObject); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			// no existing API object with this name - return without
+			// error
 			return nil
 		}
+		// return any error that is NotFound
 		return fmt.Errorf("failed to look up API objects for matching names: %w", result.Error)
 	}
+
+	// no error returned from API object lookup - return conflict error
 	return util_v0.NewConflictError(
 		fmt.Sprintf(
 			"module API object already exists with name %s for module API with ID %d",

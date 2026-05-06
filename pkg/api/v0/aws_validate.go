@@ -3,30 +3,72 @@
 package v0
 
 import (
-	"github.com/google/uuid"
+	"fmt"
+	"reflect"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 
+	"github.com/google/uuid"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// beforeCreate validates the AwsProvider before create.
-//
-// Why: AccessKeyID and SecretAccessKey must be set together (or neither),
-// and a per-account ExternalId is generated for use in cross-account
-// assume-role trust policies.
+// beforeCreate validates a AWS Provider before persisting to the
+// database.
 func (a *AwsProvider) beforeCreate(tx *gorm.DB) error {
-	accessKeyIDSet := a.AccessKeyID != nil && *a.AccessKeyID != ""
-	secretAccessKeySet := a.SecretAccessKey != nil && *a.SecretAccessKey != ""
-	if accessKeyIDSet != secretAccessKeySet {
+	isAccessKeyIDSet := false
+	isSecretAccessKeySet := false
+
+	createdObj := *a
+	objVal := reflect.ValueOf(&createdObj).Elem()
+	objType := objVal.Type()
+	ns := schema.NamingStrategy{}
+	for i := 0; i < objType.NumField(); i++ {
+		field := objType.Field(i)
+		fieldVal := objVal.Field(i)
+
+		// skip nil fields
+		if !util.IsNonNilPtr(fieldVal) {
+			continue
+		}
+
+		// check if AccessKeyID is set
+		if field.Name == "AccessKeyID" {
+			underlyingValue, err := util.GetPtrValue(fieldVal)
+			if err != nil {
+				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
+			}
+
+			if underlyingValue != "" {
+				isAccessKeyIDSet = true
+			}
+		}
+
+		// check if SecretAccessKey is set
+		if field.Name == "SecretAccessKey" {
+			underlyingValue, err := util.GetPtrValue(fieldVal)
+			if err != nil {
+				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
+			}
+
+			if underlyingValue != "" {
+				isSecretAccessKeySet = true
+			}
+		}
+	}
+
+	// validate access & secret access keys
+	if isAccessKeyIDSet && !isSecretAccessKeySet ||
+		!isAccessKeyIDSet && isSecretAccessKeySet {
 		return util.NewBadRequestError(
 			"both access key id and secret access key must be set if one of them is provided",
 		)
 	}
 
-	// generate a per-account ExternalId for cross-account assume-role
-	ns := schema.NamingStrategy{}
-	tx.Statement.SetColumn(ns.ColumnName("", "ExternalId"), uuid.New().String())
+	// generate and set external ID
+	uuid := uuid.New().String()
+	columnName := ns.ColumnName("", "ExternalId")
+	tx.Statement.SetColumn(columnName, uuid)
 
 	return nil
 }

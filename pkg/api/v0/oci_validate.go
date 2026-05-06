@@ -20,11 +20,9 @@ func (o *OciProvider) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// beforeDelete validates the OciProvider before delete.
-//
-// Why: an OciProvider may not be removed while any OKE runtime instance
-// still references it. Returns 409 with the count of dependents.
+// beforeDelete prevents deletion of an OCI provider that has active runtime instances.
 func (o *OciProvider) beforeDelete(tx *gorm.DB) error {
+	// check for active OKE runtime instances using this provider
 	var instances []OciOkeKubernetesRuntimeInstance
 	if result := tx.Where(
 		"oci_provider_id = ?", *o.ID,
