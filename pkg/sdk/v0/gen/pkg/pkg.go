@@ -25,6 +25,11 @@ func GenPkg(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		return fmt.Errorf("failed to generate APi object table name methods: %w", err)
 	}
 
+	// generate GORM validation/encryption hooks and scaffold custom validation
+	if err := api.GenValidationHooks(generator, sdkConfig); err != nil {
+		return fmt.Errorf("failed to generate API object validation hooks: %w", err)
+	}
+
 	//////////////////////////// pkg/api-server ////////////////////////////////
 	// generate API server routes
 	if err := apiserver.GenRoutes(generator, sdkConfig); err != nil {
