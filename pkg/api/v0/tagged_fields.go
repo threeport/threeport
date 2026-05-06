@@ -30,28 +30,24 @@ func ProcessCoreTaggedFieldsBeforeUpdate(tx *gorm.DB, obj interface{}) error {
 // ProcessCoreTaggedFieldsBeforeDelete runs core tag-triggered behavior on
 // an API object before delete.
 func ProcessCoreTaggedFieldsBeforeDelete(tx *gorm.DB, obj interface{}) error {
-	// TODO: enforce tag-driven delete blocks (e.g. blocking AOR refs)
-	return nil
+	return processRelationshipTaggedFieldsBeforeDelete(tx, obj)
 }
 
 // ProcessCoreTaggedFieldsAfterCreate runs core tag-triggered behavior on
 // an API object after create.
 func ProcessCoreTaggedFieldsAfterCreate(tx *gorm.DB, obj interface{}) error {
-	// TODO: tag-driven AOR creation lands here
-	return nil
+	return processRelationshipTaggedFieldsAfterCreate(tx, obj)
 }
 
 // ProcessCoreTaggedFieldsAfterUpdate runs core tag-triggered behavior on
 // an API object after update.
 func ProcessCoreTaggedFieldsAfterUpdate(tx *gorm.DB, obj interface{}) error {
-	// TODO: tag-driven AOR diff/sync lands here
-	return nil
+	return processRelationshipTaggedFieldsAfterUpdate(tx, obj)
 }
 
 // ProcessCoreTaggedFieldsAfterDelete runs core tag-triggered behavior on
 // an API object after delete.
 func ProcessCoreTaggedFieldsAfterDelete(tx *gorm.DB, obj interface{}) error {
-	// TODO: tag-driven AOR cascade-cleanup lands here
 	return nil
 }
 

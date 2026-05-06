@@ -30,20 +30,6 @@ func v0GatewayInstanceCreated(
 	gatewayInstance *v0.GatewayInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// ensure attached object reference exists
-	err := client.EnsureAttachedObjectReferenceExists(
-		r.APIClient,
-		r.APIServer,
-		util.TypeName(v0.WorkloadInstance{}),
-		gatewayInstance.WorkloadInstanceID,
-		util.TypeName(*gatewayInstance),
-		gatewayInstance.ID,
-		true,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)
-	}
-
 	// initialize threeport object references
 	kubernetesRuntimeInstance, gatewayDefinition, workloadInstance, err := getThreeportObjects(r, gatewayInstance)
 	if err != nil {

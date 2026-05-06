@@ -255,25 +255,11 @@ func GenReconcilers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							}
 
 							g.Line()
-							// build set of types defined in this gen run so emitted AOR
-							// entries can use the qualified GetType form for same-module
-							// targets while keeping core targets bare.
-							localTypes := map[string]bool{}
-							for _, g2 := range gen.ApiObjectGroups {
-								for _, o := range g2.ApiObjects {
-									localTypes[o.TypeName] = true
-								}
-							}
-							apiNamespace := ""
-							if gen.Module {
-								apiNamespace = sdkConfig.ApiNamespace
-							}
-
 							g.Comment("determine which operation and act accordingly")
 							g.Switch(Id("notif").Dot("Operation")).BlockFunc(func(h *Group) {
-								operationCase(h, "create", &obj, varObjectName, gen.ModulePath, apiNamespace, localTypes)
-								operationCase(h, "update", &obj, varObjectName, gen.ModulePath, apiNamespace, localTypes)
-								operationCase(h, "delete", &obj, varObjectName, gen.ModulePath, apiNamespace, localTypes)
+								operationCase(h, "create", &obj, varObjectName, gen.ModulePath)
+								operationCase(h, "update", &obj, varObjectName, gen.ModulePath)
+								operationCase(h, "delete", &obj, varObjectName, gen.ModulePath)
 								h.Default().Block(
 									Id("log").Dot("Error").Call(
 										Line().Id("errors").Dot("New").Call(Lit("unrecognized notifcation operation")),
@@ -528,8 +514,6 @@ func operationCase(
 	obj *gen.ReconciledObject,
 	varObjectName string,
 	modulePath string,
-	apiNamespace string,
-	localTypes map[string]bool,
 ) {
 	uppoerOp := strcase.ToCamel(op)
 	lowerOpPast := op + "d"
@@ -553,68 +537,6 @@ func operationCase(
 		}
 		h.Var().Id("operationErr").Error()
 		h.Var().Id("customRequeueDelay").Int64()
-
-		// on delete, clean up attached object references where this object is
-		// the attacher BEFORE dispatching to the hand-written Deleted handler,
-		// so any cascade that handler performs sees an unblocked sub-resource.
-		if op == "delete" {
-			h.Var().Id("attachedObjectReferences").Op("*").Index().Qual(
-				"github.com/threeport/threeport/pkg/api/v0",
-				"AttachedObjectReference",
-			)
-			h.If(
-				List(Id("attachedObjectReferences"), Id("err")).Op("=").Qual(
-					"github.com/threeport/threeport/pkg/client/v0",
-					"GetAttachedObjectReferencesByAttachedObjectID",
-				).Call(
-					Line().Id("r").Dot("APIClient"),
-					Line().Id("r").Dot("APIServer"),
-					Line().Id(varObjectName).Dot("GetId").Call(),
-					Line(),
-				),
-				Id("err").Op("!=").Nil(),
-			).Block(
-				Id("log").Dot("Error").Call(Id("err"), Lit("failed to get attached object references for cleanup")),
-				Id("r").Dot("UnlockAndRequeue").Call(
-					Id(varObjectName),
-					Id("requeueDelay"),
-					Id("lockReleased"),
-					Id("msg"),
-				),
-				Continue(),
-			)
-			h.Id("cleanupErr").Op(":=").False()
-			h.For(List(Id("_"), Id("attachedObjectReference")).Op(":=").Range().Op("*").Id("attachedObjectReferences")).Block(
-				If(
-					List(Id("_"), Id("err")).Op(":=").Qual(
-						"github.com/threeport/threeport/pkg/client/v0",
-						"DeleteAttachedObjectReference",
-					).Call(
-						Line().Id("r").Dot("APIClient"),
-						Line().Id("r").Dot("APIServer"),
-						Line().Op("*").Id("attachedObjectReference").Dot("ID"),
-						Line(),
-					),
-					Id("err").Op("!=").Nil().Op("&&").Op("!").Qual("errors", "Is").Call(
-						Id("err"),
-						Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrObjectNotFound"),
-					),
-				).Block(
-					Id("log").Dot("Error").Call(Id("err"), Lit("failed to delete attached object reference")),
-					Id("cleanupErr").Op("=").True(),
-					Break(),
-				),
-			)
-			h.If(Id("cleanupErr")).Block(
-				Id("r").Dot("UnlockAndRequeue").Call(
-					Id(varObjectName),
-					Id("requeueDelay"),
-					Id("lockReleased"),
-					Id("msg"),
-				),
-				Continue(),
-			)
-		}
 
 		h.Switch(Id(varObjectName).Dot("GetVersion").Call()).BlockFunc(func(j *Group) {
 			for _, version := range obj.Versions {
@@ -703,21 +625,6 @@ func operationCase(
 			Continue(),
 		)
 
-		// on Create and Update, ensure attached object references for tagged
-		// foreign keys. The FK may be nil at Create and populated later by
-		// the holder's reconciler.
-		if op == "create" || op == "update" {
-			var dependsOnForeignKeys []gen.ForeignKeyField
-			for _, foreignKey := range obj.ForeignKeys {
-				if foreignKey.DependsOn {
-					dependsOnForeignKeys = append(dependsOnForeignKeys, foreignKey)
-				}
-			}
-			if len(dependsOnForeignKeys) > 0 {
-				emitAttachedObjectReferenceEnsures(h, obj, varObjectName, modulePath, apiNamespace, localTypes, dependsOnForeignKeys)
-			}
-		}
-
 		if op == "delete" {
 			h.Id("deletionTimestamp").Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/util/v0",
@@ -803,120 +710,3 @@ func operationCase(
 	})
 }
 
-// attachedObjectReferenceEntry holds the pre-resolved object and attached
-// positions for one foreign key.  "dependency" foreign keys put the target
-// on the object side; "owns" foreign keys flip it.
-type attachedObjectReferenceEntry struct {
-	objectType   *Statement
-	objectID     *Statement
-	attachedType *Statement
-	attachedID   *Statement
-	fieldName    string
-}
-
-// emitAttachedObjectReferenceEnsures emits a single for-loop that ensures
-// one attached object reference row per tagged foreign key. Idempotent so
-// it can run in both Created and Updated paths.
-//
-// The owner's ObjectType literal is namespace-qualified for module gen runs
-// (apiNamespace is non-empty); core gen runs keep the bare "<version>.<TypeName>"
-// form. FK target types are qualified the same way when the target is local
-// to the current gen run (in localTypes); otherwise they're treated as core
-// targets and stay bare. This keeps the AOR ObjectType strings produced by
-// generated reconcilers consistent with what obj.GetType() returns.
-func emitAttachedObjectReferenceEnsures(
-	h *jen.Group,
-	obj *gen.ReconciledObject,
-	varObjectName string,
-	modulePath string,
-	apiNamespace string,
-	localTypes map[string]bool,
-	foreignKeys []gen.ForeignKeyField,
-) {
-	ownerVersion := obj.Versions[0]
-	ownerPkg := fmt.Sprintf("%s/pkg/api/%s", modulePath, ownerVersion)
-
-	qualifyType := func(typeName string, local bool) string {
-		if apiNamespace != "" && local {
-			return fmt.Sprintf("%s/%s.%s", apiNamespace, ownerVersion, typeName)
-		}
-		return fmt.Sprintf("%s.%s", ownerVersion, typeName)
-	}
-
-	ownerTypeName := Lit(qualifyType(obj.Name, true))
-
-	typedVar := fmt.Sprintf("typed%s", obj.Name)
-	h.Id(typedVar).Op(":=").Id(varObjectName).Assert(Op("*").Qual(ownerPkg, obj.Name))
-
-	var entries []attachedObjectReferenceEntry
-	for _, foreignKey := range foreignKeys {
-		entries = append(entries, attachedObjectReferenceEntry{
-			objectType:   Lit(qualifyType(foreignKey.TargetType, localTypes[foreignKey.TargetType])),
-			objectID:     Id(typedVar).Dot(foreignKey.FieldName),
-			attachedType: ownerTypeName,
-			attachedID:   Id(typedVar).Dot("ID"),
-			fieldName:    foreignKey.FieldName,
-		})
-	}
-
-	h.Var().Id("attachedObjectReferenceErr").Error()
-	h.For(
-		List(Id("_"), Id("entry")).Op(":=").Range().Index().Struct(
-			Id("objectType").String(),
-			Id("objectID").Op("*").Uint(),
-			Id("attachedType").String(),
-			Id("attachedID").Op("*").Uint(),
-			Id("fieldName").String(),
-		).Values(ListFunc(func(vg *Group) {
-			for _, entry := range entries {
-				vg.Line().Values(
-					Line().Add(entry.objectType.Clone()),
-					Line().Add(entry.objectID.Clone()),
-					Line().Add(entry.attachedType.Clone()),
-					Line().Add(entry.attachedID.Clone()),
-					Line().Lit(entry.fieldName),
-					Line(),
-				)
-			}
-			vg.Line()
-		})),
-	).Block(
-		// check both sides for nil; the object's own ID is always set, so
-		// this effectively gates on the foreign-key pointer being non-nil.
-		If(Id("entry").Dot("objectID").Op("==").Nil().Op("||").Id("entry").Dot("attachedID").Op("==").Nil()).Block(
-			Continue(),
-		),
-		If(Id("attachedObjectReferenceErr").Op("!=").Nil()).Block(Break()),
-		If(
-			Id("err").Op(":=").Qual(
-				"github.com/threeport/threeport/pkg/client/v0",
-				"EnsureAttachedObjectReferenceExists",
-			).Call(
-				Line().Id("r").Dot("APIClient"),
-				Line().Id("r").Dot("APIServer"),
-				Line().Id("entry").Dot("objectType"),
-				Line().Id("entry").Dot("objectID"),
-				Line().Id("entry").Dot("attachedType"),
-				Line().Id("entry").Dot("attachedID"),
-				Line().Lit(true),
-				Line(),
-			),
-			Id("err").Op("!=").Nil(),
-		).Block(
-			Id("log").Dot("Error").Call(Id("err"), Qual("fmt", "Sprintf").Call(
-				Lit("failed to ensure attached object reference for %s"),
-				Id("entry").Dot("fieldName"),
-			)),
-			Id("attachedObjectReferenceErr").Op("=").Id("err"),
-		),
-	)
-	h.If(Id("attachedObjectReferenceErr").Op("!=").Nil()).Block(
-		Id("r").Dot("UnlockAndRequeue").Call(
-			Id(varObjectName),
-			Id("requeueDelay"),
-			Id("lockReleased"),
-			Id("msg"),
-		),
-		Continue(),
-	)
-}

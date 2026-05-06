@@ -15,7 +15,6 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // v0DomainNameInstanceCreated performs reconciliation when a v0 DomainNameInstance
@@ -25,22 +24,8 @@ func v0DomainNameInstanceCreated(
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// ensure attached object reference exists
-	err := client.EnsureAttachedObjectReferenceExists(
-		r.APIClient,
-		r.APIServer,
-		util.TypeName(v0.WorkloadInstance{}),
-		domainNameInstance.WorkloadInstanceID,
-		util.TypeName(*domainNameInstance),
-		domainNameInstance.ID,
-		true,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to ensure attached object reference exists: %w", err)
-	}
-
 	// validate threeport state
-	err = validateThreeportStateExternalDns(r, domainNameInstance, log)
+	err := validateThreeportStateExternalDns(r, domainNameInstance, log)
 	if err != nil {
 		return 0, fmt.Errorf("failed to validate threeport state: %w", err)
 	}

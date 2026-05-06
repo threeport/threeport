@@ -575,72 +575,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					).Line()
 				}
 
-				// emitted in every Delete handler; generic over type name
-				// so it works for core and module objects alike.
-				attachedObjectReferenceBlockingScan := &Statement{}
-				attachedObjectReferenceBlockingScan.Comment("check for blocking attached object references before deletion")
-				attachedObjectReferenceBlockingScan.Line()
-				attachedObjectReferenceBlockingScan.List(
-					Id("attachedObjectReferences"),
-					Id("err"),
-				).Op(":=").Qual(
-					"github.com/threeport/threeport/pkg/api-server/lib/v0",
-					"FindBlockingAttachedObjectReferences",
-				).Call(
-					Line().Do(func(s *Statement) {
-						if gen.Module {
-							s.Id("h").Dot("Handler")
-						} else {
-							s.Id("h")
-						}
-					}).Dot("DB"),
-					Line().Qual("github.com/threeport/threeport/pkg/util/v0", "TypeName").Call(
-						Id(strcase.ToLowerCamel(apiObject.TypeName)),
-					),
-					Line().Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("ID"),
-					Line(),
-				)
-				attachedObjectReferenceBlockingScan.Line()
-				attachedObjectReferenceBlockingScan.If(Id("err").Op("!=").Nil()).BlockFunc(func(g *Group) {
-					if gen.Module {
-						g.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-							Lit("handler error: error listing blocking attached object references"),
-							Qual("go.uber.org/zap", "Error").Call(Id("err")),
-						)
-					} else {
-						g.Id("h").Dot("Logger").Dot("Error").Call(
-							Lit("handler error: error listing blocking attached object references"),
-							Qual("go.uber.org/zap", "Error").Call(Id("err")),
-						)
-					}
-					g.Return(Qual(
-						"github.com/threeport/threeport/pkg/api-server/lib/v0",
-						"ResponseStatus500",
-					).Call(Id("c"), Nil(), Id("err"), Id("objectType")))
-				})
-				attachedObjectReferenceBlockingScan.Line()
-				attachedObjectReferenceBlockingScan.If(
-					Id("len").Call(Id("attachedObjectReferences")).Op(">").Lit(0),
-				).Block(
-					Return().Qual(
-						"github.com/threeport/threeport/pkg/api-server/lib/v0",
-						"ResponseStatus409",
-					).Call(
-						Line().Id("c"),
-						Line().Nil(),
-						Line().Qual(
-							"github.com/threeport/threeport/pkg/api-server/lib/v0",
-							"FormatBlockingAttachedObjectReferencesError",
-						).Call(
-							Line().Id("attachedObjectReferences"),
-							Line(),
-						),
-						Line().Id("objectType"),
-						Line(),
-					),
-				)
-				_ = attachedObjectReferenceBlockingScan
-
 				f.Comment("///////////////////////////////////////////////////////////////////////////////")
 				f.Comment(apiObject.TypeName)
 				f.Comment("///////////////////////////////////////////////////////////////////////////////")
@@ -2221,8 +2155,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					),
 					// TODO: figure out all preload objects
 					deleteObjectChecks,
-					Line(),
-					attachedObjectReferenceBlockingScan,
 					Line(),
 					deleteObjectExecution,
 					Line(),

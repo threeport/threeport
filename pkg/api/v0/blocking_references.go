@@ -7,7 +7,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/iancoleman/strcase"
-	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	"gorm.io/gorm"
 )
 
@@ -17,8 +16,8 @@ func FindBlockingAttachedObjectReferences(
 	db *gorm.DB,
 	objectType string,
 	objectID *uint,
-) ([]api_v0.AttachedObjectReference, error) {
-	var attachedObjectReferences []api_v0.AttachedObjectReference
+) ([]AttachedObjectReference, error) {
+	var attachedObjectReferences []AttachedObjectReference
 	if err := db.
 		Where("object_type = ? AND object_id = ? AND blocking = true", objectType, objectID).
 		Find(&attachedObjectReferences).Error; err != nil {
@@ -31,7 +30,7 @@ func FindBlockingAttachedObjectReferences(
 // blocking attached object references as an aligned two-column table,
 // suitable for a 409 response body.
 func FormatBlockingAttachedObjectReferencesError(
-	attachedObjectReferences []api_v0.AttachedObjectReference,
+	attachedObjectReferences []AttachedObjectReference,
 ) error {
 	baseType := "object"
 	if len(attachedObjectReferences) > 0 && attachedObjectReferences[0].ObjectType != nil {

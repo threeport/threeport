@@ -36,13 +36,6 @@ type SecretInstanceConfig struct {
 func (c *SecretInstanceConfig) getSecretInstanceOperations() *util.Operations {
 	operations := util.Operations{}
 
-	// append attached object operations
-	operations.AppendOperation(util.Operation{
-		Name:   "attached object reference",
-		Create: c.createAttachedObjectReference,
-		Delete: c.deleteAttachedObjectReference,
-	})
-
 	// append secret instance operations
 	operations.AppendOperation(util.Operation{
 		Name:   "secret objects",
@@ -56,46 +49,6 @@ func (c *SecretInstanceConfig) getSecretInstanceOperations() *util.Operations {
 	})
 
 	return &operations
-}
-
-// createAttachedObjectReference creates an attached object reference
-// for the secret instance.
-func (c *SecretInstanceConfig) createAttachedObjectReference() error {
-	if err := client.EnsureAttachedObjectReferenceExists(
-		c.r.APIClient,
-		c.r.APIServer,
-		c.workloadInstanceType,
-		c.workloadInstanceId,
-		util.TypeName(*c.secretInstance),
-		c.secretInstance.ID,
-		true,
-	); err != nil {
-		return fmt.Errorf("failed to ensure attached object reference exists: %w", err)
-	}
-
-	return nil
-}
-
-// deleteAttachedObjectReference deletes an attached object reference
-// for the secret instance.
-func (c *SecretInstanceConfig) deleteAttachedObjectReference() error {
-	attachedObjectReference, err := client.GetAttachedObjectReferenceByAttachedObjectID(
-		c.r.APIClient,
-		c.r.APIServer,
-		*c.secretInstance.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get attached object references by attached object id: %w", err)
-	}
-	if _, err := client.DeleteAttachedObjectReference(
-		c.r.APIClient,
-		c.r.APIServer,
-		*attachedObjectReference.ID,
-	); err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
-		return fmt.Errorf("failed to delete attached object reference: %w", err)
-	}
-
-	return nil
 }
 
 // createSecretObjects creates a secret instance

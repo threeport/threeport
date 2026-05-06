@@ -7,7 +7,6 @@ import (
 	"fmt"
 	tpapi_lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
-	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
@@ -224,32 +223,6 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				var operationErr error
 				var customRequeueDelay int64
-				var attachedObjectReferences *[]api_v0.AttachedObjectReference
-				if attachedObjectReferences, err = client_v0.GetAttachedObjectReferencesByAttachedObjectID(
-					r.APIClient,
-					r.APIServer,
-					secretDefinition.GetId(),
-				); err != nil {
-					log.Error(err, "failed to get attached object references for cleanup")
-					r.UnlockAndRequeue(secretDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
-				cleanupErr := false
-				for _, attachedObjectReference := range *attachedObjectReferences {
-					if _, err := client_v0.DeleteAttachedObjectReference(
-						r.APIClient,
-						r.APIServer,
-						*attachedObjectReference.ID,
-					); err != nil && !errors.Is(err, tpclient_lib.ErrObjectNotFound) {
-						log.Error(err, "failed to delete attached object reference")
-						cleanupErr = true
-						break
-					}
-				}
-				if cleanupErr {
-					r.UnlockAndRequeue(secretDefinition, requeueDelay, lockReleased, msg)
-					continue
-				}
 				switch secretDefinition.GetVersion() {
 				case "v0":
 					requeueDelay, err := v0SecretDefinitionDeleted(
