@@ -107,6 +107,12 @@ func processEncryptTaggedFields(tx *gorm.DB, obj interface{}, checkChanged bool)
 					),
 				)
 			}
+			// skip if the input is already encrypted — controllers are
+			// responsible for decrypting before submitting, but a forgotten
+			// decrypt round-trips ciphertext; skipping prevents double-encryption.
+			if encryption.IsEncrypted(encryptionKey, plain) {
+				continue
+			}
 			enc, err := encryption.Encrypt(encryptionKey, plain)
 			if err != nil {
 				return fmt.Errorf("failed to encrypt %s: %w", field.Name, err)
@@ -139,6 +145,12 @@ func processEncryptTaggedFields(tx *gorm.DB, obj interface{}, checkChanged bool)
 							field.Name, j,
 						),
 					)
+				}
+				// skip if already encrypted — preserves the original entry to
+				// avoid double-encryption when a controller round-trips it.
+				if encryption.IsEncrypted(encryptionKey, parts[1]) {
+					encSlice[j] = entry
+					continue
 				}
 				encValue, err := encryption.Encrypt(encryptionKey, parts[1])
 				if err != nil {
