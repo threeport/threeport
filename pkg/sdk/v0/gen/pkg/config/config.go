@@ -47,7 +47,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					mapToDefInstsFunc := fmt.Sprintf("mapTo%sDefinedInstances", defInstObject)
 
 					f := NewFile(objCollection.Version)
-					f.HeaderComment(util.HeaderCommentGenMod)
+					f.HeaderComment(sdk.HeaderCommentGenMod)
 
 					// set import paths
 					apiImportPath := fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", objCollection.Version)
@@ -671,7 +671,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					}
 
 					f := NewFile(objCollection.Version)
-					f.HeaderComment(util.HeaderCommentGenMod)
+					f.HeaderComment(sdk.HeaderCommentGenMod)
 
 					// set import paths
 					apiImportPath := fmt.Sprintf("github.com/threeport/threeport/pkg/api/%s", objCollection.Version)

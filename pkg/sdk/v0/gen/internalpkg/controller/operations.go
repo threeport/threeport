@@ -21,7 +21,7 @@ func GenReconcilerOperations(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error
 		for _, obj := range objGroup.ReconciledObjects {
 			for _, version := range obj.Versions {
 				f := NewFile(objGroup.ControllerPackageName)
-				f.HeaderComment(util.HeaderCommentGenMod)
+				f.HeaderComment(sdk.HeaderCommentGenMod)
 
 				for _, version := range obj.Versions {
 					f.ImportAlias(

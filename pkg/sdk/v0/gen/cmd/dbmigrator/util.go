@@ -16,7 +16,7 @@ import (
 // GenDbMigratorUtils generates the migrations utils.
 func GenDbMigratorUtils(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("migrations")
-	f.HeaderComment(util.HeaderCommentGenNoEdit)
+	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 	f.Func().Id("getGormDbFromContext").Params(
 		Id("ctx").Qual("context", "Context"),

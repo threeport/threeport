@@ -22,7 +22,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objCollection := range gen.VersionedApiObjectCollections {
 		for _, objGroup := range objCollection.VersionedApiObjectGroups {
 			f := NewFile("handlers")
-			f.HeaderComment(util.HeaderCommentGenNoEdit)
+			f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 			f.ImportAlias("github.com/labstack/echo/v4", "echo")
 			f.ImportAlias("github.com/threeport/threeport/pkg/notifications/v0", "notifications")

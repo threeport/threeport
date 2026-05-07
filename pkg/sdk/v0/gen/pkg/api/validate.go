@@ -58,7 +58,7 @@ func emitValidateGen(
 	objGroup gen.VersionedApiObjectGroup,
 ) error {
 	f := NewFile(version)
-	f.HeaderComment(util.HeaderCommentGenNoEdit)
+	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 	f.ImportAlias("gorm.io/gorm", "gorm")
 	if generator.Module {
 		f.ImportAlias("github.com/threeport/threeport/pkg/api/v0", "tpapi_v0")
@@ -125,7 +125,7 @@ func emitValidateScaffoldIfMissing(
 	)
 
 	f := NewFile(version)
-	f.HeaderComment(util.HeaderCommentGenMod)
+	f.HeaderComment(sdk.HeaderCommentGenMod)
 	f.ImportAlias("gorm.io/gorm", "gorm")
 
 	for _, apiObj := range objGroup.ApiObjects {

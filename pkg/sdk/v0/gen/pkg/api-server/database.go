@@ -17,7 +17,7 @@ import (
 // logger methods.
 func GenDatabaseInit(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("database")
-	f.HeaderComment(util.HeaderCommentGenNoEdit)
+	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 	f.ImportAlias("github.com/threeport/threeport/pkg/log/v0", "log")
 	f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")

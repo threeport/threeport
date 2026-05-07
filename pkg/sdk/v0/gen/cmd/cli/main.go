@@ -17,7 +17,7 @@ import (
 // GenPluginMain generates the main package for extension tptctl plugins.
 func GenPluginMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("main")
-	f.HeaderComment(util.HeaderCommentGenNoEdit)
+	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 	packageDir := strcase.ToSnake(sdkConfig.ModuleName)
 

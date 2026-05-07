@@ -18,7 +18,7 @@ import (
 // plugin.
 func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("cmd")
-	f.HeaderComment(util.HeaderCommentGenMod)
+	f.HeaderComment(sdk.HeaderCommentGenMod)
 
 	installerPkg := fmt.Sprintf("%s/pkg/installer/v0", gen.ModulePath)
 

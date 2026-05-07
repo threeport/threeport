@@ -17,7 +17,7 @@ import (
 // GenDbMigratorMain generates source code for the DB migrator main package.
 func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("main")
-	f.HeaderComment(util.HeaderCommentGenNoEdit)
+	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 	// set table name for goose table that tracks DB version
 	gooseVersionTableName := "threeport_goose_db_version"

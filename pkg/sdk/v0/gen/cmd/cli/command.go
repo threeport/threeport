@@ -39,7 +39,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, apiObjGroup := range gen.ApiObjectGroups {
 		// commandCode contains the standard tptctl commands for a threeport object
 		commandCode := NewFile("cmd")
-		commandCode.HeaderComment(util.HeaderCommentGenMod)
+		commandCode.HeaderComment(sdk.HeaderCommentGenMod)
 		commandCode.ImportAlias("gopkg.in/yaml.v2", "yaml")
 		commandCode.ImportAlias("github.com/ghodss/yaml", "ghodss_yaml")
 		commandCode.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
@@ -56,7 +56,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		// this file is written if it doesn't exist, otherwise is left for developer
 		// customization
 		getOutputCode := NewFile("cmd")
-		getOutputCode.HeaderComment(util.HeaderCommentGenMod)
+		getOutputCode.HeaderComment(sdk.HeaderCommentGenMod)
 		getOutputCode.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
 
 		// add config import for get output functions

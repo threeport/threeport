@@ -19,7 +19,7 @@ import (
 func GenAddVersionsFuncs(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, version := range gen.GlobalVersionConfig.Versions {
 		f := NewFile("versions")
-		f.HeaderComment(sdkutil.HeaderCommentGenNoEdit)
+		f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 		var versionFuncs []string
 		for _, name := range version.RouteNames {

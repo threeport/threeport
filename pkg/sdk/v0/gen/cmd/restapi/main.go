@@ -99,7 +99,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	versionRegistration.Line()
 
 	f := NewFile("main")
-	f.HeaderComment(util.HeaderCommentGenNoEdit)
+	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 	for _, versionConf := range gen.GlobalVersionConfig.Versions {
 		f.ImportAlias(

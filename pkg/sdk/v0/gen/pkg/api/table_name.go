@@ -21,7 +21,7 @@ func GenTableNames(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	pluralize := pluralize.NewClient()
 	for _, version := range gen.GlobalVersionConfig.Versions {
 		f := NewFile(version.VersionName)
-		f.HeaderComment(util.HeaderCommentGenNoEdit)
+		f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 		f.Comment("Tabler allows custom table names for objects in the Threeport database.")
 		f.Type().Id("Tabler").Interface(

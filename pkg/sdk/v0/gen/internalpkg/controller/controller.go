@@ -19,7 +19,7 @@ func GenController(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objGroup := range gen.ApiObjectGroups {
 		if len(objGroup.ReconciledObjects) > 0 {
 			f := NewFile(objGroup.ControllerPackageName)
-			f.HeaderComment(util.HeaderCommentGenNoEdit)
+			f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 			f.Comment(fmt.Sprintf(
 				"The name and description of the NATS bucket used for %s object locks",

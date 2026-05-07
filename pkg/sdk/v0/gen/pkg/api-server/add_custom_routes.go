@@ -18,7 +18,7 @@ import (
 func GenAddCustomRoutes(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, versionConf := range gen.GlobalVersionConfig.Versions {
 		f := NewFile("routes")
-		f.HeaderComment(util.HeaderCommentGenMod)
+		f.HeaderComment(sdk.HeaderCommentGenMod)
 
 		f.ImportAlias("github.com/labstack/echo/v4", "echo")
 		if gen.Module {

@@ -27,7 +27,7 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objCollection := range gen.VersionedApiObjectCollections {
 		for _, objGroup := range objCollection.VersionedApiObjectGroups {
 			f := NewFile(objCollection.Version)
-			f.HeaderComment(util.HeaderCommentGenNoEdit)
+			f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 			f.ImportAlias(util.SetImportAlias(
 				"github.com/threeport/threeport/pkg/util/v0",

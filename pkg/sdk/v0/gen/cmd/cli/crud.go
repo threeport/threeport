@@ -27,7 +27,7 @@ func GenPluginCrudCmds(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		crudCmdUpper := strcase.ToCamel(crudCmd)
 
 		f := NewFile("cmd")
-		f.HeaderComment(util.HeaderCommentGenMod)
+		f.HeaderComment(sdk.HeaderCommentGenMod)
 
 		f.Comment(fmt.Sprintf("%sCmd represents the %s command", crudCmdUpper, crudCmd))
 		f.Var().Id(

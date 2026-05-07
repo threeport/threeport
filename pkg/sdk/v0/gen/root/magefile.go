@@ -19,7 +19,7 @@ import (
 // Ref: https://github.com/magefile/mage
 func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("main")
-	f.HeaderComment(util.HeaderCommentGenNoEdit)
+	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 	// set installer package for threeport and modules
 	var installerPkg string

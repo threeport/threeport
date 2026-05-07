@@ -31,7 +31,7 @@ func GenNotifs(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objGroup := range gen.ApiObjectGroups {
 		if len(objGroup.ReconciledObjects) > 0 {
 			f := NewFile("notif")
-			f.HeaderComment(util.HeaderCommentGenNoEdit)
+			f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 			subjects := &Statement{}
 			var subjectFuncs []string

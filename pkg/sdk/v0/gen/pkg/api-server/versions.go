@@ -20,7 +20,7 @@ func GenObjValidationVersions(gen *gen.Generator, sdkConfig *sdk.SdkConfig) erro
 	for _, objCollection := range gen.VersionedApiObjectCollections {
 		for _, objGroup := range objCollection.VersionedApiObjectGroups {
 			f := NewFile("versions")
-			f.HeaderComment(util.HeaderCommentGenNoEdit)
+			f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 			f.ImportAlias(
 				fmt.Sprintf("%s/pkg/api-server/%s", gen.ModulePath, objCollection.Version),

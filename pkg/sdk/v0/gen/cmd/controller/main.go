@@ -22,7 +22,7 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, objGroup := range gen.ApiObjectGroups {
 		if len(objGroup.ReconciledObjects) > 0 {
 			f := NewFile("main")
-			f.HeaderComment(util.HeaderCommentGenNoEdit)
+			f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 			f.ImportAlias("github.com/threeport/threeport/pkg/client/lib/v0", "tpclient_lib")
 			f.ImportAlias("github.com/threeport/threeport/pkg/controller/v0", "controller")

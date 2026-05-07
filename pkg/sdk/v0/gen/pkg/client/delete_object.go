@@ -18,7 +18,7 @@ import (
 func GenDeleteObjByTypeAndId(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	for _, apiVersion := range gen.GlobalVersionConfig.Versions {
 		f := NewFile(apiVersion.VersionName)
-		f.HeaderComment(util.HeaderCommentGenNoEdit)
+		f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 		f.Comment("DeleteObjectByTypeAndID deletes an instance given a string representation of its type and ID.")
 		f.Func().Id("DeleteObjectByTypeAndID").Params(

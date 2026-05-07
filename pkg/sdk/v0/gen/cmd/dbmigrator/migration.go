@@ -17,7 +17,7 @@ import (
 // schema before the API server starts.
 func GenDbMigratorMigration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("migrations")
-	f.HeaderComment(util.HeaderCommentGenMod)
+	f.HeaderComment(sdk.HeaderCommentGenMod)
 
 	f.ImportAlias("github.com/pressly/goose/v3", "goose")
 

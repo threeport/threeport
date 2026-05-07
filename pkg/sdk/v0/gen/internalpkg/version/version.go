@@ -9,6 +9,7 @@ import (
 	. "github.com/dave/jennifer/jen"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
@@ -22,7 +23,7 @@ func getVersionFilename() string {
 // version of each component.
 func GenVersionPackage() error {
 	f := NewFile("version")
-	f.HeaderComment(util.HeaderCommentGenNoEdit)
+	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 	f.Anon("embed")
 
 	f.Comment("Version is a constant variable containing the version")

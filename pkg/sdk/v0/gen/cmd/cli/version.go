@@ -18,7 +18,7 @@ import (
 // plugin.
 func GenPluginVersionCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("cmd")
-	f.HeaderComment(util.HeaderCommentGenMod)
+	f.HeaderComment(sdk.HeaderCommentGenMod)
 
 	packageDir := strcase.ToSnake(sdkConfig.ModuleName)
 	commandLit := strcase.ToKebab(sdkConfig.ModuleName)

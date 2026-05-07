@@ -17,7 +17,7 @@ import (
 // GenPluginRootCmd generates the root command for an extension's tptctl plugin.
 func GenPluginRootCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("cmd")
-	f.HeaderComment(util.HeaderCommentGenMod)
+	f.HeaderComment(sdk.HeaderCommentGenMod)
 
 	f.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
 

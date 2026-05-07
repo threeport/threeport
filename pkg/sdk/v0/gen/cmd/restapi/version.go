@@ -17,7 +17,7 @@ import (
 // can provide an endpoint with its version.
 func GenUtilVersion(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("util")
-	f.HeaderComment(util.HeaderCommentGenNoEdit)
+	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 	f.ImportAlias("github.com/labstack/echo/v4", "echo")
 
 	f.Comment("RestApiVersion provides the version of the REST API binary.")

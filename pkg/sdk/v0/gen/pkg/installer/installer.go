@@ -20,7 +20,7 @@ import (
 // plane and registers that module with Threeport.
 func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("v0")
-	f.HeaderComment(util.HeaderCommentGenNoEdit)
+	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 
 	f.ImportAlias("k8s.io/apimachinery/pkg/apis/meta/v1", "metav1")
 	f.ImportAlias("github.com/threeport/threeport/pkg/kube/v0", "kube")
