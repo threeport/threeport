@@ -59,12 +59,12 @@ func (e *Event) GetId() uint {
 	return *e.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (e *Event) GetType() string {
 	return "Event"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (e *Event) GetVersion() string {
 	return "v0"
 }

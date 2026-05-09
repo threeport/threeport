@@ -66,12 +66,12 @@ func (ggkrd *GcpGkeKubernetesRuntimeDefinition) GetId() uint {
 	return *ggkrd.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (ggkrd *GcpGkeKubernetesRuntimeDefinition) GetType() string {
 	return "GcpGkeKubernetesRuntimeDefinition"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (ggkrd *GcpGkeKubernetesRuntimeDefinition) GetVersion() string {
 	return "v0"
 }
@@ -120,12 +120,12 @@ func (ggkri *GcpGkeKubernetesRuntimeInstance) GetId() uint {
 	return *ggkri.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (ggkri *GcpGkeKubernetesRuntimeInstance) GetType() string {
 	return "GcpGkeKubernetesRuntimeInstance"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (ggkri *GcpGkeKubernetesRuntimeInstance) GetVersion() string {
 	return "v0"
 }
@@ -180,12 +180,12 @@ func (gp *GcpProvider) GetId() uint {
 	return *gp.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (gp *GcpProvider) GetType() string {
 	return "GcpProvider"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (gp *GcpProvider) GetVersion() string {
 	return "v0"
 }

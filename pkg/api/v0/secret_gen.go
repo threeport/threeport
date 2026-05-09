@@ -63,12 +63,12 @@ func (sd *SecretDefinition) GetId() uint {
 	return *sd.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (sd *SecretDefinition) GetType() string {
 	return "SecretDefinition"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (sd *SecretDefinition) GetVersion() string {
 	return "v0"
 }
@@ -123,12 +123,12 @@ func (si *SecretInstance) GetId() uint {
 	return *si.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (si *SecretInstance) GetType() string {
 	return "SecretInstance"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (si *SecretInstance) GetVersion() string {
 	return "v0"
 }

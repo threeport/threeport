@@ -66,12 +66,12 @@ func (ookrd *OciOkeKubernetesRuntimeDefinition) GetId() uint {
 	return *ookrd.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (ookrd *OciOkeKubernetesRuntimeDefinition) GetType() string {
 	return "OciOkeKubernetesRuntimeDefinition"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (ookrd *OciOkeKubernetesRuntimeDefinition) GetVersion() string {
 	return "v0"
 }
@@ -120,12 +120,12 @@ func (ookri *OciOkeKubernetesRuntimeInstance) GetId() uint {
 	return *ookri.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (ookri *OciOkeKubernetesRuntimeInstance) GetType() string {
 	return "OciOkeKubernetesRuntimeInstance"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (ookri *OciOkeKubernetesRuntimeInstance) GetVersion() string {
 	return "v0"
 }
@@ -180,12 +180,12 @@ func (op *OciProvider) GetId() uint {
 	return *op.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (op *OciProvider) GetType() string {
 	return "OciProvider"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (op *OciProvider) GetVersion() string {
 	return "v0"
 }

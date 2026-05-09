@@ -62,12 +62,12 @@ func (p *Profile) GetId() uint {
 	return *p.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (p *Profile) GetType() string {
 	return "Profile"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (p *Profile) GetVersion() string {
 	return "v0"
 }
@@ -116,12 +116,12 @@ func (t *Tier) GetId() uint {
 	return *t.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (t *Tier) GetType() string {
 	return "Tier"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (t *Tier) GetVersion() string {
 	return "v0"
 }

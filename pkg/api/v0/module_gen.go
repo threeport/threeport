@@ -68,12 +68,12 @@ func (ma *ModuleApi) GetId() uint {
 	return *ma.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (ma *ModuleApi) GetType() string {
 	return "ModuleApi"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (ma *ModuleApi) GetVersion() string {
 	return "v0"
 }
@@ -122,12 +122,12 @@ func (mar *ModuleApiRoute) GetId() uint {
 	return *mar.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (mar *ModuleApiRoute) GetType() string {
 	return "ModuleApiRoute"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (mar *ModuleApiRoute) GetVersion() string {
 	return "v0"
 }
@@ -176,12 +176,12 @@ func (mc *ModuleController) GetId() uint {
 	return *mc.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (mc *ModuleController) GetType() string {
 	return "ModuleController"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (mc *ModuleController) GetVersion() string {
 	return "v0"
 }
@@ -230,12 +230,12 @@ func (mo *ModuleObject) GetId() uint {
 	return *mo.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (mo *ModuleObject) GetType() string {
 	return "ModuleObject"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (mo *ModuleObject) GetVersion() string {
 	return "v0"
 }

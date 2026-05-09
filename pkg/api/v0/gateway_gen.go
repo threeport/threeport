@@ -75,12 +75,12 @@ func (dnd *DomainNameDefinition) GetId() uint {
 	return *dnd.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (dnd *DomainNameDefinition) GetType() string {
 	return "DomainNameDefinition"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (dnd *DomainNameDefinition) GetVersion() string {
 	return "v0"
 }
@@ -129,12 +129,12 @@ func (dni *DomainNameInstance) GetId() uint {
 	return *dni.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (dni *DomainNameInstance) GetType() string {
 	return "DomainNameInstance"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (dni *DomainNameInstance) GetVersion() string {
 	return "v0"
 }
@@ -189,12 +189,12 @@ func (gd *GatewayDefinition) GetId() uint {
 	return *gd.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (gd *GatewayDefinition) GetType() string {
 	return "GatewayDefinition"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (gd *GatewayDefinition) GetVersion() string {
 	return "v0"
 }
@@ -249,12 +249,12 @@ func (ghp *GatewayHttpPort) GetId() uint {
 	return *ghp.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (ghp *GatewayHttpPort) GetType() string {
 	return "GatewayHttpPort"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (ghp *GatewayHttpPort) GetVersion() string {
 	return "v0"
 }
@@ -303,12 +303,12 @@ func (gi *GatewayInstance) GetId() uint {
 	return *gi.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (gi *GatewayInstance) GetType() string {
 	return "GatewayInstance"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (gi *GatewayInstance) GetVersion() string {
 	return "v0"
 }
@@ -363,12 +363,12 @@ func (gtp *GatewayTcpPort) GetId() uint {
 	return *gtp.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (gtp *GatewayTcpPort) GetType() string {
 	return "GatewayTcpPort"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (gtp *GatewayTcpPort) GetVersion() string {
 	return "v0"
 }

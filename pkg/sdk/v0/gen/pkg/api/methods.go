@@ -170,15 +170,15 @@ func GenApiObjectMethods(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				).Id("GetId").Params().Uint().Block(
 					Return(Op("*").Id(util.TypeAbbrev(apiObj.TypeName)).Dot("ID")),
 				)
-				// Type method
-				f.Comment("Type returns the object type.")
+				// GetType method
+				f.Comment("GetType returns the object type.")
 				f.Func().Params(
 					Id(util.TypeAbbrev(apiObj.TypeName)).Op("*").Id(apiObj.TypeName),
 				).Id("GetType").Params().String().Block(
 					Return(Lit(apiObj.TypeName)),
 				)
-				// Version method
-				f.Comment("Version returns the version of the API object.")
+				// GetVersion method
+				f.Comment("GetVersion returns the version of the API object.")
 				f.Func().Params(
 					Id(util.TypeAbbrev(apiObj.TypeName)).Op("*").Id(apiObj.TypeName),
 				).Id("GetVersion").Params().String().Block(

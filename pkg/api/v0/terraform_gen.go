@@ -63,12 +63,12 @@ func (td *TerraformDefinition) GetId() uint {
 	return *td.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (td *TerraformDefinition) GetType() string {
 	return "TerraformDefinition"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (td *TerraformDefinition) GetVersion() string {
 	return "v0"
 }
@@ -123,12 +123,12 @@ func (ti *TerraformInstance) GetId() uint {
 	return *ti.ID
 }
 
-// Type returns the object type.
+// GetType returns the object type.
 func (ti *TerraformInstance) GetType() string {
 	return "TerraformInstance"
 }
 
-// Version returns the version of the API object.
+// GetVersion returns the version of the API object.
 func (ti *TerraformInstance) GetVersion() string {
 	return "v0"
 }
