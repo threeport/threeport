@@ -5,34 +5,34 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/threeport/threeport/pkg/msg"
+	util "github.com/threeport/threeport/pkg/util/v0"
 	yaml "gopkg.in/yaml.v2"
 )
 
 // Error returns a formatted error message in red.
 func Error(message string, err error) {
-	msg.Error(message, err)
+	util.CliOutputError(message, err)
 }
 
 // Info returns a formatted info message.
 func Info(message string) {
-	msg.Info(message)
+	util.CliOutputInfo(message)
 }
 
 // Notice returns a formatted notice message in blue.
 func Notice(message string) {
-	msg.Notice(message)
+	util.CliOutputNotice(message)
 }
 
 // Warning returns a formatted warning message in yellow.
 func Warning(message string) {
-	msg.Warning(message)
+	util.CliOutputWarning(message)
 }
 
 // Complete returns a formatted message in green.  Used when operations are
 // finished.
 func Complete(message string) {
-	msg.Complete(message)
+	util.CliOutputComplete(message)
 }
 
 // YamlObjectOutput marshals an object or slice of objects to YAML and prints the output.

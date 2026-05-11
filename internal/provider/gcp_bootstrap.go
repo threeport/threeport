@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/threeport/threeport/pkg/msg"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -487,7 +486,7 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		return nil, fmt.Errorf("failed to decode service account key: %w", err)
 	}
 
-	msg.Info("Created and exported GCP service account key")
+	util.CliOutputInfo("Created and exported GCP service account key")
 
 	return &GCPServiceAccountWithKey{
 		Email:   account.Email,

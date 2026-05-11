@@ -33,7 +33,7 @@ import (
 	"gorm.io/datatypes"
 
 	kube "github.com/threeport/threeport/pkg/kube/v0"
-	"github.com/threeport/threeport/pkg/msg"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // GCP OAuth2 configuration for Application Default Credentials
@@ -351,7 +351,7 @@ func (i *KubernetesRuntimeInfraGKE) Delete() error {
 		if i.Logger != nil {
 			i.Logger.Info("warning: failed to clean up GCP resources", "error", err.Error())
 		} else {
-			msg.Warning(fmt.Sprintf("failed to clean up GCP resources: %v", err))
+			util.CliOutputWarning(fmt.Sprintf("failed to clean up GCP resources: %v", err))
 		}
 	}
 
@@ -632,14 +632,14 @@ func EnsureGCPAuth(serviceAccountCredentials string) error {
 
 	// THIRD: Fall back to browser-based OAuth flow (scenario 1 - CLI only)
 	// This only works for CLI usage (tptctl), not for controllers
-	msg.Info("GCP credentials not found or expired. Initiating authentication...")
+	util.CliOutputInfo("GCP credentials not found or expired. Initiating authentication...")
 
 	// perform the OAuth flow
 	if err := performGCPOAuthFlow(ctx); err != nil {
 		return fmt.Errorf("failed to authenticate with GCP: %w", err)
 	}
 
-	msg.Info("GCP authentication successful!")
+	util.CliOutputInfo("GCP authentication successful!")
 	return nil
 }
 
@@ -761,14 +761,14 @@ func performGCPOAuthFlow(ctx context.Context) error {
 	// generate the authorization URL
 	authURL := oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
 
-	msg.Notice("Opening browser for GCP authentication...")
-	msg.Info("If the browser doesn't open automatically, please visit:")
-	msg.Info(authURL)
+	util.CliOutputNotice("Opening browser for GCP authentication...")
+	util.CliOutputInfo("If the browser doesn't open automatically, please visit:")
+	util.CliOutputInfo(authURL)
 	fmt.Println()
 
 	// try to open the browser
 	if err := openBrowser(authURL); err != nil {
-		msg.Warning("Failed to open browser automatically. Please open the URL above manually.")
+		util.CliOutputWarning("Failed to open browser automatically. Please open the URL above manually.")
 	}
 
 	// wait for the authorization code or error

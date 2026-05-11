@@ -18,7 +18,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"gorm.io/datatypes"
 
-	climsg "github.com/threeport/threeport/pkg/msg"
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // PulumiWorkspace encapsulates all Pulumi workspace, stack, and state management
@@ -54,7 +54,7 @@ func (w *PulumiWorkspace) logInfo(msg string, keysAndValues ...interface{}) {
 	if w.Logger != nil {
 		w.Logger.Info(msg, keysAndValues...)
 	} else {
-		climsg.Info(msg)
+		util.CliOutputInfo(msg)
 	}
 }
 
