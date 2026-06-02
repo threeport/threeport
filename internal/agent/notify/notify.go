@@ -132,22 +132,22 @@ func Notify(
 				switch {
 				case notif.Event.WorkloadResourceInstanceID != 0:
 					workloadEvent = tpapi.WorkloadEvent{
-						RuntimeEventUID:            &notif.Event.EventUID,
-						WorkloadInstanceID:         &notif.Event.KubernetesWorkloadInstanceID,
-						WorkloadResourceInstanceID: &notif.Event.WorkloadResourceInstanceID,
-						Type:                       &notif.Event.Type,
-						Reason:                     &notif.Event.Reason,
-						Message:                    &notif.Event.Message,
-						Timestamp:                  &notif.Event.Timestamp.Time,
+						RuntimeEventUID:                      &notif.Event.EventUID,
+						KubernetesWorkloadInstanceID:         &notif.Event.KubernetesWorkloadInstanceID,
+						KubernetesWorkloadResourceInstanceID: &notif.Event.WorkloadResourceInstanceID,
+						Type:                                 &notif.Event.Type,
+						Reason:                               &notif.Event.Reason,
+						Message:                              &notif.Event.Message,
+						Timestamp:                            &notif.Event.Timestamp.Time,
 					}
 				case notif.Event.WorkloadType == agent.WorkloadInstanceType:
 					workloadEvent = tpapi.WorkloadEvent{
-						RuntimeEventUID:    &notif.Event.EventUID,
-						WorkloadInstanceID: &notif.Event.KubernetesWorkloadInstanceID,
-						Type:               &notif.Event.Type,
-						Reason:             &notif.Event.Reason,
-						Message:            &notif.Event.Message,
-						Timestamp:          &notif.Event.Timestamp.Time,
+						RuntimeEventUID:              &notif.Event.EventUID,
+						KubernetesWorkloadInstanceID: &notif.Event.KubernetesWorkloadInstanceID,
+						Type:                         &notif.Event.Type,
+						Reason:                       &notif.Event.Reason,
+						Message:                      &notif.Event.Message,
+						Timestamp:                    &notif.Event.Timestamp.Time,
 					}
 				case notif.Event.WorkloadType == agent.HelmWorkloadInstanceType:
 					workloadEvent = tpapi.WorkloadEvent{
