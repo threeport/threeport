@@ -1738,8 +1738,8 @@ func (Build) TerraformControllerImageRelease() error {
 	return nil
 }
 
-// WorkloadControllerBin builds the binary for the workload-controller.
-func (Build) WorkloadControllerBin(arch string) error {
+// KubernetesWorkloadControllerBin builds the binary for the kubernetes-workload-controller.
+func (Build) KubernetesWorkloadControllerBin(arch string) error {
 	workingDir, _, err := getBuildVals()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
@@ -1748,46 +1748,46 @@ func (Build) WorkloadControllerBin(arch string) error {
 	if err := util.BuildBinary(
 		workingDir,
 		arch,
-		"workload-controller",
-		"cmd/workload-controller/main_gen.go",
+		"kubernetes-workload-controller",
+		"cmd/kubernetes-workload-controller/main_gen.go",
 		false,
 	); err != nil {
-		return fmt.Errorf("failed to build workload-controller binary: %w", err)
+		return fmt.Errorf("failed to build kubernetes-workload-controller binary: %w", err)
 	}
 
-	fmt.Println("binary built and available at bin/workload-controller")
+	fmt.Println("binary built and available at bin/kubernetes-workload-controller")
 
 	return nil
 }
 
-// WorkloadControllerBinDev builds the workload-controller binary for the architcture of the machine
+// KubernetesWorkloadControllerBinDev builds the kubernetes-workload-controller binary for the architcture of the machine
 // where it is built.
-func (Build) WorkloadControllerBinDev() error {
+func (Build) KubernetesWorkloadControllerBinDev() error {
 	_, arch, err := getBuildVals()
 	if err != nil {
 		return fmt.Errorf("failed to get local CPU architecture: %w", err)
 	}
 
 	build := Build{}
-	if err := build.WorkloadControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev workload-controller binary: %w", err)
+	if err := build.KubernetesWorkloadControllerBin(arch); err != nil {
+		return fmt.Errorf("failed to build dev kubernetes-workload-controller binary: %w", err)
 	}
 
 	return nil
 }
 
-// WorkloadControllerBinRelease builds the workload-controller binary for release architecture.
-func (Build) WorkloadControllerBinRelease() error {
+// KubernetesWorkloadControllerBinRelease builds the kubernetes-workload-controller binary for release architecture.
+func (Build) KubernetesWorkloadControllerBinRelease() error {
 	build := Build{}
-	if err := build.WorkloadControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release workload-controller binary: %w", err)
+	if err := build.KubernetesWorkloadControllerBin(releaseArch); err != nil {
+		return fmt.Errorf("failed to build release kubernetes-workload-controller binary: %w", err)
 	}
 
 	return nil
 }
 
-// WorkloadControllerImage builds and pushes the container image for the workload-controller.
-func (Build) WorkloadControllerImage(
+// KubernetesWorkloadControllerImage builds and pushes the container image for the kubernetes-workload-controller.
+func (Build) KubernetesWorkloadControllerImage(
 	imageRepo string,
 	imageTag string,
 	arch string,
@@ -1798,55 +1798,55 @@ func (Build) WorkloadControllerImage(
 	}
 
 	build := Build{}
-	if err := build.WorkloadControllerBin(arch); err != nil {
+	if err := build.KubernetesWorkloadControllerBin(arch); err != nil {
 		return fmt.Errorf("failed to build binary for image build: %w", err)
 	}
 
 	if err := util.BuildImage(
 		workingDir,
-		"cmd/workload-controller/image/Dockerfile-alpine",
+		"cmd/kubernetes-workload-controller/image/Dockerfile-alpine",
 		arch,
 		imageRepo,
-		"threeport-workload-controller",
+		"threeport-kubernetes-workload-controller",
 		imageTag,
 		true,
 		false,
 		"",
 	); err != nil {
-		return fmt.Errorf("failed to build and push workload-controller image: %w", err)
+		return fmt.Errorf("failed to build and push kubernetes-workload-controller image: %w", err)
 	}
 
 	return nil
 }
 
-// WorkloadControllerImageDev builds and pushes a development workload-controller container image.
-func (Build) WorkloadControllerImageDev() error {
+// KubernetesWorkloadControllerImageDev builds and pushes a development kubernetes-workload-controller container image.
+func (Build) KubernetesWorkloadControllerImageDev() error {
 	_, arch, err := getBuildVals()
 	if err != nil {
 		return fmt.Errorf("failed to get local CPU architecture: %w", err)
 	}
 
 	build := Build{}
-	if err := build.WorkloadControllerImage(
+	if err := build.KubernetesWorkloadControllerImage(
 		installer.DevImageNamespace,
 		version.GetVersion(),
 		arch,
 	); err != nil {
-		return fmt.Errorf("failed to build and push dev workload-controller image: %w", err)
+		return fmt.Errorf("failed to build and push dev kubernetes-workload-controller image: %w", err)
 	}
 
 	return nil
 }
 
-// WorkloadControllerImageRelease builds and pushes a release workload-controller container image.
-func (Build) WorkloadControllerImageRelease() error {
+// KubernetesWorkloadControllerImageRelease builds and pushes a release kubernetes-workload-controller container image.
+func (Build) KubernetesWorkloadControllerImageRelease() error {
 	build := Build{}
-	if err := build.WorkloadControllerImage(
+	if err := build.KubernetesWorkloadControllerImage(
 		installer.ThreeportImageNamespace,
 		version.GetVersion(),
 		releaseArch,
 	); err != nil {
-		return fmt.Errorf("failed to build and push release workload-controller image: %w", err)
+		return fmt.Errorf("failed to build and push release kubernetes-workload-controller image: %w", err)
 	}
 
 	return nil
@@ -1915,7 +1915,7 @@ func (Build) AllBins(arch string) error {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
-	if err := build.WorkloadControllerBin(arch); err != nil {
+	if err := build.KubernetesWorkloadControllerBin(arch); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
@@ -1985,7 +1985,7 @@ func (Build) AllBinsDev() error {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
-	if err := build.WorkloadControllerBinDev(); err != nil {
+	if err := build.KubernetesWorkloadControllerBinDev(); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
@@ -2055,7 +2055,7 @@ func (Build) AllBinsRelease() error {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
-	if err := build.WorkloadControllerBinRelease(); err != nil {
+	if err := build.KubernetesWorkloadControllerBinRelease(); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
@@ -2129,7 +2129,7 @@ func (Build) AllImages(
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
-	if err := build.WorkloadControllerImage(imageRepo, imageTag, arch); err != nil {
+	if err := build.KubernetesWorkloadControllerImage(imageRepo, imageTag, arch); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
@@ -2199,7 +2199,7 @@ func (Build) AllImagesDev() error {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
-	if err := build.WorkloadControllerImageDev(); err != nil {
+	if err := build.KubernetesWorkloadControllerImageDev(); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
@@ -2269,7 +2269,7 @@ func (Build) AllImagesRelease() error {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 
-	if err := build.WorkloadControllerImageRelease(); err != nil {
+	if err := build.KubernetesWorkloadControllerImageRelease(); err != nil {
 		return fmt.Errorf("failed to build and push image: %w", err)
 	}
 

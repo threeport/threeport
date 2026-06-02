@@ -39,22 +39,22 @@ var (
 
 // ThreeportWorkloadSpec defines the desired state of ThreeportWorkload
 type ThreeportWorkloadSpec struct {
-	// +kubebuilder:validation:Enum=WorkloadInstance;HelmWorkloadInstance
+	// +kubebuilder:validation:Enum=KubernetesWorkloadInstance;HelmWorkloadInstance
 	// WorkloadType informs the threeport agent which threeport API type was
 	// used to represent a Kubernetes workload.
 	WorkloadType string `json:"workloadType,omitempty"`
 
-	// WorkloadInstance is the unique ID for a threeport object that represents
+	// KubernetesWorkloadInstance is the unique ID for a threeport object that represents
 	// a deployed instance of a workload.
-	WorkloadInstanceID uint `json:"workloadInstanceId,omitempty"`
+	KubernetesWorkloadInstanceID uint `json:"workloadInstanceId,omitempty"`
 
 	// WorkloadResources is a slice of WorkloadResource objects.
-	WorkloadResourceInstances []WorkloadResourceInstance `json:"workloadResourceInstances,omitempty"`
+	KubernetesWorkloadResourceInstances []KubernetesWorkloadResourceInstance `json:"workloadResourceInstances,omitempty"`
 }
 
 // WorkloadResource is a Kubernetes resource that should be watched and reported
 // upon by the threeport agent.
-type WorkloadResourceInstance struct {
+type KubernetesWorkloadResourceInstance struct {
 	Name        string `json:"name,omitempty"`
 	Namespace   string `json:"namespace,omitempty"`
 	Group       string `json:"group,omitempty"`

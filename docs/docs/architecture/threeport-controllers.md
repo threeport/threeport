@@ -7,10 +7,10 @@ notifies the appropriate controller via the notification broker.  The Threeport
 controller responsible for deploying the workload then executes the action and
 updates the status of the object in the API.
 
-The following diagram illustrates this process for the workload controller as an
+The following diagram illustrates this process for the kubernetes workload controller as an
 example.
 
-![Workload Controller](../img/WorkloadController.png)
+![Kubernetes Workload Controller](../img/KubernetesWorkloadController.png)
 
 1. A developer requests a workload by sending a request to the API, usually
    using the CLI tool `tptctl`.
@@ -31,7 +31,7 @@ example.
    is performed at a later time.
 1. Reconciliation is completed.  In this case, the workload is deployed by
    calling the Kubernetes API of the target cluster for the workload.
-1. Once the operation is successfully reconciled, the Workload controller
+1. Once the operation is successfully reconciled, the Kubernetes Workload controller
    updates the status of the object through the API.
 1. Finally, the Threeport controller releases the lock on the object instance so
    that it may undergo any future reconciliation.
@@ -41,13 +41,13 @@ example.
 To drill into a little more detail, a Threeport controller internally consists
 of one or more reconcilers.  Each reconciler is responsible for the state of a
 single object type.  To continue the example above, two objects were created by
-the developer.  A WorkloadDefinition and a WorkloadInstance.  The
-Workload controller has a distinct reconciler for each object.
+the developer.  A KubernetesWorkloadDefinition and a KubernetesWorkloadInstance.  The
+Kubernetes Workload controller has a distinct reconciler for each object.
 
-![Workload Controller Reconcilers](../img/ThreeportReconcilers.png)
+![Kubernetes Workload Controller Reconcilers](../img/ThreeportReconcilers.png)
 
 > Note: this illustration does not include an exhaustive list of reconcilers in
-> the Workload Controller.  It is just a representation of the components involved
+> the Kubernetes Workload Controller.  It is just a representation of the components involved
 > in the example from above.
 
 The blue arrows illustrate the notifications that are sent to the reconcilers

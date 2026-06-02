@@ -25,11 +25,11 @@ that specifies which location the Kubernetes cluster should run in.
 > translated to different cloud providers and, thus, enable smoother multi-cloud
 > provider environments.
 
-A Workload Definition provides the configuration for a containerized workload.
+A Kubernetes Workload Definition provides the configuration for a containerized workload.
 It includes the Kubernetes resource manifests for that workload.
 
 Subsequently, a user can deploy any number of instances that use the resource
-manifests defined in the Definition.  Each time a Workload Instance is deployed,
+manifests defined in the Definition.  Each time a Kubernetes Workload Instance is deployed,
 the configuration in the definition is referenced as well as a runtime parameter
 that determines which Kubernetes cluster the workload should run on.
 

@@ -43,36 +43,36 @@ var workloadTestCases = []WorkloadTestCase{
 		Name:           "defined instance wordpress workload",
 		Object:         "workload",
 		ObjectName:     "wordpress",
-		ConfigPath:     filepath.Join("test", "e2e", "configs", "wordpress-workload-local.yaml"),
+		ConfigPath:     filepath.Join("test", "e2e", "configs", "wordpress-kubernetes-workload-local.yaml"),
 		DeploymentName: "getting-started-wordpress",
 		ShouldWork:     true,
 	},
 	{
 		Name:       "duplicate defined instance wordpress workload",
 		Object:     "workload",
-		ConfigPath: filepath.Join("test", "e2e", "configs", "wordpress-workload-local.yaml"),
+		ConfigPath: filepath.Join("test", "e2e", "configs", "wordpress-kubernetes-workload-local.yaml"),
 		ShouldWork: false,
 	},
 	{
-		Name:       "wordpress workload definition",
+		Name:       "wordpress kubernetes workload definition",
 		Object:     "workload-definition",
 		ObjectName: "wordpress-def",
-		ConfigPath: filepath.Join("test", "e2e", "configs", "wordpress-workload-definition-local.yaml"),
+		ConfigPath: filepath.Join("test", "e2e", "configs", "wordpress-kubernetes-workload-definition-local.yaml"),
 		ShouldWork: true,
 	},
 	{
-		Name:           "first wordpress workload instance",
+		Name:           "first wordpress kubernetes workload instance",
 		Object:         "workload-instance",
 		ObjectName:     "wordpress-inst-01",
-		ConfigPath:     filepath.Join("test", "e2e", "configs", "wordpress-workload-instance-local-01.yaml"),
+		ConfigPath:     filepath.Join("test", "e2e", "configs", "wordpress-kubernetes-workload-instance-local-01.yaml"),
 		DeploymentName: "getting-started-wordpress",
 		ShouldWork:     true,
 	},
 	{
-		Name:           "second wordpress workload instance",
+		Name:           "second wordpress kubernetes workload instance",
 		Object:         "workload-instance",
 		ObjectName:     "wordpress-inst-02",
-		ConfigPath:     filepath.Join("test", "e2e", "configs", "wordpress-workload-instance-local-02.yaml"),
+		ConfigPath:     filepath.Join("test", "e2e", "configs", "wordpress-kubernetes-workload-instance-local-02.yaml"),
 		DeploymentName: "getting-started-wordpress",
 		ShouldWork:     true,
 	},
@@ -104,7 +104,7 @@ func (w *WorkloadTestCase) Create(threeportPath string) error {
 	return nil
 }
 
-// Describe uses tptctl to describe all the workload instance test cases.
+// Describe uses tptctl to describe all the kubernetes workload instance test cases.
 func (w *WorkloadTestCase) Describe(
 	threeportPath string,
 	testCases *[]WorkloadTestCase,
@@ -130,7 +130,7 @@ func (w *WorkloadTestCase) Describe(
 
 	if err != nil {
 		return fmt.Errorf(
-			"failed to describe workload instance %s with output %s: %w",
+			"failed to describe kubernetes workload instance %s with output %s: %w",
 			w.ObjectName,
 			output,
 			err,
@@ -142,7 +142,7 @@ func (w *WorkloadTestCase) Describe(
 	var workloadInstanceMap map[string]interface{}
 	if err := decoder.Decode(&workloadInstanceMap); err != nil {
 		return fmt.Errorf(
-			"failed to unmarshal workload instance %s: %w",
+			"failed to unmarshal kubernetes workload instance %s: %w",
 			w.ObjectName,
 			err,
 		)
@@ -153,7 +153,7 @@ func (w *WorkloadTestCase) Describe(
 		idInt64, err := idNum.Int64()
 		if err != nil {
 			return fmt.Errorf(
-				"failed to convert ID for workload instance %s to int64: %w",
+				"failed to convert ID for kubernetes workload instance %s to int64: %w",
 				w.ObjectName,
 				err,
 			)
@@ -161,7 +161,7 @@ func (w *WorkloadTestCase) Describe(
 		objectId = idInt64
 	} else {
 		return fmt.Errorf(
-			"failed to find object ID in describe output for workload instance %s",
+			"failed to find object ID in describe output for kubernetes workload instance %s",
 			w.ObjectName,
 		)
 	}
@@ -193,7 +193,7 @@ func (w *WorkloadTestCase) Validate() error {
 			namespaceName, err := getNamespaceByWorkloadInstanceId(w.InstanceObjectId)
 			if err != nil {
 				return fmt.Errorf(
-					"failed to get namespace for workload instance with ID %d: %w",
+					"failed to get namespace for kubernetes workload instance with ID %d: %w",
 					w.InstanceObjectId,
 					err,
 				)

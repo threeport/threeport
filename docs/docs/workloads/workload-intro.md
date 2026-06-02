@@ -40,22 +40,22 @@ the Threeport user but here are some considerations:
   it usually works best for each team to define and use distinct Workloads in
   Threeport.
 
-## Workload Definition
+## Kubernetes Workload Definition
 
 The definition for a workload includes all the Kubernetes resources needed to
 run the containerized workload.  You will need to create a Kubernetes resource
-manifest to reference in the Workload Definition config.
+manifest to reference in the Kubernetes Workload Definition config.
 
 Reference:
-[WorkloadDefinition](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#WorkloadDefinition)
+[KubernetesWorkloadDefinition](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesWorkloadDefinition)
 
-## Workload Instance
+## Kubernetes Workload Instance
 
-A workload instance allows you to specify which Kubernetes Runtime Instance you
+A kubernetes workload instance allows you to specify which Kubernetes Runtime Instance you
 would like to run the workload in.
 
 Reference:
-[WorkloadInstance](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#WorkloadInstance)
+[KubernetesWorkloadInstance](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesWorkloadInstance)
 
 > Note: You can also run multiple instances of a workload in a single Kubernetes
 > cluster if you use Threeport to manage Kubernetes namespaces.  See the

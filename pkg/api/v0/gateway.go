@@ -30,8 +30,8 @@ type GatewayDefinition struct {
 	// The kubernetes service to route requests to.
 	ServiceName *string `json:"ServiceName,omitempty" query:"servicename" validate:"optional"`
 
-	// The workload definition that belongs to this resource.
-	WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" validate:"optional"`
+	// The kubernetes workload definition that belongs to this resource.
+	KubernetesWorkloadDefinitionID *uint `json:"KubernetesWorkloadDefinitionID,omitempty" query:"kubernetesworkloaddefinitionid" validate:"optional"`
 
 	// The associated gateway instances that are deployed from this definition.
 	GatewayInstances []*GatewayInstance `json:"GatewayInstances,omitempty" validate:"optional,association"`
@@ -52,13 +52,14 @@ type GatewayInstance struct {
 	// GatewayDefinitionID is the definition used to configure the gateway instance.
 	GatewayDefinitionID *uint `json:"GatewayDefinitionID,omitempty" query:"gatewaydefinitionid" gorm:"not null" validate:"required" relationship:"requires"`
 
-	// TODO: implement this in the future so we don't need to
-	// query the workload instance & search for the workload resource instance
-	// The workload resource instances that belong to this instance.
-	// WorkloadResourceInstances *[]WorkloadResourceInstance `json:"WorkloadResourceInstances,omitempty" query:"workloadresourceinstances" validate:"optional,association"`
+	// TODO: implement this in the future so we don't need to query the
+	// kubernetes workload instance & search for the kubernetes workload resource
+	// instance.
+	// The kubernetes workload resource instances that belong to this instance.
+	// KubernetesWorkloadResourceInstances *[]KubernetesWorkloadResourceInstance `validate:"optional,association"`
 
-	// The workload instance this gateway belongs to.
-	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required" relationship:"requires"`
+	// The kubernetes workload instance this gateway belongs to.
+	KubernetesWorkloadInstanceID *uint `json:"KubernetesWorkloadInstanceID,omitempty" query:"kubernetesworkloadinstanceid" gorm:"not null" validate:"required" relationship:"requires"`
 }
 
 // GatewayHttpPort is an HTTP port to expose to the outside network.
@@ -122,8 +123,8 @@ type DomainNameDefinition struct {
 	// Type *string `json:"Type,omitempty" query:"type" gorm:"default:'A'"
 	// validate:"optional"`
 
-	// // The workload definition that belongs to this resource.
-	// WorkloadDefinitionID *uint `json:"WorkloadDefinitionID,omitempty" query:"workloaddefinitionid" validate:"optional"`
+	// // The kubernetes workload definition that belongs to this resource.
+	// KubernetesWorkloadDefinitionID *uint `json:"KubernetesWorkloadDefinitionID,omitempty" query:"kubernetesworkloaddefinitionid" validate:"optional"`
 
 	// The associated domain name instances that are deployed from this definition.
 	DomainNameInstances []*DomainNameInstance `json:"DomainNameInstances,omitempty" validate:"optional,association"`
@@ -138,8 +139,8 @@ type DomainNameInstance struct {
 	// The definition used to define the instance.
 	DomainNameDefinitionID *uint `json:"DomainNameDefinitionID,omitempty" query:"domainnamedefinitionid" gorm:"not null" validate:"required" relationship:"requires"`
 
-	// The workload instance this domain name belongs to.
-	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" gorm:"not null" validate:"required" relationship:"requires"`
+	// The kubernetes workload instance this domain name belongs to.
+	KubernetesWorkloadInstanceID *uint `json:"KubernetesWorkloadInstanceID,omitempty" query:"kubernetesworkloadinstanceid" gorm:"not null" validate:"required" relationship:"requires"`
 
 	// The cluster where the workload that is using the domain name is running.
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required" relationship:"requires"`

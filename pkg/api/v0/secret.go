@@ -30,8 +30,8 @@ type SecretInstance struct {
 	// The SecretDefinition that the secret instance is derived from.
 	SecretDefinitionID *uint `json:"SecretDefinitionID,omitempty" query:"secretdefinitionid" gorm:"not null" validate:"required" relationship:"requires"`
 
-	// The workload instance that the secret is associated with.
-	WorkloadInstanceID *uint `json:"WorkloadInstanceID,omitempty" query:"workloadinstanceid" validate:"optional" relationship:"requires"`
+	// The kubernetes workload instance that the secret is associated with.
+	KubernetesWorkloadInstanceID *uint `json:"KubernetesWorkloadInstanceID,omitempty" query:"kubernetesworkloadinstanceid" validate:"optional" relationship:"requires"`
 
 	// The helm workload instance that the secret is associated with.
 	HelmWorkloadInstanceID *uint `json:"HelmWorkloadInstanceID,omitempty" query:"helmworkloadinstanceid" validate:"optional" relationship:"requires"`

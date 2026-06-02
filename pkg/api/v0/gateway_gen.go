@@ -168,9 +168,9 @@ func (d *DomainNameInstance) RelationshipTaggedForeignKeys() []RelationshipTagge
 		ObjectType:   new(KubernetesRuntimeInstance).GetFullyQualifiedType(),
 		Relationship: RelationshipRequires,
 	}, {
-		FieldName:    "WorkloadInstanceID",
-		ObjectID:     d.WorkloadInstanceID,
-		ObjectType:   new(WorkloadInstance).GetFullyQualifiedType(),
+		FieldName:    "KubernetesWorkloadInstanceID",
+		ObjectID:     d.KubernetesWorkloadInstanceID,
+		ObjectType:   new(KubernetesWorkloadInstance).GetFullyQualifiedType(),
 		Relationship: RelationshipRequires,
 	}}
 }
@@ -377,9 +377,9 @@ func (g *GatewayInstance) RelationshipTaggedForeignKeys() []RelationshipTaggedFo
 		ObjectType:   new(KubernetesRuntimeInstance).GetFullyQualifiedType(),
 		Relationship: RelationshipRequires,
 	}, {
-		FieldName:    "WorkloadInstanceID",
-		ObjectID:     g.WorkloadInstanceID,
-		ObjectType:   new(WorkloadInstance).GetFullyQualifiedType(),
+		FieldName:    "KubernetesWorkloadInstanceID",
+		ObjectID:     g.KubernetesWorkloadInstanceID,
+		ObjectType:   new(KubernetesWorkloadInstance).GetFullyQualifiedType(),
 		Relationship: RelationshipRequires,
 	}}
 }

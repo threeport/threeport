@@ -73,7 +73,7 @@ func TestEventBeforeCreate_SubjectValidation(t *testing.T) {
 		},
 		{
 			name:        "malformed ObjectType rejected (not fully qualified)",
-			objectType:  util.Ptr("WorkloadInstance"),
+			objectType:  util.Ptr("KubernetesWorkloadInstance"),
 			objectID:    util.Ptr(uint(1)),
 			wantErr:     true,
 			wantErrSubs: []string{"not a fully qualified type name"},
@@ -125,7 +125,7 @@ func TestEventBeforeCreate_SubjectValidation(t *testing.T) {
 func TestEventAfterCreate_InsertsAOR(t *testing.T) {
 	db := setupEventTestDB(t)
 	e := baseEvent()
-	e.ObjectType = util.Ptr("threeport.io/v0.WorkloadInstance")
+	e.ObjectType = util.Ptr("threeport.io/v0.KubernetesWorkloadInstance")
 	e.ObjectID = util.Ptr(uint(42))
 
 	require.NoError(t, db.Create(e).Error)
@@ -142,7 +142,7 @@ func TestEventAfterCreate_InsertsAOR(t *testing.T) {
 	require.NotNil(t, aor.AttachedObjectID)
 	require.NotNil(t, aor.Relationship)
 
-	assert.Equal(t, "threeport.io/v0.WorkloadInstance", *aor.ObjectType)
+	assert.Equal(t, "threeport.io/v0.KubernetesWorkloadInstance", *aor.ObjectType)
 	assert.Equal(t, uint(42), *aor.ObjectID)
 	assert.Equal(t, "threeport.io/v0.Event", *aor.AttachedObjectType)
 	assert.Equal(t, *e.ID, *aor.AttachedObjectID)
@@ -159,7 +159,7 @@ func TestEventAfterCreate_InsertsAOR(t *testing.T) {
 func TestEventAfterCreate_MultipleEventsSameSubject(t *testing.T) {
 	db := setupEventTestDB(t)
 
-	subjectType := "threeport.io/v0.WorkloadInstance"
+	subjectType := "threeport.io/v0.KubernetesWorkloadInstance"
 	subjectID := uint(42)
 
 	e1 := baseEvent()

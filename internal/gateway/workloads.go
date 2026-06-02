@@ -7,20 +7,20 @@ import (
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
-// confirmWorkloadInstanceReconciled confirms whether a workload instance
+// confirmWorkloadInstanceReconciled confirms whether a kubernetes workload instance
 // is reconciled.
 func confirmWorkloadInstanceReconciled(
 	r *controller.Reconciler,
 	instanceID uint,
 ) (bool, error) {
 
-	// get workload instance id
-	workloadInstance, err := client.GetWorkloadInstanceByID(r.APIClient, r.APIServer, instanceID)
+	// get kubernetes workload instance id
+	workloadInstance, err := client.GetKubernetesWorkloadInstanceByID(r.APIClient, r.APIServer, instanceID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get workload instance by workload instance ID: %w", err)
+		return false, fmt.Errorf("failed to get kubernetes workload instance by kubernetes workload instance ID: %w", err)
 	}
 
-	// if the workload instance is not reconciled, return false
+	// if the kubernetes workload instance is not reconciled, return false
 	if workloadInstance.Reconciled != nil && !*workloadInstance.Reconciled {
 		return false, nil
 	}

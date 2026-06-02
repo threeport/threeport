@@ -17,7 +17,7 @@ const (
 	// Official image names for threeport control plane components
 	ThreeportAPIImage                         = "threeport-rest-api"
 	ThreeportDatabaseMigratorImage            = "threeport-database-migrator"
-	ThreeportWorkloadControllerImage          = "threeport-workload-controller"
+	ThreeportKubernetesWorkloadControllerImage          = "threeport-kubernetes-workload-controller"
 	ThreeportKubernetesRuntimeControllerImage = "threeport-kubernetes-runtime-controller"
 	ThreeportControlPlaneControllerImage      = "threeport-control-plane-controller"
 	ThreeportAwsControllerImage               = "threeport-aws-controller"
@@ -35,7 +35,7 @@ const (
 	// Name of threeport control plane components
 	ThreeportRestApiName                     = "rest-api"
 	ThreeportDatabaseMigratorName            = "database-migrator"
-	ThreeportWorkloadControllerName          = "workload-controller"
+	ThreeportKubernetesWorkloadControllerName          = "kubernetes-workload-controller"
 	ThreeportKubernetesRuntimeControllerName = "kubernetes-runtime-controller"
 	ThreeportControlPlaneControllerName      = "control-plane-controller"
 	ThreeportAwsControllerName               = "aws-controller"
@@ -84,12 +84,12 @@ var enabled bool = true
 
 var ThreeportControllerList []*v0.ControlPlaneComponent = []*v0.ControlPlaneComponent{
 	{
-		Name:               ThreeportWorkloadControllerName,
-		BinaryName:         ThreeportWorkloadControllerName,
-		ImageName:          ThreeportWorkloadControllerImage,
+		Name:               ThreeportKubernetesWorkloadControllerName,
+		BinaryName:         ThreeportKubernetesWorkloadControllerName,
+		ImageName:          ThreeportKubernetesWorkloadControllerImage,
 		ImageNamespace:     ThreeportImageNamespace,
 		ImageTag:           version.GetVersion(),
-		ServiceAccountName: ThreeportWorkloadControllerName,
+		ServiceAccountName: ThreeportKubernetesWorkloadControllerName,
 		Enabled:            &enabled,
 	},
 	{

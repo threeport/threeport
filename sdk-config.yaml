@@ -277,24 +277,24 @@ ApiObjectGroups:
       Tptctl:
         Enabled: true
         ConfigPath: true
-- Name: workload
+- Name: kubernetes_workload
   Objects:
-    - Name: WorkloadDefinition
+    - Name: KubernetesWorkloadDefinition
       Versions:
         - v0
       Reconcilable: true
       Tptctl:
         Enabled: true
         ConfigPath: true
-    - Name: WorkloadResourceDefinition
+    - Name: KubernetesWorkloadResourceDefinition
       DefinedInstance: false
       Versions:
         - v0
-    - Name: WorkloadResourceInstance
+    - Name: KubernetesWorkloadResourceInstance
       DefinedInstance: false
       Versions:
         - v0
-    - Name: WorkloadInstance
+    - Name: KubernetesWorkloadInstance
       Versions:
         - v0
       Reconcilable: true

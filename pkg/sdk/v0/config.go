@@ -88,8 +88,8 @@ type ApiObject struct {
 
 	// If false, acts as an override for API objects that have a "Definition" or
 	// "Instance" suffix that do NOT want a connection established beteen them
-	// for a DefinedInstance abstraction, e.g. WorkloadResourceDefinition and
-	// WorkloadResourceInstance.  If this field is not included, the default
+	// for a DefinedInstance abstraction, e.g. KubernetesWorkloadResourceDefinition and
+	// KubernetesWorkloadResourceInstance.  If this field is not included, the default
 	// behavior is to create the DefinedInstance fields.
 	//
 	// If false on an API object with a "Definition" suffix:

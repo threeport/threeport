@@ -35,7 +35,7 @@ func TestEventsJoin_ExcludesSoftDeletedAOR(t *testing.T) {
 	fullyQualifiedEventType := (&api.Event{}).GetFullyQualifiedType()
 
 	// create two events, each with its own AOR linking back to a synthetic
-	// WorkloadInstance subject. Going through Create fires the Event
+	// KubernetesWorkloadInstance subject. Going through Create fires the Event
 	// afterCreate hook which inserts the matching AOR.
 	now := time.Now()
 	e1 := &api.Event{
@@ -46,7 +46,7 @@ func TestEventsJoin_ExcludesSoftDeletedAOR(t *testing.T) {
 		EventTime:           &now,
 		LastObservedTime:    &now,
 		ReportingController: util.Ptr("test"),
-		ObjectType:          util.Ptr("threeport.io/v0.WorkloadInstance"),
+		ObjectType:          util.Ptr("threeport.io/v0.KubernetesWorkloadInstance"),
 		ObjectID:            util.Ptr(uint(1)),
 	}
 	e2 := &api.Event{
@@ -57,7 +57,7 @@ func TestEventsJoin_ExcludesSoftDeletedAOR(t *testing.T) {
 		EventTime:           &now,
 		LastObservedTime:    &now,
 		ReportingController: util.Ptr("test"),
-		ObjectType:          util.Ptr("threeport.io/v0.WorkloadInstance"),
+		ObjectType:          util.Ptr("threeport.io/v0.KubernetesWorkloadInstance"),
 		ObjectID:            util.Ptr(uint(2)),
 	}
 	require.NoError(t, db.Create(e1).Error)

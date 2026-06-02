@@ -187,7 +187,7 @@ func buildEventsQueryString(forFlag string) (string, error) {
 	q.Set("objectname", name)
 
 	// second-to-last is the kind, optionally prefixed by "<version>."
-	// e.g. "workload-instance" or "v0.workload-instance"
+	// e.g. "kubernetes-workload-instance" or "v0.kubernetes-workload-instance"
 	kindPart := parts[len(parts)-2]
 	if kindPart == "" {
 		return "", fmt.Errorf("invalid --for value %q: empty kind", forFlag)
@@ -204,7 +204,7 @@ func buildEventsQueryString(forFlag string) (string, error) {
 	}
 
 	// kebab-case kind -> CamelCase TypeName segment of fully qualified type
-	// ("workload-instance" -> "WorkloadInstance")
+	// ("kubernetes-workload-instance" -> "KubernetesWorkloadInstance")
 	q.Set("objecttypename", strcase.ToCamel(kind))
 
 	// third-to-last (if present) is the api namespace

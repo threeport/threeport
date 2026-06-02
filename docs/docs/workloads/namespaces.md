@@ -12,7 +12,7 @@ control plane.
 ## Unmanaged Namespaces
 
 If you do not want Threeport to manage Kubernetes namespaces for you, you will
-need to include the Namespace resource in the workload definition's
+need to include the Namespace resource in the kubernetes workload definition's
 `YAMLDocument` that provides the manifest of Kubernetes resources.
 
 To demonstrate, create a work space on your local file system.
@@ -50,23 +50,23 @@ have its `metadata.namespace` set to the same namespace.  This is an example of
 the user managing the namespace, not Threeport.
 
 Next we'll need workload configs for Threeport.  Let's create the
-WorkloadDefinition.
+KubernetesWorkloadDefinition.
 
 ```bash
 cat <<EOF > unmanaged-nginx-workload-definition.yaml
-WorkloadDefinition:
+KubernetesWorkloadDefinition:
   Name: unmanaged-nginx
   YAMLDocument: unmanaged-nginx-manifest.yaml
 EOF
 ```
 
-And a WorkloadInstance.
+And a KubernetesWorkloadInstance.
 
 ```bash
 cat <<EOF > unmanaged-nginx-workload-instance-0.yaml
-WorkloadInstance:
+KubernetesWorkloadInstance:
   Name: unmanaged-nginx-0
-  WorkloadDefinition:
+  KubernetesWorkloadDefinition:
     Name: unmanaged-nginx
 EOF
 ```
@@ -99,24 +99,24 @@ kubectl get po -n test-nginx
 ```
 
 Now let's attempt to create a second instance of this workload.  We'll create a
-second workload instance that references the same workload definition.
+second kubernetes workload instance that references the same kubernetes workload definition.
 
 ```bash
 cat <<EOF > unmanaged-nginx-workload-instance-1.yaml
-WorkloadInstance:
+KubernetesWorkloadInstance:
   Name: unmanaged-nginx-1
-  WorkloadDefinition:
+  KubernetesWorkloadDefinition:
     Name: unmanaged-nginx
 EOF
 ```
 
-When you create the workload instance you will get an error.
+When you create the kubernetes workload instance you will get an error.
 
 ```bash
 tptctl create workload-instance -c unmanaged-nginx-workload-instance-1.yaml
 ```
 
-This is because the workload definition for this instance contains a namespace.
+This is because the kubernetes workload definition for this instance contains a namespace.
 Another namespace with the same name cannot be created in Kubernetes so a new,
 distinct workload using this manifest is impossible.
 
@@ -149,23 +149,23 @@ a namespace.  In this case, Threeport will manage the namespace for you so you
 don't need to include the Namespace resource.
 
 Next we'll need workload configs for Threeport.  Let's create the
-WorkloadDefinition.
+KubernetesWorkloadDefinition.
 
 ```bash
 cat <<EOF > managed-nginx-workload-definition.yaml
-WorkloadDefinition:
+KubernetesWorkloadDefinition:
   Name: managed-nginx
   YAMLDocument: managed-nginx-manifest.yaml
 EOF
 ```
 
-And a WorkloadInstance.
+And a KubernetesWorkloadInstance.
 
 ```bash
 cat <<EOF > managed-nginx-workload-instance-0.yaml
-WorkloadInstance:
+KubernetesWorkloadInstance:
   Name: managed-nginx-0
-  WorkloadDefinition:
+  KubernetesWorkloadDefinition:
     Name: managed-nginx
 EOF
 ```
@@ -204,13 +204,13 @@ Threeport puts a random suffix on the namespace name.  This namespace is where
 the nginx pod is running.
 
 Now we can create a second instance of this workload.  We'll create a
-second workload instance that references the same workload definition.
+second kubernetes workload instance that references the same kubernetes workload definition.
 
 ```bash
 cat <<EOF > managed-nginx-workload-instance-1.yaml
-WorkloadInstance:
+KubernetesWorkloadInstance:
   Name: managed-nginx-1
-  WorkloadDefinition:
+  KubernetesWorkloadDefinition:
     Name: managed-nginx
 EOF
 ```
@@ -237,7 +237,7 @@ managed-nginx        managed-nginx           managed-nginx-1        threeport-de
 ```
 
 Notice there are two instances of the `managed-nginx` workload derived from the
-same workload definition.
+same kubernetes workload definition.
 
 You can also re-check the namespaces in your cluster.
 
@@ -254,15 +254,15 @@ test-nginx                   Active   163m
 ```
 
 In this way, using managed namespaces, you are free to deploy as many workload
-instances to a Kubernetes cluster from a common workload definition as you wish.
-When using unmanaged namespaces you are limited to one workload instance per
-workload definition in a single Kubernetes runtime instance.
+instances to a Kubernetes cluster from a common kubernetes workload definition as you wish.
+When using unmanaged namespaces you are limited to one kubernetes workload instance per
+kubernetes workload definition in a single Kubernetes runtime instance.
 
 ## Summary
 
 In this guide you have seen how to use managed namespaces in Threeport and the
 utility they provide in allowing you to deploy as many workload instances from a
-single workload definition to a single Kubernetes runtime instance as you like.
+single kubernetes workload definition to a single Kubernetes runtime instance as you like.
 
 Clean up.
 

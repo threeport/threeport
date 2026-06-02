@@ -165,13 +165,13 @@ func TestGetObjectTypes(t *testing.T) {
 		},
 		{
 			name: "core registry only - in-memory ObjectVersions",
-			kind: "WorkloadDefinition",
+			kind: "KubernetesWorkloadDefinition",
 			setup: func(t *testing.T, db *gorm.DB) {
 				withObjectVersions(t, map[string]ApiObjectVersions{
-					"WorkloadDefinition": {Versions: []string{"v0"}},
+					"KubernetesWorkloadDefinition": {Versions: []string{"v0"}},
 				})
 			},
-			want: []string{"threeport.io/v0.WorkloadDefinition"},
+			want: []string{"threeport.io/v0.KubernetesWorkloadDefinition"},
 		},
 		{
 			name: "core and module both register the kind - both surface",

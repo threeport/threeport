@@ -17,18 +17,18 @@ The following diagram illustrates its function.
 
 The flow of operations is as follows:
 
-1. The user at the bottom of the diagram creates a WorkloadInstance.
+1. The user at the bottom of the diagram creates a KubernetesWorkloadInstance.
 
-1. The workload controller is notified and creates the necessary Kubernetes
+1. The kubernetes workload controller is notified and creates the necessary Kubernetes
    resources to fulfil that workload.
 
-1. The workload controller additionally creates a ThreeportWorkload resource
+1. The kubernetes workload controller additionally creates a ThreeportWorkload resource
    which is the custom Kubernetes resource used by the threeport-agent.  The
-   workload controller populates the ThreeportAgent resource with information
+   kubernetes workload controller populates the ThreeportAgent resource with information
    about the resources and related objects in the ThreeportAPI so the
    threeport-agent knows which resources to watch.
 
-1. The workload controller also adds some labels so the threeport-agent can find
+1. The kubernetes workload controller also adds some labels so the threeport-agent can find
    the Pod and ReplicaSet resources that aren't directly created but important
    to managed worklaods.
 
@@ -36,6 +36,6 @@ The flow of operations is as follows:
    to all these managed resources.
 
 1. The threeport-agent sends this information back to the Threeport API to
-   update WorkloadResourceInstances and create new WorkloadEvent resources
+   update KubernetesWorkloadResourceInstances and create new WorkloadEvent resources
    associated to the right workload objects.
 

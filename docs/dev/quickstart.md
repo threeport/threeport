@@ -36,7 +36,7 @@ manages the live reload of code changes on your filesystem.  Therefore, if an
 error occurs, the container will not fail and restart.  For example, if the build
 fails due to a compile error for a live reload the container status will remain
 `Running` because air is still running.  View the pod logs with `kubectl logs`
-to see if this is the case. The workload controller, for example, comes up
+to see if this is the case. The kubernetes workload controller, for example, comes up
 before the API.  In a dev environment, it will generally need to be restarted
 after the API is up to work correctly.
 

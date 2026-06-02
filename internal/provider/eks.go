@@ -639,7 +639,7 @@ func IrsaControllerNames() []string {
 	return []string{
 		threeport.ThreeportAwsControllerName,
 		threeport.ThreeportSecretControllerName,
-		threeport.ThreeportWorkloadControllerName,
+		threeport.ThreeportKubernetesWorkloadControllerName,
 		threeport.ThreeportHelmWorkloadControllerName,
 		threeport.ThreeportControlPlaneControllerName,
 		threeport.ThreeportTerraformControllerName,

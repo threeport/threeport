@@ -26,23 +26,23 @@ func v0GatewayDefinitionCreated(
 		return 0, fmt.Errorf("failed to create yaml document: %w", err)
 	}
 
-	// construct workload definition object
-	workloadDefinition := v0.WorkloadDefinition{
+	// construct kubernetes workload definition object
+	workloadDefinition := v0.KubernetesWorkloadDefinition{
 		Definition: v0.Definition{
 			Name: util.Ptr(fmt.Sprintf("%s-gateway", *gatewayDefinition.Name)),
 		},
 		YAMLDocument: &yamlDocument,
 	}
 
-	// create workload definition
-	createdWorkloadDefinition, err := client.CreateWorkloadDefinition(r.APIClient, r.APIServer, &workloadDefinition)
+	// create kubernetes workload definition
+	createdWorkloadDefinition, err := client.CreateKubernetesWorkloadDefinition(r.APIClient, r.APIServer, &workloadDefinition)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create workload definition in threeport API: %w", err)
+		return 0, fmt.Errorf("failed to create kubernetes workload definition in threeport API: %w", err)
 	}
 
 	// update gateway definition
 	gatewayDefinition.Reconciled = util.Ptr(true)
-	gatewayDefinition.WorkloadDefinitionID = createdWorkloadDefinition.ID
+	gatewayDefinition.KubernetesWorkloadDefinitionID = createdWorkloadDefinition.ID
 	_, err = client.UpdateGatewayDefinition(
 		r.APIClient,
 		r.APIServer,
@@ -73,28 +73,28 @@ func v0GatewayDefinitionUpdated(
 		return 0, fmt.Errorf("failed to create yaml document: %w", err)
 	}
 
-	// get workload definition
-	if gatewayDefinition.WorkloadDefinitionID == nil {
-		return 0, fmt.Errorf("failed to update workload definition, workload definition ID is nil")
+	// get kubernetes workload definition
+	if gatewayDefinition.KubernetesWorkloadDefinitionID == nil {
+		return 0, fmt.Errorf("failed to update kubernetes workload definition, kubernetes workload definition ID is nil")
 	}
-	workloadDefinition, err := client.GetWorkloadDefinitionByID(
+	workloadDefinition, err := client.GetKubernetesWorkloadDefinitionByID(
 		r.APIClient,
 		r.APIServer,
-		*gatewayDefinition.WorkloadDefinitionID,
+		*gatewayDefinition.KubernetesWorkloadDefinitionID,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get workload definition by workload definition ID: %w", err)
+		return 0, fmt.Errorf("failed to get kubernetes workload definition by kubernetes workload definition ID: %w", err)
 	}
 
-	// update workload definition
+	// update kubernetes workload definition
 	workloadDefinition.YAMLDocument = &yamlDocument
-	_, err = client.UpdateWorkloadDefinition(r.APIClient, r.APIServer, workloadDefinition)
+	_, err = client.UpdateKubernetesWorkloadDefinition(r.APIClient, r.APIServer, workloadDefinition)
 	if err != nil {
-		return 0, fmt.Errorf("failed to update workload definition in threeport API: %w", err)
+		return 0, fmt.Errorf("failed to update kubernetes workload definition in threeport API: %w", err)
 	}
 
 	// update gateway definition
-	gatewayDefinition.WorkloadDefinitionID = workloadDefinition.ID
+	gatewayDefinition.KubernetesWorkloadDefinitionID = workloadDefinition.ID
 	gatewayDefinition.Reconciled = util.Ptr(true)
 	_, err = client.UpdateGatewayDefinition(
 		r.APIClient,
@@ -131,11 +131,11 @@ func v0GatewayDefinitionDeleted(
 		return 0, nil
 	}
 
-	// delete workload definition
-	if gatewayDefinition.WorkloadDefinitionID == nil {
+	// delete kubernetes workload definition
+	if gatewayDefinition.KubernetesWorkloadDefinitionID == nil {
 		return 0, nil
 	}
-	_, err := client.DeleteWorkloadDefinition(r.APIClient, r.APIServer, *gatewayDefinition.WorkloadDefinitionID)
+	_, err := client.DeleteKubernetesWorkloadDefinition(r.APIClient, r.APIServer, *gatewayDefinition.KubernetesWorkloadDefinitionID)
 	if err != nil {
 		return 0, nil
 	}

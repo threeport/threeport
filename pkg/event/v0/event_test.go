@@ -147,7 +147,7 @@ func TestRecordEvent_CreateWhenNoneExists(t *testing.T) {
 	rec, mock, cleanup := newRecorderForTest(t, nil)
 	defer cleanup()
 
-	err := rec.RecordEvent(baseEvent(), 42, "threeport.io/v0.WorkloadInstance")
+	err := rec.RecordEvent(baseEvent(), 42, "threeport.io/v0.KubernetesWorkloadInstance")
 	require.NoError(t, err)
 
 	// POST /v0/events should have fired with the subject fields set
@@ -158,7 +158,7 @@ func TestRecordEvent_CreateWhenNoneExists(t *testing.T) {
 	require.NotNil(t, posted.ObjectID)
 	require.NotNil(t, posted.Count)
 	require.NotNil(t, posted.ReportingController)
-	assert.Equal(t, "threeport.io/v0.WorkloadInstance", *posted.ObjectType)
+	assert.Equal(t, "threeport.io/v0.KubernetesWorkloadInstance", *posted.ObjectType)
 	assert.Equal(t, uint(42), *posted.ObjectID)
 	assert.Equal(t, uint(1), *posted.Count, "Count starts at 1 on first observation")
 	assert.Equal(t, "test-controller", *posted.ReportingController)
@@ -195,10 +195,10 @@ func TestRecordEvent_DedupQueryIncludesSubjectType(t *testing.T) {
 	rec, mock, cleanup := newRecorderForTest(t, nil)
 	defer cleanup()
 
-	require.NoError(t, rec.RecordEvent(baseEvent(), 42, "threeport.io/v0.WorkloadInstance"))
+	require.NoError(t, rec.RecordEvent(baseEvent(), 42, "threeport.io/v0.KubernetesWorkloadInstance"))
 
 	get := findRequest(t, mock, http.MethodGet, "/v0/events-join-attached-object-references")
-	assert.Equal(t, "WorkloadInstance", get.query.Get("objecttypename"))
+	assert.Equal(t, "KubernetesWorkloadInstance", get.query.Get("objecttypename"))
 	assert.Equal(t, "threeport.io", get.query.Get("objectnamespace"))
 	assert.Equal(t, "v0", get.query.Get("objectversion"))
 	assert.Equal(t, "42", get.query.Get("objectid"))
@@ -211,7 +211,7 @@ func TestRecordEvent_RejectsMalformedQualifiedType(t *testing.T) {
 	rec, _, cleanup := newRecorderForTest(t, nil)
 	defer cleanup()
 
-	err := rec.RecordEvent(baseEvent(), 42, "WorkloadInstance")
+	err := rec.RecordEvent(baseEvent(), 42, "KubernetesWorkloadInstance")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid fully qualified object type")
 }
@@ -233,7 +233,7 @@ func TestRecordEvent_BumpsCountWhenOneExists(t *testing.T) {
 	rec, mock, cleanup := newRecorderForTest(t, []api.Event{existing})
 	defer cleanup()
 
-	err := rec.RecordEvent(baseEvent(), 42, "threeport.io/v0.WorkloadInstance")
+	err := rec.RecordEvent(baseEvent(), 42, "threeport.io/v0.KubernetesWorkloadInstance")
 	require.NoError(t, err)
 
 	patch := findRequest(t, mock, http.MethodPatch, api.PathEvents+"/")
@@ -261,7 +261,7 @@ func TestRecordEvent_ErrorsWhenMultipleExist(t *testing.T) {
 	rec, _, cleanup := newRecorderForTest(t, existing)
 	defer cleanup()
 
-	err := rec.RecordEvent(baseEvent(), 42, "threeport.io/v0.WorkloadInstance")
+	err := rec.RecordEvent(baseEvent(), 42, "threeport.io/v0.KubernetesWorkloadInstance")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected number of events")
 }

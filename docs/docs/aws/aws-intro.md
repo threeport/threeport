@@ -56,7 +56,7 @@ offered through the Threeport Location abstraction, you can use this object.
 When you create one of these objects, Threeport will create a corresponding
 Kubernetes Runtime Instance so that it can be referenced by the system as
 needed.  This Kubernetes Runtime Instance contains the connection information
-for the Kubernetes API that is used by the workload controller to deploy
+for the Kubernetes API that is used by the kubernetes workload controller to deploy
 resources.
 
 Reference:

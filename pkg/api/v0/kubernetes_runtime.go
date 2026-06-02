@@ -84,19 +84,19 @@ type KubernetesRuntimeInstance struct {
 	// The kubernetes runtime definition for this instance.
 	KubernetesRuntimeDefinitionID *uint `json:"KubernetesRuntimeDefinitionID,omitempty" query:"kubernetesruntimedefinitionid" gorm:"not null" validate:"required" relationship:"requires"`
 
-	// The associated workload instances running on this kubernetes runtime.
-	WorkloadInstances []*WorkloadInstance `json:"WorkloadInstance,omitempty" validate:"optional,association"`
+	// The associated kubernetes workload instances running on this kubernetes runtime.
+	KubernetesWorkloadInstances []*KubernetesWorkloadInstance `json:"KubernetesWorkloadInstances,omitempty" validate:"optional,association"`
 
 	// The associated control plane instances running on this kubernetes runtime instance.
 	ControlPlaneInstances []*ControlPlaneInstance `json:"ControlPlaneInstance,omitempty" validate:"optional,association"`
 
-	// The WorkloadInstanceID of the gateway support service
-	GatewayControllerInstanceID *uint `json:"GatewayWorkloadInstanceID,omitempty" validate:"optional"`
+	// The KubernetesWorkloadInstanceID of the gateway support service
+	GatewayControllerInstanceID *uint `json:"GatewayKubernetesWorkloadInstanceID,omitempty" validate:"optional"`
 
-	// The WorkloadInstanceID of the dns support service
+	// The KubernetesWorkloadInstanceID of the dns support service
 	DnsControllerInstanceID *uint `json:"DnsControllerInstanceId,omitempty" validate:"optional"`
 
-	// The WorkloadInstanceID of the secrets support service
+	// The KubernetesWorkloadInstanceID of the secrets support service
 	SecretsControllerInstanceID *uint `json:"SecretsControllerInstanceId,omitempty" validate:"optional"`
 
 	// An alternate threeport image to use when deploying threeport agent to

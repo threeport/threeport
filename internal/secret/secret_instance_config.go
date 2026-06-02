@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	workloadutil "github.com/threeport/threeport/internal/workload/util"
+	workloadutil "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -23,7 +23,7 @@ type SecretInstanceConfig struct {
 	secretInstance              *v0.SecretInstance
 	secretDefinition            *v0.SecretDefinition
 	log                         *logr.Logger
-	workloadInstance            *v0.WorkloadInstance
+	workloadInstance            *v0.KubernetesWorkloadInstance
 	helmWorkloadInstance        *v0.HelmWorkloadInstance
 	kubernetesRuntimeInstance   *v0.KubernetesRuntimeInstance
 	kubernetesRuntimeDefinition *v0.KubernetesRuntimeDefinition
@@ -62,42 +62,42 @@ func (c *SecretInstanceConfig) createSecretObjects() error {
 
 	// update workload with secret manifests
 	switch c.workloadInstanceType {
-	case util.TypeName(v0.WorkloadInstance{}):
-		// get workload instance
-		workloadInstance, err := client.GetWorkloadInstanceByID(
+	case util.TypeName(v0.KubernetesWorkloadInstance{}):
+		// get kubernetes workload instance
+		workloadInstance, err := client.GetKubernetesWorkloadInstanceByID(
 			c.r.APIClient,
 			c.r.APIServer,
-			*c.secretInstance.WorkloadInstanceID,
+			*c.secretInstance.KubernetesWorkloadInstanceID,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to get workload instance: %w", err)
+			return fmt.Errorf("failed to get kubernetes workload instance: %w", err)
 		}
 
-		// create workload resource instances
+		// create kubernetes workload resource instances
 		for _, secretObject := range secretObjects {
 			jsonDefinition, err := util.UnstructuredToDatatypesJson(secretObject)
 			if err != nil {
 				return fmt.Errorf("failed to convert unstructured object to datatypes.JSON: %w", err)
 			}
-			workloadResourceInstance := v0.WorkloadResourceInstance{
-				WorkloadInstanceID: c.workloadInstanceId,
-				JSONDefinition:     &jsonDefinition,
+			workloadResourceInstance := v0.KubernetesWorkloadResourceInstance{
+				KubernetesWorkloadInstanceID: c.workloadInstanceId,
+				JSONDefinition:               &jsonDefinition,
 			}
-			_, err = client.CreateWorkloadResourceInstance(
+			_, err = client.CreateKubernetesWorkloadResourceInstance(
 				c.r.APIClient,
 				c.r.APIServer,
 				&workloadResourceInstance,
 			)
 			if err != nil {
-				return fmt.Errorf("failed to create workload resource instance: %w", err)
+				return fmt.Errorf("failed to create kubernetes workload resource instance: %w", err)
 			}
 		}
 
-		// trigger workload instance reconciliation
+		// trigger kubernetes workload instance reconciliation
 		workloadInstance.Reconciled = util.Ptr(false)
-		_, err = client.UpdateWorkloadInstance(c.r.APIClient, c.r.APIServer, workloadInstance)
+		_, err = client.UpdateKubernetesWorkloadInstance(c.r.APIClient, c.r.APIServer, workloadInstance)
 		if err != nil {
-			return fmt.Errorf("failed to update workload instance: %w", err)
+			return fmt.Errorf("failed to update kubernetes workload instance: %w", err)
 		}
 	case util.TypeName(v0.HelmWorkloadInstance{}):
 		helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByID(
@@ -132,7 +132,7 @@ func (c *SecretInstanceConfig) createSecretObjects() error {
 			return fmt.Errorf("failed to update helm workload instance: %w", err)
 		}
 	default:
-		return errors.New("secret instance must be attached to a workload instance or a helm workload instance")
+		return errors.New("secret instance must be attached to a kubernetes workload instance or a helm workload instance")
 	}
 
 	return nil
@@ -149,9 +149,9 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 
 	// update workload with secret manifests
 	switch c.workloadInstanceType {
-	case util.TypeName(v0.WorkloadInstance{}):
-		// get workload instance
-		workloadInstance, err := client.GetWorkloadInstanceByID(
+	case util.TypeName(v0.KubernetesWorkloadInstance{}):
+		// get kubernetes workload instance
+		workloadInstance, err := client.GetKubernetesWorkloadInstanceByID(
 			c.r.APIClient,
 			c.r.APIServer,
 			*c.workloadInstanceId,
@@ -160,11 +160,11 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 			if errors.Is(err, client_lib.ErrObjectNotFound) {
 				return nil
 			}
-			return fmt.Errorf("failed to get workload instance: %w", err)
+			return fmt.Errorf("failed to get kubernetes workload instance: %w", err)
 		}
 
-		// get workload resource instances
-		workloadResourceInstances, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(
+		// get kubernetes workload resource instances
+		workloadResourceInstances, err := client.GetKubernetesWorkloadResourceInstancesByID(
 			c.r.APIClient,
 			c.r.APIServer,
 			*c.workloadInstanceId,
@@ -173,51 +173,51 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 			if errors.Is(err, client_lib.ErrObjectNotFound) {
 				return nil
 			}
-			return fmt.Errorf("failed to get workload resource instances by workload instance ID: %w", err)
+			return fmt.Errorf("failed to get kubernetes workload resource instances by kubernetes workload instance ID: %w", err)
 		}
 
-		// remove workload resource instances
+		// remove kubernetes workload resource instances
 		for _, secretObject := range secretObjects {
 
-			// get workload resource instance for secret object
-			workloadResourceInstance, err := workloadutil.GetUniqueWorkloadResourceInstanceByName(
+			// get kubernetes workload resource instance for secret object
+			workloadResourceInstance, err := workloadutil.GetUniqueKubernetesWorkloadResourceInstanceByName(
 				workloadResourceInstances,
 				secretObject.GetKind(),
 				secretObject.GetName(),
 			)
 			if err != nil {
-				return fmt.Errorf("failed to get workload resource instance: %w", err)
+				return fmt.Errorf("failed to get kubernetes workload resource instance: %w", err)
 			}
 
-			// schedule workload resource instance for deletion
-			workloadResourceInstance = &v0.WorkloadResourceInstance{
+			// schedule kubernetes workload resource instance for deletion
+			workloadResourceInstance = &v0.KubernetesWorkloadResourceInstance{
 				Common:               v0.Common{ID: workloadResourceInstance.ID},
 				ScheduledForDeletion: util.Ptr(time.Now().UTC()),
 				Reconciled:           util.Ptr(false),
 			}
-			_, err = client.UpdateWorkloadResourceInstance(
+			_, err = client.UpdateKubernetesWorkloadResourceInstance(
 				c.r.APIClient,
 				c.r.APIServer,
 				workloadResourceInstance,
 			)
 			if err != nil {
 				if errors.Is(err, client_lib.ErrObjectNotFound) {
-					// workload resource instance has already been deleted
+					// kubernetes workload resource instance has already been deleted
 					return nil
 				}
-				return fmt.Errorf("failed to update workload resource instance: %w", err)
+				return fmt.Errorf("failed to update kubernetes workload resource instance: %w", err)
 			}
 		}
 
-		// trigger workload instance reconciliation
+		// trigger kubernetes workload instance reconciliation
 		workloadInstance.Reconciled = util.Ptr(false)
-		_, err = client.UpdateWorkloadInstance(
+		_, err = client.UpdateKubernetesWorkloadInstance(
 			c.r.APIClient,
 			c.r.APIServer,
 			workloadInstance,
 		)
 		if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
-			return fmt.Errorf("failed to update workload instance: %w", err)
+			return fmt.Errorf("failed to update kubernetes workload instance: %w", err)
 		}
 	case util.TypeName(v0.HelmWorkloadInstance{}):
 		helmWorkloadInstance, err := client.GetHelmWorkloadInstanceByID(
@@ -246,7 +246,7 @@ func (c *SecretInstanceConfig) deleteSecretObjects() error {
 			return fmt.Errorf("failed to update helm workload instance: %w", err)
 		}
 	default:
-		return errors.New("secret instance must be attached to a workload instance or a helm workload instance")
+		return errors.New("secret instance must be attached to a kubernetes workload instance or a helm workload instance")
 	}
 
 	return nil
@@ -259,14 +259,14 @@ func getSecretInstanceWorkloadTypeAndId(secretInstance *v0.SecretInstance) (stri
 	var workloadInstanceID *uint
 
 	switch {
-	case secretInstance.WorkloadInstanceID != nil:
-		workloadInstanceType = util.TypeName(v0.WorkloadInstance{})
-		workloadInstanceID = secretInstance.WorkloadInstanceID
+	case secretInstance.KubernetesWorkloadInstanceID != nil:
+		workloadInstanceType = util.TypeName(v0.KubernetesWorkloadInstance{})
+		workloadInstanceID = secretInstance.KubernetesWorkloadInstanceID
 	case secretInstance.HelmWorkloadInstanceID != nil:
 		workloadInstanceType = util.TypeName(v0.HelmWorkloadInstance{})
 		workloadInstanceID = secretInstance.HelmWorkloadInstanceID
 	default:
-		return "", nil, errors.New("secret instance must be attached to a workload instance or a helm workload instance")
+		return "", nil, errors.New("secret instance must be attached to a kubernetes workload instance or a helm workload instance")
 	}
 
 	return workloadInstanceType, workloadInstanceID, nil
@@ -313,17 +313,17 @@ func (c *SecretInstanceConfig) getThreeportObjects() error {
 		return fmt.Errorf("failed to determine workload type and instance ID: %w", err)
 	}
 
-	// update secret config with correct workload instance
+	// update secret config with correct kubernetes workload instance
 	switch c.workloadInstanceType {
-	case util.TypeName(v0.WorkloadInstance{}):
-		// get workload instance
-		c.workloadInstance, err = client.GetWorkloadInstanceByID(
+	case util.TypeName(v0.KubernetesWorkloadInstance{}):
+		// get kubernetes workload instance
+		c.workloadInstance, err = client.GetKubernetesWorkloadInstanceByID(
 			c.r.APIClient,
 			c.r.APIServer,
-			*c.secretInstance.WorkloadInstanceID,
+			*c.secretInstance.KubernetesWorkloadInstanceID,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to get workload instance: %w", err)
+			return fmt.Errorf("failed to get kubernetes workload instance: %w", err)
 		}
 	case util.TypeName(v0.HelmWorkloadInstance{}):
 		// get helm workload instance
@@ -336,7 +336,7 @@ func (c *SecretInstanceConfig) getThreeportObjects() error {
 			return fmt.Errorf("failed to get helm workload instance: %w", err)
 		}
 	default:
-		return errors.New("secret instance must be attached to a workload instance or a helm workload instance")
+		return errors.New("secret instance must be attached to a kubernetes workload instance or a helm workload instance")
 	}
 
 	return nil
@@ -352,16 +352,16 @@ func (c *SecretInstanceConfig) validateThreeportState() error {
 
 	// validate workload is reconciled
 	switch c.workloadInstanceType {
-	case util.TypeName(v0.WorkloadInstance{}):
+	case util.TypeName(v0.KubernetesWorkloadInstance{}):
 		if !*c.workloadInstance.Reconciled {
-			return errors.New("workload instance not reconciled")
+			return errors.New("kubernetes workload instance not reconciled")
 		}
 	case util.TypeName(v0.HelmWorkloadInstance{}):
 		if !*c.helmWorkloadInstance.Reconciled {
 			return errors.New("helm workload instance not reconciled")
 		}
 	default:
-		return errors.New("secret instance must be attached to a workload instance or a helm workload instance")
+		return errors.New("secret instance must be attached to a kubernetes workload instance or a helm workload instance")
 	}
 
 	// confirm secret controller is deployed
@@ -376,13 +376,13 @@ func (c *SecretInstanceConfig) validateThreeportState() error {
 // is deployed
 func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 	if c.kubernetesRuntimeInstance.SecretsControllerInstanceID != nil {
-		workloadInstance, err := client.GetWorkloadInstanceByID(
+		workloadInstance, err := client.GetKubernetesWorkloadInstanceByID(
 			c.r.APIClient,
 			c.r.APIServer,
 			*c.kubernetesRuntimeInstance.SecretsControllerInstanceID,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to get secret controller workload instance: %w", err)
+			return fmt.Errorf("failed to get secret controller kubernetes workload instance: %w", err)
 		}
 		if !*workloadInstance.Reconciled {
 			return errors.New("secret controller not reconciled")
@@ -417,31 +417,31 @@ func (c *SecretInstanceConfig) confirmSecretControllerDeployed() error {
 		}
 	}
 
-	// create secret controller workload definition
+	// create secret controller kubernetes workload definition
 	workloadDefName := fmt.Sprintf("%s-%s", "external-secrets", *c.kubernetesRuntimeInstance.Name)
-	externalSecretsWorkloadDefinition := v0.WorkloadDefinition{
+	externalSecretsWorkloadDefinition := v0.KubernetesWorkloadDefinition{
 		Definition:   v0.Definition{Name: &workloadDefName},
 		YAMLDocument: util.Ptr(externalSecretsYaml),
 	}
 
-	// create secret controller workload definition
-	createdSecretControllerWorkloadDefinition, err := client.CreateWorkloadDefinition(
+	// create secret controller kubernetes workload definition
+	createdSecretControllerWorkloadDefinition, err := client.CreateKubernetesWorkloadDefinition(
 		c.r.APIClient,
 		c.r.APIServer,
 		&externalSecretsWorkloadDefinition,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create secret controller workload definition: %w", err)
+		return fmt.Errorf("failed to create secret controller kubernetes workload definition: %w", err)
 	}
 
-	// create secret controller workload instance
-	createdSecretControllerWorkloadInstance, err := client.CreateWorkloadInstance(
+	// create secret controller kubernetes workload instance
+	createdSecretControllerWorkloadInstance, err := client.CreateKubernetesWorkloadInstance(
 		c.r.APIClient,
 		c.r.APIServer,
-		&v0.WorkloadInstance{
-			Instance:                    v0.Instance{Name: &workloadDefName},
-			WorkloadDefinitionID:        createdSecretControllerWorkloadDefinition.ID,
-			KubernetesRuntimeInstanceID: c.kubernetesRuntimeInstance.ID,
+		&v0.KubernetesWorkloadInstance{
+			Instance:                       v0.Instance{Name: &workloadDefName},
+			KubernetesWorkloadDefinitionID: createdSecretControllerWorkloadDefinition.ID,
+			KubernetesRuntimeInstanceID:    c.kubernetesRuntimeInstance.ID,
 		},
 	)
 

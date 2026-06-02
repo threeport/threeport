@@ -10,7 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	workloadutil "github.com/threeport/threeport/internal/workload/util"
+	workloadutil "github.com/threeport/threeport/internal/kubernetes-workload/util"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
@@ -67,16 +67,16 @@ func validateThreeportStateExternalDns(
 	log *logr.Logger,
 ) error {
 
-	// ensure workload instance is reconciled
-	if domainNameInstance.WorkloadInstanceID == nil {
-		return fmt.Errorf("failed to determine if workload instance is reconciled, workload instance ID is nil")
+	// ensure kubernetes workload instance is reconciled
+	if domainNameInstance.KubernetesWorkloadInstanceID == nil {
+		return fmt.Errorf("failed to determine if kubernetes workload instance is reconciled, kubernetes workload instance ID is nil")
 	}
-	workloadInstanceReconciled, err := confirmWorkloadInstanceReconciled(r, *domainNameInstance.WorkloadInstanceID)
+	workloadInstanceReconciled, err := confirmWorkloadInstanceReconciled(r, *domainNameInstance.KubernetesWorkloadInstanceID)
 	if err != nil {
-		return fmt.Errorf("failed to determine if workload instance is reconciled: %w", err)
+		return fmt.Errorf("failed to determine if kubernetes workload instance is reconciled: %w", err)
 	}
 	if !workloadInstanceReconciled {
-		return errors.New("workload instance not reconciled")
+		return errors.New("kubernetes workload instance not reconciled")
 	}
 
 	// get kubernetes runtime instance
@@ -118,22 +118,22 @@ func validateThreeportStateExternalDns(
 // getGlooEdgeNamespace gets the namespace of the gloo edge instance.
 func getGlooEdgeNamespace(r *controller.Reconciler, workloadInstanceID *uint) (string, error) {
 
-	// get gloo edge workload resource instance
-	glooEdgeWorkloadResourceInstance, err := client.GetWorkloadResourceInstancesByWorkloadInstanceID(r.APIClient, r.APIServer, *workloadInstanceID)
+	// get gloo edge kubernetes workload resource instance
+	glooEdgeWorkloadResourceInstance, err := client.GetKubernetesWorkloadResourceInstancesByID(r.APIClient, r.APIServer, *workloadInstanceID)
 	if err != nil {
-		return "", fmt.Errorf("failed to get gloo edge workload resource instance: %w", err)
+		return "", fmt.Errorf("failed to get gloo edge kubernetes workload resource instance: %w", err)
 	}
 
 	// unmarshal gloo edge custom resource
-	glooEdge, err := workloadutil.UnmarshalUniqueWorkloadResourceInstance(glooEdgeWorkloadResourceInstance, "GlooEdge")
+	glooEdge, err := workloadutil.UnmarshalUniqueKubernetesWorkloadResourceInstance(glooEdgeWorkloadResourceInstance, "GlooEdge")
 	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal gloo edge workload resource instance: %w", err)
+		return "", fmt.Errorf("failed to unmarshal gloo edge kubernetes workload resource instance: %w", err)
 	}
 
 	// get gateway namespace
 	glooEdgeNamespace, found, err := unstructured.NestedString(glooEdge, "spec", "namespace")
 	if err != nil || !found {
-		return "", fmt.Errorf("failed to get namespace from gateway workload resource definition: %w", err)
+		return "", fmt.Errorf("failed to get namespace from gateway kubernetes workload resource definition: %w", err)
 	}
 
 	return glooEdgeNamespace, nil
@@ -210,28 +210,28 @@ func confirmDnsControllerDeployed(
 		break
 	}
 
-	// create gateway controller workload definition
+	// create gateway controller kubernetes workload definition
 	workloadDefName := fmt.Sprintf("%s-%s", "external-dns", *kubernetesRuntimeInstance.Name)
-	externalDnsWorkloadDefinition := v0.WorkloadDefinition{
+	externalDnsWorkloadDefinition := v0.KubernetesWorkloadDefinition{
 		Definition:   v0.Definition{Name: &workloadDefName},
 		YAMLDocument: &externalDnsYaml,
 	}
 
-	// create external dns controller workload definition
-	createdWorkloadDef, err := client.CreateWorkloadDefinition(r.APIClient, r.APIServer, &externalDnsWorkloadDefinition)
+	// create external dns controller kubernetes workload definition
+	createdWorkloadDef, err := client.CreateKubernetesWorkloadDefinition(r.APIClient, r.APIServer, &externalDnsWorkloadDefinition)
 	if err != nil && !errors.Is(err, client_lib.ErrConflict) {
-		return fmt.Errorf("failed to create external dns controller workload definition: %w", err)
+		return fmt.Errorf("failed to create external dns controller kubernetes workload definition: %w", err)
 	}
 
-	// create external dns workload instance
-	externalDnsWorkloadInstance := v0.WorkloadInstance{
-		Instance:                    v0.Instance{Name: &workloadDefName},
-		KubernetesRuntimeInstanceID: domainNameInstance.KubernetesRuntimeInstanceID,
-		WorkloadDefinitionID:        createdWorkloadDef.ID,
+	// create external dns kubernetes workload instance
+	externalDnsWorkloadInstance := v0.KubernetesWorkloadInstance{
+		Instance:                       v0.Instance{Name: &workloadDefName},
+		KubernetesRuntimeInstanceID:    domainNameInstance.KubernetesRuntimeInstanceID,
+		KubernetesWorkloadDefinitionID: createdWorkloadDef.ID,
 	}
-	createdExternalDnsWorkloadInstance, err := client.CreateWorkloadInstance(r.APIClient, r.APIServer, &externalDnsWorkloadInstance)
+	createdExternalDnsWorkloadInstance, err := client.CreateKubernetesWorkloadInstance(r.APIClient, r.APIServer, &externalDnsWorkloadInstance)
 	if err != nil {
-		return fmt.Errorf("failed to create external dns controller workload instance: %w", err)
+		return fmt.Errorf("failed to create external dns controller kubernetes workload instance: %w", err)
 	}
 
 	// update kubernetes runtime instance with gateway controller instance id

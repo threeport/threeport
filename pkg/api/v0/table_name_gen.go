@@ -122,6 +122,26 @@ func (ControlPlaneInstance) TableName() string {
 	return "v0_control_plane_instances"
 }
 
+// TableName sets the name of the table for the KubernetesWorkloadDefinition objects in the database.
+func (KubernetesWorkloadDefinition) TableName() string {
+	return "v0_kubernetes_workload_definitions"
+}
+
+// TableName sets the name of the table for the KubernetesWorkloadInstance objects in the database.
+func (KubernetesWorkloadInstance) TableName() string {
+	return "v0_kubernetes_workload_instances"
+}
+
+// TableName sets the name of the table for the KubernetesWorkloadResourceDefinition objects in the database.
+func (KubernetesWorkloadResourceDefinition) TableName() string {
+	return "v0_kubernetes_workload_resource_definitions"
+}
+
+// TableName sets the name of the table for the KubernetesWorkloadResourceInstance objects in the database.
+func (KubernetesWorkloadResourceInstance) TableName() string {
+	return "v0_kubernetes_workload_resource_instances"
+}
+
 // TableName sets the name of the table for the LogBackend objects in the database.
 func (LogBackend) TableName() string {
 	return "v0_log_backends"
@@ -262,27 +282,7 @@ func (Tier) TableName() string {
 	return "v0_tiers"
 }
 
-// TableName sets the name of the table for the WorkloadDefinition objects in the database.
-func (WorkloadDefinition) TableName() string {
-	return "v0_workload_definitions"
-}
-
 // TableName sets the name of the table for the WorkloadEvent objects in the database.
 func (WorkloadEvent) TableName() string {
 	return "v0_workload_events"
-}
-
-// TableName sets the name of the table for the WorkloadInstance objects in the database.
-func (WorkloadInstance) TableName() string {
-	return "v0_workload_instances"
-}
-
-// TableName sets the name of the table for the WorkloadResourceDefinition objects in the database.
-func (WorkloadResourceDefinition) TableName() string {
-	return "v0_workload_resource_definitions"
-}
-
-// TableName sets the name of the table for the WorkloadResourceInstance objects in the database.
-func (WorkloadResourceInstance) TableName() string {
-	return "v0_workload_resource_instances"
 }

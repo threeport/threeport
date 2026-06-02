@@ -243,7 +243,7 @@ func init() {
 	rootCmd.AddCommand(buildCmd)
 	buildCmd.Flags().StringVar(
 		&buildComponentNames,
-		"names", "", "List of component names to build (rest-api,agent,workload-controller etc). Defaults to all images.",
+		"names", "", "List of component names to build (rest-api,agent,kubernetes-workload-controller etc). Defaults to all images.",
 	)
 	buildCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageRepo,

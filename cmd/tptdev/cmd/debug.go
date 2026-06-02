@@ -105,7 +105,7 @@ func init() {
 	rootCmd.AddCommand(DebugCmd)
 	DebugCmd.Flags().StringVarP(
 		&debugComponentNames,
-		"names", "n", "", "Comma-delimited list of component names to update with debug images (rest-api,agent,workload-controller etc). Defaults to all components.",
+		"names", "n", "", "Comma-delimited list of component names to update with debug images (rest-api,agent,kubernetes-workload-controller etc). Defaults to all components.",
 	)
 	DebugCmd.Flags().StringVarP(
 		&cliArgs.ControlPlaneImageRepo,

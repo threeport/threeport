@@ -1336,8 +1336,9 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					),
 					If(
 						// TODO: thread selective preloads through apiserver_lib.QueryScopes
-						// (e.g. ?expand=workloadInstance) so clients can opt in per request
-						// instead of the codegen-baked dbLoadAssociationStatement default.
+						// (e.g. ?expand=kubernetesWorkloadInstance) so clients can opt in
+						// per request instead of the codegen-baked dbLoadAssociationStatement
+						// default.
 						Id("result").Op(":=").Do(func(s *Statement) {
 							if gen.Module {
 								s.Id("h").Dot("Handler")

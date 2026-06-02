@@ -598,10 +598,10 @@ func (w *WordpressInstanceValues) Delete(
 		return nil, fmt.Errorf("failed to delete wordpress instance from Threeport API: %w", err)
 	}
 
-	// wait for workload instance to be deleted
+	// wait for kubernetes workload instance to be deleted
 	util.Retry(60, 1, func() error {
 		if _, err := client_v0.GetWordpressInstanceByName(apiClient, apiEndpoint, *w.Name); err == nil {
-			return errors.New("workload instance not deleted")
+			return errors.New("kubernetes workload instance not deleted")
 		}
 		return nil
 	})

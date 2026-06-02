@@ -201,6 +201,28 @@ func GetCoreObjectNamesByIDs(db *gorm.DB, objectType string, ids []uint, include
 			}
 		}
 
+	case "threeport.io/v0.KubernetesWorkloadDefinition":
+		var rows []v0.KubernetesWorkloadDefinition
+		if err := db.Model(&v0.KubernetesWorkloadDefinition{}).Select("id, name").Where("id IN ?", ids).Find(&rows).Error; err != nil {
+			return nil, fmt.Errorf("failed to look up KubernetesWorkloadDefinition names: %w", err)
+		}
+		for _, r := range rows {
+			if r.ID != nil && r.Name != nil {
+				out[*r.ID] = *r.Name
+			}
+		}
+
+	case "threeport.io/v0.KubernetesWorkloadInstance":
+		var rows []v0.KubernetesWorkloadInstance
+		if err := db.Model(&v0.KubernetesWorkloadInstance{}).Select("id, name").Where("id IN ?", ids).Find(&rows).Error; err != nil {
+			return nil, fmt.Errorf("failed to look up KubernetesWorkloadInstance names: %w", err)
+		}
+		for _, r := range rows {
+			if r.ID != nil && r.Name != nil {
+				out[*r.ID] = *r.Name
+			}
+		}
+
 	case "threeport.io/v0.LogBackend":
 		var rows []v0.LogBackend
 		if err := db.Model(&v0.LogBackend{}).Select("id, name").Where("id IN ?", ids).Find(&rows).Error; err != nil {
@@ -498,28 +520,6 @@ func GetCoreObjectNamesByIDs(db *gorm.DB, objectType string, ids []uint, include
 			}
 		}
 
-	case "threeport.io/v0.WorkloadDefinition":
-		var rows []v0.WorkloadDefinition
-		if err := db.Model(&v0.WorkloadDefinition{}).Select("id, name").Where("id IN ?", ids).Find(&rows).Error; err != nil {
-			return nil, fmt.Errorf("failed to look up WorkloadDefinition names: %w", err)
-		}
-		for _, r := range rows {
-			if r.ID != nil && r.Name != nil {
-				out[*r.ID] = *r.Name
-			}
-		}
-
-	case "threeport.io/v0.WorkloadInstance":
-		var rows []v0.WorkloadInstance
-		if err := db.Model(&v0.WorkloadInstance{}).Select("id, name").Where("id IN ?", ids).Find(&rows).Error; err != nil {
-			return nil, fmt.Errorf("failed to look up WorkloadInstance names: %w", err)
-		}
-		for _, r := range rows {
-			if r.ID != nil && r.Name != nil {
-				out[*r.ID] = *r.Name
-			}
-		}
-
 	default:
 		return nil, ErrUnknownCoreType
 	}
@@ -731,6 +731,32 @@ func GetCoreObjectIDsByName(db *gorm.DB, objectType string, name string) ([]uint
 		var rows []v0.KubernetesRuntimeInstance
 		if err := db.Select("id").Where("name = ?", name).Find(&rows).Error; err != nil {
 			return nil, fmt.Errorf("failed to look up KubernetesRuntimeInstance by name: %w", err)
+		}
+		ids := make([]uint, 0, len(rows))
+		for _, r := range rows {
+			if r.ID != nil {
+				ids = append(ids, *r.ID)
+			}
+		}
+		return ids, nil
+
+	case "threeport.io/v0.KubernetesWorkloadDefinition":
+		var rows []v0.KubernetesWorkloadDefinition
+		if err := db.Select("id").Where("name = ?", name).Find(&rows).Error; err != nil {
+			return nil, fmt.Errorf("failed to look up KubernetesWorkloadDefinition by name: %w", err)
+		}
+		ids := make([]uint, 0, len(rows))
+		for _, r := range rows {
+			if r.ID != nil {
+				ids = append(ids, *r.ID)
+			}
+		}
+		return ids, nil
+
+	case "threeport.io/v0.KubernetesWorkloadInstance":
+		var rows []v0.KubernetesWorkloadInstance
+		if err := db.Select("id").Where("name = ?", name).Find(&rows).Error; err != nil {
+			return nil, fmt.Errorf("failed to look up KubernetesWorkloadInstance by name: %w", err)
 		}
 		ids := make([]uint, 0, len(rows))
 		for _, r := range rows {
@@ -1082,32 +1108,6 @@ func GetCoreObjectIDsByName(db *gorm.DB, objectType string, name string) ([]uint
 		var rows []v0.Tier
 		if err := db.Select("id").Where("name = ?", name).Find(&rows).Error; err != nil {
 			return nil, fmt.Errorf("failed to look up Tier by name: %w", err)
-		}
-		ids := make([]uint, 0, len(rows))
-		for _, r := range rows {
-			if r.ID != nil {
-				ids = append(ids, *r.ID)
-			}
-		}
-		return ids, nil
-
-	case "threeport.io/v0.WorkloadDefinition":
-		var rows []v0.WorkloadDefinition
-		if err := db.Select("id").Where("name = ?", name).Find(&rows).Error; err != nil {
-			return nil, fmt.Errorf("failed to look up WorkloadDefinition by name: %w", err)
-		}
-		ids := make([]uint, 0, len(rows))
-		for _, r := range rows {
-			if r.ID != nil {
-				ids = append(ids, *r.ID)
-			}
-		}
-		return ids, nil
-
-	case "threeport.io/v0.WorkloadInstance":
-		var rows []v0.WorkloadInstance
-		if err := db.Select("id").Where("name = ?", name).Find(&rows).Error; err != nil {
-			return nil, fmt.Errorf("failed to look up WorkloadInstance by name: %w", err)
 		}
 		ids := make([]uint, 0, len(rows))
 		for _, r := range rows {

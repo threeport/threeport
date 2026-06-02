@@ -11,7 +11,7 @@ const (
 	// The workload type applied to the `.spec.workloadType` field in a
 	// `ThreeportWorkload` kubernetes resource to indicate to the Threeport
 	// Agent what Threeport type is managing workload resources in Kubernetes.
-	WorkloadInstanceType     = "WorkloadInstance"
+	WorkloadInstanceType     = "KubernetesWorkloadInstance"
 	HelmWorkloadInstanceType = "HelmWorkloadInstance"
 
 	// The label keys applied to workloads managed by Threeport
@@ -20,7 +20,7 @@ const (
 )
 
 // ThreeportWorkloadName returns a standardized name for a ThreeportWorkload
-// Kubernetes custom resource based on the workload instance ID.
+// Kubernetes custom resource based on the kubernetes workload instance ID.
 func ThreeportWorkloadName(
 	workloadInstanceID uint,
 	workloadType string,

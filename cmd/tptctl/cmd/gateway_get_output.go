@@ -19,9 +19,9 @@ func outputGetv0DomainNamesCmd(
 	fmt.Fprintln(writer, "NAME\t DOMAIN NAME DEFINITION\t DOMAIN NAME INSTANCE\t DOMAIN\t ZONE\t ADMIN EMAIL\t WORKLOAD INSTANCE\t AGE")
 	for _, domainName := range *domainNames {
 		workloadInstanceName := ""
-		if domainName.DomainName.WorkloadInstance != nil &&
-			domainName.DomainName.WorkloadInstance.Name != nil {
-			workloadInstanceName = *domainName.DomainName.WorkloadInstance.Name
+		if domainName.DomainName.KubernetesWorkloadInstance != nil &&
+			domainName.DomainName.KubernetesWorkloadInstance.Name != nil {
+			workloadInstanceName = *domainName.DomainName.KubernetesWorkloadInstance.Name
 		}
 		age := ""
 		if domainName.DomainName.Age != nil {
@@ -89,9 +89,9 @@ func outputGetv0DomainNameInstancesCmd(
 			kubernetesRuntimeInstanceName = *domainNameInstance.DomainNameInstance.KubernetesRuntimeInstance.Name
 		}
 		workloadInstanceName := ""
-		if domainNameInstance.DomainNameInstance.WorkloadInstance != nil &&
-			domainNameInstance.DomainNameInstance.WorkloadInstance.Name != nil {
-			workloadInstanceName = *domainNameInstance.DomainNameInstance.WorkloadInstance.Name
+		if domainNameInstance.DomainNameInstance.KubernetesWorkloadInstance != nil &&
+			domainNameInstance.DomainNameInstance.KubernetesWorkloadInstance.Name != nil {
+			workloadInstanceName = *domainNameInstance.DomainNameInstance.KubernetesWorkloadInstance.Name
 		}
 		age := ""
 		if domainNameInstance.DomainNameInstance.Age != nil {
@@ -146,9 +146,9 @@ func outputGetv0GatewaysCmd(
 			kubernetesRuntimeInstanceName = *gateway.Gateway.KubernetesRuntimeInstance.Name
 		}
 		workloadInstanceName := ""
-		if gateway.Gateway.WorkloadInstance != nil &&
-			gateway.Gateway.WorkloadInstance.Name != nil {
-			workloadInstanceName = *gateway.Gateway.WorkloadInstance.Name
+		if gateway.Gateway.KubernetesWorkloadInstance != nil &&
+			gateway.Gateway.KubernetesWorkloadInstance.Name != nil {
+			workloadInstanceName = *gateway.Gateway.KubernetesWorkloadInstance.Name
 		}
 		age := ""
 		if gateway.Gateway.Age != nil {
@@ -242,9 +242,9 @@ func outputGetv0GatewayInstancesCmd(
 			kubernetesRuntimeInstanceName = *gatewayInstance.GatewayInstance.KubernetesRuntimeInstance.Name
 		}
 		workloadInstanceName := ""
-		if gatewayInstance.GatewayInstance.WorkloadInstance != nil &&
-			gatewayInstance.GatewayInstance.WorkloadInstance.Name != nil {
-			workloadInstanceName = *gatewayInstance.GatewayInstance.WorkloadInstance.Name
+		if gatewayInstance.GatewayInstance.KubernetesWorkloadInstance != nil &&
+			gatewayInstance.GatewayInstance.KubernetesWorkloadInstance.Name != nil {
+			workloadInstanceName = *gatewayInstance.GatewayInstance.KubernetesWorkloadInstance.Name
 		}
 		age := ""
 		if gatewayInstance.GatewayInstance.Age != nil {

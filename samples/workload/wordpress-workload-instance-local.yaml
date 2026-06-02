@@ -1,4 +1,0 @@
-WorkloadInstance:
-  Name: wordpress-01
-  WorkloadDefinition:
-    Name: wordpress

@@ -26,7 +26,7 @@ Definitions should include fields that allow users to create commonly used
 configurations.  Each different configuration will represent a distinct use case
 that may be re-used as many tims as needed.
 
-For example, a workload definition includes the Kubernetes manifest that
+For example, a kubernetes workload definition includes the Kubernetes manifest that
 configures the Kubernetes resources needed to run some workload.
 
 A Kubernetes runtime definition includes node sizes and the maximum number of
@@ -39,7 +39,7 @@ These will be commonly varying values for commonly used configurations.
 Instances should also include fields to store runtime information about the
 deployed instances.
 
-For example, a workload instance allows the user to specify which Kubernetes
+For example, a kubernetes workload instance allows the user to specify which Kubernetes
 runtime a workload will be deployed to.  It also stores status information about
 the important Kubernetes resources - such as pods, as well as important events
 related to the instance.

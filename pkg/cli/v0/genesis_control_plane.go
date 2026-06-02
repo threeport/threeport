@@ -1081,18 +1081,18 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// and infrastructure hasn't already been destroyed
 	if !cpi.Opts.InfraOnly && !infraAlreadyDestroyed {
 
-		// check for workload instances on non-kind kubernetes runtimes - halt delete if
-		// any are present
+		// check for kubernetes workload instances on non-kind kubernetes runtimes -
+		// halt delete if any are present
 		if threeportControlPlaneConfig.Provider != v0.KubernetesRuntimeInfraProviderKind {
-			workloadInstances, err := client.GetWorkloadInstances(
+			workloadInstances, err := client.GetKubernetesWorkloadInstances(
 				apiClient,
 				threeportControlPlaneConfig.APIServer,
 			)
 			if err != nil {
-				return fmt.Errorf("failed to retrieve workload instances from threeport API: %w", err)
+				return fmt.Errorf("failed to retrieve kubernetes workload instances from threeport API: %w", err)
 			}
 			if len(*workloadInstances) > 0 {
-				return errors.New("found workload instances that could prevent control plane deletion - delete all workload instances before deleting control plane")
+				return errors.New("found kubernetes workload instances that could prevent control plane deletion - delete all kubernetes workload instances before deleting control plane")
 			}
 
 			// get control plane instances

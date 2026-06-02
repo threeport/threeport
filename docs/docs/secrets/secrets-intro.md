@@ -20,7 +20,7 @@ Reference: [SecretDefinition](https://pkg.go.dev/github.com/threeport/threeport/
 ## SecretInstance
 
 A secret instance is an instance of a secret value being exposed to a workload.
-It is a union of a workload instance and secret definition.  When a secret
+It is a union of a kubernetes workload instance and secret definition.  When a secret
 instance is created the secret data is exposed to the workload.
 
 Reference: [SecretInstance](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#SecretInstance)

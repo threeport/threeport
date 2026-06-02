@@ -20,7 +20,7 @@ The gateway definition allows you define the HTTP and TCP ports you wish to use,
 as well as the subdomain for a hosted zone if DNS records are also being
 managed.  You can also provide the Kubernetes Service name that Gloo will
 forward traffic to.  This will need to correspond to the Service resource name
-in the Kubernetes resource manifest supplied with a Workload Definition.
+in the Kubernetes resource manifest supplied with a Kubernetes Workload Definition.
 
 You can also instruct Threeport to enable TLS - in which case cert-manager will
 provision and rotate certs for your app.  You can also request HTTPS redirects

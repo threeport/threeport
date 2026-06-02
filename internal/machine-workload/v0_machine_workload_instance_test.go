@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 
-	wlstatus "github.com/threeport/threeport/internal/workload/status"
+	wlstatus "github.com/threeport/threeport/internal/kubernetes-workload/status"
 	"github.com/threeport/threeport/internal/machinetest"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"

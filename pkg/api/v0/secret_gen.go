@@ -172,14 +172,14 @@ func (s *SecretInstance) RelationshipTaggedForeignKeys() []RelationshipTaggedFor
 		ObjectType:   new(KubernetesRuntimeInstance).GetFullyQualifiedType(),
 		Relationship: RelationshipRequires,
 	}, {
+		FieldName:    "KubernetesWorkloadInstanceID",
+		ObjectID:     s.KubernetesWorkloadInstanceID,
+		ObjectType:   new(KubernetesWorkloadInstance).GetFullyQualifiedType(),
+		Relationship: RelationshipRequires,
+	}, {
 		FieldName:    "SecretDefinitionID",
 		ObjectID:     s.SecretDefinitionID,
 		ObjectType:   new(SecretDefinition).GetFullyQualifiedType(),
-		Relationship: RelationshipRequires,
-	}, {
-		FieldName:    "WorkloadInstanceID",
-		ObjectID:     s.WorkloadInstanceID,
-		ObjectType:   new(WorkloadInstance).GetFullyQualifiedType(),
 		Relationship: RelationshipRequires,
 	}}
 }

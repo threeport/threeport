@@ -25,11 +25,11 @@ type DomainNameInstanceConfig struct {
 // DomainNameInstanceValues contains all the attributes needed to manage
 // the DomainNameInstance API object.
 type DomainNameInstanceValues struct {
-	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
-	DomainNameDefinition      *DomainNameDefinitionValues      `json:"DomainNameDefinition,omitempty" yaml:"DomainNameDefinition,omitempty"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
-	WorkloadInstance          *WorkloadInstanceValues          `json:"WorkloadInstance,omitempty" yaml:"WorkloadInstance,omitempty"`
-	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                       *string                           `json:"Name,omitempty" yaml:"Name,omitempty"`
+	DomainNameDefinition       *DomainNameDefinitionValues       `json:"DomainNameDefinition,omitempty" yaml:"DomainNameDefinition,omitempty"`
+	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:"KubernetesWorkloadInstance,omitempty" yaml:"KubernetesWorkloadInstance,omitempty"`
+	Age                        *string                           `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets domain name instances from the Threeport API.
@@ -65,7 +65,7 @@ func (d *DomainNameInstanceConfig) Get(
 		// related objects
 		var domainNameDefinition *DomainNameDefinitionValues
 		var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
-		var workloadInstance *WorkloadInstanceValues
+		var workloadInstance *KubernetesWorkloadInstanceValues
 
 		// get domain name definition
 		if domainNameInstance.DomainNameDefinitionID != nil {
@@ -87,11 +87,11 @@ func (d *DomainNameInstanceConfig) Get(
 			}
 		}
 
-		// get workload instance
-		if domainNameInstance.WorkloadInstanceID != nil {
-			wi, err := client_v0.GetWorkloadInstanceByID(apiClient, apiEndpoint, *domainNameInstance.WorkloadInstanceID)
+		// get kubernetes workload instance
+		if domainNameInstance.KubernetesWorkloadInstanceID != nil {
+			wi, err := client_v0.GetKubernetesWorkloadInstanceByID(apiClient, apiEndpoint, *domainNameInstance.KubernetesWorkloadInstanceID)
 			if err == nil {
-				workloadInstance = &WorkloadInstanceValues{
+				workloadInstance = &KubernetesWorkloadInstanceValues{
 					Name: wi.Name,
 				}
 			}
@@ -102,7 +102,7 @@ func (d *DomainNameInstanceConfig) Get(
 				Name:                      domainNameInstance.Name,
 				DomainNameDefinition:      domainNameDefinition,
 				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
-				WorkloadInstance:          workloadInstance,
+				KubernetesWorkloadInstance:          workloadInstance,
 				Age:                       util.Ptr(util.GetAgeFormatted(domainNameInstance.CreatedAt)),
 			},
 		}
@@ -134,10 +134,10 @@ func (d *DomainNameInstanceConfig) Create(
 		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
-	// get workload instance
-	workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *domainNameInstanceValues.WorkloadInstance.Name)
+	// get kubernetes workload instance
+	workloadInstance, err := client_v0.GetKubernetesWorkloadInstanceByName(apiClient, apiEndpoint, *domainNameInstanceValues.KubernetesWorkloadInstance.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *domainNameInstanceValues.WorkloadInstance.Name, err)
+		return nil, fmt.Errorf("failed to get kubernetes workload instance with name %s: %w", *domainNameInstanceValues.KubernetesWorkloadInstance.Name, err)
 	}
 
 	// get domain name definition
@@ -152,7 +152,7 @@ func (d *DomainNameInstanceConfig) Create(
 			Name: util.Ptr(domainNameInstanceValues.getDomainNameInstanceName()),
 		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		WorkloadInstanceID:          workloadInstance.ID,
+		KubernetesWorkloadInstanceID:          workloadInstance.ID,
 		DomainNameDefinitionID:      domainNameDefinition.ID,
 	}
 
@@ -224,10 +224,10 @@ func (d *DomainNameInstanceConfig) Replace(
 		kubernetesRuntimeInstance = *kubernetesRuntimeInst
 	}
 
-	// get workload instance for update
-	workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *domainNameInstanceValues.WorkloadInstance.Name)
+	// get kubernetes workload instance for update
+	workloadInstance, err := client_v0.GetKubernetesWorkloadInstanceByName(apiClient, apiEndpoint, *domainNameInstanceValues.KubernetesWorkloadInstance.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *domainNameInstanceValues.WorkloadInstance.Name, err)
+		return nil, fmt.Errorf("failed to get kubernetes workload instance with name %s: %w", *domainNameInstanceValues.KubernetesWorkloadInstance.Name, err)
 	}
 
 	// get domain name definition for update
@@ -245,7 +245,7 @@ func (d *DomainNameInstanceConfig) Replace(
 			Name: util.Ptr(domainNameInstanceValues.getDomainNameInstanceName()),
 		},
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		WorkloadInstanceID:          workloadInstance.ID,
+		KubernetesWorkloadInstanceID:          workloadInstance.ID,
 		DomainNameDefinitionID:      domainNameDefinition.ID,
 	}
 
@@ -308,7 +308,7 @@ func (d *DomainNameInstanceConfig) Delete(
 
 // getDomainNameInstanceName returns the name of the domain name instance.
 func (d *DomainNameInstanceValues) getDomainNameInstanceName() string {
-	return fmt.Sprintf("%s-%s", *d.WorkloadInstance.Name, strcase.ToKebab(*d.DomainNameDefinition.Name))
+	return fmt.Sprintf("%s-%s", *d.KubernetesWorkloadInstance.Name, strcase.ToKebab(*d.DomainNameDefinition.Name))
 }
 
 // Validate validates inputs to create domain name instances.
@@ -320,8 +320,8 @@ func (d *DomainNameInstanceConfig) Validate() error {
 		multiError.AppendError(errors.New("missing required field in config: DomainNameDefinition.Name"))
 	}
 
-	if domainNameInstanceValues.WorkloadInstance == nil || domainNameInstanceValues.WorkloadInstance.Name == nil {
-		multiError.AppendError(errors.New("missing required field in config: WorkloadInstance.Name"))
+	if domainNameInstanceValues.KubernetesWorkloadInstance == nil || domainNameInstanceValues.KubernetesWorkloadInstance.Name == nil {
+		multiError.AppendError(errors.New("missing required field in config: KubernetesWorkloadInstance.Name"))
 	}
 
 	if len(multiError.Errors) > 0 {

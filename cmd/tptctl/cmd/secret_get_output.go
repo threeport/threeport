@@ -19,9 +19,9 @@ func outputGetv0SecretsCmd(
 	fmt.Fprintln(writer, "NAME\t SECRET DEFINITION\t SECRET INSTANCE\t WORKLOAD INSTANCE\t HELM WORKLOAD INSTANCE\t KUBERNETES RUNTIME INSTANCE\t AGE")
 	for _, secret := range *secrets {
 		workloadInstanceName := ""
-		if secret.Secret.WorkloadInstance != nil &&
-			secret.Secret.WorkloadInstance.Name != nil {
-			workloadInstanceName = *secret.Secret.WorkloadInstance.Name
+		if secret.Secret.KubernetesWorkloadInstance != nil &&
+			secret.Secret.KubernetesWorkloadInstance.Name != nil {
+			workloadInstanceName = *secret.Secret.KubernetesWorkloadInstance.Name
 		}
 		helmWorkloadInstanceName := ""
 		if secret.Secret.HelmWorkloadInstance != nil &&
@@ -90,9 +90,9 @@ func outputGetv0SecretInstancesCmd(
 			secretDefinitionName = *secretInstance.SecretInstance.SecretDefinition.Name
 		}
 		workloadInstanceName := ""
-		if secretInstance.SecretInstance.WorkloadInstance != nil &&
-			secretInstance.SecretInstance.WorkloadInstance.Name != nil {
-			workloadInstanceName = *secretInstance.SecretInstance.WorkloadInstance.Name
+		if secretInstance.SecretInstance.KubernetesWorkloadInstance != nil &&
+			secretInstance.SecretInstance.KubernetesWorkloadInstance.Name != nil {
+			workloadInstanceName = *secretInstance.SecretInstance.KubernetesWorkloadInstance.Name
 		}
 		helmWorkloadInstanceName := ""
 		if secretInstance.SecretInstance.HelmWorkloadInstance != nil &&

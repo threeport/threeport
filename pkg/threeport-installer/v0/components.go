@@ -382,7 +382,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 				auth.OUControlPlane,
 			)
 			if err != nil {
-				return fmt.Errorf("failed to generate client certificate and private key for workload controller: %w", err)
+				return fmt.Errorf("failed to generate client certificate and private key for kubernetes workload controller: %w", err)
 			}
 
 			ca := &unstructured.Unstructured{
@@ -400,12 +400,12 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 				},
 			}
 			if err := cpi.CreateOrUpdateKubeResource(ca, kubeClient, mapper); err != nil {
-				return fmt.Errorf("failed to create API server ca secret for workload controller: %w", err)
+				return fmt.Errorf("failed to create API server ca secret for kubernetes workload controller: %w", err)
 			}
 
 			cert := cpi.getTLSSecret(fmt.Sprintf("%s-cert", controller.Name), certificate, privateKey)
 			if err := cpi.CreateOrUpdateKubeResource(cert, kubeClient, mapper); err != nil {
-				return fmt.Errorf("failed to create API server certificate secret for workload controller: %w", err)
+				return fmt.Errorf("failed to create API server certificate secret for kubernetes workload controller: %w", err)
 			}
 		}
 
@@ -604,13 +604,13 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 											"workloadType": map[string]interface{}{
 												"description": "WorkloadType informs the threeport agent which threeport API type was used to represent a Kubernetes workload.",
 												"enum": []interface{}{
-													"WorkloadInstance",
+													"KubernetesWorkloadInstance",
 													"HelmWorkloadInstance",
 												},
 												"type": "string",
 											},
 											"workloadInstanceId": map[string]interface{}{
-												"description": "WorkloadInstance is the unique ID for a threeport object that represents a deployed instance of a workload.",
+												"description": "KubernetesWorkloadInstance is the unique ID for a threeport object that represents a deployed instance of a workload.",
 												"type":        "integer",
 											},
 											"workloadResourceInstances": map[string]interface{}{

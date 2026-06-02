@@ -1,7 +1,7 @@
 # pkg/kube
 
 This package includes functions for interacting with Kubernetes APIs for
-Kubernetes resource management.  It is used by the workload controller for
+Kubernetes resource management.  It is used by the kubernetes workload controller for
 Threeport control plane installation.
 
 This package is versioned to maintain compatibility for projects importing it

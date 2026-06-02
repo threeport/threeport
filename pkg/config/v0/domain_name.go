@@ -21,13 +21,13 @@ type DomainNameConfig struct {
 // DomainNameDefinition and DomainNameInstance API objects
 // together with a single operation.
 type DomainNameValues struct {
-	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
-	Domain                    *string                          `json:"Domain,omitempty" yaml:"Domain,omitempty"`
-	Zone                      *string                          `json:"Zone,omitempty" yaml:"Zone,omitempty"`
-	AdminEmail                *string                          `json:"AdminEmail,omitempty" yaml:"AdminEmail,omitempty"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
-	WorkloadInstance          *WorkloadInstanceValues          `json:"WorkloadInstance,omitempty" yaml:"WorkloadInstance,omitempty"`
-	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                       *string                            `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Domain                     *string                            `json:"Domain,omitempty" yaml:"Domain,omitempty"`
+	Zone                       *string                            `json:"Zone,omitempty" yaml:"Zone,omitempty"`
+	AdminEmail                 *string                            `json:"AdminEmail,omitempty" yaml:"AdminEmail,omitempty"`
+	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues   `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues  `json:"KubernetesWorkloadInstance,omitempty" yaml:"KubernetesWorkloadInstance,omitempty"`
+	Age                        *string                            `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets a domain name definition and instance from the Threeport API.
@@ -192,7 +192,7 @@ func (d *DomainNameConfig) GetOperations(
 		DomainNameInstance: DomainNameInstanceValues{
 			Name:                      d.DomainName.Name,
 			KubernetesRuntimeInstance: d.DomainName.KubernetesRuntimeInstance,
-			WorkloadInstance:          d.DomainName.WorkloadInstance,
+			KubernetesWorkloadInstance:          d.DomainName.KubernetesWorkloadInstance,
 			DomainNameDefinition: &DomainNameDefinitionValues{
 				Name: d.DomainName.Name,
 			},
@@ -257,7 +257,7 @@ func mapToDomainNameDefinedInstances(
 						Zone:                      def.DomainNameDefinition.Zone,
 						AdminEmail:                def.DomainNameDefinition.AdminEmail,
 						KubernetesRuntimeInstance: inst.DomainNameInstance.KubernetesRuntimeInstance,
-						WorkloadInstance:          inst.DomainNameInstance.WorkloadInstance,
+						KubernetesWorkloadInstance:          inst.DomainNameInstance.KubernetesWorkloadInstance,
 						Age:                       inst.DomainNameInstance.Age,
 					},
 				}

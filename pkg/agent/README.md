@@ -21,7 +21,7 @@ metadata:
   resourceVersion: "968"
   uid: 1c13ea8d-3753-4e7b-98ae-7f8d4828b1d6
 spec:
-  workloadType: WorkloadInstance
+  workloadType: KubernetesWorkloadInstance
   workloadInstanceId: 877588458330128385
   workloadResourceInstances:
   - kind: Namespace
@@ -48,10 +48,10 @@ spec:
 
 The `.spec.WorkloadType` field indicates which Threeport workload object was
 used in Threeport to represent the Kubernetes workload.
-The `.spec.workloadInstanceID` field provides the workload instance ID which is
+The `.spec.workloadInstanceID` field provides the kubernetes workload instance ID which is
 used by the threeport-agent when making updates in the Threeport API.  The
 `.spec.workloadResourceInstances` field contains an array of all worklod
-resource instances that constitute the workload instance.  The `threeportID` is
+resource instances that constitute the kubernetes workload instance.  The `threeportID` is
 the workload resource instance ID in the Threeeport API and is
 used when making updates to the Threeport API.  The `group`, `version`, `kind`,
 `name` and `namespace` fields allow the threeport-agent to find the resource in
@@ -59,5 +59,5 @@ the Kubernetes API for watching.
 
 The `api/v1alpha1/dynamic.go` source file continas a converter to convert
 ThreeportWorkload resources into unstructured.Unstructured objects for use with
-a dynamic client - used by the workload controller.
+a dynamic client - used by the kubernetes workload controller.
 

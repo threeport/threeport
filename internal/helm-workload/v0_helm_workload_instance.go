@@ -78,7 +78,7 @@ func v0HelmWorkloadInstanceCreated(
 	install := action.NewInstall(actionConf)
 
 	// if the chart is not an OCI chart, set the version if it is supplied by
-	// the workload definition
+	// the kubernetes workload definition
 	if !registry.IsOCI(*helmWorkloadDefinition.Repo) &&
 		helmWorkloadDefinition.ChartVersion != nil &&
 		*helmWorkloadDefinition.ChartVersion != "" {
@@ -141,7 +141,7 @@ func v0HelmWorkloadInstanceCreated(
 		},
 		Spec: agentapi.ThreeportWorkloadSpec{
 			WorkloadType:       agent.HelmWorkloadInstanceType,
-			WorkloadInstanceID: *helmWorkloadInstance.ID,
+			KubernetesWorkloadInstanceID: *helmWorkloadInstance.ID,
 		},
 	}
 
@@ -158,15 +158,15 @@ func v0HelmWorkloadInstanceCreated(
 
 		// populate workload resource instances and append to threeeport
 		// workload
-		agentWRI := agentapi.WorkloadResourceInstance{
+		agentWRI := agentapi.KubernetesWorkloadResourceInstance{
 			Name:      kubeObject.GetName(),
 			Namespace: kubeObject.GetNamespace(),
 			Group:     kubeObject.GroupVersionKind().Group,
 			Version:   kubeObject.GroupVersionKind().Version,
 			Kind:      kubeObject.GetKind(),
 		}
-		threeportWorkload.Spec.WorkloadResourceInstances = append(
-			threeportWorkload.Spec.WorkloadResourceInstances,
+		threeportWorkload.Spec.KubernetesWorkloadResourceInstances = append(
+			threeportWorkload.Spec.KubernetesWorkloadResourceInstances,
 			agentWRI,
 		)
 	}
@@ -237,7 +237,7 @@ func v0HelmWorkloadInstanceUpdated(
 	// upgrade the chart
 	upgrade := action.NewUpgrade(actionConf)
 
-	// configure version if it is supplied by the workload definition
+	// configure version if it is supplied by the kubernetes workload definition
 	if helmWorkloadDefinition.ChartVersion != nil && *helmWorkloadDefinition.ChartVersion != "" {
 		upgrade.Version = *helmWorkloadDefinition.ChartVersion
 	}
@@ -471,7 +471,7 @@ func getHelmActionConfig(
 }
 
 // helmReleaseName returns a standardized helm release name based on a helm
-// workload instance name.
+// kubernetes workload instance name.
 func helmReleaseName(helmWorkloadInstance *v0.HelmWorkloadInstance) string {
 	return fmt.Sprintf("%s-release", *helmWorkloadInstance.Name)
 }
@@ -499,7 +499,7 @@ func cleanLocalFiles() error {
 }
 
 // configureChartRepository configures a helm chart repository for a helm
-// workload instance.
+// kubernetes workload instance.
 func configureChartRepository(
 	helmWorkloadInstanceId uint,
 	helmRepoName,

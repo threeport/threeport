@@ -315,13 +315,13 @@ func GetJsonResourcesFromYamlDoc(yamlDoc string) ([][]byte, error) {
 			break
 		}
 		if err != nil {
-			return jsonObjects, fmt.Errorf("failed to decode yaml node in workload definition: %w", err)
+			return jsonObjects, fmt.Errorf("failed to decode yaml node in kubernetes workload definition: %w", err)
 		}
 
 		// marshal the yaml
 		yamlContent, err := yamlv3.Marshal(&node)
 		if err != nil {
-			return jsonObjects, fmt.Errorf("failed to marshal yaml from workload definition: %w", err)
+			return jsonObjects, fmt.Errorf("failed to marshal yaml from kubernetes workload definition: %w", err)
 		}
 
 		// convert yaml to json

@@ -15,7 +15,7 @@ import (
 
 // createPodInformer creates a new shared informer for pods filtered by labels,
 // creates a stop channel that is used to stop the informer when the threeport
-// workload instance is deleted, runs the informer and returns the informer and
+// kubernetes workload instance is deleted, runs the informer and returns the informer and
 // stop channel.
 func (r *ThreeportWorkloadReconciler) createPodInformer(
 	ctx context.Context,
@@ -45,7 +45,7 @@ func (r *ThreeportWorkloadReconciler) createPodInformer(
 }
 
 // addPodEventHandlers creates a new informer to watch pods with a label
-// identifying it as a part of a workload instance.  Whenever a pod is added, it
+// identifying it as a part of a kubernetes workload instance.  Whenever a pod is added, it
 // adds an event handler for Event objects associated with that pod by UID so
 // that all events for that pod are sent to threeport API.
 func (r *ThreeportWorkloadReconciler) addPodEventHandlers(

@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	"github.com/threeport/threeport/internal/agent"
-	"github.com/threeport/threeport/internal/workload/status"
+	"github.com/threeport/threeport/internal/kubernetes-workload/status"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -91,7 +91,7 @@ func (h *HelmWorkloadInstanceConfig) Get(
 		}
 
 		// get helm workload status
-		instanceStatusDetail := status.GetWorkloadInstanceStatus(
+		instanceStatusDetail := status.GetKubernetesWorkloadInstanceStatus(
 			apiClient,
 			apiEndpoint,
 			agent.HelmWorkloadInstanceType,

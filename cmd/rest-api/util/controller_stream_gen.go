@@ -11,13 +11,13 @@ import (
 	notif1 "github.com/threeport/threeport/internal/gcp/notif"
 	helmworkload_notif "github.com/threeport/threeport/internal/helm-workload/notif"
 	kubernetesruntime_notif "github.com/threeport/threeport/internal/kubernetes-runtime/notif"
+	kubernetesworkload_notif "github.com/threeport/threeport/internal/kubernetes-workload/notif"
 	notif2 "github.com/threeport/threeport/internal/machine-runtime/notif"
 	notif3 "github.com/threeport/threeport/internal/machine-workload/notif"
 	observability_notif "github.com/threeport/threeport/internal/observability/notif"
 	notif "github.com/threeport/threeport/internal/oci/notif"
 	secret_notif "github.com/threeport/threeport/internal/secret/notif"
 	terraform_notif "github.com/threeport/threeport/internal/terraform/notif"
-	workload_notif "github.com/threeport/threeport/internal/workload/notif"
 )
 
 // Initialize the NATS Jet stream context with controller streams
@@ -125,11 +125,11 @@ func InitJetStream(nc *nats.Conn) (*nats.JetStreamContext, error) {
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     workload_notif.WorkloadStreamName,
-		Subjects: workload_notif.GetWorkloadSubjects(),
+		Name:     kubernetesworkload_notif.KubernetesWorkloadStreamName,
+		Subjects: kubernetesworkload_notif.GetKubernetesWorkloadSubjects(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not add stream %s: %w", workload_notif.WorkloadStreamName, err)
+		return nil, fmt.Errorf("could not add stream %s: %w", kubernetesworkload_notif.KubernetesWorkloadStreamName, err)
 	}
 
 	return &js, nil

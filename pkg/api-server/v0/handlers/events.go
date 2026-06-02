@@ -40,7 +40,7 @@ func JoinEventsToAttachedObjectReferences(query *gorm.DB, fullyQualifiedEventTyp
 // @Accept json
 // @Produce json
 // @Param objectid query string false "filter events by object ID"
-// @Param objecttypename query string false "filter events by object type name (with objectname); CamelCase Go TypeName like 'WorkloadInstance'"
+// @Param objecttypename query string false "filter events by object type name (with objectname); CamelCase Go TypeName like 'KubernetesWorkloadInstance'"
 // @Param objectversion query string false "narrow objecttypename match to one version (e.g. 'v0')"
 // @Param objectnamespace query string false "narrow objecttypename match to one api namespace (e.g. 'threeport.io')"
 // @Param objectname query string false "filter events by object name (with objecttypename)"

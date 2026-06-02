@@ -29,7 +29,7 @@ func GenUtilJetstream(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.ImportAlias("github.com/threeport/threeport/internal/observability/notif", "observability_notif")
 	f.ImportAlias("github.com/threeport/threeport/internal/secret/notif", "secret_notif")
 	f.ImportAlias("github.com/threeport/threeport/internal/terraform/notif", "terraform_notif")
-	f.ImportAlias("github.com/threeport/threeport/internal/workload/notif", "workload_notif")
+	f.ImportAlias("github.com/threeport/threeport/internal/kubernetes-workload/notif", "kubernetesworkload_notif")
 
 	f.Comment(`Initialize the NATS Jet stream context with controller streams`)
 	f.Func().Id("InitJetStream").Params(

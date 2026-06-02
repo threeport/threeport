@@ -126,8 +126,8 @@ type ApiObjectGroup struct {
 	// The struct values parsed from the object group's model file.
 	// The data model can be interpreted as:
 	// map[objectName]map[fieldName]map[tagKey]tagValue
-	// An example of this data model with a WorkloadDefinition is:
-	// map["WorkloadDefinition"]map["YAMLDocument"]map["validate"]"required"
+	// An example of this data model with a KubernetesWorkloadDefinition is:
+	// map["KubernetesWorkloadDefinition"]map["YAMLDocument"]map["validate"]"required"
 	StructTags map[string]map[string]map[string]string
 
 	// FieldTypes carries the Go type expression for every field captured

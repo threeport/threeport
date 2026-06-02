@@ -99,7 +99,8 @@ each object's version is structured differently in different places:
   |-- Object
   ```
   Object groups are not expressed in the REST paths.  See the path constants in
-  `pkg/api/v0/workload_gen.go` for examples such as `/v0/workload-definitions`.
+  `pkg/api/v0/kubernetes_workload_gen.go` for examples such as
+  `/v0/kubernetes-workload-definitions`.
 
 ## Threeport Library Versioning
 

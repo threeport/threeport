@@ -103,7 +103,7 @@ func TestAOR_OwnsSingleOwnerConstraint(t *testing.T) {
 // 1-to-1 cardinality.
 func TestAOR_MarriesOneToOne(t *testing.T) {
 	const (
-		baseType    = "threeport.io/v0.WorkloadInstance"
+		baseType    = "threeport.io/v0.KubernetesWorkloadInstance"
 		baseIDA     = uint(10)
 		baseIDB     = uint(11)
 		partnerType = "threeport.io/v0.GatewayInstance"
@@ -265,16 +265,16 @@ func TestAOR_MarriesConstraintAfterSoftDelete(t *testing.T) {
 		{
 			name: "base side - same base, different partner",
 			setup: func() (*AttachedObjectReference, *AttachedObjectReference) {
-				return newAOR("threeport.io/v0.WorkloadInstance", 1, "threeport.io/v0.GatewayInstance", 10, RelationshipMarries),
-					newAOR("threeport.io/v0.WorkloadInstance", 1, "threeport.io/v0.GatewayInstance", 11, RelationshipMarries)
+				return newAOR("threeport.io/v0.KubernetesWorkloadInstance", 1, "threeport.io/v0.GatewayInstance", 10, RelationshipMarries),
+					newAOR("threeport.io/v0.KubernetesWorkloadInstance", 1, "threeport.io/v0.GatewayInstance", 11, RelationshipMarries)
 			},
 			reason: "idx_aor_marries_base must let soft-deleted rows out of the slot",
 		},
 		{
 			name: "attacher side - same partner, different base",
 			setup: func() (*AttachedObjectReference, *AttachedObjectReference) {
-				return newAOR("threeport.io/v0.WorkloadInstance", 1, "threeport.io/v0.GatewayInstance", 10, RelationshipMarries),
-					newAOR("threeport.io/v0.WorkloadInstance", 2, "threeport.io/v0.GatewayInstance", 10, RelationshipMarries)
+				return newAOR("threeport.io/v0.KubernetesWorkloadInstance", 1, "threeport.io/v0.GatewayInstance", 10, RelationshipMarries),
+					newAOR("threeport.io/v0.KubernetesWorkloadInstance", 2, "threeport.io/v0.GatewayInstance", 10, RelationshipMarries)
 			},
 			reason: "idx_aor_marries_attached must let soft-deleted rows out of the slot",
 		},

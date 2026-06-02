@@ -32,7 +32,7 @@ func (r *ThreeportWorkloadReconciler) addEventEventHandlers(
 					eventSummary = notify.EventSummary{
 						EventUID:                   string(event.ObjectMeta.UID),
 						WorkloadType:               workloadType,
-						WorkloadInstanceID:         workloadInstanceID,
+						KubernetesWorkloadInstanceID:         workloadInstanceID,
 						WorkloadResourceInstanceID: workloadResourceInstanceID,
 						ObjectNamespace:            event.InvolvedObject.Namespace,
 						ObjectKind:                 event.InvolvedObject.Kind,
@@ -46,7 +46,7 @@ func (r *ThreeportWorkloadReconciler) addEventEventHandlers(
 					eventSummary = notify.EventSummary{
 						EventUID:           string(event.ObjectMeta.UID),
 						WorkloadType:       workloadType,
-						WorkloadInstanceID: workloadInstanceID,
+						KubernetesWorkloadInstanceID: workloadInstanceID,
 						ObjectNamespace:    event.InvolvedObject.Namespace,
 						ObjectKind:         event.InvolvedObject.Kind,
 						ObjectName:         event.InvolvedObject.Name,

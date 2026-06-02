@@ -17,13 +17,13 @@ import (
 )
 
 // SetNamespaces adds the namespace resource and namespace assignment as needed
-// to an array of workload resource instances.
+// to an array of kubernetes workload resource instances.
 func SetNamespaces(
-	workloadResourceInstances *[]v0.WorkloadResourceInstance,
+	workloadResourceInstances *[]v0.KubernetesWorkloadResourceInstance,
 	workloadInstanceName *string,
 	workloadInstanceID *uint,
 	discoveryClient *discovery.DiscoveryClient,
-) (*[]v0.WorkloadResourceInstance, error) {
+) (*[]v0.KubernetesWorkloadResourceInstance, error) {
 	// first check to see if any namespaces are included - if so assume
 	// namespaces are managed by client and do nothing
 	clientManagedNS := ""
@@ -43,13 +43,13 @@ func SetNamespaces(
 	namespace := ""
 	if clientManagedNS == "" {
 		// we are managing namespaces for the client - create namespace and add to
-		// array of processed workload resource instances
+		// array of processed kubernetes workload resource instances
 		namespace = fmt.Sprintf("%s-%s", *workloadInstanceName, util.RandomAlphaNumericString(10))
 	} else {
 		namespace = clientManagedNS
 	}
 
-	processedWRIs := []v0.WorkloadResourceInstance{}
+	processedWRIs := []v0.KubernetesWorkloadResourceInstance{}
 	namespacedObjectCount := 0
 	for _, wri := range *workloadResourceInstances {
 		// check to see if this is a namespaced resource
@@ -140,12 +140,12 @@ func IsNamespaced(
 	return apiResource.Namespaced, nil
 }
 
-// CreateNamespaceWorkloadResourceInstance returns a workload instance for a
-// Kubernetes namespace resource with the desired name.
+// CreateNamespaceWorkloadResourceInstance returns a kubernetes workload resource
+// instance for a Kubernetes namespace resource with the desired name.
 func CreateNamespaceWorkloadResourceInstance(
 	namespaceName string,
 	workloadInstanceID uint,
-) (*v0.WorkloadResourceInstance, error) {
+) (*v0.KubernetesWorkloadResourceInstance, error) {
 	// create the namespace resource with the desired name
 	namespace := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -161,13 +161,13 @@ func CreateNamespaceWorkloadResourceInstance(
 		return nil, fmt.Errorf("failed to marshal json for namespace object: %w", err)
 	}
 
-	// construct the workload resource instance
+	// construct the kubernetes workload resource instance
 	var JSONDef datatypes.JSON
 	JSONDef = namespaceJSON
 	reconciled := false
-	workloadResourceInstance := v0.WorkloadResourceInstance{
+	workloadResourceInstance := v0.KubernetesWorkloadResourceInstance{
 		JSONDefinition:     &JSONDef,
-		WorkloadInstanceID: &workloadInstanceID,
+		KubernetesWorkloadInstanceID: &workloadInstanceID,
 		Reconciled:         &reconciled,
 	}
 

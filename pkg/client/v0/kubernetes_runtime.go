@@ -48,9 +48,9 @@ func GetDefaultKubernetesRuntimeInstance(apiClient *http.Client, apiAddr string)
 	return &kubernetesRuntimeInstance, nil
 }
 
-// GetKubernetesRuntimeInstancesByKubernetesRuntimeDefinitionID fetches kubernetes runtime
+// GetKubernetesRuntimeInstancesByID fetches kubernetes runtime
 // instances by kubernetes runtime definition ID
-func GetKubernetesRuntimeInstancesByKubernetesRuntimeDefinitionID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.KubernetesRuntimeInstance, error) {
+func GetKubernetesRuntimeInstancesByID(apiClient *http.Client, apiAddr string, id uint) (*[]v0.KubernetesRuntimeInstance, error) {
 	var kubernetesRuntimeInstances []v0.KubernetesRuntimeInstance
 
 	allPagesReceived := false

@@ -23,11 +23,11 @@ type GatewayInstanceConfig struct {
 // GatewayInstanceValues contains all the attributes needed to manage
 // the GatewayInstance API object.
 type GatewayInstanceValues struct {
-	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
-	GatewayDefinition         *GatewayDefinitionValues         `json:"GatewayDefinition,omitempty" yaml:"GatewayDefinition,omitempty"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
-	WorkloadInstance          *WorkloadInstanceValues          `json:"WorkloadInstance,omitempty" yaml:"WorkloadInstance,omitempty"`
-	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                       *string                           `json:"Name,omitempty" yaml:"Name,omitempty"`
+	GatewayDefinition          *GatewayDefinitionValues          `json:"GatewayDefinition,omitempty" yaml:"GatewayDefinition,omitempty"`
+	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:"KubernetesWorkloadInstance,omitempty" yaml:"KubernetesWorkloadInstance,omitempty"`
+	Age                        *string                           `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets gateway instances from the Threeport API.
@@ -63,7 +63,7 @@ func (g *GatewayInstanceConfig) Get(
 		// related objects
 		var gatewayDefinition *GatewayDefinitionValues
 		var kubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
-		var workloadInstance *WorkloadInstanceValues
+		var workloadInstance *KubernetesWorkloadInstanceValues
 
 		// get gateway definition
 		if gatewayInstance.GatewayDefinitionID != nil {
@@ -85,11 +85,11 @@ func (g *GatewayInstanceConfig) Get(
 			}
 		}
 
-		// get workload instance
-		if gatewayInstance.WorkloadInstanceID != nil {
-			wi, err := client_v0.GetWorkloadInstanceByID(apiClient, apiEndpoint, *gatewayInstance.WorkloadInstanceID)
+		// get kubernetes workload instance
+		if gatewayInstance.KubernetesWorkloadInstanceID != nil {
+			wi, err := client_v0.GetKubernetesWorkloadInstanceByID(apiClient, apiEndpoint, *gatewayInstance.KubernetesWorkloadInstanceID)
 			if err == nil {
-				workloadInstance = &WorkloadInstanceValues{
+				workloadInstance = &KubernetesWorkloadInstanceValues{
 					Name: wi.Name,
 				}
 			}
@@ -100,7 +100,7 @@ func (g *GatewayInstanceConfig) Get(
 				Name:                      gatewayInstance.Name,
 				GatewayDefinition:         gatewayDefinition,
 				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
-				WorkloadInstance:          workloadInstance,
+				KubernetesWorkloadInstance:          workloadInstance,
 				Age:                       util.Ptr(util.GetAgeFormatted(gatewayInstance.CreatedAt)),
 			},
 		}
@@ -132,10 +132,10 @@ func (g *GatewayInstanceConfig) Create(
 		return nil, fmt.Errorf("failed to get kubernetes runtime instance: %w", err)
 	}
 
-	// get workload instance
-	workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *gatewayInstanceValues.WorkloadInstance.Name)
+	// get kubernetes workload instance
+	workloadInstance, err := client_v0.GetKubernetesWorkloadInstanceByName(apiClient, apiEndpoint, *gatewayInstanceValues.KubernetesWorkloadInstance.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *gatewayInstanceValues.WorkloadInstance.Name, err)
+		return nil, fmt.Errorf("failed to get kubernetes workload instance with name %s: %w", *gatewayInstanceValues.KubernetesWorkloadInstance.Name, err)
 	}
 
 	// get gateway definition
@@ -151,7 +151,7 @@ func (g *GatewayInstanceConfig) Create(
 		},
 		GatewayDefinitionID:         gatewayDefinition.ID,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		WorkloadInstanceID:          workloadInstance.ID,
+		KubernetesWorkloadInstanceID:          workloadInstance.ID,
 	}
 
 	// create gateway instance
@@ -218,10 +218,10 @@ func (g *GatewayInstanceConfig) Replace(
 		)
 	}
 
-	// get workload instance for update
-	workloadInstance, err := client_v0.GetWorkloadInstanceByName(apiClient, apiEndpoint, *gatewayInstanceValues.WorkloadInstance.Name)
+	// get kubernetes workload instance for update
+	workloadInstance, err := client_v0.GetKubernetesWorkloadInstanceByName(apiClient, apiEndpoint, *gatewayInstanceValues.KubernetesWorkloadInstance.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workload instance with name %s: %w", *gatewayInstanceValues.WorkloadInstance.Name, err)
+		return nil, fmt.Errorf("failed to get kubernetes workload instance with name %s: %w", *gatewayInstanceValues.KubernetesWorkloadInstance.Name, err)
 	}
 
 	// get gateway definition for update
@@ -240,7 +240,7 @@ func (g *GatewayInstanceConfig) Replace(
 		},
 		GatewayDefinitionID:         gatewayDefinition.ID,
 		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		WorkloadInstanceID:          workloadInstance.ID,
+		KubernetesWorkloadInstanceID:          workloadInstance.ID,
 	}
 
 	// replace gateway instance
@@ -322,8 +322,8 @@ func (g *GatewayInstanceConfig) Validate() error {
 		multiError.AppendError(errors.New("missing required field in config: GatewayDefinition.Name"))
 	}
 
-	if gatewayInstanceValues.WorkloadInstance == nil || gatewayInstanceValues.WorkloadInstance.Name == nil {
-		multiError.AppendError(errors.New("missing required field in config: WorkloadInstance.Name"))
+	if gatewayInstanceValues.KubernetesWorkloadInstance == nil || gatewayInstanceValues.KubernetesWorkloadInstance.Name == nil {
+		multiError.AppendError(errors.New("missing required field in config: KubernetesWorkloadInstance.Name"))
 	}
 
 	if len(multiError.Errors) > 0 {

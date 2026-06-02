@@ -36,14 +36,14 @@ kubernetes-runtime-controller is responsible for reconciling objects defined in
 
 A controller consists of one or more reconcilers.  Each reconciler is
 responsible for reconciling state for a single object.  For example, the
-workload-controller has two reconcilers:
+kubernetes-workload-controller has two reconcilers:
 
-* Workload Definition Reconciler:  It is responsible for reconciling state for
-  `WorkloadDefinition` objects.  It parses the `YAMLDocument` into separate
+* Kubernetes Workload Definition Reconciler:  It is responsible for reconciling state for
+  `KubernetesWorkloadDefinition` objects.  It parses the `YAMLDocument` into separate
   Kubernetes resources and stores them each in a distinct
-  `WorkloadResourceDefinition` object.
-* Workload Instance Reconciler:  It is responsible for reconciling state for
-  `WorkloadInstance` objects.  It takes all the `WorkloadResourceDefinitions`
+  `KubernetesWorkloadResourceDefinition` object.
+* Kubernetes Workload Instance Reconciler:  It is responsible for reconciling state for
+  `KubernetesWorkloadInstance` objects.  It takes all the `KubernetesWorkloadResourceDefinitions`
   and installs them in a target Kubernetes cluster.
 
 ## Creating a New Controller
@@ -138,6 +138,6 @@ its objects for examples.
    controller.
    Example:
    ```bash
-   cp -R cmd/workload-controller/image cmd/kubernetes-runtime-controller
+   cp -R cmd/kubernetes-workload-controller/image cmd/kubernetes-runtime-controller
    ```
 

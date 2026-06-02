@@ -27,7 +27,7 @@ Following is an overview of what lives at the root of this repo:
     control plane.
   * [tptctl](../../cmd/tptctl/README.md) is the primary client CLI for threeport uers.
   * [tptdev](../../cmd/tptdev/README.md) is a developer tool for threeport.
-  * [workload-controller](../../cmd/workload-controller/README.md) is the threeport
+  * [kubernetes-workload-controller](../../cmd/kubernetes-workload-controller/README.md) is the threeport
     controller that manages containerized workloads on Kubernetes for users.
   * [control-plane-controller](../../cmd/control-plane-controller/README.md) is the threeport
     controller that manages control planes created by the threeport control plane itself.

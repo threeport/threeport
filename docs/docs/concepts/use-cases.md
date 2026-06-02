@@ -74,7 +74,7 @@ DevOps supports developers as follows:
    dependencies are connected and the workload is immediately available to the
    end user as soon as resources are up. An example configuration can be found
    on the Threeport GitHub repository
-   [here](https://github.com/threeport/threeport/blob/main/samples/workload/wordpress-workload-remote.yaml).
+   [here](https://github.com/threeport/threeport/blob/main/samples/kubernetes-workload/wordpress-kubernetes-workload-remote.yaml).
 
 ## Threeport for Developers
 

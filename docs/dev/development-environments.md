@@ -33,17 +33,17 @@ If you need to update the image for a control plane component after making code
 changes, do the following.
 
 Build a new container image and load it into the development kind cluster.  The
-following example is for the workload controller.
+following example is for the kubernetes workload controller.
 
 ```bash
-./bin/tptdev build -r localhost:5001 -t dev --load --names workload-controller
+./bin/tptdev build -r localhost:5001 -t dev --load --names kubernetes-workload-controller
 ```
 
 Then delete the pod for the controller.  When it restarts, it will use the new
 image.
 
 ```bash
-kubectl delete po [workload controller pod name]
+kubectl delete po [kubernetes workload controller pod name]
 ```
 
 ## Remove a Dev Environment

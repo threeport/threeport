@@ -29,7 +29,7 @@ const (
 // walking struct tags via reflection.
 type RelationshipTaggedForeignKey struct {
 	FieldName    string
-	ObjectType   string // e.g. "WorkloadInstance"
+	ObjectType   string // e.g. "KubernetesWorkloadInstance"
 	Relationship Relationship
 	ObjectID     *uint
 }

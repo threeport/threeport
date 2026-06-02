@@ -21,14 +21,14 @@ type SecretConfig struct {
 // SecretDefinition and SecretInstance API objects
 // together with a single operation.
 type SecretValues struct {
-	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
-	Data                      *map[string]string               `json:"Data,omitempty" yaml:"Data,omitempty"`
-	AwsProviderName            *string                          `json:"AwsProviderName,omitempty" yaml:"AwsProviderName,omitempty"`
-	SecretConfigPath          *string                          `json:"SecretConfigPath,omitempty" yaml:"SecretConfigPath,omitempty"`
-	WorkloadInstance          *WorkloadInstanceValues          `json:"WorkloadInstance,omitempty" yaml:"WorkloadInstance,omitempty"`
-	HelmWorkloadInstance      *HelmWorkloadInstanceValues      `json:"HelmWorkloadInstance,omitempty" yaml:"HelmWorkloadInstance,omitempty"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
-	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                       *string                           `json:"Name,omitempty" yaml:"Name,omitempty"`
+	Data                       *map[string]string                `json:"Data,omitempty" yaml:"Data,omitempty"`
+	AwsProviderName            *string                           `json:"AwsProviderName,omitempty" yaml:"AwsProviderName,omitempty"`
+	SecretConfigPath           *string                           `json:"SecretConfigPath,omitempty" yaml:"SecretConfigPath,omitempty"`
+	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:"KubernetesWorkloadInstance,omitempty" yaml:"KubernetesWorkloadInstance,omitempty"`
+	HelmWorkloadInstance       *HelmWorkloadInstanceValues       `json:"HelmWorkloadInstance,omitempty" yaml:"HelmWorkloadInstance,omitempty"`
+	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	Age                        *string                           `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets a secret definition and instance from the Threeport API.
@@ -196,7 +196,7 @@ func (s *SecretConfig) GetOperations(
 		SecretInstance: SecretInstanceValues{
 			Name:                      secretValues.Name,
 			SecretDefinition:          &secretDefinitionConfig.SecretDefinition,
-			WorkloadInstance:          secretValues.WorkloadInstance,
+			KubernetesWorkloadInstance:          secretValues.KubernetesWorkloadInstance,
 			HelmWorkloadInstance:      secretValues.HelmWorkloadInstance,
 			KubernetesRuntimeInstance: secretValues.KubernetesRuntimeInstance,
 			SecretConfigPath:          secretValues.SecretConfigPath,
@@ -260,7 +260,7 @@ func mapToSecretDefinedInstances(
 						Data:                      def.SecretDefinition.Data,
 						AwsProviderName:            def.SecretDefinition.AwsProviderName,
 						SecretConfigPath:          inst.SecretInstance.SecretConfigPath,
-						WorkloadInstance:          inst.SecretInstance.WorkloadInstance,
+						KubernetesWorkloadInstance:          inst.SecretInstance.KubernetesWorkloadInstance,
 						HelmWorkloadInstance:      inst.SecretInstance.HelmWorkloadInstance,
 						KubernetesRuntimeInstance: inst.SecretInstance.KubernetesRuntimeInstance,
 						Age:                       inst.SecretInstance.Age,
