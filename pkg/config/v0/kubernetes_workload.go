@@ -21,15 +21,15 @@ type KubernetesWorkloadConfig struct {
 // KubernetesWorkloadDefinition and KubernetesWorkloadInstance API objects
 // together with a single operation.
 type KubernetesWorkloadValues struct {
-	Name                      *string                          `json:",omitempty" yaml:"Name,omitempty"`
-	YAMLDocument              *string                          `json:",omitempty" yaml:"YAMLDocument,omitempty"`
-	WorkloadConfigPath        *string                          `json:",omitempty" yaml:"WorkloadConfigPath,omitempty"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:",omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
-	DomainName                *DomainNameDefinitionValues      `json:",omitempty" yaml:"DomainName,omitempty"`
-	Gateway                   *GatewayDefinitionValues         `json:",omitempty" yaml:"Gateway,omitempty"`
-	Secret                    *SecretValues                    `json:",omitempty" yaml:"Secret,omitempty"`
-	Status                    *string                          `json:",omitempty" yaml:"Status,omitempty"`
-	Age                       *string                          `json:",omitempty" yaml:"Age,omitempty"`
+	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
+	YAMLDocument              *string                          `json:"YAMLDocument,omitempty" yaml:"YAMLDocument,omitempty"`
+	WorkloadConfigPath        *string                          `json:"WorkloadConfigPath,omitempty" yaml:"WorkloadConfigPath,omitempty"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
+	DomainName                *DomainNameDefinitionValues      `json:"DomainName,omitempty" yaml:"DomainName,omitempty"`
+	Gateway                   *GatewayDefinitionValues         `json:"Gateway,omitempty" yaml:"Gateway,omitempty"`
+	Secret                    *SecretValues                    `json:"Secret,omitempty" yaml:"Secret,omitempty"`
+	Status                    *string                          `json:"Status,omitempty" yaml:"Status,omitempty"`
+	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets a kubernetes workload definition and instance from the Threeport API.
@@ -194,9 +194,9 @@ func (w *KubernetesWorkloadConfig) GetOperations(
 	// add kubernetes workload instance operation
 	k8sWorkloadInstanceConfig := KubernetesWorkloadInstanceConfig{
 		KubernetesWorkloadInstance: KubernetesWorkloadInstanceValues{
-			Name:                      k8sWorkloadValues.Name,
-			KubernetesRuntimeInstance: k8sWorkloadValues.KubernetesRuntimeInstance,
-			KubernetesWorkloadDefinition:        &k8sWorkloadDefinitionConfig.KubernetesWorkloadDefinition,
+			Name:                         k8sWorkloadValues.Name,
+			KubernetesRuntimeInstance:    k8sWorkloadValues.KubernetesRuntimeInstance,
+			KubernetesWorkloadDefinition: &k8sWorkloadDefinitionConfig.KubernetesWorkloadDefinition,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -278,9 +278,9 @@ func (w *KubernetesWorkloadConfig) GetOperations(
 		// add domain name instance operation
 		domainNameInstanceConfig := DomainNameInstanceConfig{
 			DomainNameInstance: DomainNameInstanceValues{
-				DomainNameDefinition:      &domainNameDefinitionConfig.DomainNameDefinition,
-				KubernetesRuntimeInstance: k8sWorkloadValues.KubernetesRuntimeInstance,
-				KubernetesWorkloadInstance:          &k8sWorkloadInstanceConfig.KubernetesWorkloadInstance,
+				DomainNameDefinition:       &domainNameDefinitionConfig.DomainNameDefinition,
+				KubernetesRuntimeInstance:  k8sWorkloadValues.KubernetesRuntimeInstance,
+				KubernetesWorkloadInstance: &k8sWorkloadInstanceConfig.KubernetesWorkloadInstance,
 			},
 		}
 		operations.AppendOperation(util.Operation{
@@ -359,10 +359,10 @@ func (w *KubernetesWorkloadConfig) GetOperations(
 		// add gateway instance operation
 		gatewayInstanceConfig := GatewayInstanceConfig{
 			GatewayInstance: GatewayInstanceValues{
-				Name:                      k8sWorkloadValues.Gateway.Name,
-				GatewayDefinition:         &gatewayDefinitionConfig.GatewayDefinition,
-				KubernetesRuntimeInstance: k8sWorkloadValues.KubernetesRuntimeInstance,
-				KubernetesWorkloadInstance:          &k8sWorkloadInstanceConfig.KubernetesWorkloadInstance,
+				Name:                       k8sWorkloadValues.Gateway.Name,
+				GatewayDefinition:          &gatewayDefinitionConfig.GatewayDefinition,
+				KubernetesRuntimeInstance:  k8sWorkloadValues.KubernetesRuntimeInstance,
+				KubernetesWorkloadInstance: &k8sWorkloadInstanceConfig.KubernetesWorkloadInstance,
 			},
 		}
 		operations.AppendOperation(util.Operation{
@@ -399,11 +399,11 @@ func (w *KubernetesWorkloadConfig) GetOperations(
 	if k8sWorkloadValues.Secret != nil {
 		secretConfig := SecretConfig{
 			Secret: SecretValues{
-				Name:                      k8sWorkloadValues.Secret.Name,
-				AwsProviderName:           k8sWorkloadValues.Secret.AwsProviderName,
-				Data:                      k8sWorkloadValues.Secret.Data,
-				KubernetesRuntimeInstance: k8sWorkloadValues.KubernetesRuntimeInstance,
-				KubernetesWorkloadInstance:          &k8sWorkloadInstanceConfig.KubernetesWorkloadInstance,
+				Name:                       k8sWorkloadValues.Secret.Name,
+				AwsProviderName:            k8sWorkloadValues.Secret.AwsProviderName,
+				Data:                       k8sWorkloadValues.Secret.Data,
+				KubernetesRuntimeInstance:  k8sWorkloadValues.KubernetesRuntimeInstance,
+				KubernetesWorkloadInstance: &k8sWorkloadInstanceConfig.KubernetesWorkloadInstance,
 			},
 		}
 		operations.AppendOperation(util.Operation{

@@ -104,7 +104,7 @@ type ObservabilityDashboardDefinition struct {
 	Reconciliation `mapstructure:",squash"`
 
 	// The Grafana Helm workload definition that belongs to this resource.
-	GrafanaHelmWorkloadDefinitionID *uint `json:",omitempty" validate:"optional" relationship:"owns;type:HelmWorkloadDefinition"`
+	GrafanaHelmWorkloadDefinitionID *uint `json:"GrafanaHelmWorkloadDefinitionID,omitempty" query:"grafanahelmworkloaddefinitionid" validate:"optional" relationship:"owns;type:HelmWorkloadDefinition"`
 
 	// The version of the grafana helm chart to use from the helm repo, e.g. 1.2.3
 	GrafanaHelmChartVersion *string `json:"GrafanaHelmChartVersion,omitempty" query:"grafanahelmchartversion" gorm:"default:'7.2.1'" validate:"optional"`
@@ -130,7 +130,7 @@ type ObservabilityDashboardInstance struct {
 	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required" relationship:"requires"`
 
 	// The Grafana Helm workload instance that belongs to this resource.
-	GrafanaHelmWorkloadInstanceID *uint `json:",omitempty" validate:"optional" relationship:"owns;type:HelmWorkloadInstance"`
+	GrafanaHelmWorkloadInstanceID *uint `json:"GrafanaHelmWorkloadInstanceID,omitempty" query:"grafanahelmworkloadinstanceid" validate:"optional" relationship:"owns;type:HelmWorkloadInstance"`
 
 	// Optional Helm workload definition values that can be provided to configure the
 	// underlying grafana chart.
@@ -144,7 +144,7 @@ type MetricsDefinition struct {
 	Reconciliation `mapstructure:",squash"`
 
 	// The kube-prometheus-stack Helm workload definition that belongs to this resource.
-	KubePrometheusStackHelmWorkloadDefinitionID *uint `json:",omitempty" validate:"optional" relationship:"owns;type:HelmWorkloadDefinition"`
+	KubePrometheusStackHelmWorkloadDefinitionID *uint `json:"KubePrometheusStackHelmWorkloadDefinitionID,omitempty" query:"kubeprometheusstackhelmworkloaddefinitionid" validate:"optional" relationship:"owns;type:HelmWorkloadDefinition"`
 
 	// The version of the kube-prometheus-stack helm chart to use from the helm repo, e.g. 1.2.3
 	KubePrometheusStackHelmChartVersion *string `json:"KubePrometheusStackHelmChartVersion,omitempty" query:"kubeprometheusstackhelmchartversion" gorm:"default:'55.8.1'" validate:"optional"`
@@ -184,10 +184,10 @@ type LoggingDefinition struct {
 	Reconciliation `mapstructure:",squash"`
 
 	// The loki Helm workload definition that belongs to this resource.
-	LokiHelmWorkloadDefinitionID *uint `json:",omitempty" validate:"optional" relationship:"owns;type:HelmWorkloadDefinition"`
+	LokiHelmWorkloadDefinitionID *uint `json:"LokiHelmWorkloadDefinitionID,omitempty" query:"lokihelmworkloaddefinitionid" validate:"optional" relationship:"owns;type:HelmWorkloadDefinition"`
 
 	// The promtail Helm workload definition that belongs to this resource.
-	PromtailHelmWorkloadDefinitionID *uint `json:",omitempty" validate:"optional" relationship:"owns;type:HelmWorkloadDefinition"`
+	PromtailHelmWorkloadDefinitionID *uint `json:"PromtailHelmWorkloadDefinitionID,omitempty" query:"promtailhelmworkloaddefinitionid" validate:"optional" relationship:"owns;type:HelmWorkloadDefinition"`
 
 	// The version of the loki helm chart to use from the helm repo, e.g. 1.2.3
 	LokiHelmChartVersion *string `json:"LokiHelmChartVersion,omitempty" query:"lokihelmchartversion" gorm:"default:'5.41.6'" validate:"optional"`

@@ -26,10 +26,10 @@ type KubernetesWorkloadDefinitionConfig struct {
 // KubernetesWorkloadDefinitionValues contains all the attributes needed to manage
 // the KubernetesWorkloadDefinition API object.
 type KubernetesWorkloadDefinitionValues struct {
-	Name               *string `json:",omitempty" yaml:"Name,omitempty"`
-	YAMLDocument       *string `json:",omitempty" yaml:"YAMLDocument,omitempty"`
-	WorkloadConfigPath *string `json:",omitempty" yaml:"WorkloadConfigPath,omitempty"`
-	Age                *string `json:",omitempty" yaml:"Age,omitempty"`
+	Name               *string `json:"Name,omitempty" yaml:"Name,omitempty"`
+	YAMLDocument       *string `json:"YAMLDocument,omitempty" yaml:"YAMLDocument,omitempty"`
+	WorkloadConfigPath *string `json:"WorkloadConfigPath,omitempty" yaml:"WorkloadConfigPath,omitempty"`
+	Age                *string `json:"Age,omitempty" yaml:"Age,omitempty"`
 }
 
 // Get gets kubernetes workload definitions from the Threeport API.
