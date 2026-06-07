@@ -5,6 +5,7 @@ package v0
 import (
 	"encoding/json"
 	"fmt"
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 	"time"
 )
@@ -92,6 +93,11 @@ func (s *SecretDefinition) RelationshipTaggedForeignKeys() []RelationshipTaggedF
 		ObjectType:   new(AwsProvider).GetFullyQualifiedType(),
 		Relationship: RelationshipRequires,
 	}}
+}
+
+// PersistFalseFields returns the persist:"false"-tagged fields on SecretDefinition.
+func (s *SecretDefinition) PersistFalseFields() []lib.PersistFalseField {
+	return []lib.PersistFalseField{{Name: "Data"}}
 }
 
 // NotificationPayload returns the notification payload that is delivered to the

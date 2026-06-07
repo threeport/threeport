@@ -14,22 +14,22 @@ import (
 // This abstraction allows users to manage definitions and instances together
 // with single operations rather than separate operations for each API object.
 type KubernetesWorkloadConfig struct {
-	Workload KubernetesWorkloadValues `yaml:"Workload"`
+	Workload KubernetesWorkloadValues
 }
 
 // KubernetesWorkloadValues contains all the attributes needed to manage the
 // KubernetesWorkloadDefinition and KubernetesWorkloadInstance API objects
 // together with a single operation.
 type KubernetesWorkloadValues struct {
-	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
-	YAMLDocument              *string                          `json:"YAMLDocument,omitempty" yaml:"YAMLDocument,omitempty"`
-	WorkloadConfigPath        *string                          `json:"WorkloadConfigPath,omitempty" yaml:"WorkloadConfigPath,omitempty"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
-	DomainName                *DomainNameDefinitionValues      `json:"DomainName,omitempty" yaml:"DomainName,omitempty"`
-	Gateway                   *GatewayDefinitionValues         `json:"Gateway,omitempty" yaml:"Gateway,omitempty"`
-	Secret                    *SecretValues                    `json:"Secret,omitempty" yaml:"Secret,omitempty"`
-	Status                    *string                          `json:"Status,omitempty" yaml:"Status,omitempty"`
-	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                      *string                          `json:",omitempty"`
+	YAMLDocument              *string                          `json:",omitempty"`
+	WorkloadConfigPath        *string                          `json:",omitempty"`
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:",omitempty"`
+	DomainName                *DomainNameDefinitionValues      `json:",omitempty"`
+	Gateway                   *GatewayDefinitionValues         `json:",omitempty"`
+	Secret                    *SecretValues                    `json:",omitempty"`
+	Status                    *string                          `json:",omitempty"`
+	Age                       *string                          `json:",omitempty"`
 }
 
 // Get gets a kubernetes workload definition and instance from the Threeport API.

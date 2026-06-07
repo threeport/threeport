@@ -18,17 +18,17 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type OciOkeKubernetesRuntimeDefinitionConfig struct {
-	OciOkeKubernetesRuntimeDefinition OciOkeKubernetesRuntimeDefinitionValues `yaml:"OciOkeKubernetesRuntimeDefinition"`
+	OciOkeKubernetesRuntimeDefinition OciOkeKubernetesRuntimeDefinitionValues
 }
 
 // OciOkeKubernetesRuntimeDefinitionValues contains all the attributes needed to manage
 // the OciOkeKubernetesRuntimeDefinition API object.
 type OciOkeKubernetesRuntimeDefinitionValues struct {
-	Name                   *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	OciProviderName        *string `json:"OciProviderName,omitempty" yaml:"OciProviderName,omitempty"`
-	WorkerNodeShape        *string `json:"WorkerNodeShape,omitempty" yaml:"WorkerNodeShape,omitempty"`
-	WorkerNodeInitialCount *int    `json:"WorkerNodeInitialCount,omitempty" yaml:"WorkerNodeInitialCount,omitempty"`
-	Age                    *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                   *string `json:",omitempty"`
+	OciProviderName        *string `json:",omitempty"`
+	WorkerNodeShape        *string `json:",omitempty"`
+	WorkerNodeInitialCount *int    `json:",omitempty"`
+	Age                    *string `json:",omitempty"`
 }
 
 // Get gets oci oke kubernetes runtime definitions from the Threeport API.

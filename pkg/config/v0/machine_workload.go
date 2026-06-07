@@ -14,24 +14,24 @@ import (
 // This abstraction allows users to manage definitions and instances together with single operations
 // rather than separate operations for each API object.
 type MachineWorkloadConfig struct {
-	MachineWorkload MachineWorkloadValues `yaml:"MachineWorkload"`
+	MachineWorkload MachineWorkloadValues
 }
 
 // MachineWorkloadValues contains all the attributes needed to manage the
 // MachineWorkloadDefinition and MachineWorkloadInstance API objects
 // together with a single operation.
 type MachineWorkloadValues struct {
-	Name                   *string  `json:"Name,omitempty" yaml:"Name,omitempty"`
-	CreateScript           *string  `json:"CreateScript,omitempty" yaml:"CreateScript,omitempty"`
-	UpdateScript           *string  `json:"UpdateScript,omitempty" yaml:"UpdateScript,omitempty"`
-	DeleteScript           *string  `json:"DeleteScript,omitempty" yaml:"DeleteScript,omitempty"`
-	Shell                  *string  `json:"Shell,omitempty" yaml:"Shell,omitempty"`
-	WorkingDir             *string  `json:"WorkingDir,omitempty" yaml:"WorkingDir,omitempty"`
-	Timeout                *int     `json:"Timeout,omitempty" yaml:"Timeout,omitempty"`
-	Env                    []string `json:"Env,omitempty" yaml:"Env,omitempty"`
-	MachineRuntimeInstance *string  `json:"MachineRuntimeInstance,omitempty" yaml:"MachineRuntimeInstance,omitempty"`
-	Status                 *string  `json:"Status,omitempty" yaml:"Status,omitempty"`
-	Age                    *string  `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                   *string  `json:",omitempty"`
+	CreateScript           *string  `json:",omitempty"`
+	UpdateScript           *string  `json:",omitempty"`
+	DeleteScript           *string  `json:",omitempty"`
+	Shell                  *string  `json:",omitempty"`
+	WorkingDir             *string  `json:",omitempty"`
+	Timeout                *int     `json:",omitempty"`
+	Env                    []string `json:",omitempty"`
+	MachineRuntimeInstance *string  `json:",omitempty"`
+	Status                 *string  `json:",omitempty"`
+	Age                    *string  `json:",omitempty"`
 }
 
 // Get gets a machine workload definition and instance from the Threeport API.

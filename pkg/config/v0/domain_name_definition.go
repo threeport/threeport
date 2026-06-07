@@ -17,17 +17,17 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type DomainNameDefinitionConfig struct {
-	DomainNameDefinition DomainNameDefinitionValues `yaml:"DomainNameDefinition"`
+	DomainNameDefinition DomainNameDefinitionValues
 }
 
 // DomainNameDefinitionValues contains all the attributes needed to manage
 // the DomainNameDefinition API object.
 type DomainNameDefinitionValues struct {
-	Name       *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	Domain     *string `json:"Domain,omitempty" yaml:"Domain,omitempty"`
-	Zone       *string `json:"Zone,omitempty" yaml:"Zone,omitempty"`
-	AdminEmail *string `json:"AdminEmail,omitempty" yaml:"AdminEmail,omitempty"`
-	Age        *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name       *string `json:",omitempty"`
+	Domain     *string `json:",omitempty"`
+	Zone       *string `json:",omitempty"`
+	AdminEmail *string `json:",omitempty"`
+	Age        *string `json:",omitempty"`
 }
 
 // Get gets domain name definitions from the Threeport API.

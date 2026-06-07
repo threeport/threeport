@@ -158,7 +158,7 @@ func DeployEksInfra(
 	// deterimine these values
 	// construct eks kubernetes runtime infra object
 	kubernetesRuntimeInfraEKS := provider.KubernetesRuntimeInfraEKS{
-		RuntimeInstanceName:          provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+		RuntimeInstanceName:          runtimeInstanceName(cpi.Opts),
 		AwsAccountID:                 *callerIdentity.Account,
 		AwsConfig:                    awsConfigResourceManager,
 		ResourceClient:               &eksClient,

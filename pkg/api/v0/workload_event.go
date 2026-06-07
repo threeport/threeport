@@ -16,31 +16,31 @@ type WorkloadEvent struct {
 	// directly from a Kubernetes Event.
 	// * The workload controller ID: when the WorkloadEvent is emitted by the
 	// workload controller.
-	RuntimeEventUID *string `json:"RuntimeEventUID,omitempty" query:"runtimeeventuid" gorm:"not null" validate:"required"`
+	RuntimeEventUID *string `json:",omitempty" validate:"required" gorm:"not null"`
 
 	// The type of event that occurred in Kubernetes.
-	Type *string `json:"Type,omitempty" query:"type" gorm:"not null" validate:"required"`
+	Type *string `json:",omitempty" validate:"required" gorm:"not null"`
 
 	// The reason for the event.
-	Reason *string `json:"Reason,omitempty" query:"reason" gorm:"not null" validate:"required"`
+	Reason *string `json:",omitempty" validate:"required" gorm:"not null"`
 
 	// The message associated with the event.
-	Message *string `json:"Message,omitempty" query:"message" gorm:"not null" validate:"required"`
+	Message *string `json:",omitempty" validate:"required" gorm:"not null"`
 
 	// The timestamp for the event in the kubernetes runtime.
-	Timestamp *time.Time `json:"Timestamp,omitempty" query:"timestamp" gorm:"not null" validate:"required"`
+	Timestamp *time.Time `json:",omitempty" validate:"required" gorm:"not null"`
 
 	// The related kubernetes workload instance.
-	KubernetesWorkloadInstanceID *uint `json:"KubernetesWorkloadInstanceID,omitempty" query:"kubernetesworkloadinstanceid" validate:"optional"`
+	KubernetesWorkloadInstanceID *uint `json:",omitempty" validate:"optional"`
 
 	// The related kubernetes workload resource instance.
-	KubernetesWorkloadResourceInstanceID *uint `json:"KubernetesWorkloadResourceInstanceID,omitempty" query:"kubernetesworkloadresourceinstanceid" validate:"optional"`
+	KubernetesWorkloadResourceInstanceID *uint `json:",omitempty" validate:"optional"`
 
 	// The related helm workload instance.
-	HelmWorkloadInstanceID *uint `json:"HelmWorkloadInstanceID,omitempty" query:"helmworkloadinstanceid" validate:"optional"`
+	HelmWorkloadInstanceID *uint `json:",omitempty" validate:"optional"`
 
 	// The related machine workload instance.
-	MachineWorkloadInstanceID *uint `json:"MachineWorkloadInstanceID,omitempty" query:"machineworkloadinstanceid" validate:"optional"`
+	MachineWorkloadInstanceID *uint `json:",omitempty" validate:"optional"`
 }
 
 // beforeCreate is the pre-create validation hook for WorkloadEvent.

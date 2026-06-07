@@ -248,10 +248,10 @@ func GenReconcilers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							)
 							g.Line()
 
-							// If the object has a "Data" field with a "persist" tag set to "false", skip
+							// If the object has any field with a "persist" tag set to "false", skip
 							// the retrieval of the latest object. Otherwise, generate the
 							// source code to retrieve the latest object.
-							if !objGroup.CheckStructTagMap(obj.Name, "Data", string(lib.PersistTag), lib.PersistFalse) {
+							if !objGroup.HasFieldWithTagValue(obj.Name, string(lib.PersistTag), lib.PersistFalse) {
 								getLatestObject(g, &obj, gen.ModulePath)
 							}
 

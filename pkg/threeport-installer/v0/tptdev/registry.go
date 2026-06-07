@@ -166,10 +166,9 @@ func DeleteLocalRegistry() error {
 
 // applyK8sConfig creates a configmap to in the Kubernetes cluster.
 func applyK8sConfig(config string) error {
-	kubeconfig := os.Getenv("KUBECONFIG")
-	if kubeconfig == "" {
-		kubeconfig = clientcmd.RecommendedHomeFile
-	}
+	// resolve kubeconfig via client-go's standard precedence
+	// ($KUBECONFIG, then ~/.kube/config)
+	kubeconfig := clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename()
 	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return fmt.Errorf("failed to generate Kubernetes REST config from kubeconfig: %w", err)

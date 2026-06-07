@@ -19,17 +19,17 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type KubernetesRuntimeDefinitionConfig struct {
-	KubernetesRuntimeDefinition KubernetesRuntimeDefinitionValues `yaml:"KubernetesRuntimeDefinition"`
+	KubernetesRuntimeDefinition KubernetesRuntimeDefinitionValues
 }
 
 // KubernetesRuntimeDefinitionValues contains all the attributes needed to manage
 // the KubernetesRuntimeDefinition API object.
 type KubernetesRuntimeDefinitionValues struct {
-	Name                     *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	InfraProvider            *string `json:"InfraProvider,omitempty" yaml:"InfraProvider,omitempty"`
-	InfraProviderAccountName *string `json:"InfraProviderAccountName,omitempty" yaml:"InfraProviderAccountName,omitempty"`
-	HighAvailability         *bool   `json:"HighAvailability,omitempty" yaml:"HighAvailability,omitempty"`
-	Age                      *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                     *string `json:",omitempty"`
+	InfraProvider            *string `json:",omitempty"`
+	InfraProviderAccountName *string `json:",omitempty"`
+	HighAvailability         *bool   `json:",omitempty"`
+	Age                      *string `json:",omitempty"`
 }
 
 // Get gets kubernetes runtime definitions from the Threeport API.

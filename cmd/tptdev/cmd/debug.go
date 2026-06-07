@@ -5,10 +5,8 @@ package cmd
 
 import (
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/util/homedir"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -137,7 +135,7 @@ func init() {
 	)
 	DebugCmd.Flags().StringVar(
 		&kubeconfigPath,
-		"kubeconfig", filepath.Join(homedir.HomeDir(), ".kube", "config"), "Kubeconfig file to use.",
+		"kubeconfig", "", "Kubeconfig file to use (default is $KUBECONFIG, then ~/.kube/config).",
 	)
 	DebugCmd.Flags().StringVar(
 		&controlPlaneNamespace,

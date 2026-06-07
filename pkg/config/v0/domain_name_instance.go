@@ -19,17 +19,17 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type DomainNameInstanceConfig struct {
-	DomainNameInstance DomainNameInstanceValues `yaml:"DomainNameInstance"`
+	DomainNameInstance DomainNameInstanceValues
 }
 
 // DomainNameInstanceValues contains all the attributes needed to manage
 // the DomainNameInstance API object.
 type DomainNameInstanceValues struct {
-	Name                       *string                           `json:"Name,omitempty" yaml:"Name,omitempty"`
-	DomainNameDefinition       *DomainNameDefinitionValues       `json:"DomainNameDefinition,omitempty" yaml:"DomainNameDefinition,omitempty"`
-	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
-	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:"KubernetesWorkloadInstance,omitempty" yaml:"KubernetesWorkloadInstance,omitempty"`
-	Age                        *string                           `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                       *string                           `json:",omitempty"`
+	DomainNameDefinition       *DomainNameDefinitionValues       `json:",omitempty"`
+	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:",omitempty"`
+	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:",omitempty"`
+	Age                        *string                           `json:",omitempty"`
 }
 
 // Get gets domain name instances from the Threeport API.
@@ -99,11 +99,11 @@ func (d *DomainNameInstanceConfig) Get(
 
 		domainNameInstanceConfig := DomainNameInstanceConfig{
 			DomainNameInstance: DomainNameInstanceValues{
-				Name:                      domainNameInstance.Name,
-				DomainNameDefinition:      domainNameDefinition,
-				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
-				KubernetesWorkloadInstance:          workloadInstance,
-				Age:                       util.Ptr(util.GetAgeFormatted(domainNameInstance.CreatedAt)),
+				Name:                       domainNameInstance.Name,
+				DomainNameDefinition:       domainNameDefinition,
+				KubernetesRuntimeInstance:  kubernetesRuntimeInstance,
+				KubernetesWorkloadInstance: workloadInstance,
+				Age:                        util.Ptr(util.GetAgeFormatted(domainNameInstance.CreatedAt)),
 			},
 		}
 		domainNameInstanceConfigs = append(domainNameInstanceConfigs, domainNameInstanceConfig)
@@ -151,9 +151,9 @@ func (d *DomainNameInstanceConfig) Create(
 		Instance: api_v0.Instance{
 			Name: util.Ptr(domainNameInstanceValues.getDomainNameInstanceName()),
 		},
-		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		KubernetesWorkloadInstanceID:          workloadInstance.ID,
-		DomainNameDefinitionID:      domainNameDefinition.ID,
+		KubernetesRuntimeInstanceID:  kubernetesRuntimeInstance.ID,
+		KubernetesWorkloadInstanceID: workloadInstance.ID,
+		DomainNameDefinitionID:       domainNameDefinition.ID,
 	}
 
 	// create domain name instance
@@ -244,9 +244,9 @@ func (d *DomainNameInstanceConfig) Replace(
 		Instance: api_v0.Instance{
 			Name: util.Ptr(domainNameInstanceValues.getDomainNameInstanceName()),
 		},
-		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		KubernetesWorkloadInstanceID:          workloadInstance.ID,
-		DomainNameDefinitionID:      domainNameDefinition.ID,
+		KubernetesRuntimeInstanceID:  kubernetesRuntimeInstance.ID,
+		KubernetesWorkloadInstanceID: workloadInstance.ID,
+		DomainNameDefinitionID:       domainNameDefinition.ID,
 	}
 
 	// replace domain name instance

@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	yaml "sigs.k8s.io/yaml"
 
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
@@ -15,55 +15,55 @@ import (
 type SdkConfig struct {
 	// The name of the module. This is used as a prefix for naming in many
 	// places for modules.
-	ModuleName string `yaml:"ModuleName"`
+	ModuleName string
 
 	// ApiNamespace is the globally unique namespace for objects managed by this
 	// API.  It prevents naming collisions between objects used in different
 	// modules within a single Threeport control plane.  We recommend using a
 	// domain name you own to make it globally unique.
-	ApiNamespace string `yaml:"ApiNamespace"`
+	ApiNamespace string
 
 	// The image namespace that will be used to store images for the module.
 	// Image namespace consists of `registry/namespace`, e.g. `docker.io/threeport`.
 	// A repository for each module will be created in this namespace.
-	ImageNamespace string `yaml:"ImageNamespace"`
+	ImageNamespace string
 
 	// Details to be displayed with the API swagger docs that are served by the
 	// API server.
-	ApiDocs ApiDocs `yaml:"ApiDocs"`
+	ApiDocs ApiDocs
 
 	// The configuration of API objects used in the module.
-	ApiObjectConfig `yaml:",inline"`
+	ApiObjectConfig
 
 	// The filepaths to files that should be excluded from code generation.
-	ExcludeFiles []string `yaml:"ExcludeFiles"`
+	ExcludeFiles []string
 }
 
 // ApiDocs contains the information displayed on the documentation page served
 // by the API server.
 type ApiDocs struct {
 	// The title for the API documentation
-	Title string `yaml:"Title"`
+	Title string
 
 	// Description of the API.
-	Description string `yaml:"Description"`
+	Description string
 
 	// TosLink is a URL to the terms of service for the API.
-	TosLink string `yaml:"TosLink"`
+	TosLink string
 
 	// ContactName is the name of the primary contact for support.
-	ContactName string `yaml:"ContactName"`
+	ContactName string
 
 	// ContactUrl is a link to a support page online.
-	ContactUrl string `yaml:"ContactUrl"`
+	ContactUrl string
 
 	// ContactEmail is the email address to contact for support.
-	ContactEmail string `yaml:"ContactEmail"`
+	ContactEmail string
 }
 
 // ApiObjectGroups contains the config for all API object groups.
 type ApiObjectConfig struct {
-	ApiObjectGroups []*ApiObjectGroup `yaml:"ApiObjectGroups"`
+	ApiObjectGroups []*ApiObjectGroup
 }
 
 // ApiObjectGroup is a collection of API objects and the attributes used
@@ -72,19 +72,19 @@ type ApiObjectConfig struct {
 // manages reconciliation for all objects in an ApiObjectGroup.
 type ApiObjectGroup struct {
 	// Name of the api object group.
-	Name *string `yaml:"Name"`
+	Name *string
 
 	// List of api objects under the object group.
-	Objects []*ApiObject `yaml:"Objects"`
+	Objects []*ApiObject
 }
 
 // ApiObject contains the attributes needed to manage a threeport api object.
 type ApiObject struct {
 	// Name of the api object to manage with threeport.
-	Name *string `yaml:"Name"`
+	Name *string
 
 	// Name of the api object to manage with threeport.
-	Versions []*string `yaml:"Versions"`
+	Versions []*string
 
 	// If false, acts as an override for API objects that have a "Definition" or
 	// "Instance" suffix that do NOT want a connection established beteen them
@@ -108,48 +108,48 @@ type ApiObject struct {
 	//   definition.
 	// * `threeport-sdk gen` will not created the tptctl commands to manage
 	// defined instance abstractions.
-	DefinedInstance *bool `yaml:"DefinedInstance"`
+	DefinedInstance *bool
 
 	// Indicates whether the object will need a controller
 	// that is registered with the rest-api for reconciliation.
-	Reconcilable *bool `yaml:"Reconcilable"`
+	Reconcilable *bool
 
 	// Indicates whether the message will be persisted by NATS.  Set to true for
 	// sensitive information, e.g. passwords or tokens.
-	DisableNotificationPersistence *bool `yaml:"DisableNotificationPersistence"`
+	DisableNotificationPersistence *bool
 
 	// Indicates whether the route should be exposed on the rest-api for the object
 	// and whether the api model for this object needs to be generated.
-	ExcludeRoute *bool `yaml:"ExcludeRoute"`
+	ExcludeRoute *bool
 
 	// Indicates whether the object needs to be maintained in a database.
-	ExcludeFromDb *bool `yaml:"ExcludeFromDb"`
+	ExcludeFromDb *bool
 
 	// AllowCustomMiddleware indicates whether the api model for this object
 	// needs custom middleware enabled.
-	AllowCustomMiddleware *bool `yaml:"AllowCustomMiddleware"`
+	AllowCustomMiddleware *bool
 
 	// AllowDuplicateModelNames indicates whether the api handler for this
 	// object accepts duplicate names objects.
-	AllowDuplicateModelNames *bool `yaml:"AllowDuplicateModelNames"`
+	AllowDuplicateModelNames *bool
 
 	// LoadAssociationsFromDb indicates whether the response returned for an
 	// object contains associated object data.
-	LoadAssociationsFromDb *bool `yaml:"LoadAssociationsFromDb"`
+	LoadAssociationsFromDb *bool
 
 	// Tptctl contains sdk configurations related to tptctl
-	Tptctl *Tptctl `yaml:"Tptctl"`
+	Tptctl *Tptctl
 
 	// InternalOnly indicates whether the object is only used internally by the
 	// controllers and should not be exposed to the user.
-	InternalOnly *bool `yaml:"InternalOnly"`
+	InternalOnly *bool
 }
 
 // Tptctl contains attributes used by the SDK to generate tptctl
 // command source code.
 type Tptctl struct {
-	Enabled    *bool `yaml:"Enabled"`
-	ConfigPath *bool `yaml:"ConfigPath"`
+	Enabled    *bool
+	ConfigPath *bool
 }
 
 // GetSdkConfig reads, unmarshalls and returns the SDK config from the specified

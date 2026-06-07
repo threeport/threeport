@@ -22,7 +22,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"gopkg.in/yaml.v2"
+	yaml "sigs.k8s.io/yaml"
 )
 
 // DefaultOKEKubernetesVersion is the default Kubernetes version for OKE clusters.
@@ -773,9 +773,9 @@ func (i *KubernetesRuntimeInfraOKE) GetConnection() (*kube.KubeConnectionInfo, e
 type KubeConfig struct {
 	Clusters []struct {
 		Cluster struct {
-			CertificateAuthorityData string `yaml:"certificate-authority-data"`
-		} `yaml:"cluster"`
-	} `yaml:"clusters"`
+			CertificateAuthorityData string `json:"certificate-authority-data"`
+		} `json:"cluster"`
+	} `json:"clusters"`
 }
 
 // loadOCIConfig reads the OCI configuration using the OCI SDK and

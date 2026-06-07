@@ -16,14 +16,14 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type MachineRuntimeDefinitionConfig struct {
-	MachineRuntimeDefinition MachineRuntimeDefinitionValues `yaml:"MachineRuntimeDefinition"`
+	MachineRuntimeDefinition MachineRuntimeDefinitionValues
 }
 
 // MachineRuntimeDefinitionValues contains all the attributes needed to manage
 // the MachineRuntimeDefinition API object.
 type MachineRuntimeDefinitionValues struct {
-	Name *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	Age  *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name *string `json:",omitempty"`
+	Age  *string `json:",omitempty"`
 }
 
 // Get gets machine runtime definitions from the Threeport API.

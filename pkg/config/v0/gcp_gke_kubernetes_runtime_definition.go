@@ -18,19 +18,19 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type GcpGkeKubernetesRuntimeDefinitionConfig struct {
-	GcpGkeKubernetesRuntimeDefinition GcpGkeKubernetesRuntimeDefinitionValues `yaml:"GcpGkeKubernetesRuntimeDefinition"`
+	GcpGkeKubernetesRuntimeDefinition GcpGkeKubernetesRuntimeDefinitionValues
 }
 
 // GcpGkeKubernetesRuntimeDefinitionValues contains all the attributes needed to manage
 // the GcpGkeKubernetesRuntimeDefinition API object.
 type GcpGkeKubernetesRuntimeDefinitionValues struct {
-	Name                         *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	ZoneCount                    *int    `json:"ZoneCount,omitempty" yaml:"ZoneCount,omitempty"`
-	DefaultNodeGroupInstanceType *string `json:"DefaultNodeGroupInstanceType,omitempty" yaml:"DefaultNodeGroupInstanceType,omitempty"`
-	DefaultNodeGroupInitialSize  *int    `json:"DefaultNodeGroupInitialSize,omitempty" yaml:"DefaultNodeGroupInitialSize,omitempty"`
-	DefaultNodeGroupMinimumSize  *int    `json:"DefaultNodeGroupMinimumSize,omitempty" yaml:"DefaultNodeGroupMinimumSize,omitempty"`
-	DefaultNodeGroupMaximumSize  *int    `json:"DefaultNodeGroupMaximumSize,omitempty" yaml:"DefaultNodeGroupMaximumSize,omitempty"`
-	Age                          *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                         *string `json:",omitempty"`
+	ZoneCount                    *int    `json:",omitempty"`
+	DefaultNodeGroupInstanceType *string `json:",omitempty"`
+	DefaultNodeGroupInitialSize  *int    `json:",omitempty"`
+	DefaultNodeGroupMinimumSize  *int    `json:",omitempty"`
+	DefaultNodeGroupMaximumSize  *int    `json:",omitempty"`
+	Age                          *string `json:",omitempty"`
 }
 
 // Get gets gcp gke kubernetes runtime definitions from the Threeport API.

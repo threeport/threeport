@@ -9,7 +9,10 @@ import (
 // ProcessCoreTaggedFieldsBeforeCreate runs core tag-triggered behavior on
 // an API object before create.
 func ProcessCoreTaggedFieldsBeforeCreate(tx *gorm.DB, obj interface{}) error {
-	return lib.ProcessEncryptTaggedFields(tx, obj)
+	if err := lib.ProcessEncryptTaggedFields(tx, obj); err != nil {
+		return err
+	}
+	return lib.ProcessPersistFalseTaggedFields(tx, obj)
 }
 
 // ProcessCoreTaggedFieldsBeforeUpdate runs core tag-triggered behavior on

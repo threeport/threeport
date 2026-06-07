@@ -235,6 +235,14 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Id("e").Dot("HideBanner").Op("=").True()
 		g.Line()
 
+		g.Comment("bind query params to struct fields by lowercased field name,")
+		g.Comment("so api types don't need `query:\"...\"` struct tags")
+		g.Id("e").Dot("Binder").Op("=").Qual(
+			"github.com/threeport/threeport/pkg/api-server/lib/v0",
+			"NewQueryBinder",
+		).Call()
+		g.Line()
+
 		g.Var().Id("validate").Op("*").Qual("github.com/go-playground/validator/v10", "Validate")
 		g.Id("validate").Op("=").Qual("github.com/go-playground/validator/v10", "New").Call()
 		g.Id("validate").Dot("RegisterValidation").Call(

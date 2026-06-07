@@ -3,35 +3,14 @@
 package v0
 
 import (
-	"reflect"
-
 	"gorm.io/gorm"
-	"gorm.io/gorm/schema"
-
-	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 )
 
-// beforeCreate validates a secret definition before
-// persisting to the database.
+// beforeCreate runs before persisting a SecretDefinition. The
+// persist:"false" handling that nulls Data before insert lives in
+// ProcessCoreTaggedFieldsBeforeCreate, driven by the codegen-emitted
+// PersistFalseFields() method on this type.
 func (s *SecretDefinition) beforeCreate(tx *gorm.DB) error {
-	createdObj := *s
-	objVal := reflect.ValueOf(&createdObj).Elem()
-	objType := objVal.Type()
-	ns := schema.NamingStrategy{}
-
-	// ensure Data is not persisted
-	for i := 0; i < objType.NumField(); i++ {
-		field := objType.Field(i)
-
-		if field.Name == "Data" {
-			persist := field.Tag.Get(string(lib.PersistTag))
-			if persist == lib.PersistFalse {
-				columnName := ns.ColumnName("", field.Name)
-				tx.Statement.SetColumn(columnName, nil)
-			}
-		}
-	}
-
 	return nil
 }
 

@@ -7,7 +7,6 @@ import (
 	"go/token"
 	"go/types"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -47,6 +46,17 @@ type Generator struct {
 	// All API objects collected together by version in the way the API is
 	// organized in the codebase.
 	VersionedApiObjectCollections []VersionedApiObjectCollection
+
+	// EmbedTypes carries struct-tag info for the shared base types that
+	// model objects anonymously embed (Common, Definition, Instance,
+	// Reconciliation). These types live in non-domain source files
+	// (common.go, class.go) so they don't appear in any ApiObjectGroup's
+	// StructTags, but their fields participate in binding via the
+	// QueryBinder's anonymous-embed recursion. The collision check in
+	// ValidateTags reads from here to flatten embedded fields into the
+	// per-struct effective-key set.
+	// Shape: typeName -> fieldName -> tagKey -> tagValue.
+	EmbedTypes map[string]map[string]map[string]string
 }
 
 // GlobalVersionConfig contains all API versions for which code is being
@@ -134,6 +144,14 @@ type ApiObjectGroup struct {
 	// in StructTags, keyed by object name then field name. Tag validators
 	// that need to verify a field's Go type read it here.
 	FieldTypes map[string]map[string]string
+
+	// StructEmbeds records the anonymous embed type names per struct in
+	// this group. Keyed by the embedding struct's name; the value is the
+	// list of type names embedded anonymously (e.g.
+	// "KubernetesWorkloadInstance" -> ["Common", "Instance", "Reconciliation"]).
+	// The collision check uses this to flatten embedded fields into the
+	// effective-key set.
+	StructEmbeds map[string][]string
 }
 
 // VersionedApiObjectCollection contains all API objects grouped by version and
@@ -365,6 +383,58 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 		)
 	}
 
+	/////////////////// populate Generator.EmbedTypes //////////////////////////
+	// shared base types (Common, Definition, Instance, Reconciliation) live
+	// in non-domain files. Parse them once up front so ValidateTags can
+	// flatten anonymous-embed fields into the per-struct collision check.
+	g.EmbedTypes = map[string]map[string]map[string]string{}
+	for _, embedFile := range []string{"common.go", "class.go"} {
+		embedPath := filepath.Join("pkg", "api", "v0", embedFile)
+		embedFset := token.NewFileSet()
+		embedAST, err := parser.ParseFile(embedFset, embedPath, nil, parser.ParseComments|parser.AllErrors)
+		if err != nil {
+			// missing file is fine on modules that don't carry the shared
+			// types; only a real parse error should fail the run
+			continue
+		}
+		// walk every top-level struct type, record each field's tag map
+		// keyed by struct name. mirrors the per-model-file parser below,
+		// minus the ApiObject wiring (we only need tag info here).
+		for _, decl := range embedAST.Decls {
+			genDecl, ok := decl.(*ast.GenDecl)
+			if !ok {
+				continue
+			}
+			for _, spec := range genDecl.Specs {
+				typeSpec, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+				structType, ok := typeSpec.Type.(*ast.StructType)
+				if !ok {
+					continue
+				}
+				typeName := typeSpec.Name.Name
+				g.EmbedTypes[typeName] = map[string]map[string]string{}
+				for _, field := range structType.Fields.List {
+					// anon embeds within an embed type are out of scope;
+					// the only embeds api types are allowed to use are the
+					// flat base types parsed here. The ValidateTags whitelist
+					// check enforces that constraint.
+					if len(field.Names) == 0 {
+						continue
+					}
+					fieldName := field.Names[0].Name
+					if field.Tag == nil {
+						g.EmbedTypes[typeName][fieldName] = map[string]string{}
+						continue
+					}
+					g.EmbedTypes[typeName][fieldName] = util.ParseStructTag(field.Tag.Value)
+				}
+			}
+		}
+	}
+
 	/////////////////// populate Generator.ApiObjectGroups /////////////////////
 	for _, apiObjectGroup := range sdkConfig.ApiObjectConfig.ApiObjectGroups {
 		filename := fmt.Sprintf("%s.go", *apiObjectGroup.Name)
@@ -515,6 +585,9 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 			// of struct tags for each object
 			structTags := make(map[string]map[string]map[string]string)
 			fieldTypes := make(map[string]map[string]string)
+			// record anonymous embed type names per struct so ValidateTags
+			// can flatten embedded fields into the collision check
+			structEmbeds := make(map[string][]string)
 
 			// inspect the syntax tree for the object models
 			for _, node := range pf.Decls {
@@ -584,8 +657,17 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 										}
 									}
 
-									// populate the struct tags map
+									// anonymous embed: record the embed type name on
+									// this struct, then move on. The embed's own field
+									// tags live in g.EmbedTypes (parsed once up front).
 									if len(field.Names) == 0 {
+										// anon embed type is either a bare identifier
+										// (e.g. `Common`) or a selector (e.g.
+										// `pkgalias.SomeType`); only the bare-ident case
+										// applies to threeport's in-package embeds
+										if ident, ok := field.Type.(*ast.Ident); ok {
+											structEmbeds[objectName] = append(structEmbeds[objectName], ident.Name)
+										}
 										continue
 									}
 									fieldName := field.Names[0].Name
@@ -614,6 +696,7 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 				ReconciledApiObjectNames: reconcilerModels,
 				TptctlModels:             tptctlModels,
 				TptctlConfigPathModels:   tptctlModelsConfigPath,
+				StructEmbeds:             structEmbeds,
 				StructTags:               structTags,
 				FieldTypes:               fieldTypes,
 			}
@@ -855,9 +938,44 @@ func (a *ApiObjectGroup) CheckStructTagMap(
 	return false
 }
 
-// queryNamePattern matches the lowercase ASCII letters and digits allowed
-// in query tag values.
-var queryNamePattern = regexp.MustCompile(`^[a-z0-9]+$`)
+// HasFieldWithTagValue reports whether any field on the named object
+// carries a struct tag with the given key set to the expected value.
+// Unlike CheckStructTagMap, which targets a single named field, this
+// search is field-agnostic — useful when codegen behavior is driven by
+// the presence of a tag anywhere on the object (e.g. persist:"false").
+func (a *ApiObjectGroup) HasFieldWithTagValue(
+	object,
+	tagKey,
+	expectedTagValue string,
+) bool {
+	fieldTagMap, objectKeyFound := a.StructTags[object]
+	if !objectKeyFound {
+		return false
+	}
+	for _, tagValueMap := range fieldTagMap {
+		if tagValue, tagKeyFound := tagValueMap[tagKey]; tagKeyFound {
+			if tagValue == expectedTagValue {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// allowedEmbed is the set of base types api models are permitted to embed
+// anonymously. Keeping the set small enforces a flat, one-level mental
+// model: model authors only ever embed one of these, and readers can
+// scan an api type top to bottom without chasing arbitrary embed chains.
+var allowedEmbed = map[string]bool{
+	"Common":         true,
+	"Definition":     true,
+	"Instance":       true,
+	"Reconciliation": true,
+}
+
+// allowedEmbedNames is the human-readable list of allowed embeds for
+// error messages. Kept in sync with allowedEmbed.
+const allowedEmbedNames = "Common, Definition, Instance, or Reconciliation"
 
 // ValidateTags walks every API object's struct tags and returns a non-nil
 // error if any threeport-specific tag has an invalid value.
@@ -915,6 +1033,27 @@ func (g *Generator) ValidateTags() error {
 						lib.ValidateRequired, lib.ValidateOptional, lib.ValidateOptionalAssociation,
 					))
 				}
+				// every validate-tagged field must carry json:",omitempty".
+				// the field-name part is dropped (Go default is the field
+				// name itself); the omitempty matters for partial PATCH
+				// payloads. Without it, a nil-pointer required field would
+				// serialize as JSON null and the PayloadCheck null-on-required
+				// guard would reject the request, even when the caller never
+				// meant to touch that field. Required, optional, and
+				// optional-association all follow the same rule.
+				validateValue := tagMap[string(lib.ValidateTag)]
+				if validateValue == string(lib.ValidateRequired) ||
+					validateValue == string(lib.ValidateOptional) ||
+					validateValue == string(lib.ValidateOptionalAssociation) {
+					j, ok := tagMap[string(lib.JsonTag)]
+					if !ok || !strings.Contains(j, lib.JsonOmitempty) {
+						problems = append(problems, fmt.Sprintf(
+							"%s.%s: %s:%q field requires json:%q",
+							objectName, fieldName,
+							lib.ValidateTag, validateValue, ","+lib.JsonOmitempty,
+						))
+					}
+				}
 				// persist defaults to true — only PersistFalse opts out;
 				// any other value (including an explicit "true") is noise
 				// and likely indicates a misunderstanding
@@ -925,13 +1064,27 @@ func (g *Generator) ValidateTags() error {
 						lib.PersistTag, per, lib.PersistFalse,
 					))
 				}
-				// query feeds URL parameter parsing; restrict to lowercase
-				// alphanumerics so codegen and route matching stay simple
-				if q, ok := tagMap[string(lib.QueryTag)]; ok && !queryNamePattern.MatchString(q) {
+				// query tag is forbidden. URL parameter keys derive from
+				// the lowercased Go field name automatically, so an
+				// explicit override is redundant and a silent rename hazard
+				if _, ok := tagMap[string(lib.QueryTag)]; ok {
 					problems = append(problems, fmt.Sprintf(
-						"%s.%s: %s:%q invalid (must match %s)",
-						objectName, fieldName,
-						lib.QueryTag, q, queryNamePattern.String(),
+						"%s.%s: %s tag is not allowed; query keys derive from the lowercased field name",
+						objectName, fieldName, lib.QueryTag,
+					))
+				}
+			}
+
+			// reject api type embeds outside the allowed base-type set.
+			// keeping the allowed set small (Common, Definition, Instance,
+			// Reconciliation) means model authors only have to reason about
+			// one level of embed promotion, and the validator only has to
+			// flatten one level deep.
+			for _, embedType := range group.StructEmbeds[objectName] {
+				if !allowedEmbed[embedType] {
+					problems = append(problems, fmt.Sprintf(
+						"%s embeds %s: api types may only embed %s",
+						objectName, embedType, allowedEmbedNames,
 					))
 				}
 			}

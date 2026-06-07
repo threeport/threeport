@@ -14,21 +14,21 @@ import (
 // This abstraction allows users to manage definitions and instances together with single operations
 // rather than separate operations for each API object.
 type SecretConfig struct {
-	Secret SecretValues `yaml:"Secret"`
+	Secret SecretValues
 }
 
 // SecretValues contains all the attributes needed to manage the
 // SecretDefinition and SecretInstance API objects
 // together with a single operation.
 type SecretValues struct {
-	Name                       *string                           `json:"Name,omitempty" yaml:"Name,omitempty"`
-	Data                       *map[string]string                `json:"Data,omitempty" yaml:"Data,omitempty"`
-	AwsProviderName            *string                           `json:"AwsProviderName,omitempty" yaml:"AwsProviderName,omitempty"`
-	SecretConfigPath           *string                           `json:"SecretConfigPath,omitempty" yaml:"SecretConfigPath,omitempty"`
-	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:"KubernetesWorkloadInstance,omitempty" yaml:"KubernetesWorkloadInstance,omitempty"`
-	HelmWorkloadInstance       *HelmWorkloadInstanceValues       `json:"HelmWorkloadInstance,omitempty" yaml:"HelmWorkloadInstance,omitempty"`
-	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
-	Age                        *string                           `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                       *string                           `json:",omitempty"`
+	Data                       *map[string]string                `json:",omitempty"`
+	AwsProviderName            *string                           `json:",omitempty"`
+	SecretConfigPath           *string                           `json:",omitempty"`
+	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:",omitempty"`
+	HelmWorkloadInstance       *HelmWorkloadInstanceValues       `json:",omitempty"`
+	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:",omitempty"`
+	Age                        *string                           `json:",omitempty"`
 }
 
 // Get gets a secret definition and instance from the Threeport API.
@@ -151,7 +151,7 @@ func (s *SecretConfig) GetOperations(
 	secretDefinitionConfig := SecretDefinitionConfig{
 		SecretDefinition: SecretDefinitionValues{
 			Name:             secretValues.Name,
-			AwsProviderName:   secretValues.AwsProviderName,
+			AwsProviderName:  secretValues.AwsProviderName,
 			Data:             secretValues.Data,
 			SecretConfigPath: secretValues.SecretConfigPath,
 		},
@@ -194,12 +194,12 @@ func (s *SecretConfig) GetOperations(
 	// add secret instance operation
 	secretInstanceConfig := SecretInstanceConfig{
 		SecretInstance: SecretInstanceValues{
-			Name:                      secretValues.Name,
-			SecretDefinition:          &secretDefinitionConfig.SecretDefinition,
-			KubernetesWorkloadInstance:          secretValues.KubernetesWorkloadInstance,
-			HelmWorkloadInstance:      secretValues.HelmWorkloadInstance,
-			KubernetesRuntimeInstance: secretValues.KubernetesRuntimeInstance,
-			SecretConfigPath:          secretValues.SecretConfigPath,
+			Name:                       secretValues.Name,
+			SecretDefinition:           &secretDefinitionConfig.SecretDefinition,
+			KubernetesWorkloadInstance: secretValues.KubernetesWorkloadInstance,
+			HelmWorkloadInstance:       secretValues.HelmWorkloadInstance,
+			KubernetesRuntimeInstance:  secretValues.KubernetesRuntimeInstance,
+			SecretConfigPath:           secretValues.SecretConfigPath,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -256,14 +256,14 @@ func mapToSecretDefinedInstances(
 			if instName == defName && *inst.SecretInstance.SecretDefinition.Name == *def.SecretDefinition.Name {
 				secretConfig := SecretConfig{
 					Secret: SecretValues{
-						Name:                      inst.SecretInstance.Name,
-						Data:                      def.SecretDefinition.Data,
+						Name:                       inst.SecretInstance.Name,
+						Data:                       def.SecretDefinition.Data,
 						AwsProviderName:            def.SecretDefinition.AwsProviderName,
-						SecretConfigPath:          inst.SecretInstance.SecretConfigPath,
-						KubernetesWorkloadInstance:          inst.SecretInstance.KubernetesWorkloadInstance,
-						HelmWorkloadInstance:      inst.SecretInstance.HelmWorkloadInstance,
-						KubernetesRuntimeInstance: inst.SecretInstance.KubernetesRuntimeInstance,
-						Age:                       inst.SecretInstance.Age,
+						SecretConfigPath:           inst.SecretInstance.SecretConfigPath,
+						KubernetesWorkloadInstance: inst.SecretInstance.KubernetesWorkloadInstance,
+						HelmWorkloadInstance:       inst.SecretInstance.HelmWorkloadInstance,
+						KubernetesRuntimeInstance:  inst.SecretInstance.KubernetesRuntimeInstance,
+						Age:                        inst.SecretInstance.Age,
 					},
 				}
 				secretConfigs = append(secretConfigs, secretConfig)

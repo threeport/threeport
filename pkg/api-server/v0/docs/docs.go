@@ -16620,7 +16620,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "KubernetesRuntimeInstanceID": {
-                    "description": "The cluster where the workload that is using the domain name is running.",
+                    "description": "The cluster where the kubernetes workload that is using the domain name is running.",
                     "type": "integer"
                 },
                 "KubernetesWorkloadInstanceID": {
@@ -17336,7 +17336,7 @@ const docTemplate = `{
                     "description": "ConnectionTokenExpiration is the time when a ConnectionToken will expire.\nUsed to ensure a token will not expire before it can be used.",
                     "type": "string"
                 },
-                "ControlPlaneInstance": {
+                "ControlPlaneInstances": {
                     "description": "The associated control plane instances running on this kubernetes runtime instance.",
                     "type": "array",
                     "items": {
@@ -17371,11 +17371,11 @@ const docTemplate = `{
                     "description": "Used to inform reconcilers that an object is being deleted so they may\ncomplete delete reconciliation before actually deleting the object from the database.",
                     "type": "string"
                 },
-                "DnsControllerInstanceId": {
+                "DnsControllerInstanceID": {
                     "description": "The KubernetesWorkloadInstanceID of the dns support service",
                     "type": "integer"
                 },
-                "GatewayKubernetesWorkloadInstanceID": {
+                "GatewayControllerInstanceID": {
                     "description": "The KubernetesWorkloadInstanceID of the gateway support service",
                     "type": "integer"
                 },
@@ -17406,7 +17406,7 @@ const docTemplate = `{
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
                 },
-                "SecretsControllerInstanceId": {
+                "SecretsControllerInstanceID": {
                     "description": "The KubernetesWorkloadInstanceID of the secrets support service",
                     "type": "integer"
                 },

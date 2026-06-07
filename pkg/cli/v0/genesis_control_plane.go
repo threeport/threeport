@@ -16,6 +16,7 @@ import (
 	"github.com/nukleros/aws-builder/pkg/eks"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	"github.com/threeport/threeport/internal/provider"
@@ -60,6 +61,7 @@ type GenesisControlPlaneCLIArgs struct {
 	Verbose               bool
 	TeardownOnFailure     bool
 	ControlPlaneOnly      bool
+	ClusterName           string
 	InfraOnly             bool
 	KindPortMappings      []string
 	LocalRegistry         bool
@@ -95,13 +97,11 @@ func InitArgs(args *GenesisControlPlaneCLIArgs) {
 		args.ProviderConfigDir = providerConf
 	}
 
-	// kubeconfig
-	defaultKubeconfig, err := kube.DefaultKubeconfig()
-	if err != nil {
-		Error("failed to get path to default kubeconfig", err)
-		os.Exit(1)
+	// fall back to client-go's standard kubeconfig precedence
+	// ($KUBECONFIG, then ~/.kube/config) when --kubeconfig isn't supplied
+	if args.KubeconfigPath == "" {
+		args.KubeconfigPath = clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename()
 	}
-	args.KubeconfigPath = defaultKubeconfig
 
 	// set default threeport repo path if not provided
 	// this is needed to map the container path to the host path for live
@@ -168,6 +168,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.LiveReload = false
 	cpi.Opts.CreateOrUpdateKubeResources = false
 	cpi.Opts.ControlPlaneOnly = a.ControlPlaneOnly
+	cpi.Opts.ClusterName = a.ClusterName
 	cpi.Opts.InfraOnly = a.InfraOnly
 	cpi.Opts.RestApiLoadBalancer = true
 	cpi.Opts.TeardownOnFailure = a.TeardownOnFailure
@@ -210,13 +211,16 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	var threeportControlPlaneConfig *ControlPlane
 	genesis := true
 
-	if cpi.Opts.ControlPlaneOnly && !threeportInstanceConfigEmpty {
-		// for control-plane-only runs, load existing config instead of creating fresh
-		existingConfig, err := threeportConfig.GetControlPlaneConfig(cpi.Opts.ControlPlaneName)
-		if err != nil {
-			return fmt.Errorf("control plane config '%s' not found for --control-plane-only run: %w", cpi.Opts.ControlPlaneName, err)
+	if cpi.Opts.ControlPlaneOnly {
+		// load the matching entry if one exists from a prior run;
+		// otherwise fall through to a new entry, which is the case when
+		// deploying to infrastructure that was provisioned outside of
+		// tptctl.
+		if existingConfig, err := threeportConfig.GetControlPlaneConfig(cpi.Opts.ControlPlaneName); err == nil {
+			threeportControlPlaneConfig = existingConfig
+		} else {
+			threeportControlPlaneConfig = &ControlPlane{}
 		}
-		threeportControlPlaneConfig = existingConfig
 	} else {
 		// for fresh installs, check if config already exists
 		if !threeportInstanceConfigEmpty && !cpi.Opts.ForceOverwriteConfig {
@@ -297,10 +301,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return fmt.Errorf("failed to deploy oke infrastructure: %w", err)
 		}
 	case v0.KubernetesRuntimeInfraProviderGKE:
-		// Create GKE infrastructure
 		kubernetesRuntimeInfraGKE := provider.KubernetesRuntimeInfraGKE{
 			PulumiWorkspace: provider.PulumiWorkspace{
-				RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+				RuntimeInstanceName: runtimeInstanceName(cpi.Opts),
 			},
 			Version:                kube.KubernetesDefaultVersion,
 			WorkerNodeInitialCount: int32(2),
@@ -313,7 +316,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		if cpi.Opts.ControlPlaneOnly {
 			kubeConnectionInfo, err = kubernetesRuntimeInfraGKE.GetConnection()
 			if err != nil {
-				return fmt.Errorf("failed to get connection info for OKE kubernetes runtime: %w", err)
+				return fmt.Errorf("failed to get connection info for GKE kubernetes runtime: %w", err)
 			}
 		} else {
 			kubeConnectionInfo, err = kubernetesRuntimeInfra.Create()
@@ -1214,6 +1217,8 @@ func ValidateCreateGenesisControlPlaneFlags(
 	createRootDomain string,
 	authEnabled bool,
 	kindPortMappings []string,
+	controlPlaneOnly bool,
+	clusterName string,
 ) error {
 	// ensure name length doesn't exceed maximum
 	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
@@ -1239,6 +1244,12 @@ func ValidateCreateGenesisControlPlaneFlags(
 	// return an error if kind port mappings are provided for a non-kind provider
 	if infraProvider != v0.KubernetesRuntimeInfraProviderKind && len(kindPortMappings) > 0 {
 		return errors.New("kind port mappings are only supported for infrastructure provider 'kind'")
+	}
+
+	// --cluster-name doesn't apply outside --control-plane-only mode;
+	// the tptctl up path derives the cluster name from --name
+	if !controlPlaneOnly && clusterName != "" {
+		return errors.New("--cluster-name is only valid with --control-plane-only")
 	}
 
 	return nil
@@ -1332,4 +1343,18 @@ func (u *Uninstaller) cleanOnCreateError(
 	}
 
 	return createErr
+}
+
+// runtimeInstanceName returns the effective kubernetes runtime instance
+// name for the deployment.
+func runtimeInstanceName(opts threeport.Options) string {
+	if opts.ControlPlaneOnly {
+		// existing cluster. opts.ClusterName comes from:
+		//   - --cluster-name when the user supplies it
+		//   - default applied in cmd/tptctl: the threeport- prefixed
+		//     name, matching clusters tptctl provisions itself
+		return opts.ClusterName
+	}
+	// new cluster, named with the threeport- prefix
+	return provider.ThreeportRuntimeName(opts.ControlPlaneName)
 }

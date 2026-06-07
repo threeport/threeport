@@ -19,19 +19,19 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type KubernetesRuntimeInstanceConfig struct {
-	KubernetesRuntimeInstance KubernetesRuntimeInstanceValues `yaml:"KubernetesRuntimeInstance"`
+	KubernetesRuntimeInstance KubernetesRuntimeInstanceValues
 }
 
 // KubernetesRuntimeInstanceValues contains all the attributes needed to manage
 // the KubernetesRuntimeInstance API object.
 type KubernetesRuntimeInstanceValues struct {
-	Name                        *string                            `json:"Name,omitempty" yaml:"Name,omitempty"`
-	ThreeportControlPlaneHost   *bool                              `json:"ThreeportControlPlaneHost,omitempty" yaml:"ThreeportControlPlaneHost,omitempty"`
-	DefaultRuntime              *bool                              `json:"DefaultRuntime,omitempty" yaml:"DefaultRuntime,omitempty"`
-	Location                    *string                            `json:"Location,omitempty" yaml:"Location,omitempty"`
-	ThreeportAgentImage         *string                            `json:"ThreeportAgentImage,omitempty" yaml:"ThreeportAgentImage,omitempty"`
-	KubernetesRuntimeDefinition *KubernetesRuntimeDefinitionValues `json:"KubernetesRuntimeDefinition,omitempty" yaml:"KubernetesRuntimeDefinition,omitempty"`
-	Age                         *string                            `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                        *string                            `json:",omitempty"`
+	ThreeportControlPlaneHost   *bool                              `json:",omitempty"`
+	DefaultRuntime              *bool                              `json:",omitempty"`
+	Location                    *string                            `json:",omitempty"`
+	ThreeportAgentImage         *string                            `json:",omitempty"`
+	KubernetesRuntimeDefinition *KubernetesRuntimeDefinitionValues `json:",omitempty"`
+	Age                         *string                            `json:",omitempty"`
 }
 
 // Get gets kubernetes runtime instances from the Threeport API.

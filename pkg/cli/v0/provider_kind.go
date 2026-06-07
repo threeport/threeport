@@ -46,7 +46,7 @@ func DeployKindInfra(
 
 	// construct kind infra provider object
 	kubernetesRuntimeInfraKind := provider.KubernetesRuntimeInfraKind{
-		RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+		RuntimeInstanceName: runtimeInstanceName(cpi.Opts),
 		KubeconfigPath:      cpi.Opts.KubeconfigPath,
 		DevEnvironment:      cpi.Opts.DevEnvironment,
 		ThreeportPath:       cpi.Opts.ThreeportPath,

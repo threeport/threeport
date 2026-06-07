@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net/http"
 
-	api "github.com/threeport/threeport/pkg/api/v0"
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	api "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -18,20 +18,20 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type OciProviderConfig struct {
-	OciProvider OciProviderValues `yaml:"OciProvider"`
+	OciProvider OciProviderValues
 }
 
 // OciProviderValues contains all the attributes needed to manage
 // the OciProvider API object.
 type OciProviderValues struct {
-	Name            *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	UserOCID        *string `json:"UserOCID,omitempty" yaml:"UserOCID,omitempty"`
-	CompartmentOCID *string `json:"CompartmentOCID,omitempty" yaml:"CompartmentOCID,omitempty"`
-	DefaultProvider *bool   `json:"DefaultProvider,omitempty" yaml:"DefaultProvider,omitempty"`
-	DefaultRegion   *string `json:"DefaultRegion,omitempty" yaml:"DefaultRegion,omitempty"`
-	KeyFingerprint  *string `json:"KeyFingerprint,omitempty" yaml:"KeyFingerprint,omitempty"`
-	PrivateKey      *string `json:"PrivateKey,omitempty" yaml:"PrivateKey,omitempty"`
-	Age             *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name            *string `json:",omitempty"`
+	UserOCID        *string `json:",omitempty"`
+	CompartmentOCID *string `json:",omitempty"`
+	DefaultProvider *bool   `json:",omitempty"`
+	DefaultRegion   *string `json:",omitempty"`
+	KeyFingerprint  *string `json:",omitempty"`
+	PrivateKey      *string `json:",omitempty"`
+	Age             *string `json:",omitempty"`
 }
 
 // Get gets oci providers from the Threeport API.

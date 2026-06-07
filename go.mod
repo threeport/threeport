@@ -53,7 +53,6 @@ require (
 	google.golang.org/api v0.247.0
 	google.golang.org/grpc v1.74.2
 	gopkg.in/ini.v1 v1.67.0
-	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.2.5
 	gorm.io/driver/postgres v1.5.11
@@ -303,6 +302,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gorm.io/driver/mysql v1.5.7 // indirect
 	gotest.tools/v3 v3.5.0 // indirect
 	k8s.io/apiextensions-apiserver v0.32.1 // indirect

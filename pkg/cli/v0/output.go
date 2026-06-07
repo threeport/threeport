@@ -6,7 +6,7 @@ import (
 	"reflect"
 
 	util "github.com/threeport/threeport/pkg/util/v0"
-	yaml "gopkg.in/yaml.v2"
+	yaml "sigs.k8s.io/yaml"
 )
 
 // Error returns a formatted error message in red.

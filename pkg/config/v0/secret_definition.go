@@ -19,17 +19,17 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type SecretDefinitionConfig struct {
-	SecretDefinition SecretDefinitionValues `yaml:"SecretDefinition"`
+	SecretDefinition SecretDefinitionValues
 }
 
 // SecretDefinitionValues contains all the attributes needed to manage
 // the SecretDefinition API object.
 type SecretDefinitionValues struct {
-	Name             *string            `json:"Name,omitempty" yaml:"Name,omitempty"`
-	AwsProviderName  *string            `json:"AwsProviderName,omitempty" yaml:"AwsProviderName,omitempty"`
-	Data             *map[string]string `json:"Data,omitempty" yaml:"Data,omitempty"`
-	SecretConfigPath *string            `json:"SecretConfigPath,omitempty" yaml:"SecretConfigPath,omitempty"`
-	Age              *string            `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name             *string            `json:",omitempty"`
+	AwsProviderName  *string            `json:",omitempty"`
+	Data             *map[string]string `json:",omitempty"`
+	SecretConfigPath *string            `json:",omitempty"`
+	Age              *string            `json:",omitempty"`
 }
 
 // Get gets secret definitions from the Threeport API.

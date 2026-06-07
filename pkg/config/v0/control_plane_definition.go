@@ -17,16 +17,16 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type ControlPlaneDefinitionConfig struct {
-	ControlPlaneDefinition ControlPlaneDefinitionValues `yaml:"ControlPlaneDefinition"`
+	ControlPlaneDefinition ControlPlaneDefinitionValues
 }
 
 // ControlPlaneDefinitionValues contains all the attributes needed to manage
 // the ControlPlaneDefinition API object.
 type ControlPlaneDefinitionValues struct {
-	Name          *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	AuthEnabled   *bool   `json:"AuthEnabled,omitempty" yaml:"AuthEnabled,omitempty"`
-	OnboardParent *bool   `json:"OnboardParent,omitempty" yaml:"OnboardParent,omitempty"`
-	Age           *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name          *string `json:",omitempty"`
+	AuthEnabled   *bool   `json:",omitempty"`
+	OnboardParent *bool   `json:",omitempty"`
+	Age           *string `json:",omitempty"`
 }
 
 // Get gets control plane definitions from the Threeport API.

@@ -17,15 +17,15 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type TierConfig struct {
-	Tier TierValues `yaml:"Tier"`
+	Tier TierValues
 }
 
 // TierValues contains all the attributes needed to manage
 // the Tier API object.
 type TierValues struct {
-	Name        *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	Criticality *int    `json:"Criticality,omitempty" yaml:"Criticality,omitempty"`
-	Age         *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name        *string `json:",omitempty"`
+	Criticality *int    `json:",omitempty"`
+	Age         *string `json:",omitempty"`
 }
 
 // Get gets tiers from the Threeport API.

@@ -18,13 +18,13 @@ type KubernetesWorkloadDefinition struct {
 	Reconciliation `mapstructure:",squash"`
 
 	// The yaml manifests that define the workload configuration.
-	YAMLDocument *string `json:"YAMLDocument,omitempty" gorm:"not null" validate:"required"`
+	YAMLDocument *string `json:",omitempty" validate:"required" gorm:"not null"`
 
 	// The associated kubernetes workload resource definitions that are derived.
-	KubernetesWorkloadResourceDefinitions []*KubernetesWorkloadResourceDefinition `json:"KubernetesWorkloadResourceDefinitions,omitempty" validate:"optional,association"`
+	KubernetesWorkloadResourceDefinitions []*KubernetesWorkloadResourceDefinition `json:",omitempty" validate:"optional,association"`
 
 	// The associated kubernetes workload instances that are deployed from this definition.
-	KubernetesWorkloadInstances []*KubernetesWorkloadInstance `json:"KubernetesWorkloadInstances,omitempty" validate:"optional,association"`
+	KubernetesWorkloadInstances []*KubernetesWorkloadInstance `json:",omitempty" validate:"optional,association"`
 }
 
 // KubernetesWorkloadResourceDefinition is an individual Kubernetes resource manifest.
@@ -32,10 +32,10 @@ type KubernetesWorkloadResourceDefinition struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The individual manifest in JSON format.
-	JSONDefinition *datatypes.JSON `json:"JSONDefinition,omitempty" gorm:"not null" validate:"required"`
+	JSONDefinition *datatypes.JSON `json:",omitempty" validate:"required" gorm:"not null"`
 
 	// The kubernetes workload definition this resource belongs to.
-	KubernetesWorkloadDefinitionID *uint `json:"KubernetesWorkloadDefinitionID,omitempty" query:"kubernetesworkloaddefinitionid" gorm:"not null" validate:"required"`
+	KubernetesWorkloadDefinitionID *uint `json:",omitempty" validate:"required" gorm:"not null"`
 }
 
 // KubernetesWorkloadInstance is a deployed instance of a kubernetes workload.
@@ -45,16 +45,16 @@ type KubernetesWorkloadInstance struct {
 	Reconciliation `mapstructure:",squash"`
 
 	// The kubernetes runtime to which the workload is deployed.
-	KubernetesRuntimeInstanceID *uint `json:"KubernetesRuntimeInstanceID,omitempty" query:"kubernetesruntimeinstanceid" gorm:"not null" validate:"required" relationship:"requires"`
+	KubernetesRuntimeInstanceID *uint `json:",omitempty" validate:"required" gorm:"not null" relationship:"requires"`
 
 	// The definition used to configure the kubernetes workload instance.
-	KubernetesWorkloadDefinitionID *uint `json:"KubernetesWorkloadDefinitionID,omitempty" query:"kubernetesworkloaddefinitionid" gorm:"not null" validate:"required" relationship:"requires"`
+	KubernetesWorkloadDefinitionID *uint `json:",omitempty" validate:"required" gorm:"not null" relationship:"requires"`
 
 	// The associated kubernetes workload resource instances that are derived.
-	KubernetesWorkloadResourceInstances []*KubernetesWorkloadResourceInstance `json:"KubernetesWorkloadResourceInstances,omitempty" validate:"optional,association"`
+	KubernetesWorkloadResourceInstances []*KubernetesWorkloadResourceInstance `json:",omitempty" validate:"optional,association"`
 
 	// The latest status of a kubernetes workload instance.
-	Status *string `json:"Status,omitempty" validate:"optional"`
+	Status *string `json:",omitempty" validate:"optional"`
 }
 
 // KubernetesWorkloadResourceInstance is a Kubernetes resource instance.
@@ -65,23 +65,23 @@ type KubernetesWorkloadResourceInstance struct {
 	// KubernetesWorkloadResourceDefinition.JSONDefinition in that it has
 	// namespace management and other configuration — such as resource
 	// allocation management — added.
-	JSONDefinition *datatypes.JSON `json:"JSONDefinition,omitempty" gorm:"not null" validate:"required"`
+	JSONDefinition *datatypes.JSON `json:",omitempty" validate:"required" gorm:"not null"`
 
 	// The kubernetes workload instance this resource belongs to.
-	KubernetesWorkloadInstanceID *uint `json:"KubernetesWorkloadInstanceID,omitempty" query:"kubernetesworkloadinstanceid" gorm:"not null" validate:"required"`
+	KubernetesWorkloadInstanceID *uint `json:",omitempty" validate:"required" gorm:"not null"`
 
 	// The most recent operation performed on a Kubernetes resource in the
 	// kubernetes runtime.
-	LastOperation *string `json:"LastOperation,omitempty" validate:"optional"`
+	LastOperation *string `json:",omitempty" validate:"optional"`
 
 	// Indicates if object is considered to be reconciled by kubernetes
 	// kubernetes workload controller.
-	Reconciled *bool `json:"Reconciled,omitempty" gorm:"default:false" validate:"optional"`
+	Reconciled *bool `json:",omitempty" validate:"optional" gorm:"default:false"`
 
 	// The JSON definition of a Kubernetes resource as stored in etcd in the
 	// kubernetes runtime.
-	RuntimeDefinition *datatypes.JSON `json:"RuntimeDefinition,omitempty" validate:"optional"`
+	RuntimeDefinition *datatypes.JSON `json:",omitempty" validate:"optional"`
 
 	// Whether another controller has scheduled this resource for deletion
-	ScheduledForDeletion *time.Time `json:"ScheduledForDeletion,omitempty" validate:"optional"`
+	ScheduledForDeletion *time.Time `json:",omitempty" validate:"optional"`
 }

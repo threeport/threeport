@@ -20,19 +20,19 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type AwsEksKubernetesRuntimeInstanceConfig struct {
-	AwsEksKubernetesRuntimeInstance AwsEksKubernetesRuntimeInstanceValues `yaml:"AwsEksKubernetesRuntimeInstance"`
+	AwsEksKubernetesRuntimeInstance AwsEksKubernetesRuntimeInstanceValues
 }
 
 // AwsEksKubernetesRuntimeInstanceValues contains all the attributes needed to manage
 // the AwsEksKubernetesRuntimeInstance API object.
 type AwsEksKubernetesRuntimeInstanceValues struct {
-	Name                              *string                                  `json:"Name,omitempty" yaml:"Name,omitempty"`
-	AwsProviderName                   *string                                  `json:"AwsProviderName,omitempty" yaml:"AwsProviderName,omitempty"`
-	Region                            *string                                  `json:"Region,omitempty" yaml:"Region,omitempty"`
-	AwsEksKubernetesRuntimeDefinition *AwsEksKubernetesRuntimeDefinitionValues `json:"AwsEksKubernetesRuntimeDefinition,omitempty" yaml:"AwsEksKubernetesRuntimeDefinition,omitempty"`
-	KubernetesRuntimeInstance         *KubernetesRuntimeInstanceValues         `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
-	Reconciled                        *bool                                    `json:"Reconciled,omitempty" yaml:"Reconciled,omitempty"`
-	Age                               *string                                  `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                              *string                                  `json:",omitempty"`
+	AwsProviderName                   *string                                  `json:",omitempty"`
+	Region                            *string                                  `json:",omitempty"`
+	AwsEksKubernetesRuntimeDefinition *AwsEksKubernetesRuntimeDefinitionValues `json:",omitempty"`
+	KubernetesRuntimeInstance         *KubernetesRuntimeInstanceValues         `json:",omitempty"`
+	Reconciled                        *bool                                    `json:",omitempty"`
+	Age                               *string                                  `json:",omitempty"`
 }
 
 // Get gets aws eks kubernetes runtime instances from the Threeport API.

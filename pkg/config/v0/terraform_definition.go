@@ -20,16 +20,16 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type TerraformDefinitionConfig struct {
-	TerraformDefinition TerraformDefinitionValues `yaml:"TerraformDefinition"`
+	TerraformDefinition TerraformDefinitionValues
 }
 
 // TerraformDefinitionValues contains all the attributes needed to manage
 // the TerraformDefinition API object.
 type TerraformDefinitionValues struct {
-	Name                *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	ConfigDir           *string `json:"ConfigDir,omitempty" yaml:"ConfigDir,omitempty"`
-	TerraformConfigPath *string `json:"TerraformConfigPath,omitempty" yaml:"TerraformConfigPath,omitempty"`
-	Age                 *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                *string `json:",omitempty"`
+	ConfigDir           *string `json:",omitempty"`
+	TerraformConfigPath *string `json:",omitempty"`
+	Age                 *string `json:",omitempty"`
 }
 
 // Get gets terraform definitions from the Threeport API.

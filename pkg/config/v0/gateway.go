@@ -14,22 +14,22 @@ import (
 // This abstraction allows users to manage definitions and instances together with single operations
 // rather than separate operations for each API object.
 type GatewayConfig struct {
-	Gateway GatewayValues `yaml:"Gateway"`
+	Gateway GatewayValues
 }
 
 // GatewayValues contains all the attributes needed to manage the
 // GatewayDefinition and GatewayInstance API objects
 // together with a single operation.
 type GatewayValues struct {
-	Name                       *string                           `json:"Name,omitempty" yaml:"Name,omitempty"`
-	HttpPorts                  *[]GatewayHttpPortValues          `json:"HttpPorts,omitempty" yaml:"HttpPorts,omitempty"`
-	TcpPorts                   *[]GatewayTcpPortValues           `json:"TcpPorts,omitempty" yaml:"TcpPorts,omitempty"`
-	ServiceName                *string                           `json:"ServiceName,omitempty" yaml:"ServiceName,omitempty"`
-	SubDomain                  *string                           `json:"SubDomain,omitempty" yaml:"SubDomain,omitempty"`
-	DomainNameDefinition       *DomainNameDefinitionValues       `json:"DomainNameDefinition,omitempty" yaml:"DomainNameDefinition,omitempty"`
-	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
-	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:"KubernetesWorkloadInstance,omitempty" yaml:"KubernetesWorkloadInstance,omitempty"`
-	Age                        *string                           `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                       *string                           `json:",omitempty"`
+	HttpPorts                  *[]GatewayHttpPortValues          `json:",omitempty"`
+	TcpPorts                   *[]GatewayTcpPortValues           `json:",omitempty"`
+	ServiceName                *string                           `json:",omitempty"`
+	SubDomain                  *string                           `json:",omitempty"`
+	DomainNameDefinition       *DomainNameDefinitionValues       `json:",omitempty"`
+	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:",omitempty"`
+	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:",omitempty"`
+	Age                        *string                           `json:",omitempty"`
 }
 
 // Get gets a gateway definition and instance from the Threeport API.
@@ -194,9 +194,9 @@ func (g *GatewayConfig) GetOperations(
 	// add gateway instance operation
 	gatewayInstanceConfig := GatewayInstanceConfig{
 		GatewayInstance: GatewayInstanceValues{
-			Name:                      g.Gateway.Name,
-			KubernetesRuntimeInstance: g.Gateway.KubernetesRuntimeInstance,
-			KubernetesWorkloadInstance:          g.Gateway.KubernetesWorkloadInstance,
+			Name:                       g.Gateway.Name,
+			KubernetesRuntimeInstance:  g.Gateway.KubernetesRuntimeInstance,
+			KubernetesWorkloadInstance: g.Gateway.KubernetesWorkloadInstance,
 			GatewayDefinition: &GatewayDefinitionValues{
 				Name: g.Gateway.Name,
 			},
@@ -256,15 +256,15 @@ func mapToGatewayDefinedInstances(
 			if instName == defName && *inst.GatewayInstance.GatewayDefinition.Name == *def.GatewayDefinition.Name {
 				gatewayConfig := GatewayConfig{
 					Gateway: GatewayValues{
-						Name:                      inst.GatewayInstance.Name,
-						HttpPorts:                 def.GatewayDefinition.HttpPorts,
-						TcpPorts:                  def.GatewayDefinition.TcpPorts,
-						ServiceName:               def.GatewayDefinition.ServiceName,
-						SubDomain:                 def.GatewayDefinition.SubDomain,
-						DomainNameDefinition:      def.GatewayDefinition.DomainNameDefinition,
-						KubernetesRuntimeInstance: inst.GatewayInstance.KubernetesRuntimeInstance,
-						KubernetesWorkloadInstance:          inst.GatewayInstance.KubernetesWorkloadInstance,
-						Age:                       inst.GatewayInstance.Age,
+						Name:                       inst.GatewayInstance.Name,
+						HttpPorts:                  def.GatewayDefinition.HttpPorts,
+						TcpPorts:                   def.GatewayDefinition.TcpPorts,
+						ServiceName:                def.GatewayDefinition.ServiceName,
+						SubDomain:                  def.GatewayDefinition.SubDomain,
+						DomainNameDefinition:       def.GatewayDefinition.DomainNameDefinition,
+						KubernetesRuntimeInstance:  inst.GatewayInstance.KubernetesRuntimeInstance,
+						KubernetesWorkloadInstance: inst.GatewayInstance.KubernetesWorkloadInstance,
+						Age:                        inst.GatewayInstance.Age,
 					},
 				}
 				gatewayConfigs = append(gatewayConfigs, gatewayConfig)

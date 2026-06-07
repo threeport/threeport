@@ -32,14 +32,14 @@ type CustomContext struct {
 type PageRequestParams struct {
 	// QueryId is the ID of the query that produced the paginated objects.  The client receives
 	// this info with the previous page of results.
-	QueryId string `json:"QueryId" query:"queryid" example:"1234567890-1234567890-1234567890"`
+	QueryId string `example:"1234567890-1234567890-1234567890"`
 
 	// Cursor is the unique ID of the first object in the next page of results.  The client
 	// gets this information from the `NextCursor` field in the previous page of results.
-	Cursor uint `json:"Cursor" query:"cursor" example:"1234567890"`
+	Cursor uint `example:"1234567890"`
 
 	// The maximum number of objects the client wishes to receive in a page of results.
-	Limit int64 `json:"Limit" query:"limit" example:"500"`
+	Limit int64 `example:"500"`
 }
 
 // GetPaginationParams parses pagination query parameters into PageRequestParams.

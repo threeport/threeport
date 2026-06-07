@@ -50,6 +50,10 @@ func main() {
 	e := echo.New()
 	e.HideBanner = true
 
+	// bind query params to struct fields by lowercased field name,
+	// so api types don't need `query:"..."` struct tags
+	e.Binder = apiserver_lib.NewQueryBinder()
+
 	var validate *validator.Validate
 	validate = validator.New()
 	validate.RegisterValidation("optional", apiserver_lib.IsOptional)

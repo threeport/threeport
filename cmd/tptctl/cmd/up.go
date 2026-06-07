@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -80,6 +81,14 @@ control planes if they are used to create or are created by another control plan
 			os.Exit(1)
 		}
 
+		// default --cluster-name to the threeport- prefixed runtime name
+		// in control-plane-only mode when not supplied; this is the name
+		// tptctl applies when it provisions the cluster itself (e.g. via
+		// a prior --infra-only run)
+		if cliArgs.ControlPlaneOnly && cliArgs.ClusterName == "" {
+			cliArgs.ClusterName = provider.ThreeportRuntimeName(cliArgs.ControlPlaneName)
+		}
+
 		// flag validation
 		if err := cli.ValidateCreateGenesisControlPlaneFlags(
 			cliArgs.ControlPlaneName,
@@ -87,6 +96,8 @@ control planes if they are used to create or are created by another control plan
 			cliArgs.CreateRootDomain,
 			cliArgs.AuthEnabled,
 			cliArgs.KindPortMappings,
+			cliArgs.ControlPlaneOnly,
+			cliArgs.ClusterName,
 		); err != nil {
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
@@ -153,7 +164,7 @@ func init() {
 	//)
 	UpCmd.Flags().StringVar(
 		&cliArgs.KubeconfigPath,
-		"kind-kubeconfig", "", "Path to kubeconfig used for kind provider installs (default is ~/.kube/config).",
+		"kind-kubeconfig", "", "Path to kubeconfig used for kind provider installs (default is $KUBECONFIG, then ~/.kube/config).",
 	)
 	UpCmd.Flags().StringVar(
 		&cliArgs.AwsConfigProfile,
@@ -222,6 +233,10 @@ func init() {
 	UpCmd.Flags().BoolVar(
 		&cliArgs.ControlPlaneOnly,
 		"control-plane-only", false, "Deploy the control plane on an existing runtime. Defaults to false.",
+	)
+	UpCmd.Flags().StringVar(
+		&cliArgs.ClusterName,
+		"cluster-name", "", "Optional. Name of the existing kubernetes cluster to install the control plane on. Only applicable with --control-plane-only.",
 	)
 	UpCmd.Flags().BoolVar(
 		&cliArgs.InfraOnly,

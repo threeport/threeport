@@ -20,18 +20,18 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type OciOkeKubernetesRuntimeInstanceConfig struct {
-	OciOkeKubernetesRuntimeInstance OciOkeKubernetesRuntimeInstanceValues `yaml:"OciOkeKubernetesRuntimeInstance"`
+	OciOkeKubernetesRuntimeInstance OciOkeKubernetesRuntimeInstanceValues
 }
 
 // OciOkeKubernetesRuntimeInstanceValues contains all the attributes needed to manage
 // the OciOkeKubernetesRuntimeInstance API object.
 type OciOkeKubernetesRuntimeInstanceValues struct {
-	Name                              *string                                  `json:"Name,omitempty" yaml:"Name,omitempty"`
-	OciProviderName                   *string                                  `json:"OciProviderName,omitempty" yaml:"OciProviderName,omitempty"`
-	Region                            *string                                  `json:"Region,omitempty" yaml:"Region,omitempty"`
-	OciOkeKubernetesRuntimeDefinition *OciOkeKubernetesRuntimeDefinitionValues `json:"OciOkeKubernetesRuntimeDefinition,omitempty" yaml:"OciOkeKubernetesRuntimeDefinition,omitempty"`
-	Status                            *string                                  `json:"Status,omitempty" yaml:"Status,omitempty"`
-	Age                               *string                                  `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                              *string                                  `json:",omitempty"`
+	OciProviderName                   *string                                  `json:",omitempty"`
+	Region                            *string                                  `json:",omitempty"`
+	OciOkeKubernetesRuntimeDefinition *OciOkeKubernetesRuntimeDefinitionValues `json:",omitempty"`
+	Status                            *string                                  `json:",omitempty"`
+	Age                               *string                                  `json:",omitempty"`
 }
 
 // Get gets oci oke kubernetes runtime instances from the Threeport API.

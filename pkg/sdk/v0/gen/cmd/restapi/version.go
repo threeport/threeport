@@ -22,7 +22,7 @@ func GenUtilVersion(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 	f.Comment("RestApiVersion provides the version of the REST API binary.")
 	f.Type().Id("RestApiVersion").Struct(
-		Id("Version").String().Tag(map[string]string{"json": "Version", "validate": "required"}),
+		Id("Version").String(),
 	)
 
 	f.Comment("VersionRoute adds the /version route to the server to return the API")

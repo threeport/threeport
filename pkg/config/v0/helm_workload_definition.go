@@ -17,20 +17,20 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type HelmWorkloadDefinitionConfig struct {
-	HelmWorkloadDefinition HelmWorkloadDefinitionValues `yaml:"HelmWorkloadDefinition"`
+	HelmWorkloadDefinition HelmWorkloadDefinitionValues
 }
 
 // HelmWorkloadDefinitionValues contains all the attributes needed to manage
 // the HelmWorkloadDefinition API object.
 type HelmWorkloadDefinitionValues struct {
-	Name                   *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	Repo                   *string `json:"Repo,omitempty" yaml:"Repo,omitempty"`
-	Chart                  *string `json:"Chart,omitempty" yaml:"Chart,omitempty"`
-	ChartVersion           *string `json:"ChartVersion,omitempty" yaml:"ChartVersion,omitempty"`
-	Values                 *string `json:"Values,omitempty" yaml:"Values,omitempty"`
-	ValuesDocument         *string `json:"ValuesDocument,omitempty" yaml:"ValuesDocument,omitempty"`
-	HelmWorkloadConfigPath *string `json:"HelmWorkloadConfigPath,omitempty" yaml:"HelmWorkloadConfigPath,omitempty"`
-	Age                    *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                   *string `json:",omitempty"`
+	Repo                   *string `json:",omitempty"`
+	Chart                  *string `json:",omitempty"`
+	ChartVersion           *string `json:",omitempty"`
+	Values                 *string `json:",omitempty"`
+	ValuesDocument         *string `json:",omitempty"`
+	HelmWorkloadConfigPath *string `json:",omitempty"`
+	Age                    *string `json:",omitempty"`
 }
 
 // Get gets helm workload definitions from the Threeport API.

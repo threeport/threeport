@@ -25,7 +25,7 @@ func DeployOkeInfra(
 	// create OKE infrastructure
 	kubernetesRuntimeInfraOKE := provider.KubernetesRuntimeInfraOKE{
 		PulumiWorkspace: provider.PulumiWorkspace{
-			RuntimeInstanceName: provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName),
+			RuntimeInstanceName: runtimeInstanceName(cpi.Opts),
 			ProjectName:         "oke",
 			ProjectDescription:  "Oracle Kubernetes Engine (OKE) cluster for Threeport",
 			// StackConfigs set by LoadOCIConfig after region is resolved

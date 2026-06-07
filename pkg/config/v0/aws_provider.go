@@ -9,8 +9,8 @@ import (
 
 	"gopkg.in/ini.v1"
 
-	api "github.com/threeport/threeport/pkg/api/v0"
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	api "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -20,23 +20,23 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type AwsProviderConfig struct {
-	AwsProvider AwsProviderValues `yaml:"AwsProvider"`
+	AwsProvider AwsProviderValues
 }
 
 // AwsProviderValues contains all the attributes needed to manage
 // the AwsProvider API object.
 type AwsProviderValues struct {
-	Name             *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	AccountID        *string `json:"AccountID,omitempty" yaml:"AccountID,omitempty"`
-	DefaultProvider  *bool   `json:"DefaultProvider,omitempty" yaml:"DefaultProvider,omitempty"`
-	DefaultRegion    *string `json:"DefaultRegion,omitempty" yaml:"DefaultRegion,omitempty"`
-	AccessKeyID      *string `json:"AccessKeyID,omitempty" yaml:"AccessKeyID,omitempty"`
-	SecretAccessKey  *string `json:"SecretAccessKey,omitempty" yaml:"SecretAccessKey,omitempty"`
-	RoleArn          *string `json:"RoleArn,omitempty" yaml:"RoleArn,omitempty"`
-	LocalConfig      *string `json:"LocalConfig,omitempty" yaml:"LocalConfig,omitempty"`
-	LocalCredentials *string `json:"LocalCredentials,omitempty" yaml:"LocalCredentials,omitempty"`
-	LocalProfile     *string `json:"LocalProfile,omitempty" yaml:"LocalProfile,omitempty"`
-	Age              *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name             *string `json:",omitempty"`
+	AccountID        *string `json:",omitempty"`
+	DefaultProvider  *bool   `json:",omitempty"`
+	DefaultRegion    *string `json:",omitempty"`
+	AccessKeyID      *string `json:",omitempty"`
+	SecretAccessKey  *string `json:",omitempty"`
+	RoleArn          *string `json:",omitempty"`
+	LocalConfig      *string `json:",omitempty"`
+	LocalCredentials *string `json:",omitempty"`
+	LocalProfile     *string `json:",omitempty"`
+	Age              *string `json:",omitempty"`
 }
 
 // Get gets aws providers from the Threeport API.

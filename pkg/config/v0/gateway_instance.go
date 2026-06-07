@@ -17,17 +17,17 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type GatewayInstanceConfig struct {
-	GatewayInstance GatewayInstanceValues `yaml:"GatewayInstance"`
+	GatewayInstance GatewayInstanceValues
 }
 
 // GatewayInstanceValues contains all the attributes needed to manage
 // the GatewayInstance API object.
 type GatewayInstanceValues struct {
-	Name                       *string                           `json:"Name,omitempty" yaml:"Name,omitempty"`
-	GatewayDefinition          *GatewayDefinitionValues          `json:"GatewayDefinition,omitempty" yaml:"GatewayDefinition,omitempty"`
-	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
-	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:"KubernetesWorkloadInstance,omitempty" yaml:"KubernetesWorkloadInstance,omitempty"`
-	Age                        *string                           `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                       *string                           `json:",omitempty"`
+	GatewayDefinition          *GatewayDefinitionValues          `json:",omitempty"`
+	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:",omitempty"`
+	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:",omitempty"`
+	Age                        *string                           `json:",omitempty"`
 }
 
 // Get gets gateway instances from the Threeport API.
@@ -97,11 +97,11 @@ func (g *GatewayInstanceConfig) Get(
 
 		gatewayInstanceConfig := GatewayInstanceConfig{
 			GatewayInstance: GatewayInstanceValues{
-				Name:                      gatewayInstance.Name,
-				GatewayDefinition:         gatewayDefinition,
-				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
-				KubernetesWorkloadInstance:          workloadInstance,
-				Age:                       util.Ptr(util.GetAgeFormatted(gatewayInstance.CreatedAt)),
+				Name:                       gatewayInstance.Name,
+				GatewayDefinition:          gatewayDefinition,
+				KubernetesRuntimeInstance:  kubernetesRuntimeInstance,
+				KubernetesWorkloadInstance: workloadInstance,
+				Age:                        util.Ptr(util.GetAgeFormatted(gatewayInstance.CreatedAt)),
 			},
 		}
 		gatewayInstanceConfigs = append(gatewayInstanceConfigs, gatewayInstanceConfig)
@@ -149,9 +149,9 @@ func (g *GatewayInstanceConfig) Create(
 		Instance: api_v0.Instance{
 			Name: gatewayInstanceValues.Name,
 		},
-		GatewayDefinitionID:         gatewayDefinition.ID,
-		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		KubernetesWorkloadInstanceID:          workloadInstance.ID,
+		GatewayDefinitionID:          gatewayDefinition.ID,
+		KubernetesRuntimeInstanceID:  kubernetesRuntimeInstance.ID,
+		KubernetesWorkloadInstanceID: workloadInstance.ID,
 	}
 
 	// create gateway instance
@@ -238,9 +238,9 @@ func (g *GatewayInstanceConfig) Replace(
 		Instance: api_v0.Instance{
 			Name: gatewayInstanceValues.Name,
 		},
-		GatewayDefinitionID:         gatewayDefinition.ID,
-		KubernetesRuntimeInstanceID: kubernetesRuntimeInstance.ID,
-		KubernetesWorkloadInstanceID:          workloadInstance.ID,
+		GatewayDefinitionID:          gatewayDefinition.ID,
+		KubernetesRuntimeInstanceID:  kubernetesRuntimeInstance.ID,
+		KubernetesWorkloadInstanceID: workloadInstance.ID,
 	}
 
 	// replace gateway instance

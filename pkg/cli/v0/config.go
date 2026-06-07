@@ -31,80 +31,80 @@ const (
 // ThreeportConfig is the client's configuration for connecting to Threeport instances
 type ThreeportConfig struct {
 	// All the threeport instances a user has available to use.
-	ControlPlanes []ControlPlane `yaml:"ControlPlanes"`
+	ControlPlanes []ControlPlane
 
 	// The name of the control plane currently in use.
-	CurrentControlPlane string `yaml:"CurrentControlPlane"`
+	CurrentControlPlane string
 }
 
 // Control plane is an instance of Threeport control plane the client can use.
 type ControlPlane struct {
 	// The unique name of the threeport control plane.
-	Name string `yaml:"Name"`
+	Name string
 
 	// If true client certificate authentication is used.
-	AuthEnabled bool `yaml:"AuthEnabled"`
+	AuthEnabled bool
 
 	// True used to indicate that the control plane was the first in the control plane group
-	Genesis bool `yaml:"Genesis"`
+	Genesis bool
 
 	// The address for the threeport API.
-	APIServer string `yaml:"APIServer"`
+	APIServer string
 
 	// The threeport API's CA certificate.
-	CACert string `yaml:"CACert"`
+	CACert string
 
 	// Kubernetes API and connection info.
-	KubeAPI KubeAPI `yaml:"KubeAPI"`
+	KubeAPI KubeAPI
 
 	// The infra provider hosting the threeport control plane.
-	Provider string `yaml:"Provider"`
+	Provider string
 
 	// Provider configuration for EKS-hosted threeport control planes.
-	EKSProviderConfig EKSProviderConfig `yaml:"EKSProviderConfig"`
+	EKSProviderConfig EKSProviderConfig
 
 	// Provider configuration for OKE-hosted threeport control planes.
-	OKEProviderConfig OKEProviderConfig `yaml:"OKEProviderConfig"`
+	OKEProviderConfig OKEProviderConfig
 
 	// Client authentication credentials to threeport API.
-	Credentials []Credential `yaml:"Credentials"`
+	Credentials []Credential
 
 	// The encryption key used to encrypt secrets.
-	EncryptionKey string `yaml:"EncryptionKey"`
+	EncryptionKey string
 }
 
 // KubeAPI is the information and credentials needed to connect to the
 // Kubernetes API hosting the threeport control plane.
 type KubeAPI struct {
-	APIEndpoint   string `yaml:"APIEndpoint"`
-	CACertificate string `yaml:"CACertificate"`
-	Certificate   string `yaml:"Certificate"`
-	Key           string `yaml:"Key"`
-	Token         string `yaml:"Token"`
+	APIEndpoint   string
+	CACertificate string
+	Certificate   string
+	Key           string
+	Token         string
 }
 
 // EKSProviderConfig is the set of provider config information needed to manage
 // EKS clusters on AWs.
 type EKSProviderConfig struct {
-	AwsConfigProfile string `yaml:"AWSConfigProfile"`
-	AwsRegion        string `yaml:"AWSRegion"`
-	AwsAccountID     string `yaml:"AWSAccountID"`
+	AwsConfigProfile string `json:"AWSConfigProfile,omitempty"`
+	AwsRegion        string `json:"AWSRegion,omitempty"`
+	AwsAccountID     string `json:"AWSAccountID,omitempty"`
 }
 
 // OKEProviderConfig is the set of provider config information needed to manage
 // OKE clusters on OCI.
 type OKEProviderConfig struct {
-	OciRegion          string `yaml:"OciRegion"`
-	OciConfigProfile   string `yaml:"OciConfigProfile"`
-	OciCompartmentOcid string `yaml:"OciCompartmentOcid"`
+	OciRegion          string
+	OciConfigProfile   string
+	OciCompartmentOcid string
 }
 
 // Credential is a client certificate and key pair for authenticating to a Threeport instance.
 type Credential struct {
-	Name       string `yaml:"Name"`
-	ClientCert string `yaml:"ClientCert"`
-	ClientKey  string `yaml:"ClientKey"`
-	Token      string ``
+	Name       string
+	ClientCert string
+	ClientKey  string
+	Token      string
 }
 
 // GetAllControlPlaneNames returns all control plane names in a threeport config.

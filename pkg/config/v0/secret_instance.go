@@ -17,19 +17,19 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type SecretInstanceConfig struct {
-	SecretInstance SecretInstanceValues `yaml:"SecretInstance"`
+	SecretInstance SecretInstanceValues
 }
 
 // SecretInstanceValues contains all the attributes needed to manage
 // the SecretInstance API object.
 type SecretInstanceValues struct {
-	Name                       *string                           `json:"Name,omitempty" yaml:"Name,omitempty"`
-	SecretDefinition           *SecretDefinitionValues           `json:"SecretDefinition,omitempty" yaml:"SecretDefinition,omitempty"`
-	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:"KubernetesWorkloadInstance,omitempty" yaml:"KubernetesWorkloadInstance,omitempty"`
-	HelmWorkloadInstance       *HelmWorkloadInstanceValues       `json:"HelmWorkloadInstance,omitempty" yaml:"HelmWorkloadInstance,omitempty"`
-	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:"KubernetesRuntimeInstance,omitempty" yaml:"KubernetesRuntimeInstance,omitempty"`
-	SecretConfigPath           *string                           `json:"SecretConfigPath,omitempty" yaml:"SecretConfigPath,omitempty"`
-	Age                        *string                           `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                       *string                           `json:",omitempty"`
+	SecretDefinition           *SecretDefinitionValues           `json:",omitempty"`
+	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:",omitempty"`
+	HelmWorkloadInstance       *HelmWorkloadInstanceValues       `json:",omitempty"`
+	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:",omitempty"`
+	SecretConfigPath           *string                           `json:",omitempty"`
+	Age                        *string                           `json:",omitempty"`
 }
 
 // Get gets secret instances from the Threeport API.
@@ -78,7 +78,7 @@ func (s *SecretInstanceConfig) Get(
 			}
 		}
 
-		// get kubernetes workload instance
+		// get workload instance
 		if secretInstance.KubernetesWorkloadInstanceID != nil {
 			workloadInst, err := client_v0.GetKubernetesWorkloadInstanceByID(apiClient, apiEndpoint, *secretInstance.KubernetesWorkloadInstanceID)
 			if err == nil {
@@ -110,12 +110,12 @@ func (s *SecretInstanceConfig) Get(
 
 		secretInstanceConfig := SecretInstanceConfig{
 			SecretInstance: SecretInstanceValues{
-				Name:                      secretInstance.Name,
-				SecretDefinition:          secretDefinition,
-				KubernetesWorkloadInstance:          workloadInstance,
-				HelmWorkloadInstance:      helmWorkloadInstance,
-				KubernetesRuntimeInstance: kubernetesRuntimeInstance,
-				Age:                       util.Ptr(util.GetAgeFormatted(secretInstance.CreatedAt)),
+				Name:                       secretInstance.Name,
+				SecretDefinition:           secretDefinition,
+				KubernetesWorkloadInstance: workloadInstance,
+				HelmWorkloadInstance:       helmWorkloadInstance,
+				KubernetesRuntimeInstance:  kubernetesRuntimeInstance,
+				Age:                        util.Ptr(util.GetAgeFormatted(secretInstance.CreatedAt)),
 			},
 		}
 		secretInstanceConfigs = append(secretInstanceConfigs, secretInstanceConfig)
@@ -164,7 +164,7 @@ func (s *SecretInstanceConfig) Create(
 		SecretDefinitionID:          secretDefinition.ID,
 	}
 
-	// get kubernetes workload instance
+	// get workload instance
 	switch {
 	case secretInstanceValues.KubernetesWorkloadInstance != nil:
 		workloadInstance, err := client_v0.GetKubernetesWorkloadInstanceByName(
@@ -173,7 +173,7 @@ func (s *SecretInstanceConfig) Create(
 			*secretInstanceValues.KubernetesWorkloadInstance.Name,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get kubernetes workload instance by name: %w", err)
+			return nil, fmt.Errorf("failed to get workload instance by name: %w", err)
 		}
 		secretInstance.KubernetesWorkloadInstanceID = workloadInstance.ID
 	case secretInstanceValues.HelmWorkloadInstance != nil:
@@ -201,12 +201,12 @@ func (s *SecretInstanceConfig) Create(
 	// construct secret instance config
 	createdSecretInstanceConfig := &SecretInstanceConfig{
 		SecretInstance: SecretInstanceValues{
-			Name:                      createdSecretInstance.Name,
-			SecretDefinition:          secretInstanceValues.SecretDefinition,
-			KubernetesWorkloadInstance:          secretInstanceValues.KubernetesWorkloadInstance,
-			HelmWorkloadInstance:      secretInstanceValues.HelmWorkloadInstance,
-			KubernetesRuntimeInstance: secretInstanceValues.KubernetesRuntimeInstance,
-			Age:                       util.Ptr(util.GetAgeFormatted(createdSecretInstance.CreatedAt)),
+			Name:                       createdSecretInstance.Name,
+			SecretDefinition:           secretInstanceValues.SecretDefinition,
+			KubernetesWorkloadInstance: secretInstanceValues.KubernetesWorkloadInstance,
+			HelmWorkloadInstance:       secretInstanceValues.HelmWorkloadInstance,
+			KubernetesRuntimeInstance:  secretInstanceValues.KubernetesRuntimeInstance,
+			Age:                        util.Ptr(util.GetAgeFormatted(createdSecretInstance.CreatedAt)),
 		},
 	}
 
@@ -277,7 +277,7 @@ func (s *SecretInstanceConfig) Replace(
 		SecretDefinitionID:          secretDefinition.ID,
 	}
 
-	// get kubernetes workload instance
+	// get workload instance
 	switch {
 	case secretInstanceValues.KubernetesWorkloadInstance != nil:
 		workloadInstance, err := client_v0.GetKubernetesWorkloadInstanceByName(
@@ -286,7 +286,7 @@ func (s *SecretInstanceConfig) Replace(
 			*secretInstanceValues.KubernetesWorkloadInstance.Name,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get kubernetes workload instance by name: %w", err)
+			return nil, fmt.Errorf("failed to get workload instance by name: %w", err)
 		}
 		updatedSecretInstance.KubernetesWorkloadInstanceID = workloadInstance.ID
 	case secretInstanceValues.HelmWorkloadInstance != nil:
@@ -314,12 +314,12 @@ func (s *SecretInstanceConfig) Replace(
 	// construct updated secret instance config
 	updatedSecretInstanceConfig := &SecretInstanceConfig{
 		SecretInstance: SecretInstanceValues{
-			Name:                      replacedSecretInstance.Name,
-			SecretDefinition:          secretInstanceValues.SecretDefinition,
-			KubernetesWorkloadInstance:          secretInstanceValues.KubernetesWorkloadInstance,
-			HelmWorkloadInstance:      secretInstanceValues.HelmWorkloadInstance,
-			KubernetesRuntimeInstance: secretInstanceValues.KubernetesRuntimeInstance,
-			Age:                       util.Ptr(util.GetAgeFormatted(replacedSecretInstance.CreatedAt)),
+			Name:                       replacedSecretInstance.Name,
+			SecretDefinition:           secretInstanceValues.SecretDefinition,
+			KubernetesWorkloadInstance: secretInstanceValues.KubernetesWorkloadInstance,
+			HelmWorkloadInstance:       secretInstanceValues.HelmWorkloadInstance,
+			KubernetesRuntimeInstance:  secretInstanceValues.KubernetesRuntimeInstance,
+			Age:                        util.Ptr(util.GetAgeFormatted(replacedSecretInstance.CreatedAt)),
 		},
 	}
 
@@ -385,7 +385,7 @@ func (s *SecretInstanceConfig) Validate() error {
 		multiError.AppendError(errors.New("missing required field in config: SecretDefinition"))
 	}
 
-	// ensure kubernetes workload instance or helm workload instance is set
+	// ensure workload instance or helm workload instance is set
 	if secretInstanceValues.KubernetesWorkloadInstance == nil && secretInstanceValues.HelmWorkloadInstance == nil {
 		multiError.AppendError(errors.New("missing required field in config: KubernetesWorkloadInstance or HelmWorkloadInstance"))
 	}

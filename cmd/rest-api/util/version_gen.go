@@ -10,7 +10,7 @@ import (
 
 // RestApiVersion provides the version of the REST API binary.
 type RestApiVersion struct {
-	Version string `json:"Version" validate:"required"`
+	Version string
 }
 
 // VersionRoute adds the /version route to the server to return the API

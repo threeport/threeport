@@ -15,7 +15,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"gopkg.in/yaml.v2"
+	yaml "sigs.k8s.io/yaml"
 	"gorm.io/datatypes"
 
 	util "github.com/threeport/threeport/pkg/util/v0"

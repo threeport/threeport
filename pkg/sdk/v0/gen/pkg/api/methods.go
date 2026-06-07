@@ -362,6 +362,41 @@ func GenApiObjectMethods(gen *sdkgen.Generator, sdkConfig *sdk.SdkConfig) error 
 						f.Line()
 					}
 				}
+
+				// PersistFalseFields method emitted for any type with at
+				// least one persist:"false"-tagged field
+				{
+					var persistFalseFields []string
+					if tagsForType, ok := typeToTags[apiObj.TypeName]; ok {
+						for fieldName, tagMap := range tagsForType {
+							if tagMap[string(lib.PersistTag)] != lib.PersistFalse {
+								continue
+							}
+							persistFalseFields = append(persistFalseFields, fieldName)
+						}
+						sort.Strings(persistFalseFields)
+					}
+					if len(persistFalseFields) > 0 {
+						receiver := strings.ToLower(string(apiObj.TypeName[0]))
+						persistFalseFieldType := Qual("github.com/threeport/threeport/pkg/api/lib/v0", "PersistFalseField")
+						f.Comment(fmt.Sprintf(
+							"PersistFalseFields returns the persist:\"false\"-tagged fields on %s.",
+							apiObj.TypeName,
+						))
+						f.Func().Params(
+							Id(receiver).Op("*").Id(apiObj.TypeName),
+						).Id("PersistFalseFields").Params().Index().Add(persistFalseFieldType).BlockFunc(func(g *Group) {
+							g.Return().Index().Add(persistFalseFieldType).ValuesFunc(func(vg *Group) {
+								for _, fieldName := range persistFalseFields {
+									vg.Values(Dict{
+										Id("Name"): Lit(fieldName),
+									})
+								}
+							})
+						})
+						f.Line()
+					}
+				}
 			}
 
 			// write code to file if not excluded by SDK config

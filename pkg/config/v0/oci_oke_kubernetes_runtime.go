@@ -14,19 +14,19 @@ import (
 // This abstraction allows users to manage definitions and instances together with single operations
 // rather than separate operations for each API object.
 type OciOkeKubernetesRuntimeConfig struct {
-	OciOkeKubernetesRuntime OciOkeKubernetesRuntimeValues `yaml:"OciOkeKubernetesRuntime"`
+	OciOkeKubernetesRuntime OciOkeKubernetesRuntimeValues
 }
 
 // OciOkeKubernetesRuntimeValues contains all the attributes needed to manage the
 // OciOkeKubernetesRuntimeDefinition and OciOkeKubernetesRuntimeInstance API objects
 // together with a single operation.
 type OciOkeKubernetesRuntimeValues struct {
-	Name                   *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	OciProviderName        *string `json:"OciProviderName,omitempty" yaml:"OciProviderName,omitempty"`
-	WorkerNodeShape        *string `json:"WorkerNodeShape,omitempty" yaml:"WorkerNodeShape,omitempty"`
-	WorkerNodeInitialCount *int    `json:"WorkerNodeInitialCount,omitempty" yaml:"WorkerNodeInitialCount,omitempty"`
-	Region                 *string `json:"Region,omitempty" yaml:"Region,omitempty"`
-	Age                    *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                   *string `json:",omitempty"`
+	OciProviderName        *string `json:",omitempty"`
+	WorkerNodeShape        *string `json:",omitempty"`
+	WorkerNodeInitialCount *int    `json:",omitempty"`
+	Region                 *string `json:",omitempty"`
+	Age                    *string `json:",omitempty"`
 }
 
 // Get gets a oci oke kubernetes runtime definition and instance from the Threeport API.

@@ -62,6 +62,7 @@ nav:
   - SDK:
     - 'SDK Introduction': 'sdk/sdk-intro.md'
     - 'SDK Install': 'sdk/install.md'
+    - 'API Object Struct Tags': 'sdk/struct-tags.md'
     - 'SDK Tutorial': 'sdk/tutorial.md'
     #- 'Workload Abstraction': 'sdk/workload-abstraction.md'
     #- 'Config Tool Abstraction': 'sdk/config-abstraction.md'

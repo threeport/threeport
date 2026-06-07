@@ -16,15 +16,15 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type ModuleApiRouteConfig struct {
-	ModuleApiRoute ModuleApiRouteValues `yaml:"ModuleApiRoute"`
+	ModuleApiRoute ModuleApiRouteValues
 }
 
 // ModuleApiRouteValues contains all the attributes needed to manage
 // the ModuleApiRoute API object.
 type ModuleApiRouteValues struct {
-	Path      *string          `json:"Path,omitempty" yaml:"Path,omitempty"`
-	ModuleApi *ModuleApiValues `json:"ModuleApi,omitempty" yaml:"ModuleApi,omitempty"`
-	Age       *string          `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Path      *string          `json:",omitempty"`
+	ModuleApi *ModuleApiValues `json:",omitempty"`
+	Age       *string          `json:",omitempty"`
 }
 
 // Get gets module api routes from the Threeport API.

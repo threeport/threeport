@@ -17,18 +17,18 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type MachineWorkloadInstanceConfig struct {
-	MachineWorkloadInstance MachineWorkloadInstanceValues `yaml:"MachineWorkloadInstance"`
+	MachineWorkloadInstance MachineWorkloadInstanceValues
 }
 
 // MachineWorkloadInstanceValues contains all the attributes needed to manage
 // the MachineWorkloadInstance API object.
 type MachineWorkloadInstanceValues struct {
-	Name                      *string                          `json:"Name,omitempty" yaml:"Name,omitempty"`
-	MachineWorkloadDefinition *MachineWorkloadDefinitionValues `json:"MachineWorkloadDefinition,omitempty" yaml:"MachineWorkloadDefinition,omitempty"`
-	MachineRuntimeInstance    *MachineRuntimeInstanceValues    `json:"MachineRuntimeInstance,omitempty" yaml:"MachineRuntimeInstance,omitempty"`
-	Env                       []string                         `json:"Env,omitempty" yaml:"Env,omitempty"`
-	Status                    *string                          `json:"Status,omitempty" yaml:"Status,omitempty"`
-	Age                       *string                          `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                      *string                          `json:",omitempty"`
+	MachineWorkloadDefinition *MachineWorkloadDefinitionValues `json:",omitempty"`
+	MachineRuntimeInstance    *MachineRuntimeInstanceValues    `json:",omitempty"`
+	Env                       []string                         `json:",omitempty"`
+	Status                    *string                          `json:",omitempty"`
+	Age                       *string                          `json:",omitempty"`
 }
 
 // Get gets machine workload instances from the Threeport API.

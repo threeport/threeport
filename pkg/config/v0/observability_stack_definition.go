@@ -17,23 +17,23 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type ObservabilityStackDefinitionConfig struct {
-	ObservabilityStackDefinition ObservabilityStackDefinitionValues `yaml:"ObservabilityStackDefinition"`
+	ObservabilityStackDefinition ObservabilityStackDefinitionValues
 }
 
 // ObservabilityStackDefinitionValues contains all the attributes needed to manage
 // the ObservabilityStackDefinition API object.
 type ObservabilityStackDefinitionValues struct {
-	Name                                  *string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	GrafanaHelmValues                     *string `json:"GrafanaHelmValues,omitempty" yaml:"GrafanaHelmValues,omitempty"`
-	GrafanaHelmValuesDocument             *string `json:"GrafanaHelmValuesDocument,omitempty" yaml:"GrafanaHelmValuesDocument,omitempty"`
-	LokiHelmValues                        *string `json:"LokiHelmValues,omitempty" yaml:"LokiHelmValues,omitempty"`
-	LokiHelmValuesDocument                *string `json:"LokiHelmValuesDocument,omitempty" yaml:"LokiHelmValuesDocument,omitempty"`
-	PromtailHelmValues                    *string `json:"PromtailHelmValues,omitempty" yaml:"PromtailHelmValues,omitempty"`
-	PromtailHelmValuesDocument            *string `json:"PromtailHelmValuesDocument,omitempty" yaml:"PromtailHelmValuesDocument,omitempty"`
-	KubePrometheusStackHelmValues         *string `json:"KubePrometheusStackHelmValues,omitempty" yaml:"KubePrometheusStackHelmValues,omitempty"`
-	KubePrometheusStackHelmValuesDocument *string `json:"KubePrometheusStackHelmValuesDocument,omitempty" yaml:"KubePrometheusStackHelmValuesDocument,omitempty"`
-	ObservabilityConfigPath               *string `json:"ObservabilityConfigPath,omitempty" yaml:"ObservabilityConfigPath,omitempty"`
-	Age                                   *string `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name                                  *string `json:",omitempty"`
+	GrafanaHelmValues                     *string `json:",omitempty"`
+	GrafanaHelmValuesDocument             *string `json:",omitempty"`
+	LokiHelmValues                        *string `json:",omitempty"`
+	LokiHelmValuesDocument                *string `json:",omitempty"`
+	PromtailHelmValues                    *string `json:",omitempty"`
+	PromtailHelmValuesDocument            *string `json:",omitempty"`
+	KubePrometheusStackHelmValues         *string `json:",omitempty"`
+	KubePrometheusStackHelmValuesDocument *string `json:",omitempty"`
+	ObservabilityConfigPath               *string `json:",omitempty"`
+	Age                                   *string `json:",omitempty"`
 }
 
 // Get gets observability stack definitions from the Threeport API.

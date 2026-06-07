@@ -60,12 +60,18 @@ func createNewApiFile(
 				Qual(
 					"github.com/threeport/threeport/pkg/api/v0",
 					"Common",
-				).Tag(map[string]string{"swaggerignore": "true", "mapstructure": ",squash"}),
+				).Add(util.Tag(
+					[2]string{"swaggerignore", "true"},
+					[2]string{"mapstructure", ",squash"},
+				)),
 			)
 		} else {
 			structFields = append(
 				structFields,
-				Id("Common").Tag(map[string]string{"swaggerignore": "true", "mapstructure": ",squash"}),
+				Id("Common").Add(util.Tag(
+					[2]string{"swaggerignore", "true"},
+					[2]string{"mapstructure", ",squash"},
+				)),
 			)
 		}
 
@@ -77,12 +83,16 @@ func createNewApiFile(
 					Qual(
 						"github.com/threeport/threeport/pkg/api/v0",
 						"Reconciliation",
-					).Tag(map[string]string{"mapstructure": ",squash"}),
+					).Add(util.Tag(
+						[2]string{"mapstructure", ",squash"},
+					)),
 				)
 			} else {
 				structFields = append(
 					structFields,
-					Id("Reconciliation").Tag(map[string]string{"mapstructure": ",squash"}),
+					Id("Reconciliation").Add(util.Tag(
+						[2]string{"mapstructure", ",squash"},
+					)),
 				)
 			}
 		}
@@ -103,12 +113,16 @@ func createNewApiFile(
 					Qual(
 						"github.com/threeport/threeport/pkg/api/v0",
 						"Instance",
-					).Tag(map[string]string{"mapstructure": ",squash"}),
+					).Add(util.Tag(
+						[2]string{"mapstructure", ",squash"},
+					)),
 				)
 			} else {
 				structFields = append(
 					structFields,
-					Id("Instance").Tag(map[string]string{"mapstructure": ",squash"}),
+					Id("Instance").Add(util.Tag(
+						[2]string{"mapstructure", ",squash"},
+					)),
 				)
 			}
 			// add field for foreign key to definition
@@ -116,17 +130,14 @@ func createNewApiFile(
 				structFields,
 				Id(
 					fmt.Sprintf("%sID", definitionName),
-				).Op("*").Uint().Tag(map[string]string{
-					"json": fmt.Sprintf(
+				).Op("*").Uint().Add(util.Tag(
+					[2]string{"json", fmt.Sprintf(
 						"%sID,omitempty",
 						definitionName,
-					),
-					"query": fmt.Sprintf(
-						"%sid", strings.ToLower(definitionName),
-					),
-					"gorm":     "not null",
-					"validate": "required",
-				}),
+					)},
+					[2]string{"validate", "required"},
+					[2]string{"gorm", "not null"},
+				)),
 			)
 		case definedInstance && strings.HasSuffix(*obj.Name, "Definition"):
 			// add Definition field
@@ -136,12 +147,16 @@ func createNewApiFile(
 					Qual(
 						"github.com/threeport/threeport/pkg/api/v0",
 						"Definition",
-					).Tag(map[string]string{"mapstructure": ",squash"}),
+					).Add(util.Tag(
+						[2]string{"mapstructure", ",squash"},
+					)),
 				)
 			} else {
 				structFields = append(
 					structFields,
-					Id("Definition").Tag(map[string]string{"mapstructure": ",squash"}),
+					Id("Definition").Add(util.Tag(
+						[2]string{"mapstructure", ",squash"},
+					)),
 				)
 			}
 			// add field for associated instances
@@ -151,13 +166,13 @@ func createNewApiFile(
 					pluralize.Pluralize(instanceName, 2, false),
 				).Index().Op("*").Id(
 					instanceName,
-				).Tag(map[string]string{
-					"json": fmt.Sprintf(
+				).Add(util.Tag(
+					[2]string{"json", fmt.Sprintf(
 						"%s,omitempty",
 						pluralize.Pluralize(instanceName, 2, false),
-					),
-					"validate": "optional,association",
-				}),
+					)},
+					[2]string{"validate", "optional,association"},
+				)),
 			)
 		}
 

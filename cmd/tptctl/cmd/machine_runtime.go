@@ -8,7 +8,7 @@ import (
 	cobra "github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	config_v0 "github.com/threeport/threeport/pkg/config/v0"
-	yaml "gopkg.in/yaml.v2"
+	yaml "sigs.k8s.io/yaml"
 	"os"
 )
 

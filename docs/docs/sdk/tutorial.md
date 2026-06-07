@@ -83,14 +83,14 @@ type WordpressDefinition struct {
 	tpapi_v0.Common         `mapstructure:",squash" swaggerignore:"true"`
 	tpapi_v0.Reconciliation `mapstructure:",squash"`
 	tpapi_v0.Definition     `mapstructure:",squash"`
-	WordpressInstances      []*WordpressInstance `json:"WordpressInstances,omitempty" validate:"optional,association"`
+	WordpressInstances      []*WordpressInstance `json:",omitempty" validate:"optional,association"`
 }
 
 type WordpressInstance struct {
 	tpapi_v0.Common         `mapstructure:",squash" swaggerignore:"true"`
 	tpapi_v0.Reconciliation `mapstructure:",squash"`
 	tpapi_v0.Instance       `mapstructure:",squash"`
-	WordpressDefinitionID   *uint `gorm:"not null" json:"WordpressDefinitionID,omitempty" query:"wordpressdefinitionid" validate:"required"`
+	WordpressDefinitionID   *uint `json:",omitempty" validate:"required" gorm:"not null"`
 }
 ```
 
@@ -115,17 +115,17 @@ type WordpressDefinition struct {
 
 	// The environment type used to determine config settings for a wordpress
 	// definition.
-	Environment *string `json:"Environment,omitempty" query:"environment" gorm:"default:dev" validate:"optional"`
+	Environment *string `json:",omitempty" validate:"optional" gorm:"default:dev"`
 
 	// The number of pod replicas to deploy for the WordPress app
-	Replicas *int `json:"Replicas,omitempty" query:"replicas" validate:"optional"`
+	Replicas *int `json:",omitempty" validate:"optional"`
 
 	// If true, a cloud provider's managed database will be used for the
 	// WordPress DB.  If false, a containerized database will be deployed to
 	// Kubernetes.
-	ManagedDatabase *bool `json:"ManagedDatabase,omitempty" query:"manageddatabase" gorm:"default:false" validate:"optional"`
+	ManagedDatabase *bool `json:",omitempty" validate:"optional" gorm:"default:false"`
 
-	WordpressInstances []*WordpressInstance `json:"WordpressInstances,omitempty" validate:"optional,association"`
+	WordpressInstances []*WordpressInstance `json:",omitempty" validate:"optional,association"`
 }
 
 type WordpressInstance struct {
@@ -135,9 +135,9 @@ type WordpressInstance struct {
 
 	// When using a DomainName, the subdomain to use to reach the WordPress
 	// instance.
-	SubDomain *string `jaon:"SubDomain,omitempty" query:"subdomain" validate:"optional"`
+	SubDomain *string `json:",omitempty" validate:"optional"`
 
-	WordpressDefinitionID *uint `gorm:"not null" json:"WordpressDefinitionID,omitempty" query:"wordpressdefinitionid" validate:"required"`
+	WordpressDefinitionID *uint `json:",omitempty" validate:"required" gorm:"not null"`
 }
 ```
 

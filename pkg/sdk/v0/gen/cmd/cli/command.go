@@ -40,7 +40,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		// commandCode contains the standard tptctl commands for a threeport object
 		commandCode := NewFile("cmd")
 		commandCode.HeaderComment(sdk.HeaderCommentGenMod)
-		commandCode.ImportAlias("gopkg.in/yaml.v2", "yaml")
+		commandCode.ImportAlias("sigs.k8s.io/yaml", "yaml")
 		commandCode.ImportAlias("github.com/ghodss/yaml", "ghodss_yaml")
 		commandCode.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
 		commandCode.ImportAlias("github.com/threeport/threeport/pkg/encryption/v0", "encryption")
@@ -234,7 +234,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 													Lit("failed to read config"), Err()),
 												Qual("os", "Exit").Call(Lit(1)),
 											),
-											If(Err().Op(":=").Qual("gopkg.in/yaml.v2", "UnmarshalStrict").Call(
+											If(Err().Op(":=").Qual("sigs.k8s.io/yaml", "UnmarshalStrict").Call(
 												Id("configContent"), Op("&").Id(fmt.Sprintf("%sConfig", rootObjectVar)),
 											), Err().Op("!=").Nil()).Block(
 												Qual("github.com/threeport/threeport/pkg/cli/v0", "Error").Call(
@@ -469,7 +469,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											objectConfigObj,
 										),
 										If(Err().Op(":=").Qual(
-											"gopkg.in/yaml.v2",
+											"sigs.k8s.io/yaml",
 											"UnmarshalStrict",
 										).Call(Id("configContent"), Op("&").Id(rootObjectConfigVar)), Err().Op("!=").Nil()).Block(
 											Qual(
@@ -682,7 +682,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											objectConfigObj,
 										),
 										If(Err().Op(":=").Qual(
-											"gopkg.in/yaml.v2",
+											"sigs.k8s.io/yaml",
 											"UnmarshalStrict",
 										).Call(Id("configContent"), Op("&").Id(rootObjectConfigVar)), Err().Op("!=").Nil()).Block(
 											Qual(
@@ -898,7 +898,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 												Lit("failed to read config"), Err()),
 											Qual("os", "Exit").Call(Lit(1)),
 										),
-										If(Err().Op(":=").Qual("gopkg.in/yaml.v2", "UnmarshalStrict").Call(
+										If(Err().Op(":=").Qual("sigs.k8s.io/yaml", "UnmarshalStrict").Call(
 											Id("configContent"), Op("&").Id(fmt.Sprintf("%sConfig", objectVar)),
 										), Err().Op("!=").Nil()).Block(
 											Qual("github.com/threeport/threeport/pkg/cli/v0", "Error").Call(
@@ -1154,7 +1154,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										objectConfigObj,
 									),
 									If(Err().Op(":=").Qual(
-										"gopkg.in/yaml.v2",
+										"sigs.k8s.io/yaml",
 										"UnmarshalStrict",
 									).Call(Id("configContent"), Op("&").Id(objectConfigVar)), Err().Op("!=").Nil()).Block(
 										Qual(
@@ -1326,7 +1326,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										Qual("os", "Exit").Call(Lit(1)),
 									),
 									If(Err().Op(":=").Qual(
-										"gopkg.in/yaml.v2",
+										"sigs.k8s.io/yaml",
 										"UnmarshalStrict",
 									).Call(
 										Id("configContent"),
@@ -1531,7 +1531,7 @@ func GenCliCommands(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											Qual("os", "Exit").Call(Lit(1)),
 										),
 										If(Err().Op(":=").Qual(
-											"gopkg.in/yaml.v2",
+											"sigs.k8s.io/yaml",
 											"UnmarshalStrict",
 										).Call(
 											Id("configContent"),

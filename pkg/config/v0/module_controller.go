@@ -16,16 +16,16 @@ import (
 // and remove the need for users to interract with API object details such as unique IDs
 // and foreign keys.
 type ModuleControllerConfig struct {
-	ModuleController ModuleControllerValues `yaml:"ModuleController"`
+	ModuleController ModuleControllerValues
 }
 
 // ModuleControllerValues contains all the attributes needed to manage
 // the ModuleController API object.
 type ModuleControllerValues struct {
 	// TODO: add config abstraction fields needed for user to manage a ModuleController
-	Name      *string          `json:"Name,omitempty" yaml:"Name,omitempty"`
-	ModuleApi *ModuleApiValues `json:"ModuleApi,omitempty" yaml:"ModuleApi,omitempty"`
-	Age       *string          `json:"Age,omitempty" yaml:"Age,omitempty"`
+	Name      *string          `json:",omitempty"`
+	ModuleApi *ModuleApiValues `json:",omitempty"`
+	Age       *string          `json:",omitempty"`
 }
 
 // Get gets module controllers from the Threeport API.

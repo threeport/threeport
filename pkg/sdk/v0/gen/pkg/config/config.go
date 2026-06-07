@@ -78,7 +78,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					f.Comment("This abstraction allows users to manage definitions and instances together with single operations")
 					f.Comment("rather than separate operations for each API object.")
 					f.Type().Id(defInstConfigObjectName).Struct(
-						Id(defInstObject).Id(defInstValuesObjectName).Tag(map[string]string{"yaml": defInstObject}),
+						Id(defInstObject).Id(defInstValuesObjectName),
 					)
 					f.Line()
 
@@ -98,8 +98,8 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							defObject,
 							instObject,
 						),
-						Id("Name").Op("*").String().Tag(map[string]string{"yaml": "Name,omitempty", "json": "Name,omitempty"}),
-						Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age,omitempty", "json": "Age,omitempty"}),
+						Id("Name").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
+						Id("Age").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
 					)
 					f.Line()
 
@@ -697,7 +697,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					f.Comment("and remove the need for users to interract with API object details such as unique IDs")
 					f.Comment("and foreign keys.")
 					f.Type().Id(configObjectName).Struct(
-						Id(apiObject.TypeName).Id(valuesObjectName).Tag(map[string]string{"yaml": apiObject.TypeName}),
+						Id(apiObject.TypeName).Id(valuesObjectName),
 					)
 					f.Line()
 
@@ -710,28 +710,28 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						if apiObject.DefinedInstanceInstance {
 							f.Type().Id(valuesObjectName).Struct(
 								Comment(configFieldTodoComment),
-								Id("Name").Op("*").String().Tag(map[string]string{"yaml": "Name,omitempty", "json": "Name,omitempty"}),
-								Id(defObject).Op("*").Id(defValuesObject).Tag(map[string]string{"yaml": defObject + ",omitempty", "json": defObject + ",omitempty"}),
-								Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age,omitempty", "json": "Age,omitempty"}),
+								Id("Name").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
+								Id(defObject).Op("*").Id(defValuesObject).Tag(map[string]string{"json": ",omitempty"}),
+								Id("Age").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
 							)
 						} else {
 							f.Type().Id(valuesObjectName).Struct(
 								Comment(configFieldTodoComment),
-								Id("Name").Op("*").String().Tag(map[string]string{"yaml": "Name,omitempty", "json": "Name,omitempty"}),
-								Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age,omitempty", "json": "Age,omitempty"}),
+								Id("Name").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
+								Id("Age").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
 							)
 						}
 					} else {
 						if apiObject.DefinedInstanceInstance {
 							f.Type().Id(valuesObjectName).Struct(
 								Comment(configFieldTodoComment),
-								Id(defObject).Op("*").Id(defValuesObject).Tag(map[string]string{"yaml": defObject + ",omitempty", "json": defObject + ",omitempty"}),
-								Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age,omitempty", "json": "Age,omitempty"}),
+								Id(defObject).Op("*").Id(defValuesObject).Tag(map[string]string{"json": ",omitempty"}),
+								Id("Age").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
 							)
 						} else {
 							f.Type().Id(valuesObjectName).Struct(
 								Comment(configFieldTodoComment),
-								Id("Age").Op("*").String().Tag(map[string]string{"yaml": "Age,omitempty", "json": "Age,omitempty"}),
+								Id("Age").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
 							)
 						}
 					}
