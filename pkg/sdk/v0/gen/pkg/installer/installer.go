@@ -284,7 +284,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 				Id("x509CaCert"),
 				Id("rsaCaKey"),
 				Lit(fmt.Sprintf("%s-threeport-module", moduleNameKebab)),
-				Qual("github.com/threeport/threeport/pkg/api/lib/v0", "CoreApiNamespace"),
+				Lit(sdkConfig.ApiNamespace),
 				Qual("github.com/threeport/threeport/pkg/auth/v0", "OUControlPlane"),
 			),
 			If(Err().Op("!=").Nil()).Block(
