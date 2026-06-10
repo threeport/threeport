@@ -17,7 +17,7 @@ greater up-front engineering investment from the platform engineering team which
 is why using this approach is optimal for sophisticated, revenue generating
 applications.
 
-![Threeport for Platform Engineers](../img/ThreeportForPlatformEngineers.png)
+![Threeport for Platform Engineers](../img/ThreeportForPlatformEngineers.drawio.svg)
 
 The process for optimizing application delivery with platform engineering looks
 something like this:
@@ -55,7 +55,7 @@ instance uses a small number of runtime parameters and references the definition
 to spin up the resources required.  Learn more about definitions and instances
 in the [Concepts section](definitions-instances.md).
 
-![Threeport for DevOps](../img/ThreeportForDevOps.png)
+![Threeport for DevOps](../img/ThreeportForDevOps.drawio.svg)
 
 DevOps supports developers as follows:
 
@@ -81,7 +81,7 @@ DevOps supports developers as follows:
 Threeport allows developers to deliver the apps they build to cloud native
 environments.
 
-![Threeport for Devs](../img/ThreeportForDevs.png)
+![Threeport for Devs](../img/ThreeportForDevs.drawio.svg)
 
 Following is a common scenario for a developer workflow using Threeport:
 
