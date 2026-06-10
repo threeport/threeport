@@ -18,8 +18,23 @@ tag.
 Prerequisistes:
 
 * [python 3](https://docs.python-guide.org/starting/installation/)
-* [mkdocs](https://www.mkdocs.org/getting-started/#installation)
-* [mkdocs-material theme](https://squidfunk.github.io/mkdocs-material/getting-started/#installation)
+* [pip](https://pypi.org/project/pip/)
+* [virtualenv](https://virtualenv.pypa.io/en/latest/index.html)
+
+Run all the following commands from this `docs/` directory.
+
+Create virtual environment and activate:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Install python requirements:
+
+```bash
+pip install -r requirements.txt
+```
 
 Run the server locally:
 
@@ -28,4 +43,10 @@ mkdocs serve
 ```
 
 View the site at [http://127.0.0.1:8000](http://127.0.0.1:8000/)
+
+## Diagrams
+
+For consistency, use draw.io for all diagrams in user documentation. Add each diagram as an svg file with the extension `.drawio.svg`. This allows diagrams to be updated using the same draw.io tool.
+
+> Note: if using the `hediet.vscode-drawio` vscode extension, create and modify the diagrams in light mode. If you use darkmode, the diagrams will lose all color when viewed on the docs site in light mode.
 
