@@ -19,7 +19,6 @@ Prerequisistes:
 
 * [python 3](https://docs.python-guide.org/starting/installation/)
 * [pip](https://pypi.org/project/pip/)
-* [virtualenv](https://virtualenv.pypa.io/en/latest/index.html)
 
 Run all the following commands from this `docs/` directory.
 
