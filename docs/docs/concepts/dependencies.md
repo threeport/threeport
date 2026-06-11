@@ -29,7 +29,7 @@ staging or production. The user provides a config for their app that declares
 its dependencies.  Threeport orchestrates the delivery of the application
 workloads along with all their dependencies.
 
-![Threeport Developer Experience](../img/ThreeportDevExperience.png)
+![Threeport Developer Experience](../img/ThreeportDevExperience.drawio.svg)
 
 ## Next Steps
 
