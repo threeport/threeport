@@ -18,7 +18,7 @@ Note: The Kubernetes Engine API must be enabled in your GCP project.
 ## Install Threeport
 
 > Requirement: You need to have the [Pulumi CLI](https://www.pulumi.com/docs/install/)
-  installed locally when using `tptctl` to install Threeport on GCP.
+> installed locally when using `tptctl` to install Threeport on GCP.
 
 This section assumes you have a Google Cloud project and credentials configured
 on your local machine. Follow Google Cloud’s

@@ -16,7 +16,7 @@ our [Install tptctl guide](install-tptctl.md) to install if you haven't already.
 ## Install Threeport
 
 > Requirement: You need to have the [Pulumi CLI](https://www.pulumi.com/docs/install/)
-  installed locally when using `tptctl` to install Threeport on OCI.
+> installed locally when using `tptctl` to install Threeport on OCI.
 
 This section assumes you have an Oracle Cloud Infrastructure tenancy and the
 [OCI CLI](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/cliconcepts.htm)
