@@ -40,7 +40,9 @@ func (m *MachineRuntimeDefinition) beforeDelete(tx *gorm.DB) error {
 // beforeCreate validates the MachineRuntimeInstance before create.
 //
 // Why: at least one of SSHKey or SSHPassword must be provided so the
-// reconciler has a credential to authenticate with the machine.
+// reconciler has a credential to authenticate with the machine.  When an
+// infra provider is set, a region is also required because no provider can
+// provision a machine without one; imported machines leave both unset.
 func (m *MachineRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 	if m.SSHKey == nil && m.SSHPassword == nil {
 		return util.NewBadRequestError(
@@ -49,6 +51,16 @@ func (m *MachineRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 				*m.Name,
 			),
 		)
+	}
+	if m.InfraProvider != nil && *m.InfraProvider != "" {
+		if m.Region == nil || *m.Region == "" {
+			return util.NewBadRequestError(
+				fmt.Sprintf(
+					"machine runtime instance %s sets an infra provider and must also set a region",
+					*m.Name,
+				),
+			)
+		}
 	}
 	return nil
 }
@@ -66,7 +78,34 @@ func (m *MachineRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+// The provisioning identity fields are immutable: they cannot be changed
+// once the row exists with a value, and cannot be introduced post-create
+// either.  Changing them after creation would orphan the provisioned
+// resources, and introducing a provider on an existing machine belongs to
+// a new instance, not an update.  Create is therefore the only place the
+// provider/region pairing is validated.
 func (m *MachineRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
+	immutableFields := []struct {
+		column string
+		name   string
+	}{
+		{"InfraProvider", "infra provider"},
+		{"Region", "region"},
+		{"MachineType", "machine type"},
+		{"ImageID", "image id"},
+		{"NetworkID", "network id"},
+	}
+	for _, field := range immutableFields {
+		if tx.Statement.Changed(field.column) {
+			return util.NewBadRequestError(
+				fmt.Sprintf(
+					"machine runtime instance %s cannot be changed after creation",
+					field.name,
+				),
+			)
+		}
+	}
 	return nil
 }
 
