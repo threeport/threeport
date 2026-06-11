@@ -10,10 +10,13 @@ install method is useful for testing Threeport on a remote cloud provider.
 If you would prefer to test out Threeport locally, see our guide to [Install
 Threeport Locally](install-threeport-local.md).
 
-Note: this guide requires you have our tptctl command line tool installed. See
+Note: this guide requires you to have our tptctl command-line tool installed. See
 our [Install tptctl guide](install-tptctl.md) to install if you haven't already.
 
 ## Install Threeport
+
+> Requirement: You need to have the [Pulumi CLI](https://www.pulumi.com/docs/install/)
+  installed locally when using `tptctl` to install Threeport on OCI.
 
 This section assumes you have an Oracle Cloud Infrastructure tenancy and the
 [OCI CLI](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/cliconcepts.htm)
