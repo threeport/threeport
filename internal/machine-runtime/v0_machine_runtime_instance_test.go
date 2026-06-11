@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -578,4 +579,120 @@ func TestMachineRuntimeInstanceDeleted_Deprovisions(t *testing.T) {
 		assert.Equal(t, int64(0), delay)
 		assert.Empty(t, recorder.GetReasons(), "imported machines have nothing to deprovision")
 	})
+}
+
+// TestMachineRuntimeInstanceCreated_ConcurrentReconciles_NoRace runs many
+// Created reconciles for distinct MRIs concurrently against one SSH
+// server. Every reconcile must succeed and every recorder must hold
+// exactly its own SSHReachable event, proving no shared state bleeds
+// between concurrent reconciles. Run under -race.
+func TestMachineRuntimeInstanceCreated_ConcurrentReconciles_NoRace(t *testing.T) {
+	const n = 50
+	key := machinetest.NewEncryptionKey(t)
+	signer := machinetest.NewSigner(t)
+	addr, stop := machinetest.StartSSHServer(t, signer, "u", "p", machinetest.SSHOpts{ExitCode: 0})
+	defer stop()
+
+	api := machinetest.NewAPIStub(t)
+	log := logr.Discard()
+	hostKey := machinetest.HostKeyFromSigner(signer)
+
+	// build all inputs on the test goroutine; the require-based helpers
+	// are not safe to call from spawned goroutines
+	mris := make([]*v0.MachineRuntimeInstance, n)
+	recorders := make([]*machinetest.FakeRecorder, n)
+	for i := 0; i < n; i++ {
+		mris[i] = machinetest.NewMRIWithInfra(t, uint(1000+i), fmt.Sprintf("mri-conc-%d", i), addr, "u", "p", key, machinetest.MRIInfraOpts{
+			HostKey: hostKey,
+		})
+		recorders[i] = machinetest.NewFakeRecorder()
+	}
+
+	var wg sync.WaitGroup
+	delays := make([]int64, n)
+	errs := make([]error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			r := &controller.Reconciler{
+				APIClient:      api.Client,
+				APIServer:      api.Addr,
+				EncryptionKey:  key,
+				EventsRecorder: recorders[i],
+			}
+			delays[i], errs[i] = v0MachineRuntimeInstanceCreated(r, mris[i], &log)
+		}(i)
+	}
+	wg.Wait()
+
+	for i := 0; i < n; i++ {
+		require.NoError(t, errs[i], "reconcile %d", i)
+		assert.Equal(t, int64(0), delays[i], "reconcile %d", i)
+		assert.Equal(t, []string{"SSHReachable"}, recorders[i].GetReasons(), "reconcile %d", i)
+	}
+}
+
+// TestMachineRuntimeInstanceCreated_ManyConcurrent_NoConnLeak runs a wide
+// burst of concurrent reconciles against a connection-counting SSH server
+// and asserts every SSH connection is closed and goroutines settle back to
+// the pre-burst baseline after the burst drains. This proves the SSH path
+// closes connections and leaks no goroutines under width; it makes no
+// claim about provider-level concurrency limits. Run under -race.
+func TestMachineRuntimeInstanceCreated_ManyConcurrent_NoConnLeak(t *testing.T) {
+	const n = 200
+	key := machinetest.NewEncryptionKey(t)
+	signer := machinetest.NewSigner(t)
+	var openConns atomic.Int64
+	addr, stop := machinetest.StartSSHServer(t, signer, "u", "p", machinetest.SSHOpts{
+		ExitCode:  0,
+		OpenConns: &openConns,
+	})
+	defer stop()
+
+	api := machinetest.NewAPIStub(t)
+	log := logr.Discard()
+	hostKey := machinetest.HostKeyFromSigner(signer)
+
+	mris := make([]*v0.MachineRuntimeInstance, n)
+	recorders := make([]*machinetest.FakeRecorder, n)
+	for i := 0; i < n; i++ {
+		mris[i] = machinetest.NewMRIWithInfra(t, uint(2000+i), fmt.Sprintf("mri-leak-%d", i), addr, "u", "p", key, machinetest.MRIInfraOpts{
+			HostKey: hostKey,
+		})
+		recorders[i] = machinetest.NewFakeRecorder()
+	}
+
+	baseline := runtime.NumGoroutine()
+
+	var wg sync.WaitGroup
+	errs := make([]error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			r := &controller.Reconciler{
+				APIClient:      api.Client,
+				APIServer:      api.Addr,
+				EncryptionKey:  key,
+				EventsRecorder: recorders[i],
+			}
+			_, errs[i] = v0MachineRuntimeInstanceCreated(r, mris[i], &log)
+		}(i)
+	}
+	wg.Wait()
+
+	for i := 0; i < n; i++ {
+		require.NoError(t, errs[i], "reconcile %d", i)
+	}
+
+	// every ssh client must be closed after the burst drains
+	require.Eventually(t, func() bool {
+		return openConns.Load() == 0
+	}, 10*time.Second, 20*time.Millisecond, "open ssh connections must drain to zero")
+
+	// goroutines must settle back near the pre-burst baseline
+	require.Eventually(t, func() bool {
+		return runtime.NumGoroutine() <= baseline+10
+	}, 10*time.Second, 20*time.Millisecond, "goroutines must return to baseline after the burst")
 }
