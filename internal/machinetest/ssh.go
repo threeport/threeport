@@ -6,10 +6,12 @@ package machinetest
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/base64"
 	"errors"
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,6 +38,28 @@ type SSHOpts struct {
 	// HoldSession, when non-zero, holds the session open without replying
 	// past this duration. Used to drive timeout tests.
 	HoldSession time.Duration
+
+	// HoldHandshake, when non-zero, holds each accepted connection open
+	// for this duration before any SSH protocol bytes are exchanged, so a
+	// client's dial blocks as if the host were not responding. The hold
+	// ends early when the server stops. Used to drive connect timeout
+	// tests.
+	HoldHandshake time.Duration
+
+	// OpenConns, when non-nil, counts connections currently open on the
+	// server: incremented when a connection is accepted, decremented after
+	// it closes. Leak tests close their clients, wait for the count to
+	// drain to zero, and fail if it never does.
+	OpenConns *atomic.Int64
+}
+
+// HostKeyFromSigner returns the signer's public key encoded the same way
+// captured host keys are stored on a machine runtime instance: base64 of
+// the SSH wire-format public key bytes. Set the result as the instance's
+// known host key to make the client verify the server instead of capturing
+// its key.
+func HostKeyFromSigner(signer ssh.Signer) string {
+	return base64.StdEncoding.EncodeToString(signer.PublicKey().Marshal())
 }
 
 // StartSSHServer starts an in-process SSH server bound to 127.0.0.1 on a
@@ -73,10 +97,16 @@ func StartSSHServer(
 			if acceptErr != nil {
 				return
 			}
+			if opts.OpenConns != nil {
+				opts.OpenConns.Add(1)
+			}
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				serveSSHConn(conn, config, opts, stopped)
+				if opts.OpenConns != nil {
+					opts.OpenConns.Add(-1)
+				}
 			}()
 		}
 	}()
@@ -93,6 +123,15 @@ func StartSSHServer(
 // and process session channels per opts.
 func serveSSHConn(nConn net.Conn, config *ssh.ServerConfig, opts SSHOpts, stopped <-chan struct{}) {
 	defer nConn.Close()
+	// hold before sending any protocol bytes so the client's dial blocks
+	// until its own timeout fires; end the hold early on server stop
+	if opts.HoldHandshake > 0 {
+		select {
+		case <-time.After(opts.HoldHandshake):
+		case <-stopped:
+			return
+		}
+	}
 	_, chans, reqs, err := ssh.NewServerConn(nConn, config)
 	if err != nil {
 		return

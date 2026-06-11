@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
@@ -28,6 +29,60 @@ func encryptOrFail(t *testing.T, key, plaintext string) string {
 	ct, err := encryption.Encrypt(key, plaintext)
 	require.NoError(t, err)
 	return ct
+}
+
+// MRIInfraOpts carries the optional host key and infra provisioning fields
+// for NewMRIWithInfra. Zero-value fields are left unset on the instance.
+type MRIInfraOpts struct {
+	// HostKey, when non-empty, is set on the instance so GetClient runs in
+	// verification mode instead of capture mode. It must be base64 of the
+	// SSH wire-format public key, matching how captured host keys are
+	// stored; HostKeyFromSigner produces it from a test server's signer.
+	HostKey string
+
+	InfraProvider string
+	Region        string
+	MachineType   string
+	ImageID       string
+	NetworkID     string
+
+	// ResourceInventory is raw JSON stored on the instance.
+	ResourceInventory string
+}
+
+// NewMRIWithInfra builds a *v0.MachineRuntimeInstance like MRIFromAddr,
+// then sets any non-zero fields from opts.
+func NewMRIWithInfra(
+	t *testing.T,
+	id uint,
+	name, addr, user, password, key string,
+	opts MRIInfraOpts,
+) *v0.MachineRuntimeInstance {
+	t.Helper()
+	mri := MRIFromAddr(t, id, name, addr, user, password, key)
+	if opts.HostKey != "" {
+		mri.HostKey = util.Ptr(opts.HostKey)
+	}
+	if opts.InfraProvider != "" {
+		mri.InfraProvider = util.Ptr(opts.InfraProvider)
+	}
+	if opts.Region != "" {
+		mri.Region = util.Ptr(opts.Region)
+	}
+	if opts.MachineType != "" {
+		mri.MachineType = util.Ptr(opts.MachineType)
+	}
+	if opts.ImageID != "" {
+		mri.ImageID = util.Ptr(opts.ImageID)
+	}
+	if opts.NetworkID != "" {
+		mri.NetworkID = util.Ptr(opts.NetworkID)
+	}
+	if opts.ResourceInventory != "" {
+		inventory := datatypes.JSON([]byte(opts.ResourceInventory))
+		mri.ResourceInventory = &inventory
+	}
+	return mri
 }
 
 // MRIFromAddr builds a *v0.MachineRuntimeInstance pointing at addr (a

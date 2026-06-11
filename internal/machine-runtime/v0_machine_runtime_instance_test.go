@@ -1,18 +1,20 @@
 package machineruntime
 
 import (
-	"encoding/base64"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	logr "github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/ssh"
 
 	"github.com/threeport/threeport/internal/machinetest"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -32,7 +34,7 @@ func TestMachineRuntimeInstanceCreated_HappyPath(t *testing.T) {
 
 	// store the server's host key so the connect verifies rather than captures
 	mri := machinetest.MRIFromAddr(t, 42, "mri-happy", addr, "u", "p", key)
-	mri.HostKey = util.Ptr(hostKeyBase64(signer))
+	mri.HostKey = util.Ptr(machinetest.HostKeyFromSigner(signer))
 
 	api := machinetest.NewAPIStub(t)
 	recorder := machinetest.NewFakeRecorder()
@@ -157,7 +159,7 @@ func TestMachineRuntimeInstanceCreated_HostKeyMismatch(t *testing.T) {
 	// store a host key that does not match the server
 	wrongSigner := machinetest.NewSigner(t)
 	mri := machinetest.MRIFromAddr(t, 11, "mri-mismatch", addr, "u", "p", key)
-	mri.HostKey = util.Ptr(hostKeyBase64(wrongSigner))
+	mri.HostKey = util.Ptr(machinetest.HostKeyFromSigner(wrongSigner))
 
 	api := machinetest.NewAPIStub(t)
 	recorder := machinetest.NewFakeRecorder()
@@ -186,8 +188,394 @@ func TestMachineRuntimeInstanceCreated_HostKeyMismatch(t *testing.T) {
 	assert.Empty(t, recorder.GetReasons(), "failure path should not call RecordEvent directly; the wrapper substitutes the event")
 }
 
-// hostKeyBase64 returns the base64-encoded marshalled public key matching
-// buildHostKeyCallback's verification-mode encoding.
-func hostKeyBase64(signer interface{ PublicKey() ssh.PublicKey }) string {
-	return base64.StdEncoding.EncodeToString(signer.PublicKey().Marshal())
+// overrideRetryDelay shrinks the package retry delay for one test and
+// restores it on cleanup. Tests in this package run sequentially, so
+// mutating the package var is safe.
+func overrideRetryDelay(t *testing.T, seconds int64) {
+	t.Helper()
+	prev := sshRetryDelaySeconds
+	sshRetryDelaySeconds = seconds
+	t.Cleanup(func() { sshRetryDelaySeconds = prev })
+}
+
+// overrideSSHTimeout shrinks the package SSH operation timeout for one test
+// and restores it on cleanup.
+func overrideSSHTimeout(t *testing.T, d time.Duration) {
+	t.Helper()
+	prev := sshOperationTimeout
+	sshOperationTimeout = d
+	t.Cleanup(func() { sshOperationTimeout = prev })
+}
+
+// overrideReconcileContext swaps the package reconcile-context factory for
+// one test and restores it on cleanup.
+func overrideReconcileContext(t *testing.T, fn func() (context.Context, context.CancelFunc)) {
+	t.Helper()
+	prev := newReconcileContext
+	newReconcileContext = fn
+	t.Cleanup(func() { newReconcileContext = prev })
+}
+
+// registerPatchCounter registers a PATCH handler for the MRI with the given
+// id that counts calls and replies with a valid envelope, so tests can
+// assert exactly how many updates the reconciler persisted.
+func registerPatchCounter(t *testing.T, api *machinetest.APIStub, id uint) *int64 {
+	t.Helper()
+	var count int64
+	api.Mux.HandleFunc(fmt.Sprintf("%s/%d", v0.PathMachineRuntimeInstances, id), func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPatch, r.Method)
+		atomic.AddInt64(&count, 1)
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		var updated v0.MachineRuntimeInstance
+		require.NoError(t, json.Unmarshal(body, &updated))
+		updated.ID = util.Ptr(id)
+		machinetest.WriteResponse(t, w, http.StatusOK, []apiserver_lib.Object{updated})
+	})
+	return &count
+}
+
+// TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall proves a
+// re-reconcile of an MRI whose host key is already persisted does not PATCH
+// again. Leg one runs in capture mode (HostKey nil) and persists the key
+// with exactly one PATCH; leg two carries the server's real host key, so
+// GetClient runs in verification mode, the capture branch is skipped, and
+// no second PATCH lands.
+func TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall(t *testing.T) {
+	key := machinetest.NewEncryptionKey(t)
+	signer := machinetest.NewSigner(t)
+	addr, stop := machinetest.StartSSHServer(t, signer, "u", "p", machinetest.SSHOpts{ExitCode: 0})
+	defer stop()
+
+	api := machinetest.NewAPIStub(t)
+	patchCount := registerPatchCounter(t, api, 21)
+	log := logr.Discard()
+
+	first := machinetest.MRIFromAddr(t, 21, "mri-idem", addr, "u", "p", key)
+	firstRecorder := machinetest.NewFakeRecorder()
+	r := &controller.Reconciler{
+		APIClient:      api.Client,
+		APIServer:      api.Addr,
+		EncryptionKey:  key,
+		EventsRecorder: firstRecorder,
+	}
+
+	delay, err := v0MachineRuntimeInstanceCreated(r, first, &log)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), delay)
+	assert.Equal(t, []string{"HostKeyCaptured", "SSHReachable"}, firstRecorder.GetReasons())
+	require.Equal(t, int64(1), atomic.LoadInt64(patchCount), "first reconcile persists the captured host key with one PATCH")
+
+	second := machinetest.NewMRIWithInfra(t, 21, "mri-idem", addr, "u", "p", key, machinetest.MRIInfraOpts{
+		HostKey: machinetest.HostKeyFromSigner(signer),
+	})
+	secondRecorder := machinetest.NewFakeRecorder()
+	r.EventsRecorder = secondRecorder
+
+	delay, err = v0MachineRuntimeInstanceCreated(r, second, &log)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), delay)
+	assert.Equal(t, []string{"SSHReachable"}, secondRecorder.GetReasons())
+	assert.Equal(t, int64(1), atomic.LoadInt64(patchCount), "second reconcile must not re-PATCH the host key")
+}
+
+// TestMachineRuntimeInstanceCreated_SSHPingFails_Retries drives a connect
+// that succeeds and a ping that fails (non-zero exit), asserting the
+// configurable retry delay is returned, SSHPingFailed is recorded, and no
+// update is persisted.
+func TestMachineRuntimeInstanceCreated_SSHPingFails_Retries(t *testing.T) {
+	overrideRetryDelay(t, 7)
+	key := machinetest.NewEncryptionKey(t)
+	signer := machinetest.NewSigner(t)
+	addr, stop := machinetest.StartSSHServer(t, signer, "u", "p", machinetest.SSHOpts{ExitCode: 1})
+	defer stop()
+
+	mri := machinetest.NewMRIWithInfra(t, 31, "mri-pingfail", addr, "u", "p", key, machinetest.MRIInfraOpts{
+		HostKey: machinetest.HostKeyFromSigner(signer),
+	})
+
+	api := machinetest.NewAPIStub(t)
+	patchCount := registerPatchCounter(t, api, 31)
+	recorder := machinetest.NewFakeRecorder()
+	log := logr.Discard()
+	r := &controller.Reconciler{
+		APIClient:      api.Client,
+		APIServer:      api.Addr,
+		EncryptionKey:  key,
+		EventsRecorder: recorder,
+	}
+
+	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
+	require.Error(t, err)
+	assert.Equal(t, int64(7), delay, "ping failures requeue with the configurable delay")
+	assert.Equal(t, []string{"SSHPingFailed"}, recorder.GetReasons())
+	assert.Equal(t, int64(0), atomic.LoadInt64(patchCount), "no update may be persisted on ping failure")
+}
+
+// TestMachineRuntimeInstanceCreated_HostKeyPatchFails_Retries closes the
+// API stub before the reconcile so the host-key PATCH hits a refused
+// connection. A transport-level failure must requeue (non-zero delay,
+// non-nil error) so the failed persist is retried rather than the object
+// being silently marked reconciled.
+func TestMachineRuntimeInstanceCreated_HostKeyPatchFails_Retries(t *testing.T) {
+	key := machinetest.NewEncryptionKey(t)
+	signer := machinetest.NewSigner(t)
+	addr, stop := machinetest.StartSSHServer(t, signer, "u", "p", machinetest.SSHOpts{ExitCode: 0})
+	defer stop()
+
+	mri := machinetest.MRIFromAddr(t, 41, "mri-patchfail", addr, "u", "p", key)
+
+	api := machinetest.NewAPIStub(t)
+	api.Server.Close()
+
+	recorder := machinetest.NewFakeRecorder()
+	log := logr.Discard()
+	r := &controller.Reconciler{
+		APIClient:      api.Client,
+		APIServer:      api.Addr,
+		EncryptionKey:  key,
+		EventsRecorder: recorder,
+	}
+
+	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
+	require.Error(t, err)
+	assert.Equal(t, int64(30), delay, "transport failures on the host-key PATCH requeue after 30s")
+	assert.Empty(t, recorder.GetReasons(), "no events may be recorded when the capture PATCH fails")
+}
+
+// TestMachineRuntimeInstanceCreated_HostKeyPatchHTTP500_TerminalError is
+// the sibling of the transport-failure case: an HTTP 500 on the host-key
+// PATCH is not a network error, so the delay is 0, but the error must
+// still be non-nil so the dispatch requeues instead of marking the object
+// reconciled.
+func TestMachineRuntimeInstanceCreated_HostKeyPatchHTTP500_TerminalError(t *testing.T) {
+	key := machinetest.NewEncryptionKey(t)
+	signer := machinetest.NewSigner(t)
+	addr, stop := machinetest.StartSSHServer(t, signer, "u", "p", machinetest.SSHOpts{ExitCode: 0})
+	defer stop()
+
+	mri := machinetest.MRIFromAddr(t, 51, "mri-patch500", addr, "u", "p", key)
+
+	api := machinetest.NewAPIStub(t)
+	api.Mux.HandleFunc(fmt.Sprintf("%s/%d", v0.PathMachineRuntimeInstances, 51), func(w http.ResponseWriter, r *http.Request) {
+		machinetest.WriteResponse(t, w, http.StatusInternalServerError, nil)
+	})
+
+	recorder := machinetest.NewFakeRecorder()
+	log := logr.Discard()
+	r := &controller.Reconciler{
+		APIClient:      api.Client,
+		APIServer:      api.Addr,
+		EncryptionKey:  key,
+		EventsRecorder: recorder,
+	}
+
+	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
+	require.Error(t, err)
+	assert.Equal(t, int64(0), delay, "an http 500 is not a network error, so no requeue delay")
+	assert.Empty(t, recorder.GetReasons())
+}
+
+// TestMachineRuntimeInstanceCreated_EventRecordingFailure_Continues sets
+// the recorder to fail every call and asserts a happy-path reconcile still
+// succeeds; event persistence must never block reconciliation.
+func TestMachineRuntimeInstanceCreated_EventRecordingFailure_Continues(t *testing.T) {
+	key := machinetest.NewEncryptionKey(t)
+	signer := machinetest.NewSigner(t)
+	addr, stop := machinetest.StartSSHServer(t, signer, "u", "p", machinetest.SSHOpts{ExitCode: 0})
+	defer stop()
+
+	mri := machinetest.NewMRIWithInfra(t, 71, "mri-eventfail", addr, "u", "p", key, machinetest.MRIInfraOpts{
+		HostKey: machinetest.HostKeyFromSigner(signer),
+	})
+
+	api := machinetest.NewAPIStub(t)
+	recorder := machinetest.NewFakeRecorder()
+	recorder.RecordErr = errors.New("event store down")
+	log := logr.Discard()
+	r := &controller.Reconciler{
+		APIClient:      api.Client,
+		APIServer:      api.Addr,
+		EncryptionKey:  key,
+		EventsRecorder: recorder,
+	}
+
+	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
+	require.NoError(t, err, "event persistence failures must not block reconciliation")
+	assert.Equal(t, int64(0), delay)
+	assert.Equal(t, []string{"SSHReachable"}, recorder.GetReasons())
+}
+
+// TestMachineRuntimeInstanceCreated_ContextCancellation_AbortsSSH injects
+// an already-canceled reconcile context and asserts the handler returns
+// promptly with the configurable retry delay, and that the abandoned
+// connect's client is closed behind it so no connection or goroutine is
+// left hanging.
+func TestMachineRuntimeInstanceCreated_ContextCancellation_AbortsSSH(t *testing.T) {
+	overrideRetryDelay(t, 5)
+	overrideReconcileContext(t, func() (context.Context, context.CancelFunc) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		return ctx, cancel
+	})
+
+	key := machinetest.NewEncryptionKey(t)
+	signer := machinetest.NewSigner(t)
+	var openConns atomic.Int64
+	addr, stopServer := machinetest.StartSSHServer(t, signer, "u", "p", machinetest.SSHOpts{
+		ExitCode:  0,
+		OpenConns: &openConns,
+	})
+	var stopOnce sync.Once
+	stop := func() { stopOnce.Do(stopServer) }
+	defer stop()
+
+	mri := machinetest.MRIFromAddr(t, 81, "mri-canceled", addr, "u", "p", key)
+
+	api := machinetest.NewAPIStub(t)
+	recorder := machinetest.NewFakeRecorder()
+	log := logr.Discard()
+	r := &controller.Reconciler{
+		APIClient:      api.Client,
+		APIServer:      api.Addr,
+		EncryptionKey:  key,
+		EventsRecorder: recorder,
+	}
+
+	start := time.Now()
+	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, int64(5), delay)
+	assert.Less(t, elapsed, 5*time.Second, "an already-canceled context must abort the reconcile promptly")
+	assert.Equal(t, []string{"SSHConnectFailed"}, recorder.GetReasons())
+
+	// stopping the server waits for every accepted connection to finish
+	// serving, which only happens once the abandoned connect's client has
+	// been closed; a leaked client would hang the stop and fail the run
+	stop()
+	assert.Equal(t, int64(0), openConns.Load(), "abandoned ssh connection must be closed")
+}
+
+// TestMachineRuntimeInstanceCreated_SSHOperationTimeout_ReturnsErrorWithDelay
+// points the reconcile at a server that holds the ping session open far
+// past the operation timeout and asserts the handler returns within the
+// timeout window with the configurable retry delay, instead of hanging for
+// the full hold.
+func TestMachineRuntimeInstanceCreated_SSHOperationTimeout_ReturnsErrorWithDelay(t *testing.T) {
+	overrideRetryDelay(t, 9)
+	overrideSSHTimeout(t, 100*time.Millisecond)
+
+	key := machinetest.NewEncryptionKey(t)
+	signer := machinetest.NewSigner(t)
+	addr, stop := machinetest.StartSSHServer(t, signer, "u", "p", machinetest.SSHOpts{HoldSession: 30 * time.Second})
+	defer stop()
+
+	mri := machinetest.NewMRIWithInfra(t, 91, "mri-timeout", addr, "u", "p", key, machinetest.MRIInfraOpts{
+		HostKey: machinetest.HostKeyFromSigner(signer),
+	})
+
+	api := machinetest.NewAPIStub(t)
+	recorder := machinetest.NewFakeRecorder()
+	log := logr.Discard()
+	r := &controller.Reconciler{
+		APIClient:      api.Client,
+		APIServer:      api.Addr,
+		EncryptionKey:  key,
+		EventsRecorder: recorder,
+	}
+
+	start := time.Now()
+	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Equal(t, int64(9), delay)
+	assert.Less(t, elapsed, 5*time.Second, "timeout must fire well before the held session would release")
+	assert.Equal(t, []string{"SSHPingFailed"}, recorder.GetReasons())
+}
+
+// TestMachineRuntimeInstanceCreated_SSHConnectTimeout_ReturnsErrorWithDelay
+// is the connect-phase sibling of the ping timeout test: the server holds
+// each accepted connection before any protocol bytes, so the dial blocks
+// as if the host were not responding, and the handler must return within
+// the operation timeout with the configurable retry delay.
+func TestMachineRuntimeInstanceCreated_SSHConnectTimeout_ReturnsErrorWithDelay(t *testing.T) {
+	overrideRetryDelay(t, 11)
+	overrideSSHTimeout(t, 100*time.Millisecond)
+
+	key := machinetest.NewEncryptionKey(t)
+	signer := machinetest.NewSigner(t)
+	addr, stop := machinetest.StartSSHServer(t, signer, "u", "p", machinetest.SSHOpts{HoldHandshake: 30 * time.Second})
+	defer stop()
+
+	mri := machinetest.MRIFromAddr(t, 95, "mri-connect-timeout", addr, "u", "p", key)
+
+	api := machinetest.NewAPIStub(t)
+	recorder := machinetest.NewFakeRecorder()
+	log := logr.Discard()
+	r := &controller.Reconciler{
+		APIClient:      api.Client,
+		APIServer:      api.Addr,
+		EncryptionKey:  key,
+		EventsRecorder: recorder,
+	}
+
+	start := time.Now()
+	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Equal(t, int64(11), delay)
+	assert.Less(t, elapsed, 5*time.Second, "timeout must fire well before the held handshake would release")
+	assert.Equal(t, []string{"SSHConnectFailed"}, recorder.GetReasons())
+}
+
+// TestMachineRuntimeInstanceDeleted_Deprovisions covers the Deleted hook:
+// a provider-provisioned MRI records the deferred-deprovision warning, and
+// an imported machine stays a clean no-op.
+func TestMachineRuntimeInstanceDeleted_Deprovisions(t *testing.T) {
+	key := machinetest.NewEncryptionKey(t)
+	api := machinetest.NewAPIStub(t)
+	log := logr.Discard()
+
+	t.Run("provider provisioned records deferred deprovision", func(t *testing.T) {
+		mri := machinetest.NewMRIWithInfra(t, 61, "mri-del-provisioned", "127.0.0.1:22", "u", "p", key, machinetest.MRIInfraOpts{
+			InfraProvider:     "gce",
+			Region:            "us-central1",
+			ResourceInventory: `{"vmId":"i-123"}`,
+		})
+		recorder := machinetest.NewFakeRecorder()
+		r := &controller.Reconciler{
+			APIClient:      api.Client,
+			APIServer:      api.Addr,
+			EncryptionKey:  key,
+			EventsRecorder: recorder,
+		}
+
+		delay, err := v0MachineRuntimeInstanceDeleted(r, mri, &log)
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), delay)
+		assert.Equal(t, []string{"DeprovisionDeferred"}, recorder.GetReasons())
+	})
+
+	t.Run("imported machine is a no-op", func(t *testing.T) {
+		mri := machinetest.MRIFromAddr(t, 62, "mri-del-imported", "127.0.0.1:22", "u", "p", key)
+		recorder := machinetest.NewFakeRecorder()
+		r := &controller.Reconciler{
+			APIClient:      api.Client,
+			APIServer:      api.Addr,
+			EncryptionKey:  key,
+			EventsRecorder: recorder,
+		}
+
+		delay, err := v0MachineRuntimeInstanceDeleted(r, mri, &log)
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), delay)
+		assert.Empty(t, recorder.GetReasons(), "imported machines have nothing to deprovision")
+	})
 }
