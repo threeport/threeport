@@ -65,7 +65,7 @@ func GetKubernetesWorkloadInstanceStatus(
 	// AttachedObjectReference.
 	var subjectType string
 	switch workloadInstanceType {
-	case agent.WorkloadInstanceType:
+	case agent.KubernetesWorkloadInstanceType:
 		subjectType = "KubernetesWorkloadInstance"
 	case agent.HelmWorkloadInstanceType:
 		subjectType = "HelmWorkloadInstance"
@@ -74,7 +74,7 @@ func GetKubernetesWorkloadInstanceStatus(
 		workloadInstanceStatusDetail.Error = fmt.Errorf(
 			"%s is an unrecognized workload type - recoginzed types: [%s,%s]",
 			workloadInstanceType,
-			agent.WorkloadInstanceType,
+			agent.KubernetesWorkloadInstanceType,
 			agent.HelmWorkloadInstanceType,
 		)
 		return &workloadInstanceStatusDetail
@@ -102,7 +102,7 @@ func GetKubernetesWorkloadInstanceStatus(
 	}
 
 	// collect any events of type Warning (Event type only emits Normal
-	// and Warning; the legacy "Failed" WorkloadEvent type no longer
+	// and Warning; the legacy "Failed" event type no longer
 	// exists).
 	var alertEvents []v0.Event
 	for _, evt := range *workloadEvents {

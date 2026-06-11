@@ -54,7 +54,7 @@ type ThreeportWorkloadReconciler struct {
 
 type InformerStopChannels struct {
 	KubernetesWorkloadInstanceID uint
-	StopChannels       []chan struct{}
+	StopChannels                 []chan struct{}
 }
 
 //+kubebuilder:rbac:groups=control-plane.threeport.io,resources=threeportworkloads,verbs=get;list;watch;create;update;patch;delete
@@ -145,7 +145,7 @@ func (r *ThreeportWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// set label selector - this is used to identify pods and replicasets
 	labelSelector := labels.Set(map[string]string{
-		agent.WorkloadInstanceLabelKey: fmt.Sprint(threeportWorkload.Spec.KubernetesWorkloadInstanceID),
+		agent.KubernetesWorkloadInstanceLabelKey: fmt.Sprint(threeportWorkload.Spec.KubernetesWorkloadInstanceID),
 	}).AsSelector().String()
 
 	// create pod and replicaset informers, add the their stop channels to the
@@ -251,7 +251,7 @@ func (r *ThreeportWorkloadReconciler) addInformerStopChannel(
 	if !k8sWorkloadInstanceIDFound {
 		informerStopChans := InformerStopChannels{
 			KubernetesWorkloadInstanceID: k8sWorkloadInstanceID,
-			StopChannels:       []chan struct{}{stopChannel},
+			StopChannels:                 []chan struct{}{stopChannel},
 		}
 		r.InformerStopChans = append(r.InformerStopChans, informerStopChans)
 	}

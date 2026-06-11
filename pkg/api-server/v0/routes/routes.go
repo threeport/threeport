@@ -65,20 +65,6 @@ func CustomRoutes(h *handlers.Handler) *[]CustomRoute {
 			},
 		},
 
-		// Deletes workload events by query parameter - as opposed to the SDK-generated
-		// route which deletes a single event by ID.
-		{
-			Path:    v0.PathWorkloadEvents,
-			Method:  "DELETE",
-			Handler: util.Ptr(h.DeleteWorkloadEvents),
-			ApiObjects: &[]ApiObject{
-				{
-					Name:    v0.ObjectTypeWorkloadEvent,
-					Version: "v0",
-				},
-			},
-		},
-
 		// Joins attached object references for events.
 		{
 			Path:    v0.PathEventsJoinAttachedObjectReferences,

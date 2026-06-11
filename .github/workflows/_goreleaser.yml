@@ -1,0 +1,41 @@
+# Reusable: runs `goreleaser release --clean` against the upstream
+# .goreleaser.yml. Callers either rely on the natural tag context
+# (release.yml on tag push) or pass a synthesized tag via `ref`.
+
+name: GoReleaser
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to checkout (tag, branch, or sha). Empty defaults to the caller's event ref.
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        # goreleaser needs full history to generate the changelog
+        fetch-depth: 0
+        ref: ${{ inputs.ref }}
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v5.0.0
+      with:
+        version: v1.26.2
+        args: release --clean -f ./.goreleaser.yml
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

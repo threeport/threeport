@@ -14,7 +14,7 @@ the devices on a computer and orchestrates process on that machine.  It allows
 us to write programs without integrating directly with the underlying hardware.
 The Unix operating systems enabled the explosion of monolithic software.
 
-![Monolithic Computing](../img/MonolithicComputingSolution.png)
+![Monolithic Computing](../img/MonolithicComputingSolution.drawio.svg)
 
 ## Kubernetes
 
@@ -23,7 +23,7 @@ abstractions for scheduling, network and storage, and orchestrates containers in
 a single geographical region.  It facilitates managing software deployments at
 scale and has enabled the explosion of distributed software.
 
-![Distributed Computing](../img/DistributedComputingSolution.png)
+![Distributed Computing](../img/DistributedComputingSolution.drawio.svg)
 
 ## Threeport
 
@@ -35,7 +35,7 @@ Kubernetes.  These are all managed in service of the application you need to
 deliver.  Threeport is designed to enable the explosion of decentralized and
 globally distributed software systems.
 
-![Decentralized Computing](../img/DecentralizedComputingSolution.png)
+![Decentralized Computing](../img/DecentralizedComputingSolution.drawio.svg)
 
 ## Next Steps
 

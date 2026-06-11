@@ -23,8 +23,8 @@ type KubernetesRuntimeInfraKind struct {
 	// Path to user's kubeconfig file for connecting to Kubernetes API.
 	KubeconfigPath string
 
-	// True if threeport instance is for a development environment that
-	// supports live reloads of code from filesystem.
+	// True if the kind cluster is provisioned for a threeport development
+	// environment.
 	DevEnvironment bool
 
 	// Used only for development environments.  The path to the threeport repo

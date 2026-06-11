@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	SupportServicesNamespace     = "support-services-system"
 	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.6.0"
 	RBACProxyImage               = "gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0"
 
@@ -1171,28 +1170,6 @@ func InstallThreeportSupportServicesOperator(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
-	var namespace = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Namespace",
-			"metadata": map[string]interface{}{
-				"labels": map[string]interface{}{
-					"app.kubernetes.io/component":  "manager",
-					"app.kubernetes.io/created-by": "support-services-operator",
-					"app.kubernetes.io/instance":   "system",
-					"app.kubernetes.io/managed-by": "kustomize",
-					"app.kubernetes.io/name":       "namespace",
-					"app.kubernetes.io/part-of":    "support-services-operator",
-					"control-plane":                "controller-manager",
-				},
-				"name": SupportServicesNamespace,
-			},
-		},
-	}
-	if _, err := kube.CreateResource(namespace, kubeClient, *mapper); err != nil {
-		return fmt.Errorf("failed to create service account: %w", err)
-	}
-
 	var serviceAccount = &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -1207,7 +1184,7 @@ func InstallThreeportSupportServicesOperator(
 					"app.kubernetes.io/part-of":    "support-services-operator",
 				},
 				"name":      "support-services-operator-controller-manager",
-				"namespace": SupportServicesNamespace,
+				"namespace": ControlPlaneNamespace,
 			},
 		},
 	}
@@ -1229,7 +1206,7 @@ func InstallThreeportSupportServicesOperator(
 					"app.kubernetes.io/part-of":    "support-services-operator",
 				},
 				"name":      "support-services-operator-leader-election-role",
-				"namespace": SupportServicesNamespace,
+				"namespace": ControlPlaneNamespace,
 			},
 			"rules": []interface{}{
 				map[string]interface{}{
@@ -2794,7 +2771,7 @@ func InstallThreeportSupportServicesOperator(
 					"app.kubernetes.io/part-of":    "support-services-operator",
 				},
 				"name":      "support-services-operator-leader-election-rolebinding",
-				"namespace": SupportServicesNamespace,
+				"namespace": ControlPlaneNamespace,
 			},
 			"roleRef": map[string]interface{}{
 				"apiGroup": "rbac.authorization.k8s.io",
@@ -2805,7 +2782,7 @@ func InstallThreeportSupportServicesOperator(
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
 					"name":      "support-services-operator-controller-manager",
-					"namespace": SupportServicesNamespace,
+					"namespace": ControlPlaneNamespace,
 				},
 			},
 		},
@@ -2838,7 +2815,7 @@ func InstallThreeportSupportServicesOperator(
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
 					"name":      "support-services-operator-controller-manager",
-					"namespace": SupportServicesNamespace,
+					"namespace": ControlPlaneNamespace,
 				},
 			},
 		},
@@ -2871,7 +2848,7 @@ func InstallThreeportSupportServicesOperator(
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
 					"name":      "support-services-operator-controller-manager",
-					"namespace": SupportServicesNamespace,
+					"namespace": ControlPlaneNamespace,
 				},
 			},
 		},
@@ -2895,7 +2872,7 @@ func InstallThreeportSupportServicesOperator(
 					"control-plane":                "controller-manager",
 				},
 				"name":      "support-services-operator-controller-manager-metrics-service",
-				"namespace": SupportServicesNamespace,
+				"namespace": ControlPlaneNamespace,
 			},
 			"spec": map[string]interface{}{
 				"ports": []interface{}{
@@ -2931,7 +2908,7 @@ func InstallThreeportSupportServicesOperator(
 					"control-plane":                "controller-manager",
 				},
 				"name":      "support-services-operator-controller-manager",
-				"namespace": SupportServicesNamespace,
+				"namespace": ControlPlaneNamespace,
 			},
 			"spec": map[string]interface{}{
 				"replicas": 1,

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -204,13 +203,6 @@ THREEPORT_CONTROL_PLANE_NAMESPACE=%[2]s
 			"name":          "api",
 			"protocol":      "TCP",
 		},
-	}
-	if cpi.Opts.Delve {
-		ports = append(ports, map[string]interface{}{
-			"containerPort": 40000,
-			"name":          "dlv",
-			"protocol":      "TCP",
-		})
 	}
 
 	initContainers := []interface{}{
@@ -1208,14 +1200,11 @@ func (cpi *ControlPlaneInstaller) UnInstallThreeportControlPlaneComponents(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
-	// delete control plane and support services namespace
+	// delete the control plane namespace
 	if err := DeleteNamespaces(
 		kubeClient,
 		mapper,
-		[]string{
-			cpi.Opts.Namespace,
-			SupportServicesNamespace,
-		},
+		[]string{cpi.Opts.Namespace},
 	); err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete control plane namespace: %w", err)
 	}
@@ -1385,27 +1374,6 @@ func (cpi *ControlPlaneInstaller) getAPIArgs() []interface{} {
 	// in tptctl, auth is enabled by default
 
 	switch {
-	case cpi.Opts.LiveReload:
-		args := "-auto-migrate=true -verbose=true"
-
-		if !cpi.Opts.AuthEnabled {
-			args += " -auth-enabled=false"
-		}
-
-		return cpi.getAirArgs("rest-api", args)
-	case cpi.Opts.Delve:
-		// build delve args with component args appended after "--" separator
-		delveArgs := cpi.getDelveArgs("rest-api")
-		args := make([]interface{}, 0, len(delveArgs)+4)
-		for _, a := range delveArgs {
-			args = append(args, a)
-		}
-		args = append(args, "--")
-		args = append(args, "-auto-migrate=true", "-verbose=true")
-		if !cpi.Opts.AuthEnabled {
-			args = append(args, "-auth-enabled=false")
-		}
-		return args
 	case cpi.Opts.Debug:
 		args := []interface{}{
 			"-auto-migrate=true",
@@ -1429,33 +1397,13 @@ func (cpi *ControlPlaneInstaller) getAPIArgs() []interface{} {
 }
 
 // getControllerArgs returns the args that are passed to a controller.
-func (cpi *ControlPlaneInstaller) getControllerArgs(name string) []interface{} {
+func (cpi *ControlPlaneInstaller) getControllerArgs() []interface{} {
 
 	// in tptdev, auth is disabled by default
 	// in tptctl, auth is enabled by default
 
 	// enable auth if authConfig is set in dev environment
 	switch {
-	case cpi.Opts.LiveReload:
-		if cpi.Opts.AuthEnabled {
-			return cpi.getAirArgs(name, "")
-		}
-		return cpi.getAirArgs(name, "-auth-enabled=false")
-	case cpi.Opts.Delve:
-		// build delve args with component args appended after "--" separator
-		delveArgs := cpi.getDelveArgs(name)
-		args := make([]interface{}, 0, len(delveArgs)+4)
-		for _, a := range delveArgs {
-			args = append(args, a)
-		}
-		args = append(args, "--")
-		if !cpi.Opts.AuthEnabled {
-			args = append(args, "-auth-enabled=false")
-		}
-		if cpi.Opts.Verbose {
-			args = append(args, "-verbose=true")
-		}
-		return args
 	case cpi.Opts.Debug:
 		args := []interface{}{}
 		if !cpi.Opts.AuthEnabled {
@@ -1476,46 +1424,6 @@ func (cpi *ControlPlaneInstaller) getControllerArgs(name string) []interface{} {
 		}
 		return args
 	}
-}
-
-// cpi.getAirArgs returns the args that are passed to air.
-func (cpi *ControlPlaneInstaller) getAirArgs(name, extraArgs string) []interface{} {
-	main := "main_gen.go"
-	if name == "rest-api" || name == "agent" {
-		main = "main.go"
-	}
-
-	appendedArgs := ""
-	if extraArgs != "" {
-		appendedArgs = " -- " + extraArgs
-	}
-
-	return []interface{}{
-		"-c", "/threeport/cmd/tptdev/air.toml",
-		"-build.cmd", "go build -gcflags='all=-N -l' -o /" + name + " /threeport/cmd/" + name + "/" + main,
-		"-build.bin", "/usr/local/bin/dlv",
-		"-build.args_bin", strings.Join(cpi.getDelveArgs(name), " ") + appendedArgs,
-	}
-
-}
-
-// cpi.getDelveArgs returns the args that are passed to delve.
-func (cpi *ControlPlaneInstaller) getDelveArgs(name string) []string {
-	args := []string{
-		"--continue",
-		"--accept-multiclient",
-		"--listen=:40000",
-		"--headless=true",
-		"--api-version=2",
-	}
-
-	if cpi.Opts.Verbose {
-		args = append(args, "--log")
-	}
-
-	args = append(args, "exec")
-	args = append(args, fmt.Sprintf("/%s", name))
-	return args
 }
 
 // getAPIVolumes returns volumes and volume mounts for the API server.
@@ -1598,19 +1506,11 @@ func (cpi *ControlPlaneInstaller) getAPIVolumes() ([]interface{}, []interface{},
 		volMounts = append(volMounts, certVolMount)
 	}
 
-	if cpi.Opts.LiveReload {
-		vols, volMounts = cpi.getDevEnvironmentVolumes(vols, volMounts)
-	}
-
 	return vols, volMounts, nil
 }
 
 // getImage returns the proper container image to use for the
 func (cpi *ControlPlaneInstaller) getImage(name, imageName, imageRepo, imageTag string) string {
-	if cpi.Opts.LiveReload {
-		return "threeport-air"
-	}
-
 	image := fmt.Sprintf(
 		"%s/%s:%s",
 		imageRepo,
@@ -1635,10 +1535,6 @@ func (cpi *ControlPlaneInstaller) getControllerVolumes(controller v0.ControlPlan
 		vols = append(vols, certVol)
 		volMounts = append(volMounts, caVolMount)
 		volMounts = append(volMounts, certVolMount)
-	}
-
-	if cpi.Opts.LiveReload {
-		vols, volMounts = cpi.getDevEnvironmentVolumes(vols, volMounts)
 	}
 
 	additionalVolumes := make([]map[string]interface{}, 0)
@@ -1672,60 +1568,6 @@ func (cpi *ControlPlaneInstaller) getControllerVolumes(controller v0.ControlPlan
 	}
 
 	return vols, volMounts, nil
-}
-
-// getCodePathVols returns the volume and volume mount for dev environments to
-// mount local codebase for live reloads.
-func (cpi *ControlPlaneInstaller) getCodePathVols() (map[string]interface{}, map[string]interface{}) {
-	codePathVol := map[string]interface{}{
-		"name": "code-path",
-		"hostPath": map[string]interface{}{
-			"type": "Directory",
-			"path": "/threeport",
-		},
-	}
-	codePathVolMount := map[string]interface{}{
-		"name":      "code-path",
-		"mountPath": "/threeport",
-	}
-
-	return codePathVol, codePathVolMount
-}
-
-// getGoPathVols returns the volume and volume mount for dev environments to
-// mount local go path.
-func (cpi *ControlPlaneInstaller) getGoPathVols() (map[string]interface{}, map[string]interface{}) {
-	goPathVol := map[string]interface{}{
-		"name": "go-path",
-		"hostPath": map[string]interface{}{
-			"type": "Directory",
-			"path": "/go",
-		},
-	}
-	goPathVolMount := map[string]interface{}{
-		"name":      "go-path",
-		"mountPath": "/go",
-	}
-
-	return goPathVol, goPathVolMount
-}
-
-// getGoCacheVols returns the volume and volume mount for dev environments to
-// mount local go path.
-func (cpi *ControlPlaneInstaller) getGoCacheVols() (map[string]interface{}, map[string]interface{}) {
-	goCacheVol := map[string]interface{}{
-		"name": "go-cache",
-		"hostPath": map[string]interface{}{
-			"type": "Directory",
-			"path": "/root/.cache/go-build",
-		},
-	}
-	goCacheVolMount := map[string]interface{}{
-		"name":      "go-cache",
-		"mountPath": "/root/.cache/go-build",
-	}
-
-	return goCacheVol, goCacheVolMount
 }
 
 // getSecretVols returns volumes and volume mounts for secrets.
@@ -1816,13 +1658,6 @@ func (cpi *ControlPlaneInstaller) GetAPIServicePort() (string, int32) {
 // default.
 func (cpi *ControlPlaneInstaller) getAgentArgs() []interface{} {
 	switch {
-	case cpi.Opts.LiveReload:
-		flags := "--metrics-bind-address=127.0.0.1:8080 --leader-elect"
-		if !cpi.Opts.AuthEnabled {
-			return cpi.getAirArgs("agent", flags+" --auth-enabled=false")
-		} else {
-			return cpi.getAirArgs("agent", flags)
-		}
 	case cpi.Opts.Debug:
 		args := []interface{}{
 			"--metrics-bind-address=127.0.0.1:8080",
@@ -1867,7 +1702,7 @@ func (cpi *ControlPlaneInstaller) getControllerSecret(name, namespace string) *u
 
 // getImagePullPolicy returns the image pull policy based on debug mode.
 func (cpi *ControlPlaneInstaller) getImagePullPolicy() string {
-	if cpi.Opts.Debug && !cpi.Opts.LiveReload {
+	if cpi.Opts.Debug {
 		return "Always"
 	}
 	return "IfNotPresent"
@@ -1887,17 +1722,10 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 		return nil, fmt.Errorf("could not get vols for controller %s: %w", controller.Name, err)
 	}
 
-	controllerArgs := cpi.getControllerArgs(controller.Name)
+	controllerArgs := cpi.getControllerArgs()
 	controllerImagePullSecrets := cpi.getImagePullSecrets(controller.ImagePullSecretName)
 
 	ports := []map[string]interface{}{}
-	if cpi.Opts.Delve {
-		ports = append(ports, map[string]interface{}{
-			"containerPort": 40000,
-			"name":          "dlv",
-			"protocol":      "TCP",
-		})
-	}
 
 	envFrom := []interface{}{
 		map[string]interface{}{
@@ -1973,38 +1801,18 @@ func (cpi *ControlPlaneInstaller) getControllerDeployment(
 }
 
 func (cpi *ControlPlaneInstaller) getReadinessProbe() map[string]interface{} {
-	var readinessProbe map[string]interface{}
-	if !cpi.Opts.Delve {
-		readinessProbe = map[string]interface{}{
-			"failureThreshold": 1,
-			"httpGet": map[string]interface{}{
-				"path":   "/readyz",
-				"port":   8081,
-				"scheme": "HTTP",
-			},
-			"initialDelaySeconds": 1,
-			"periodSeconds":       2,
-			"successThreshold":    1,
-			"timeoutSeconds":      1,
-		}
+	return map[string]interface{}{
+		"failureThreshold": 1,
+		"httpGet": map[string]interface{}{
+			"path":   "/readyz",
+			"port":   8081,
+			"scheme": "HTTP",
+		},
+		"initialDelaySeconds": 1,
+		"periodSeconds":       2,
+		"successThreshold":    1,
+		"timeoutSeconds":      1,
 	}
-	return readinessProbe
-}
-
-func (cpi *ControlPlaneInstaller) getDevEnvironmentVolumes(vols, volMounts []interface{}) ([]interface{}, []interface{}) {
-	codePathVol, codePathVolMount := cpi.getCodePathVols()
-	vols = append(vols, codePathVol)
-	volMounts = append(volMounts, codePathVolMount)
-
-	goPathVol, goPathVolMount := cpi.getGoPathVols()
-	vols = append(vols, goPathVol)
-	volMounts = append(volMounts, goPathVolMount)
-
-	goCacheVol, goCacheVolMount := cpi.getGoCacheVols()
-	vols = append(vols, goCacheVol)
-	volMounts = append(volMounts, goCacheVolMount)
-
-	return vols, volMounts
 }
 
 // getImagePullSecrets returns the image pull secret config for a control plane
@@ -2042,19 +1850,7 @@ func GetLocalThreeportAPIEndpoint(authEnabled bool) string {
 
 // getCommand returns the args that are passed to the container.
 func (cpi *ControlPlaneInstaller) getCommand(name string) []interface{} {
-
-	switch {
-	case cpi.Opts.LiveReload:
-		return []interface{}{
-			"/usr/local/bin/air",
-		}
-	case cpi.Opts.Delve:
-		return []interface{}{
-			"/usr/local/bin/dlv",
-		}
-	default:
-		return []interface{}{
-			fmt.Sprintf("/%s", name),
-		}
+	return []interface{}{
+		fmt.Sprintf("/%s", name),
 	}
 }

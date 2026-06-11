@@ -1,5 +1,0 @@
-FROM gcr.io/distroless/static:nonroot
-COPY aws-controller /aws-controller
-USER 65532:65532
-
-ENTRYPOINT ["/aws-controller"]

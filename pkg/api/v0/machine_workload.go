@@ -49,9 +49,6 @@ type MachineWorkloadInstance struct {
 	// when the most recent script execution completed.
 	Status *string `json:",omitempty" validate:"optional"`
 
-	// All events generated for the machine workload instance.
-	Events []*WorkloadEvent `json:",omitempty" validate:"optional"`
-
 	// The environment variables set for the workload as KEY=VALUE entries.
 	Env *[]string `json:",omitempty" validate:"optional" gorm:"type:jsonb;serializer:json" encrypt:"true"`
 }

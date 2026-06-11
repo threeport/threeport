@@ -281,8 +281,3 @@ func (TerraformInstance) TableName() string {
 func (Tier) TableName() string {
 	return "v0_tiers"
 }
-
-// TableName sets the name of the table for the WorkloadEvent objects in the database.
-func (WorkloadEvent) TableName() string {
-	return "v0_workload_events"
-}

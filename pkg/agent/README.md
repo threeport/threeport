@@ -17,7 +17,7 @@ metadata:
   finalizers:
   - control-plane.threeport.io/threeport-workload-finalizer
   generation: 1
-  name: workload-instance-877588458330128385
+  name: kubernetes-workload-instance-877588458330128385
   resourceVersion: "968"
   uid: 1c13ea8d-3753-4e7b-98ae-7f8d4828b1d6
 spec:

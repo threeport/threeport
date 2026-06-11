@@ -20,7 +20,7 @@ import (
 func (r *ThreeportWorkloadReconciler) createPodInformer(
 	ctx context.Context,
 	labelSelector string,
-	workloadInstanceID uint,
+	k8sWorkloadInstanceID uint,
 ) (cache.SharedInformer, chan struct{}) {
 	listWatcher := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
@@ -51,7 +51,7 @@ func (r *ThreeportWorkloadReconciler) createPodInformer(
 func (r *ThreeportWorkloadReconciler) addPodEventHandlers(
 	ctx context.Context,
 	workloadType string,
-	workloadInstanceID uint,
+	k8sWorkloadInstanceID uint,
 	podInformer cache.SharedInformer,
 	podInformerStopChan chan struct{},
 ) {
@@ -92,7 +92,7 @@ func (r *ThreeportWorkloadReconciler) addPodEventHandlers(
 					ctx,
 					string(uid),
 					workloadType,
-					workloadInstanceID,
+					k8sWorkloadInstanceID,
 					0,
 					eventInformer,
 				)

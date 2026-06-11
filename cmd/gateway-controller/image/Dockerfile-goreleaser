@@ -1,5 +1,0 @@
-FROM gcr.io/distroless/static:nonroot
-COPY gateway-controller /gateway-controller
-USER 65532:65532
-
-ENTRYPOINT ["/gateway-controller"]

@@ -18,11 +18,6 @@ func GenCmd(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		return fmt.Errorf("failed to generate REST API main package: %w", err)
 	}
 
-	// generate REST API Dockerfile
-	if err := restapi.GenRestApiDockerfile(generator, sdkConfig); err != nil {
-		return fmt.Errorf("failed to generate REST API Dockerfile: %w", err)
-	}
-
 	// generate JetStream init in REST API util package
 	if err := restapi.GenUtilJetstream(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate NATS JetStream initialization code in REST API util package: %w", err)
@@ -38,11 +33,6 @@ func GenCmd(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		return fmt.Errorf("failed to generate DB migrator main package: %w", err)
 	}
 
-	// generate DB migrator Dockerfile
-	if err := dbmigrator.GenDbMigratorDockerfile(generator, sdkConfig); err != nil {
-		return fmt.Errorf("failed to generate DB migrator Dockerfiles: %w", err)
-	}
-
 	// generate DB migrator migrations utils
 	if err := dbmigrator.GenDbMigratorUtils(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate DB migrator migration utils: %w", err)
@@ -56,11 +46,6 @@ func GenCmd(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	// generate controller main packages
 	if err := controller.GenControllerMain(generator, sdkConfig); err != nil {
 		return fmt.Errorf("failed to generate controller main packages: %w", err)
-	}
-
-	// generate controller Dockerfiles
-	if err := controller.GenControllerDockerfiles(generator, sdkConfig); err != nil {
-		return fmt.Errorf("failed to generate controller Dockerfiles: %w", err)
 	}
 
 	// generate module tptctl plugin main package

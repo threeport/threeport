@@ -52,6 +52,7 @@ ApiObjectGroups:
       Tptctl:
         Enabled: true
 - Name: oci
+  DockerfileTarget: release-pulumi
   Objects:
     - Name: OciProvider
       Versions:
@@ -70,6 +71,7 @@ ApiObjectGroups:
       Tptctl:
         Enabled: true
 - Name: gcp
+  DockerfileTarget: release-pulumi
   Objects:
     - Name: GcpProvider
       Versions:
@@ -262,6 +264,7 @@ ApiObjectGroups:
         - v0
       Reconcilable: true
 - Name: terraform
+  DockerfileTarget: release-terraform
   Objects:
     - Name: TerraformDefinition
       Versions:
@@ -300,9 +303,6 @@ ApiObjectGroups:
       Reconcilable: true
       Tptctl:
         Enabled: true
-    - Name: WorkloadEvent
-      Versions:
-        - v0
 - Name: attached_object
   Objects:
     - Name: AttachedObjectReference

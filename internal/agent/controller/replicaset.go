@@ -21,7 +21,7 @@ import (
 func (r *ThreeportWorkloadReconciler) createReplicaSetInformer(
 	ctx context.Context,
 	labelSelector string,
-	workloadInstanceID uint,
+	k8sWorkloadInstanceID uint,
 ) (cache.SharedInformer, chan struct{}) {
 	listWatcher := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
@@ -52,7 +52,7 @@ func (r *ThreeportWorkloadReconciler) createReplicaSetInformer(
 func (r *ThreeportWorkloadReconciler) addReplicaSetEventHandlers(
 	ctx context.Context,
 	workloadType string,
-	workloadInstanceID uint,
+	k8sWorkloadInstanceID uint,
 	replicasetInformer cache.SharedInformer,
 	replicasetInformerStopChan chan struct{},
 ) {
@@ -93,7 +93,7 @@ func (r *ThreeportWorkloadReconciler) addReplicaSetEventHandlers(
 					ctx,
 					string(uid),
 					workloadType,
-					workloadInstanceID,
+					k8sWorkloadInstanceID,
 					0,
 					eventInformer,
 				)

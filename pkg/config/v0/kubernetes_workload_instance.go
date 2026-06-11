@@ -93,7 +93,7 @@ func (w *KubernetesWorkloadInstanceConfig) Get(
 		instanceStatusDetail := status.GetKubernetesWorkloadInstanceStatus(
 			apiClient,
 			apiEndpoint,
-			agent.WorkloadInstanceType,
+			agent.KubernetesWorkloadInstanceType,
 			*k8sWorkloadInstance.ID,
 			*k8sWorkloadInstance.Reconciled,
 		)

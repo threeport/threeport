@@ -27,7 +27,7 @@ func (r *ThreeportWorkloadReconciler) watchResource(
 	ctx context.Context,
 	gvr schema.GroupVersionResource,
 	workloadType string,
-	workloadInstanceID uint,
+	k8sWorkloadInstanceID uint,
 	resourceName string,
 	resourceNamespace string,
 	threeportID uint,
@@ -40,7 +40,7 @@ func (r *ThreeportWorkloadReconciler) watchResource(
 		"resourceName", resourceName,
 		"resourceNamespace", resourceNamespace,
 		"workloadType", workloadType,
-		"workloadResourceInstanceID", threeportID,
+		"kubernetesWorkloadResourceInstanceID", threeportID,
 	)
 
 	// use dynamic client to watch specified resource
@@ -77,7 +77,7 @@ func (r *ThreeportWorkloadReconciler) watchResource(
 		ctx,
 		resourceUID,
 		workloadType,
-		workloadInstanceID,
+		k8sWorkloadInstanceID,
 		threeportID,
 		informer,
 	)
@@ -123,10 +123,10 @@ func (r *ThreeportWorkloadReconciler) watchResource(
 		// create notification object and send over notif channel so that
 		// threeport API gets updated
 		resourceOp := notify.ResourceOperation{
-			WorkloadType:               workloadType,
-			WorkloadResourceInstanceID: threeportID,
-			OperationType:              string(op.Type),
-			OperationObject:            string(objectJSON),
+			WorkloadType:                         workloadType,
+			KubernetesWorkloadResourceInstanceID: threeportID,
+			OperationType:                        string(op.Type),
+			OperationObject:                      string(objectJSON),
 		}
 		threeportNotif := notify.ThreeportNotif{
 			Operation: &resourceOp,

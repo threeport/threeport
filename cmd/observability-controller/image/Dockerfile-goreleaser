@@ -1,5 +1,0 @@
-FROM gcr.io/distroless/static:nonroot
-COPY observability-controller /observability-controller
-USER 65532:65532
-
-ENTRYPOINT ["/observability-controller"]

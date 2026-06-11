@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	logr "github.com/go-logr/logr"
 	zapr "github.com/go-logr/zapr"
@@ -110,17 +109,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// check to ensure aws stream has been created by API
-	awsStreamNameFound := false
-	for stream := range js.StreamNames() {
-		if stream == notif.AwsStreamName {
-			awsStreamNameFound = true
-		}
-	}
-	if !awsStreamNameFound {
-		log.Error(errors.New("JetStream stream not found"), "failed to find stream with aws stream name", "awsStreamName", notif.AwsStreamName)
-		os.Exit(1)
-	}
+	// wait for notification stream to be available before proceeding
+	controller.WaitForStream(js, notif.AwsStreamName, log)
 
 	// create a channel and wait group used for graceful shut downs
 	var shutdownChans []chan bool

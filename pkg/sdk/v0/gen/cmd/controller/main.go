@@ -278,50 +278,18 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Qual("os", "Exit").Call(Lit(1)),
 				),
 
-				Line().Comment(fmt.Sprintf(
-					"check to ensure %s stream has been created by API",
-					objGroup.ControllerShortName,
-				)),
-				Id(fmt.Sprintf(
-					"%sFound",
-					strcase.ToLowerCamel(objGroup.StreamName),
-				)).Op(":=").Lit(false),
-				For(Id("stream").Op(":=").Range().Id("js").Dot("StreamNames").Call()).Block(
-					If(Id("stream").Op("==").Qual(
+				Line().Comment("wait for notification stream to be available before proceeding"),
+				Qual("github.com/threeport/threeport/pkg/controller/v0", "WaitForStream").Call(
+					Id("js"),
+					Qual(
 						fmt.Sprintf(
 							"%s/internal/%s/notif",
 							gen.ModulePath,
 							objGroup.ControllerShortName,
 						),
 						objGroup.StreamName,
-					)).Block(
-						Id(fmt.Sprintf(
-							"%sFound",
-							strcase.ToLowerCamel(objGroup.StreamName),
-						)).Op("=").Lit(true),
 					),
-				),
-				If(Op("!").Id(fmt.Sprintf(
-					"%sFound",
-					strcase.ToLowerCamel(objGroup.StreamName),
-				))).Block(
-					Id("log").Dot("Error").Call(
-						Qual("errors", "New").Call(Lit("JetStream stream not found")),
-						Lit(fmt.Sprintf(
-							"failed to find stream with %s stream name",
-							objGroup.ControllerShortName,
-						)),
-						Lit(strcase.ToLowerCamel(objGroup.StreamName)),
-						Qual(
-							fmt.Sprintf(
-								"%s/internal/%s/notif",
-								gen.ModulePath,
-								objGroup.ControllerShortName,
-							),
-							objGroup.StreamName,
-						),
-					),
-					Qual("os", "Exit").Call(Lit(1)),
+					Id("log"),
 				),
 
 				Line().Comment("create a channel and wait group used for graceful shut downs"),

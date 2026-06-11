@@ -1,3 +1,14 @@
+# Native go build + thin Docker layer.
+#
+# Compilation happens via `mage build:allImagesDev` on the runner, NOT
+# inside a Dockerfile RUN. Go's content-addressed build cache
+# (~/.cache/go-build, restored by actions/cache below) invalidates per
+# package, so a single-file edit only recompiles that package. Inside a
+# Dockerfile, the same edit invalidates the whole COPY layer and forces
+# a cold rebuild. actions/cache is the only cache layer; buildx layer
+# caching adds no value on top because the binary COPY changes every
+# build.
+
 name: Test
 
 on:
@@ -8,39 +19,99 @@ on:
       - synchronize
       - reopened
 
+permissions:
+  contents: read
+
 jobs:
-  test:
+  unit-tests:
+    name: Unit Tests
     runs-on: ubuntu-24.04
     env:
       GOPATH: /home/runner/go
     steps:
-    - name: Check out code
-      uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v6.0.3
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6.4.0
       with:
-        go-version: '1.23'
+        go-version: '1.24'
+        cache: false
+
+    # Primary cache for the workflow. Restoring Go's build + module cache
+    # is what makes warm runs fast; the Docker layer cache further down
+    # (integration-tests job) only covers the cheap COPY+alpine tail.
+    - name: Cache Go build + module cache
+      uses: actions/cache@v5.0.5
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          go-${{ runner.os }}-
 
     - name: Install mage
-      run: go install github.com/magefile/mage@latest
+      run: go install github.com/magefile/mage@v1.17.2
 
     - name: Install threeport-sdk
       run: mage install:sdk
 
     - name: Run threeport-sdk
-      run: $(go env GOPATH)/bin/threeport-sdk gen --config sdk-config.yaml
+      run: ${{ env.GOPATH }}/bin/threeport-sdk gen --config sdk-config.yaml
 
-    - name: Ensure no changes were made by threeport-sdk
+    - name: Verify codegen is idempotent
       run: git diff --exit-code
 
-    - name: Run unit tests
+    - name: Unit tests
       run: go test -count=1 ./pkg/... ./internal/... ./cmd/...
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-24.04
+    env:
+      GOPATH: /home/runner/go
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6.0.3
+
+    - name: Set up Go
+      uses: actions/setup-go@v6.4.0
+      with:
+        go-version: '1.24'
+        cache: false
+
+    # Primary cache for the workflow. Restoring Go's build + module cache
+    # is what makes warm runs fast; the Docker layer cache further down
+    # (integration-tests job) only covers the cheap COPY+alpine tail.
+    - name: Cache Go build + module cache
+      uses: actions/cache@v5.0.5
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          go-${{ runner.os }}-
+
+    - name: Install mage
+      run: go install github.com/magefile/mage@v1.17.2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4.1.0
+      with:
+        # share host network so buildx reaches the local registry in the
+        # next step.
+        driver-opts: network=host
 
     - name: Create local container registry
       run: mage dev:localRegistryUp
 
+    # Native compile via mage (uses the warm Go cache restored above),
+    # then PARALLEL_IMAGE_BUILD workers package images.
     - name: Build and push control plane component images
+      env:
+        PARALLEL_IMAGE_BUILD: "4"
       run: mage build:allImagesDev
 
     - name: Build tptctl
@@ -49,5 +120,5 @@ jobs:
     - name: Create test control plane
       run: mage test:up
 
-    - name: Run tests
+    - name: Integration tests
       run: mage test:integration

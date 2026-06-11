@@ -86,6 +86,24 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 		Line().Comment("If true, auth is enabled on Threeport API."),
 		Id("AuthEnabled").Bool(),
+
+		Line().Comment("If true, pod imagePullPolicy is set to Always so each rollout"),
+		Comment("re-pulls the tag. Use for development iteration where you push"),
+		Comment("a moving tag like 'dev-amd64' and want the cluster to pick up"),
+		Comment("the latest push without rotating tags."),
+		Id("Debug").Bool(),
+	)
+
+	// emit getImagePullPolicy() helper on Installer so the per-deployment
+	// codegen below can call i.getImagePullPolicy() rather than hardcode
+	// a literal. Debug=true returns "Always", anything else "IfNotPresent".
+	f.Comment("getImagePullPolicy returns Always when Debug is true so a moving")
+	f.Comment("dev tag is re-pulled on every pod restart, IfNotPresent otherwise.")
+	f.Func().Params(Id("i").Op("*").Id("Installer")).Id("getImagePullPolicy").Params().String().Block(
+		If(Id("i").Dot("Debug")).Block(
+			Return().Lit("Always"),
+		),
+		Return().Lit("IfNotPresent"),
 	)
 
 	f.Comment(fmt.Sprintf(
@@ -284,7 +302,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 				Id("x509CaCert"),
 				Id("rsaCaKey"),
 				Lit(fmt.Sprintf("%s-threeport-module", moduleNameKebab)),
-				Qual("github.com/threeport/threeport/pkg/api/lib/v0", "CoreApiNamespace"),
+				Lit(sdkConfig.ApiNamespace),
 				Qual("github.com/threeport/threeport/pkg/auth/v0", "OUControlPlane"),
 			),
 			If(Err().Op("!=").Nil()).Block(
@@ -428,7 +446,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 										Line().Id("i").Dot("ControlPlaneImageTag"),
 										Line(),
 									),
-									Lit("imagePullPolicy"): Lit("IfNotPresent"),
+									Lit("imagePullPolicy"): Id("i").Dot("getImagePullPolicy").Call(),
 									Lit("name"):            Lit("api-server"),
 									Lit("ports"): Index().Interface().Values(
 										Line().Map(String()).Interface().Values(Dict{
@@ -462,7 +480,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 											Id("i").Dot("ThreeportNamespace"),
 										).Op(",").Line()),
 									Lit("image"):           Lit("cockroachdb/cockroach:v23.1.14"),
-									Lit("imagePullPolicy"): Lit("IfNotPresent"),
+									Lit("imagePullPolicy"): Id("i").Dot("getImagePullPolicy").Call(),
 									Lit("name"):            Lit("db-init"),
 									Lit("volumeMounts"): Index().Interface().Values(
 										Line().Map(String()).Interface().Values(Dict{
@@ -494,7 +512,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 										Line().Id("i").Dot("ControlPlaneImageTag"),
 										Line(),
 									),
-									Lit("imagePullPolicy"): Lit("IfNotPresent"),
+									Lit("imagePullPolicy"): Id("i").Dot("getImagePullPolicy").Call(),
 									Lit("name"):            Lit("database-migrator"),
 									Lit("volumeMounts"): Index().Interface().Values(
 										Line().Map(String()).Interface().Values(Dict{
@@ -687,7 +705,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 											Line().Id("i").Dot("ControlPlaneImageTag"),
 											Line(),
 										),
-										Lit("imagePullPolicy"): Lit("IfNotPresent"),
+										Lit("imagePullPolicy"): Id("i").Dot("getImagePullPolicy").Call(),
 										Lit("name"): Lit(fmt.Sprintf(
 											"%s-%s-controller",
 											moduleNameKebab,

@@ -98,7 +98,7 @@ func init() {
 	)
 	upCmd.Flags().BoolVar(
 		&cliArgs.Verbose,
-		"verbose", false, "Enable verbose logging in control plane components, delve, and cli logs.",
+		"verbose", false, "Enable verbose logging in control plane components and cli logs.",
 	)
 	upCmd.Flags().BoolVar(
 		&cliArgs.TeardownOnFailure,

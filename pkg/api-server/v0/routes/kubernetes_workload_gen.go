@@ -55,15 +55,3 @@ func KubernetesWorkloadResourceInstanceRoutes(e *echo.Echo, h *handlers.Handler)
 	e.PUT(v0.PathKubernetesWorkloadResourceInstances+"/:id", h.ReplaceKubernetesWorkloadResourceInstance)
 	e.DELETE(v0.PathKubernetesWorkloadResourceInstances+"/:id", h.DeleteKubernetesWorkloadResourceInstance)
 }
-
-// WorkloadEventRoutes sets up all routes for the WorkloadEvent handlers.
-func WorkloadEventRoutes(e *echo.Echo, h *handlers.Handler) {
-	e.GET(v0.PathWorkloadEventVersions, h.GetWorkloadEventVersions)
-
-	e.POST(v0.PathWorkloadEvents, h.AddWorkloadEvent)
-	e.GET(v0.PathWorkloadEvents, h.GetWorkloadEvents)
-	e.GET(v0.PathWorkloadEvents+"/:id", h.GetWorkloadEvent)
-	e.PATCH(v0.PathWorkloadEvents+"/:id", h.UpdateWorkloadEvent)
-	e.PUT(v0.PathWorkloadEvents+"/:id", h.ReplaceWorkloadEvent)
-	e.DELETE(v0.PathWorkloadEvents+"/:id", h.DeleteWorkloadEvent)
-}

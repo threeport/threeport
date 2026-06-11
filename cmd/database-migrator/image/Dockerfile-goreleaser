@@ -1,5 +1,0 @@
-FROM gcr.io/distroless/static:nonroot
-COPY database-migrator /database-migrator
-USER 65532:65532
-
-ENTRYPOINT ["/database-migrator"]

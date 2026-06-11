@@ -9,7 +9,7 @@ Most objects in Threeport are broken into two parts:
 You can deploy any number of instances for a definition.  This diagram provides
 two examples:
 
-![Definitions & Instances](../img/DefinitionsInstances.png)
+![Definitions & Instances](../img/DefinitionsInstances.drawio.svg)
 
 A Kubernetes Definition provides the configuration for a Kubernetes cluster.
 This includes attributes such as the cloud provider to run on, the node sizes and
@@ -43,7 +43,7 @@ creates them in Threeport.
 
 As a result, the user can then deploy a second instance of the object
 
-![Defined Instance Abstraction](../img/DefinedInstanceAbstraction.png)
+![Defined Instance Abstraction](../img/DefinedInstanceAbstraction.drawio.svg)
 
 ## Division of Responsibility
 

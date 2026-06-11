@@ -3,7 +3,6 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -253,38 +252,4 @@ func GetKubernetesWorkloadInstancesByKubernetesRuntimeInstanceID(apiClient *http
 	}
 
 	return &workloadInstances, nil
-}
-
-// DeleteWorkloadEventsByQueryString deletes workload events by provided query string.
-func DeleteWorkloadEventsByQueryString(apiClient *http.Client, apiAddr string, queryString string) (*[]v0.WorkloadEvent, error) {
-	var workloadEvents []v0.WorkloadEvent
-
-	response, err := client_lib.GetResponse(
-		apiClient,
-		fmt.Sprintf("%s/%s/workload-events?%s", apiAddr, ApiVersion, queryString),
-		http.MethodDelete,
-		new(bytes.Buffer),
-		map[string]string{},
-		http.StatusOK,
-	)
-	if err != nil {
-		// if nothing to delete, return empty array without error
-		if errors.Is(err, client_lib.ErrObjectNotFound) {
-			return &workloadEvents, nil
-		}
-		return &workloadEvents, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
-	}
-
-	jsonData, err := json.Marshal(response.Data)
-	if err != nil {
-		return &workloadEvents, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(jsonData))
-	decoder.UseNumber()
-	if err := decoder.Decode(&workloadEvents); err != nil {
-		return nil, fmt.Errorf("failed to decode object in response data from threeport API: %w", err)
-	}
-
-	return &workloadEvents, nil
 }

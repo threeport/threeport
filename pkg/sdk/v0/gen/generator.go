@@ -96,6 +96,10 @@ type ApiObjectGroup struct {
 	// The controller domain in all lowercase.
 	ControllerDomainLower string
 
+	// DockerfileTarget overrides the Dockerfile build target used for this
+	// group's controller image. Empty means use the default `release` target.
+	DockerfileTarget string
+
 	// List of API object names that are reconciled by a controller.
 	ReconciledApiObjectNames []string
 
@@ -692,6 +696,7 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 				ModelFilename:            filename,
 				ControllerDomain:         strcase.ToCamel(sdkutil.FilenameSansExt(filename)),
 				ControllerDomainLower:    strcase.ToLowerCamel(sdkutil.FilenameSansExt(filename)),
+				DockerfileTarget:         apiObjectGroup.DockerfileTarget,
 				ApiObjects:               apiObjects,
 				ReconciledApiObjectNames: reconcilerModels,
 				TptctlModels:             tptctlModels,

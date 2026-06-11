@@ -29,7 +29,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.ImportAlias(installerPkg, "installer")
 
 	f.Var().Defs(
-		Id("development").Bool(),
+		Id("debug").Bool(),
 		Id("controlPlaneImageRepo").String(),
 		Id("controlPlaneImageTag").String(),
 	)
@@ -159,16 +159,9 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Id("dynamicInterface"), Id("restMapper"),
 			),
 			Id("inst").Dot("AuthEnabled").Op("=").Id("authEnabled"),
-			If(Id("development")).Block(
-				Id("inst").Dot("ControlPlaneImageRepo").Op("=").Qual(
-					installerPkg,
-					"DevImageNamespace",
-				),
-				Id("inst").Dot("ControlPlaneImageTag").Op("=").Id("controlPlaneImageTag"),
-			).Else().Block(
-				Id("inst").Dot("ControlPlaneImageRepo").Op("=").Id("controlPlaneImageRepo"),
-				Id("inst").Dot("ControlPlaneImageTag").Op("=").Id("controlPlaneImageTag"),
-			),
+			Id("inst").Dot("ControlPlaneImageRepo").Op("=").Id("controlPlaneImageRepo"),
+			Id("inst").Dot("ControlPlaneImageTag").Op("=").Id("controlPlaneImageTag"),
+			Id("inst").Dot("Debug").Op("=").Id("debug"),
 			Line(),
 
 			Comment("install extension module"),
@@ -207,19 +200,11 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Func().Id("init").Params().Block(
 		Id("rootCmd").Dot("AddCommand").Call(Id("installCmd")),
 		Line(),
-		Id("installCmd").Dot("Flags").Call().Dot("BoolVarP").Call(
-			Line().Op("&").Id("development"),
-			Line().List(
-				Lit("dev"), Lit("d"), Lit(false), Qual("fmt", "Sprintf").Call(
-					Line().Lit("If true, development image repo (%s) and image tag (%s) will be used"),
-					Line().Qual(installerPkg, "DevImageNamespace"),
-					Line().Qual(
-						fmt.Sprintf("%s/internal/version", gen.ModulePath),
-						"GetVersion",
-					).Call(),
-					Line(),
-				),
-			),
+		Id("installCmd").Dot("Flags").Call().Dot("BoolVar").Call(
+			Line().Op("&").Id("debug"),
+			Line().Lit("debug"),
+			Line().Lit(false),
+			Line().Lit("If true, pod imagePullPolicy is set to Always so each rollout re-pulls the tag."),
 			Line(),
 		),
 		Id("installCmd").Dot("Flags").Call().Dot("StringVarP").Call(

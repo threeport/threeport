@@ -74,6 +74,10 @@ type ApiObjectGroup struct {
 	// Name of the api object group.
 	Name *string
 
+	// DockerfileTarget overrides the Dockerfile build target used for this
+	// group's controller image. Empty means use the default `release` target.
+	DockerfileTarget string
+
 	// List of api objects under the object group.
 	Objects []*ApiObject
 }

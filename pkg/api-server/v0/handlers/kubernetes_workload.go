@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"fmt"
 
 	echo "github.com/labstack/echo/v4"
 	zap "go.uber.org/zap"
@@ -10,8 +9,6 @@ import (
 
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // AddKubernetesWorkloadResourceDefinitions adds a new set of kubernetes workload resource definitions.
@@ -76,71 +73,3 @@ func (h Handler) AddKubernetesWorkloadResourceDefinitions(c echo.Context) error 
 	return apiserver_lib.ResponseStatus201(c, *response)
 }
 
-// @Summary deletes workload events by query parameter.
-// @Description Deletes workload events by query parameter from the database.
-// @ID delete-workloadEvents
-// @Accept json
-// @Produce json
-// @Param name query string false "workload event search by name"
-// @Success 200 {object} v0.Response "OK"
-// @Failure 409 {object} v0.Response "Conflict"
-// @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/workload-events [DELETE]
-func (h Handler) DeleteWorkloadEvents(c echo.Context) error {
-	objectType := v0.ObjectTypeWorkloadEvent
-
-	// ensure query parameters are present to prevent client from deleting all
-	// workload events by mistake
-	queryParams := c.QueryParams()
-	if len(queryParams) != 1 {
-		err := errors.New("must provide one - and only one - query parameter when deleting multiple workload events")
-		return apiserver_lib.ResponseStatus400(c, nil, err, objectType)
-	}
-
-	// ensure workload events are deleted by workload or helm workload instance
-	// ID
-	validQueryKeys := []string{"workloadinstanceid", "helmworkloadinstanceid"}
-	for k, _ := range queryParams {
-		if !util.StringSliceContains(validQueryKeys, k, false) {
-			err := fmt.Errorf("can only delete multiple workload events using query parameter keys %s", validQueryKeys)
-			return apiserver_lib.ResponseStatus400(c, nil, err, objectType)
-		}
-	}
-
-	var filter v0.WorkloadEvent
-	if err := c.Bind(&filter); err != nil {
-		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	var totalCount int64
-	workloadEvents := &[]v0.WorkloadEvent{}
-	if result := h.DB.Where(&filter).Find(workloadEvents).Count(&totalCount); result.Error != nil {
-		h.Logger.Error("handler error: error getting workload events", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	// return 404 if no matches found for query parameter
-	if len(*workloadEvents) == 0 {
-		return apiserver_lib.ResponseStatus404(c, nil, client_lib.ErrObjectNotFound, objectType)
-	}
-
-	if result := h.DB.Delete(workloadEvents); result.Error != nil {
-		h.Logger.Error("handler error: error deleting workload events", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
-	response, err := apiserver_lib.CreateResponse(
-		&apiserver_lib.Meta{
-			ObjectCount: totalCount,
-		},
-		*workloadEvents,
-		objectType,
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
-	}
-
-	return apiserver_lib.ResponseStatus200(c, *response)
-}

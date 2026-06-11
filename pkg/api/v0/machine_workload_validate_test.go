@@ -28,7 +28,6 @@ func setupMachineWorkloadValidateDB(t *testing.T) *gorm.DB {
 		&MachineRuntimeInstance{},
 		&MachineWorkloadDefinition{},
 		&MachineWorkloadInstance{},
-		&WorkloadEvent{},
 		&AttachedObjectReference{},
 	))
 	return db

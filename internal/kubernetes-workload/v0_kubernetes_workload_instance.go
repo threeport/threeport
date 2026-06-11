@@ -67,7 +67,7 @@ func v0KubernetesWorkloadInstanceCreated(
 	// which resources it should watch
 	threeportWorkloadName, err := agent.ThreeportWorkloadName(
 		*k8sWorkloadInstance.ID,
-		agent.WorkloadInstanceType,
+		agent.KubernetesWorkloadInstanceType,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to generate threeport workload resource name: %w", err)
@@ -77,7 +77,7 @@ func v0KubernetesWorkloadInstanceCreated(
 			Name: threeportWorkloadName,
 		},
 		Spec: agentapi.ThreeportWorkloadSpec{
-			WorkloadType:                 agent.WorkloadInstanceType,
+			WorkloadType:                 agent.KubernetesWorkloadInstanceType,
 			KubernetesWorkloadInstanceID: *k8sWorkloadInstance.ID,
 		},
 	}
@@ -157,7 +157,7 @@ func v0KubernetesWorkloadInstanceCreated(
 			*k8sWorkloadDefinition.Name,
 			*k8sWorkloadInstance.Name,
 			*k8sWorkloadInstance.ID,
-			agent.WorkloadInstanceLabelKey,
+			agent.KubernetesWorkloadInstanceLabelKey,
 		)
 		if err != nil {
 			return 0, fmt.Errorf("failed to add label metadata to objects: %w", err)
@@ -462,7 +462,7 @@ func v0KubernetesWorkloadInstanceDeleted(
 	resourceClient := dynamicKubeClient.Resource(agentapi.ThreeportWorkloadGVR)
 	threeportWorkloadName, err := agent.ThreeportWorkloadName(
 		*k8sWorkloadInstance.ID,
-		agent.WorkloadInstanceType,
+		agent.KubernetesWorkloadInstanceType,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to determine threeport workload resource name: %w", err)

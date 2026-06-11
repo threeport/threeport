@@ -62,7 +62,7 @@ app. The reconcilers in the Custom Threeport Controller understand the custom
 app's requirements and creates the primitive Threeport objects on behalf of the
 developer when instances are deployed.
 
-![Primitive Object Abstraction](../img/ThreeportForPlatformEngineers.png)
+![Primitive Object Abstraction](../img/ThreeportForPlatformEngineers.drawio.svg)
 
 ### Custom Infrastructure Management
 

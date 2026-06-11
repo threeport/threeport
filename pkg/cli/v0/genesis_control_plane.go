@@ -165,7 +165,6 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.ThreeportPath = a.ThreeportPath
 	cpi.Opts.Debug = a.Debug
 	cpi.Opts.Verbose = a.Verbose
-	cpi.Opts.LiveReload = false
 	cpi.Opts.CreateOrUpdateKubeResources = false
 	cpi.Opts.ControlPlaneOnly = a.ControlPlaneOnly
 	cpi.Opts.ClusterName = a.ClusterName

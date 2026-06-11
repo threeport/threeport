@@ -312,20 +312,6 @@ func v0HelmWorkloadInstanceDeleted(
 		return 0, fmt.Errorf("failed to delete ThreeportWorkload resource: %w", err)
 	}
 
-	// delete workload events related to workload instance
-	_, err = client.DeleteWorkloadEventsByQueryString(
-		r.APIClient,
-		r.APIServer,
-		fmt.Sprintf("helmworkloadinstanceid=%d", *helmWorkloadInstance.ID),
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete workload events for helm workload instance with ID %d: %w", helmWorkloadInstance.ID, err)
-	}
-	log.V(1).Info(
-		"workload events deleted",
-		"helmWorkloadInstanceID", helmWorkloadInstance.ID,
-	)
-
 	// clean up files written to disk
 	if err := cleanLocalFiles(); err != nil {
 		// logging err but not returning it as it is non-critical and we do not

@@ -2,7 +2,6 @@
 
 User docs for Threeport.
 
-<<<<<<< HEAD
 ## Live Updates
 
 The live docs site is updated when either of the following things are done:
@@ -19,8 +18,22 @@ tag.
 Prerequisistes:
 
 * [python 3](https://docs.python-guide.org/starting/installation/)
-* [mkdocs](https://www.mkdocs.org/getting-started/#installation)
-* [mkdocs-material theme](https://squidfunk.github.io/mkdocs-material/getting-started/#installation)
+* [pip](https://pypi.org/project/pip/)
+
+Run all the following commands from this `docs/` directory.
+
+Create virtual environment and activate:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Install python requirements:
+
+```bash
+pip install -r requirements.txt
+```
 
 Run the server locally:
 
@@ -30,28 +43,9 @@ mkdocs serve
 
 View the site at [http://127.0.0.1:8000](http://127.0.0.1:8000/)
 
-## Release
+## Diagrams
 
-=======
-## Local Development
+For consistency, use draw.io for all diagrams in user documentation. Add each diagram as an svg file with the extension `.drawio.svg`. This allows diagrams to be updated using the same draw.io tool.
 
-Prerequisistes:
-
-* [python 3](https://docs.python-guide.org/starting/installation/)
-* [mkdocs](https://www.mkdocs.org/getting-started/#installation)
-* [mkdocs-material theme](https://squidfunk.github.io/mkdocs-material/getting-started/#installation)
-
-Run the server locally:
-
-```bash
-mkdocs serve
-```
-
-View the site at [http://127.0.0.1:8000](http://127.0.0.1:8000/)
-
-## Release
-
->>>>>>> 7a4fd81 (docs: move user docs into core threeport repo (#323))
-Changes will be deployed to live [documentation
-site](https://threeport.io/) when PRs are merged to main.
+> Note: if using the `hediet.vscode-drawio` vscode extension, create and modify the diagrams in light mode. If you use darkmode, the diagrams will lose all color when viewed on the docs site in light mode.
 

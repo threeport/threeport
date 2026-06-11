@@ -14,5 +14,10 @@ func GenRoot(generator *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		return fmt.Errorf("failed to generate Magefile at project root: %w", err)
 	}
 
+	// write Dockerfile if not already present
+	if err := GenDockerfile(generator, sdkConfig); err != nil {
+		return fmt.Errorf("failed to write Dockerfile at project root: %w", err)
+	}
+
 	return nil
 }
