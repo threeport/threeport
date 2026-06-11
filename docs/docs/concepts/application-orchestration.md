@@ -155,7 +155,7 @@ pipeline-driven systems:
 The following diagram illustrates software delivery using app orchestration with
 Threeport.
 
-![Software Delivery Orchestration](../img/SoftwareDeliveryOrchestration.png)
+![Software Delivery Orchestration](../img/SoftwareDeliveryOrchestration.drawio.svg)
 
 1. Ahead of time, the DevOps team sets up definitions and defaults for apps
    and their dependencies.  These provide the guardrails and rules leveraged
