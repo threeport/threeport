@@ -1,5 +1,7 @@
 package v0
 
+import "gorm.io/datatypes"
+
 // MachineRuntimeDefinition is the configuration for a machine runtime.  It
 // serves as a template for provisioning machine runtime instances.
 type MachineRuntimeDefinition struct {
@@ -35,6 +37,26 @@ type MachineRuntimeInstance struct {
 	// The remote machine's SSH public host key, used to verify identity on
 	// connection. If not provided, captured on first connection.
 	HostKey *string `validate:"optional"`
+
+	// The infrastructure provider that provisions this machine. Empty for
+	// imported machines that already exist.
+	InfraProvider *string `json:",omitempty" validate:"optional"`
+
+	// The provider region in which the machine is provisioned.
+	Region *string `json:",omitempty" validate:"optional"`
+
+	// The provider-specific machine/instance type to provision.
+	MachineType *string `json:",omitempty" validate:"optional"`
+
+	// The provider image identifier used to boot the machine.
+	ImageID *string `json:",omitempty" validate:"optional"`
+
+	// The provider network identifier the machine attaches to.
+	NetworkID *string `json:",omitempty" validate:"optional"`
+
+	// An inventory of all provider resources backing this machine, used for
+	// crash recovery and deprovisioning.
+	ResourceInventory *datatypes.JSON `json:",omitempty" validate:"optional"`
 
 	// The machine runtime definition for this instance.  Optional because
 	// imported machines may not have an associated definition.
