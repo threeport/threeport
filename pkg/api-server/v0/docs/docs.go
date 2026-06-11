@@ -18647,6 +18647,14 @@ const docTemplate = `{
                     "description": "The hostname or IP address used to reach the machine.",
                     "type": "string"
                 },
+                "ImageID": {
+                    "description": "The provider image identifier used to boot the machine.",
+                    "type": "string"
+                },
+                "InfraProvider": {
+                    "description": "The infrastructure provider that provisions this machine. Empty for\nimported machines that already exist.",
+                    "type": "string"
+                },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
@@ -18654,6 +18662,10 @@ const docTemplate = `{
                 "MachineRuntimeDefinitionID": {
                     "description": "The machine runtime definition for this instance.  Optional because\nimported machines may not have an associated definition.",
                     "type": "integer"
+                },
+                "MachineType": {
+                    "description": "The provider-specific machine/instance type to provision.",
+                    "type": "string"
                 },
                 "MachineWorkloadInstances": {
                     "description": "The associated machine workload instances running on this machine runtime.",
@@ -18666,6 +18678,10 @@ const docTemplate = `{
                     "description": "An arbitrary name the instance",
                     "type": "string"
                 },
+                "NetworkID": {
+                    "description": "The provider network identifier the machine attaches to.",
+                    "type": "string"
+                },
                 "Port": {
                     "description": "The SSH port on the machine.",
                     "type": "integer"
@@ -18673,6 +18689,18 @@ const docTemplate = `{
                 "Reconciled": {
                     "description": "Indicates if object is considered to be reconciled by the object's controller.",
                     "type": "boolean"
+                },
+                "Region": {
+                    "description": "The provider region in which the machine is provisioned.",
+                    "type": "string"
+                },
+                "ResourceInventory": {
+                    "description": "An inventory of all provider resources backing this machine, used for\ncrash recovery and deprovisioning.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/datatypes.JSON"
+                        }
+                    ]
                 },
                 "SSHKey": {
                     "description": "The SSH private key for authenticating to the machine.",
