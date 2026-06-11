@@ -170,11 +170,34 @@ func v0MachineRuntimeInstanceUpdated(
 }
 
 // v0MachineRuntimeInstanceDeleted performs reconciliation when a v0 MachineRuntimeInstance
-// has been deleted.
+// has been deleted.  Imported machines (no infra provider) have no
+// provisioned infrastructure, so deletion is a clean no-op for them.
 func v0MachineRuntimeInstanceDeleted(
 	r *controller.Reconciler,
 	machineRuntimeInstance *v0.MachineRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// imported machines have nothing to deprovision
+	if machineRuntimeInstance.InfraProvider == nil {
+		return 0, nil
+	}
+
+	// TODO: deprovision the provider resources recorded in the resource
+	// inventory once provider integration lands. Until then, record an
+	// event so operators know the backing resources were not torn down.
+	if machineRuntimeInstance.ResourceInventory != nil {
+		if eventErr := r.EventsRecorder.RecordEvent(
+			&v0.Event{
+				Type:   util.Ptr(event.TypeWarning),
+				Reason: util.Ptr("DeprovisionDeferred"),
+				Note:   util.Ptr(fmt.Sprintf("machine runtime instance %s was deleted but its provider resources were not deprovisioned", *machineRuntimeInstance.Name)),
+			},
+			*machineRuntimeInstance.ID,
+			machineRuntimeInstance.GetFullyQualifiedType(),
+		); eventErr != nil {
+			log.Error(eventErr, "failed to record event for deferred deprovisioning")
+		}
+	}
+
 	return 0, nil
 }
