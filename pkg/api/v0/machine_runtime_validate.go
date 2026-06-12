@@ -28,7 +28,29 @@ func (m *MachineRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+// The provisioning template fields are immutable: changing the infra
+// provider, machine type, or image after instances have been derived from
+// the definition would diverge the running machines from their template.
 func (m *MachineRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
+	immutableFields := []struct {
+		column string
+		name   string
+	}{
+		{"InfraProvider", "infra provider"},
+		{"MachineType", "machine type"},
+		{"ImageID", "image id"},
+	}
+	for _, field := range immutableFields {
+		if tx.Statement.Changed(field.column) {
+			return util.NewBadRequestError(
+				fmt.Sprintf(
+					"machine runtime definition %s cannot be changed after creation",
+					field.name,
+				),
+			)
+		}
+	}
 	return nil
 }
 
@@ -39,10 +61,12 @@ func (m *MachineRuntimeDefinition) beforeDelete(tx *gorm.DB) error {
 
 // beforeCreate validates the MachineRuntimeInstance before create.
 //
-// Why: at least one of SSHKey or SSHPassword must be provided so the
-// reconciler has a credential to authenticate with the machine.  When an
-// infra provider is set, a region is also required because no provider can
-// provision a machine without one; imported machines leave both unset.
+// Two invariants are enforced:
+//   - at least one of SSHKey or SSHPassword must be provided so the
+//     reconciler has a credential to authenticate with the machine.
+//   - when the referenced machine runtime definition has an infra provider
+//     set, the instance must supply a region so the provider knows where to
+//     provision the machine.
 func (m *MachineRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 	if m.SSHKey == nil && m.SSHPassword == nil {
 		return util.NewBadRequestError(
@@ -52,16 +76,30 @@ func (m *MachineRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 			),
 		)
 	}
-	if m.InfraProvider != nil && *m.InfraProvider != "" {
-		if m.Region == nil || *m.Region == "" {
+
+	if m.MachineRuntimeDefinitionID != nil {
+		var def MachineRuntimeDefinition
+		if err := tx.First(&def, *m.MachineRuntimeDefinitionID).Error; err != nil {
 			return util.NewBadRequestError(
 				fmt.Sprintf(
-					"machine runtime instance %s sets an infra provider and must also set a region",
+					"machine runtime instance %s references machine runtime definition %d which does not exist",
 					*m.Name,
+					*m.MachineRuntimeDefinitionID,
 				),
 			)
 		}
+		if def.InfraProvider != nil && *def.InfraProvider != "" {
+			if m.Region == nil || *m.Region == "" {
+				return util.NewBadRequestError(
+					fmt.Sprintf(
+						"machine runtime instance %s must have a region when the definition specifies an infra provider",
+						*m.Name,
+					),
+				)
+			}
+		}
 	}
+
 	return nil
 }
 
@@ -79,21 +117,15 @@ func (m *MachineRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 //
-// The provisioning identity fields are immutable: they cannot be changed
-// once the row exists with a value, and cannot be introduced post-create
-// either.  Changing them after creation would orphan the provisioned
-// resources, and introducing a provider on an existing machine belongs to
-// a new instance, not an update.  Create is therefore the only place the
-// provider/region pairing is validated.
+// The provisioning location fields are immutable: changing them after
+// creation would orphan the provisioned resources. The provider, machine
+// type, and image live on the definition and are guarded there.
 func (m *MachineRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 	immutableFields := []struct {
 		column string
 		name   string
 	}{
-		{"InfraProvider", "infra provider"},
 		{"Region", "region"},
-		{"MachineType", "machine type"},
-		{"ImageID", "image id"},
 		{"NetworkID", "network id"},
 	}
 	for _, field := range immutableFields {

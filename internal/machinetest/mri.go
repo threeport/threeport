@@ -40,11 +40,13 @@ type MRIInfraOpts struct {
 	// stored; HostKeyFromSigner produces it from a test server's signer.
 	HostKey string
 
-	InfraProvider string
-	Region        string
-	MachineType   string
-	ImageID       string
-	NetworkID     string
+	Region    string
+	NetworkID string
+
+	// MachineRuntimeDefinitionID, when non-zero, links the instance to a
+	// definition. A provisioned machine has one; an imported machine leaves
+	// it unset.
+	MachineRuntimeDefinitionID uint
 
 	// ResourceInventory is raw JSON stored on the instance.
 	ResourceInventory string
@@ -63,20 +65,14 @@ func NewMRIWithInfra(
 	if opts.HostKey != "" {
 		mri.HostKey = util.Ptr(opts.HostKey)
 	}
-	if opts.InfraProvider != "" {
-		mri.InfraProvider = util.Ptr(opts.InfraProvider)
-	}
 	if opts.Region != "" {
 		mri.Region = util.Ptr(opts.Region)
 	}
-	if opts.MachineType != "" {
-		mri.MachineType = util.Ptr(opts.MachineType)
-	}
-	if opts.ImageID != "" {
-		mri.ImageID = util.Ptr(opts.ImageID)
-	}
 	if opts.NetworkID != "" {
 		mri.NetworkID = util.Ptr(opts.NetworkID)
+	}
+	if opts.MachineRuntimeDefinitionID != 0 {
+		mri.MachineRuntimeDefinitionID = util.Ptr(opts.MachineRuntimeDefinitionID)
 	}
 	if opts.ResourceInventory != "" {
 		inventory := datatypes.JSON([]byte(opts.ResourceInventory))

@@ -18586,12 +18586,24 @@ const docTemplate = `{
                 "Name"
             ],
             "properties": {
+                "ImageID": {
+                    "description": "The provider image identifier used to boot the machine.",
+                    "type": "string"
+                },
+                "InfraProvider": {
+                    "description": "The infrastructure provider that provisions machines from this\ndefinition. Empty for imported machines that already exist.",
+                    "type": "string"
+                },
                 "MachineRuntimeInstances": {
                     "description": "The associated machine runtime instances that are deployed from this\ndefinition.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/v0.MachineRuntimeInstance"
                     }
+                },
+                "MachineType": {
+                    "description": "The provider-specific machine/instance type to provision.",
+                    "type": "string"
                 },
                 "Name": {
                     "description": "An arbitrary name for the definition.",
@@ -18647,14 +18659,6 @@ const docTemplate = `{
                     "description": "The hostname or IP address used to reach the machine.",
                     "type": "string"
                 },
-                "ImageID": {
-                    "description": "The provider image identifier used to boot the machine.",
-                    "type": "string"
-                },
-                "InfraProvider": {
-                    "description": "The infrastructure provider that provisions this machine. Empty for\nimported machines that already exist.",
-                    "type": "string"
-                },
                 "InterruptReconciliation": {
                     "description": "InterruptReconciliation is used by the controller to indicated that future\nreconcilation should be interrupted.  Useful in cases where there is a\nsituation where future reconciliation could be descructive such as\nspinning up more infrastructure when there is a unresolved problem.",
                     "type": "boolean"
@@ -18662,10 +18666,6 @@ const docTemplate = `{
                 "MachineRuntimeDefinitionID": {
                     "description": "The machine runtime definition for this instance.  Optional because\nimported machines may not have an associated definition.",
                     "type": "integer"
-                },
-                "MachineType": {
-                    "description": "The provider-specific machine/instance type to provision.",
-                    "type": "string"
                 },
                 "MachineWorkloadInstances": {
                     "description": "The associated machine workload instances running on this machine runtime.",

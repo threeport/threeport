@@ -1786,6 +1786,14 @@ definitions:
     type: object
   v0.MachineRuntimeDefinition:
     properties:
+      ImageID:
+        description: The provider image identifier used to boot the machine.
+        type: string
+      InfraProvider:
+        description: |-
+          The infrastructure provider that provisions machines from this
+          definition. Empty for imported machines that already exist.
+        type: string
       MachineRuntimeInstances:
         description: |-
           The associated machine runtime instances that are deployed from this
@@ -1793,6 +1801,9 @@ definitions:
         items:
           $ref: '#/definitions/v0.MachineRuntimeInstance'
         type: array
+      MachineType:
+        description: The provider-specific machine/instance type to provision.
+        type: string
       Name:
         description: An arbitrary name for the definition.
         type: string
@@ -1845,14 +1856,6 @@ definitions:
       Hostname:
         description: The hostname or IP address used to reach the machine.
         type: string
-      ImageID:
-        description: The provider image identifier used to boot the machine.
-        type: string
-      InfraProvider:
-        description: |-
-          The infrastructure provider that provisions this machine. Empty for
-          imported machines that already exist.
-        type: string
       InterruptReconciliation:
         description: |-
           InterruptReconciliation is used by the controller to indicated that future
@@ -1865,9 +1868,6 @@ definitions:
           The machine runtime definition for this instance.  Optional because
           imported machines may not have an associated definition.
         type: integer
-      MachineType:
-        description: The provider-specific machine/instance type to provision.
-        type: string
       MachineWorkloadInstances:
         description: The associated machine workload instances running on this machine
           runtime.

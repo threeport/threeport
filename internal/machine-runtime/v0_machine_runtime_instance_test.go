@@ -546,9 +546,9 @@ func TestMachineRuntimeInstanceDeleted_Deprovisions(t *testing.T) {
 
 	t.Run("provider provisioned records deferred deprovision", func(t *testing.T) {
 		mri := machinetest.NewMRIWithInfra(t, 61, "mri-del-provisioned", "127.0.0.1:22", "u", "p", key, machinetest.MRIInfraOpts{
-			InfraProvider:     "gce",
-			Region:            "us-central1",
-			ResourceInventory: `{"vmId":"i-123"}`,
+			MachineRuntimeDefinitionID: 7,
+			Region:                     "us-central1",
+			ResourceInventory:          `{"vmId":"i-123"}`,
 		})
 		recorder := machinetest.NewFakeRecorder()
 		r := &controller.Reconciler{

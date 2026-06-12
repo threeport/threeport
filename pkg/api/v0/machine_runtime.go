@@ -8,6 +8,16 @@ type MachineRuntimeDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
+	// The infrastructure provider that provisions machines from this
+	// definition. Empty for imported machines that already exist.
+	InfraProvider *string `json:",omitempty" validate:"optional"`
+
+	// The provider-specific machine/instance type to provision.
+	MachineType *string `json:",omitempty" validate:"optional"`
+
+	// The provider image identifier used to boot the machine.
+	ImageID *string `json:",omitempty" validate:"optional"`
+
 	// The associated machine runtime instances that are deployed from this
 	// definition.
 	MachineRuntimeInstances []*MachineRuntimeInstance `validate:"optional,association"`
@@ -38,18 +48,8 @@ type MachineRuntimeInstance struct {
 	// connection. If not provided, captured on first connection.
 	HostKey *string `validate:"optional"`
 
-	// The infrastructure provider that provisions this machine. Empty for
-	// imported machines that already exist.
-	InfraProvider *string `json:",omitempty" validate:"optional"`
-
 	// The provider region in which the machine is provisioned.
 	Region *string `json:",omitempty" validate:"optional"`
-
-	// The provider-specific machine/instance type to provision.
-	MachineType *string `json:",omitempty" validate:"optional"`
-
-	// The provider image identifier used to boot the machine.
-	ImageID *string `json:",omitempty" validate:"optional"`
 
 	// The provider network identifier the machine attaches to.
 	NetworkID *string `json:",omitempty" validate:"optional"`

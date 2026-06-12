@@ -170,15 +170,15 @@ func v0MachineRuntimeInstanceUpdated(
 }
 
 // v0MachineRuntimeInstanceDeleted performs reconciliation when a v0 MachineRuntimeInstance
-// has been deleted.  Imported machines (no infra provider) have no
+// has been deleted.  Imported machines (no associated definition) have no
 // provisioned infrastructure, so deletion is a clean no-op for them.
 func v0MachineRuntimeInstanceDeleted(
 	r *controller.Reconciler,
 	machineRuntimeInstance *v0.MachineRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// imported machines have nothing to deprovision
-	if machineRuntimeInstance.InfraProvider == nil {
+	// imported machines have no definition, so nothing to deprovision
+	if machineRuntimeInstance.MachineRuntimeDefinitionID == nil {
 		return 0, nil
 	}
 
