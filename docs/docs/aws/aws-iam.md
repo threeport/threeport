@@ -12,7 +12,7 @@ permissions to install and manage Threeport:
 * Create and manage IAM permissions
 * Assume that role for installing Threeport
 
-![Threeport Admin Permissions](../img/ThreeportAdminPermissions.png)
+![Threeport Admin Permissions](../img/ThreeportAdminPermissions.drawio.svg)
 
 If you don't have those permissions, you will need someone else on your AWS
 account to grant you that access.  The following instructions are for that user
