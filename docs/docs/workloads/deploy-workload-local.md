@@ -102,7 +102,7 @@ of a workload to a particular Kubernetes cluster.
 This diagram illustrates the relationships between components introduced in this
 guide.
 
-![Threeport Getting Started](../img/ThreeportGettingStartedWordpress.png)
+![Threeport Getting Started](../img/ThreeportGettingStartedWordpress.drawio.svg)
 
 When we installed Threeport using `tptctl up` we created a new
 control plane on a new Kubernetes cluster.
