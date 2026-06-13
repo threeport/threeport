@@ -157,6 +157,7 @@ ApiObjectGroups:
       Tptctl:
         Enabled: true
 - Name: helm_workload
+  DockerfileTarget: release-helm
   Objects:
     - Name: HelmWorkloadDefinition
       Versions:

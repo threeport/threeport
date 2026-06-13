@@ -21,10 +21,11 @@ import (
 // name of the generated package-only function that the AllImages* tasks
 // call to skip redundant compile work.
 type componentSpec struct {
-	BinaryName      string
-	PackageDir      string
-	ImageName       string
-	PackageFuncName string
+	BinaryName       string
+	PackageDir       string
+	ImageName        string
+	PackageFuncName  string
+	DockerfileTarget string
 }
 
 // GenMagefile generates the source code for mage which is a Make-like tool
@@ -112,10 +113,11 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 	apiPackageFuncName := "restApiImagePackage"
 	allComponents = append(allComponents, componentSpec{
-		BinaryName:      "rest-api",
-		PackageDir:      "cmd/rest-api",
-		ImageName:       apiImageName,
-		PackageFuncName: apiPackageFuncName,
+		BinaryName:       "rest-api",
+		PackageDir:       "cmd/rest-api",
+		ImageName:        apiImageName,
+		PackageFuncName:  apiPackageFuncName,
+		DockerfileTarget: "release",
 	})
 	emitImagePackageFunc(f, apiPackageFuncName, "REST API", "release", "rest-api", apiImageName)
 	emitImageFunc(f, buildApiImageFuncName, "REST API", "rest-api", "cmd/rest-api", apiPackageFuncName)
@@ -136,10 +138,11 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 	dbMigratorPackageFuncName := "dbMigratorImagePackage"
 	allComponents = append(allComponents, componentSpec{
-		BinaryName:      "database-migrator",
-		PackageDir:      "cmd/database-migrator",
-		ImageName:       dbMigratorImageName,
-		PackageFuncName: dbMigratorPackageFuncName,
+		BinaryName:       "database-migrator",
+		PackageDir:       "cmd/database-migrator",
+		ImageName:        dbMigratorImageName,
+		PackageFuncName:  dbMigratorPackageFuncName,
+		DockerfileTarget: "release",
 	})
 	emitImagePackageFunc(f, dbMigratorPackageFuncName, "database migrator", "release", "database-migrator", dbMigratorImageName)
 	emitImageFunc(f, buildDbMigratorImageFuncName, "database migrator", "database-migrator", "cmd/database-migrator", dbMigratorPackageFuncName)
@@ -158,10 +161,11 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 		agentPackageFuncName := "agentImagePackage"
 		allComponents = append(allComponents, componentSpec{
-			BinaryName:      "agent",
-			PackageDir:      "cmd/agent",
-			ImageName:       "threeport-agent",
-			PackageFuncName: agentPackageFuncName,
+			BinaryName:       "agent",
+			PackageDir:       "cmd/agent",
+			ImageName:        "threeport-agent",
+			PackageFuncName:  agentPackageFuncName,
+			DockerfileTarget: "release",
 		})
 		emitImagePackageFunc(f, agentPackageFuncName, "agent", "release", "agent", "threeport-agent")
 		emitImageFunc(f, buildAgentImageFuncName, "agent", "agent", "cmd/agent", agentPackageFuncName)
@@ -199,10 +203,11 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 			packageFuncName := fmt.Sprintf("%sControllerImagePackage", strcase.ToLowerCamel(objGroup.ControllerDomain))
 			allComponents = append(allComponents, componentSpec{
-				BinaryName:      objGroup.ControllerName,
-				PackageDir:      packageDir,
-				ImageName:       imageName,
-				PackageFuncName: packageFuncName,
+				BinaryName:       objGroup.ControllerName,
+				PackageDir:       packageDir,
+				ImageName:        imageName,
+				PackageFuncName:  packageFuncName,
+				DockerfileTarget: objGroup.DockerfileTarget,
 			})
 			target := objGroup.DockerfileTarget
 			if target == "" {
@@ -477,13 +482,34 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		}
 		g.Line()
 
+		// build a map of components that need a non-default Dockerfile target.
+		nonDefaultTargets := Dict{}
+		for _, c := range allComponents {
+			if c.DockerfileTarget != "" && c.DockerfileTarget != "release" {
+				nonDefaultTargets[Lit(c.BinaryName)] = Lit(c.DockerfileTarget)
+			}
+		}
+		if len(nonDefaultTargets) > 0 {
+			g.Comment("components that require a non-standard Dockerfile target; all others use \"release\".")
+			g.Id("componentTargets").Op(":=").Map(String()).String().Values(nonDefaultTargets)
+			g.Id("dockerfileTarget").Op(":=").Lit("release")
+			g.If(
+				List(Id("t"), Id("ok")).Op(":=").Id("componentTargets").Index(Id("component")).Op(";").Id("ok"),
+			).Block(
+				Id("dockerfileTarget").Op("=").Id("t"),
+			)
+		} else {
+			g.Id("dockerfileTarget").Op(":=").Lit("release")
+		}
+		g.Line()
+
 		g.If(Err().Op(":=").Qual(
 			"github.com/threeport/threeport/pkg/util/v0",
 			"BuildImage",
 		).Call(
 			Line().Id("workingDir"),
 			Line().Lit("Dockerfile"),
-			Line().Lit("release"),
+			Line().Id("dockerfileTarget"),
 			Line().Id("arch"),
 			Line().Id("component"),
 			Line().Lit("bin"),

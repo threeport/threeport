@@ -1277,7 +1277,7 @@ func (Build) helmWorkloadControllerImagePackage(
 	if err := util.BuildImage(
 		workingDir,
 		"Dockerfile",
-		"release",
+		"release-helm",
 		arch,
 		"helm-workload-controller",
 		"bin",
@@ -2584,10 +2584,22 @@ func (Dev) LoadImage(kindClusterName string, component string) error {
 
 	imageName := fmt.Sprintf("threeport-%s", component)
 
+	// components that require a non-standard Dockerfile target; all others use "release".
+	componentTargets := map[string]string{
+		"gcp-controller":           "release-pulumi",
+		"helm-workload-controller": "release-helm",
+		"oci-controller":           "release-pulumi",
+		"terraform-controller":     "release-terraform",
+	}
+	dockerfileTarget := "release"
+	if t, ok := componentTargets[component]; ok {
+		dockerfileTarget = t
+	}
+
 	if err := util.BuildImage(
 		workingDir,
 		"Dockerfile",
-		"release",
+		dockerfileTarget,
 		arch,
 		component,
 		"bin",
