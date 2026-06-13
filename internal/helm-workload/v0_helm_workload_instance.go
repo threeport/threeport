@@ -180,7 +180,25 @@ func v0HelmWorkloadInstanceCreated(
 	}
 	_, err = resourceClient.Create(context.Background(), unstructured, metav1.CreateOptions{})
 	if err != nil {
-		return 0, fmt.Errorf("failed to create new ThreeportWorkload resource: %w", err)
+		if !kubeerr.IsAlreadyExists(err) {
+			return 0, fmt.Errorf("failed to create new ThreeportWorkload resource: %w", err)
+		}
+		// stale ThreeportWorkload from a previous install; replace it so the
+		// agent watches the correct set of resources for this install.
+		if err = resourceClient.Delete(
+			context.Background(),
+			threeportWorkloadName,
+			metav1.DeleteOptions{},
+		); err != nil {
+			return 0, fmt.Errorf("failed to delete stale ThreeportWorkload resource: %w", err)
+		}
+		if _, err = resourceClient.Create(
+			context.Background(),
+			unstructured,
+			metav1.CreateOptions{},
+		); err != nil {
+			return 0, fmt.Errorf("failed to recreate ThreeportWorkload resource: %w", err)
+		}
 	}
 
 	// clean up files written to disk
