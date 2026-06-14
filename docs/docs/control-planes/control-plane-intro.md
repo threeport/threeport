@@ -15,7 +15,7 @@ This diagram shows a "parent" control plane run by central IT that an Admin uses
 to provision new "child" control planes for teams in other parts of the
 organization to use.
 
-![Multiple Threeport](../img/MultipleThreeportControlPlanes.png)
+![Multiple Threeport](../img/MultipleThreeportControlPlanes.drawio.svg)
 
 In this model, central IT can provide Threeport as a service to internal teams,
 each with dedicated, segregated Threeport control planes to orchestrate their
