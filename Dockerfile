@@ -109,8 +109,9 @@ RUN apk add --no-cache wget unzip && \
 # ----- helm-dirs: create helm cache dirs; consumed by release-helm -----
 FROM mirror.gcr.io/library/alpine:3 AS helm-dirs
 
-# distroless has no shell to mkdir; create the tree here.
-RUN mkdir -p /var/helm/.cache/helm
+# distroless has no shell to mkdir; create both directories here so that
+# all Helm state lives under /var/helm (the single writable volume).
+RUN mkdir -p /var/helm/.cache/helm /var/helm/.local/share/helm
 
 # ----- pulumi-bin: download pulumi; consumed by release-pulumi -----
 FROM mirror.gcr.io/library/alpine:3 AS pulumi-bin
@@ -143,8 +144,10 @@ FROM release AS release-helm
 # ownership from the source stage, so it must be declared here.
 COPY --chown=65532:65532 --from=helm-dirs /var/helm /var/helm
 
-# point the helm CLI at the pre-created writable cache directory.
+# point helm at the pre-created writable directories so no path falls back
+# to $HOME, which may not exist or be writable in distroless.
 ENV HELM_CACHE_HOME=/var/helm/.cache/helm
+ENV HELM_DATA_HOME=/var/helm/.local/share/helm
 
 # ----- release-pulumi: release + pulumi CLI -----
 FROM release AS release-pulumi
