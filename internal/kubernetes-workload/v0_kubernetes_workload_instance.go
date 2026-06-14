@@ -221,7 +221,29 @@ func v0KubernetesWorkloadInstanceCreated(
 	}
 	_, err = resourceClient.Create(context.Background(), unstructured, metav1.CreateOptions{})
 	if err != nil {
-		return 0, fmt.Errorf("failed to create new ThreeportWorkload resource: %w", err)
+		if !kubeerr.IsAlreadyExists(err) {
+			return 0, fmt.Errorf("failed to create new ThreeportWorkload resource: %w", err)
+		}
+		// stale ThreeportWorkload from a previous install; replace it so the
+		// agent watches the correct set of resources for this install.
+		// Use Get+Update rather than Delete+Create to avoid a transient window
+		// where the resource is absent and the agent has nothing to watch.
+		existing, err := resourceClient.Get(
+			context.Background(),
+			threeportWorkloadName,
+			metav1.GetOptions{},
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get stale ThreeportWorkload resource: %w", err)
+		}
+		unstructured.SetResourceVersion(existing.GetResourceVersion())
+		if _, err = resourceClient.Update(
+			context.Background(),
+			unstructured,
+			metav1.UpdateOptions{},
+		); err != nil {
+			return 0, fmt.Errorf("failed to update stale ThreeportWorkload resource: %w", err)
+		}
 	}
 
 	return 0, nil
