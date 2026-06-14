@@ -185,19 +185,23 @@ func v0HelmWorkloadInstanceCreated(
 		}
 		// stale ThreeportWorkload from a previous install; replace it so the
 		// agent watches the correct set of resources for this install.
-		if err = resourceClient.Delete(
+		// Use Get+Update rather than Delete+Create to avoid a transient window
+		// where the resource is absent and the agent has nothing to watch.
+		existing, err := resourceClient.Get(
 			context.Background(),
 			threeportWorkloadName,
-			metav1.DeleteOptions{},
-		); err != nil {
-			return 0, fmt.Errorf("failed to delete stale ThreeportWorkload resource: %w", err)
+			metav1.GetOptions{},
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get stale ThreeportWorkload resource: %w", err)
 		}
-		if _, err = resourceClient.Create(
+		unstructured.SetResourceVersion(existing.GetResourceVersion())
+		if _, err = resourceClient.Update(
 			context.Background(),
 			unstructured,
-			metav1.CreateOptions{},
+			metav1.UpdateOptions{},
 		); err != nil {
-			return 0, fmt.Errorf("failed to recreate ThreeportWorkload resource: %w", err)
+			return 0, fmt.Errorf("failed to update stale ThreeportWorkload resource: %w", err)
 		}
 	}
 
