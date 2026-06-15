@@ -29,11 +29,15 @@ type MachineRuntimeInstance struct {
 	Instance       `mapstructure:",squash"`
 	Reconciliation `mapstructure:",squash"`
 
-	// The hostname or IP address used to reach the machine.
-	Hostname *string `validate:"required" gorm:"not null"`
+	// The hostname or IP address used to reach the machine. Optional at
+	// create so the abstract instance can exist before the machine is
+	// provisioned; populated once the machine is reachable.
+	Hostname *string `json:",omitempty" validate:"optional"`
 
-	// The SSH username for authenticating to the machine.
-	SSHUser *string `validate:"required" gorm:"not null"`
+	// The SSH username for authenticating to the machine. Optional at create
+	// for the same reason as the hostname; populated once the machine is
+	// provisioned.
+	SSHUser *string `json:",omitempty" validate:"optional"`
 
 	// The SSH private key for authenticating to the machine.
 	SSHKey *string `validate:"optional" encrypt:"true"`

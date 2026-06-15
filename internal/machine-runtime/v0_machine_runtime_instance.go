@@ -23,6 +23,12 @@ import (
 // SSH connect or ping fails. Package-level so tests can override it.
 var sshRetryDelaySeconds int64 = 30
 
+// unpopulatedRequeueDelaySeconds is the requeue delay (in seconds) returned
+// when the instance has no hostname yet, so the reconciler checks back
+// without erroring while the machine is still being provisioned.
+// Package-level so tests can override it.
+var unpopulatedRequeueDelaySeconds int64 = 15
+
 // sshOperationTimeout bounds the SSH operations of one reconcile pass.
 // Package-level so tests can shrink it to exercise the timeout path.
 var sshOperationTimeout = 30 * time.Second
@@ -96,6 +102,14 @@ func v0MachineRuntimeInstanceCreated(
 	machineRuntimeInstance *v0.MachineRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	// defer the ssh dial until the machine has a hostname. the abstract
+	// instance can be created before the machine is provisioned, so requeue
+	// without erroring and leave Reconciled unset until the hostname is
+	// populated and the machine is confirmed reachable
+	if machineRuntimeInstance.Hostname == nil || *machineRuntimeInstance.Hostname == "" {
+		return unpopulatedRequeueDelaySeconds, nil
+	}
+
 	// bound all ssh operations in this reconcile pass so a partitioned or
 	// hanging host cannot stall the reconciler indefinitely
 	ctx, cancel := newReconcileContext()
@@ -169,9 +183,14 @@ func v0MachineRuntimeInstanceUpdated(
 	return 0, nil
 }
 
-// v0MachineRuntimeInstanceDeleted performs reconciliation when a v0 MachineRuntimeInstance
-// has been deleted.  Imported machines (no associated definition) have no
-// provisioned infrastructure, so deletion is a clean no-op for them.
+// v0MachineRuntimeInstanceDeleted performs reconciliation when a v0
+// MachineRuntimeInstance has been deleted.  Imported machines (no associated
+// definition) have no provisioned infrastructure, so deletion is a clean
+// no-op for them.  A provider-provisioned machine that still carries a
+// resource inventory has live provider resources that this control plane
+// cannot tear down on its own, so deletion records a warning instructing the
+// operator to reclaim them, then completes; the inventory is the record of
+// what to reclaim.
 func v0MachineRuntimeInstanceDeleted(
 	r *controller.Reconciler,
 	machineRuntimeInstance *v0.MachineRuntimeInstance,
@@ -182,21 +201,25 @@ func v0MachineRuntimeInstanceDeleted(
 		return 0, nil
 	}
 
-	// TODO: deprovision the provider resources recorded in the resource
-	// inventory once provider integration lands. Until then, record an
-	// event so operators know the backing resources were not torn down.
-	if machineRuntimeInstance.ResourceInventory != nil {
-		if eventErr := r.EventsRecorder.RecordEvent(
-			&v0.Event{
-				Type:   util.Ptr(event.TypeWarning),
-				Reason: util.Ptr("DeprovisionDeferred"),
-				Note:   util.Ptr(fmt.Sprintf("machine runtime instance %s was deleted but its provider resources were not deprovisioned", *machineRuntimeInstance.Name)),
-			},
-			*machineRuntimeInstance.ID,
-			machineRuntimeInstance.GetFullyQualifiedType(),
-		); eventErr != nil {
-			log.Error(eventErr, "failed to record event for deferred deprovisioning")
-		}
+	// a provisioned machine with no recorded resources never had any backing
+	// infrastructure to reclaim, so deletion is clean
+	if machineRuntimeInstance.ResourceInventory == nil {
+		return 0, nil
+	}
+
+	// the provider resources recorded in the inventory remain live; warn the
+	// operator to reclaim them so they are not silently abandoned, then let
+	// deletion proceed
+	if eventErr := r.EventsRecorder.RecordEvent(
+		&v0.Event{
+			Type:   util.Ptr(event.TypeWarning),
+			Reason: util.Ptr("ProviderResourcesNotReclaimed"),
+			Note:   util.Ptr(fmt.Sprintf("machine runtime instance %s was deleted while still holding provider resources; reclaim them using the recorded resource inventory to avoid orphaned infrastructure", *machineRuntimeInstance.Name)),
+		},
+		*machineRuntimeInstance.ID,
+		machineRuntimeInstance.GetFullyQualifiedType(),
+	); eventErr != nil {
+		log.Error(eventErr, "failed to record event for unreclaimed provider resources")
 	}
 
 	return 0, nil

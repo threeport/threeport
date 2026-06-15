@@ -18622,9 +18622,7 @@ const docTemplate = `{
         "v0.MachineRuntimeInstance": {
             "type": "object",
             "required": [
-                "Hostname",
-                "Name",
-                "SSHUser"
+                "Name"
             ],
             "properties": {
                 "CreationAcknowledged": {
@@ -18656,7 +18654,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "Hostname": {
-                    "description": "The hostname or IP address used to reach the machine.",
+                    "description": "The hostname or IP address used to reach the machine. Optional at\ncreate so the abstract instance can exist before the machine is\nprovisioned; populated once the machine is reachable.",
                     "type": "string"
                 },
                 "InterruptReconciliation": {
@@ -18711,7 +18709,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "SSHUser": {
-                    "description": "The SSH username for authenticating to the machine.",
+                    "description": "The SSH username for authenticating to the machine. Optional at create\nfor the same reason as the hostname; populated once the machine is\nprovisioned.",
                     "type": "string"
                 },
                 "Status": {

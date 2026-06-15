@@ -1854,7 +1854,10 @@ definitions:
           connection. If not provided, captured on first connection.
         type: string
       Hostname:
-        description: The hostname or IP address used to reach the machine.
+        description: |-
+          The hostname or IP address used to reach the machine. Optional at
+          create so the abstract instance can exist before the machine is
+          provisioned; populated once the machine is reachable.
         type: string
       InterruptReconciliation:
         description: |-
@@ -1903,7 +1906,10 @@ definitions:
         description: The SSH password for authenticating to the machine.
         type: string
       SSHUser:
-        description: The SSH username for authenticating to the machine.
+        description: |-
+          The SSH username for authenticating to the machine. Optional at create
+          for the same reason as the hostname; populated once the machine is
+          provisioned.
         type: string
       Status:
         description: |-
@@ -1911,9 +1917,7 @@ definitions:
           TODO: use a custom type
         type: string
     required:
-    - Hostname
     - Name
-    - SSHUser
     type: object
   v0.MachineWorkloadDefinition:
     properties:
