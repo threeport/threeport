@@ -21,7 +21,7 @@ and
 `AwsAccount` object in the Threeport API and also configures the respective
 externally-managed AWS account.
 
-![Threeport Cross-Account Permissions](../img/ThreeportCrossAccountPermissions.png)
+![Threeport Cross-Account Permissions](../img/ThreeportCrossAccountPermissions.drawio.svg)
 
 To run this command, the following flags must be provided:
 
