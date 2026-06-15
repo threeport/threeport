@@ -2,19 +2,9 @@ package provider
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"net"
-	"net/http"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"strings"
-	"time"
 
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
@@ -23,7 +13,6 @@ import (
 	gkecontainer "github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp/container"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/iam/v1"
@@ -32,31 +21,10 @@ import (
 	gcpoption "google.golang.org/api/option"
 	"gorm.io/datatypes"
 
+	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
-
-// GCP OAuth2 configuration for Application Default Credentials
-// These are the public client credentials used by gcloud CLI for user authentication
-// See: https://cloud.google.com/sdk/docs/authorizing
-const (
-	gcpOAuthClientID     = "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
-	gcpOAuthClientSecret = "d-FL95Q19q7MQmFpd7hHD0Ty"
-)
-
-// gcpOAuthScopes defines the scopes needed for GKE operations
-var gcpOAuthScopes = []string{
-	"https://www.googleapis.com/auth/cloud-platform",
-	"https://www.googleapis.com/auth/userinfo.email",
-}
-
-// adcCredentials represents the structure of the Application Default Credentials file
-type adcCredentials struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	RefreshToken string `json:"refresh_token"`
-	Type         string `json:"type"`
-}
 
 // KubernetesRuntimeInfraGKE represents the infrastructure for a threeport-managed
 // GKE (Google Kubernetes Engine) cluster.
@@ -120,7 +88,7 @@ func (i *KubernetesRuntimeInfraGKE) syncStackConfigs() {
 // Create installs a Kubernetes cluster using Google Cloud GKE for threeport workloads.
 func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 	// ensure GCP authentication is in place
-	if err := EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
+	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
 
@@ -332,7 +300,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 
 // Delete deletes a GKE cluster and the threeport control plane with it.
 func (i *KubernetesRuntimeInfraGKE) Delete() error {
-	if err := EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
+	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
 
@@ -391,7 +359,7 @@ func (i *KubernetesRuntimeInfraGKE) DeleteGCPResources() error {
 // GetConnection returns the connection information for the GKE cluster.
 func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, error) {
 	// ensure GCP authentication is in place
-	if err := EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
+	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
 
@@ -597,299 +565,3 @@ func (i *KubernetesRuntimeInfraGKE) loadGCPConfigFromFile() error {
 	return nil
 }
 
-// EnsureGCPAuth checks for valid GCP Application Default Credentials and initiates
-// the OAuth flow if credentials are missing or invalid. This allows users to
-// authenticate without manually running `gcloud auth application-default login`.
-//
-// This function handles three authentication scenarios:
-// 1. CLI usage (tptctl): Uses browser-based OAuth flow for user authentication
-// 2. Controller in GKE: Uses Workload Identity (automatic via metadata server)
-// 3. Controller outside GCP: Uses service account credentials JSON
-//
-// The serviceAccountCredentials parameter should contain the JSON contents of a
-// GCP service account key file. If empty, the function will check for existing
-// credentials (scenarios 1 and 2) and fall back to browser-based auth if needed.
-func EnsureGCPAuth(serviceAccountCredentials string) error {
-	ctx := context.Background()
-
-	// FIRST: Check if valid credentials already exist
-	// This covers (in order of preference):
-	// - Workload Identity in GKE (scenario 2) - most secure, uses short-lived tokens
-	// - User credentials from gcloud auth (scenario 1)
-	// - Previously configured service account key file via GOOGLE_APPLICATION_CREDENTIALS
-	if hasValidGCPCredentials(ctx) {
-		return nil
-	}
-
-	// SECOND: If no valid credentials exist and service account credentials are
-	// provided, use them. This is the fallback for controllers running outside GCP.
-	if serviceAccountCredentials != "" {
-		if err := configureServiceAccountCredentials(serviceAccountCredentials); err != nil {
-			return fmt.Errorf("failed to configure service account credentials: %w", err)
-		}
-		return nil
-	}
-
-	// THIRD: Fall back to browser-based OAuth flow (scenario 1 - CLI only)
-	// This only works for CLI usage (tptctl), not for controllers
-	util.CliOutputInfo("GCP credentials not found or expired. Initiating authentication...")
-
-	// perform the OAuth flow
-	if err := performGCPOAuthFlow(ctx); err != nil {
-		return fmt.Errorf("failed to authenticate with GCP: %w", err)
-	}
-
-	util.CliOutputInfo("GCP authentication successful!")
-	return nil
-}
-
-// configureServiceAccountCredentials writes the service account JSON to a
-// temporary file and sets the GOOGLE_APPLICATION_CREDENTIALS environment
-// variable to point to it. This allows all GCP client libraries to automatically
-// use these credentials.
-func configureServiceAccountCredentials(credentialsJSON string) error {
-	// create a temporary file for the credentials
-	tmpFile, err := os.CreateTemp("", "gcp-sa-*.json")
-	if err != nil {
-		return fmt.Errorf("failed to create temp credentials file: %w", err)
-	}
-
-	// write the credentials JSON to the file
-	if _, err := tmpFile.WriteString(credentialsJSON); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
-		return fmt.Errorf("failed to write credentials to temp file: %w", err)
-	}
-
-	if err := tmpFile.Close(); err != nil {
-		os.Remove(tmpFile.Name())
-		return fmt.Errorf("failed to close temp credentials file: %w", err)
-	}
-
-	// set the environment variable so all GCP client libraries use these credentials
-	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", tmpFile.Name())
-
-	return nil
-}
-
-// hasValidGCPCredentials checks if valid Application Default Credentials exist
-func hasValidGCPCredentials(ctx context.Context) bool {
-	// try to get a token using the default credentials
-	tokenSource, err := google.DefaultTokenSource(ctx, gcpOAuthScopes...)
-	if err != nil {
-		return false
-	}
-
-	// try to get a token to verify the credentials are valid
-	token, err := tokenSource.Token()
-	if err != nil {
-		return false
-	}
-
-	// check if the token is valid and not expired
-	return token.Valid()
-}
-
-// performGCPOAuthFlow performs the browser-based OAuth flow for GCP authentication
-func performGCPOAuthFlow(ctx context.Context) error {
-	// create a random state for CSRF protection
-	state, err := generateRandomState()
-	if err != nil {
-		return fmt.Errorf("failed to generate state: %w", err)
-	}
-
-	// find an available port for the callback server
-	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		return fmt.Errorf("failed to create listener: %w", err)
-	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	redirectURL := fmt.Sprintf("http://localhost:%d/callback", port)
-
-	// create OAuth2 config
-	oauth2Config := &oauth2.Config{
-		ClientID:     gcpOAuthClientID,
-		ClientSecret: gcpOAuthClientSecret,
-		Endpoint:     google.Endpoint,
-		RedirectURL:  redirectURL,
-		Scopes:       gcpOAuthScopes,
-	}
-
-	// channel to receive the authorization code
-	codeChan := make(chan string, 1)
-	errChan := make(chan error, 1)
-
-	// create HTTP server to handle the callback
-	server := &http.Server{}
-	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		// verify state parameter
-		if r.URL.Query().Get("state") != state {
-			errChan <- fmt.Errorf("invalid state parameter")
-			http.Error(w, "Invalid state parameter", http.StatusBadRequest)
-			return
-		}
-
-		// check for errors
-		if errMsg := r.URL.Query().Get("error"); errMsg != "" {
-			errChan <- fmt.Errorf("OAuth error: %s - %s", errMsg, r.URL.Query().Get("error_description"))
-			http.Error(w, "Authentication failed", http.StatusBadRequest)
-			return
-		}
-
-		// get the authorization code
-		code := r.URL.Query().Get("code")
-		if code == "" {
-			errChan <- fmt.Errorf("no authorization code received")
-			http.Error(w, "No authorization code received", http.StatusBadRequest)
-			return
-		}
-
-		// send success response to browser
-		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprintf(w, `<html><body><h1>Authentication Successful!</h1><p>You can close this window and return to the terminal.</p></body></html>`)
-
-		codeChan <- code
-	})
-
-	// start the server
-	go func() {
-		if err := server.Serve(listener); err != http.ErrServerClosed {
-			errChan <- fmt.Errorf("callback server error: %w", err)
-		}
-	}()
-
-	// generate the authorization URL
-	authURL := oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
-
-	util.CliOutputNotice("Opening browser for GCP authentication...")
-	util.CliOutputInfo("If the browser doesn't open automatically, please visit:")
-	util.CliOutputInfo(authURL)
-	fmt.Println()
-
-	// try to open the browser
-	if err := openBrowser(authURL); err != nil {
-		util.CliOutputWarning("Failed to open browser automatically. Please open the URL above manually.")
-	}
-
-	// wait for the authorization code or error
-	var code string
-	select {
-	case code = <-codeChan:
-		// success
-	case err := <-errChan:
-		server.Shutdown(ctx)
-		return err
-	case <-time.After(5 * time.Minute):
-		server.Shutdown(ctx)
-		return fmt.Errorf("authentication timed out after 5 minutes")
-	}
-
-	// shutdown the callback server
-	server.Shutdown(ctx)
-
-	// exchange the authorization code for tokens
-	token, err := oauth2Config.Exchange(ctx, code)
-	if err != nil {
-		return fmt.Errorf("failed to exchange authorization code: %w", err)
-	}
-
-	// save the credentials to the ADC file
-	if err := saveADCCredentials(token); err != nil {
-		return fmt.Errorf("failed to save credentials: %w", err)
-	}
-
-	return nil
-}
-
-// saveADCCredentials saves the OAuth2 token as Application Default Credentials
-func saveADCCredentials(token *oauth2.Token) error {
-	// get the ADC file path
-	adcPath, err := getADCPath()
-	if err != nil {
-		return err
-	}
-
-	// ensure the directory exists
-	adcDir := filepath.Dir(adcPath)
-	if err := os.MkdirAll(adcDir, 0700); err != nil {
-		return fmt.Errorf("failed to create ADC directory: %w", err)
-	}
-
-	// create the credentials structure
-	creds := adcCredentials{
-		ClientID:     gcpOAuthClientID,
-		ClientSecret: gcpOAuthClientSecret,
-		RefreshToken: token.RefreshToken,
-		Type:         "authorized_user",
-	}
-
-	// marshal to JSON
-	credsJSON, err := json.MarshalIndent(creds, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal credentials: %w", err)
-	}
-
-	// write to file
-	if err := os.WriteFile(adcPath, credsJSON, 0600); err != nil {
-		return fmt.Errorf("failed to write ADC file: %w", err)
-	}
-
-	return nil
-}
-
-// getADCPath returns the path to the Application Default Credentials file
-func getADCPath() (string, error) {
-	// check for GOOGLE_APPLICATION_CREDENTIALS environment variable
-	if path := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); path != "" {
-		return path, nil
-	}
-
-	// use the default location
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	// on Windows, the path is different
-	if runtime.GOOS == "windows" {
-		return filepath.Join(homeDir, "AppData", "Roaming", "gcloud", "application_default_credentials.json"), nil
-	}
-
-	return filepath.Join(homeDir, ".config", "gcloud", "application_default_credentials.json"), nil
-}
-
-// generateRandomState generates a random state string for CSRF protection
-func generateRandomState() (string, error) {
-	bytes := make([]byte, 16)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
-}
-
-// openBrowser opens the specified URL in the default browser
-func openBrowser(url string) error {
-	var cmd *exec.Cmd
-
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "linux":
-		// try xdg-open first, then fall back to other options
-		if _, err := exec.LookPath("xdg-open"); err == nil {
-			cmd = exec.Command("xdg-open", url)
-		} else if _, err := exec.LookPath("gnome-open"); err == nil {
-			cmd = exec.Command("gnome-open", url)
-		} else if _, err := exec.LookPath("kde-open"); err == nil {
-			cmd = exec.Command("kde-open", url)
-		} else {
-			return fmt.Errorf("no browser opener found")
-		}
-	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", strings.ReplaceAll(url, "&", "^&"))
-	default:
-		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
-	}
-
-	return cmd.Start()
-}

@@ -9,13 +9,15 @@ import (
 	"strings"
 
 	"golang.org/x/oauth2/google"
+
+	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 )
 
 // adcOAuthUserEmail returns the human Google account email when Application Default
 // Credentials come from an interactive user (OAuth). For service accounts and other
 // non-user credential types it returns ("", false, nil).
 func adcOAuthUserEmail(ctx context.Context) (email string, isOAuthUser bool, err error) {
-	creds, err := google.FindDefaultCredentials(ctx, gcpOAuthScopes...)
+	creds, err := google.FindDefaultCredentials(ctx, gcpauth.GcpOAuthScopes...)
 	if err != nil {
 		return "", false, fmt.Errorf("failed to find default credentials: %w", err)
 	}

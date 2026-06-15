@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -436,7 +437,7 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 	ctx := context.Background()
 
 	// Ensure GCP authentication is in place (uses browser flow if needed for CLI)
-	if err := EnsureGCPAuth(""); err != nil {
+	if err := gcpauth.EnsureGCPAuth(""); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
 
@@ -505,7 +506,7 @@ func DeleteGCPServiceAccountWithKey(projectID, accountName string) error {
 	ctx := context.Background()
 
 	// Ensure GCP authentication is in place (uses browser flow if needed for CLI)
-	if err := EnsureGCPAuth(""); err != nil {
+	if err := gcpauth.EnsureGCPAuth(""); err != nil {
 		return fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
 
