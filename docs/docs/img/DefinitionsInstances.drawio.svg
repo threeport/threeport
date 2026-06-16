@@ -28,14 +28,14 @@
                             <div style="box-sizing: border-box; font-size: 0; text-align: center; color: #000000; ">
                                 <div style="display: inline-block; font-size: 12px; font-family: &quot;Helvetica&quot;; color: light-dark(#000000, #ffffff); line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; ">
                                     <font style="font-size: 17px;">
-                                        Workload Instance Name: my-app-us
+                                        Kubernetes Workload Instance Name: my-app-us
                                     </font>
                                 </div>
                             </div>
                         </div>
                     </foreignObject>
                     <text x="700" y="249" fill="light-dark(#000000, #ffffff)" font-family="&quot;Helvetica&quot;" font-size="12px" text-anchor="middle">
-                        Workload Instance Name: my-app-us
+                        Kubernetes Workload Instance Name: my-app-us
                     </text>
                 </switch>
             </g>
@@ -51,14 +51,14 @@
                             <div style="box-sizing: border-box; font-size: 0; text-align: center; color: #000000; ">
                                 <div style="display: inline-block; font-size: 12px; font-family: &quot;Helvetica&quot;; color: light-dark(#000000, #ffffff); line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; ">
                                     <font style="font-size: 17px;">
-                                        Workload Instance Name: my-app-eu
+                                        Kubernetes Workload Instance Name: my-app-eu
                                     </font>
                                 </div>
                             </div>
                         </div>
                     </foreignObject>
                     <text x="705" y="559" fill="light-dark(#000000, #ffffff)" font-family="&quot;Helvetica&quot;" font-size="12px" text-anchor="middle">
-                        Workload Instance Name: my-app-eu
+                        Kubernetes Workload Instance Name: my-app-eu
                     </text>
                 </switch>
             </g>
@@ -112,14 +112,14 @@
                             <div style="box-sizing: border-box; font-size: 0; text-align: center; color: #000000; ">
                                 <div style="display: inline-block; font-size: 12px; font-family: &quot;Helvetica&quot;; color: light-dark(#000000, #ffffff); line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; ">
                                     <font style="font-size: 16px;">
-                                        Workload Definition
+                                        Kubernetes Workload Definition
                                     </font>
                                 </div>
                             </div>
                         </div>
                     </foreignObject>
                     <text x="1280" y="249" fill="light-dark(#000000, #ffffff)" font-family="&quot;Helvetica&quot;" font-size="12px" text-anchor="middle">
-                        Workload Definition
+                        Kubernetes Workload Definition
                     </text>
                 </switch>
             </g>

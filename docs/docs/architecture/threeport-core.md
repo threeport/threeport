@@ -73,7 +73,7 @@ This diagram illustrates the following process:
    instruct its control plane to deploy the containerized workloads.
 1. If the workload dependencies require a support service to be installed on
    Kubernetes, the controller responsible for support services will create new
-   Workload objects in the Threeport API which, in turn, prompts the controller
+   KubernetesWorkload objects in the Threeport API which, in turn, prompts the controller
    for workloads to connect to Kubernetes to install and configure the support
    services for that workload.
 

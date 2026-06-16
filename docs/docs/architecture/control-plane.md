@@ -123,13 +123,13 @@ records created for workloads.
 When a support service controller needs to be installed in Kubernetes, we use
 the
 [support-services-operator](https://github.com/nukleros/support-services-operator)
-to perform the install.  The Kubernetes manifest provided to the Workload is
+to perform the install.  The Kubernetes manifest provided to the KubernetesWorkload is
 actually a custom resource that is managed by the support-services-operator.  It
 installs the support services listed above in this manner.
 
 In addition to the support services installations on Kubernetes, the gateway
 controller appends Kubernetes resources to those defined by the user with the
-Workload resource to configure the support service for that workload.
+KubernetesWorkload resource to configure the support service for that workload.
 
 ### Helm Workload Controller
 

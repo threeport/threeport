@@ -27,7 +27,7 @@ You now have the workload config on your local file system.  If you open the fil
 see it has the following fields:
 
 ```yaml
-Workload:
+KubernetesWorkload:
   Name: "wordpress"
   YAMLDocument: "wordpress-manifest-local.yaml"
 ```
@@ -42,7 +42,7 @@ manifests.  Download that file as well:
 curl -O https://raw.githubusercontent.com/threeport/threeport/main/samples/kubernetes-workload/wordpress-manifest-local.yaml
 ```
 
-## Create Workload
+## Create KubernetesWorkload
 
 We can now create the workload as follows:
 
@@ -50,7 +50,7 @@ We can now create the workload as follows:
 tptctl create workload --config wordpress-kubernetes-workload-local.yaml
 ```
 
-This command calls the Threeport API to create the Workload objects.
+This command calls the Threeport API to create the KubernetesWorkload objects.
 The API notifies the kubernetes workload controller via the message broker.  The workload
 controller processes the kubernetes workload definition and creates the kubernetes workload instance
 by calling the Kubernetes API.

@@ -51,7 +51,7 @@
                             <div style="box-sizing: border-box; font-size: 0; text-align: center; color: #000000; ">
                                 <div style="display: inline-block; font-size: 12px; font-family: &quot;Helvetica&quot;; color: light-dark(#000000, #ffffff); line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; ">
                                     <font style="color: light-dark(rgb(0, 0, 0), rgb(237, 237, 237));">
-                                        WorkloadInstance
+                                        KubernetesWorkloadInstance
                                     </font>
                                     <div>
                                         <font style="color: light-dark(rgb(0, 0, 0), rgb(237, 237, 237));">
@@ -63,7 +63,7 @@
                         </div>
                     </foreignObject>
                     <text x="320" y="199" fill="light-dark(#000000, #ffffff)" font-family="&quot;Helvetica&quot;" font-size="12px" text-anchor="middle">
-                        WorkloadInstance...
+                        KubernetesWorkloadInstance...
                     </text>
                 </switch>
             </g>
@@ -78,7 +78,7 @@
                         <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: unsafe center; justify-content: unsafe center; width: 178px; height: 1px; padding-top: 195px; margin-left: 431px;">
                             <div style="box-sizing: border-box; font-size: 0; text-align: center; color: #000000; ">
                                 <div style="display: inline-block; font-size: 12px; font-family: &quot;Helvetica&quot;; color: light-dark(#000000, #ffffff); line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; ">
-                                    WorkloadDefinition
+                                    KubernetesWorkloadDefinition
                                     <div>
                                         <span style="color: light-dark(rgb(0, 0, 0), rgb(237, 237, 237));">
                                             Reconciler
@@ -89,7 +89,7 @@
                         </div>
                     </foreignObject>
                     <text x="520" y="199" fill="light-dark(#000000, #ffffff)" font-family="&quot;Helvetica&quot;" font-size="12px" text-anchor="middle">
-                        WorkloadDefinition...
+                        KubernetesWorkloadDefinition...
                     </text>
                 </switch>
             </g>

@@ -102,7 +102,7 @@ the Kubernetes operator where it is more effective.
 In this case, native Threeport objects can be used to provision AWS managed
 services, e.g. RDS, as well as support services, e.g. Domain Names and Gateways.
 However, by leveraging a Kubernetes operator, the custom Threeport controller
-need only create a single Workload object that defines the "CustomApp"
+need only create a single KubernetesWorkload object that defines the "CustomApp"
 Kubernetes resource, shown in this diagram in dark orange. On the Kubernetes
 cluster, the Custom App Operator, shown in light orange in this diagram, deploys
 all of the individual Kubernetes resources in response to that CustomApp

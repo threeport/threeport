@@ -70,14 +70,14 @@
                             <div style="box-sizing: border-box; font-size: 0; text-align: center; color: #000000; ">
                                 <div style="display: inline-block; font-size: 12px; font-family: &quot;Helvetica&quot;; color: light-dark(#000000, #ffffff); line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; ">
                                     <font style="font-size: 21px;">
-                                        Workload Instance
+                                        Kubernetes Workload Instance
                                     </font>
                                 </div>
                             </div>
                         </div>
                     </foreignObject>
                     <text x="650" y="344" fill="light-dark(#000000, #ffffff)" font-family="&quot;Helvetica&quot;" font-size="12px" text-anchor="middle">
-                        Workload Instance
+                        Kubernetes Workload Instance
                     </text>
                 </switch>
             </g>
@@ -170,14 +170,14 @@
                             <div style="box-sizing: border-box; font-size: 0; text-align: center; color: #000000; ">
                                 <div style="display: inline-block; font-size: 12px; font-family: &quot;Helvetica&quot;; color: light-dark(#000000, #ffffff); line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; ">
                                     <font style="font-size: 21px;">
-                                        Workload Definition
+                                        Kubernetes Workload Definition
                                     </font>
                                 </div>
                             </div>
                         </div>
                     </foreignObject>
                     <text x="1420" y="344" fill="light-dark(#000000, #ffffff)" font-family="&quot;Helvetica&quot;" font-size="12px" text-anchor="middle">
-                        Workload Definition
+                        Kubernetes Workload Definition
                     </text>
                 </switch>
             </g>
@@ -474,14 +474,14 @@
                             <div style="box-sizing: border-box; font-size: 0; text-align: center; color: #000000; ">
                                 <div style="display: inline-block; font-size: 12px; font-family: &quot;Helvetica&quot;; color: light-dark(#000000, #ffffff); line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; ">
                                     <font style="font-size: 23px;">
-                                        Workload
+                                        Kubernetes Workload
                                     </font>
                                 </div>
                             </div>
                         </div>
                     </foreignObject>
                     <text x="710" y="1449" fill="light-dark(#000000, #ffffff)" font-family="&quot;Helvetica&quot;" font-size="12px" text-anchor="middle">
-                        Workload
+                        Kubernetes Workload
                     </text>
                 </switch>
             </g>
