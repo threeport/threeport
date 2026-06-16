@@ -36,7 +36,7 @@ a relational database which means if you need transactional capabilities that
 allow a database to make changes to multiple objects with ACID guarantees, etcd
 is not the best choice.
 
-![Federating Kubernetes with Kubernetes](../img/KubernetesFederationWithKubernetes.png)
+![Federating Kubernetes with Kubernetes](../img/KubernetesFederationWithKubernetes.drawio.svg)
 
 ## Threeport Controllers
 
@@ -63,5 +63,5 @@ changes that affect multiple objects are common.  Being able to apply a change
 to all the affected objects _or_ none at all if a problem occurs, is an
 important guarantee to have for stability.
 
-![Federating Kubernetes with Threeport](../img/ThreeportKubernetesFederation.png)
+![Federating Kubernetes with Threeport](../img/ThreeportKubernetesFederation.drawio.svg)
 
