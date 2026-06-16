@@ -11,7 +11,7 @@ orchestrates the delivery of software with all of its dependencies.  Those
 dependencies encompass everything from the cloud infrastructure up to the
 services needed for the application to run successfully.
 
-![Threeport Stack](../img/ThreeportStack.png)
+![Threeport Stack](../img/ThreeportStack.drawio.svg)
 
 ## Requirements
 
@@ -53,7 +53,7 @@ detail.  The control plane consists primarily of:
 > complete list of the actual controllers in the Threeport control plane, see
 > the [Control Plane architecture](control-plane.md) docs.
 
-![Threeport Control Plane](../img/ThreeportControlPlaneOverview.png)
+![Threeport Control Plane](../img/ThreeportControlPlaneOverview.drawio.svg)
 
 This diagram illustrates the following process:
 
@@ -113,7 +113,7 @@ Threeport control plane.
 > only supported runtime.  However, we plan to add additional providers and
 > runtimes in the future.
 
-![Threeport Compute Space](../img/ThreeportComputeSpace.png)
+![Threeport Compute Space](../img/ThreeportComputeSpace.drawio.svg)
 
 ## Bootstrapping Threeport
 
@@ -128,7 +128,7 @@ installing the `tptctl` command line tool.
 See the [Remote Threeport guide](../install/install-threeport-aws.md) for a
 walk through on installing Threeport in AWS using `tptctl`.
 
-![Threeport Bootstrapping](../img/ThreeportBootstrapping.png)
+![Threeport Bootstrapping](../img/ThreeportBootstrapping.drawio.svg)
 
 The `tptctl up` command executes the following steps when installing on AWS:
 
