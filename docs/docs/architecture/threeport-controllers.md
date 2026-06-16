@@ -10,7 +10,7 @@ updates the status of the object in the API.
 The following diagram illustrates this process for the kubernetes workload controller as an
 example.
 
-![Kubernetes Workload Controller](../img/KubernetesWorkloadController.png)
+![Kubernetes Workload Controller](../img/KubernetesWorkloadController.drawio.svg)
 
 1. A developer requests a workload by sending a request to the API, usually
    using the CLI tool `tptctl`.
@@ -44,7 +44,7 @@ single object type.  To continue the example above, two objects were created by
 the developer.  A KubernetesWorkloadDefinition and a KubernetesWorkloadInstance.  The
 Kubernetes Workload controller has a distinct reconciler for each object.
 
-![Kubernetes Workload Controller Reconcilers](../img/ThreeportReconcilers.png)
+![Kubernetes Workload Controller Reconcilers](../img/ThreeportReconcilers.drawio.svg)
 
 > Note: this illustration does not include an exhaustive list of reconcilers in
 > the Kubernetes Workload Controller.  It is just a representation of the components involved
