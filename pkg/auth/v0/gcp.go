@@ -143,7 +143,7 @@ func gcpTokenHasCloudPlatformScope(token *oauth2.Token) bool {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return true
+		return false
 	}
 
 	var info struct {
