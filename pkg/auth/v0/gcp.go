@@ -88,9 +88,24 @@ func EnsureGCPAuth(serviceAccountCredentials string) error {
 	return nil
 }
 
+// gcpCredTempFile holds the path of any temp credentials file written by
+// configureServiceAccountCredentials so it can be removed at shutdown.
+var gcpCredTempFile string
+
+// CleanupGCPCredentials removes the temporary service account key file created
+// by configureServiceAccountCredentials. Call this at process shutdown.
+func CleanupGCPCredentials() {
+	if gcpCredTempFile != "" {
+		os.Remove(gcpCredTempFile)
+		gcpCredTempFile = ""
+	}
+}
+
 // configureServiceAccountCredentials writes the service account JSON to a
 // temporary file and sets the GOOGLE_APPLICATION_CREDENTIALS environment
-// variable to point to it.
+// variable to point to it. The file must persist for the process lifetime
+// since the Google SDK reads it on every token refresh; call
+// CleanupGCPCredentials at shutdown to remove it.
 func configureServiceAccountCredentials(credentialsJSON string) error {
 	tmpFile, err := os.CreateTemp("", "gcp-sa-*.json")
 	if err != nil {
@@ -108,6 +123,7 @@ func configureServiceAccountCredentials(credentialsJSON string) error {
 		return fmt.Errorf("failed to close temp credentials file: %w", err)
 	}
 
+	gcpCredTempFile = tmpFile.Name()
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", tmpFile.Name())
 	return nil
 }
