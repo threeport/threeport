@@ -132,8 +132,8 @@ func configureServiceAccountCredentials(credentialsJSON string) error {
 
 	gcpCredMu.Lock()
 	gcpCredTempFile = tmpFile.Name()
-	gcpCredMu.Unlock()
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", tmpFile.Name())
+	gcpCredMu.Unlock()
 	return nil
 }
 
