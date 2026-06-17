@@ -65,6 +65,14 @@ func EnsureGCPAuth(serviceAccountCredentials string) error {
 	// - User credentials from gcloud auth (scenario 1)
 	// - Previously configured service account key file via GOOGLE_APPLICATION_CREDENTIALS
 	if hasValidGCPCredentials(ctx) {
+		// If a service account credential string was provided, the caller will
+		// defer CleanupGCPCredentials — increment the ref count so a concurrent
+		// goroutine that finishes first does not tear down the shared temp file.
+		if serviceAccountCredentials != "" {
+			gcpCredMu.Lock()
+			gcpCredRefCount++
+			gcpCredMu.Unlock()
+		}
 		return nil
 	}
 
@@ -89,19 +97,28 @@ func EnsureGCPAuth(serviceAccountCredentials string) error {
 	return nil
 }
 
-// gcpCredMu guards gcpCredTempFile against concurrent access.
+// gcpCredMu guards gcpCredTempFile and gcpCredRefCount against concurrent access.
 var gcpCredMu sync.Mutex
 
 // gcpCredTempFile holds the path of any temp credentials file written by
-// configureServiceAccountCredentials so it can be removed at shutdown.
+// configureServiceAccountCredentials so it can be removed when no longer needed.
 var gcpCredTempFile string
 
-// CleanupGCPCredentials removes the temporary service account key file created
-// by configureServiceAccountCredentials. Call this at process shutdown.
+// gcpCredRefCount tracks how many concurrent operations are relying on the
+// temp credentials file. The file is removed when this reaches zero.
+var gcpCredRefCount int
+
+// CleanupGCPCredentials decrements the credential ref count and removes the
+// temporary service account key file once all concurrent operations have
+// released it. Each call to EnsureGCPAuth with a non-empty
+// serviceAccountCredentials must be paired with exactly one CleanupGCPCredentials.
 func CleanupGCPCredentials() {
 	gcpCredMu.Lock()
 	defer gcpCredMu.Unlock()
-	if gcpCredTempFile != "" {
+	if gcpCredRefCount > 0 {
+		gcpCredRefCount--
+	}
+	if gcpCredRefCount == 0 && gcpCredTempFile != "" {
 		os.Remove(gcpCredTempFile)
 		os.Unsetenv("GOOGLE_APPLICATION_CREDENTIALS")
 		gcpCredTempFile = ""
@@ -133,6 +150,7 @@ func configureServiceAccountCredentials(credentialsJSON string) error {
 	gcpCredMu.Lock()
 	gcpCredTempFile = tmpFile.Name()
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", tmpFile.Name())
+	gcpCredRefCount++
 	gcpCredMu.Unlock()
 	return nil
 }
