@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -88,6 +89,9 @@ func EnsureGCPAuth(serviceAccountCredentials string) error {
 	return nil
 }
 
+// gcpCredMu guards gcpCredTempFile against concurrent access.
+var gcpCredMu sync.Mutex
+
 // gcpCredTempFile holds the path of any temp credentials file written by
 // configureServiceAccountCredentials so it can be removed at shutdown.
 var gcpCredTempFile string
@@ -95,6 +99,8 @@ var gcpCredTempFile string
 // CleanupGCPCredentials removes the temporary service account key file created
 // by configureServiceAccountCredentials. Call this at process shutdown.
 func CleanupGCPCredentials() {
+	gcpCredMu.Lock()
+	defer gcpCredMu.Unlock()
 	if gcpCredTempFile != "" {
 		os.Remove(gcpCredTempFile)
 		os.Unsetenv("GOOGLE_APPLICATION_CREDENTIALS")
@@ -124,7 +130,9 @@ func configureServiceAccountCredentials(credentialsJSON string) error {
 		return fmt.Errorf("failed to close temp credentials file: %w", err)
 	}
 
+	gcpCredMu.Lock()
 	gcpCredTempFile = tmpFile.Name()
+	gcpCredMu.Unlock()
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", tmpFile.Name())
 	return nil
 }
