@@ -186,8 +186,9 @@ func performGCPOAuthFlow(ctx context.Context) error {
 	codeChan := make(chan string, 1)
 	errChan := make(chan error, 1)
 
-	server := &http.Server{}
-	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	server := &http.Server{Handler: mux}
+	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("state") != state {
 			errChan <- fmt.Errorf("invalid state parameter")
 			http.Error(w, "Invalid state parameter", http.StatusBadRequest)
