@@ -185,10 +185,14 @@ func hasValidGCPCredentials(ctx context.Context) bool {
 	return gcpTokenHasCloudPlatformScope(token)
 }
 
+// tokeninfoClient is a dedicated HTTP client for scope checks with a short
+// timeout so a stalled tokeninfo response never blocks EnsureGCPAuth.
+var tokeninfoClient = &http.Client{Timeout: 5 * time.Second}
+
 // gcpTokenHasCloudPlatformScope verifies the access token includes the
 // cloud-platform scope by querying the Google tokeninfo endpoint.
 func gcpTokenHasCloudPlatformScope(token *oauth2.Token) bool {
-	resp, err := http.Get("https://oauth2.googleapis.com/tokeninfo?access_token=" + token.AccessToken)
+	resp, err := tokeninfoClient.Get("https://oauth2.googleapis.com/tokeninfo?access_token=" + token.AccessToken)
 	if err != nil {
 		return true
 	}
