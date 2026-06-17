@@ -521,7 +521,7 @@ func refreshGKEConnection(
 		runtimeInstance,
 	)
 	if err != nil {
-		if errors.Is(err, client_lib.ErrBadRequest) {
+		if errors.Is(err, client_lib.ErrObjectOwned) {
 			// the runtime instance is owned by a controller and cannot be updated
 			// directly; the refreshed token is still valid for this request
 			util.CliOutputWarning(fmt.Sprintf(
