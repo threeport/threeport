@@ -1,4 +1,4 @@
-Workload:
+KubernetesWorkload:
   Name: s3-client
   YAMLDocument: s3-client-manifest.yaml
   KubernetesRuntimeInstance:
