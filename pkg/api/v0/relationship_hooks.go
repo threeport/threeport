@@ -10,6 +10,12 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// ErrMsgExternalUpdateBlocked is the substring present in any 400 error
+// returned when an object cannot be updated because it is owned by a
+// controller. The client lib detects this fragment to produce ErrObjectOwned;
+// both sites must be updated together if this text changes.
+const ErrMsgExternalUpdateBlocked = "cannot be updated externally"
+
 // Relationship classifies how an AttachedObjectReference relates the base
 // object to the attached object. Drives lifecycle behavior (deletion and
 // update blocking).
@@ -164,8 +170,9 @@ func processRelationshipTaggedFieldsBeforeUpdate(tx *gorm.DB, obj interface{}) e
 		owner = fmt.Sprintf("%s/%d", *ownedOrMarriedRefs[0].AttachedObjectType, *ownedOrMarriedRefs[0].AttachedObjectID)
 	}
 	return util.NewBadRequestError(fmt.Sprintf(
-		"object is owned by %s and cannot be updated externally; tear down the owner first",
+		"object is owned by %s and %s; tear down the owner first",
 		owner,
+		ErrMsgExternalUpdateBlocked,
 	))
 }
 

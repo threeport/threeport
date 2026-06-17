@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
+	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
 var ErrObjectNotFound = errors.New("object not found")
@@ -90,7 +91,7 @@ func GetResponse(
 		// elsewhere
 		switch resp.StatusCode {
 		case http.StatusBadRequest:
-			if strings.Contains(errMessage, "cannot be updated externally") {
+			if strings.Contains(errMessage, api_v0.ErrMsgExternalUpdateBlocked) {
 				return nil, fmt.Errorf("%w: %s", ErrObjectOwned, errMessage)
 			}
 			return nil, fmt.Errorf("%w: %s", ErrBadRequest, errMessage)
