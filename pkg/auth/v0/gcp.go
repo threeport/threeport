@@ -148,6 +148,15 @@ func configureServiceAccountCredentials(credentialsJSON string) error {
 	}
 
 	gcpCredMu.Lock()
+	if gcpCredTempFile != "" {
+		// Another goroutine registered credentials while we were writing the
+		// file — discard ours and reuse the existing one to avoid orphaning
+		// a file containing key material.
+		os.Remove(tmpFile.Name())
+		gcpCredRefCount++
+		gcpCredMu.Unlock()
+		return nil
+	}
 	gcpCredTempFile = tmpFile.Name()
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", tmpFile.Name())
 	gcpCredRefCount++
