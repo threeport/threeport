@@ -65,12 +65,16 @@ func EnsureGCPAuth(serviceAccountCredentials string) error {
 	// - User credentials from gcloud auth (scenario 1)
 	// - Previously configured service account key file via GOOGLE_APPLICATION_CREDENTIALS
 	if hasValidGCPCredentials(ctx) {
-		// If a service account credential string was provided, the caller will
-		// defer CleanupGCPCredentials — increment the ref count so a concurrent
-		// goroutine that finishes first does not tear down the shared temp file.
+		// Only increment the ref count if a temp SA file is actually in use.
+		// If Workload Identity or user ADC provided the valid credentials,
+		// gcpCredTempFile is empty and no cleanup pairing is needed — the
+		// conditional defer in the caller will fire but CleanupGCPCredentials
+		// is a no-op when refCount is already zero.
 		if serviceAccountCredentials != "" {
 			gcpCredMu.Lock()
-			gcpCredRefCount++
+			if gcpCredTempFile != "" {
+				gcpCredRefCount++
+			}
 			gcpCredMu.Unlock()
 		}
 		return nil
