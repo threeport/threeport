@@ -14,7 +14,7 @@ import (
 // This abstraction allows users to manage definitions and instances together
 // with single operations rather than separate operations for each API object.
 type KubernetesWorkloadConfig struct {
-	Workload KubernetesWorkloadValues
+	KubernetesWorkload KubernetesWorkloadValues
 }
 
 // KubernetesWorkloadValues contains all the attributes needed to manage the
@@ -62,7 +62,7 @@ func (w *KubernetesWorkloadConfig) Create(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]KubernetesWorkloadConfig, error) {
-	k8sWorkloadValues := w.Workload
+	k8sWorkloadValues := w.KubernetesWorkload
 	// get operations
 	operations, k8sWorkloadDefinitions, k8sWorkloadInstances := w.GetOperations(
 		apiClient,
@@ -116,7 +116,7 @@ func (w *KubernetesWorkloadConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*[]KubernetesWorkloadConfig, error) {
-	k8sWorkloadValues := w.Workload
+	k8sWorkloadValues := w.KubernetesWorkload
 	// get operations
 	operations, _, _ := w.GetOperations(
 		apiClient,
@@ -141,7 +141,7 @@ func (w *KubernetesWorkloadConfig) GetOperations(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*util.Operations, *[]KubernetesWorkloadDefinitionConfig, *[]KubernetesWorkloadInstanceConfig) {
-	k8sWorkloadValues := w.Workload
+	k8sWorkloadValues := w.KubernetesWorkload
 	var err error
 	var operatedK8sWorkloadDefinitions []KubernetesWorkloadDefinitionConfig
 	var operatedK8sWorkloadInstances []KubernetesWorkloadInstanceConfig
@@ -454,7 +454,7 @@ func mapToK8sWorkloadDefinedInstances(
 			// and the definition must be associated with the instance
 			if instName == defName && *inst.KubernetesWorkloadInstance.KubernetesWorkloadDefinition.Name == *def.KubernetesWorkloadDefinition.Name {
 				k8sWorkloadConfig := KubernetesWorkloadConfig{
-					Workload: KubernetesWorkloadValues{
+					KubernetesWorkload: KubernetesWorkloadValues{
 						Name:                      inst.KubernetesWorkloadInstance.Name,
 						YAMLDocument:              def.KubernetesWorkloadDefinition.YAMLDocument,
 						WorkloadConfigPath:        def.KubernetesWorkloadDefinition.WorkloadConfigPath,
