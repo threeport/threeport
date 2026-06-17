@@ -27,7 +27,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
-	gcpauth "github.com/threeport/threeport/pkg/auth/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -492,11 +492,6 @@ func refreshGKEConnection(
 ) (*rest.Config, error) {
 	ctx := context.Background()
 
-	// ensure valid GCP credentials, triggering browser OAuth flow if expired
-	if err := gcpauth.EnsureGCPAuth(""); err != nil {
-		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
-	}
-
 	// get a new access token using Google Application Default Credentials
 	tokenSource, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
@@ -526,7 +521,7 @@ func refreshGKEConnection(
 		runtimeInstance,
 	)
 	if err != nil {
-		if strings.Contains(err.Error(), "cannot be updated externally") {
+		if errors.Is(err, client_lib.ErrBadRequest) {
 			// the runtime instance is owned by a controller and cannot be updated
 			// directly; the refreshed token is still valid for this request
 			util.CliOutputWarning(fmt.Sprintf(

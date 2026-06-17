@@ -15,6 +15,7 @@ var ErrObjectNotFound = errors.New("object not found")
 var ErrUnauthorized = errors.New("unauthorized")
 var ErrForbidden = errors.New("forbidden")
 var ErrConflict = errors.New("conflict")
+var ErrBadRequest = errors.New("bad request")
 
 // GetResponse calls the threeport API and returns a response.
 func GetResponse(
@@ -86,6 +87,8 @@ func GetResponse(
 		// return specific errors that need to be identified with `errors.As`
 		// elsewhere
 		switch resp.StatusCode {
+		case http.StatusBadRequest:
+			return nil, fmt.Errorf("%w: %s", ErrBadRequest, errMessage)
 		case http.StatusNotFound:
 			return nil, fmt.Errorf("%w: %s", ErrObjectNotFound, errMessage)
 		case http.StatusUnauthorized:
