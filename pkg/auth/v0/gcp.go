@@ -97,6 +97,7 @@ var gcpCredTempFile string
 func CleanupGCPCredentials() {
 	if gcpCredTempFile != "" {
 		os.Remove(gcpCredTempFile)
+		os.Unsetenv("GOOGLE_APPLICATION_CREDENTIALS")
 		gcpCredTempFile = ""
 	}
 }

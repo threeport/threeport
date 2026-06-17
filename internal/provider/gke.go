@@ -91,6 +91,7 @@ func (i *KubernetesRuntimeInfraGKE) Create() (*kube.KubeConnectionInfo, error) {
 	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
+	defer gcpauth.CleanupGCPCredentials()
 
 	// load GCP configuration to ensure ProjectID is set
 	if err := i.loadGCPConfig(); err != nil {
@@ -303,6 +304,7 @@ func (i *KubernetesRuntimeInfraGKE) Delete() error {
 	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
+	defer gcpauth.CleanupGCPCredentials()
 
 	if err := i.loadGCPConfig(); err != nil {
 		return fmt.Errorf("failed to load GCP configuration: %w", err)
@@ -362,6 +364,7 @@ func (i *KubernetesRuntimeInfraGKE) GetConnection() (*kube.KubeConnectionInfo, e
 	if err := gcpauth.EnsureGCPAuth(i.ServiceAccountCredentials); err != nil {
 		return nil, fmt.Errorf("failed to ensure GCP authentication: %w", err)
 	}
+	defer gcpauth.CleanupGCPCredentials()
 
 	// load GCP configuration from gcloud CLI config or environment variables
 	if err := i.loadGCPConfig(); err != nil {
