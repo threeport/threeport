@@ -316,12 +316,20 @@ func v0HelmWorkloadInstanceDeleted(
 	helmWorkloadInstance *v0.HelmWorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	if helmWorkloadInstance.ReleaseNamespace == nil || *helmWorkloadInstance.ReleaseNamespace == "" {
-		return 0, fmt.Errorf("helm workload instance has no release namespace set — cannot determine helm storage namespace for uninstall")
+	// If ReleaseNamespace was never persisted (install failed before
+	// UpdateHelmWorkloadInstance was reached), we cannot look up the exact Helm
+	// storage namespace. Fall back to the controller default so we can still
+	// obtain a kube client; the uninstall will get ErrReleaseNotFound and
+	// continue gracefully, and namespace deletion is skipped below.
+	releaseNamespace := cli.New().Namespace()
+	if helmWorkloadInstance.ReleaseNamespace != nil && *helmWorkloadInstance.ReleaseNamespace != "" {
+		releaseNamespace = *helmWorkloadInstance.ReleaseNamespace
+	} else {
+		log.Info("helm workload instance has no persisted release namespace — install likely failed before completion; proceeding with best-effort cleanup")
 	}
 
 	// get helm action config and kube client
-	actionConf, _, kubeClient, mapper, err := getHelmActionConfig(r, helmWorkloadInstance, *helmWorkloadInstance.ReleaseNamespace)
+	actionConf, _, kubeClient, mapper, err := getHelmActionConfig(r, helmWorkloadInstance, releaseNamespace)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get a helm action config: %w", err)
 	}
