@@ -381,11 +381,13 @@ func v0HelmWorkloadInstanceDeleted(
 
 	// if any other helm workload instances are using the namespace, do not
 	// delete it
-	for _, hwi := range *helmWorkloadInstances {
-		if hwi.ReleaseNamespace != nil &&
-			*hwi.ReleaseNamespace == *helmWorkloadInstance.ReleaseNamespace &&
-			*hwi.ID != *helmWorkloadInstance.ID {
-			return 0, nil
+	if helmWorkloadInstance.ReleaseNamespace != nil && *helmWorkloadInstance.ReleaseNamespace != "" {
+		for _, hwi := range *helmWorkloadInstances {
+			if hwi.ReleaseNamespace != nil &&
+				*hwi.ReleaseNamespace == *helmWorkloadInstance.ReleaseNamespace &&
+				*hwi.ID != *helmWorkloadInstance.ID {
+				return 0, nil
+			}
 		}
 	}
 
