@@ -14,7 +14,7 @@ import (
 
 const (
 	SupportServicesOperatorImage = "ghcr.io/nukleros/support-services-operator:v0.6.0"
-	RBACProxyImage               = "gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0"
+	RBACProxyImage               = "ghcr.io/kube-rbac-proxy/kube-rbac-proxy:v0.22.0"
 
 	// links the service account delcared in the IngressComponent resource to the
 	// resource config for github.com/nukleros/aws-builder to create the attached IAM role.

@@ -1101,7 +1101,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAgentDeployment(
 									"--logtostderr=true",
 									"--v=0",
 								},
-								"image":           "gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1",
+								"image":           "ghcr.io/kube-rbac-proxy/kube-rbac-proxy:v0.22.0",
 								"imagePullPolicy": "IfNotPresent",
 								"name":            "kube-rbac-proxy",
 								"ports": []interface{}{
