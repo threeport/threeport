@@ -18,6 +18,7 @@ import (
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v3/pkg/storage/driver"
 	kubeerr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -120,6 +121,7 @@ func v0HelmWorkloadInstanceCreated(
 		if uninstallErr := uninstallHelmRelease(
 			install.ReleaseName,
 			actionConf,
+			log,
 		); uninstallErr != nil {
 			return 0, fmt.Errorf("failed to uninstall helm release: %w after failed to install helm chart: %w", uninstallErr, err)
 		}
@@ -312,6 +314,7 @@ func v0HelmWorkloadInstanceDeleted(
 	if err := uninstallHelmRelease(
 		helmReleaseName(helmWorkloadInstance),
 		actionConf,
+		log,
 	); err != nil {
 		return 0, fmt.Errorf("failed to uninstall helm release: %w", err)
 	}
@@ -378,16 +381,24 @@ func v0HelmWorkloadInstanceDeleted(
 func uninstallHelmRelease(
 	releaseName string,
 	actionConf *action.Configuration,
+	log *logr.Logger,
 ) error {
 	// set up uninstall action
 	uninstall := action.NewUninstall(actionConf)
 
-	// ignore error if release not found
-	uninstall.IgnoreNotFound = true
-
 	// run uninstall action
 	_, err := uninstall.Run(releaseName)
 	if err != nil {
+		// If the release is not found, log a warning and continue — the
+		// Kubernetes resources may have already been removed or the Helm
+		// release was never successfully stored (e.g. a failed prior install).
+		// Do NOT silently swallow this with IgnoreNotFound=true: surfacing it
+		// here makes storage-namespace mismatches and other storage failures
+		// visible instead of masking them as successful uninstalls.
+		if errors.Is(err, driver.ErrReleaseNotFound) {
+			log.Info("helm release not found during uninstall — may have been removed already", "releaseName", releaseName)
+			return nil
+		}
 		return fmt.Errorf("failed to uninstall helm chart: %w", err)
 	}
 
@@ -441,11 +452,21 @@ func getHelmActionConfig(
 		return nil, nil, nil, nil, fmt.Errorf("failed to create helm registry client: %w", err)
 	}
 
+	// Helm stores release tracking secrets in the namespace passed to Init.
+	// Use the release namespace so that the Helm storage is co-located with the
+	// release resources rather than being determined by the controller pod's
+	// in-cluster default namespace (which could differ between installs and
+	// uninstalls if the pod is restarted or moved).
+	helmStorageNamespace := settings.Namespace()
+	if helmWorkloadInstance.ReleaseNamespace != nil && *helmWorkloadInstance.ReleaseNamespace != "" {
+		helmStorageNamespace = *helmWorkloadInstance.ReleaseNamespace
+	}
+
 	// create helm action config
 	actionConfig := new(action.Configuration)
 	if err := actionConfig.Init(
 		customGetter,
-		settings.Namespace(),
+		helmStorageNamespace,
 		os.Getenv("HELM_DRIVER"),
 		func(format string, v ...interface{}) {
 			fmt.Sprintf(format, v)
