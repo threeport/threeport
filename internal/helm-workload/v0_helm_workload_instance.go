@@ -247,6 +247,10 @@ func v0HelmWorkloadInstanceUpdated(
 		return 0, fmt.Errorf("failed to get helm workload definition: %w", err)
 	}
 
+	if helmWorkloadInstance.ReleaseNamespace == nil || *helmWorkloadInstance.ReleaseNamespace == "" {
+		return 0, fmt.Errorf("helm workload instance has no release namespace set — cannot determine helm storage namespace for upgrade")
+	}
+
 	// get helm action config, env settings and kube client
 	actionConf, settings, _, _, err := getHelmActionConfig(r, helmWorkloadInstance, *helmWorkloadInstance.ReleaseNamespace)
 	if err != nil {
@@ -310,6 +314,10 @@ func v0HelmWorkloadInstanceDeleted(
 	helmWorkloadInstance *v0.HelmWorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
+	if helmWorkloadInstance.ReleaseNamespace == nil || *helmWorkloadInstance.ReleaseNamespace == "" {
+		return 0, fmt.Errorf("helm workload instance has no release namespace set — cannot determine helm storage namespace for uninstall")
+	}
+
 	// get helm action config and kube client
 	actionConf, _, kubeClient, mapper, err := getHelmActionConfig(r, helmWorkloadInstance, *helmWorkloadInstance.ReleaseNamespace)
 	if err != nil {
