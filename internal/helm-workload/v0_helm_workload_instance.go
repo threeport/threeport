@@ -221,11 +221,13 @@ func v0HelmWorkloadInstanceCreated(
 	}
 	// update helm workload instance reconciled field
 	helmWorkloadInstance.Reconciled = util.Ptr(true)
-	_, err = client.UpdateHelmWorkloadInstance(
+	if _, err = client.UpdateHelmWorkloadInstance(
 		r.APIClient,
 		r.APIServer,
 		helmWorkloadInstance,
-	)
+	); err != nil {
+		return 0, fmt.Errorf("failed to update helm workload instance reconciled field: %w", err)
+	}
 
 	return 0, nil
 }
