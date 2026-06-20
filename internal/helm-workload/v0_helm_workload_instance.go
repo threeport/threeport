@@ -58,8 +58,20 @@ func v0HelmWorkloadInstanceCreated(
 		return 0, fmt.Errorf("failed to get helm workload definition: %w", err)
 	}
 
+	// Resolve the release namespace before initialising the Helm action config
+	// so the tracking secret is stored in the same namespace on both install and
+	// uninstall. Auto-generate a namespace when none is specified, and persist
+	// it on helmWorkloadInstance so the API record is updated after install.
+	var releaseNamespace string
+	if helmWorkloadInstance.ReleaseNamespace != nil && *helmWorkloadInstance.ReleaseNamespace != "" {
+		releaseNamespace = *helmWorkloadInstance.ReleaseNamespace
+	} else {
+		releaseNamespace = fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
+		helmWorkloadInstance.ReleaseNamespace = &releaseNamespace
+	}
+
 	// get helm action config, env settings and kube client
-	actionConf, settings, kubeClient, _, err := getHelmActionConfig(r, helmWorkloadInstance)
+	actionConf, settings, kubeClient, _, err := getHelmActionConfig(r, helmWorkloadInstance, releaseNamespace)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get a helm action config: %w", err)
 	}
@@ -88,13 +100,7 @@ func v0HelmWorkloadInstanceCreated(
 
 	// configure release name and namespace
 	install.ReleaseName = helmReleaseName(helmWorkloadInstance)
-	if helmWorkloadInstance.ReleaseNamespace != nil && *helmWorkloadInstance.ReleaseNamespace != "" {
-		install.Namespace = *helmWorkloadInstance.ReleaseNamespace
-	} else {
-		generatedNamespace := fmt.Sprintf("%s-%s", *helmWorkloadInstance.Name, util.RandomAlphaString(10))
-		install.Namespace = generatedNamespace
-		helmWorkloadInstance.ReleaseNamespace = &generatedNamespace
-	}
+	install.Namespace = releaseNamespace
 
 	install.CreateNamespace = true
 	install.DependencyUpdate = true
@@ -242,7 +248,7 @@ func v0HelmWorkloadInstanceUpdated(
 	}
 
 	// get helm action config, env settings and kube client
-	actionConf, settings, _, _, err := getHelmActionConfig(r, helmWorkloadInstance)
+	actionConf, settings, _, _, err := getHelmActionConfig(r, helmWorkloadInstance, *helmWorkloadInstance.ReleaseNamespace)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get a helm action config: %w", err)
 	}
@@ -305,7 +311,7 @@ func v0HelmWorkloadInstanceDeleted(
 	log *logr.Logger,
 ) (int64, error) {
 	// get helm action config and kube client
-	actionConf, _, kubeClient, mapper, err := getHelmActionConfig(r, helmWorkloadInstance)
+	actionConf, _, kubeClient, mapper, err := getHelmActionConfig(r, helmWorkloadInstance, *helmWorkloadInstance.ReleaseNamespace)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get a helm action config: %w", err)
 	}
@@ -410,6 +416,7 @@ func uninstallHelmRelease(
 func getHelmActionConfig(
 	r *controller.Reconciler,
 	helmWorkloadInstance *v0.HelmWorkloadInstance,
+	releaseNamespace string,
 ) (*action.Configuration, *cli.EnvSettings, dynamic.Interface, *meta.RESTMapper, error) {
 	// get kubernetes runtime instance
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
@@ -452,21 +459,11 @@ func getHelmActionConfig(
 		return nil, nil, nil, nil, fmt.Errorf("failed to create helm registry client: %w", err)
 	}
 
-	// Helm stores release tracking secrets in the namespace passed to Init.
-	// Use the release namespace so that the Helm storage is co-located with the
-	// release resources rather than being determined by the controller pod's
-	// in-cluster default namespace (which could differ between installs and
-	// uninstalls if the pod is restarted or moved).
-	helmStorageNamespace := settings.Namespace()
-	if helmWorkloadInstance.ReleaseNamespace != nil && *helmWorkloadInstance.ReleaseNamespace != "" {
-		helmStorageNamespace = *helmWorkloadInstance.ReleaseNamespace
-	}
-
 	// create helm action config
 	actionConfig := new(action.Configuration)
 	if err := actionConfig.Init(
 		customGetter,
-		helmStorageNamespace,
+		releaseNamespace,
 		os.Getenv("HELM_DRIVER"),
 		func(format string, v ...interface{}) {
 			fmt.Sprintf(format, v)
