@@ -385,6 +385,7 @@ func v0HelmWorkloadInstanceDeleted(
 		for _, hwi := range *helmWorkloadInstances {
 			if hwi.ReleaseNamespace != nil &&
 				*hwi.ReleaseNamespace == *helmWorkloadInstance.ReleaseNamespace &&
+				hwi.ID != nil &&
 				*hwi.ID != *helmWorkloadInstance.ID {
 				return 0, nil
 			}
