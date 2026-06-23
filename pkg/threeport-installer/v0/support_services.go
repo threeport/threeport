@@ -353,6 +353,10 @@ func InstallThreeportCRDs(
 											"domainName": map[string]interface{}{
 												"type": "string",
 											},
+											"gcpProject": map[string]interface{}{
+												"description": "GCP project ID used when provider is \"google\".",
+												"type":        "string",
+											},
 											"extraArgs": map[string]interface{}{
 												"description": "Extra arguments to be passed into the External DNS container.",
 												"items": map[string]interface{}{
