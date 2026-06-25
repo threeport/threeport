@@ -5,6 +5,7 @@ package kubernetesruntime
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -12,6 +13,7 @@ import (
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -149,9 +151,13 @@ func v0KubernetesRuntimeInstanceUpdated(
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// check to see if we have API endpoint - no further reconciliation can
-	// occur until we have that
+	// check to see if we have a valid API endpoint - no further reconciliation
+	// can occur until we have that
 	if kubernetesRuntimeInstance.APIEndpoint == nil {
+		return 0, nil
+	}
+	parsedEndpoint, parseErr := url.Parse(*kubernetesRuntimeInstance.APIEndpoint)
+	if parseErr != nil || parsedEndpoint.Host == "" {
 		return 0, nil
 	}
 
@@ -316,6 +322,10 @@ func v0KubernetesRuntimeInstanceDeleted(
 			*kubernetesRuntimeInstance.ID,
 		)
 		if err != nil {
+			if errors.Is(err, client_lib.ErrObjectNotFound) {
+				// GcpGke instance already gone - nothing left to delete
+				return 0, nil
+			}
 			return 0, fmt.Errorf("failed to get GCP GKE runtime instance by kubernetes runtime instance ID: %w", err)
 		}
 
