@@ -38,6 +38,7 @@ func getExternalDnsYaml(
 	domain,
 	provider,
 	iamRoleArn,
+	gcpProject,
 	glooEdgeNamespace,
 	kubernetesRuntimeInstanceID string,
 ) (string, error) {
@@ -66,6 +67,7 @@ func getExternalDnsYaml(
 				"provider":           provider,
 				"serviceAccountName": "external-dns",
 				"iamRoleArn":         iamRoleArn,
+				"gcpProject":         gcpProject,
 				"extraArgs":          extraArgs,
 			},
 		},

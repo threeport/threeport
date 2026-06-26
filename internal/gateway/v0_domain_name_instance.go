@@ -186,6 +186,31 @@ func confirmDnsControllerDeployed(
 			*domainNameDefinition.Domain,
 			"route53",
 			resourceInventory.DnsManagementRole.RoleArn,
+			"",
+			glooEdgeNamespace,
+			kubernetesRuntimeInstanceID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create external dns: %w", err)
+		}
+
+	case v0.KubernetesRuntimeInfraProviderGKE:
+
+		gcpGkeRuntimeInstance, err := client.GetGcpGkeKubernetesRuntimeInstanceByK8sRuntimeInst(r.APIClient, r.APIServer, *domainNameInstance.KubernetesRuntimeInstanceID)
+		if err != nil {
+			return fmt.Errorf("failed to get GCP GKE runtime instance: %w", err)
+		}
+
+		gcpProvider, err := client.GetGcpProviderByID(r.APIClient, r.APIServer, *gcpGkeRuntimeInstance.GcpProviderID)
+		if err != nil {
+			return fmt.Errorf("failed to get GCP provider: %w", err)
+		}
+
+		externalDnsYaml, err = getExternalDnsYaml(
+			*domainNameDefinition.Domain,
+			"google",
+			"",
+			*gcpProvider.ProjectID,
 			glooEdgeNamespace,
 			kubernetesRuntimeInstanceID,
 		)
@@ -198,6 +223,7 @@ func confirmDnsControllerDeployed(
 		externalDnsYaml, err = getExternalDnsYaml(
 			*domainNameDefinition.Domain,
 			"none",
+			"",
 			"",
 			glooEdgeNamespace,
 			kubernetesRuntimeInstanceID,
