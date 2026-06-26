@@ -351,7 +351,8 @@ func InstallThreeportCRDs(
 												"type": "object",
 											},
 											"domainName": map[string]interface{}{
-												"type": "string",
+												"description": "The DNS domain name to manage records for.",
+												"type":        "string",
 											},
 											"gcpProject": map[string]interface{}{
 												"description": "GCP project ID used when provider is \"google\".",
