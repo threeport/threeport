@@ -28,7 +28,7 @@ var (
 
 // GetModuleApisCmd represents the command 'tptctl get module-apis'
 var GetModuleApisCmd = &cobra.Command{
-	Aliases: []string{"module-api"},
+	Aliases: []string{"module-api", "ma"},
 	Example: "  # get all module apis\n  tptctl get module-apis\n\n  # get a specific module api\n  tptctl get module-api --name some-module-api",
 	Long:    "Get module apis from the system. Use --name to get a specific module api.",
 	PreRun:  CommandPreRunFunc,
@@ -353,7 +353,7 @@ func init() {
 
 // GetModuleApiRoutesCmd represents the command 'tptctl get module-api-routes'
 var GetModuleApiRoutesCmd = &cobra.Command{
-	Aliases: []string{"module-api-route"},
+	Aliases: []string{"module-api-route", "mar"},
 	Example: "  # get all module api routes\n  tptctl get module-api-routes\n\n  # get a specific module api route\n  tptctl get module-api-route --name some-module-api-route",
 	Long:    "Get module api routes from the system. Use --name to get a specific module api route.",
 	PreRun:  CommandPreRunFunc,
@@ -678,7 +678,7 @@ func init() {
 
 // GetModuleControllersCmd represents the command 'tptctl get module-controllers'
 var GetModuleControllersCmd = &cobra.Command{
-	Aliases: []string{"module-controller"},
+	Aliases: []string{"module-controller", "mc"},
 	Example: "  # get all module controllers\n  tptctl get module-controllers\n\n  # get a specific module controller\n  tptctl get module-controller --name some-module-controller",
 	Long:    "Get module controllers from the system. Use --name to get a specific module controller.",
 	PreRun:  CommandPreRunFunc,
@@ -1003,7 +1003,7 @@ func init() {
 
 // GetModuleObjectsCmd represents the command 'tptctl get module-objects'
 var GetModuleObjectsCmd = &cobra.Command{
-	Aliases: []string{"module-object"},
+	Aliases: []string{"module-object", "mo"},
 	Example: "  # get all module objects\n  tptctl get module-objects\n\n  # get a specific module object\n  tptctl get module-object --name some-module-object",
 	Long:    "Get module objects from the system. Use --name to get a specific module object.",
 	PreRun:  CommandPreRunFunc,

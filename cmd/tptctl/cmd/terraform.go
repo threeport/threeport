@@ -28,7 +28,7 @@ var (
 
 // GetTerraformsCmd represents the command 'tptctl get terraforms'
 var GetTerraformsCmd = &cobra.Command{
-	Aliases: []string{"terraform"},
+	Aliases: []string{"terraform", "tf"},
 	Example: "  # get all terraforms\n  tptctl get terraforms\n\n  # get a specific terraform\n  tptctl get terraform --name some-terraform",
 	Long:    "Get terraforms from the system. Use --name to get a specific terraform. A terraform is a unified abstraction of a terraform definition and terraform instance.",
 	PreRun:  CommandPreRunFunc,
@@ -308,7 +308,7 @@ func init() {
 
 // GetTerraformDefinitionsCmd represents the command 'tptctl get terraform-definitions'
 var GetTerraformDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"terraform-definition"},
+	Aliases: []string{"terraform-definition", "td"},
 	Example: "  # get all terraform definitions\n  tptctl get terraform-definitions\n\n  # get a specific terraform definition\n  tptctl get terraform-definition --name some-terraform-definition",
 	Long:    "Get terraform definitions from the system. Use --name to get a specific terraform definition.",
 	PreRun:  CommandPreRunFunc,
@@ -637,7 +637,7 @@ func init() {
 
 // GetTerraformInstancesCmd represents the command 'tptctl get terraform-instances'
 var GetTerraformInstancesCmd = &cobra.Command{
-	Aliases: []string{"terraform-instance"},
+	Aliases: []string{"terraform-instance", "ti"},
 	Example: "  # get all terraform instances\n  tptctl get terraform-instances\n\n  # get a specific terraform instance\n  tptctl get terraform-instance --name some-terraform-instance",
 	Long:    "Get terraform instances from the system. Use --name to get a specific terraform instance.",
 	PreRun:  CommandPreRunFunc,

@@ -23,7 +23,7 @@ var (
 
 // GetEventsCmd represents the command 'tptctl get events'
 var GetEventsCmd = &cobra.Command{
-	Aliases: []string{"event"},
+	Aliases: []string{"event", "ev"},
 	Example: `  # get all events
   tptctl get events
 

@@ -28,7 +28,7 @@ var (
 
 // GetAwsProvidersCmd represents the command 'tptctl get aws-providers'
 var GetAwsProvidersCmd = &cobra.Command{
-	Aliases: []string{"aws-provider"},
+	Aliases: []string{"aws-provider", "ap"},
 	Example: "  # get all aws providers\n  tptctl get aws-providers\n\n  # get a specific aws provider\n  tptctl get aws-provider --name some-aws-provider",
 	Long:    "Get aws providers from the system. Use --name to get a specific aws provider.",
 	PreRun:  CommandPreRunFunc,
@@ -374,7 +374,7 @@ func init() {
 
 // GetAwsEksKubernetesRuntimesCmd represents the command 'tptctl get aws-eks-kubernetes-runtimes'
 var GetAwsEksKubernetesRuntimesCmd = &cobra.Command{
-	Aliases: []string{"aws-eks-kubernetes-runtime"},
+	Aliases: []string{"aws-eks-kubernetes-runtime", "akr"},
 	Example: "  # get all aws eks kubernetes runtimes\n  tptctl get aws-eks-kubernetes-runtimes\n\n  # get a specific aws eks kubernetes runtime\n  tptctl get aws-eks-kubernetes-runtime --name some-aws-eks-kubernetes-runtime",
 	Long:    "Get aws eks kubernetes runtimes from the system. Use --name to get a specific aws eks kubernetes runtime. A aws eks kubernetes runtime is a unified abstraction of a aws eks kubernetes runtime definition and aws eks kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -632,7 +632,7 @@ func init() {
 
 // GetAwsEksKubernetesRuntimeDefinitionsCmd represents the command 'tptctl get aws-eks-kubernetes-runtime-definitions'
 var GetAwsEksKubernetesRuntimeDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"aws-eks-kubernetes-runtime-definition"},
+	Aliases: []string{"aws-eks-kubernetes-runtime-definition", "akrd"},
 	Example: "  # get all aws eks kubernetes runtime definitions\n  tptctl get aws-eks-kubernetes-runtime-definitions\n\n  # get a specific aws eks kubernetes runtime definition\n  tptctl get aws-eks-kubernetes-runtime-definition --name some-aws-eks-kubernetes-runtime-definition",
 	Long:    "Get aws eks kubernetes runtime definitions from the system. Use --name to get a specific aws eks kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -958,7 +958,7 @@ func init() {
 
 // GetAwsEksKubernetesRuntimeInstancesCmd represents the command 'tptctl get aws-eks-kubernetes-runtime-instances'
 var GetAwsEksKubernetesRuntimeInstancesCmd = &cobra.Command{
-	Aliases: []string{"aws-eks-kubernetes-runtime-instance"},
+	Aliases: []string{"aws-eks-kubernetes-runtime-instance", "akri"},
 	Example: "  # get all aws eks kubernetes runtime instances\n  tptctl get aws-eks-kubernetes-runtime-instances\n\n  # get a specific aws eks kubernetes runtime instance\n  tptctl get aws-eks-kubernetes-runtime-instance --name some-aws-eks-kubernetes-runtime-instance",
 	Long:    "Get aws eks kubernetes runtime instances from the system. Use --name to get a specific aws eks kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,

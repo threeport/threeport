@@ -27,7 +27,7 @@ var (
 
 // GetObservabilityStacksCmd represents the command 'tptctl get observability-stacks'
 var GetObservabilityStacksCmd = &cobra.Command{
-	Aliases: []string{"observability-stack"},
+	Aliases: []string{"observability-stack", "os"},
 	Example: "  # get all observability stacks\n  tptctl get observability-stacks\n\n  # get a specific observability stack\n  tptctl get observability-stack --name some-observability-stack",
 	Long:    "Get observability stacks from the system. Use --name to get a specific observability stack. A observability stack is a unified abstraction of a observability stack definition and observability stack instance.",
 	PreRun:  CommandPreRunFunc,
@@ -287,7 +287,7 @@ func init() {
 
 // GetObservabilityStackDefinitionsCmd represents the command 'tptctl get observability-stack-definitions'
 var GetObservabilityStackDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"observability-stack-definition"},
+	Aliases: []string{"observability-stack-definition", "osd"},
 	Example: "  # get all observability stack definitions\n  tptctl get observability-stack-definitions\n\n  # get a specific observability stack definition\n  tptctl get observability-stack-definition --name some-observability-stack-definition",
 	Long:    "Get observability stack definitions from the system. Use --name to get a specific observability stack definition.",
 	PreRun:  CommandPreRunFunc,
@@ -616,7 +616,7 @@ func init() {
 
 // GetObservabilityStackInstancesCmd represents the command 'tptctl get observability-stack-instances'
 var GetObservabilityStackInstancesCmd = &cobra.Command{
-	Aliases: []string{"observability-stack-instance"},
+	Aliases: []string{"observability-stack-instance", "osi"},
 	Example: "  # get all observability stack instances\n  tptctl get observability-stack-instances\n\n  # get a specific observability stack instance\n  tptctl get observability-stack-instance --name some-observability-stack-instance",
 	Long:    "Get observability stack instances from the system. Use --name to get a specific observability stack instance.",
 	PreRun:  CommandPreRunFunc,

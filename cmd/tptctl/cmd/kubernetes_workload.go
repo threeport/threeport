@@ -27,7 +27,7 @@ var (
 
 // GetKubernetesWorkloadsCmd represents the command 'tptctl get workloads'
 var GetKubernetesWorkloadsCmd = &cobra.Command{
-	Aliases: []string{"kubernetes-workload"},
+	Aliases: []string{"kubernetes-workload", "kw"},
 	Example: "  # get all kubernetes workloads\n  tptctl get kubernetes-workloads\n\n  # get a specific kubernetes workload\n  tptctl get kubernetes-workload --name some-workload",
 	Long:    "Get workloads from the system. Use --name to get a specific workload. A workload is a unified abstraction of a kubernetes workload definition and kubernetes workload instance.",
 	PreRun:  CommandPreRunFunc,
@@ -287,7 +287,7 @@ func init() {
 
 // GetKubernetesWorkloadDefinitionsCmd represents the command 'tptctl get workload-definitions'
 var GetKubernetesWorkloadDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"workload-definition"},
+	Aliases: []string{"workload-definition", "kwd"},
 	Example: "  # get all workload definitions\n  tptctl get workload-definitions\n\n  # get a specific kubernetes workload definition\n  tptctl get workload-definition --name some-workload-definition",
 	Long:    "Get workload definitions from the system. Use --name to get a specific kubernetes workload definition.",
 	PreRun:  CommandPreRunFunc,
@@ -616,7 +616,7 @@ func init() {
 
 // GetKubernetesWorkloadInstancesCmd represents the command 'tptctl get workload-instances'
 var GetKubernetesWorkloadInstancesCmd = &cobra.Command{
-	Aliases: []string{"workload-instance"},
+	Aliases: []string{"workload-instance", "kwi"},
 	Example: "  # get all workload instances\n  tptctl get workload-instances\n\n  # get a specific kubernetes workload instance\n  tptctl get workload-instance --name some-workload-instance",
 	Long:    "Get workload instances from the system. Use --name to get a specific kubernetes workload instance.",
 	PreRun:  CommandPreRunFunc,

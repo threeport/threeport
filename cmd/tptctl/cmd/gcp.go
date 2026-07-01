@@ -26,7 +26,7 @@ var (
 
 // GetGcpProvidersCmd represents the command 'tptctl get gcp-providers'
 var GetGcpProvidersCmd = &cobra.Command{
-	Aliases: []string{"gcp-provider"},
+	Aliases: []string{"gcp-provider", "gp"},
 	Example: "  # get all gcp providers\n  tptctl get gcp-providers\n\n  # get a specific gcp provider\n  tptctl get gcp-provider --name some-gcp-provider",
 	Long:    "Get gcp providers from the system. Use --name to get a specific gcp provider.",
 	PreRun:  CommandPreRunFunc,
@@ -346,7 +346,7 @@ func init() {
 
 // GetGcpGkeKubernetesRuntimesCmd represents the command 'tptctl get gcp-gke-kubernetes-runtimes'
 var GetGcpGkeKubernetesRuntimesCmd = &cobra.Command{
-	Aliases: []string{"gcp-gke-kubernetes-runtime"},
+	Aliases: []string{"gcp-gke-kubernetes-runtime", "gkr"},
 	Example: "  # get all gcp gke kubernetes runtimes\n  tptctl get gcp-gke-kubernetes-runtimes\n\n  # get a specific gcp gke kubernetes runtime\n  tptctl get gcp-gke-kubernetes-runtime --name some-gcp-gke-kubernetes-runtime",
 	Long:    "Get gcp gke kubernetes runtimes from the system. Use --name to get a specific gcp gke kubernetes runtime. A gcp gke kubernetes runtime is a unified abstraction of a gcp gke kubernetes runtime definition and gcp gke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -601,7 +601,7 @@ func init() {
 
 // GetGcpGkeKubernetesRuntimeDefinitionsCmd represents the command 'tptctl get gcp-gke-kubernetes-runtime-definitions'
 var GetGcpGkeKubernetesRuntimeDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"gcp-gke-kubernetes-runtime-definition"},
+	Aliases: []string{"gcp-gke-kubernetes-runtime-definition", "gkrd"},
 	Example: "  # get all gcp gke kubernetes runtime definitions\n  tptctl get gcp-gke-kubernetes-runtime-definitions\n\n  # get a specific gcp gke kubernetes runtime definition\n  tptctl get gcp-gke-kubernetes-runtime-definition --name some-gcp-gke-kubernetes-runtime-definition",
 	Long:    "Get gcp gke kubernetes runtime definitions from the system. Use --name to get a specific gcp gke kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -921,7 +921,7 @@ func init() {
 
 // GetGcpGkeKubernetesRuntimeInstancesCmd represents the command 'tptctl get gcp-gke-kubernetes-runtime-instances'
 var GetGcpGkeKubernetesRuntimeInstancesCmd = &cobra.Command{
-	Aliases: []string{"gcp-gke-kubernetes-runtime-instance"},
+	Aliases: []string{"gcp-gke-kubernetes-runtime-instance", "gkri"},
 	Example: "  # get all gcp gke kubernetes runtime instances\n  tptctl get gcp-gke-kubernetes-runtime-instances\n\n  # get a specific gcp gke kubernetes runtime instance\n  tptctl get gcp-gke-kubernetes-runtime-instance --name some-gcp-gke-kubernetes-runtime-instance",
 	Long:    "Get gcp gke kubernetes runtime instances from the system. Use --name to get a specific gcp gke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,

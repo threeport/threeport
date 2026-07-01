@@ -27,7 +27,7 @@ var (
 
 // GetMachineRuntimesCmd represents the command 'tptctl get machine-runtimes'
 var GetMachineRuntimesCmd = &cobra.Command{
-	Aliases: []string{"machine-runtime"},
+	Aliases: []string{"machine-runtime", "mr"},
 	Example: "  # get all machine runtimes\n  tptctl get machine-runtimes\n\n  # get a specific machine runtime\n  tptctl get machine-runtime --name some-machine-runtime",
 	Long:    "Get machine runtimes from the system. Use --name to get a specific machine runtime. A machine runtime is a unified abstraction of a machine runtime definition and machine runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -305,7 +305,7 @@ func init() {
 
 // GetMachineRuntimeDefinitionsCmd represents the command 'tptctl get machine-runtime-definitions'
 var GetMachineRuntimeDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"machine-runtime-definition"},
+	Aliases: []string{"machine-runtime-definition", "mrd"},
 	Example: "  # get all machine runtime definitions\n  tptctl get machine-runtime-definitions\n\n  # get a specific machine runtime definition\n  tptctl get machine-runtime-definition --name some-machine-runtime-definition",
 	Long:    "Get machine runtime definitions from the system. Use --name to get a specific machine runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -651,7 +651,7 @@ func init() {
 
 // GetMachineRuntimeInstancesCmd represents the command 'tptctl get machine-runtime-instances'
 var GetMachineRuntimeInstancesCmd = &cobra.Command{
-	Aliases: []string{"machine-runtime-instance"},
+	Aliases: []string{"machine-runtime-instance", "mri"},
 	Example: "  # get all machine runtime instances\n  tptctl get machine-runtime-instances\n\n  # get a specific machine runtime instance\n  tptctl get machine-runtime-instance --name some-machine-runtime-instance",
 	Long:    "Get machine runtime instances from the system. Use --name to get a specific machine runtime instance.",
 	PreRun:  CommandPreRunFunc,

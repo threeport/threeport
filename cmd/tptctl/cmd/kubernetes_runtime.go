@@ -27,7 +27,7 @@ var (
 
 // GetKubernetesRuntimesCmd represents the command 'tptctl get kubernetes-runtimes'
 var GetKubernetesRuntimesCmd = &cobra.Command{
-	Aliases: []string{"kubernetes-runtime"},
+	Aliases: []string{"kubernetes-runtime", "kr"},
 	Example: "  # get all kubernetes runtimes\n  tptctl get kubernetes-runtimes\n\n  # get a specific kubernetes runtime\n  tptctl get kubernetes-runtime --name some-kubernetes-runtime",
 	Long:    "Get kubernetes runtimes from the system. Use --name to get a specific kubernetes runtime. A kubernetes runtime is a unified abstraction of a kubernetes runtime definition and kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -285,7 +285,7 @@ func init() {
 
 // GetKubernetesRuntimeDefinitionsCmd represents the command 'tptctl get kubernetes-runtime-definitions'
 var GetKubernetesRuntimeDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"kubernetes-runtime-definition"},
+	Aliases: []string{"kubernetes-runtime-definition", "krd"},
 	Example: "  # get all kubernetes runtime definitions\n  tptctl get kubernetes-runtime-definitions\n\n  # get a specific kubernetes runtime definition\n  tptctl get kubernetes-runtime-definition --name some-kubernetes-runtime-definition",
 	Long:    "Get kubernetes runtime definitions from the system. Use --name to get a specific kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -611,7 +611,7 @@ func init() {
 
 // GetKubernetesRuntimeInstancesCmd represents the command 'tptctl get kubernetes-runtime-instances'
 var GetKubernetesRuntimeInstancesCmd = &cobra.Command{
-	Aliases: []string{"kubernetes-runtime-instance"},
+	Aliases: []string{"kubernetes-runtime-instance", "kri"},
 	Example: "  # get all kubernetes runtime instances\n  tptctl get kubernetes-runtime-instances\n\n  # get a specific kubernetes runtime instance\n  tptctl get kubernetes-runtime-instance --name some-kubernetes-runtime-instance",
 	Long:    "Get kubernetes runtime instances from the system. Use --name to get a specific kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,

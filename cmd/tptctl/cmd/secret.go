@@ -27,7 +27,7 @@ var (
 
 // GetSecretsCmd represents the command 'tptctl get secrets'
 var GetSecretsCmd = &cobra.Command{
-	Aliases: []string{"secret"},
+	Aliases: []string{"secret", "s"},
 	Example: "  # get all secrets\n  tptctl get secrets\n\n  # get a specific secret\n  tptctl get secret --name some-secret",
 	Long:    "Get secrets from the system. Use --name to get a specific secret. A secret is a unified abstraction of a secret definition and secret instance.",
 	PreRun:  CommandPreRunFunc,
@@ -287,7 +287,7 @@ func init() {
 
 // GetSecretDefinitionsCmd represents the command 'tptctl get secret-definitions'
 var GetSecretDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"secret-definition"},
+	Aliases: []string{"secret-definition", "sd"},
 	Example: "  # get all secret definitions\n  tptctl get secret-definitions\n\n  # get a specific secret definition\n  tptctl get secret-definition --name some-secret-definition",
 	Long:    "Get secret definitions from the system. Use --name to get a specific secret definition.",
 	PreRun:  CommandPreRunFunc,
@@ -616,7 +616,7 @@ func init() {
 
 // GetSecretInstancesCmd represents the command 'tptctl get secret-instances'
 var GetSecretInstancesCmd = &cobra.Command{
-	Aliases: []string{"secret-instance"},
+	Aliases: []string{"secret-instance", "si"},
 	Example: "  # get all secret instances\n  tptctl get secret-instances\n\n  # get a specific secret instance\n  tptctl get secret-instance --name some-secret-instance",
 	Long:    "Get secret instances from the system. Use --name to get a specific secret instance.",
 	PreRun:  CommandPreRunFunc,

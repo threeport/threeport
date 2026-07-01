@@ -27,7 +27,7 @@ var (
 
 // GetHelmWorkloadsCmd represents the command 'tptctl get helm-workloads'
 var GetHelmWorkloadsCmd = &cobra.Command{
-	Aliases: []string{"helm-workload"},
+	Aliases: []string{"helm-workload", "hw"},
 	Example: "  # get all helm workloads\n  tptctl get helm-workloads\n\n  # get a specific helm workload\n  tptctl get helm-workload --name some-helm-workload",
 	Long:    "Get helm workloads from the system. Use --name to get a specific helm workload. A helm workload is a unified abstraction of a helm workload definition and helm workload instance.",
 	PreRun:  CommandPreRunFunc,
@@ -287,7 +287,7 @@ func init() {
 
 // GetHelmWorkloadDefinitionsCmd represents the command 'tptctl get helm-workload-definitions'
 var GetHelmWorkloadDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"helm-workload-definition"},
+	Aliases: []string{"helm-workload-definition", "hwd"},
 	Example: "  # get all helm workload definitions\n  tptctl get helm-workload-definitions\n\n  # get a specific helm workload definition\n  tptctl get helm-workload-definition --name some-helm-workload-definition",
 	Long:    "Get helm workload definitions from the system. Use --name to get a specific helm workload definition.",
 	PreRun:  CommandPreRunFunc,
@@ -616,7 +616,7 @@ func init() {
 
 // GetHelmWorkloadInstancesCmd represents the command 'tptctl get helm-workload-instances'
 var GetHelmWorkloadInstancesCmd = &cobra.Command{
-	Aliases: []string{"helm-workload-instance"},
+	Aliases: []string{"helm-workload-instance", "hwi"},
 	Example: "  # get all helm workload instances\n  tptctl get helm-workload-instances\n\n  # get a specific helm workload instance\n  tptctl get helm-workload-instance --name some-helm-workload-instance",
 	Long:    "Get helm workload instances from the system. Use --name to get a specific helm workload instance.",
 	PreRun:  CommandPreRunFunc,

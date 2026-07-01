@@ -27,7 +27,7 @@ var (
 
 // GetDomainNamesCmd represents the command 'tptctl get domain-names'
 var GetDomainNamesCmd = &cobra.Command{
-	Aliases: []string{"domain-name"},
+	Aliases: []string{"domain-name", "dn"},
 	Example: "  # get all domain names\n  tptctl get domain-names\n\n  # get a specific domain name\n  tptctl get domain-name --name some-domain-name",
 	Long:    "Get domain names from the system. Use --name to get a specific domain name. A domain name is a unified abstraction of a domain name definition and domain name instance.",
 	PreRun:  CommandPreRunFunc,
@@ -285,7 +285,7 @@ func init() {
 
 // GetDomainNameDefinitionsCmd represents the command 'tptctl get domain-name-definitions'
 var GetDomainNameDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"domain-name-definition"},
+	Aliases: []string{"domain-name-definition", "dnd"},
 	Example: "  # get all domain name definitions\n  tptctl get domain-name-definitions\n\n  # get a specific domain name definition\n  tptctl get domain-name-definition --name some-domain-name-definition",
 	Long:    "Get domain name definitions from the system. Use --name to get a specific domain name definition.",
 	PreRun:  CommandPreRunFunc,
@@ -611,7 +611,7 @@ func init() {
 
 // GetDomainNameInstancesCmd represents the command 'tptctl get domain-name-instances'
 var GetDomainNameInstancesCmd = &cobra.Command{
-	Aliases: []string{"domain-name-instance"},
+	Aliases: []string{"domain-name-instance", "dni"},
 	Example: "  # get all domain name instances\n  tptctl get domain-name-instances\n\n  # get a specific domain name instance\n  tptctl get domain-name-instance --name some-domain-name-instance",
 	Long:    "Get domain name instances from the system. Use --name to get a specific domain name instance.",
 	PreRun:  CommandPreRunFunc,
@@ -937,7 +937,7 @@ func init() {
 
 // GetGatewaysCmd represents the command 'tptctl get gateways'
 var GetGatewaysCmd = &cobra.Command{
-	Aliases: []string{"gateway"},
+	Aliases: []string{"gateway", "gw"},
 	Example: "  # get all gateways\n  tptctl get gateways\n\n  # get a specific gateway\n  tptctl get gateway --name some-gateway",
 	Long:    "Get gateways from the system. Use --name to get a specific gateway. A gateway is a unified abstraction of a gateway definition and gateway instance.",
 	PreRun:  CommandPreRunFunc,
@@ -1195,7 +1195,7 @@ func init() {
 
 // GetGatewayDefinitionsCmd represents the command 'tptctl get gateway-definitions'
 var GetGatewayDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"gateway-definition"},
+	Aliases: []string{"gateway-definition", "gd"},
 	Example: "  # get all gateway definitions\n  tptctl get gateway-definitions\n\n  # get a specific gateway definition\n  tptctl get gateway-definition --name some-gateway-definition",
 	Long:    "Get gateway definitions from the system. Use --name to get a specific gateway definition.",
 	PreRun:  CommandPreRunFunc,
@@ -1521,7 +1521,7 @@ func init() {
 
 // GetGatewayInstancesCmd represents the command 'tptctl get gateway-instances'
 var GetGatewayInstancesCmd = &cobra.Command{
-	Aliases: []string{"gateway-instance"},
+	Aliases: []string{"gateway-instance", "gi"},
 	Example: "  # get all gateway instances\n  tptctl get gateway-instances\n\n  # get a specific gateway instance\n  tptctl get gateway-instance --name some-gateway-instance",
 	Long:    "Get gateway instances from the system. Use --name to get a specific gateway instance.",
 	PreRun:  CommandPreRunFunc,

@@ -28,7 +28,7 @@ var (
 
 // GetOciProvidersCmd represents the command 'tptctl get oci-providers'
 var GetOciProvidersCmd = &cobra.Command{
-	Aliases: []string{"oci-provider"},
+	Aliases: []string{"oci-provider", "op"},
 	Example: "  # get all oci providers\n  tptctl get oci-providers\n\n  # get a specific oci provider\n  tptctl get oci-provider --name some-oci-provider",
 	Long:    "Get oci providers from the system. Use --name to get a specific oci provider.",
 	PreRun:  CommandPreRunFunc,
@@ -374,7 +374,7 @@ func init() {
 
 // GetOciOkeKubernetesRuntimesCmd represents the command 'tptctl get oci-oke-kubernetes-runtimes'
 var GetOciOkeKubernetesRuntimesCmd = &cobra.Command{
-	Aliases: []string{"oci-oke-kubernetes-runtime"},
+	Aliases: []string{"oci-oke-kubernetes-runtime", "okr"},
 	Example: "  # get all oci oke kubernetes runtimes\n  tptctl get oci-oke-kubernetes-runtimes\n\n  # get a specific oci oke kubernetes runtime\n  tptctl get oci-oke-kubernetes-runtime --name some-oci-oke-kubernetes-runtime",
 	Long:    "Get oci oke kubernetes runtimes from the system. Use --name to get a specific oci oke kubernetes runtime. A oci oke kubernetes runtime is a unified abstraction of a oci oke kubernetes runtime definition and oci oke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -632,7 +632,7 @@ func init() {
 
 // GetOciOkeKubernetesRuntimeDefinitionsCmd represents the command 'tptctl get oci-oke-kubernetes-runtime-definitions'
 var GetOciOkeKubernetesRuntimeDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"oci-oke-kubernetes-runtime-definition"},
+	Aliases: []string{"oci-oke-kubernetes-runtime-definition", "okrd"},
 	Example: "  # get all oci oke kubernetes runtime definitions\n  tptctl get oci-oke-kubernetes-runtime-definitions\n\n  # get a specific oci oke kubernetes runtime definition\n  tptctl get oci-oke-kubernetes-runtime-definition --name some-oci-oke-kubernetes-runtime-definition",
 	Long:    "Get oci oke kubernetes runtime definitions from the system. Use --name to get a specific oci oke kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -958,7 +958,7 @@ func init() {
 
 // GetOciOkeKubernetesRuntimeInstancesCmd represents the command 'tptctl get oci-oke-kubernetes-runtime-instances'
 var GetOciOkeKubernetesRuntimeInstancesCmd = &cobra.Command{
-	Aliases: []string{"oci-oke-kubernetes-runtime-instance"},
+	Aliases: []string{"oci-oke-kubernetes-runtime-instance", "okri"},
 	Example: "  # get all oci oke kubernetes runtime instances\n  tptctl get oci-oke-kubernetes-runtime-instances\n\n  # get a specific oci oke kubernetes runtime instance\n  tptctl get oci-oke-kubernetes-runtime-instance --name some-oci-oke-kubernetes-runtime-instance",
 	Long:    "Get oci oke kubernetes runtime instances from the system. Use --name to get a specific oci oke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,

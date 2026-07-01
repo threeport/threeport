@@ -27,7 +27,7 @@ var (
 
 // GetMachineWorkloadsCmd represents the command 'tptctl get machine-workloads'
 var GetMachineWorkloadsCmd = &cobra.Command{
-	Aliases: []string{"machine-workload"},
+	Aliases: []string{"machine-workload", "mw"},
 	Example: "  # get all machine workloads\n  tptctl get machine-workloads\n\n  # get a specific machine workload\n  tptctl get machine-workload --name some-machine-workload",
 	Long:    "Get machine workloads from the system. Use --name to get a specific machine workload. A machine workload is a unified abstraction of a machine workload definition and machine workload instance.",
 	PreRun:  CommandPreRunFunc,
@@ -305,7 +305,7 @@ func init() {
 
 // GetMachineWorkloadDefinitionsCmd represents the command 'tptctl get machine-workload-definitions'
 var GetMachineWorkloadDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"machine-workload-definition"},
+	Aliases: []string{"machine-workload-definition", "mwd"},
 	Example: "  # get all machine workload definitions\n  tptctl get machine-workload-definitions\n\n  # get a specific machine workload definition\n  tptctl get machine-workload-definition --name some-machine-workload-definition",
 	Long:    "Get machine workload definitions from the system. Use --name to get a specific machine workload definition.",
 	PreRun:  CommandPreRunFunc,
@@ -651,7 +651,7 @@ func init() {
 
 // GetMachineWorkloadInstancesCmd represents the command 'tptctl get machine-workload-instances'
 var GetMachineWorkloadInstancesCmd = &cobra.Command{
-	Aliases: []string{"machine-workload-instance"},
+	Aliases: []string{"machine-workload-instance", "mwi"},
 	Example: "  # get all machine workload instances\n  tptctl get machine-workload-instances\n\n  # get a specific machine workload instance\n  tptctl get machine-workload-instance --name some-machine-workload-instance",
 	Long:    "Get machine workload instances from the system. Use --name to get a specific machine workload instance.",
 	PreRun:  CommandPreRunFunc,

@@ -27,7 +27,7 @@ var (
 
 // GetControlPlanesCmd represents the command 'tptctl get control-planes'
 var GetControlPlanesCmd = &cobra.Command{
-	Aliases: []string{"control-plane"},
+	Aliases: []string{"control-plane", "cp"},
 	Example: "  # get all control planes\n  tptctl get control-planes\n\n  # get a specific control plane\n  tptctl get control-plane --name some-control-plane",
 	Long:    "Get control planes from the system. Use --name to get a specific control plane. A control plane is a unified abstraction of a control plane definition and control plane instance.",
 	PreRun:  CommandPreRunFunc,
@@ -285,7 +285,7 @@ func init() {
 
 // GetControlPlaneDefinitionsCmd represents the command 'tptctl get control-plane-definitions'
 var GetControlPlaneDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"control-plane-definition"},
+	Aliases: []string{"control-plane-definition", "cpd"},
 	Example: "  # get all control plane definitions\n  tptctl get control-plane-definitions\n\n  # get a specific control plane definition\n  tptctl get control-plane-definition --name some-control-plane-definition",
 	Long:    "Get control plane definitions from the system. Use --name to get a specific control plane definition.",
 	PreRun:  CommandPreRunFunc,
@@ -611,7 +611,7 @@ func init() {
 
 // GetControlPlaneInstancesCmd represents the command 'tptctl get control-plane-instances'
 var GetControlPlaneInstancesCmd = &cobra.Command{
-	Aliases: []string{"control-plane-instance"},
+	Aliases: []string{"control-plane-instance", "cpi"},
 	Example: "  # get all control plane instances\n  tptctl get control-plane-instances\n\n  # get a specific control plane instance\n  tptctl get control-plane-instance --name some-control-plane-instance",
 	Long:    "Get control plane instances from the system. Use --name to get a specific control plane instance.",
 	PreRun:  CommandPreRunFunc,
