@@ -53,5 +53,5 @@
 | tiers                                  | - |
 | workload-definitions                   | kwd |
 | workload-instances                     | kwi |
-| workloads                              | kw |
+| kubernetes-workloads                   | kw |
 
