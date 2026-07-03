@@ -21,13 +21,19 @@ var (
 	secretOutput     string
 )
 
+const (
+	secretShortAlias           = "s"
+	secretDefinitionShortAlias = "sd"
+	secretInstanceShortAlias   = "si"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 // Secret
 ///////////////////////////////////////////////////////////////////////////////
 
 // GetSecretsCmd represents the command 'tptctl get secrets'
 var GetSecretsCmd = &cobra.Command{
-	Aliases: []string{"secret", "s"},
+	Aliases: []string{"secret", secretShortAlias},
 	Example: "  # get all secrets\n  tptctl get secrets\n\n  # get a specific secret\n  tptctl get secret --name some-secret",
 	Long:    "Get secrets from the system. Use --name to get a specific secret. A secret is a unified abstraction of a secret definition and secret instance.",
 	PreRun:  CommandPreRunFunc,
@@ -141,6 +147,7 @@ func init() {
 
 // CreateSecretCmd represents the command 'tptctl create secret'
 var CreateSecretCmd = &cobra.Command{
+	Aliases: []string{secretShortAlias},
 	Example: "  # create a new secret using a config file\n  tptctl create secret --config path/to/config.yaml",
 	Long:    "Create a new secret. A secret is a unified abstraction of a secret definition and secret instance. This command creates both a new secret definition and secret instance.",
 	PreRun:  CommandPreRunFunc,
@@ -216,6 +223,7 @@ func init() {
 
 // DeleteSecretCmd represents the command 'tptctl delete secret'
 var DeleteSecretCmd = &cobra.Command{
+	Aliases: []string{secretShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete secret --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete secret --name some-secret",
 	Long:    "Delete an existing secret. This command deletes an existing secret definition and secret instance.",
 	PreRun:  CommandPreRunFunc,
@@ -287,7 +295,7 @@ func init() {
 
 // GetSecretDefinitionsCmd represents the command 'tptctl get secret-definitions'
 var GetSecretDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"secret-definition", "sd"},
+	Aliases: []string{"secret-definition", secretDefinitionShortAlias},
 	Example: "  # get all secret definitions\n  tptctl get secret-definitions\n\n  # get a specific secret definition\n  tptctl get secret-definition --name some-secret-definition",
 	Long:    "Get secret definitions from the system. Use --name to get a specific secret definition.",
 	PreRun:  CommandPreRunFunc,
@@ -400,6 +408,7 @@ func init() {
 
 // CreateSecretDefinitionCmd represents the command 'tptctl create secret-definition'
 var CreateSecretDefinitionCmd = &cobra.Command{
+	Aliases: []string{secretDefinitionShortAlias},
 	Example: "  # create a new secret definition using a config file\n  tptctl create secret-definition --config path/to/config.yaml",
 	Long:    "Create a new secret definition.",
 	PreRun:  CommandPreRunFunc,
@@ -463,6 +472,7 @@ func init() {
 
 // ReplaceSecretDefinitionCmd represents the command 'tptctl replace secret-definition'
 var ReplaceSecretDefinitionCmd = &cobra.Command{
+	Aliases: []string{secretDefinitionShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace secret-definition --config path/to/config.yaml --name some-secret-definition",
 	Long:    "Replace an existing secret definition.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -531,6 +541,7 @@ func init() {
 
 // DeleteSecretDefinitionCmd represents the command 'tptctl delete secret-definition'
 var DeleteSecretDefinitionCmd = &cobra.Command{
+	Aliases: []string{secretDefinitionShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete secret-definition --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete secret-definition --name some-secret-definition",
 	Long:    "Delete an existing secret definition.",
 	PreRun:  CommandPreRunFunc,
@@ -616,7 +627,7 @@ func init() {
 
 // GetSecretInstancesCmd represents the command 'tptctl get secret-instances'
 var GetSecretInstancesCmd = &cobra.Command{
-	Aliases: []string{"secret-instance", "si"},
+	Aliases: []string{"secret-instance", secretInstanceShortAlias},
 	Example: "  # get all secret instances\n  tptctl get secret-instances\n\n  # get a specific secret instance\n  tptctl get secret-instance --name some-secret-instance",
 	Long:    "Get secret instances from the system. Use --name to get a specific secret instance.",
 	PreRun:  CommandPreRunFunc,
@@ -729,6 +740,7 @@ func init() {
 
 // CreateSecretInstanceCmd represents the command 'tptctl create secret-instance'
 var CreateSecretInstanceCmd = &cobra.Command{
+	Aliases: []string{secretInstanceShortAlias},
 	Example: "  # create a new secret instance using a config file\n  tptctl create secret-instance --config path/to/config.yaml",
 	Long:    "Create a new secret instance.",
 	PreRun:  CommandPreRunFunc,
@@ -792,6 +804,7 @@ func init() {
 
 // ReplaceSecretInstanceCmd represents the command 'tptctl replace secret-instance'
 var ReplaceSecretInstanceCmd = &cobra.Command{
+	Aliases: []string{secretInstanceShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace secret-instance --config path/to/config.yaml --name some-secret-instance",
 	Long:    "Replace an existing secret instance.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -860,6 +873,7 @@ func init() {
 
 // DeleteSecretInstanceCmd represents the command 'tptctl delete secret-instance'
 var DeleteSecretInstanceCmd = &cobra.Command{
+	Aliases: []string{secretInstanceShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete secret-instance --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete secret-instance --name some-secret-instance",
 	Long:    "Delete an existing secret instance.",
 	PreRun:  CommandPreRunFunc,

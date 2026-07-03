@@ -22,13 +22,19 @@ var (
 	terraformDecrypt    bool
 )
 
+const (
+	terraformShortAlias           = "tf"
+	terraformDefinitionShortAlias = "td"
+	terraformInstanceShortAlias   = "ti"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 // Terraform
 ///////////////////////////////////////////////////////////////////////////////
 
 // GetTerraformsCmd represents the command 'tptctl get terraforms'
 var GetTerraformsCmd = &cobra.Command{
-	Aliases: []string{"terraform", "tf"},
+	Aliases: []string{"terraform", terraformShortAlias},
 	Example: "  # get all terraforms\n  tptctl get terraforms\n\n  # get a specific terraform\n  tptctl get terraform --name some-terraform",
 	Long:    "Get terraforms from the system. Use --name to get a specific terraform. A terraform is a unified abstraction of a terraform definition and terraform instance.",
 	PreRun:  CommandPreRunFunc,
@@ -162,6 +168,7 @@ func init() {
 
 // CreateTerraformCmd represents the command 'tptctl create terraform'
 var CreateTerraformCmd = &cobra.Command{
+	Aliases: []string{terraformShortAlias},
 	Example: "  # create a new terraform using a config file\n  tptctl create terraform --config path/to/config.yaml",
 	Long:    "Create a new terraform. A terraform is a unified abstraction of a terraform definition and terraform instance. This command creates both a new terraform definition and terraform instance.",
 	PreRun:  CommandPreRunFunc,
@@ -237,6 +244,7 @@ func init() {
 
 // DeleteTerraformCmd represents the command 'tptctl delete terraform'
 var DeleteTerraformCmd = &cobra.Command{
+	Aliases: []string{terraformShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete terraform --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete terraform --name some-terraform",
 	Long:    "Delete an existing terraform. This command deletes an existing terraform definition and terraform instance.",
 	PreRun:  CommandPreRunFunc,
@@ -308,7 +316,7 @@ func init() {
 
 // GetTerraformDefinitionsCmd represents the command 'tptctl get terraform-definitions'
 var GetTerraformDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"terraform-definition", "td"},
+	Aliases: []string{"terraform-definition", terraformDefinitionShortAlias},
 	Example: "  # get all terraform definitions\n  tptctl get terraform-definitions\n\n  # get a specific terraform definition\n  tptctl get terraform-definition --name some-terraform-definition",
 	Long:    "Get terraform definitions from the system. Use --name to get a specific terraform definition.",
 	PreRun:  CommandPreRunFunc,
@@ -421,6 +429,7 @@ func init() {
 
 // CreateTerraformDefinitionCmd represents the command 'tptctl create terraform-definition'
 var CreateTerraformDefinitionCmd = &cobra.Command{
+	Aliases: []string{terraformDefinitionShortAlias},
 	Example: "  # create a new terraform definition using a config file\n  tptctl create terraform-definition --config path/to/config.yaml",
 	Long:    "Create a new terraform definition.",
 	PreRun:  CommandPreRunFunc,
@@ -484,6 +493,7 @@ func init() {
 
 // ReplaceTerraformDefinitionCmd represents the command 'tptctl replace terraform-definition'
 var ReplaceTerraformDefinitionCmd = &cobra.Command{
+	Aliases: []string{terraformDefinitionShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace terraform-definition --config path/to/config.yaml --name some-terraform-definition",
 	Long:    "Replace an existing terraform definition.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -552,6 +562,7 @@ func init() {
 
 // DeleteTerraformDefinitionCmd represents the command 'tptctl delete terraform-definition'
 var DeleteTerraformDefinitionCmd = &cobra.Command{
+	Aliases: []string{terraformDefinitionShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete terraform-definition --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete terraform-definition --name some-terraform-definition",
 	Long:    "Delete an existing terraform definition.",
 	PreRun:  CommandPreRunFunc,
@@ -637,7 +648,7 @@ func init() {
 
 // GetTerraformInstancesCmd represents the command 'tptctl get terraform-instances'
 var GetTerraformInstancesCmd = &cobra.Command{
-	Aliases: []string{"terraform-instance", "ti"},
+	Aliases: []string{"terraform-instance", terraformInstanceShortAlias},
 	Example: "  # get all terraform instances\n  tptctl get terraform-instances\n\n  # get a specific terraform instance\n  tptctl get terraform-instance --name some-terraform-instance",
 	Long:    "Get terraform instances from the system. Use --name to get a specific terraform instance.",
 	PreRun:  CommandPreRunFunc,
@@ -770,6 +781,7 @@ func init() {
 
 // CreateTerraformInstanceCmd represents the command 'tptctl create terraform-instance'
 var CreateTerraformInstanceCmd = &cobra.Command{
+	Aliases: []string{terraformInstanceShortAlias},
 	Example: "  # create a new terraform instance using a config file\n  tptctl create terraform-instance --config path/to/config.yaml",
 	Long:    "Create a new terraform instance.",
 	PreRun:  CommandPreRunFunc,
@@ -833,6 +845,7 @@ func init() {
 
 // ReplaceTerraformInstanceCmd represents the command 'tptctl replace terraform-instance'
 var ReplaceTerraformInstanceCmd = &cobra.Command{
+	Aliases: []string{terraformInstanceShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace terraform-instance --config path/to/config.yaml --name some-terraform-instance",
 	Long:    "Replace an existing terraform instance.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -901,6 +914,7 @@ func init() {
 
 // DeleteTerraformInstanceCmd represents the command 'tptctl delete terraform-instance'
 var DeleteTerraformInstanceCmd = &cobra.Command{
+	Aliases: []string{terraformInstanceShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete terraform-instance --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete terraform-instance --name some-terraform-instance",
 	Long:    "Delete an existing terraform instance.",
 	PreRun:  CommandPreRunFunc,

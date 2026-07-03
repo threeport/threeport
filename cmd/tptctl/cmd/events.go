@@ -21,9 +21,13 @@ var (
 	eventsLimit  int
 )
 
+const (
+	eventShortAlias = "ev"
+)
+
 // GetEventsCmd represents the command 'tptctl get events'
 var GetEventsCmd = &cobra.Command{
-	Aliases: []string{"event", "ev"},
+	Aliases: []string{"event", eventShortAlias},
 	Example: `  # get all events
   tptctl get events
 
@@ -44,7 +48,7 @@ Use --sort to control row order: newest (default) puts the most recent activity 
 Use --limit N to cap the number of rows shown (after sort). The default of 0 means no cap.
 
 Full event notes (including captured script stdout/stderr) can be viewed with -o yaml.`,
-	PreRun:  CommandPreRunFunc,
+	PreRun: CommandPreRunFunc,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := GetClientContext(cmd)
 
@@ -154,9 +158,9 @@ func init() {
 // string. Accepts three input shapes, narrowing the query as more
 // parts are supplied:
 //
-//   <kebab-kind>/<name>                                 - broad, any namespace/version
-//   <version>.<kebab-kind>/<name>                       - narrow to one version
-//   <namespace>/<version>.<kebab-kind>/<name>           - exact fully qualified type match
+//	<kebab-kind>/<name>                                 - broad, any namespace/version
+//	<version>.<kebab-kind>/<name>                       - narrow to one version
+//	<namespace>/<version>.<kebab-kind>/<name>           - exact fully qualified type match
 //
 // The kind segment carries the optional version inline as
 // "<version>.<kind>", mirroring the fully qualified type form. Empty flag returns

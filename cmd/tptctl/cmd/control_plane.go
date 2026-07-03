@@ -21,13 +21,19 @@ var (
 	controlPlaneOutput     string
 )
 
+const (
+	controlPlaneShortAlias           = "cp"
+	controlPlaneDefinitionShortAlias = "cpd"
+	controlPlaneInstanceShortAlias   = "cpi"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 // ControlPlane
 ///////////////////////////////////////////////////////////////////////////////
 
 // GetControlPlanesCmd represents the command 'tptctl get control-planes'
 var GetControlPlanesCmd = &cobra.Command{
-	Aliases: []string{"control-plane", "cp"},
+	Aliases: []string{"control-plane", controlPlaneShortAlias},
 	Example: "  # get all control planes\n  tptctl get control-planes\n\n  # get a specific control plane\n  tptctl get control-plane --name some-control-plane",
 	Long:    "Get control planes from the system. Use --name to get a specific control plane. A control plane is a unified abstraction of a control plane definition and control plane instance.",
 	PreRun:  CommandPreRunFunc,
@@ -141,6 +147,7 @@ func init() {
 
 // CreateControlPlaneCmd represents the command 'tptctl create control-plane'
 var CreateControlPlaneCmd = &cobra.Command{
+	Aliases: []string{controlPlaneShortAlias},
 	Example: "  # create a new control plane using a config file\n  tptctl create control-plane --config path/to/config.yaml",
 	Long:    "Create a new control plane. A control plane is a unified abstraction of a control plane definition and control plane instance. This command creates both a new control plane definition and control plane instance.",
 	PreRun:  CommandPreRunFunc,
@@ -215,6 +222,7 @@ func init() {
 
 // DeleteControlPlaneCmd represents the command 'tptctl delete control-plane'
 var DeleteControlPlaneCmd = &cobra.Command{
+	Aliases: []string{controlPlaneShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete control-plane --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete control-plane --name some-control-plane",
 	Long:    "Delete an existing control plane. This command deletes an existing control plane definition and control plane instance.",
 	PreRun:  CommandPreRunFunc,
@@ -285,7 +293,7 @@ func init() {
 
 // GetControlPlaneDefinitionsCmd represents the command 'tptctl get control-plane-definitions'
 var GetControlPlaneDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"control-plane-definition", "cpd"},
+	Aliases: []string{"control-plane-definition", controlPlaneDefinitionShortAlias},
 	Example: "  # get all control plane definitions\n  tptctl get control-plane-definitions\n\n  # get a specific control plane definition\n  tptctl get control-plane-definition --name some-control-plane-definition",
 	Long:    "Get control plane definitions from the system. Use --name to get a specific control plane definition.",
 	PreRun:  CommandPreRunFunc,
@@ -398,6 +406,7 @@ func init() {
 
 // CreateControlPlaneDefinitionCmd represents the command 'tptctl create control-plane-definition'
 var CreateControlPlaneDefinitionCmd = &cobra.Command{
+	Aliases: []string{controlPlaneDefinitionShortAlias},
 	Example: "  # create a new control plane definition using a config file\n  tptctl create control-plane-definition --config path/to/config.yaml",
 	Long:    "Create a new control plane definition.",
 	PreRun:  CommandPreRunFunc,
@@ -460,6 +469,7 @@ func init() {
 
 // ReplaceControlPlaneDefinitionCmd represents the command 'tptctl replace control-plane-definition'
 var ReplaceControlPlaneDefinitionCmd = &cobra.Command{
+	Aliases: []string{controlPlaneDefinitionShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace control-plane-definition --config path/to/config.yaml --name some-control-plane-definition",
 	Long:    "Replace an existing control plane definition.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -527,6 +537,7 @@ func init() {
 
 // DeleteControlPlaneDefinitionCmd represents the command 'tptctl delete control-plane-definition'
 var DeleteControlPlaneDefinitionCmd = &cobra.Command{
+	Aliases: []string{controlPlaneDefinitionShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete control-plane-definition --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete control-plane-definition --name some-control-plane-definition",
 	Long:    "Delete an existing control plane definition.",
 	PreRun:  CommandPreRunFunc,
@@ -611,7 +622,7 @@ func init() {
 
 // GetControlPlaneInstancesCmd represents the command 'tptctl get control-plane-instances'
 var GetControlPlaneInstancesCmd = &cobra.Command{
-	Aliases: []string{"control-plane-instance", "cpi"},
+	Aliases: []string{"control-plane-instance", controlPlaneInstanceShortAlias},
 	Example: "  # get all control plane instances\n  tptctl get control-plane-instances\n\n  # get a specific control plane instance\n  tptctl get control-plane-instance --name some-control-plane-instance",
 	Long:    "Get control plane instances from the system. Use --name to get a specific control plane instance.",
 	PreRun:  CommandPreRunFunc,
@@ -724,6 +735,7 @@ func init() {
 
 // CreateControlPlaneInstanceCmd represents the command 'tptctl create control-plane-instance'
 var CreateControlPlaneInstanceCmd = &cobra.Command{
+	Aliases: []string{controlPlaneInstanceShortAlias},
 	Example: "  # create a new control plane instance using a config file\n  tptctl create control-plane-instance --config path/to/config.yaml",
 	Long:    "Create a new control plane instance.",
 	PreRun:  CommandPreRunFunc,
@@ -786,6 +798,7 @@ func init() {
 
 // ReplaceControlPlaneInstanceCmd represents the command 'tptctl replace control-plane-instance'
 var ReplaceControlPlaneInstanceCmd = &cobra.Command{
+	Aliases: []string{controlPlaneInstanceShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace control-plane-instance --config path/to/config.yaml --name some-control-plane-instance",
 	Long:    "Replace an existing control plane instance.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -853,6 +866,7 @@ func init() {
 
 // DeleteControlPlaneInstanceCmd represents the command 'tptctl delete control-plane-instance'
 var DeleteControlPlaneInstanceCmd = &cobra.Command{
+	Aliases: []string{controlPlaneInstanceShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete control-plane-instance --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete control-plane-instance --name some-control-plane-instance",
 	Long:    "Delete an existing control plane instance.",
 	PreRun:  CommandPreRunFunc,

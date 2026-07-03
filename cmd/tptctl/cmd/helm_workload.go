@@ -21,13 +21,19 @@ var (
 	helmWorkloadOutput     string
 )
 
+const (
+	helmWorkloadShortAlias           = "hw"
+	helmWorkloadDefinitionShortAlias = "hwd"
+	helmWorkloadInstanceShortAlias   = "hwi"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 // HelmWorkload
 ///////////////////////////////////////////////////////////////////////////////
 
 // GetHelmWorkloadsCmd represents the command 'tptctl get helm-workloads'
 var GetHelmWorkloadsCmd = &cobra.Command{
-	Aliases: []string{"helm-workload", "hw"},
+	Aliases: []string{"helm-workload", helmWorkloadShortAlias},
 	Example: "  # get all helm workloads\n  tptctl get helm-workloads\n\n  # get a specific helm workload\n  tptctl get helm-workload --name some-helm-workload",
 	Long:    "Get helm workloads from the system. Use --name to get a specific helm workload. A helm workload is a unified abstraction of a helm workload definition and helm workload instance.",
 	PreRun:  CommandPreRunFunc,
@@ -141,6 +147,7 @@ func init() {
 
 // CreateHelmWorkloadCmd represents the command 'tptctl create helm-workload'
 var CreateHelmWorkloadCmd = &cobra.Command{
+	Aliases: []string{helmWorkloadShortAlias},
 	Example: "  # create a new helm workload using a config file\n  tptctl create helm-workload --config path/to/config.yaml",
 	Long:    "Create a new helm workload. A helm workload is a unified abstraction of a helm workload definition and helm workload instance. This command creates both a new helm workload definition and helm workload instance.",
 	PreRun:  CommandPreRunFunc,
@@ -216,6 +223,7 @@ func init() {
 
 // DeleteHelmWorkloadCmd represents the command 'tptctl delete helm-workload'
 var DeleteHelmWorkloadCmd = &cobra.Command{
+	Aliases: []string{helmWorkloadShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete helm-workload --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete helm-workload --name some-helm-workload",
 	Long:    "Delete an existing helm workload. This command deletes an existing helm workload definition and helm workload instance.",
 	PreRun:  CommandPreRunFunc,
@@ -287,7 +295,7 @@ func init() {
 
 // GetHelmWorkloadDefinitionsCmd represents the command 'tptctl get helm-workload-definitions'
 var GetHelmWorkloadDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"helm-workload-definition", "hwd"},
+	Aliases: []string{"helm-workload-definition", helmWorkloadDefinitionShortAlias},
 	Example: "  # get all helm workload definitions\n  tptctl get helm-workload-definitions\n\n  # get a specific helm workload definition\n  tptctl get helm-workload-definition --name some-helm-workload-definition",
 	Long:    "Get helm workload definitions from the system. Use --name to get a specific helm workload definition.",
 	PreRun:  CommandPreRunFunc,
@@ -400,6 +408,7 @@ func init() {
 
 // CreateHelmWorkloadDefinitionCmd represents the command 'tptctl create helm-workload-definition'
 var CreateHelmWorkloadDefinitionCmd = &cobra.Command{
+	Aliases: []string{helmWorkloadDefinitionShortAlias},
 	Example: "  # create a new helm workload definition using a config file\n  tptctl create helm-workload-definition --config path/to/config.yaml",
 	Long:    "Create a new helm workload definition.",
 	PreRun:  CommandPreRunFunc,
@@ -463,6 +472,7 @@ func init() {
 
 // ReplaceHelmWorkloadDefinitionCmd represents the command 'tptctl replace helm-workload-definition'
 var ReplaceHelmWorkloadDefinitionCmd = &cobra.Command{
+	Aliases: []string{helmWorkloadDefinitionShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace helm-workload-definition --config path/to/config.yaml --name some-helm-workload-definition",
 	Long:    "Replace an existing helm workload definition.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -531,6 +541,7 @@ func init() {
 
 // DeleteHelmWorkloadDefinitionCmd represents the command 'tptctl delete helm-workload-definition'
 var DeleteHelmWorkloadDefinitionCmd = &cobra.Command{
+	Aliases: []string{helmWorkloadDefinitionShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete helm-workload-definition --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete helm-workload-definition --name some-helm-workload-definition",
 	Long:    "Delete an existing helm workload definition.",
 	PreRun:  CommandPreRunFunc,
@@ -616,7 +627,7 @@ func init() {
 
 // GetHelmWorkloadInstancesCmd represents the command 'tptctl get helm-workload-instances'
 var GetHelmWorkloadInstancesCmd = &cobra.Command{
-	Aliases: []string{"helm-workload-instance", "hwi"},
+	Aliases: []string{"helm-workload-instance", helmWorkloadInstanceShortAlias},
 	Example: "  # get all helm workload instances\n  tptctl get helm-workload-instances\n\n  # get a specific helm workload instance\n  tptctl get helm-workload-instance --name some-helm-workload-instance",
 	Long:    "Get helm workload instances from the system. Use --name to get a specific helm workload instance.",
 	PreRun:  CommandPreRunFunc,
@@ -729,6 +740,7 @@ func init() {
 
 // CreateHelmWorkloadInstanceCmd represents the command 'tptctl create helm-workload-instance'
 var CreateHelmWorkloadInstanceCmd = &cobra.Command{
+	Aliases: []string{helmWorkloadInstanceShortAlias},
 	Example: "  # create a new helm workload instance using a config file\n  tptctl create helm-workload-instance --config path/to/config.yaml",
 	Long:    "Create a new helm workload instance.",
 	PreRun:  CommandPreRunFunc,
@@ -792,6 +804,7 @@ func init() {
 
 // ReplaceHelmWorkloadInstanceCmd represents the command 'tptctl replace helm-workload-instance'
 var ReplaceHelmWorkloadInstanceCmd = &cobra.Command{
+	Aliases: []string{helmWorkloadInstanceShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace helm-workload-instance --config path/to/config.yaml --name some-helm-workload-instance",
 	Long:    "Replace an existing helm workload instance.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -860,6 +873,7 @@ func init() {
 
 // DeleteHelmWorkloadInstanceCmd represents the command 'tptctl delete helm-workload-instance'
 var DeleteHelmWorkloadInstanceCmd = &cobra.Command{
+	Aliases: []string{helmWorkloadInstanceShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete helm-workload-instance --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete helm-workload-instance --name some-helm-workload-instance",
 	Long:    "Delete an existing helm workload instance.",
 	PreRun:  CommandPreRunFunc,

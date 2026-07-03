@@ -20,13 +20,20 @@ var (
 	gcpOutput     string
 )
 
+const (
+	gcpProviderShortAlias                       = "gp"
+	gcpGkeKubernetesRuntimeShortAlias           = "gkr"
+	gcpGkeKubernetesRuntimeDefinitionShortAlias = "gkrd"
+	gcpGkeKubernetesRuntimeInstanceShortAlias   = "gkri"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 // GcpProvider
 ///////////////////////////////////////////////////////////////////////////////
 
 // GetGcpProvidersCmd represents the command 'tptctl get gcp-providers'
 var GetGcpProvidersCmd = &cobra.Command{
-	Aliases: []string{"gcp-provider", "gp"},
+	Aliases: []string{"gcp-provider", gcpProviderShortAlias},
 	Example: "  # get all gcp providers\n  tptctl get gcp-providers\n\n  # get a specific gcp provider\n  tptctl get gcp-provider --name some-gcp-provider",
 	Long:    "Get gcp providers from the system. Use --name to get a specific gcp provider.",
 	PreRun:  CommandPreRunFunc,
@@ -139,6 +146,7 @@ func init() {
 
 // CreateGcpProviderCmd represents the command 'tptctl create gcp-provider'
 var CreateGcpProviderCmd = &cobra.Command{
+	Aliases: []string{gcpProviderShortAlias},
 	Example: "  # create a new gcp provider using a config file\n  tptctl create gcp-provider --config path/to/config.yaml",
 	Long:    "Create a new gcp provider.",
 	PreRun:  CommandPreRunFunc,
@@ -198,6 +206,7 @@ func init() {
 
 // ReplaceGcpProviderCmd represents the command 'tptctl replace gcp-provider'
 var ReplaceGcpProviderCmd = &cobra.Command{
+	Aliases: []string{gcpProviderShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace gcp-provider --config path/to/config.yaml --name some-gcp-provider",
 	Long:    "Replace an existing gcp provider.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -262,6 +271,7 @@ func init() {
 
 // DeleteGcpProviderCmd represents the command 'tptctl delete gcp-provider'
 var DeleteGcpProviderCmd = &cobra.Command{
+	Aliases: []string{gcpProviderShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete gcp-provider --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete gcp-provider --name some-gcp-provider",
 	Long:    "Delete an existing gcp provider.",
 	PreRun:  CommandPreRunFunc,
@@ -346,7 +356,7 @@ func init() {
 
 // GetGcpGkeKubernetesRuntimesCmd represents the command 'tptctl get gcp-gke-kubernetes-runtimes'
 var GetGcpGkeKubernetesRuntimesCmd = &cobra.Command{
-	Aliases: []string{"gcp-gke-kubernetes-runtime", "gkr"},
+	Aliases: []string{"gcp-gke-kubernetes-runtime", gcpGkeKubernetesRuntimeShortAlias},
 	Example: "  # get all gcp gke kubernetes runtimes\n  tptctl get gcp-gke-kubernetes-runtimes\n\n  # get a specific gcp gke kubernetes runtime\n  tptctl get gcp-gke-kubernetes-runtime --name some-gcp-gke-kubernetes-runtime",
 	Long:    "Get gcp gke kubernetes runtimes from the system. Use --name to get a specific gcp gke kubernetes runtime. A gcp gke kubernetes runtime is a unified abstraction of a gcp gke kubernetes runtime definition and gcp gke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -460,6 +470,7 @@ func init() {
 
 // CreateGcpGkeKubernetesRuntimeCmd represents the command 'tptctl create gcp-gke-kubernetes-runtime'
 var CreateGcpGkeKubernetesRuntimeCmd = &cobra.Command{
+	Aliases: []string{gcpGkeKubernetesRuntimeShortAlias},
 	Example: "  # create a new gcp gke kubernetes runtime using a config file\n  tptctl create gcp-gke-kubernetes-runtime --config path/to/config.yaml",
 	Long:    "Create a new gcp gke kubernetes runtime. A gcp gke kubernetes runtime is a unified abstraction of a gcp gke kubernetes runtime definition and gcp gke kubernetes runtime instance. This command creates both a new gcp gke kubernetes runtime definition and gcp gke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -531,6 +542,7 @@ func init() {
 
 // DeleteGcpGkeKubernetesRuntimeCmd represents the command 'tptctl delete gcp-gke-kubernetes-runtime'
 var DeleteGcpGkeKubernetesRuntimeCmd = &cobra.Command{
+	Aliases: []string{gcpGkeKubernetesRuntimeShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete gcp-gke-kubernetes-runtime --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete gcp-gke-kubernetes-runtime --name some-gcp-gke-kubernetes-runtime",
 	Long:    "Delete an existing gcp gke kubernetes runtime. This command deletes an existing gcp gke kubernetes runtime definition and gcp gke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -601,7 +613,7 @@ func init() {
 
 // GetGcpGkeKubernetesRuntimeDefinitionsCmd represents the command 'tptctl get gcp-gke-kubernetes-runtime-definitions'
 var GetGcpGkeKubernetesRuntimeDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"gcp-gke-kubernetes-runtime-definition", "gkrd"},
+	Aliases: []string{"gcp-gke-kubernetes-runtime-definition", gcpGkeKubernetesRuntimeDefinitionShortAlias},
 	Example: "  # get all gcp gke kubernetes runtime definitions\n  tptctl get gcp-gke-kubernetes-runtime-definitions\n\n  # get a specific gcp gke kubernetes runtime definition\n  tptctl get gcp-gke-kubernetes-runtime-definition --name some-gcp-gke-kubernetes-runtime-definition",
 	Long:    "Get gcp gke kubernetes runtime definitions from the system. Use --name to get a specific gcp gke kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -714,6 +726,7 @@ func init() {
 
 // CreateGcpGkeKubernetesRuntimeDefinitionCmd represents the command 'tptctl create gcp-gke-kubernetes-runtime-definition'
 var CreateGcpGkeKubernetesRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{gcpGkeKubernetesRuntimeDefinitionShortAlias},
 	Example: "  # create a new gcp gke kubernetes runtime definition using a config file\n  tptctl create gcp-gke-kubernetes-runtime-definition --config path/to/config.yaml",
 	Long:    "Create a new gcp gke kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -773,6 +786,7 @@ func init() {
 
 // ReplaceGcpGkeKubernetesRuntimeDefinitionCmd represents the command 'tptctl replace gcp-gke-kubernetes-runtime-definition'
 var ReplaceGcpGkeKubernetesRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{gcpGkeKubernetesRuntimeDefinitionShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace gcp-gke-kubernetes-runtime-definition --config path/to/config.yaml --name some-gcp-gke-kubernetes-runtime-definition",
 	Long:    "Replace an existing gcp gke kubernetes runtime definition.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -837,6 +851,7 @@ func init() {
 
 // DeleteGcpGkeKubernetesRuntimeDefinitionCmd represents the command 'tptctl delete gcp-gke-kubernetes-runtime-definition'
 var DeleteGcpGkeKubernetesRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{gcpGkeKubernetesRuntimeDefinitionShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete gcp-gke-kubernetes-runtime-definition --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete gcp-gke-kubernetes-runtime-definition --name some-gcp-gke-kubernetes-runtime-definition",
 	Long:    "Delete an existing gcp gke kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -921,7 +936,7 @@ func init() {
 
 // GetGcpGkeKubernetesRuntimeInstancesCmd represents the command 'tptctl get gcp-gke-kubernetes-runtime-instances'
 var GetGcpGkeKubernetesRuntimeInstancesCmd = &cobra.Command{
-	Aliases: []string{"gcp-gke-kubernetes-runtime-instance", "gkri"},
+	Aliases: []string{"gcp-gke-kubernetes-runtime-instance", gcpGkeKubernetesRuntimeInstanceShortAlias},
 	Example: "  # get all gcp gke kubernetes runtime instances\n  tptctl get gcp-gke-kubernetes-runtime-instances\n\n  # get a specific gcp gke kubernetes runtime instance\n  tptctl get gcp-gke-kubernetes-runtime-instance --name some-gcp-gke-kubernetes-runtime-instance",
 	Long:    "Get gcp gke kubernetes runtime instances from the system. Use --name to get a specific gcp gke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -1034,6 +1049,7 @@ func init() {
 
 // CreateGcpGkeKubernetesRuntimeInstanceCmd represents the command 'tptctl create gcp-gke-kubernetes-runtime-instance'
 var CreateGcpGkeKubernetesRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{gcpGkeKubernetesRuntimeInstanceShortAlias},
 	Example: "  # create a new gcp gke kubernetes runtime instance using a config file\n  tptctl create gcp-gke-kubernetes-runtime-instance --config path/to/config.yaml",
 	Long:    "Create a new gcp gke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -1093,6 +1109,7 @@ func init() {
 
 // ReplaceGcpGkeKubernetesRuntimeInstanceCmd represents the command 'tptctl replace gcp-gke-kubernetes-runtime-instance'
 var ReplaceGcpGkeKubernetesRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{gcpGkeKubernetesRuntimeInstanceShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace gcp-gke-kubernetes-runtime-instance --config path/to/config.yaml --name some-gcp-gke-kubernetes-runtime-instance",
 	Long:    "Replace an existing gcp gke kubernetes runtime instance.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -1157,6 +1174,7 @@ func init() {
 
 // DeleteGcpGkeKubernetesRuntimeInstanceCmd represents the command 'tptctl delete gcp-gke-kubernetes-runtime-instance'
 var DeleteGcpGkeKubernetesRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{gcpGkeKubernetesRuntimeInstanceShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete gcp-gke-kubernetes-runtime-instance --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete gcp-gke-kubernetes-runtime-instance --name some-gcp-gke-kubernetes-runtime-instance",
 	Long:    "Delete an existing gcp gke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,

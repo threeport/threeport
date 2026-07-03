@@ -8,8 +8,8 @@ import (
 	cobra "github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	config_v0 "github.com/threeport/threeport/pkg/config/v0"
-	yaml "sigs.k8s.io/yaml"
 	"os"
+	yaml "sigs.k8s.io/yaml"
 )
 
 var (
@@ -21,13 +21,19 @@ var (
 	machineRuntimeDecrypt    bool
 )
 
+const (
+	machineRuntimeShortAlias           = "mr"
+	machineRuntimeDefinitionShortAlias = "mrd"
+	machineRuntimeInstanceShortAlias   = "mri"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 // MachineRuntime
 ///////////////////////////////////////////////////////////////////////////////
 
 // GetMachineRuntimesCmd represents the command 'tptctl get machine-runtimes'
 var GetMachineRuntimesCmd = &cobra.Command{
-	Aliases: []string{"machine-runtime", "mr"},
+	Aliases: []string{"machine-runtime", machineRuntimeShortAlias},
 	Example: "  # get all machine runtimes\n  tptctl get machine-runtimes\n\n  # get a specific machine runtime\n  tptctl get machine-runtime --name some-machine-runtime",
 	Long:    "Get machine runtimes from the system. Use --name to get a specific machine runtime. A machine runtime is a unified abstraction of a machine runtime definition and machine runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -161,6 +167,7 @@ func init() {
 
 // CreateMachineRuntimeCmd represents the command 'tptctl create machine-runtime'
 var CreateMachineRuntimeCmd = &cobra.Command{
+	Aliases: []string{machineRuntimeShortAlias},
 	Example: "  # create a new machine runtime using a config file\n  tptctl create machine-runtime --config path/to/config.yaml",
 	Long:    "Create a new machine runtime. A machine runtime is a unified abstraction of a machine runtime definition and machine runtime instance. This command creates both a new machine runtime definition and machine runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -235,6 +242,7 @@ func init() {
 
 // DeleteMachineRuntimeCmd represents the command 'tptctl delete machine-runtime'
 var DeleteMachineRuntimeCmd = &cobra.Command{
+	Aliases: []string{machineRuntimeShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete machine-runtime --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete machine-runtime --name some-machine-runtime",
 	Long:    "Delete an existing machine runtime. This command deletes an existing machine runtime definition and machine runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -305,7 +313,7 @@ func init() {
 
 // GetMachineRuntimeDefinitionsCmd represents the command 'tptctl get machine-runtime-definitions'
 var GetMachineRuntimeDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"machine-runtime-definition", "mrd"},
+	Aliases: []string{"machine-runtime-definition", machineRuntimeDefinitionShortAlias},
 	Example: "  # get all machine runtime definitions\n  tptctl get machine-runtime-definitions\n\n  # get a specific machine runtime definition\n  tptctl get machine-runtime-definition --name some-machine-runtime-definition",
 	Long:    "Get machine runtime definitions from the system. Use --name to get a specific machine runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -438,6 +446,7 @@ func init() {
 
 // CreateMachineRuntimeDefinitionCmd represents the command 'tptctl create machine-runtime-definition'
 var CreateMachineRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{machineRuntimeDefinitionShortAlias},
 	Example: "  # create a new machine runtime definition using a config file\n  tptctl create machine-runtime-definition --config path/to/config.yaml",
 	Long:    "Create a new machine runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -500,6 +509,7 @@ func init() {
 
 // ReplaceMachineRuntimeDefinitionCmd represents the command 'tptctl replace machine-runtime-definition'
 var ReplaceMachineRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{machineRuntimeDefinitionShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace machine-runtime-definition --config path/to/config.yaml --name some-machine-runtime-definition",
 	Long:    "Replace an existing machine runtime definition.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -567,6 +577,7 @@ func init() {
 
 // DeleteMachineRuntimeDefinitionCmd represents the command 'tptctl delete machine-runtime-definition'
 var DeleteMachineRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{machineRuntimeDefinitionShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete machine-runtime-definition --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete machine-runtime-definition --name some-machine-runtime-definition",
 	Long:    "Delete an existing machine runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -651,7 +662,7 @@ func init() {
 
 // GetMachineRuntimeInstancesCmd represents the command 'tptctl get machine-runtime-instances'
 var GetMachineRuntimeInstancesCmd = &cobra.Command{
-	Aliases: []string{"machine-runtime-instance", "mri"},
+	Aliases: []string{"machine-runtime-instance", machineRuntimeInstanceShortAlias},
 	Example: "  # get all machine runtime instances\n  tptctl get machine-runtime-instances\n\n  # get a specific machine runtime instance\n  tptctl get machine-runtime-instance --name some-machine-runtime-instance",
 	Long:    "Get machine runtime instances from the system. Use --name to get a specific machine runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -784,6 +795,7 @@ func init() {
 
 // CreateMachineRuntimeInstanceCmd represents the command 'tptctl create machine-runtime-instance'
 var CreateMachineRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{machineRuntimeInstanceShortAlias},
 	Example: "  # create a new machine runtime instance using a config file\n  tptctl create machine-runtime-instance --config path/to/config.yaml",
 	Long:    "Create a new machine runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -846,6 +858,7 @@ func init() {
 
 // ReplaceMachineRuntimeInstanceCmd represents the command 'tptctl replace machine-runtime-instance'
 var ReplaceMachineRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{machineRuntimeInstanceShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace machine-runtime-instance --config path/to/config.yaml --name some-machine-runtime-instance",
 	Long:    "Replace an existing machine runtime instance.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -913,6 +926,7 @@ func init() {
 
 // DeleteMachineRuntimeInstanceCmd represents the command 'tptctl delete machine-runtime-instance'
 var DeleteMachineRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{machineRuntimeInstanceShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete machine-runtime-instance --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete machine-runtime-instance --name some-machine-runtime-instance",
 	Long:    "Delete an existing machine runtime instance.",
 	PreRun:  CommandPreRunFunc,

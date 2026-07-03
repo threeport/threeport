@@ -21,13 +21,19 @@ var (
 	kubernetesRuntimeOutput     string
 )
 
+const (
+	kubernetesRuntimeShortAlias           = "kr"
+	kubernetesRuntimeDefinitionShortAlias = "krd"
+	kubernetesRuntimeInstanceShortAlias   = "kri"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 // KubernetesRuntime
 ///////////////////////////////////////////////////////////////////////////////
 
 // GetKubernetesRuntimesCmd represents the command 'tptctl get kubernetes-runtimes'
 var GetKubernetesRuntimesCmd = &cobra.Command{
-	Aliases: []string{"kubernetes-runtime", "kr"},
+	Aliases: []string{"kubernetes-runtime", kubernetesRuntimeShortAlias},
 	Example: "  # get all kubernetes runtimes\n  tptctl get kubernetes-runtimes\n\n  # get a specific kubernetes runtime\n  tptctl get kubernetes-runtime --name some-kubernetes-runtime",
 	Long:    "Get kubernetes runtimes from the system. Use --name to get a specific kubernetes runtime. A kubernetes runtime is a unified abstraction of a kubernetes runtime definition and kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -141,6 +147,7 @@ func init() {
 
 // CreateKubernetesRuntimeCmd represents the command 'tptctl create kubernetes-runtime'
 var CreateKubernetesRuntimeCmd = &cobra.Command{
+	Aliases: []string{kubernetesRuntimeShortAlias},
 	Example: "  # create a new kubernetes runtime using a config file\n  tptctl create kubernetes-runtime --config path/to/config.yaml",
 	Long:    "Create a new kubernetes runtime. A kubernetes runtime is a unified abstraction of a kubernetes runtime definition and kubernetes runtime instance. This command creates both a new kubernetes runtime definition and kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -215,6 +222,7 @@ func init() {
 
 // DeleteKubernetesRuntimeCmd represents the command 'tptctl delete kubernetes-runtime'
 var DeleteKubernetesRuntimeCmd = &cobra.Command{
+	Aliases: []string{kubernetesRuntimeShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete kubernetes-runtime --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete kubernetes-runtime --name some-kubernetes-runtime",
 	Long:    "Delete an existing kubernetes runtime. This command deletes an existing kubernetes runtime definition and kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -285,7 +293,7 @@ func init() {
 
 // GetKubernetesRuntimeDefinitionsCmd represents the command 'tptctl get kubernetes-runtime-definitions'
 var GetKubernetesRuntimeDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"kubernetes-runtime-definition", "krd"},
+	Aliases: []string{"kubernetes-runtime-definition", kubernetesRuntimeDefinitionShortAlias},
 	Example: "  # get all kubernetes runtime definitions\n  tptctl get kubernetes-runtime-definitions\n\n  # get a specific kubernetes runtime definition\n  tptctl get kubernetes-runtime-definition --name some-kubernetes-runtime-definition",
 	Long:    "Get kubernetes runtime definitions from the system. Use --name to get a specific kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -398,6 +406,7 @@ func init() {
 
 // CreateKubernetesRuntimeDefinitionCmd represents the command 'tptctl create kubernetes-runtime-definition'
 var CreateKubernetesRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{kubernetesRuntimeDefinitionShortAlias},
 	Example: "  # create a new kubernetes runtime definition using a config file\n  tptctl create kubernetes-runtime-definition --config path/to/config.yaml",
 	Long:    "Create a new kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -460,6 +469,7 @@ func init() {
 
 // ReplaceKubernetesRuntimeDefinitionCmd represents the command 'tptctl replace kubernetes-runtime-definition'
 var ReplaceKubernetesRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{kubernetesRuntimeDefinitionShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace kubernetes-runtime-definition --config path/to/config.yaml --name some-kubernetes-runtime-definition",
 	Long:    "Replace an existing kubernetes runtime definition.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -527,6 +537,7 @@ func init() {
 
 // DeleteKubernetesRuntimeDefinitionCmd represents the command 'tptctl delete kubernetes-runtime-definition'
 var DeleteKubernetesRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{kubernetesRuntimeDefinitionShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete kubernetes-runtime-definition --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete kubernetes-runtime-definition --name some-kubernetes-runtime-definition",
 	Long:    "Delete an existing kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -611,7 +622,7 @@ func init() {
 
 // GetKubernetesRuntimeInstancesCmd represents the command 'tptctl get kubernetes-runtime-instances'
 var GetKubernetesRuntimeInstancesCmd = &cobra.Command{
-	Aliases: []string{"kubernetes-runtime-instance", "kri"},
+	Aliases: []string{"kubernetes-runtime-instance", kubernetesRuntimeInstanceShortAlias},
 	Example: "  # get all kubernetes runtime instances\n  tptctl get kubernetes-runtime-instances\n\n  # get a specific kubernetes runtime instance\n  tptctl get kubernetes-runtime-instance --name some-kubernetes-runtime-instance",
 	Long:    "Get kubernetes runtime instances from the system. Use --name to get a specific kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -724,6 +735,7 @@ func init() {
 
 // CreateKubernetesRuntimeInstanceCmd represents the command 'tptctl create kubernetes-runtime-instance'
 var CreateKubernetesRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{kubernetesRuntimeInstanceShortAlias},
 	Example: "  # create a new kubernetes runtime instance using a config file\n  tptctl create kubernetes-runtime-instance --config path/to/config.yaml",
 	Long:    "Create a new kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -786,6 +798,7 @@ func init() {
 
 // ReplaceKubernetesRuntimeInstanceCmd represents the command 'tptctl replace kubernetes-runtime-instance'
 var ReplaceKubernetesRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{kubernetesRuntimeInstanceShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace kubernetes-runtime-instance --config path/to/config.yaml --name some-kubernetes-runtime-instance",
 	Long:    "Replace an existing kubernetes runtime instance.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -853,6 +866,7 @@ func init() {
 
 // DeleteKubernetesRuntimeInstanceCmd represents the command 'tptctl delete kubernetes-runtime-instance'
 var DeleteKubernetesRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{kubernetesRuntimeInstanceShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete kubernetes-runtime-instance --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete kubernetes-runtime-instance --name some-kubernetes-runtime-instance",
 	Long:    "Delete an existing kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,

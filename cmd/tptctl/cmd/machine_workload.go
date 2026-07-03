@@ -8,8 +8,8 @@ import (
 	cobra "github.com/spf13/cobra"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	config_v0 "github.com/threeport/threeport/pkg/config/v0"
-	yaml "sigs.k8s.io/yaml"
 	"os"
+	yaml "sigs.k8s.io/yaml"
 )
 
 var (
@@ -21,13 +21,19 @@ var (
 	machineWorkloadDecrypt    bool
 )
 
+const (
+	machineWorkloadShortAlias           = "mw"
+	machineWorkloadDefinitionShortAlias = "mwd"
+	machineWorkloadInstanceShortAlias   = "mwi"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 // MachineWorkload
 ///////////////////////////////////////////////////////////////////////////////
 
 // GetMachineWorkloadsCmd represents the command 'tptctl get machine-workloads'
 var GetMachineWorkloadsCmd = &cobra.Command{
-	Aliases: []string{"machine-workload", "mw"},
+	Aliases: []string{"machine-workload", machineWorkloadShortAlias},
 	Example: "  # get all machine workloads\n  tptctl get machine-workloads\n\n  # get a specific machine workload\n  tptctl get machine-workload --name some-machine-workload",
 	Long:    "Get machine workloads from the system. Use --name to get a specific machine workload. A machine workload is a unified abstraction of a machine workload definition and machine workload instance.",
 	PreRun:  CommandPreRunFunc,
@@ -161,6 +167,7 @@ func init() {
 
 // CreateMachineWorkloadCmd represents the command 'tptctl create machine-workload'
 var CreateMachineWorkloadCmd = &cobra.Command{
+	Aliases: []string{machineWorkloadShortAlias},
 	Example: "  # create a new machine workload using a config file\n  tptctl create machine-workload --config path/to/config.yaml",
 	Long:    "Create a new machine workload. A machine workload is a unified abstraction of a machine workload definition and machine workload instance. This command creates both a new machine workload definition and machine workload instance.",
 	PreRun:  CommandPreRunFunc,
@@ -235,6 +242,7 @@ func init() {
 
 // DeleteMachineWorkloadCmd represents the command 'tptctl delete machine-workload'
 var DeleteMachineWorkloadCmd = &cobra.Command{
+	Aliases: []string{machineWorkloadShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete machine-workload --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete machine-workload --name some-machine-workload",
 	Long:    "Delete an existing machine workload. This command deletes an existing machine workload definition and machine workload instance.",
 	PreRun:  CommandPreRunFunc,
@@ -305,7 +313,7 @@ func init() {
 
 // GetMachineWorkloadDefinitionsCmd represents the command 'tptctl get machine-workload-definitions'
 var GetMachineWorkloadDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"machine-workload-definition", "mwd"},
+	Aliases: []string{"machine-workload-definition", machineWorkloadDefinitionShortAlias},
 	Example: "  # get all machine workload definitions\n  tptctl get machine-workload-definitions\n\n  # get a specific machine workload definition\n  tptctl get machine-workload-definition --name some-machine-workload-definition",
 	Long:    "Get machine workload definitions from the system. Use --name to get a specific machine workload definition.",
 	PreRun:  CommandPreRunFunc,
@@ -438,6 +446,7 @@ func init() {
 
 // CreateMachineWorkloadDefinitionCmd represents the command 'tptctl create machine-workload-definition'
 var CreateMachineWorkloadDefinitionCmd = &cobra.Command{
+	Aliases: []string{machineWorkloadDefinitionShortAlias},
 	Example: "  # create a new machine workload definition using a config file\n  tptctl create machine-workload-definition --config path/to/config.yaml",
 	Long:    "Create a new machine workload definition.",
 	PreRun:  CommandPreRunFunc,
@@ -500,6 +509,7 @@ func init() {
 
 // ReplaceMachineWorkloadDefinitionCmd represents the command 'tptctl replace machine-workload-definition'
 var ReplaceMachineWorkloadDefinitionCmd = &cobra.Command{
+	Aliases: []string{machineWorkloadDefinitionShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace machine-workload-definition --config path/to/config.yaml --name some-machine-workload-definition",
 	Long:    "Replace an existing machine workload definition.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -567,6 +577,7 @@ func init() {
 
 // DeleteMachineWorkloadDefinitionCmd represents the command 'tptctl delete machine-workload-definition'
 var DeleteMachineWorkloadDefinitionCmd = &cobra.Command{
+	Aliases: []string{machineWorkloadDefinitionShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete machine-workload-definition --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete machine-workload-definition --name some-machine-workload-definition",
 	Long:    "Delete an existing machine workload definition.",
 	PreRun:  CommandPreRunFunc,
@@ -651,7 +662,7 @@ func init() {
 
 // GetMachineWorkloadInstancesCmd represents the command 'tptctl get machine-workload-instances'
 var GetMachineWorkloadInstancesCmd = &cobra.Command{
-	Aliases: []string{"machine-workload-instance", "mwi"},
+	Aliases: []string{"machine-workload-instance", machineWorkloadInstanceShortAlias},
 	Example: "  # get all machine workload instances\n  tptctl get machine-workload-instances\n\n  # get a specific machine workload instance\n  tptctl get machine-workload-instance --name some-machine-workload-instance",
 	Long:    "Get machine workload instances from the system. Use --name to get a specific machine workload instance.",
 	PreRun:  CommandPreRunFunc,
@@ -784,6 +795,7 @@ func init() {
 
 // CreateMachineWorkloadInstanceCmd represents the command 'tptctl create machine-workload-instance'
 var CreateMachineWorkloadInstanceCmd = &cobra.Command{
+	Aliases: []string{machineWorkloadInstanceShortAlias},
 	Example: "  # create a new machine workload instance using a config file\n  tptctl create machine-workload-instance --config path/to/config.yaml",
 	Long:    "Create a new machine workload instance.",
 	PreRun:  CommandPreRunFunc,
@@ -846,6 +858,7 @@ func init() {
 
 // ReplaceMachineWorkloadInstanceCmd represents the command 'tptctl replace machine-workload-instance'
 var ReplaceMachineWorkloadInstanceCmd = &cobra.Command{
+	Aliases: []string{machineWorkloadInstanceShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace machine-workload-instance --config path/to/config.yaml --name some-machine-workload-instance",
 	Long:    "Replace an existing machine workload instance.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -913,6 +926,7 @@ func init() {
 
 // DeleteMachineWorkloadInstanceCmd represents the command 'tptctl delete machine-workload-instance'
 var DeleteMachineWorkloadInstanceCmd = &cobra.Command{
+	Aliases: []string{machineWorkloadInstanceShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete machine-workload-instance --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete machine-workload-instance --name some-machine-workload-instance",
 	Long:    "Delete an existing machine workload instance.",
 	PreRun:  CommandPreRunFunc,

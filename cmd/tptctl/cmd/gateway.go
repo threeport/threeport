@@ -21,13 +21,22 @@ var (
 	gatewayOutput     string
 )
 
+const (
+	domainNameShortAlias           = "dn"
+	domainNameDefinitionShortAlias = "dnd"
+	domainNameInstanceShortAlias   = "dni"
+	gatewayShortAlias              = "gw"
+	gatewayDefinitionShortAlias    = "gd"
+	gatewayInstanceShortAlias      = "gi"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 // DomainName
 ///////////////////////////////////////////////////////////////////////////////
 
 // GetDomainNamesCmd represents the command 'tptctl get domain-names'
 var GetDomainNamesCmd = &cobra.Command{
-	Aliases: []string{"domain-name", "dn"},
+	Aliases: []string{"domain-name", domainNameShortAlias},
 	Example: "  # get all domain names\n  tptctl get domain-names\n\n  # get a specific domain name\n  tptctl get domain-name --name some-domain-name",
 	Long:    "Get domain names from the system. Use --name to get a specific domain name. A domain name is a unified abstraction of a domain name definition and domain name instance.",
 	PreRun:  CommandPreRunFunc,
@@ -141,6 +150,7 @@ func init() {
 
 // CreateDomainNameCmd represents the command 'tptctl create domain-name'
 var CreateDomainNameCmd = &cobra.Command{
+	Aliases: []string{domainNameShortAlias},
 	Example: "  # create a new domain name using a config file\n  tptctl create domain-name --config path/to/config.yaml",
 	Long:    "Create a new domain name. A domain name is a unified abstraction of a domain name definition and domain name instance. This command creates both a new domain name definition and domain name instance.",
 	PreRun:  CommandPreRunFunc,
@@ -215,6 +225,7 @@ func init() {
 
 // DeleteDomainNameCmd represents the command 'tptctl delete domain-name'
 var DeleteDomainNameCmd = &cobra.Command{
+	Aliases: []string{domainNameShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete domain-name --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete domain-name --name some-domain-name",
 	Long:    "Delete an existing domain name. This command deletes an existing domain name definition and domain name instance.",
 	PreRun:  CommandPreRunFunc,
@@ -285,7 +296,7 @@ func init() {
 
 // GetDomainNameDefinitionsCmd represents the command 'tptctl get domain-name-definitions'
 var GetDomainNameDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"domain-name-definition", "dnd"},
+	Aliases: []string{"domain-name-definition", domainNameDefinitionShortAlias},
 	Example: "  # get all domain name definitions\n  tptctl get domain-name-definitions\n\n  # get a specific domain name definition\n  tptctl get domain-name-definition --name some-domain-name-definition",
 	Long:    "Get domain name definitions from the system. Use --name to get a specific domain name definition.",
 	PreRun:  CommandPreRunFunc,
@@ -398,6 +409,7 @@ func init() {
 
 // CreateDomainNameDefinitionCmd represents the command 'tptctl create domain-name-definition'
 var CreateDomainNameDefinitionCmd = &cobra.Command{
+	Aliases: []string{domainNameDefinitionShortAlias},
 	Example: "  # create a new domain name definition using a config file\n  tptctl create domain-name-definition --config path/to/config.yaml",
 	Long:    "Create a new domain name definition.",
 	PreRun:  CommandPreRunFunc,
@@ -460,6 +472,7 @@ func init() {
 
 // ReplaceDomainNameDefinitionCmd represents the command 'tptctl replace domain-name-definition'
 var ReplaceDomainNameDefinitionCmd = &cobra.Command{
+	Aliases: []string{domainNameDefinitionShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace domain-name-definition --config path/to/config.yaml --name some-domain-name-definition",
 	Long:    "Replace an existing domain name definition.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -527,6 +540,7 @@ func init() {
 
 // DeleteDomainNameDefinitionCmd represents the command 'tptctl delete domain-name-definition'
 var DeleteDomainNameDefinitionCmd = &cobra.Command{
+	Aliases: []string{domainNameDefinitionShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete domain-name-definition --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete domain-name-definition --name some-domain-name-definition",
 	Long:    "Delete an existing domain name definition.",
 	PreRun:  CommandPreRunFunc,
@@ -611,7 +625,7 @@ func init() {
 
 // GetDomainNameInstancesCmd represents the command 'tptctl get domain-name-instances'
 var GetDomainNameInstancesCmd = &cobra.Command{
-	Aliases: []string{"domain-name-instance", "dni"},
+	Aliases: []string{"domain-name-instance", domainNameInstanceShortAlias},
 	Example: "  # get all domain name instances\n  tptctl get domain-name-instances\n\n  # get a specific domain name instance\n  tptctl get domain-name-instance --name some-domain-name-instance",
 	Long:    "Get domain name instances from the system. Use --name to get a specific domain name instance.",
 	PreRun:  CommandPreRunFunc,
@@ -724,6 +738,7 @@ func init() {
 
 // CreateDomainNameInstanceCmd represents the command 'tptctl create domain-name-instance'
 var CreateDomainNameInstanceCmd = &cobra.Command{
+	Aliases: []string{domainNameInstanceShortAlias},
 	Example: "  # create a new domain name instance using a config file\n  tptctl create domain-name-instance --config path/to/config.yaml",
 	Long:    "Create a new domain name instance.",
 	PreRun:  CommandPreRunFunc,
@@ -786,6 +801,7 @@ func init() {
 
 // ReplaceDomainNameInstanceCmd represents the command 'tptctl replace domain-name-instance'
 var ReplaceDomainNameInstanceCmd = &cobra.Command{
+	Aliases: []string{domainNameInstanceShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace domain-name-instance --config path/to/config.yaml --name some-domain-name-instance",
 	Long:    "Replace an existing domain name instance.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -853,6 +869,7 @@ func init() {
 
 // DeleteDomainNameInstanceCmd represents the command 'tptctl delete domain-name-instance'
 var DeleteDomainNameInstanceCmd = &cobra.Command{
+	Aliases: []string{domainNameInstanceShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete domain-name-instance --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete domain-name-instance --name some-domain-name-instance",
 	Long:    "Delete an existing domain name instance.",
 	PreRun:  CommandPreRunFunc,
@@ -937,7 +954,7 @@ func init() {
 
 // GetGatewaysCmd represents the command 'tptctl get gateways'
 var GetGatewaysCmd = &cobra.Command{
-	Aliases: []string{"gateway", "gw"},
+	Aliases: []string{"gateway", gatewayShortAlias},
 	Example: "  # get all gateways\n  tptctl get gateways\n\n  # get a specific gateway\n  tptctl get gateway --name some-gateway",
 	Long:    "Get gateways from the system. Use --name to get a specific gateway. A gateway is a unified abstraction of a gateway definition and gateway instance.",
 	PreRun:  CommandPreRunFunc,
@@ -1051,6 +1068,7 @@ func init() {
 
 // CreateGatewayCmd represents the command 'tptctl create gateway'
 var CreateGatewayCmd = &cobra.Command{
+	Aliases: []string{gatewayShortAlias},
 	Example: "  # create a new gateway using a config file\n  tptctl create gateway --config path/to/config.yaml",
 	Long:    "Create a new gateway. A gateway is a unified abstraction of a gateway definition and gateway instance. This command creates both a new gateway definition and gateway instance.",
 	PreRun:  CommandPreRunFunc,
@@ -1125,6 +1143,7 @@ func init() {
 
 // DeleteGatewayCmd represents the command 'tptctl delete gateway'
 var DeleteGatewayCmd = &cobra.Command{
+	Aliases: []string{gatewayShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete gateway --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete gateway --name some-gateway",
 	Long:    "Delete an existing gateway. This command deletes an existing gateway definition and gateway instance.",
 	PreRun:  CommandPreRunFunc,
@@ -1195,7 +1214,7 @@ func init() {
 
 // GetGatewayDefinitionsCmd represents the command 'tptctl get gateway-definitions'
 var GetGatewayDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"gateway-definition", "gd"},
+	Aliases: []string{"gateway-definition", gatewayDefinitionShortAlias},
 	Example: "  # get all gateway definitions\n  tptctl get gateway-definitions\n\n  # get a specific gateway definition\n  tptctl get gateway-definition --name some-gateway-definition",
 	Long:    "Get gateway definitions from the system. Use --name to get a specific gateway definition.",
 	PreRun:  CommandPreRunFunc,
@@ -1308,6 +1327,7 @@ func init() {
 
 // CreateGatewayDefinitionCmd represents the command 'tptctl create gateway-definition'
 var CreateGatewayDefinitionCmd = &cobra.Command{
+	Aliases: []string{gatewayDefinitionShortAlias},
 	Example: "  # create a new gateway definition using a config file\n  tptctl create gateway-definition --config path/to/config.yaml",
 	Long:    "Create a new gateway definition.",
 	PreRun:  CommandPreRunFunc,
@@ -1370,6 +1390,7 @@ func init() {
 
 // ReplaceGatewayDefinitionCmd represents the command 'tptctl replace gateway-definition'
 var ReplaceGatewayDefinitionCmd = &cobra.Command{
+	Aliases: []string{gatewayDefinitionShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace gateway-definition --config path/to/config.yaml --name some-gateway-definition",
 	Long:    "Replace an existing gateway definition.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -1437,6 +1458,7 @@ func init() {
 
 // DeleteGatewayDefinitionCmd represents the command 'tptctl delete gateway-definition'
 var DeleteGatewayDefinitionCmd = &cobra.Command{
+	Aliases: []string{gatewayDefinitionShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete gateway-definition --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete gateway-definition --name some-gateway-definition",
 	Long:    "Delete an existing gateway definition.",
 	PreRun:  CommandPreRunFunc,
@@ -1521,7 +1543,7 @@ func init() {
 
 // GetGatewayInstancesCmd represents the command 'tptctl get gateway-instances'
 var GetGatewayInstancesCmd = &cobra.Command{
-	Aliases: []string{"gateway-instance", "gi"},
+	Aliases: []string{"gateway-instance", gatewayInstanceShortAlias},
 	Example: "  # get all gateway instances\n  tptctl get gateway-instances\n\n  # get a specific gateway instance\n  tptctl get gateway-instance --name some-gateway-instance",
 	Long:    "Get gateway instances from the system. Use --name to get a specific gateway instance.",
 	PreRun:  CommandPreRunFunc,
@@ -1634,6 +1656,7 @@ func init() {
 
 // CreateGatewayInstanceCmd represents the command 'tptctl create gateway-instance'
 var CreateGatewayInstanceCmd = &cobra.Command{
+	Aliases: []string{gatewayInstanceShortAlias},
 	Example: "  # create a new gateway instance using a config file\n  tptctl create gateway-instance --config path/to/config.yaml",
 	Long:    "Create a new gateway instance.",
 	PreRun:  CommandPreRunFunc,
@@ -1696,6 +1719,7 @@ func init() {
 
 // ReplaceGatewayInstanceCmd represents the command 'tptctl replace gateway-instance'
 var ReplaceGatewayInstanceCmd = &cobra.Command{
+	Aliases: []string{gatewayInstanceShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace gateway-instance --config path/to/config.yaml --name some-gateway-instance",
 	Long:    "Replace an existing gateway instance.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -1763,6 +1787,7 @@ func init() {
 
 // DeleteGatewayInstanceCmd represents the command 'tptctl delete gateway-instance'
 var DeleteGatewayInstanceCmd = &cobra.Command{
+	Aliases: []string{gatewayInstanceShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete gateway-instance --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete gateway-instance --name some-gateway-instance",
 	Long:    "Delete an existing gateway instance.",
 	PreRun:  CommandPreRunFunc,

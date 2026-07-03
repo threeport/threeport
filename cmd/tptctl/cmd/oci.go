@@ -22,13 +22,20 @@ var (
 	ociDecrypt    bool
 )
 
+const (
+	ociProviderShortAlias                       = "op"
+	ociOkeKubernetesRuntimeShortAlias           = "okr"
+	ociOkeKubernetesRuntimeDefinitionShortAlias = "okrd"
+	ociOkeKubernetesRuntimeInstanceShortAlias   = "okri"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 // OciProvider
 ///////////////////////////////////////////////////////////////////////////////
 
 // GetOciProvidersCmd represents the command 'tptctl get oci-providers'
 var GetOciProvidersCmd = &cobra.Command{
-	Aliases: []string{"oci-provider", "op"},
+	Aliases: []string{"oci-provider", ociProviderShortAlias},
 	Example: "  # get all oci providers\n  tptctl get oci-providers\n\n  # get a specific oci provider\n  tptctl get oci-provider --name some-oci-provider",
 	Long:    "Get oci providers from the system. Use --name to get a specific oci provider.",
 	PreRun:  CommandPreRunFunc,
@@ -161,6 +168,7 @@ func init() {
 
 // CreateOciProviderCmd represents the command 'tptctl create oci-provider'
 var CreateOciProviderCmd = &cobra.Command{
+	Aliases: []string{ociProviderShortAlias},
 	Example: "  # create a new oci provider using a config file\n  tptctl create oci-provider --config path/to/config.yaml",
 	Long:    "Create a new oci provider.",
 	PreRun:  CommandPreRunFunc,
@@ -223,6 +231,7 @@ func init() {
 
 // ReplaceOciProviderCmd represents the command 'tptctl replace oci-provider'
 var ReplaceOciProviderCmd = &cobra.Command{
+	Aliases: []string{ociProviderShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace oci-provider --config path/to/config.yaml --name some-oci-provider",
 	Long:    "Replace an existing oci provider.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -290,6 +299,7 @@ func init() {
 
 // DeleteOciProviderCmd represents the command 'tptctl delete oci-provider'
 var DeleteOciProviderCmd = &cobra.Command{
+	Aliases: []string{ociProviderShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete oci-provider --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete oci-provider --name some-oci-provider",
 	Long:    "Delete an existing oci provider.",
 	PreRun:  CommandPreRunFunc,
@@ -374,7 +384,7 @@ func init() {
 
 // GetOciOkeKubernetesRuntimesCmd represents the command 'tptctl get oci-oke-kubernetes-runtimes'
 var GetOciOkeKubernetesRuntimesCmd = &cobra.Command{
-	Aliases: []string{"oci-oke-kubernetes-runtime", "okr"},
+	Aliases: []string{"oci-oke-kubernetes-runtime", ociOkeKubernetesRuntimeShortAlias},
 	Example: "  # get all oci oke kubernetes runtimes\n  tptctl get oci-oke-kubernetes-runtimes\n\n  # get a specific oci oke kubernetes runtime\n  tptctl get oci-oke-kubernetes-runtime --name some-oci-oke-kubernetes-runtime",
 	Long:    "Get oci oke kubernetes runtimes from the system. Use --name to get a specific oci oke kubernetes runtime. A oci oke kubernetes runtime is a unified abstraction of a oci oke kubernetes runtime definition and oci oke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -488,6 +498,7 @@ func init() {
 
 // CreateOciOkeKubernetesRuntimeCmd represents the command 'tptctl create oci-oke-kubernetes-runtime'
 var CreateOciOkeKubernetesRuntimeCmd = &cobra.Command{
+	Aliases: []string{ociOkeKubernetesRuntimeShortAlias},
 	Example: "  # create a new oci oke kubernetes runtime using a config file\n  tptctl create oci-oke-kubernetes-runtime --config path/to/config.yaml",
 	Long:    "Create a new oci oke kubernetes runtime. A oci oke kubernetes runtime is a unified abstraction of a oci oke kubernetes runtime definition and oci oke kubernetes runtime instance. This command creates both a new oci oke kubernetes runtime definition and oci oke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -562,6 +573,7 @@ func init() {
 
 // DeleteOciOkeKubernetesRuntimeCmd represents the command 'tptctl delete oci-oke-kubernetes-runtime'
 var DeleteOciOkeKubernetesRuntimeCmd = &cobra.Command{
+	Aliases: []string{ociOkeKubernetesRuntimeShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete oci-oke-kubernetes-runtime --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete oci-oke-kubernetes-runtime --name some-oci-oke-kubernetes-runtime",
 	Long:    "Delete an existing oci oke kubernetes runtime. This command deletes an existing oci oke kubernetes runtime definition and oci oke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -632,7 +644,7 @@ func init() {
 
 // GetOciOkeKubernetesRuntimeDefinitionsCmd represents the command 'tptctl get oci-oke-kubernetes-runtime-definitions'
 var GetOciOkeKubernetesRuntimeDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"oci-oke-kubernetes-runtime-definition", "okrd"},
+	Aliases: []string{"oci-oke-kubernetes-runtime-definition", ociOkeKubernetesRuntimeDefinitionShortAlias},
 	Example: "  # get all oci oke kubernetes runtime definitions\n  tptctl get oci-oke-kubernetes-runtime-definitions\n\n  # get a specific oci oke kubernetes runtime definition\n  tptctl get oci-oke-kubernetes-runtime-definition --name some-oci-oke-kubernetes-runtime-definition",
 	Long:    "Get oci oke kubernetes runtime definitions from the system. Use --name to get a specific oci oke kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -745,6 +757,7 @@ func init() {
 
 // CreateOciOkeKubernetesRuntimeDefinitionCmd represents the command 'tptctl create oci-oke-kubernetes-runtime-definition'
 var CreateOciOkeKubernetesRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{ociOkeKubernetesRuntimeDefinitionShortAlias},
 	Example: "  # create a new oci oke kubernetes runtime definition using a config file\n  tptctl create oci-oke-kubernetes-runtime-definition --config path/to/config.yaml",
 	Long:    "Create a new oci oke kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -807,6 +820,7 @@ func init() {
 
 // ReplaceOciOkeKubernetesRuntimeDefinitionCmd represents the command 'tptctl replace oci-oke-kubernetes-runtime-definition'
 var ReplaceOciOkeKubernetesRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{ociOkeKubernetesRuntimeDefinitionShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace oci-oke-kubernetes-runtime-definition --config path/to/config.yaml --name some-oci-oke-kubernetes-runtime-definition",
 	Long:    "Replace an existing oci oke kubernetes runtime definition.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -874,6 +888,7 @@ func init() {
 
 // DeleteOciOkeKubernetesRuntimeDefinitionCmd represents the command 'tptctl delete oci-oke-kubernetes-runtime-definition'
 var DeleteOciOkeKubernetesRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{ociOkeKubernetesRuntimeDefinitionShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete oci-oke-kubernetes-runtime-definition --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete oci-oke-kubernetes-runtime-definition --name some-oci-oke-kubernetes-runtime-definition",
 	Long:    "Delete an existing oci oke kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -958,7 +973,7 @@ func init() {
 
 // GetOciOkeKubernetesRuntimeInstancesCmd represents the command 'tptctl get oci-oke-kubernetes-runtime-instances'
 var GetOciOkeKubernetesRuntimeInstancesCmd = &cobra.Command{
-	Aliases: []string{"oci-oke-kubernetes-runtime-instance", "okri"},
+	Aliases: []string{"oci-oke-kubernetes-runtime-instance", ociOkeKubernetesRuntimeInstanceShortAlias},
 	Example: "  # get all oci oke kubernetes runtime instances\n  tptctl get oci-oke-kubernetes-runtime-instances\n\n  # get a specific oci oke kubernetes runtime instance\n  tptctl get oci-oke-kubernetes-runtime-instance --name some-oci-oke-kubernetes-runtime-instance",
 	Long:    "Get oci oke kubernetes runtime instances from the system. Use --name to get a specific oci oke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -1071,6 +1086,7 @@ func init() {
 
 // CreateOciOkeKubernetesRuntimeInstanceCmd represents the command 'tptctl create oci-oke-kubernetes-runtime-instance'
 var CreateOciOkeKubernetesRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{ociOkeKubernetesRuntimeInstanceShortAlias},
 	Example: "  # create a new oci oke kubernetes runtime instance using a config file\n  tptctl create oci-oke-kubernetes-runtime-instance --config path/to/config.yaml",
 	Long:    "Create a new oci oke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -1133,6 +1149,7 @@ func init() {
 
 // ReplaceOciOkeKubernetesRuntimeInstanceCmd represents the command 'tptctl replace oci-oke-kubernetes-runtime-instance'
 var ReplaceOciOkeKubernetesRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{ociOkeKubernetesRuntimeInstanceShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace oci-oke-kubernetes-runtime-instance --config path/to/config.yaml --name some-oci-oke-kubernetes-runtime-instance",
 	Long:    "Replace an existing oci oke kubernetes runtime instance.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -1200,6 +1217,7 @@ func init() {
 
 // DeleteOciOkeKubernetesRuntimeInstanceCmd represents the command 'tptctl delete oci-oke-kubernetes-runtime-instance'
 var DeleteOciOkeKubernetesRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{ociOkeKubernetesRuntimeInstanceShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete oci-oke-kubernetes-runtime-instance --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete oci-oke-kubernetes-runtime-instance --name some-oci-oke-kubernetes-runtime-instance",
 	Long:    "Delete an existing oci oke kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,

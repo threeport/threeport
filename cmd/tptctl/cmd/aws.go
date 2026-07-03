@@ -22,13 +22,20 @@ var (
 	awsDecrypt    bool
 )
 
+const (
+	awsProviderShortAlias                       = "ap"
+	awsEksKubernetesRuntimeShortAlias           = "akr"
+	awsEksKubernetesRuntimeDefinitionShortAlias = "akrd"
+	awsEksKubernetesRuntimeInstanceShortAlias   = "akri"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 // AwsProvider
 ///////////////////////////////////////////////////////////////////////////////
 
 // GetAwsProvidersCmd represents the command 'tptctl get aws-providers'
 var GetAwsProvidersCmd = &cobra.Command{
-	Aliases: []string{"aws-provider", "ap"},
+	Aliases: []string{"aws-provider", awsProviderShortAlias},
 	Example: "  # get all aws providers\n  tptctl get aws-providers\n\n  # get a specific aws provider\n  tptctl get aws-provider --name some-aws-provider",
 	Long:    "Get aws providers from the system. Use --name to get a specific aws provider.",
 	PreRun:  CommandPreRunFunc,
@@ -161,6 +168,7 @@ func init() {
 
 // CreateAwsProviderCmd represents the command 'tptctl create aws-provider'
 var CreateAwsProviderCmd = &cobra.Command{
+	Aliases: []string{awsProviderShortAlias},
 	Example: "  # create a new aws provider using a config file\n  tptctl create aws-provider --config path/to/config.yaml",
 	Long:    "Create a new aws provider.",
 	PreRun:  CommandPreRunFunc,
@@ -223,6 +231,7 @@ func init() {
 
 // ReplaceAwsProviderCmd represents the command 'tptctl replace aws-provider'
 var ReplaceAwsProviderCmd = &cobra.Command{
+	Aliases: []string{awsProviderShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace aws-provider --config path/to/config.yaml --name some-aws-provider",
 	Long:    "Replace an existing aws provider.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -290,6 +299,7 @@ func init() {
 
 // DeleteAwsProviderCmd represents the command 'tptctl delete aws-provider'
 var DeleteAwsProviderCmd = &cobra.Command{
+	Aliases: []string{awsProviderShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete aws-provider --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete aws-provider --name some-aws-provider",
 	Long:    "Delete an existing aws provider.",
 	PreRun:  CommandPreRunFunc,
@@ -374,7 +384,7 @@ func init() {
 
 // GetAwsEksKubernetesRuntimesCmd represents the command 'tptctl get aws-eks-kubernetes-runtimes'
 var GetAwsEksKubernetesRuntimesCmd = &cobra.Command{
-	Aliases: []string{"aws-eks-kubernetes-runtime", "akr"},
+	Aliases: []string{"aws-eks-kubernetes-runtime", awsEksKubernetesRuntimeShortAlias},
 	Example: "  # get all aws eks kubernetes runtimes\n  tptctl get aws-eks-kubernetes-runtimes\n\n  # get a specific aws eks kubernetes runtime\n  tptctl get aws-eks-kubernetes-runtime --name some-aws-eks-kubernetes-runtime",
 	Long:    "Get aws eks kubernetes runtimes from the system. Use --name to get a specific aws eks kubernetes runtime. A aws eks kubernetes runtime is a unified abstraction of a aws eks kubernetes runtime definition and aws eks kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -488,6 +498,7 @@ func init() {
 
 // CreateAwsEksKubernetesRuntimeCmd represents the command 'tptctl create aws-eks-kubernetes-runtime'
 var CreateAwsEksKubernetesRuntimeCmd = &cobra.Command{
+	Aliases: []string{awsEksKubernetesRuntimeShortAlias},
 	Example: "  # create a new aws eks kubernetes runtime using a config file\n  tptctl create aws-eks-kubernetes-runtime --config path/to/config.yaml",
 	Long:    "Create a new aws eks kubernetes runtime. A aws eks kubernetes runtime is a unified abstraction of a aws eks kubernetes runtime definition and aws eks kubernetes runtime instance. This command creates both a new aws eks kubernetes runtime definition and aws eks kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -562,6 +573,7 @@ func init() {
 
 // DeleteAwsEksKubernetesRuntimeCmd represents the command 'tptctl delete aws-eks-kubernetes-runtime'
 var DeleteAwsEksKubernetesRuntimeCmd = &cobra.Command{
+	Aliases: []string{awsEksKubernetesRuntimeShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete aws-eks-kubernetes-runtime --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete aws-eks-kubernetes-runtime --name some-aws-eks-kubernetes-runtime",
 	Long:    "Delete an existing aws eks kubernetes runtime. This command deletes an existing aws eks kubernetes runtime definition and aws eks kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -632,7 +644,7 @@ func init() {
 
 // GetAwsEksKubernetesRuntimeDefinitionsCmd represents the command 'tptctl get aws-eks-kubernetes-runtime-definitions'
 var GetAwsEksKubernetesRuntimeDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"aws-eks-kubernetes-runtime-definition", "akrd"},
+	Aliases: []string{"aws-eks-kubernetes-runtime-definition", awsEksKubernetesRuntimeDefinitionShortAlias},
 	Example: "  # get all aws eks kubernetes runtime definitions\n  tptctl get aws-eks-kubernetes-runtime-definitions\n\n  # get a specific aws eks kubernetes runtime definition\n  tptctl get aws-eks-kubernetes-runtime-definition --name some-aws-eks-kubernetes-runtime-definition",
 	Long:    "Get aws eks kubernetes runtime definitions from the system. Use --name to get a specific aws eks kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -745,6 +757,7 @@ func init() {
 
 // CreateAwsEksKubernetesRuntimeDefinitionCmd represents the command 'tptctl create aws-eks-kubernetes-runtime-definition'
 var CreateAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{awsEksKubernetesRuntimeDefinitionShortAlias},
 	Example: "  # create a new aws eks kubernetes runtime definition using a config file\n  tptctl create aws-eks-kubernetes-runtime-definition --config path/to/config.yaml",
 	Long:    "Create a new aws eks kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -807,6 +820,7 @@ func init() {
 
 // ReplaceAwsEksKubernetesRuntimeDefinitionCmd represents the command 'tptctl replace aws-eks-kubernetes-runtime-definition'
 var ReplaceAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{awsEksKubernetesRuntimeDefinitionShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace aws-eks-kubernetes-runtime-definition --config path/to/config.yaml --name some-aws-eks-kubernetes-runtime-definition",
 	Long:    "Replace an existing aws eks kubernetes runtime definition.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -874,6 +888,7 @@ func init() {
 
 // DeleteAwsEksKubernetesRuntimeDefinitionCmd represents the command 'tptctl delete aws-eks-kubernetes-runtime-definition'
 var DeleteAwsEksKubernetesRuntimeDefinitionCmd = &cobra.Command{
+	Aliases: []string{awsEksKubernetesRuntimeDefinitionShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete aws-eks-kubernetes-runtime-definition --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete aws-eks-kubernetes-runtime-definition --name some-aws-eks-kubernetes-runtime-definition",
 	Long:    "Delete an existing aws eks kubernetes runtime definition.",
 	PreRun:  CommandPreRunFunc,
@@ -958,7 +973,7 @@ func init() {
 
 // GetAwsEksKubernetesRuntimeInstancesCmd represents the command 'tptctl get aws-eks-kubernetes-runtime-instances'
 var GetAwsEksKubernetesRuntimeInstancesCmd = &cobra.Command{
-	Aliases: []string{"aws-eks-kubernetes-runtime-instance", "akri"},
+	Aliases: []string{"aws-eks-kubernetes-runtime-instance", awsEksKubernetesRuntimeInstanceShortAlias},
 	Example: "  # get all aws eks kubernetes runtime instances\n  tptctl get aws-eks-kubernetes-runtime-instances\n\n  # get a specific aws eks kubernetes runtime instance\n  tptctl get aws-eks-kubernetes-runtime-instance --name some-aws-eks-kubernetes-runtime-instance",
 	Long:    "Get aws eks kubernetes runtime instances from the system. Use --name to get a specific aws eks kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -1071,6 +1086,7 @@ func init() {
 
 // CreateAwsEksKubernetesRuntimeInstanceCmd represents the command 'tptctl create aws-eks-kubernetes-runtime-instance'
 var CreateAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{awsEksKubernetesRuntimeInstanceShortAlias},
 	Example: "  # create a new aws eks kubernetes runtime instance using a config file\n  tptctl create aws-eks-kubernetes-runtime-instance --config path/to/config.yaml",
 	Long:    "Create a new aws eks kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,
@@ -1133,6 +1149,7 @@ func init() {
 
 // ReplaceAwsEksKubernetesRuntimeInstanceCmd represents the command 'tptctl replace aws-eks-kubernetes-runtime-instance'
 var ReplaceAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{awsEksKubernetesRuntimeInstanceShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace aws-eks-kubernetes-runtime-instance --config path/to/config.yaml --name some-aws-eks-kubernetes-runtime-instance",
 	Long:    "Replace an existing aws eks kubernetes runtime instance.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -1200,6 +1217,7 @@ func init() {
 
 // DeleteAwsEksKubernetesRuntimeInstanceCmd represents the command 'tptctl delete aws-eks-kubernetes-runtime-instance'
 var DeleteAwsEksKubernetesRuntimeInstanceCmd = &cobra.Command{
+	Aliases: []string{awsEksKubernetesRuntimeInstanceShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete aws-eks-kubernetes-runtime-instance --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete aws-eks-kubernetes-runtime-instance --name some-aws-eks-kubernetes-runtime-instance",
 	Long:    "Delete an existing aws eks kubernetes runtime instance.",
 	PreRun:  CommandPreRunFunc,

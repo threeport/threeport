@@ -21,13 +21,19 @@ var (
 	observabilityOutput     string
 )
 
+const (
+	observabilityStackShortAlias           = "os"
+	observabilityStackDefinitionShortAlias = "osd"
+	observabilityStackInstanceShortAlias   = "osi"
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 // ObservabilityStack
 ///////////////////////////////////////////////////////////////////////////////
 
 // GetObservabilityStacksCmd represents the command 'tptctl get observability-stacks'
 var GetObservabilityStacksCmd = &cobra.Command{
-	Aliases: []string{"observability-stack", "os"},
+	Aliases: []string{"observability-stack", observabilityStackShortAlias},
 	Example: "  # get all observability stacks\n  tptctl get observability-stacks\n\n  # get a specific observability stack\n  tptctl get observability-stack --name some-observability-stack",
 	Long:    "Get observability stacks from the system. Use --name to get a specific observability stack. A observability stack is a unified abstraction of a observability stack definition and observability stack instance.",
 	PreRun:  CommandPreRunFunc,
@@ -141,6 +147,7 @@ func init() {
 
 // CreateObservabilityStackCmd represents the command 'tptctl create observability-stack'
 var CreateObservabilityStackCmd = &cobra.Command{
+	Aliases: []string{observabilityStackShortAlias},
 	Example: "  # create a new observability stack using a config file\n  tptctl create observability-stack --config path/to/config.yaml",
 	Long:    "Create a new observability stack. A observability stack is a unified abstraction of a observability stack definition and observability stack instance. This command creates both a new observability stack definition and observability stack instance.",
 	PreRun:  CommandPreRunFunc,
@@ -216,6 +223,7 @@ func init() {
 
 // DeleteObservabilityStackCmd represents the command 'tptctl delete observability-stack'
 var DeleteObservabilityStackCmd = &cobra.Command{
+	Aliases: []string{observabilityStackShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete observability-stack --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete observability-stack --name some-observability-stack",
 	Long:    "Delete an existing observability stack. This command deletes an existing observability stack definition and observability stack instance.",
 	PreRun:  CommandPreRunFunc,
@@ -287,7 +295,7 @@ func init() {
 
 // GetObservabilityStackDefinitionsCmd represents the command 'tptctl get observability-stack-definitions'
 var GetObservabilityStackDefinitionsCmd = &cobra.Command{
-	Aliases: []string{"observability-stack-definition", "osd"},
+	Aliases: []string{"observability-stack-definition", observabilityStackDefinitionShortAlias},
 	Example: "  # get all observability stack definitions\n  tptctl get observability-stack-definitions\n\n  # get a specific observability stack definition\n  tptctl get observability-stack-definition --name some-observability-stack-definition",
 	Long:    "Get observability stack definitions from the system. Use --name to get a specific observability stack definition.",
 	PreRun:  CommandPreRunFunc,
@@ -400,6 +408,7 @@ func init() {
 
 // CreateObservabilityStackDefinitionCmd represents the command 'tptctl create observability-stack-definition'
 var CreateObservabilityStackDefinitionCmd = &cobra.Command{
+	Aliases: []string{observabilityStackDefinitionShortAlias},
 	Example: "  # create a new observability stack definition using a config file\n  tptctl create observability-stack-definition --config path/to/config.yaml",
 	Long:    "Create a new observability stack definition.",
 	PreRun:  CommandPreRunFunc,
@@ -463,6 +472,7 @@ func init() {
 
 // ReplaceObservabilityStackDefinitionCmd represents the command 'tptctl replace observability-stack-definition'
 var ReplaceObservabilityStackDefinitionCmd = &cobra.Command{
+	Aliases: []string{observabilityStackDefinitionShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace observability-stack-definition --config path/to/config.yaml --name some-observability-stack-definition",
 	Long:    "Replace an existing observability stack definition.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -531,6 +541,7 @@ func init() {
 
 // DeleteObservabilityStackDefinitionCmd represents the command 'tptctl delete observability-stack-definition'
 var DeleteObservabilityStackDefinitionCmd = &cobra.Command{
+	Aliases: []string{observabilityStackDefinitionShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete observability-stack-definition --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete observability-stack-definition --name some-observability-stack-definition",
 	Long:    "Delete an existing observability stack definition.",
 	PreRun:  CommandPreRunFunc,
@@ -616,7 +627,7 @@ func init() {
 
 // GetObservabilityStackInstancesCmd represents the command 'tptctl get observability-stack-instances'
 var GetObservabilityStackInstancesCmd = &cobra.Command{
-	Aliases: []string{"observability-stack-instance", "osi"},
+	Aliases: []string{"observability-stack-instance", observabilityStackInstanceShortAlias},
 	Example: "  # get all observability stack instances\n  tptctl get observability-stack-instances\n\n  # get a specific observability stack instance\n  tptctl get observability-stack-instance --name some-observability-stack-instance",
 	Long:    "Get observability stack instances from the system. Use --name to get a specific observability stack instance.",
 	PreRun:  CommandPreRunFunc,
@@ -729,6 +740,7 @@ func init() {
 
 // CreateObservabilityStackInstanceCmd represents the command 'tptctl create observability-stack-instance'
 var CreateObservabilityStackInstanceCmd = &cobra.Command{
+	Aliases: []string{observabilityStackInstanceShortAlias},
 	Example: "  # create a new observability stack instance using a config file\n  tptctl create observability-stack-instance --config path/to/config.yaml",
 	Long:    "Create a new observability stack instance.",
 	PreRun:  CommandPreRunFunc,
@@ -792,6 +804,7 @@ func init() {
 
 // ReplaceObservabilityStackInstanceCmd represents the command 'tptctl replace observability-stack-instance'
 var ReplaceObservabilityStackInstanceCmd = &cobra.Command{
+	Aliases: []string{observabilityStackInstanceShortAlias},
 	Example: "  # replace using a config file\n  tptctl replace observability-stack-instance --config path/to/config.yaml --name some-observability-stack-instance",
 	Long:    "Replace an existing observability stack instance.\n Note that the entire object will replaced with a PUT request.\n All fields must be provided in the config file.",
 	PreRun:  CommandPreRunFunc,
@@ -860,6 +873,7 @@ func init() {
 
 // DeleteObservabilityStackInstanceCmd represents the command 'tptctl delete observability-stack-instance'
 var DeleteObservabilityStackInstanceCmd = &cobra.Command{
+	Aliases: []string{observabilityStackInstanceShortAlias},
 	Example: "  # delete using a config file\n  tptctl delete observability-stack-instance --config path/to/config.yaml\n\n  # delete using name\n  tptctl delete observability-stack-instance --name some-observability-stack-instance",
 	Long:    "Delete an existing observability stack instance.",
 	PreRun:  CommandPreRunFunc,
