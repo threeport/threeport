@@ -358,6 +358,10 @@ func InstallThreeportCRDs(
 												"description": "GCP project ID used when provider is \"google\".",
 												"type":        "string",
 											},
+											"gcpServiceAccountName": map[string]interface{}{
+												"description": "Name of the GCP service account external-dns impersonates via Workload Identity when provider is \"google\".  Used to set the iam.gke.io/gcp-service-account annotation on the external-dns Kubernetes service account.",
+												"type":        "string",
+											},
 											"extraArgs": map[string]interface{}{
 												"description": "Extra arguments to be passed into the External DNS container.",
 												"items": map[string]interface{}{
