@@ -75,15 +75,22 @@ func Execute() {
 		if len(os.Args) > 1 && os.Args[1] == filepath.Base(plugFile) {
 			plugArgs := os.Args[2:]
 			plugCmd := exec.Command(plugFile, plugArgs...)
-			output, err := plugCmd.CombinedOutput()
-			if err != nil {
+			// wire the plugin's stdio directly to tptctl's so its output
+			// streams live rather than being buffered until the process exits
+			plugCmd.Stdin = os.Stdin
+			plugCmd.Stdout = os.Stdout
+			plugCmd.Stderr = os.Stderr
+			if err := plugCmd.Run(); err != nil {
+				// preserve the plugin's own exit code when it exits non-zero
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					os.Exit(exitErr.ExitCode())
+				}
 				cli.Error(
-					fmt.Sprintf("failed to run plugin %s with output %s", filepath.Base(plugFile), output),
+					fmt.Sprintf("failed to run plugin %s", filepath.Base(plugFile)),
 					err,
 				)
 				os.Exit(1)
 			}
-			fmt.Println(string(output))
 			os.Exit(0)
 		}
 	}
