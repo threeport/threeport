@@ -47,7 +47,7 @@ func outputGetv0K8sWorkloadsCmd(
 }
 
 // outputGetv0K8sWorkloadDefinitionsCmd produces the tabular output for the
-// `get workload-definitions` command.
+// `get kubernetes-workload-definitions` command.
 func outputGetv0K8sWorkloadDefinitionsCmd(
 	k8sWorkloadDefinitions *[]config_v0.KubernetesWorkloadDefinitionConfig,
 ) error {
@@ -70,7 +70,7 @@ func outputGetv0K8sWorkloadDefinitionsCmd(
 }
 
 // outputGetv0K8sWorkloadInstancesCmd produces the tabular output for the
-// `get workload-instances` command.
+// `get kubernetes-workload-instances` command.
 func outputGetv0K8sWorkloadInstancesCmd(
 	k8sWorkloadInstances *[]config_v0.KubernetesWorkloadInstanceConfig,
 ) error {

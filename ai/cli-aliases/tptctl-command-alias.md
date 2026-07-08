@@ -26,6 +26,9 @@
 | kubernetes-runtime-definitions         | krd |
 | kubernetes-runtime-instances           | kri |
 | kubernetes-runtimes                    | kr |
+| kubernetes-workload-definitions        | kwd |
+| kubernetes-workload-instances          | kwi |
+| kubernetes-workloads                   | kw |
 | machine-runtime-definitions            | mrd |
 | machine-runtime-instances              | mri |
 | machine-runtimes                       | mr |
@@ -51,7 +54,4 @@
 | terraform-instances                    | ti |
 | terraforms                             | tf |
 | tiers                                  | - |
-| workload-definitions                   | kwd |
-| workload-instances                     | kwi |
-| kubernetes-workloads                   | kw |
 

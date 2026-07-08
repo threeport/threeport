@@ -74,8 +74,8 @@ EOF
 Now let's create those workload resources.
 
 ```bash
-tptctl create workload-definition -c unmanaged-nginx-workload-definition.yaml
-tptctl create workload-instance -c unmanaged-nginx-workload-instance-0.yaml
+tptctl create kubernetes-workload-definition -c unmanaged-nginx-workload-definition.yaml
+tptctl create kubernetes-workload-instance -c unmanaged-nginx-workload-instance-0.yaml
 ```
 
 We can now see the objects we created in Threeport.
@@ -113,7 +113,7 @@ EOF
 When you create the kubernetes workload instance you will get an error.
 
 ```bash
-tptctl create workload-instance -c unmanaged-nginx-workload-instance-1.yaml
+tptctl create kubernetes-workload-instance -c unmanaged-nginx-workload-instance-1.yaml
 ```
 
 This is because the kubernetes workload definition for this instance contains a namespace.
@@ -173,8 +173,8 @@ EOF
 Now let's create those workload resources.
 
 ```bash
-tptctl create workload-definition -c managed-nginx-workload-definition.yaml
-tptctl create workload-instance -c managed-nginx-workload-instance-0.yaml
+tptctl create kubernetes-workload-definition -c managed-nginx-workload-definition.yaml
+tptctl create kubernetes-workload-instance -c managed-nginx-workload-instance-0.yaml
 ```
 
 List the Threeport workloads.
@@ -218,7 +218,7 @@ EOF
 And you can now successfully create a second instance.
 
 ```bash
-tptctl create workload-instance -c managed-nginx-workload-instance-1.yaml
+tptctl create kubernetes-workload-instance -c managed-nginx-workload-instance-1.yaml
 ```
 
 Now you can list Threeport workloads again.

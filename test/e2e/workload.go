@@ -18,7 +18,7 @@ type WorkloadTestCase struct {
 	// An arbitrary name for the next case
 	Name string
 
-	// The object being operatorated on, e.g. workload, workload-instance
+	// The object being operatorated on, e.g. workload, kubernetes-workload-instance
 	Object string
 
 	// The name of the object - must match the name in the config file
@@ -55,14 +55,14 @@ var workloadTestCases = []WorkloadTestCase{
 	},
 	{
 		Name:       "wordpress kubernetes workload definition",
-		Object:     "workload-definition",
+		Object:     "kubernetes-workload-definition",
 		ObjectName: "wordpress-def",
 		ConfigPath: filepath.Join("test", "e2e", "configs", "wordpress-kubernetes-workload-definition-local.yaml"),
 		ShouldWork: true,
 	},
 	{
 		Name:           "first wordpress kubernetes workload instance",
-		Object:         "workload-instance",
+		Object:         "kubernetes-workload-instance",
 		ObjectName:     "wordpress-inst-01",
 		ConfigPath:     filepath.Join("test", "e2e", "configs", "wordpress-kubernetes-workload-instance-local-01.yaml"),
 		DeploymentName: "getting-started-wordpress",
@@ -70,7 +70,7 @@ var workloadTestCases = []WorkloadTestCase{
 	},
 	{
 		Name:           "second wordpress kubernetes workload instance",
-		Object:         "workload-instance",
+		Object:         "kubernetes-workload-instance",
 		ObjectName:     "wordpress-inst-02",
 		ConfigPath:     filepath.Join("test", "e2e", "configs", "wordpress-kubernetes-workload-instance-local-02.yaml"),
 		DeploymentName: "getting-started-wordpress",
@@ -110,14 +110,14 @@ func (w *WorkloadTestCase) Describe(
 	testCases *[]WorkloadTestCase,
 ) error {
 	// describing only workload instances - skip workload definitions
-	if w.Object == "workload-definition" {
+	if w.Object == "kubernetes-workload-definition" {
 		return nil
 	}
 
 	command := tptctlCommand(threeportPath)
 	cmdArgs := []string{
 		"describe",
-		"workload-instance",
+		"kubernetes-workload-instance",
 		"--name",
 		w.ObjectName,
 		"--threeport-config",
@@ -181,7 +181,7 @@ func (w *WorkloadTestCase) Describe(
 // healthy.
 func (w *WorkloadTestCase) Validate() error {
 	// describing only workload instances - skip workload definitions
-	if w.Object == "workload-definition" {
+	if w.Object == "kubernetes-workload-definition" {
 		return nil
 	}
 

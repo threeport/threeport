@@ -122,7 +122,7 @@ var _ = Describe("GenesisControlPlane", func() {
 
 			GinkgoWriter.Println("ensure definitions cannot be deleted with derived instances...")
 			for _, testCase := range *testCases {
-				if testCase.ShouldWork && testCase.Object == "workload-definition" {
+				if testCase.ShouldWork && testCase.Object == "kubernetes-workload-definition" {
 					err := testCase.DeleteDefinitions(threeportPath)
 					Expect(
 						testCase.Worked(err)).To(Equal(false),
@@ -141,7 +141,7 @@ var _ = Describe("GenesisControlPlane", func() {
 
 			GinkgoWriter.Println("deleting test workloads...")
 			for _, testCase := range *testCases {
-				if testCase.ShouldWork && testCase.Object != "workload-definition" {
+				if testCase.ShouldWork && testCase.Object != "kubernetes-workload-definition" {
 					err := testCase.DeleteInstances(threeportPath)
 					Expect(
 						testCase.Worked(err)).To(Equal(true),
@@ -160,7 +160,7 @@ var _ = Describe("GenesisControlPlane", func() {
 
 			GinkgoWriter.Println("ensure definitions can now be deleted with derived instances removed...")
 			for _, testCase := range *testCases {
-				if testCase.ShouldWork && testCase.Object == "workload-definition" {
+				if testCase.ShouldWork && testCase.Object == "kubernetes-workload-definition" {
 					err := testCase.DeleteDefinitions(threeportPath)
 					Expect(
 						testCase.Worked(err)).To(Equal(true),

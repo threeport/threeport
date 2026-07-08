@@ -984,8 +984,8 @@ Local or Remote environment.
     Delete the support service workloads.
 
     ```bash
-    tptctl delete workload-instance -n gloo-edge-threeport-test
-    tptctl delete workload-instance -n external-dns-threeport-test
+    tptctl delete kubernetes-workload-instance -n gloo-edge-threeport-test
+    tptctl delete kubernetes-workload-instance -n external-dns-threeport-test
     ```
 
     Wait another 5 minutes before proceeding to ensure the AWS load balancer
