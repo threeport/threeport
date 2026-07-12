@@ -19,6 +19,7 @@ var ErrForbidden = errors.New("forbidden")
 var ErrConflict = errors.New("conflict")
 var ErrBadRequest = errors.New("bad request")
 var ErrObjectOwned = errors.New("object owned externally")
+var ErrMisdirectedRequest = errors.New("misdirected request")
 
 // GetResponse calls the threeport API and returns a response.
 func GetResponse(
@@ -97,6 +98,20 @@ func GetResponse(
 			return nil, fmt.Errorf("%w: %s", ErrBadRequest, errMessage)
 		case http.StatusNotFound:
 			return nil, fmt.Errorf("%w: %s", ErrObjectNotFound, errMessage)
+		case http.StatusMisdirectedRequest:
+			// 421 is returned by an API gateway in front of the Threeport API
+			// (e.g. when a requested object type is not served on the current
+			// control plane's subdomain).  Such a gateway returns its message in
+			// an "error_msg" field rather than the Threeport Status object, so
+			// prefer that when present to surface a clean, actionable message.
+			gatewayMessage := errMessage
+			var gatewayResponse struct {
+				ErrorMsg string `json:"error_msg"`
+			}
+			if err := json.Unmarshal(respBody, &gatewayResponse); err == nil && gatewayResponse.ErrorMsg != "" {
+				gatewayMessage = gatewayResponse.ErrorMsg
+			}
+			return nil, fmt.Errorf("%w: %s", ErrMisdirectedRequest, gatewayMessage)
 		case http.StatusUnauthorized:
 			return nil, fmt.Errorf("%w: %s", ErrUnauthorized, errMessage)
 		case http.StatusForbidden:
