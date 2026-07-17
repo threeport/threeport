@@ -58,6 +58,11 @@ type MachineRuntimeInstance struct {
 	// The provider network identifier the machine attaches to.
 	NetworkID *string `json:",omitempty" validate:"optional"`
 
+	// The provider-specific subnet identifier the VM should attach to.
+	// Required in custom-mode shared VPCs where multiple subnets share a
+	// region.
+	SubnetID *string `json:",omitempty" gorm:"type:text" validate:"optional"`
+
 	// An inventory of all provider resources backing this machine, used for
 	// crash recovery and deprovisioning.
 	ResourceInventory *datatypes.JSON `json:",omitempty" validate:"optional"`

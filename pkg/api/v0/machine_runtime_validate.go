@@ -127,6 +127,7 @@ func (m *MachineRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 	}{
 		{"Region", "region"},
 		{"NetworkID", "network id"},
+		{"SubnetID", "subnet id"},
 	}
 	for _, field := range immutableFields {
 		if tx.Statement.Changed(field.column) {

@@ -31,6 +31,7 @@ func createProvisionedMRI(t *testing.T, db *gorm.DB, name string) MachineRuntime
 	mri := newValidMRI(name)
 	mri.Region = util.Ptr("us-central1")
 	mri.NetworkID = util.Ptr("network-1")
+	mri.SubnetID = util.Ptr("subnet-1")
 	require.NoError(t, db.Create(mri).Error)
 
 	var loaded MachineRuntimeInstance
@@ -73,6 +74,7 @@ func TestMachineRuntimeInstance_BeforeUpdate_LocationFieldsImmutable(t *testing.
 	}{
 		{"region", &MachineRuntimeInstance{Region: util.Ptr("other-region")}},
 		{"network id", &MachineRuntimeInstance{NetworkID: util.Ptr("other-network")}},
+		{"subnet id", &MachineRuntimeInstance{SubnetID: util.Ptr("other-subnet")}},
 	}
 	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
