@@ -99,19 +99,7 @@ func GetResponse(
 		case http.StatusNotFound:
 			return nil, fmt.Errorf("%w: %s", ErrObjectNotFound, errMessage)
 		case http.StatusMisdirectedRequest:
-			// 421 is returned by an API gateway in front of the Threeport API
-			// (e.g. when a requested object type is not served on the current
-			// control plane's subdomain).  Such a gateway returns its message in
-			// an "error_msg" field rather than the Threeport Status object, so
-			// prefer that when present to surface a clean, actionable message.
-			gatewayMessage := errMessage
-			var gatewayResponse struct {
-				ErrorMsg string `json:"error_msg"`
-			}
-			if err := json.Unmarshal(respBody, &gatewayResponse); err == nil && gatewayResponse.ErrorMsg != "" {
-				gatewayMessage = gatewayResponse.ErrorMsg
-			}
-			return nil, fmt.Errorf("%w: %s", ErrMisdirectedRequest, gatewayMessage)
+			return nil, fmt.Errorf("%w: %s", ErrMisdirectedRequest, errMessage)
 		case http.StatusUnauthorized:
 			return nil, fmt.Errorf("%w: %s", ErrUnauthorized, errMessage)
 		case http.StatusForbidden:
