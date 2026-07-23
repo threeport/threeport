@@ -499,14 +499,17 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 			return fmt.Errorf("failed to create threeportworkloads cluster role binding for %s: %w", controller.Name, err)
 		}
 
-		// The helm-workload-controller deploys arbitrary Helm charts that can
-		// define any Kubernetes resource type in any namespace. cluster-admin is
-		// required so it can manage the full lifecycle of chart resources.
-		// On GKE with Workload Identity, Helm API calls are made as the WI
-		// principal (via ADC token refresh), so both the ServiceAccount and User
-		// subjects are needed.
-		if controller.Name == ThreeportHelmWorkloadControllerName {
-			helmClusterAdminSubjects := []interface{}{
+		// The helm-workload-controller and kubernetes-workload-controller deploy
+		// arbitrary resources — Helm charts or raw manifests — that can define any
+		// Kubernetes resource type in any namespace (including creating
+		// namespaces). cluster-admin is required so they can manage the full
+		// lifecycle of those resources. On GKE with Workload Identity, each
+		// controller authenticates to the target cluster as its own WI principal
+		// (via per-request ADC tokens), so both the ServiceAccount and User
+		// subjects are bound.
+		if controller.Name == ThreeportHelmWorkloadControllerName ||
+			controller.Name == ThreeportKubernetesWorkloadControllerName {
+			clusterAdminSubjects := []interface{}{
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
 					"name":      controller.ServiceAccountName,
@@ -514,29 +517,29 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 				},
 			}
 			if cpi.Opts.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE && cpi.Opts.GcpProjectId != "" {
-				helmClusterAdminSubjects = append(helmClusterAdminSubjects, map[string]interface{}{
+				clusterAdminSubjects = append(clusterAdminSubjects, map[string]interface{}{
 					"kind":     "User",
 					"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", cpi.Opts.GcpProjectId, cpi.Opts.Namespace, controller.ServiceAccountName),
 					"apiGroup": "rbac.authorization.k8s.io",
 				})
 			}
-			helmClusterAdminBinding := &unstructured.Unstructured{
+			clusterAdminBinding := &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "rbac.authorization.k8s.io/v1",
 					"kind":       "ClusterRoleBinding",
 					"metadata": map[string]interface{}{
-						"name": "helm-workload-controller-cluster-admin",
+						"name": fmt.Sprintf("%s-cluster-admin", controller.ServiceAccountName),
 					},
 					"roleRef": map[string]interface{}{
 						"apiGroup": "rbac.authorization.k8s.io",
 						"kind":     "ClusterRole",
 						"name":     "cluster-admin",
 					},
-					"subjects": helmClusterAdminSubjects,
+					"subjects": clusterAdminSubjects,
 				},
 			}
-			if err := cpi.CreateOrUpdateKubeResource(helmClusterAdminBinding, kubeClient, mapper); err != nil {
-				return fmt.Errorf("failed to create helm-workload-controller cluster-admin binding: %w", err)
+			if err := cpi.CreateOrUpdateKubeResource(clusterAdminBinding, kubeClient, mapper); err != nil {
+				return fmt.Errorf("failed to create %s cluster-admin binding: %w", controller.Name, err)
 			}
 		}
 
