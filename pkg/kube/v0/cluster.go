@@ -27,7 +27,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
-	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -159,9 +158,13 @@ func GetRestConfig(
 		kubeAPIEndpoint = "kubernetes.default.svc.cluster.local"
 	}
 
-	// OKE tokens are cheap (local RSA signature) and short-lived, so always
-	// mint a fresh one per request rather than maintaining a stored
-	// ConnectionToken.
+	// OKE and GKE authenticate with a token minted per request rather than a
+	// single bearer token persisted on the runtime instance record.  This
+	// ensures each caller authenticates as its own identity: OKE tokens are
+	// cheap local RSA signatures, and on GKE every controller pod has a distinct
+	// Workload Identity principal, so a shared/persisted token would cause
+	// callers to authenticate as whichever pod last refreshed it — leading to
+	// intermittent, identity-dependent RBAC failures.
 	if runtime.KubernetesRuntimeDefinitionID != nil {
 		definition, err := client.GetKubernetesRuntimeDefinitionByID(
 			threeportAPIClient,
@@ -171,11 +174,22 @@ func GetRestConfig(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get kubernetes runtime definition: %w", err)
 		}
-		if *definition.InfraProvider == v0.KubernetesRuntimeInfraProviderOKE {
-			tokenGenerator, err := buildOKETokenGenerator(runtime, threeportAPIClient, threeportAPIEndpoint, encryptionKey)
+
+		var tokenGenerator func() (string, error)
+		switch *definition.InfraProvider {
+		case v0.KubernetesRuntimeInfraProviderOKE:
+			tokenGenerator, err = buildOKETokenGenerator(runtime, threeportAPIClient, threeportAPIEndpoint, encryptionKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to build OKE token generator: %w", err)
 			}
+		case v0.KubernetesRuntimeInfraProviderGKE:
+			tokenGenerator, err = buildGKETokenGenerator()
+			if err != nil {
+				return nil, fmt.Errorf("failed to build GKE token generator: %w", err)
+			}
+		}
+
+		if tokenGenerator != nil {
 			return &rest.Config{
 				Host: kubeAPIEndpoint,
 				TLSClientConfig: rest.TLSClientConfig{
@@ -266,16 +280,6 @@ func GetRestConfig(
 						encryptionKey,
 					); err != nil {
 						return nil, fmt.Errorf("failed to refresh connection token for EKS cluster: %w", err)
-					}
-					restConfig = *config
-				case v0.KubernetesRuntimeInfraProviderGKE:
-					if config, err = refreshGKEConnection(
-						runtime,
-						threeportAPIClient,
-						threeportAPIEndpoint,
-						encryptionKey,
-					); err != nil {
-						return nil, fmt.Errorf("failed to refresh connection token for GKE cluster: %w", err)
 					}
 					restConfig = *config
 				default:
@@ -483,57 +487,41 @@ func refreshEKSConnection(
 	return &restConfig, nil
 }
 
-// refreshGKEConnection refreshes the connection token for a GKE cluster.
-func refreshGKEConnection(
-	runtimeInstance *v0.KubernetesRuntimeInstance,
-	threeportAPIClient *http.Client,
-	threeportAPIEndpoint string,
-	encryptionKey string,
-) (*rest.Config, error) {
-	ctx := context.Background()
-
-	// get a new access token using Google Application Default Credentials
-	tokenSource, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
+// buildGKETokenGenerator returns a closure that mints a fresh GKE bearer token
+// on each call using the caller's Google Application Default Credentials.  The
+// underlying token source caches and refreshes the token internally, so
+// per-request calls are cheap and only contact the metadata server when the
+// cached token is near expiry.
+//
+// Minting the token from the caller's own ADC — rather than reading a single
+// bearer token persisted on the runtime instance record — ensures each
+// controller authenticates to the GKE API as its own Workload Identity
+// principal.  A shared, persisted token would take on the identity of whichever
+// controller last refreshed it, causing intermittent RBAC failures for
+// controllers whose grants differ from that identity's.  It also removes the
+// write-back to the shared runtime instance row, eliminating a source of
+// transaction contention.
+//
+// TODO(#470): this relies on ambient Google ADC, so it only works from a
+// GKE-hosted control plane.  To support a non-GKE-hosted control plane managing
+// a GKE cluster, fall back to google.CredentialsFromJSON using the runtime's
+// GcpProvider.ServiceAccountCredentials (as EKS/OKE do with their stored
+// provider credentials).
+func buildGKETokenGenerator() (func() (string, error), error) {
+	tokenSource, err := google.DefaultTokenSource(
+		context.Background(),
+		"https://www.googleapis.com/auth/cloud-platform",
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Google token source: %w", err)
 	}
-
-	token, err := tokenSource.Token()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get access token from Google: %w", err)
-	}
-
-	// generate updated rest config
-	restConfig := rest.Config{
-		Host:        *runtimeInstance.APIEndpoint,
-		BearerToken: token.AccessToken,
-		TLSClientConfig: rest.TLSClientConfig{
-			CAData: []byte(*runtimeInstance.CACertificate),
-		},
-	}
-
-	// update threeport API with new connection info
-	runtimeInstance.ConnectionToken = &token.AccessToken
-	runtimeInstance.ConnectionTokenExpiration = &token.Expiry
-	_, err = client.UpdateKubernetesRuntimeInstance(
-		threeportAPIClient,
-		threeportAPIEndpoint,
-		runtimeInstance,
-	)
-	if err != nil {
-		if errors.Is(err, client_lib.ErrObjectOwned) {
-			// the runtime instance is owned by a controller and cannot be updated
-			// directly; the refreshed token is still valid for this request
-			util.CliOutputWarning(fmt.Sprintf(
-				"could not persist refreshed GKE connection token to Threeport API"+
-					" (runtime instance is controller-owned): %v", err,
-			))
-		} else {
-			return nil, fmt.Errorf("failed to update kubernetes runtime instance kubernetes connection info: %w", err)
+	return func() (string, error) {
+		token, err := tokenSource.Token()
+		if err != nil {
+			return "", fmt.Errorf("failed to get access token from Google: %w", err)
 		}
-	}
-
-	return &restConfig, nil
+		return token.AccessToken, nil
+	}, nil
 }
 
 // GetAwsConfigFromAwsProvider returns an aws config from an aws account.
