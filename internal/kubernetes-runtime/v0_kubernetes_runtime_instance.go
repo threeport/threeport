@@ -259,6 +259,33 @@ func v0KubernetesRuntimeInstanceUpdated(
 		}
 	}
 
+	// On GKE, the control-plane workload controllers authenticate to this
+	// managed cluster as their own Workload Identity principals (via per-request
+	// ADC tokens), so the managed cluster must grant those principals the access
+	// they need to deploy workloads. This mirrors the bindings created on the
+	// control-plane cluster in InstallThreeportControllers. It applies only when
+	// both this managed cluster and the control-plane host run on GKE; the host
+	// instance is skipped because its bindings are created at control-plane
+	// install time.
+	isControlPlaneHost := kubernetesRuntimeInstance.ThreeportControlPlaneHost != nil &&
+		*kubernetesRuntimeInstance.ThreeportControlPlaneHost
+	if !isControlPlaneHost &&
+		*kubernetesRuntimeDefinition.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE {
+		controlPlaneGcpProject, err := controlPlaneGkeProject(r)
+		if err != nil {
+			return 0, fmt.Errorf("failed to determine control plane GCP project for workload controller RBAC: %w", err)
+		}
+		if controlPlaneGcpProject != "" {
+			if err := cpi.InstallComputeSpaceWorkloadControllerRBAC(
+				dynamicKubeClient,
+				mapper,
+				controlPlaneGcpProject,
+			); err != nil {
+				return 0, fmt.Errorf("failed to install workload controller RBAC on managed cluster: %w", err)
+			}
+		}
+	}
+
 	return 0, nil
 }
 
@@ -341,6 +368,63 @@ func v0KubernetesRuntimeInstanceDeleted(
 	}
 
 	return 0, nil
+}
+
+// controlPlaneGkeProject returns the GCP project ID of the GKE cluster hosting
+// the threeport control plane, or "" if the control plane is not hosted on GKE.
+// It is used to construct the Workload Identity principals of the control-plane
+// controllers when granting them access to managed clusters. The control-plane
+// host is the KubernetesRuntimeInstance marked ThreeportControlPlaneHost.
+func controlPlaneGkeProject(r *controller.Reconciler) (string, error) {
+	instances, err := client.GetKubernetesRuntimeInstances(r.APIClient, r.APIServer)
+	if err != nil {
+		return "", fmt.Errorf("failed to list kubernetes runtime instances: %w", err)
+	}
+
+	var hostInstance *v0.KubernetesRuntimeInstance
+	for i := range *instances {
+		if (*instances)[i].ThreeportControlPlaneHost != nil && *(*instances)[i].ThreeportControlPlaneHost {
+			hostInstance = &(*instances)[i]
+			break
+		}
+	}
+	if hostInstance == nil {
+		return "", fmt.Errorf("no control plane host kubernetes runtime instance found")
+	}
+
+	hostDefinition, err := client.GetKubernetesRuntimeDefinitionByID(
+		r.APIClient,
+		r.APIServer,
+		*hostInstance.KubernetesRuntimeDefinitionID,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to get control plane host runtime definition: %w", err)
+	}
+
+	// Only GKE-hosted control planes present Workload Identity principals to
+	// managed clusters; for any other host provider there is no WI principal to
+	// bind, so signal "not applicable" with an empty project.
+	if hostDefinition.InfraProvider == nil ||
+		*hostDefinition.InfraProvider != v0.KubernetesRuntimeInfraProviderGKE {
+		return "", nil
+	}
+	if hostDefinition.InfraProviderAccountName == nil {
+		return "", fmt.Errorf("control plane host runtime definition has no infra provider account name")
+	}
+
+	gcpProvider, err := client.GetGcpProviderByName(
+		r.APIClient,
+		r.APIServer,
+		*hostDefinition.InfraProviderAccountName,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to get GCP provider %q: %w", *hostDefinition.InfraProviderAccountName, err)
+	}
+	if gcpProvider.ProjectID == nil {
+		return "", fmt.Errorf("GCP provider %q has no project ID", *hostDefinition.InfraProviderAccountName)
+	}
+
+	return *gcpProvider.ProjectID, nil
 }
 
 // GetCloudProviderForInfraProvider returns the cloud provider for a given

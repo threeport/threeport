@@ -64,6 +64,59 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceControlPlaneComponents(
 	return nil
 }
 
+// InstallComputeSpaceWorkloadControllerRBAC grants the control-plane workload
+// controllers cluster-admin on a managed (compute space) GKE cluster.  The
+// helm-workload-controller and kubernetes-workload-controller deploy arbitrary
+// resources to managed clusters and connect to them as their own GKE Workload
+// Identity principals (via per-request ADC tokens), so the managed cluster must
+// authorize those principals directly.  This mirrors the bindings created on the
+// control-plane cluster in InstallThreeportControllers.
+//
+// Only the kind:User Workload Identity subject is bound: on a remote managed
+// cluster the controllers never authenticate with an in-cluster ServiceAccount
+// token, so a kind:ServiceAccount subject would never match.  gcpProjectID is the
+// project of the GKE cluster hosting the control plane (where the controller pods
+// run), which determines the Workload Identity pool in the principal name.
+func (cpi *ControlPlaneInstaller) InstallComputeSpaceWorkloadControllerRBAC(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+	gcpProjectID string,
+) error {
+	workloadControllers := []string{
+		ThreeportHelmWorkloadControllerName,
+		ThreeportKubernetesWorkloadControllerName,
+	}
+
+	for _, controllerName := range workloadControllers {
+		clusterAdminBinding := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "rbac.authorization.k8s.io/v1",
+				"kind":       "ClusterRoleBinding",
+				"metadata": map[string]interface{}{
+					"name": fmt.Sprintf("%s-cluster-admin", controllerName),
+				},
+				"roleRef": map[string]interface{}{
+					"apiGroup": "rbac.authorization.k8s.io",
+					"kind":     "ClusterRole",
+					"name":     "cluster-admin",
+				},
+				"subjects": []interface{}{
+					map[string]interface{}{
+						"kind":     "User",
+						"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", gcpProjectID, ControlPlaneNamespace, controllerName),
+						"apiGroup": "rbac.authorization.k8s.io",
+					},
+				},
+			},
+		}
+		if err := cpi.CreateOrUpdateKubeResource(clusterAdminBinding, kubeClient, mapper); err != nil {
+			return fmt.Errorf("failed to create %s cluster-admin binding on managed cluster: %w", controllerName, err)
+		}
+	}
+
+	return nil
+}
+
 // UpdateThreeportAPIDeployment installs the threeport API in a Kubernetes
 // cluster.
 func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
