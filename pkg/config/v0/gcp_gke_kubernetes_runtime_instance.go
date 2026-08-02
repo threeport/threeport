@@ -6,11 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
-	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -314,70 +312,6 @@ func (g *GcpGkeKubernetesRuntimeInstanceConfig) Delete(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete gcp gke kubernetes runtime instance from Threeport API: %w", err)
-	}
-
-	// wait for GCP GKE kubernetes runtime instance to be deleted
-	util.Retry(90, 10, func() error {
-		if _, err := client_v0.GetGcpGkeKubernetesRuntimeInstanceByName(
-			apiClient,
-			apiEndpoint,
-			*gcpGkeKubernetesRuntimeInstance.Name,
-		); err == nil {
-			return errors.New("GCP GKE kubernetes runtime instance not deleted")
-		}
-		return nil
-	})
-
-	// get kubernetes runtime instance
-	kubernetesRuntimeInstance, err := client_v0.GetKubernetesRuntimeInstanceByID(
-		apiClient,
-		apiEndpoint,
-		*gcpGkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
-	)
-	if err != nil {
-		// if the kubernetes runtime instance wasn't found, there's no more to
-		// do - return the error if something other than 'object not found'
-		if !errors.Is(err, client_lib.ErrObjectNotFound) {
-			return nil, fmt.Errorf("failed to get associated kubernetes runtime instance: %w", err)
-		}
-	}
-	// if kubernetes runtime found, remove it
-	if err == nil {
-		// update kubernetes runtime instance to set the deletion confirmed
-		// timestamp - this will allow deletion of the k8s runtime object without
-		// triggering unnecessary reconciliation
-		now := time.Now().UTC()
-		kubernetesRuntimeInstance.DeletionConfirmed = &now
-		_, err = client_v0.UpdateKubernetesRuntimeInstance(
-			apiClient,
-			apiEndpoint,
-			kubernetesRuntimeInstance,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to update associated kubernetes runtime instance to set deletion confirmed: %w", err)
-		}
-
-		// delete kubernetes runtime instance
-		_, err = client_v0.DeleteKubernetesRuntimeInstance(
-			apiClient,
-			apiEndpoint,
-			*gcpGkeKubernetesRuntimeInstance.KubernetesRuntimeInstanceID,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to delete associated kubernetes runtime instance: %w", err)
-		}
-
-		// wait for kubernetes runtime instance to be deleted
-		util.Retry(10, 1, func() error {
-			if _, err := client_v0.GetKubernetesRuntimeInstanceByName(
-				apiClient,
-				apiEndpoint,
-				*kubernetesRuntimeInstance.Name,
-			); err == nil {
-				return errors.New("kubernetes runtime instance not deleted")
-			}
-			return nil
-		})
 	}
 
 	// construct deleted gcp gke kubernetes runtime instance config
