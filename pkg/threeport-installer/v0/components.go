@@ -555,13 +555,16 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 		// The helm-workload-controller and kubernetes-workload-controller deploy
 		// arbitrary resources — Helm charts or raw manifests — that can define any
 		// Kubernetes resource type in any namespace (including creating
-		// namespaces). cluster-admin is required so they can manage the full
-		// lifecycle of those resources. On GKE with Workload Identity, each
-		// controller authenticates to the target cluster as its own WI principal
-		// (via per-request ADC tokens), so both the ServiceAccount and User
-		// subjects are bound.
+		// namespaces). The control-plane-controller similarly creates namespaces,
+		// secrets, service accounts, and StatefulSets/Deployments directly when
+		// bootstrapping a new child control plane. cluster-admin is required so
+		// they can manage the full lifecycle of those resources. On GKE with
+		// Workload Identity, each controller authenticates to the target cluster
+		// as its own WI principal (via per-request ADC tokens), so both the
+		// ServiceAccount and User subjects are bound.
 		if controller.Name == ThreeportHelmWorkloadControllerName ||
-			controller.Name == ThreeportKubernetesWorkloadControllerName {
+			controller.Name == ThreeportKubernetesWorkloadControllerName ||
+			controller.Name == ThreeportControlPlaneControllerName {
 			clusterAdminSubjects := []interface{}{
 				map[string]interface{}{
 					"kind":      "ServiceAccount",
