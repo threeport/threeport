@@ -538,7 +538,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 				"apiVersion": "rbac.authorization.k8s.io/v1",
 				"kind":       "ClusterRoleBinding",
 				"metadata": map[string]interface{}{
-					"name": fmt.Sprintf("%s-threeportworkloads", controller.ServiceAccountName),
+					"name": fmt.Sprintf("%s-%s-threeportworkloads", cpi.Opts.Namespace, controller.ServiceAccountName),
 				},
 				"roleRef": map[string]interface{}{
 					"apiGroup": "rbac.authorization.k8s.io",
@@ -584,7 +584,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 					"apiVersion": "rbac.authorization.k8s.io/v1",
 					"kind":       "ClusterRoleBinding",
 					"metadata": map[string]interface{}{
-						"name": fmt.Sprintf("%s-cluster-admin", controller.ServiceAccountName),
+						"name": fmt.Sprintf("%s-%s-cluster-admin", cpi.Opts.Namespace, controller.ServiceAccountName),
 					},
 					"roleRef": map[string]interface{}{
 						"apiGroup": "rbac.authorization.k8s.io",

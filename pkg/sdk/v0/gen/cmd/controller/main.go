@@ -196,6 +196,8 @@ func GenControllerMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					),
 				),
 
+				GenControllerStartupHook(objGroup),
+
 				Line().Comment("wait for API server to be reachable before proceeding"),
 				Qual(
 					"github.com/threeport/threeport/pkg/util/v0",
@@ -549,4 +551,21 @@ func ConfigurePullSubscription(
 	g.Id("ready").Op(":=").Op("&").Qual("sync/atomic", "Bool").Values()
 	g.Id("ready").Dot("Store").Call(Lit(true))
 	g.Id("readyFlags").Op("=").Append(Id("readyFlags"), Id("ready"))
+}
+
+// GenControllerStartupHook generates a call to the object group's configured
+// ControllerStartupHook, if any, logging (but not failing on) an error.
+// Returns an empty statement if no hook is configured for this object group.
+func GenControllerStartupHook(objGroup gen.ApiObjectGroup) jen.Code {
+	hook := objGroup.ControllerStartupHook
+	if hook == nil {
+		return Null()
+	}
+
+	return If(
+		Err().Op(":=").Qual(hook.PackagePath, hook.FuncName).Call(),
+		Err().Op("!=").Nil(),
+	).Block(
+		Id("log").Dot("Error").Call(Id("err"), Lit(hook.ErrorMessage)),
+	)
 }

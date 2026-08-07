@@ -100,6 +100,11 @@ type ApiObjectGroup struct {
 	// group's controller image. Empty means use the default `release` target.
 	DockerfileTarget string
 
+	// ControllerStartupHook, if set, causes the generated controller's main()
+	// to call the given function once at startup. See
+	// sdk.ApiObjectGroup.ControllerStartupHook.
+	ControllerStartupHook *sdk.ControllerStartupHook
+
 	// List of API object names that are reconciled by a controller.
 	ReconciledApiObjectNames []string
 
@@ -697,6 +702,7 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 				ControllerDomain:         strcase.ToCamel(sdkutil.FilenameSansExt(filename)),
 				ControllerDomainLower:    strcase.ToLowerCamel(sdkutil.FilenameSansExt(filename)),
 				DockerfileTarget:         apiObjectGroup.DockerfileTarget,
+				ControllerStartupHook:    apiObjectGroup.ControllerStartupHook,
 				ApiObjects:               apiObjects,
 				ReconciledApiObjectNames: reconcilerModels,
 				TptctlModels:             tptctlModels,
