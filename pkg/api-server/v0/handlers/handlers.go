@@ -38,11 +38,11 @@ func (h Handler) RequestDB(c echo.Context) *gorm.DB {
 		Scopes(apiserver_lib.QueryScopes(c)...)
 }
 
-// Write runs a database write and re-runs it when the database aborts the
-// transaction with a serialization conflict, returning the result of the final
-// attempt so a caller inspects its error the same way. Every attempt gets a
-// request-scoped handle built from scratch, since a handle carries state from
-// the attempt that failed, and retries stop once the client disconnects.
+// Write runs write on a handle scoped to the request, re-running it while the
+// database aborts it on a serialization conflict, and returns the last
+// attempt's result. write must build on the handle passed in, which is new per
+// attempt, since gorm skips a write on a handle already carrying an error. A
+// client disconnect ends the request context and stops the retries early.
 func (h Handler) Write(c echo.Context, write func(db *gorm.DB) *gorm.DB) *gorm.DB {
 	return apiserver_lib.RetryWrite(
 		c.Request().Context(),

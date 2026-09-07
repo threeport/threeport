@@ -13,45 +13,51 @@ import (
 	"gorm.io/gorm/schema"
 )
 
+// A write against a unique index comes back with SQLSTATE 23505, the index in
+// the error's constraint, and the conflicting columns and values in its detail
+// text, shaped as Key (name, ip_address)=('demo-a', '10.0.0.42') already
+// exists. A duplicate is the client's mistake, so the write path answers 409
+// naming the API fields behind those columns and keeps the index name out of
+// the response. The index name goes to the log on every conflict, and the
+// detail text, values included, goes with it when no field resolves.
+
 const (
-	// uniqueViolationCode is the SQLSTATE both CockroachDB and PostgreSQL
-	// return when a unique index rejects a write.
+	// uniqueViolationCode is the SQLSTATE for a unique violation, the code
+	// PostgreSQL and CockroachDB both return.
 	uniqueViolationCode = "23505"
 
-	// ErrMsgUniqueViolation is the response text for a write a unique index
-	// rejected, and the whole of it when no field resolved.
+	// ErrMsgUniqueViolation is the text a conflict response carries, with the
+	// fields appended when they resolve.
 	ErrMsgUniqueViolation = "Object conflicts with an existing object"
 )
 
-// conflictColumns matches the column list in a driver's description of a
-// rejected key, which takes the form "Key (a, b)=(x, y) already exists." The
-// match ends at the closing parenthesis so the values are never captured, since
-// an indexed column may hold a credential fingerprint.
+// conflictColumns pulls the column list out of the driver's detail text. The
+// match stops at the closing parenthesis, so the values that follow never enter
+// the capture group and cannot reach the response.
 var conflictColumns = regexp.MustCompile(`^Key \(([^)]+)\)=`)
 
-// schemaCache holds the model schemas gorm derives, so resolving a column
-// costs one parse per type rather than one per rejected write.
+// schemaCache holds one parsed schema per model type, so naming the fields
+// behind a conflict reflects over a type once per process.
 var schemaCache = &sync.Map{}
 
-// UniqueConflict describes a write that a unique index rejected.
+// UniqueConflict is a write the database rejected because it duplicates a row
+// a unique index already covers.
 type UniqueConflict struct {
-	// Constraint is the index the database named, empty when the driver
-	// supplied none.
+	// The name of the index that rejected the write, empty when the driver
+	// reported none
 	Constraint string
 
-	// Detail is the driver's description of the rejected key, kept for the
-	// server log.
+	// The driver's detail text, which carries the conflicting values
 	Detail string
 
-	// Fields are the API field names the index covers, in the order the
-	// database reported their columns. Empty when no column resolved.
+	// The API field names the conflicting columns resolved to, in the order the
+	// database reported them, dropping any column the model has no field for
 	Fields []string
 }
 
-// Message returns the response text for the conflict, naming the fields the
-// index covers when they resolved. Field names are safe to publish where an
-// index name is not, since a field is already part of the API a client writes
-// against.
+// Message returns the conflict text for the response body, naming the fields in
+// Fields when there are any. A field name is safe to publish, unlike an index
+// name, since it is already part of the API the client wrote against.
 func (conflict *UniqueConflict) Message() string {
 	if len(conflict.Fields) == 0 {
 		return ErrMsgUniqueViolation
@@ -64,9 +70,8 @@ func (conflict *UniqueConflict) Message() string {
 	)
 }
 
-// Log records the conflict on the server, at error level when no field
-// resolved, since that means this package failed to parse the detail rather
-// than the caller doing anything wrong.
+// Log records the conflict, at error level when no field resolved, since the
+// message the caller then sends names nothing to correct.
 func (conflict *UniqueConflict) Log(logger *zap.Logger) {
 	if logger == nil {
 		return
@@ -88,17 +93,15 @@ func (conflict *UniqueConflict) Log(logger *zap.Logger) {
 	)
 }
 
-// UniqueViolation describes the conflict when err is a write a unique index
-// rejected, and returns nil for any other outcome including success. The model
-// supplies the column-to-field mapping, so passing nil yields a conflict that
-// names no fields rather than an error.
+// UniqueViolation returns the conflict behind err, or nil when err is not a
+// unique index rejecting a write. model is the type the write targeted, used to
+// name the conflicting columns; a nil model yields a conflict naming none.
 func UniqueViolation(err error, model interface{}) *UniqueConflict {
 	if err == nil {
 		return nil
 	}
 
-	// match on the driver's code and never on message text: a wrong guess
-	// answers the client 409 for a failure that was not a conflict
+	// match the driver's typed code so digits in other error text never count
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.Code != uniqueViolationCode {
 		return nil
@@ -111,8 +114,8 @@ func UniqueViolation(err error, model interface{}) *UniqueConflict {
 	}
 }
 
-// parseConflictColumns reads the column names out of a driver's description of
-// a rejected key, returning nil when it takes an unrecognized form.
+// parseConflictColumns returns the column names the driver's detail text
+// reports, or nil when the text is not in that form.
 func parseConflictColumns(detail string) []string {
 	match := conflictColumns.FindStringSubmatch(detail)
 	if match == nil {
@@ -127,15 +130,15 @@ func parseConflictColumns(detail string) []string {
 	return columns
 }
 
-// resolveConflictFields translates database column names into the API field
-// names a client sends, dropping any column that matches no field.
+// resolveConflictFields maps database column names onto the model's field
+// names, dropping any column the model has no field for.
 func resolveConflictFields(model interface{}, columns []string) []string {
 	if model == nil || len(columns) == 0 {
 		return nil
 	}
 
-	// take the names from the schema rather than converting the column text by
-	// case rules, which would not put an acronym back together
+	// read the names off the schema rather than undo the column casing by rule,
+	// which would not put an acronym back together
 	modelSchema, err := schema.Parse(model, schemaCache, schema.NamingStrategy{})
 	if err != nil {
 		return nil
@@ -153,10 +156,9 @@ func resolveConflictFields(model interface{}, columns []string) []string {
 	return fields
 }
 
-// RespondWriteError answers a write the database refused: a conflict when a
-// unique index rejected it, and a server fault for anything else. The model
-// supplies the column-to-field mapping the conflict message names its fields
-// from, so a zero value of the object being written is what to pass.
+// RespondWriteError answers a failed write: 409 when a unique index rejected
+// it, naming the resolved fields, and 500 for every other error. model is a
+// zero value of the object being written.
 func RespondWriteError(
 	c echo.Context,
 	logger *zap.Logger,

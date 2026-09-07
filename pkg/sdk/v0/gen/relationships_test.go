@@ -9,7 +9,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// indexOf reports the position of name in names, or -1 when absent.
+// A table created ahead of the one its foreign key references fails the
+// migration, so a wrong order surfaces when the migration runs against
+// CockroachDB, not when the code is generated. These tests cover the parsed
+// graph, the cycle check, and the emitted order, none of them against a
+// database.
+//
+// Three mechanisms decide what the assertions are worth. A many2many keys off a
+// join table, so counting each side's slice as a has-many would invent a cycle.
+// A name missing from the sorted list is a table the migration never creates. A
+// cycle fails the generator run before the sort is reached, and a self-reference
+// sits inside one table, so it needs no other table created first.
+//
+// Go randomizes the start of every range over a map, so the cycle walk sorts the
+// type names, and each type's references, before descending.
+
+// indexOf returns the position of name in names, or -1 when it is absent.
 func indexOf(names []string, name string) int {
 	for i, n := range names {
 		if n == name {
@@ -19,21 +34,17 @@ func indexOf(names []string, name string) int {
 	return -1
 }
 
-// sortFixture builds a *Generator carrying only the relationship-dependency
-// graph the migration sort reads. Keys are referencing types; values are the
-// types their foreign keys reference.
+// sortFixture builds a Generator carrying only the dependency graph, the one
+// field the relationship functions read. A key is the type whose table holds
+// the foreign keys, and its value is the types those keys reference.
 func sortFixture(dependencies map[string][]string) *Generator {
 	return &Generator{RelationshipDependencies: dependencies}
 }
 
-// TestParseRelationshipDependencies_SkipsManyToMany covers a gorm many2many
-// pair alongside an ordinary has-many. Both sides of a many2many declare a
-// slice of the other, so counting those slices as has-many edges would make
-// each side depend on the other and no migration order could satisfy both.
-// The keys live in a join table, so the pair contributes no edge at all while
-// the plain has-many still keys the child.
+// TestParseRelationshipDependencies_SkipsManyToMany asserts a many2many pair
+// contributes no edge while a has-many pair still does.
 func TestParseRelationshipDependencies_SkipsManyToMany(t *testing.T) {
-	// tick keeps the struct tags readable inside a Go string literal
+	// build model source holding a many2many pair and a has-many pair
 	const tick = "`"
 	source := "package v0\n\n" +
 		"type Left struct {\n" +
@@ -55,36 +66,24 @@ func TestParseRelationshipDependencies_SkipsManyToMany(t *testing.T) {
 	dependencies, err := parseRelationshipDependencies(dir)
 	require.NoError(t, err)
 
-	// the many2many pair leaves both sides free to migrate in either order
 	assert.NotContains(t, dependencies, "Left")
 	assert.NotContains(t, dependencies, "Right")
 
-	// the has-many still puts the key on the child, so Child follows Parent
 	assert.Equal(t, []string{"Parent"}, dependencies["Child"])
 }
 
-// TestSortDatabaseInitNamesByDependency_ReferencedBeforeReferencing covers
-// the core ordering guarantee: a type whose foreign key references another
-// type in the list is emitted after the type it references.
-//
-// The fixture supplies the dependency graph directly, as a map from each type
-// to the types it references. Deriving that graph from model source is a
-// separate step this test does not reach.
-//
-// Expected: Parent precedes Child even though it sorts later alphabetically.
+// TestSortDatabaseInitNamesByDependency_ReferencedBeforeReferencing asserts the
+// referenced type is emitted ahead of the type whose table holds the key.
 func TestSortDatabaseInitNamesByDependency_ReferencedBeforeReferencing(t *testing.T) {
-	// Child holds the foreign key, so it depends on Parent
 	g := sortFixture(map[string][]string{
 		"Child": {"Parent"},
 	})
 
-	// sort the list passed in declaration order, referencing type first
 	sorted := g.SortDatabaseInitNamesByDependency([]string{
 		"Child",
 		"Parent",
 	})
 
-	// the referenced table must land ahead of the table that references it
 	parentIdx := indexOf(sorted, "Parent")
 	childIdx := indexOf(sorted, "Child")
 	require.NotEqual(t, -1, parentIdx)
@@ -92,99 +91,69 @@ func TestSortDatabaseInitNamesByDependency_ReferencedBeforeReferencing(t *testin
 	assert.Less(t, parentIdx, childIdx, "referenced table must precede referencing table")
 }
 
-// TestSortDatabaseInitNamesByDependency_DropsDuplicateNames covers a repeated
-// entry in the input: it is emitted once and no other name is lost.
-//
-// Before the input was deduplicated, the emit loop ran until it had emitted as
-// many names as it was handed. A repeat left it one short, the cycle fallback
-// found nothing remaining, and the result came back missing a table that the
-// generated AutoMigrate call would then never create.
+// TestSortDatabaseInitNamesByDependency_DropsDuplicateNames asserts a repeated
+// name is emitted once and nothing else is lost.
 func TestSortDatabaseInitNamesByDependency_DropsDuplicateNames(t *testing.T) {
-	// B is listed twice and A depends on it
 	g := sortFixture(map[string][]string{
 		"A": {"B"},
 	})
 
 	sorted := g.SortDatabaseInitNamesByDependency([]string{"A", "B", "B"})
 
-	// both distinct tables survive, in dependency order, with no repeat
 	assert.Equal(t, []string{"B", "A"}, sorted)
 }
 
-// TestSortDatabaseInitNamesByDependency_TransitiveChain covers a multi-hop
-// chain: A references B and B references C, so the emitted order must be
-// C, B, A regardless of input order.
+// TestSortDatabaseInitNamesByDependency_TransitiveChain asserts a three type
+// chain is emitted from the end that references nothing.
 func TestSortDatabaseInitNamesByDependency_TransitiveChain(t *testing.T) {
-	// A depends on B, B depends on C, forming a three-link chain
 	g := sortFixture(map[string][]string{
 		"A": {"B"},
 		"B": {"C"},
 	})
 
-	// pass the chain in reverse dependency order
 	sorted := g.SortDatabaseInitNamesByDependency([]string{"A", "B", "C"})
 
-	// the leaf table comes first, the root table last
 	assert.Equal(t, []string{"C", "B", "A"}, sorted)
 }
 
-// TestSortDatabaseInitNamesByDependency_IgnoresExternalReference covers a
-// foreign key that points at a type not in the migration list: the edge is
-// dropped so external references do not perturb the ordering.
-//
-// The fixture supplies the dependency graph directly, so Local depends on
-// ExternalThing and ExternalThing never appears in the list being sorted.
-//
-// Expected: with only Local and Other in the list, alphabetical order holds.
+// TestSortDatabaseInitNamesByDependency_IgnoresExternalReference asserts a
+// reference to a name outside the list does not hold its referrer back.
 func TestSortDatabaseInitNamesByDependency_IgnoresExternalReference(t *testing.T) {
-	// Local references a type that is not part of the migration list
 	g := sortFixture(map[string][]string{
 		"Local": {"ExternalThing"},
 	})
 
-	// the referenced ExternalThing is absent from the list passed in
 	sorted := g.SortDatabaseInitNamesByDependency([]string{"Other", "Local"})
 
-	// with no in-list edge, the deterministic alphabetical tie-break applies
 	assert.Equal(t, []string{"Local", "Other"}, sorted)
 }
 
-// TestSortDatabaseInitNamesByDependency_Deterministic covers tie-breaking:
-// independent types come out in alphabetical order regardless of input order
-// so the generated migration is stable across runs.
+// TestSortDatabaseInitNamesByDependency_Deterministic asserts names with no
+// references come out alphabetically rather than in the order given, so the
+// generated migration does not reorder itself between runs.
 func TestSortDatabaseInitNamesByDependency_Deterministic(t *testing.T) {
-	// three types with no relationship edges between them
 	g := sortFixture(map[string][]string{})
 
-	// pass the names in non-alphabetical order
 	sorted := g.SortDatabaseInitNamesByDependency([]string{"Charlie", "Bravo", "Alpha"})
 
-	// independent types come out alphabetically sorted
 	assert.Equal(t, []string{"Alpha", "Bravo", "Charlie"}, sorted)
 }
 
-// TestSortDatabaseInitNamesByDependency_CycleFallback covers the defence that
-// stays in the sort behind ValidateRelationshipCycles: handed a cyclic graph
-// directly, the sort still returns every name, in alphabetical order, rather
-// than dropping tables from the migration list.
+// TestSortDatabaseInitNamesByDependency_CycleFallback asserts a cycle still
+// yields every name, in name order, rather than dropping its members.
 func TestSortDatabaseInitNamesByDependency_CycleFallback(t *testing.T) {
-	// two types reference each other, forming a cycle the sort cannot break
 	g := sortFixture(map[string][]string{
 		"Yin":  {"Yang"},
 		"Yang": {"Yin"},
 	})
 
-	// neither type can be emitted first, triggering the cycle fallback
 	sorted := g.SortDatabaseInitNamesByDependency([]string{"Yin", "Yang"})
 
-	// the fallback emits the cyclic names in deterministic alphabetical order
 	assert.Equal(t, []string{"Yang", "Yin"}, sorted)
 }
 
-// TestValidateRelationshipCycles_AcyclicGraph covers the passing case: a chain
-// and a self-reference both migrate cleanly, so neither is reported. gorm
-// creates a table before adding its constraints, which is why a type whose
-// foreign key points at itself is not a cycle.
+// TestValidateRelationshipCycles_AcyclicGraph asserts a chain passes and a type
+// referencing itself is accepted.
 func TestValidateRelationshipCycles_AcyclicGraph(t *testing.T) {
 	g := sortFixture(map[string][]string{
 		"A":    {"B"},
@@ -195,11 +164,9 @@ func TestValidateRelationshipCycles_AcyclicGraph(t *testing.T) {
 	assert.NoError(t, g.ValidateRelationshipCycles())
 }
 
-// TestValidateRelationshipCycles_ReportsCycle covers the failing case: two
-// types whose foreign keys point at each other have no valid table-creation
-// order, so generation must stop and name both types.
+// TestValidateRelationshipCycles_ReportsCycle asserts a two type cycle fails
+// and names both types in the error.
 func TestValidateRelationshipCycles_ReportsCycle(t *testing.T) {
-	// Yin and Yang each carry a foreign key to the other
 	g := sortFixture(map[string][]string{
 		"Yin":  {"Yang"},
 		"Yang": {"Yin"},
@@ -207,19 +174,16 @@ func TestValidateRelationshipCycles_ReportsCycle(t *testing.T) {
 
 	err := g.ValidateRelationshipCycles()
 
-	// the message must name every type on the cycle so the author can break it
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Yin")
 	assert.Contains(t, err.Error(), "Yang")
 }
 
-// TestValidateRelationshipCycles_StableCycleReport verifies the reported cycle
-// is the same on every run. Map iteration over the dependency graph is
-// randomized by Go, so the walk sorts both its roots and each type's edges; a
-// regression that drops either sort surfaces here.
+// TestValidateRelationshipCycles_StableCycleReport asserts a graph carrying two
+// cycles reports the same one every run.
 func TestValidateRelationshipCycles_StableCycleReport(t *testing.T) {
+	// build a fresh graph per pass so nothing carries over between passes
 	build := func() *Generator {
-		// two independent cycles, so an unsorted walk could report either
 		return sortFixture(map[string][]string{
 			"Yin":   {"Yang"},
 			"Yang":  {"Yin"},

@@ -36,7 +36,8 @@ func newAOR(baseType string, baseID uint, attacherType string, attacherID uint, 
 	}
 }
 
-// TestAOR_OwnsSingleOwnerConstraint exercises idx_attached_object_reference_owns_base: an
+// TestAOR_OwnsSingleOwnerConstraint covers the partial unique index
+// idx_attached_object_reference_owns_base, under which an
 // owned base appears in at most one owns row. The attacher side is
 // intentionally unconstrained (an owner can own many bases), so the
 // table covers both the rejection and the legal cases.
@@ -97,8 +98,7 @@ func TestAOR_OwnsSingleOwnerConstraint(t *testing.T) {
 	}
 }
 
-// TestAOR_MarriesOneToOne exercises idx_attached_object_reference_marries_base and
-// idx_attached_object_reference_marries_attached. Both sides of the marries relationship
+// TestAOR_MarriesOneToOne asserts that both a base and its partner
 // are constrained to appear in at most one marries row, enforcing
 // 1-to-1 cardinality.
 func TestAOR_MarriesOneToOne(t *testing.T) {
@@ -263,7 +263,7 @@ func TestAttachedObjectReference_beforeUpdate_AllowsSameRelationshipPut(t *testi
 }
 
 // TestAOR_OwnsConstraintAfterSoftDelete verifies the deleted_at IS
-// NULL clause in idx_attached_object_reference_owns_base lets a soft-deleted owns row drop
+// NULL clause in idx_attached_object_reference_owns_base takes a soft-deleted row
 // out of the unique slot so the base can be re-owned after the
 // original owner is torn down. Without the clause, the soft-deleted
 // row would continue to occupy the slot until cockroach TTL eventually

@@ -27,22 +27,14 @@ func init() {
 // Up000001 creates the initial database schema and sets row-level
 // time-to-lives for event rows and the attached object reference
 // rows that link events to their subjects. A table that already
-// exists is left as it is, so a rerun after a partial failure
-// finishes the schema instead of failing on the first table it
-// finds built.
+// exists is left as it is.
 func Up000001(ctx context.Context, db *sql.DB) error {
 	gormDb, err := getGormDbFromContext(ctx)
 	if err != nil {
 		return err
 	}
 
-	// Create each missing table and leave every existing one alone.
-	// gorm's AutoMigrate reads an existing table back out of the database
-	// catalog and emits corrective DDL from what it finds there, and
-	// CockroachDB populates the PostgreSQL catalog views differently enough
-	// that the comparison invents differences that do not exist. Creating a
-	// missing table never reads the catalog. A later migration adds a column
-	// with an explicit AddColumn call rather than by re-running this one.
+	// create a table for each model that has none
 	for _, model := range dbInterfaces000001() {
 		if gormDb.Migrator().HasTable(model) {
 			continue

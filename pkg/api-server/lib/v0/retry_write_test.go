@@ -11,10 +11,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// TestIsSerializationFailureClassifies covers detection of retryable
-// serialization conflicts: a typed driver error carrying the 40001 code, the
-// CockroachDB error text variants, and the non-retryable cases that must not
-// be treated as serialization failures.
+// The RetryWrite tests drive it with a hand-built gorm result rather than a
+// database, so a write closure varies only its error. Backoff runs on the real
+// clock, so exhausting the budget costs the suite about 3 seconds.
+
+// TestIsSerializationFailureClassifies covers which errors earn a re-run: the
+// driver's typed code, that code in text, and the near misses that must not.
 func TestIsSerializationFailureClassifies(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -22,44 +24,50 @@ func TestIsSerializationFailureClassifies(t *testing.T) {
 		expected bool
 	}{
 		{
-			// typed driver error with the serialization code is retryable
+			// the driver's own error, which reaches the caller with its type
+			// intact and is the shape a live conflict arrives in
 			name:     "pg error with 40001 code is retryable",
 			err:      &pgconn.PgError{Code: "40001"},
 			expected: true,
 		},
 		{
-			// the code wrapped in error text still classifies as retryable
+			// CockroachDB's retry error text, matched for an error that got
+			// here with its type stripped
 			name:     "error text mentioning 40001 is retryable",
 			err:      errors.New("TransactionRetryWithProtoRefreshError: ... RETRY_SERIALIZABLE (SQLSTATE 40001)"),
 			expected: true,
 		},
 		{
-			// a typed driver error with a different code is not retryable
+			// a unique violation, which the handler answers with a 409 rather
+			// than running again
 			name:     "pg error with another code is not retryable",
 			err:      &pgconn.PgError{Code: "23505"},
 			expected: false,
 		},
 		{
-			// a non-40001 driver error stays non-retryable even when its
-			// message text embeds the serialization digits
+			// the typed path decides on the code and never reads the message,
+			// so a value carrying the digits cannot force a retry
 			name:     "pg error with another code and 40001 in text is not retryable",
 			err:      &pgconn.PgError{Code: "23505", Message: "value host-40001 already exists"},
 			expected: false,
 		},
 		{
-			// a bare error carrying 40001 as data is not a serialization failure
+			// the fallback looks for the parenthesized form
+			// pgconn.PgError.Error prints, so digits sitting in a value
+			// match nothing
 			name:     "untyped error with 40001 in data is not retryable",
 			err:      errors.New("failed to provision host-40001"),
 			expected: false,
 		},
 		{
-			// an unrelated error is not retryable
+			// gorm's own ErrRecordNotFound text, which carries no driver code
+			// and no retry marker
 			name:     "unrelated error is not retryable",
 			err:      errors.New("record not found"),
 			expected: false,
 		},
 		{
-			// no error is not a serialization failure
+			// a write that succeeded has nothing to run again
 			name:     "nil error is not retryable",
 			err:      nil,
 			expected: false,
@@ -68,17 +76,14 @@ func TestIsSerializationFailureClassifies(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// classify the error and assert the retryable verdict
 			assert.Equal(t, tc.expected, isSerializationFailure(tc.err))
 		})
 	}
 }
 
-// TestRetryWriteReRunsThenSucceeds covers the happy retry path: a write that
-// fails once with a serialization conflict is re-run and the eventual success
-// is returned.
+// TestRetryWriteReRunsThenSucceeds asserts a conflict costs one more attempt
+// and that the caller gets the result of the attempt that landed.
 func TestRetryWriteReRunsThenSucceeds(t *testing.T) {
-	// fail the first attempt with a serialization conflict, then succeed
 	calls := 0
 	result := RetryWrite(context.Background(), func() *gorm.DB {
 		calls++
@@ -88,15 +93,13 @@ func TestRetryWriteReRunsThenSucceeds(t *testing.T) {
 		return &gorm.DB{Error: nil}
 	})
 
-	// the write ran twice and the final result carries no error
 	assert.Equal(t, 2, calls)
 	assert.NoError(t, result.Error)
 }
 
-// TestRetryWriteSkipsNonRetryable covers the fast path: a non-retryable error
-// is returned on the first attempt without re-running.
+// TestRetryWriteSkipsNonRetryable covers a failure the loop does not re-run:
+// one attempt, and the error comes back unchanged.
 func TestRetryWriteSkipsNonRetryable(t *testing.T) {
-	// fail with an error that is not a serialization conflict
 	nonRetryable := errors.New("duplicate key value violates unique constraint")
 	calls := 0
 	result := RetryWrite(context.Background(), func() *gorm.DB {
@@ -104,18 +107,13 @@ func TestRetryWriteSkipsNonRetryable(t *testing.T) {
 		return &gorm.DB{Error: nonRetryable}
 	})
 
-	// the write ran once and the original error is surfaced unchanged
 	assert.Equal(t, 1, calls)
 	assert.ErrorIs(t, result.Error, nonRetryable)
 }
 
-// TestRetryWriteExhaustsBudget covers budget exhaustion: a write that keeps
-// failing with a serialization conflict is retried up to the bound, the last
-// error is returned, and the return comes as soon as the final attempt fails
-// rather than after one more backoff.
+// TestRetryWriteExhaustsBudget asserts a conflict that never clears spends the
+// whole budget and then returns without waiting again.
 func TestRetryWriteExhaustsBudget(t *testing.T) {
-	// always fail with a serialization conflict, noting when the newest
-	// attempt ran
 	calls := 0
 	var lastAttempt time.Time
 	result := RetryWrite(context.Background(), func() *gorm.DB {
@@ -124,31 +122,28 @@ func TestRetryWriteExhaustsBudget(t *testing.T) {
 		return &gorm.DB{Error: &pgconn.PgError{Code: "40001"}}
 	})
 
-	// the write ran the maximum number of attempts and still reports the error
 	assert.Equal(t, serializationRetryMax, calls)
 	assert.True(t, isSerializationFailure(result.Error))
 
-	// the wait after the final attempt is far below the shortest backoff the
-	// loop takes between attempts
+	// a backoff after the final attempt would run at least half the capped
+	// delay, so returning inside a fifth of it shows the loop broke instead
 	assert.Less(t, time.Since(lastAttempt), serializationRetryMaxDelay/5)
 }
 
-// TestRetryWriteStopsOnCancelledContext covers the abandoned request: once the
-// caller disconnects, the retry loop gives up its remaining budget instead of
-// sleeping out the backoff, and still hands back the last failure.
+// TestRetryWriteStopsOnCancelledContext covers a caller that hangs up mid-write.
 func TestRetryWriteStopsOnCancelledContext(t *testing.T) {
-	// cancel the request while the first attempt is in flight, so the loop
-	// reaches the backoff with a context that is already done
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	calls := 0
+	// cancel inside the write, so the backoff select finds a done context
 	result := RetryWrite(ctx, func() *gorm.DB {
 		calls++
 		cancel()
 		return &gorm.DB{Error: &pgconn.PgError{Code: "40001"}}
 	})
 
-	// the write ran once, well short of the budget, and the conflict is returned
 	assert.Equal(t, 1, calls)
+
+	// the caller gets the failure that stopped the write, not a context error
 	assert.True(t, isSerializationFailure(result.Error))
 }
