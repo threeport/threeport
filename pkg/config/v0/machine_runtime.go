@@ -21,15 +21,15 @@ type MachineRuntimeConfig struct {
 // MachineRuntimeDefinition and MachineRuntimeInstance API objects
 // together with a single operation.
 type MachineRuntimeValues struct {
-	Name        *string `json:",omitempty"`
-	Hostname    *string `json:",omitempty"`
-	SSHUser     *string `json:",omitempty"`
-	SSHKey      *string `json:",omitempty"`
-	SSHPassword *string `json:",omitempty"`
-	Port        *int    `json:",omitempty"`
-	HostKey     *string `json:",omitempty"`
-	Status      *string `json:",omitempty"`
-	Age         *string `json:",omitempty"`
+	Name        *string
+	Hostname    *string
+	SSHUser     *string
+	SSHKey      *string
+	SSHPassword *string
+	Port        *int
+	HostKey     *string
+	Status      *string
+	Age         *string
 }
 
 // Get gets a machine runtime definition and instance from the Threeport API.

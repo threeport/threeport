@@ -23,17 +23,17 @@ type ObservabilityStackDefinitionConfig struct {
 // ObservabilityStackDefinitionValues contains all the attributes needed to manage
 // the ObservabilityStackDefinition API object.
 type ObservabilityStackDefinitionValues struct {
-	Name                                  *string `json:",omitempty"`
-	GrafanaHelmValues                     *string `json:",omitempty"`
-	GrafanaHelmValuesDocument             *string `json:",omitempty"`
-	LokiHelmValues                        *string `json:",omitempty"`
-	LokiHelmValuesDocument                *string `json:",omitempty"`
-	PromtailHelmValues                    *string `json:",omitempty"`
-	PromtailHelmValuesDocument            *string `json:",omitempty"`
-	KubePrometheusStackHelmValues         *string `json:",omitempty"`
-	KubePrometheusStackHelmValuesDocument *string `json:",omitempty"`
-	ObservabilityConfigPath               *string `json:",omitempty"`
-	Age                                   *string `json:",omitempty"`
+	Name                                  *string
+	GrafanaHelmValues                     *string
+	GrafanaHelmValuesDocument             *string
+	LokiHelmValues                        *string
+	LokiHelmValuesDocument                *string
+	PromtailHelmValues                    *string
+	PromtailHelmValuesDocument            *string
+	KubePrometheusStackHelmValues         *string
+	KubePrometheusStackHelmValuesDocument *string
+	ObservabilityConfigPath               *string
+	Age                                   *string
 }
 
 // Get gets observability stack definitions from the Threeport API.

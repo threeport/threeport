@@ -21,14 +21,14 @@ type SecretConfig struct {
 // SecretDefinition and SecretInstance API objects
 // together with a single operation.
 type SecretValues struct {
-	Name                       *string                           `json:",omitempty"`
-	Data                       *map[string]string                `json:",omitempty"`
-	AwsProviderName            *string                           `json:",omitempty"`
-	SecretConfigPath           *string                           `json:",omitempty"`
-	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:",omitempty"`
-	HelmWorkloadInstance       *HelmWorkloadInstanceValues       `json:",omitempty"`
-	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:",omitempty"`
-	Age                        *string                           `json:",omitempty"`
+	Name                       *string
+	Data                       *map[string]string
+	AwsProviderName            *string
+	SecretConfigPath           *string
+	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues
+	HelmWorkloadInstance       *HelmWorkloadInstanceValues
+	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues
+	Age                        *string
 }
 
 // Get gets a secret definition and instance from the Threeport API.

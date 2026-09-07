@@ -50,19 +50,19 @@ type AttachedObjectReference struct {
 	// determine the base object's lifecycle, depending on the type of
 	// relationship (see below). Stored as a fully qualified type name
 	// in the form "<api-namespace>/<version>.<TypeName>".
-	ObjectType *string `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique;uniqueIndex:idx_aor_marries_base,where:relationship = 'marries' AND deleted_at IS NULL;uniqueIndex:idx_aor_owns_base,where:relationship = 'owns' AND deleted_at IS NULL"`
+	ObjectType *string `validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique;uniqueIndex:idx_aor_marries_base,where:relationship = 'marries' AND deleted_at IS NULL;uniqueIndex:idx_aor_owns_base,where:relationship = 'owns' AND deleted_at IS NULL"`
 
 	// ObjectID is the database ID of the base object.
-	ObjectID *uint `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique;uniqueIndex:idx_aor_marries_base,where:relationship = 'marries' AND deleted_at IS NULL;uniqueIndex:idx_aor_owns_base,where:relationship = 'owns' AND deleted_at IS NULL"`
+	ObjectID *uint `validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique;uniqueIndex:idx_aor_marries_base,where:relationship = 'marries' AND deleted_at IS NULL;uniqueIndex:idx_aor_owns_base,where:relationship = 'owns' AND deleted_at IS NULL"`
 
 	// AttachedObjectType is the kind of the object doing the attaching;
 	// the side that can determine the base object's lifecycle. Stored
 	// as a fully qualified type name in the form
 	// "<api-namespace>/<version>.<TypeName>".
-	AttachedObjectType *string `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique;uniqueIndex:idx_aor_marries_attached,where:relationship = 'marries' AND deleted_at IS NULL"`
+	AttachedObjectType *string `validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique;uniqueIndex:idx_aor_marries_attached,where:relationship = 'marries' AND deleted_at IS NULL"`
 
 	// AttachedObjectID is the database ID of the attaching object.
-	AttachedObjectID *uint `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique;uniqueIndex:idx_aor_marries_attached,where:relationship = 'marries' AND deleted_at IS NULL"`
+	AttachedObjectID *uint `validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique;uniqueIndex:idx_aor_marries_attached,where:relationship = 'marries' AND deleted_at IS NULL"`
 
 	// Relationship classifies this reference and drives lifecycle behavior
 	// via gorm hooks and generated code that reveals information about a
@@ -78,5 +78,5 @@ type AttachedObjectReference struct {
 	//   - "marries": enforces 1-to-1 cardinality between base and attacher
 	//     via the partial indexes above; blocks both delete and update of
 	//     the base for any caller except the partner's controller.
-	Relationship *Relationship `json:",omitempty" validate:"optional" gorm:"default:'describes'"`
+	Relationship *Relationship `validate:"optional" gorm:"default:'describes'"`
 }
