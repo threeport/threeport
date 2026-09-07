@@ -450,6 +450,7 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 	}
 
 	/////////////// populate Generator.RelationshipDependencies ////////////////
+	// parse foreign keys from each API version's model source
 	g.RelationshipDependencies = map[string][]string{}
 	for version := range versionObjMap {
 		versionDeps, err := parseRelationshipDependencies(filepath.Join("pkg", "api", version))
@@ -1142,6 +1143,7 @@ func (g *Generator) resolveNameTag(group ApiObjectGroup, objectName string) (str
 		return tagMap[string(lib.GormTag)], true
 	}
 
+	// Name often lives on Definition or Instance
 	for _, embed := range group.StructEmbeds[objectName] {
 		if tagMap, ok := g.EmbedTypes[embed][nameFieldName]; ok {
 			return tagMap[string(lib.GormTag)], true
@@ -1153,6 +1155,7 @@ func (g *Generator) resolveNameTag(group ApiObjectGroup, objectName string) (str
 
 // validateNameIndex reports a Name gorm tag that does not unique-index undeleted rows.
 func validateNameIndex(objectName, gormTag string) []string {
+	// ask gorm what the tag builds; a string match would accept tags gorm ignores
 	nameOnly := reflect.StructOf([]reflect.StructField{{
 		Name: nameFieldName,
 		Type: reflect.TypeOf((*string)(nil)),
@@ -1172,6 +1175,8 @@ func validateNameIndex(objectName, gormTag string) []string {
 			return nil
 		}
 	}
+
+	// unique among undeleted rows; anything else lets a soft-deleted name block reuse
 
 	return []string{fmt.Sprintf(
 		"%s.%s: %s:%q builds no unique index scoped to undeleted rows; use %s:%q",

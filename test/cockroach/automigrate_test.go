@@ -33,6 +33,7 @@ func TestRepeatedAutoMigrateIsRejected(t *testing.T) {
 	require.NoError(t, db.AutoMigrate(&nameGuarded{}),
 		"the first pass builds the table")
 
+	// second pass tries to drop uni_<table>_name, which was never created
 	err := db.AutoMigrate(&nameGuarded{})
 	require.Error(t, err, "the second pass is rejected")
 	assert.Contains(t, err.Error(), "does not exist",
@@ -43,8 +44,10 @@ func TestRepeatedAutoMigrateIsRejected(t *testing.T) {
 func TestCreatingMissingTablesCompletesAPartialSchema(t *testing.T) {
 	db := freshDatabase(t, "create_missing_tables")
 
+	// first pass: one of two tables
 	createMissingTables(t, db, &nameGuarded{})
 
+	// second pass: the missing table, leaving the first one's index in place
 	createMissingTables(t, db, &nameGuarded{}, &lateArrival{})
 	assert.True(t, db.Migrator().HasTable(&lateArrival{}),
 		"the table the first run never reached is built")
@@ -65,6 +68,7 @@ func TestInitialMigrationIsIdempotent(t *testing.T) {
 
 	require.NoError(t, migrations.Up000001(ctx, nil),
 		"the first migration builds the schema")
+	// existing tables are left alone
 	require.NoError(t, migrations.Up000001(ctx, nil),
 		"the second migration finds the schema already built and adds nothing")
 }

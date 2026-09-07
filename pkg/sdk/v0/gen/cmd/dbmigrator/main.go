@@ -342,6 +342,7 @@ func GenDbMigratorSchemaDriftTest(gen *gen.Generator, sdkConfig *sdk.SdkConfig) 
 		return genSchemaDriftTestInMemory(gen, sdkConfig, gooseVersionTableName)
 	}
 
+	// core initial migration sets Cockroach row-level TTL, which sqlite cannot run
 	return genSchemaDriftTestOnServer(gen, sdkConfig, gooseVersionTableName)
 }
 
@@ -356,6 +357,7 @@ func genSchemaDriftTestInMemory(
 
 	f.ImportAlias(migrationTestPackage, "migrationtest")
 
+	// emit persistedModels, then the sqlite coverage test
 	f.Comment("persistedModels returns one instance of every model the API persists.")
 	f.Func().Id("persistedModels").Params().Params(Index().Interface()).Block(
 		Return().Index().Interface().BlockFunc(func(g *Group) {
@@ -411,6 +413,7 @@ func genSchemaDriftTestOnServer(
 	f.ImportAlias(migrationTestPackage, "migrationtest")
 	f.Anon(fmt.Sprintf("%s/cmd/database-migrator/migrations", gen.ModulePath))
 
+	// blank-import migrations so goose's registry is populated; freshDatabase is in this package
 	f.Comment("persistedModels returns one instance of every model the API persists.")
 	f.Func().Id("persistedModels").Params().Params(Index().Interface()).Block(
 		Return().Index().Interface().BlockFunc(func(g *Group) {

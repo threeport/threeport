@@ -81,6 +81,7 @@ func (g *Generator) ValidateRelationshipCycles() error {
 // SortDatabaseInitNamesByDependency puts referenced types before the types
 // that hold a key into them. Duplicates are dropped; ties break alphabetically.
 func (g *Generator) SortDatabaseInitNamesByDependency(names []string) []string {
+	// one CreateTable per name
 	seen := make(map[string]bool, len(names))
 	unique := make([]string, 0, len(names))
 	for _, name := range names {
@@ -97,6 +98,7 @@ func (g *Generator) SortDatabaseInitNamesByDependency(names []string) []string {
 		inList[name] = true
 	}
 
+	// edges that point at another name in this list
 	dependsOn := make(map[string]map[string]bool, len(names))
 	for _, name := range names {
 		dependsOn[name] = make(map[string]bool)
@@ -110,6 +112,7 @@ func (g *Generator) SortDatabaseInitNamesByDependency(names []string) []string {
 	emitted := make(map[string]bool, len(names))
 	sorted := make([]string, 0, len(names))
 	for len(sorted) < len(names) {
+		// names whose referenced tables are already out
 		var ready []string
 		for _, name := range names {
 			if emitted[name] {
@@ -162,6 +165,7 @@ func parseRelationshipDependencies(dir string) (map[string][]string, error) {
 
 	dependencies := map[string][]string{}
 	for typeName, structType := range structs {
+		// ID columns on this struct, used to confirm a belongs-to
 		keyFields := make(map[string]bool)
 		for _, field := range structType.Fields.List {
 			for _, name := range field.Names {
@@ -180,11 +184,13 @@ func parseRelationshipDependencies(dir string) (map[string][]string, error) {
 				continue
 			}
 
+			// has-many: the child's table holds the key
 			if child, ok := sliceElementModel(field.Type, modelNames); ok {
 				dependencies[child] = append(dependencies[child], typeName)
 				continue
 			}
 
+			// belongs-to: this table holds TypeNameID
 			if referenced, ok := singularModel(field.Type, modelNames); ok {
 				if keyFields[referenced+"ID"] {
 					dependencies[typeName] = append(dependencies[typeName], referenced)

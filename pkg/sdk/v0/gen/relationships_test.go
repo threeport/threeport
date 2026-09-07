@@ -47,9 +47,11 @@ func TestParseRelationshipDependencies_SkipsManyToMany(t *testing.T) {
 	dependencies, err := parseRelationshipDependencies(dir)
 	require.NoError(t, err)
 
+	// many2many keys a join table; neither side holds a foreign key
 	assert.NotContains(t, dependencies, "Left")
 	assert.NotContains(t, dependencies, "Right")
 
+	// has-many still puts the key on the child
 	assert.Equal(t, []string{"Parent"}, dependencies["Child"])
 }
 

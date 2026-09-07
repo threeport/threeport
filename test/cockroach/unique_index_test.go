@@ -36,6 +36,7 @@ func TestUniqueViolationCarriesTheSqlstateAndConstraint(t *testing.T) {
 	err := testDb.Create(&duplicate).Error
 	require.Error(t, err, "the duplicate pair is rejected")
 
+	// live Cockroach returns a typed pgx error, not sqlite's string
 	var pgErr *pgconn.PgError
 	require.True(t, errors.As(err, &pgErr), "the rejection arrives as a typed driver error: %v", err)
 	assert.Equal(t, "23505", pgErr.Code, "the rejection carries the unique violation sqlstate")
@@ -54,6 +55,7 @@ func TestPartialUniqueIndexReleasesOnSoftDelete(t *testing.T) {
 	second := newReference("Workload", 20, "Gateway", 21, api_v0.RelationshipMarries)
 	require.Error(t, testDb.Create(&second).Error, "a second live marriage on the same base is refused")
 
+	// soft delete frees the unique slot; the row is still in the table
 	require.NoError(t, testDb.Delete(&married).Error, "the marriage is soft deleted")
 	var remaining int64
 	require.NoError(t,
@@ -72,6 +74,8 @@ func TestRecreatingASoftDeletedReferenceIsAccepted(t *testing.T) {
 	reference := newReference("Workload", 50, "Gateway", 50, api_v0.RelationshipDescribes)
 	require.NoError(t, testDb.Create(&reference).Error, "the first reference is accepted")
 	require.NoError(t, testDb.Delete(&reference).Error, "the reference is soft deleted")
+
+	// pair is free again while the tombstone row remains
 
 	var remaining int64
 	require.NoError(t,
@@ -100,6 +104,7 @@ func TestFullTableUniqueIndexHoldsAfterSoftDelete(t *testing.T) {
 	require.NoError(t, testDb.Create(&row).Error, "the first row is accepted")
 	require.NoError(t, testDb.Delete(&row).Error, "the row is soft deleted")
 
+	// gorm hides the row; the unique index still holds the value
 	var found fullTableUnique
 	assert.ErrorIs(t, testDb.Where("id = ?", row.ID).First(&found).Error, gorm.ErrRecordNotFound,
 		"the soft-deleted row reads as absent")
@@ -123,6 +128,7 @@ func TestGeneratedHandlerAnswers409OnUniqueViolation(t *testing.T) {
 	created, _ := newCreateRequest(api_v0.PathAttachedObjectReferences, body)
 	require.NoError(t, handler.AddAttachedObjectReference(created))
 
+	// second create hits the unique index and must 409 without naming it
 	conflicted, recorder := newCreateRequest(api_v0.PathAttachedObjectReferences, body)
 	require.NoError(t, handler.AddAttachedObjectReference(conflicted))
 
@@ -147,6 +153,7 @@ func TestUniqueIndexTreatsEveryNullAsDistinct(t *testing.T) {
 			"a row leaving the guarded column unset takes no slot in the index")
 	}
 
+	// a repeated value still collides
 	slot := "one-per-slot"
 	require.NoError(t, testDb.Create(&nullableSlot{Slot: &slot}).Error,
 		"the first row carrying a value is accepted")
@@ -167,6 +174,7 @@ func TestGeneratedHandlerAnswers409OnDuplicateName(t *testing.T) {
 	created, _ := newCreateRequest(api_v0.PathDomainNameDefinitions, body)
 	require.NoError(t, handler.AddDomainNameDefinition(created))
 
+	// 409 names the field, not the index
 	conflicted, recorder := newCreateRequest(api_v0.PathDomainNameDefinitions, body)
 	require.NoError(t, handler.AddDomainNameDefinition(conflicted))
 
@@ -191,6 +199,8 @@ func TestNameIsAcceptedAgainAfterSoftDelete(t *testing.T) {
 	var definition api_v0.DomainNameDefinition
 	require.NoError(t, testDb.Where("name = ?", name).First(&definition).Error)
 	require.NoError(t, testDb.Delete(&definition).Error, "the object is soft deleted")
+
+	// row remains; the partial index does not hold the name
 
 	var remaining int64
 	require.NoError(t,
@@ -235,6 +245,7 @@ func newCreateRequest(route, body string) (*apiserver_lib.CustomContext, *httpte
 	e := echo.New()
 	e.Binder = apiserver_lib.NewQueryBinder()
 
+	// validator panics on a tag it has no function for
 	validate := validator.New()
 	validate.RegisterValidation("optional", apiserver_lib.IsOptional)
 	validate.RegisterValidation("association", apiserver_lib.IsAssociation)
@@ -246,7 +257,6 @@ func newCreateRequest(route, body string) (*apiserver_lib.CustomContext, *httpte
 
 	recorder := httptest.NewRecorder()
 	c := e.NewContext(req, recorder)
-
 	c.SetPath(route)
 
 	return &apiserver_lib.CustomContext{Context: c}, recorder

@@ -54,6 +54,7 @@ func applyMigrations(t *testing.T, gormDb *gorm.DB, dialect, versionTableName st
 	}
 	goose.SetTableName(versionTableName)
 
+	// migrations read the gorm handle off the context, not the sql.DB goose passes
 	ctx := context.WithValue(context.Background(), "gormdb", gormDb)
 	if err := goose.UpContext(ctx, sqlDb, "."); err != nil {
 		t.Fatalf("apply migrations: %v", err)
@@ -70,6 +71,7 @@ func assertCoverage(
 	t.Helper()
 
 	for _, model := range models {
+		// columns the model declares
 		stmt := &gorm.Statement{DB: gormDb}
 		if err := stmt.Parse(model); err != nil {
 			t.Fatalf("parse %T: %v", model, err)
@@ -84,6 +86,7 @@ func assertCoverage(
 			continue
 		}
 
+		// columns the migrations created
 		created := columnsOf(t, gormDb, model, stmt.Schema.Table)
 
 		var missingColumns []string
