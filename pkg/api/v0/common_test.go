@@ -12,17 +12,20 @@ func TestReconciliationUpdateNotifiable(t *testing.T) {
 	later := earlier.Add(time.Minute)
 	no := false
 
+	// a restamped acknowledgement must not notify
 	restamped := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
 	after := Reconciliation{Reconciled: &no, CreationAcknowledged: &later}
 	if ReconciliationUpdateNotifiable(restamped, after) {
 		t.Errorf("a refreshed acknowledgement alone must not notify; that is the publish loop")
 	}
 
+	// a spec edit with unchanged markers must notify
 	unchanged := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
 	if !ReconciliationUpdateNotifiable(unchanged, unchanged) {
 		t.Errorf("a spec edit leaves reconciliation state equal and must still notify")
 	}
 
+	// a moved state marker must notify
 	failed := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
 	yes := true
 	nowFailed := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier, CreationFailed: &yes}
@@ -33,11 +36,13 @@ func TestReconciliationUpdateNotifiable(t *testing.T) {
 
 // TestChangeDetection covers the pointer helpers under ReconciliationStateChanged.
 func TestChangeDetection(t *testing.T) {
+	// check nil against nil
 	var nilBoolA, nilBoolB *bool
 	if got := boolPtrEqual(nilBoolA, nilBoolB); !got {
 		t.Errorf("boolPtrEqual(nil, nil) = false, want true")
 	}
 
+	// check equal values behind distinct pointers
 	trueA := true
 	trueB := true
 	if got := boolPtrEqual(&trueA, &trueB); !got {
@@ -47,6 +52,7 @@ func TestChangeDetection(t *testing.T) {
 		t.Fatalf("test setup: expected distinct pointer identity")
 	}
 
+	// check a time against its Round(0) form
 	withMono := time.Now().UTC()
 	stripped := withMono.Round(0)
 	if got := timePtrEqual(&withMono, &stripped); !got {
@@ -56,12 +62,14 @@ func TestChangeDetection(t *testing.T) {
 		t.Logf("note: reflect.DeepEqual returned true here; monotonic reading may already be absent")
 	}
 
+	// check the same instant in two locations
 	instant := time.Date(2026, 7, 3, 12, 0, 0, 0, time.UTC)
 	sameInstantLocal := instant.In(time.Local)
 	if got := timePtrEqual(&instant, &sameInstantLocal); !got {
 		t.Errorf("timePtrEqual across loc = false, want true")
 	}
 
+	// check set against unset
 	if got := timePtrSet(&withMono, &stripped); !got {
 		t.Errorf("timePtrSet(both set) = false, want true")
 	}
@@ -80,24 +88,28 @@ func TestChangeDetection(t *testing.T) {
 	}
 	t.Logf("byte-slice pair with differing ciphertexts: no helper on Reconciliation; naive DeepEqual = false")
 
+	// check identical Reconciliations
 	base := makeReconciliation(true, false, instant, instant, instant, instant, instant)
 	copyOf := makeReconciliation(true, false, instant, instant, instant, instant, instant)
 	if got := ReconciliationStateChanged(base, copyOf); got {
 		t.Errorf("ReconciliationStateChanged(identical copies) = true, want false")
 	}
 
+	// check fresh vs Round(0) instants
 	fresh := makeReconciliation(true, false, withMono, withMono, withMono, withMono, withMono)
 	fromDB := makeReconciliation(true, false, stripped, stripped, stripped, stripped, stripped)
 	if got := ReconciliationStateChanged(fresh, fromDB); got {
 		t.Errorf("ReconciliationStateChanged(fresh vs DB-round-trip) = true, want false")
 	}
 
+	// check UTC vs Local at the same instant
 	utc := makeReconciliation(true, false, instant, instant, instant, instant, instant)
 	local := makeReconciliation(true, false, sameInstantLocal, sameInstantLocal, sameInstantLocal, sameInstantLocal, sameInstantLocal)
 	if got := ReconciliationStateChanged(utc, local); got {
 		t.Errorf("ReconciliationStateChanged(UTC vs Local same instant) = true, want false")
 	}
 
+	// check an acknowledgement re-stamp
 	later := instant.Add(1 * time.Second)
 	prev := makeReconciliation(true, false, instant, instant, instant, instant, instant)
 	restamped := makeReconciliation(true, false, later, instant, instant, later, instant)
@@ -105,6 +117,7 @@ func TestChangeDetection(t *testing.T) {
 		t.Errorf("ReconciliationStateChanged(ack re-stamp) = true, want false")
 	}
 
+	// check unset to set CreationConfirmed
 	noConfirm := Reconciliation{
 		Reconciled:           ptrBool(true),
 		CreationAcknowledged: ptrTime(instant),
@@ -118,6 +131,7 @@ func TestChangeDetection(t *testing.T) {
 		t.Errorf("ReconciliationStateChanged(unset -> set CreationConfirmed) = false, want true")
 	}
 
+	// check a Reconciled flip
 	unreconciled := Reconciliation{Reconciled: ptrBool(false)}
 	reconciled := Reconciliation{Reconciled: ptrBool(true)}
 	if got := ReconciliationStateChanged(unreconciled, reconciled); !got {

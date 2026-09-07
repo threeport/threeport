@@ -103,6 +103,7 @@ func TestRetryWriteExhaustsBudget(t *testing.T) {
 	assert.Equal(t, serializationRetryMax, calls)
 	assert.True(t, isSerializationFailure(result.Error))
 
+	// no backoff after the last attempt
 	assert.Less(t, time.Since(lastAttempt), serializationRetryMaxDelay/5)
 }
 
