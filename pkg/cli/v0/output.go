@@ -1,7 +1,8 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"reflect"
 
@@ -76,6 +77,11 @@ func YamlObjectOutput(objects interface{}) error {
 // JsonObjectOutput marshals an object or slice of objects to JSON and prints the output.
 // If there is only one object in a slice, it will marshal the single object directly to JSON.
 // If there are multiple objects in a slice, it will marshal the entire slice to JSON.
+//
+// Absent fields are omitted rather than printed as null. The api types used to
+// carry json:",omitempty" for this; the option replaces it, and without it a
+// user reading `tptctl get -o json` would wade through a null for every field
+// the object does not set.
 func JsonObjectOutput(objects interface{}) error {
 	var output []byte
 
@@ -85,14 +91,14 @@ func JsonObjectOutput(objects interface{}) error {
 		// If it's a slice with exactly one element, marshal just that element
 		if val.Len() == 1 {
 			singleObject := val.Index(0).Interface()
-			o, err := json.MarshalIndent(singleObject, "", "  ")
+			o, err := jsonv2.Marshal(singleObject, jsonv2.OmitZeroStructFields(true), jsontext.WithIndent("  "))
 			if err != nil {
 				return err
 			}
 			output = o
 		} else {
 			// Marshal the entire slice
-			o, err := json.MarshalIndent(objects, "", "  ")
+			o, err := jsonv2.Marshal(objects, jsonv2.OmitZeroStructFields(true), jsontext.WithIndent("  "))
 			if err != nil {
 				return err
 			}
@@ -100,7 +106,7 @@ func JsonObjectOutput(objects interface{}) error {
 		}
 	} else {
 		// Not a slice, marshal as-is
-		o, err := json.MarshalIndent(objects, "", "  ")
+		o, err := jsonv2.Marshal(objects, jsonv2.OmitZeroStructFields(true), jsontext.WithIndent("  "))
 		if err != nil {
 			return err
 		}

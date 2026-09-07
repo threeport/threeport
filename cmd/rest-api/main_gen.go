@@ -60,6 +60,11 @@ func main() {
 	// so api types don't need `query:"..."` struct tags
 	e.Binder = apiserver_lib.NewQueryBinder()
 
+	// omit absent fields from responses instead of spelling them
+	// out as null, so api types don't need `json:",omitempty"`
+	// struct tags
+	e.JSONSerializer = apiserver_lib.NewJSONSerializer()
+
 	var validate *validator.Validate
 	validate = validator.New()
 	validate.RegisterValidation("optional", apiserver_lib.IsOptional)
