@@ -44,13 +44,7 @@ func GenDbMigratorMigration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error 
 		),
 		Line(),
 
-		Comment("Create each missing table and leave every existing one alone."),
-		Comment("gorm's AutoMigrate reads an existing table back out of the database"),
-		Comment("catalog and emits corrective DDL from what it finds there, and"),
-		Comment("CockroachDB populates the PostgreSQL catalog views differently enough"),
-		Comment("that the comparison invents differences that do not exist. Creating a"),
-		Comment("missing table never reads the catalog. A later migration adds a column"),
-		Comment("with an explicit AddColumn call rather than by re-running this one."),
+		Comment("create a table for each model that has none"),
 		For(
 			List(Id("_"), Id("model")).Op(":=").Range().Id(
 				fmt.Sprintf("dbInterfaces%s", migrationVersion),

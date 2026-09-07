@@ -451,8 +451,7 @@ func TestHasFieldWithTagValue_NoMatch(t *testing.T) {
 	assert.False(t, group.HasFieldWithTagValue("Foo", "persist", "false"), "tag present with wrong value")
 }
 
-// namedFixture builds a Generator holding one object whose Name field carries
-// the gorm tag under test, marked as named so the name index check runs on it.
+// namedFixture builds a Generator with one named object carrying gormTag.
 func namedFixture(gormTag string) *Generator {
 	g := fixture(
 		map[string]map[string]map[string]string{
@@ -464,14 +463,12 @@ func namedFixture(gormTag string) *Generator {
 	return g
 }
 
-// TestValidateTags_AcceptsScopedUniqueNameIndex accepts a unique index on Name
-// scoped to undeleted rows, the tag the error message points a model author at.
+// TestValidateTags_AcceptsScopedUniqueNameIndex covers the required Name gorm tag.
 func TestValidateTags_AcceptsScopedUniqueNameIndex(t *testing.T) {
 	assert.NoError(t, namedFixture(nameIndexTag).ValidateTags())
 }
 
-// TestValidateTags_RejectsUnscopedNameIndex rejects a unique index on Name
-// covering every row rather than only the undeleted ones.
+// TestValidateTags_RejectsUnscopedNameIndex covers a Name index without deleted_at.
 func TestValidateTags_RejectsUnscopedNameIndex(t *testing.T) {
 	err := namedFixture("not null;uniqueIndex").ValidateTags()
 	require.Error(t, err)
@@ -479,32 +476,27 @@ func TestValidateTags_RejectsUnscopedNameIndex(t *testing.T) {
 	assert.Contains(t, err.Error(), "deleted_at IS NULL")
 }
 
-// TestValidateTags_RejectsNameFieldWithNoIndex rejects a Name field whose gorm
-// tag declares no index at all. The generated create handler runs no name
-// lookup, so nothing else refuses a duplicate.
+// TestValidateTags_RejectsNameFieldWithNoIndex covers a Name field with no index.
 func TestValidateTags_RejectsNameFieldWithNoIndex(t *testing.T) {
 	err := namedFixture("not null").ValidateTags()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Foo.Name")
 }
 
-// TestValidateTags_RejectsNameIndexMissingTheColon rejects a uniqueIndex
-// setting written without its colon, which gorm skips without an error.
+// TestValidateTags_RejectsNameIndexMissingTheColon covers uniqueIndex without a colon.
 func TestValidateTags_RejectsNameIndexMissingTheColon(t *testing.T) {
 	err := namedFixture("not null;uniqueIndex,where:deleted_at IS NULL").ValidateTags()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Foo.Name")
 }
 
-// TestValidateTags_AcceptsCompositeScopedNameIndex accepts a scoped unique index
-// given an explicit name, the form that lets another column join the same index.
+// TestValidateTags_AcceptsCompositeScopedNameIndex covers a named unique index.
 func TestValidateTags_AcceptsCompositeScopedNameIndex(t *testing.T) {
 	tagValue := "not null;uniqueIndex:idx_identity,where:deleted_at IS NULL"
 	assert.NoError(t, namedFixture(tagValue).ValidateTags())
 }
 
-// TestValidateTags_SkipsExemptObject covers a named object on the exemption
-// list, whose gorm tag builds no index and still passes.
+// TestValidateTags_SkipsExemptObject covers ModuleObject, which has no name index.
 func TestValidateTags_SkipsExemptObject(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
@@ -516,9 +508,7 @@ func TestValidateTags_SkipsExemptObject(t *testing.T) {
 	assert.NoError(t, g.ValidateTags())
 }
 
-// TestValidateTags_ResolvesNameThroughAnEmbed asserts the Name tag is read off
-// an embedded base type and the problem reported against the embedder, the
-// shape a definition or instance object takes.
+// TestValidateTags_ResolvesNameThroughAnEmbed covers Name inherited from an embed.
 func TestValidateTags_ResolvesNameThroughAnEmbed(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
@@ -537,8 +527,7 @@ func TestValidateTags_ResolvesNameThroughAnEmbed(t *testing.T) {
 	assert.Contains(t, err.Error(), "Foo.Name")
 }
 
-// TestValidateTags_SkipsUnresolvableNameField accepts a named object whose Name
-// field a module build inherits from a base type outside the parsed tree.
+// TestValidateTags_SkipsUnresolvableNameField covers a Name field outside the parsed tree.
 func TestValidateTags_SkipsUnresolvableNameField(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{

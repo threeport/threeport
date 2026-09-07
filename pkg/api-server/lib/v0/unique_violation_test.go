@@ -13,24 +13,14 @@ import (
 	"gorm.io/gorm"
 )
 
-// A unique index violation arrives as SQLSTATE 23505 with the colliding columns
-// in the error detail, as "Key (name, ip_address)=('demo-a', '10.0.0.42')
-// already exists." The detail strings below follow that format. Two negative
-// cases carry more than a code mismatch: SQLSTATE 40001, which RetryWrite
-// re-runs rather than answering with a 409, and an untyped error holding the
-// digits 23505, which classification passes over because it reads the driver's
-// typed code alone.
-
-// conflictTestModel is the model conflict columns resolve against. Its
-// IPAddress field maps to the column ip_address, so resolution has to report
-// the field name the API carries.
+// conflictTestModel maps ip_address to IPAddress so field resolution has
+// something other than a 1:1 column name to match.
 type conflictTestModel struct {
 	Name      *string
 	IPAddress *string
 }
 
-// TestUniqueViolationClassifies covers which database errors UniqueViolation
-// reports as a conflict and which it passes over.
+// TestUniqueViolationClassifies covers which errors UniqueViolation treats as a conflict.
 func TestUniqueViolationClassifies(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -98,9 +88,7 @@ func TestUniqueViolationClassifies(t *testing.T) {
 	}
 }
 
-// TestUniqueViolationResolvesFields asserts a conflict detail resolves to the
-// model's own field names, and resolves to none when the detail parses no
-// columns or no model is given.
+// TestUniqueViolationResolvesFields covers mapping driver columns to API field names.
 func TestUniqueViolationResolvesFields(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -166,8 +154,7 @@ func TestUniqueViolationResolvesFields(t *testing.T) {
 	}
 }
 
-// TestUniqueConflictMessageNamesFields asserts the client message lists the
-// resolved fields, and drops the list when nothing resolved.
+// TestUniqueConflictMessageNamesFields covers the 409 body with and without field names.
 func TestUniqueConflictMessageNamesFields(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -198,8 +185,7 @@ func TestUniqueConflictMessageNamesFields(t *testing.T) {
 	}
 }
 
-// TestUniqueConflictLogRaisesUnresolvedToError asserts a conflict logs at info
-// once its fields resolve and at error when they do not.
+// TestUniqueConflictLogRaisesUnresolvedToError covers info vs error log level.
 func TestUniqueConflictLogRaisesUnresolvedToError(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -242,8 +228,7 @@ func TestUniqueConflictLogRaisesUnresolvedToError(t *testing.T) {
 	}
 }
 
-// TestUniqueConflictLogAcceptsNilLogger asserts Log returns without panicking
-// when a caller hands it no logger.
+// TestUniqueConflictLogAcceptsNilLogger covers Log with a nil logger.
 func TestUniqueConflictLogAcceptsNilLogger(t *testing.T) {
 	conflict := UniqueConflict{Fields: []string{"Hostname"}}
 

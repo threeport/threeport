@@ -38,11 +38,8 @@ func (h Handler) RequestDB(c echo.Context) *gorm.DB {
 		Scopes(apiserver_lib.QueryScopes(c)...)
 }
 
-// Write runs write on a handle scoped to the request, re-running it while the
-// database aborts it on a serialization conflict, and returns the last
-// attempt's result. write must build on the handle passed in, which is new per
-// attempt, since gorm skips a write on a handle already carrying an error. A
-// client disconnect ends the request context and stops the retries early.
+// Write reruns write while CockroachDB returns 40001.
+// write must use the db handle passed in; it is new each attempt.
 func (h Handler) Write(c echo.Context, write func(db *gorm.DB) *gorm.DB) *gorm.DB {
 	return apiserver_lib.RetryWrite(
 		c.Request().Context(),

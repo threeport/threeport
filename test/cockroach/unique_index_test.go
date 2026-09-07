@@ -24,29 +24,14 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// The API soft deletes its objects, so every unique index it declares is
-// partial on deleted_at IS NULL and a deleted row gives up the value it held.
-// An index without that predicate keeps the value until the database hard
-// deletes the row, and a caller recreating what it deleted gets back a conflict
-// it cannot clear.
-//
-// A unique index also treats every NULL as distinct, so a nullable guarded
-// column takes no slot while it holds no value. Without that, an optional
-// guarded column would be optional for one row only:
-// https://docs.cockroachlabs.com/docs/stable/unique
-//
-// The write path recognizes a rejected write only as a pgx typed error carrying
-// SQLSTATE 23505, and answers it 409 naming the API fields behind the
-// conflicting columns while the index name goes to the log.
+// Unique indexes on API objects are partial on deleted_at IS NULL, so a
+// soft-deleted row frees its name. The write path maps SQLSTATE 23505 to 409.
 
-// TestUniqueViolationCarriesTheSqlstateAndConstraint asserts a duplicate write
-// arrives as the typed driver error the classifier turns into a conflict.
+// TestUniqueViolationCarriesTheSqlstateAndConstraint covers a duplicate write as 23505.
 func TestUniqueViolationCarriesTheSqlstateAndConstraint(t *testing.T) {
 	reference := newReference("Workload", 1, "Gateway", 1, api_v0.RelationshipDescribes)
 	require.NoError(t, testDb.Create(&reference).Error, "the first reference is accepted")
 
-	// the repeated pair collides on the index over both sides of the reference,
-	// which no relationship narrows
 	duplicate := newReference("Workload", 1, "Gateway", 1, api_v0.RelationshipDescribes)
 	err := testDb.Create(&duplicate).Error
 	require.Error(t, err, "the duplicate pair is rejected")
@@ -61,8 +46,7 @@ func TestUniqueViolationCarriesTheSqlstateAndConstraint(t *testing.T) {
 	assert.NotEmpty(t, conflict.Constraint, "the classifier recovers the index name for the log")
 }
 
-// TestPartialUniqueIndexReleasesOnSoftDelete asserts a soft delete of one
-// marriage frees the base to marry a different attacher.
+// TestPartialUniqueIndexReleasesOnSoftDelete covers freeing a marriage on soft delete.
 func TestPartialUniqueIndexReleasesOnSoftDelete(t *testing.T) {
 	married := newReference("Workload", 20, "Gateway", 20, api_v0.RelationshipMarries)
 	require.NoError(t, testDb.Create(&married).Error, "the first marriage is accepted")
@@ -83,8 +67,7 @@ func TestPartialUniqueIndexReleasesOnSoftDelete(t *testing.T) {
 		"the base is married again once the first marriage is soft deleted")
 }
 
-// TestRecreatingASoftDeletedReferenceIsAccepted asserts a soft delete frees the
-// attachment pair for a new reference between the same two objects.
+// TestRecreatingASoftDeletedReferenceIsAccepted covers recreating a soft-deleted pair.
 func TestRecreatingASoftDeletedReferenceIsAccepted(t *testing.T) {
 	reference := newReference("Workload", 50, "Gateway", 50, api_v0.RelationshipDescribes)
 	require.NoError(t, testDb.Create(&reference).Error, "the first reference is accepted")
@@ -102,17 +85,13 @@ func TestRecreatingASoftDeletedReferenceIsAccepted(t *testing.T) {
 		"the same pair is accepted again once the first reference is soft deleted")
 }
 
-// fullTableUnique is a model whose unique index carries no deleted_at
-// predicate, the index shape the API types avoid.
+// fullTableUnique has a unique index with no deleted_at predicate.
 type fullTableUnique struct {
 	gorm.Model
-
-	// The value the unique index guards
 	Slot *string `gorm:"uniqueIndex:idx_full_table_unique"`
 }
 
-// TestFullTableUniqueIndexHoldsAfterSoftDelete asserts an index over the whole
-// table refuses a value a soft-deleted row still holds.
+// TestFullTableUniqueIndexHoldsAfterSoftDelete covers a unique value held after soft delete.
 func TestFullTableUniqueIndexHoldsAfterSoftDelete(t *testing.T) {
 	require.NoError(t, testDb.AutoMigrate(&fullTableUnique{}), "the table is built")
 
@@ -134,8 +113,7 @@ func TestFullTableUniqueIndexHoldsAfterSoftDelete(t *testing.T) {
 		"the refusal is a unique violation, so a client is answered 409 it cannot clear")
 }
 
-// TestGeneratedHandlerAnswers409OnUniqueViolation asserts a generated add
-// handler answers a duplicate attachment with a conflict naming no index.
+// TestGeneratedHandlerAnswers409OnUniqueViolation covers a 409 that omits the index name.
 func TestGeneratedHandlerAnswers409OnUniqueViolation(t *testing.T) {
 	registerValidateTags(api_v0.ObjectTypeAttachedObjectReference, new(api_v0.AttachedObjectReference))
 	handler := handlers.Handler{DB: testDb, Logger: zap.NewNop()}
@@ -154,17 +132,13 @@ func TestGeneratedHandlerAnswers409OnUniqueViolation(t *testing.T) {
 		"the response does not name the index that refused the write")
 }
 
-// nullableSlot is a model whose partial unique index guards a column that
-// accepts a NULL.
+// nullableSlot has a partial unique index on a nullable column.
 type nullableSlot struct {
 	gorm.Model
-
-	// The value the unique index guards, NULL until a caller sets it
 	Slot *string `gorm:"uniqueIndex:idx_nullable_slot,where:deleted_at IS NULL"`
 }
 
-// TestUniqueIndexTreatsEveryNullAsDistinct asserts rows holding no value all
-// pass the index while a repeated value does not.
+// TestUniqueIndexTreatsEveryNullAsDistinct covers NULLs not colliding with each other.
 func TestUniqueIndexTreatsEveryNullAsDistinct(t *testing.T) {
 	require.NoError(t, testDb.AutoMigrate(&nullableSlot{}), "the table is built")
 
@@ -184,8 +158,7 @@ func TestUniqueIndexTreatsEveryNullAsDistinct(t *testing.T) {
 	assert.NotNil(t, conflict, "the refusal is a unique violation")
 }
 
-// TestGeneratedHandlerAnswers409OnDuplicateName asserts a second object under a
-// taken name draws a conflict naming the field rather than the index.
+// TestGeneratedHandlerAnswers409OnDuplicateName covers a 409 that names the field.
 func TestGeneratedHandlerAnswers409OnDuplicateName(t *testing.T) {
 	registerValidateTags(api_v0.ObjectTypeDomainNameDefinition, new(api_v0.DomainNameDefinition))
 	handler := handlers.Handler{DB: testDb, Logger: zap.NewNop()}
@@ -194,8 +167,6 @@ func TestGeneratedHandlerAnswers409OnDuplicateName(t *testing.T) {
 	created, _ := newCreateRequest(api_v0.PathDomainNameDefinitions, body)
 	require.NoError(t, handler.AddDomainNameDefinition(created))
 
-	// the handler runs no name lookup of its own, so the index is what refuses
-	// the second object
 	conflicted, recorder := newCreateRequest(api_v0.PathDomainNameDefinitions, body)
 	require.NoError(t, handler.AddDomainNameDefinition(conflicted))
 
@@ -207,8 +178,7 @@ func TestGeneratedHandlerAnswers409OnDuplicateName(t *testing.T) {
 		"the response does not name the index that refused the write")
 }
 
-// TestNameIsAcceptedAgainAfterSoftDelete asserts a soft delete frees the name
-// for the next object the handler creates.
+// TestNameIsAcceptedAgainAfterSoftDelete covers reusing a name after soft delete.
 func TestNameIsAcceptedAgainAfterSoftDelete(t *testing.T) {
 	registerValidateTags(api_v0.ObjectTypeDomainNameDefinition, new(api_v0.DomainNameDefinition))
 	handler := handlers.Handler{DB: testDb, Logger: zap.NewNop()}
@@ -235,8 +205,7 @@ func TestNameIsAcceptedAgainAfterSoftDelete(t *testing.T) {
 		"the name is free again once the object holding it is soft deleted")
 }
 
-// newDomainNameDefinitionBody returns a create request body under name,
-// carrying every other field the object requires.
+// newDomainNameDefinitionBody returns a create body with the required fields set.
 func newDomainNameDefinitionBody(name string) string {
 	return fmt.Sprintf(
 		`{"Name":%q,"Domain":"example.com","Zone":"public","AdminEmail":"admin@example.com"}`,
@@ -244,8 +213,7 @@ func newDomainNameDefinitionBody(name string) string {
 	)
 }
 
-// newReference returns an unsaved attached object reference joining a base
-// object to an attaching object under relationship.
+// newReference returns an unsaved attached object reference.
 func newReference(
 	objectType string,
 	objectID uint,
@@ -262,15 +230,11 @@ func newReference(
 	}
 }
 
-// newCreateRequest returns a POST context over body and the recorder holding
-// the response, wired with the binder, validator, and context wrapper the API
-// server installs.
+// newCreateRequest returns a POST context and recorder wired like the API server.
 func newCreateRequest(route, body string) (*apiserver_lib.CustomContext, *httptest.ResponseRecorder) {
 	e := echo.New()
 	e.Binder = apiserver_lib.NewQueryBinder()
 
-	// register the custom validations; the validator panics on a tag it has no
-	// function for
 	validate := validator.New()
 	validate.RegisterValidation("optional", apiserver_lib.IsOptional)
 	validate.RegisterValidation("association", apiserver_lib.IsAssociation)
@@ -283,15 +247,12 @@ func newCreateRequest(route, body string) (*apiserver_lib.CustomContext, *httpte
 	recorder := httptest.NewRecorder()
 	c := e.NewContext(req, recorder)
 
-	// the payload check reads the API version off the route pattern
 	c.SetPath(route)
 
 	return &apiserver_lib.CustomContext{Context: c}, recorder
 }
 
-// registerValidateTags parses the validate tags on obj and registers them under
-// objectType, which the handler's payload check answers 500 without. The
-// versions package does this for every object when the server starts.
+// registerValidateTags registers obj's validate tags, as the API server does at start.
 func registerValidateTags(objectType string, obj any) {
 	taggedFields := map[string]*apiserver_lib.FieldsByTag{
 		string(api_lib.ValidateTag): {

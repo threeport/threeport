@@ -36,11 +36,7 @@ func newAOR(baseType string, baseID uint, attacherType string, attacherID uint, 
 	}
 }
 
-// TestAOR_OwnsSingleOwnerConstraint covers the partial unique index
-// idx_attached_object_reference_owns_base, under which an
-// owned base appears in at most one owns row. The attacher side is
-// intentionally unconstrained (an owner can own many bases), so the
-// table covers both the rejection and the legal cases.
+// TestAOR_OwnsSingleOwnerConstraint covers one owner per owned base.
 func TestAOR_OwnsSingleOwnerConstraint(t *testing.T) {
 	const (
 		baseType   = "threeport.io/v0.Workload"
@@ -98,9 +94,7 @@ func TestAOR_OwnsSingleOwnerConstraint(t *testing.T) {
 	}
 }
 
-// TestAOR_MarriesOneToOne asserts that both a base and its partner
-// are constrained to appear in at most one marries row, enforcing
-// 1-to-1 cardinality.
+// TestAOR_MarriesOneToOne covers one-to-one on both sides of a marriage.
 func TestAOR_MarriesOneToOne(t *testing.T) {
 	const (
 		baseType    = "threeport.io/v0.KubernetesWorkloadInstance"
@@ -262,12 +256,7 @@ func TestAttachedObjectReference_beforeUpdate_AllowsSameRelationshipPut(t *testi
 	require.NoError(t, err, "PUT writing the same Relationship back should pass; same value must not be flagged as changed")
 }
 
-// TestAOR_OwnsConstraintAfterSoftDelete verifies the deleted_at IS
-// NULL clause in idx_attached_object_reference_owns_base takes a soft-deleted row
-// out of the unique slot so the base can be re-owned after the
-// original owner is torn down. Without the clause, the soft-deleted
-// row would continue to occupy the slot until cockroach TTL eventually
-// hard-deleted it.
+// TestAOR_OwnsConstraintAfterSoftDelete covers re-owning a base after soft delete.
 func TestAOR_OwnsConstraintAfterSoftDelete(t *testing.T) {
 	db := setupAORTestDB(t)
 

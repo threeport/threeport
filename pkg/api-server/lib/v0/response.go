@@ -29,8 +29,7 @@ type Response struct {
 	// Meta contains PageRequestParams (current page and size of current page) and TotalCount (number of returned Object elements)
 	Meta Meta
 
-	// Type names the API object type this response is about, qualified as
-	// <api-namespace>/<version>.<TypeName>, and is set even when Data is empty.
+	// Type is <api-namespace>/<version>.<TypeName>, set even when Data is empty.
 	Type string `example:"threeport.io/v0.KubernetesWorkloadInstance"`
 
 	// Data contains array of returned Object elements.

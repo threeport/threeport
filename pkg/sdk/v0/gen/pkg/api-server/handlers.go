@@ -129,9 +129,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Op(",").Op("*").Id("notifPayload")),
 					))
 
-					// update notifications, skipped when the update only re-stamped an
-					// acknowledgement: a controller refreshes its own every 60 seconds during
-					// an infrastructure operation and consumes the subject this would publish on
 					notifyControllersUpdateHandler = Comment("notify controller if reconciliation is required and the update is notifiable")
 					notifyControllersUpdateHandler.Line()
 					notifyControllersUpdateHandler.If(Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("!=").Nil().Op("&&").Op("!*").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("&&").Qual(
@@ -2002,17 +1999,14 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					"@Description Delete a %s by ID from the database.",
 					strcase.ToDelimited(apiObject.TypeName, ' '),
 				))
-				// document which incoming references block a delete
 				f.Comment(fmt.Sprintf(
 					"@Description Blocking: attached object references pointing at this %s with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.",
 					strcase.ToDelimited(apiObject.TypeName, ' '),
 				))
-				// document the reference rows the delete removes with the object
 				f.Comment(fmt.Sprintf(
 					"@Description Cascade: deleting a %s also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.",
 					strcase.ToDelimited(apiObject.TypeName, ' '),
 				))
-				// document whether cleanup finishes before the response
 				if apiObject.Reconciler {
 					f.Comment(fmt.Sprintf(
 						"@Description Reconciled type: this endpoint returns after the deletion marker is written; the %s reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
@@ -2186,9 +2180,7 @@ func emitBlockedDeleteCheck(h *Group, module bool, role blockedDeleteCheckRole) 
 	)
 }
 
-// emitWriteErrorResponse appends the return that ends a write-error block:
-// 409 when a unique index rejected the write, 500 otherwise. The zero value it
-// passes names the API fields behind the conflicting columns.
+// emitWriteErrorResponse emits 409 for a unique-index conflict and 500 otherwise.
 func emitWriteErrorResponse(h *Group, module bool, apiTypePath, typeName string) {
 	logger := Id("h").Dot("Logger")
 	if module {
@@ -2262,9 +2254,7 @@ func emitPreCheckBlockingRefs(s *Statement, objVar string, module bool) {
 	s.Line()
 }
 
-// wrapSerializationRetry wraps writeChain in Handler.Write, which re-runs it on
-// a CockroachDB serialization abort and returns the last attempt's result.
-// writeChain must build on the db handle passed in, which differs per attempt.
+// wrapSerializationRetry wraps writeChain in Handler.Write so 40001 is retried.
 func wrapSerializationRetry(module bool, writeChain *Statement) *Statement {
 	handler := Id("h")
 	if module {

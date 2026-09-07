@@ -14,9 +14,7 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
-// migrationTestPackage is the import path of the hand-written package holding
-// the drift assertions both generated tests call.  A module's test imports it
-// from the threeport project, not from the module's own path.
+// migrationTestPackage is imported by both generated schema-drift tests.
 const migrationTestPackage = "github.com/threeport/threeport/pkg/migrationtest/v0"
 
 // GenDbMigratorMain generates source code for the DB migrator main package.
@@ -332,10 +330,8 @@ examples:
 	return nil
 }
 
-// GenDbMigratorSchemaDriftTest generates the test asserting the migrations build
-// every column the models declare.  A module's migrations run on in-memory
-// sqlite; the core's initial migration sets CockroachDB row-level time-to-live
-// storage parameters, so the core test runs against a live server instead.
+// GenDbMigratorSchemaDriftTest generates the test that migrations cover every model.
+// Modules use sqlite; the core uses a live CockroachDB because of row-level TTL.
 func GenDbMigratorSchemaDriftTest(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	gooseVersionTableName := "threeport_goose_db_version"
 	if gen.Module {
@@ -349,8 +345,7 @@ func GenDbMigratorSchemaDriftTest(gen *gen.Generator, sdkConfig *sdk.SdkConfig) 
 	return genSchemaDriftTestOnServer(gen, sdkConfig, gooseVersionTableName)
 }
 
-// genSchemaDriftTestInMemory generates the drift test into the migrator's own
-// package, where main already blank imports the migrations goose runs.
+// genSchemaDriftTestInMemory generates the sqlite drift test next to the migrator.
 func genSchemaDriftTestInMemory(
 	gen *gen.Generator,
 	sdkConfig *sdk.SdkConfig,
@@ -404,10 +399,7 @@ func genSchemaDriftTestInMemory(
 	return nil
 }
 
-// genSchemaDriftTestOnServer generates the drift test into the package holding
-// the CockroachDB test container, blank importing the migrations and taking its
-// own empty database from that package's freshDatabase helper, so the schema it
-// reads is only what the migrations built.
+// genSchemaDriftTestOnServer generates the CockroachDB drift test in test/cockroach.
 func genSchemaDriftTestOnServer(
 	gen *gen.Generator,
 	sdkConfig *sdk.SdkConfig,

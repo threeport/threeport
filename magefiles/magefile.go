@@ -12,9 +12,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// Cockroach runs the tests in test/cockroach, which start their own CockroachDB
-// in a docker container.  They need docker running rather than a Threeport
-// control plane, and skip themselves when docker is missing.
+// Cockroach runs test/cockroach against a docker CockroachDB. Skips without docker.
 func (Test) Cockroach() error {
 	cmd := "go"
 	args := []string{
