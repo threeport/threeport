@@ -36,7 +36,7 @@ func TestUniqueViolationCarriesTheSqlstateAndConstraint(t *testing.T) {
 	err := testDb.Create(&duplicate).Error
 	require.Error(t, err, "the duplicate pair is rejected")
 
-	// live Cockroach returns a typed pgx error, not sqlite's string
+	// live Cockroach returns a typed pgx error
 	var pgErr *pgconn.PgError
 	require.True(t, errors.As(err, &pgErr), "the rejection arrives as a typed driver error: %v", err)
 	assert.Equal(t, "23505", pgErr.Code, "the rejection carries the unique violation sqlstate")
@@ -76,7 +76,6 @@ func TestRecreatingASoftDeletedReferenceIsAccepted(t *testing.T) {
 	require.NoError(t, testDb.Delete(&reference).Error, "the reference is soft deleted")
 
 	// pair is free again while the tombstone row remains
-
 	var remaining int64
 	require.NoError(t,
 		testDb.Unscoped().Model(&api_v0.AttachedObjectReference{}).
@@ -201,7 +200,6 @@ func TestNameIsAcceptedAgainAfterSoftDelete(t *testing.T) {
 	require.NoError(t, testDb.Delete(&definition).Error, "the object is soft deleted")
 
 	// row remains; the partial index does not hold the name
-
 	var remaining int64
 	require.NoError(t,
 		testDb.Unscoped().Model(&api_v0.DomainNameDefinition{}).

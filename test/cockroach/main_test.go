@@ -18,7 +18,6 @@ import (
 )
 
 // These tests run generated handlers against a real CockroachDB in docker.
-// sqlite cannot produce SQLSTATE 23505, so the handler unit tests inject it.
 
 // databaseName is the database the API server writes to.
 const databaseName = "threeport_api"

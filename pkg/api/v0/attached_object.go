@@ -65,9 +65,7 @@ type AttachedObjectReference struct {
 	// AttachedObjectID is the database ID of the attaching object.
 	AttachedObjectID *uint `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique,where:deleted_at IS NULL;uniqueIndex:idx_attached_object_reference_marries_attached,where:relationship = 'marries' AND deleted_at IS NULL"`
 
-	// Relationship classifies this reference and drives lifecycle behavior
-	// via gorm hooks and generated code that reveals information about a
-	// type's foreign keys:
+	// Relationship classifies this reference:
 	//   - "describes": informational; does not block delete or update of the base.
 	//   - "requires": blocks any caller from deleting the base while this
 	//     reference exists, control plane callers included.
@@ -76,10 +74,9 @@ type AttachedObjectReference struct {
 	//     organizational unit. That exemption covers every control plane
 	//     component, not only the controller registered for the attached
 	//     object's type.
-	//     An owned base has at most one owner (enforced by the partial
-	//     index idx_attached_object_reference_owns_base above); an owner may own many bases.
+	//     An owned base has at most one owner; an owner may own many bases.
 	//   - "marries": enforces 1-to-1 cardinality between base and attacher
-	//     via the partial indexes above; blocks both delete and update of
-	//     the base under the same control plane exemption as "owns".
+	//     and blocks both delete and update of the base under the same
+	//     control plane exemption as "owns".
 	Relationship *Relationship `json:",omitempty" validate:"optional" gorm:"default:'describes'"`
 }

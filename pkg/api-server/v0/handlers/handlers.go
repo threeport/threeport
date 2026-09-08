@@ -38,8 +38,8 @@ func (h Handler) RequestDB(c echo.Context) *gorm.DB {
 		Scopes(apiserver_lib.QueryScopes(c)...)
 }
 
-// Write reruns write while CockroachDB returns 40001.
-// write must use the db handle passed in; it is new each attempt.
+// Write retries write with a fresh request DB handle on each attempt.
+// write must use the db handle passed in.
 func (h Handler) Write(c echo.Context, write func(db *gorm.DB) *gorm.DB) *gorm.DB {
 	return apiserver_lib.RetryWrite(
 		c.Request().Context(),

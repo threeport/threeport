@@ -19,7 +19,7 @@ func TestReconciliationUpdateNotifiable(t *testing.T) {
 		t.Errorf("a refreshed acknowledgement alone must not notify; that is the publish loop")
 	}
 
-	// a spec edit with unchanged markers must notify
+	// notify when both snapshots are equal
 	unchanged := Reconciliation{Reconciled: &no, CreationAcknowledged: &earlier}
 	if !ReconciliationUpdateNotifiable(unchanged, unchanged) {
 		t.Errorf("a spec edit leaves reconciliation state equal and must still notify")

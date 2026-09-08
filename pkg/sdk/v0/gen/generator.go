@@ -61,7 +61,6 @@ type Generator struct {
 	EmbedTypes map[string]map[string]map[string]string
 
 	// Foreign keys each type's table holds, keyed by the type holding the key.
-	// Used to create referenced tables first.
 	RelationshipDependencies map[string][]string
 }
 
@@ -954,9 +953,6 @@ func (a *ApiObjectGroup) CheckStructTagMap(
 
 // HasFieldWithTagValue reports whether any field on the named object
 // carries a struct tag with the given key set to the expected value.
-// Unlike CheckStructTagMap, which targets a single named field, this
-// search is field-agnostic — useful when codegen behavior is driven by
-// the presence of a tag anywhere on the object (e.g. persist:"false").
 func (a *ApiObjectGroup) HasFieldWithTagValue(
 	object,
 	tagKey,
@@ -1177,7 +1173,6 @@ func validateNameIndex(objectName, gormTag string) []string {
 	}
 
 	// unique among undeleted rows; anything else lets a soft-deleted name block reuse
-
 	return []string{fmt.Sprintf(
 		"%s.%s: %s:%q builds no unique index scoped to undeleted rows; use %s:%q",
 		objectName, nameFieldName, lib.GormTag, gormTag, lib.GormTag, nameIndexTag,

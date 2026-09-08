@@ -22,7 +22,7 @@ import (
 )
 
 // sqlite cannot produce SQLSTATE 23505, so these tests inject a *pgconn.PgError
-// on create. test/cockroach covers the same handlers against a real database.
+// on create.
 
 // rejectingConstraint is the index name the injected error carries.
 const rejectingConstraint = "idx_test_unique_violation"

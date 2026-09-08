@@ -13,7 +13,6 @@ import (
 )
 
 // AssertMigrationsCoverModels applies migrations to in-memory sqlite.
-// Cockroach-only DDL (row-level TTL) needs AssertMigrationsCoverModelsOn.
 func AssertMigrationsCoverModels(t *testing.T, versionTableName string, models []interface{}) {
 	t.Helper()
 

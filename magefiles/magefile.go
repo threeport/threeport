@@ -12,7 +12,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// Cockroach runs test/cockroach against a docker CockroachDB. Skips without docker.
+// Cockroach runs test/cockroach against a docker CockroachDB.
 func (Test) Cockroach() error {
 	cmd := "go"
 	args := []string{

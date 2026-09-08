@@ -29,8 +29,7 @@ const (
 )
 
 // RetryWrite reruns write while CockroachDB returns 40001.
-// write must be one transaction on a fresh gorm handle. A reused handle
-// that already carries an error is skipped by gorm.
+// write must be one transaction on a fresh gorm handle.
 func RetryWrite(ctx context.Context, write func() *gorm.DB) *gorm.DB {
 	var result *gorm.DB
 	for attempt := 0; attempt < serializationRetryMax; attempt++ {

@@ -68,7 +68,6 @@ func TestInitialMigrationIsIdempotent(t *testing.T) {
 
 	require.NoError(t, migrations.Up000001(ctx, nil),
 		"the first migration builds the schema")
-	// existing tables are left alone
 	require.NoError(t, migrations.Up000001(ctx, nil),
 		"the second migration finds the schema already built and adds nothing")
 }

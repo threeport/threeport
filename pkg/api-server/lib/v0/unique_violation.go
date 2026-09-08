@@ -20,7 +20,7 @@ const (
 	// uniqueViolationCode is SQLSTATE 23505.
 	uniqueViolationCode = "23505"
 
-	// ErrMsgUniqueViolation is the 409 body. Resolved field names are appended.
+	// ErrMsgUniqueViolation is the 409 body.
 	ErrMsgUniqueViolation = "Object conflicts with an existing object"
 )
 

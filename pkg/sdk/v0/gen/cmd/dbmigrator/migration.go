@@ -98,7 +98,6 @@ func GenDbMigratorMigration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error 
 	).Block(
 		Return().Index().Interface().BlockFunc(func(g *Group) {
 			for _, version := range gen.GlobalVersionConfig.Versions {
-				// sort so a referenced table is created before the table holding its key
 				sortedNames := gen.SortDatabaseInitNamesByDependency(version.DatabaseInitNames)
 				for _, name := range sortedNames {
 					g.List(
