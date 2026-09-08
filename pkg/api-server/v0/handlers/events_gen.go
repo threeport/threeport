@@ -429,9 +429,6 @@ func (h Handler) ReplaceEvent(c echo.Context) error {
 
 // @Summary deletes a event.
 // @Description Delete a event by ID from the database.
-// @Description Blocking: attached object references pointing at this event with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a event also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Non-reconciled type: this endpoint returns after the event row and any cascading children have been removed synchronously.
 // @ID delete-v0-event
 // @Accept json
 // @Produce json

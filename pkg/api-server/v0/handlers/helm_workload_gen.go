@@ -343,7 +343,8 @@ func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 	}
 
 	// notify controller if reconciliation is required and the update is notifiable
-	if existingHelmWorkloadDefinition.Reconciled != nil && !*existingHelmWorkloadDefinition.Reconciled && api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadDefinition.Reconciliation) {
+	if existingHelmWorkloadDefinition.Reconciled != nil && !*existingHelmWorkloadDefinition.Reconciled &&
+		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadDefinition.Reconciliation) {
 		notifPayload, err := existingHelmWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -455,7 +456,8 @@ func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 	}
 
 	// notify controller if reconciliation is required and the update is notifiable
-	if existingHelmWorkloadDefinition.Reconciled != nil && !*existingHelmWorkloadDefinition.Reconciled && api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadDefinition.Reconciliation) {
+	if existingHelmWorkloadDefinition.Reconciled != nil && !*existingHelmWorkloadDefinition.Reconciled &&
+		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadDefinition.Reconciliation) {
 		notifPayload, err := existingHelmWorkloadDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -483,9 +485,6 @@ func (h Handler) ReplaceHelmWorkloadDefinition(c echo.Context) error {
 
 // @Summary deletes a helm workload definition.
 // @Description Delete a helm workload definition by ID from the database.
-// @Description Blocking: attached object references pointing at this helm workload definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a helm workload definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Reconciled type: this endpoint returns after the deletion marker is written; the helm workload definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
 // @ID delete-v0-helmWorkloadDefinition
 // @Accept json
 // @Produce json
@@ -929,7 +928,8 @@ func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 	}
 
 	// notify controller if reconciliation is required and the update is notifiable
-	if existingHelmWorkloadInstance.Reconciled != nil && !*existingHelmWorkloadInstance.Reconciled && api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadInstance.Reconciliation) {
+	if existingHelmWorkloadInstance.Reconciled != nil && !*existingHelmWorkloadInstance.Reconciled &&
+		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadInstance.Reconciliation) {
 		notifPayload, err := existingHelmWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1041,7 +1041,8 @@ func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 	}
 
 	// notify controller if reconciliation is required and the update is notifiable
-	if existingHelmWorkloadInstance.Reconciled != nil && !*existingHelmWorkloadInstance.Reconciled && api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadInstance.Reconciliation) {
+	if existingHelmWorkloadInstance.Reconciled != nil && !*existingHelmWorkloadInstance.Reconciled &&
+		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingHelmWorkloadInstance.Reconciliation) {
 		notifPayload, err := existingHelmWorkloadInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1069,9 +1070,6 @@ func (h Handler) ReplaceHelmWorkloadInstance(c echo.Context) error {
 
 // @Summary deletes a helm workload instance.
 // @Description Delete a helm workload instance by ID from the database.
-// @Description Blocking: attached object references pointing at this helm workload instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a helm workload instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Reconciled type: this endpoint returns after the deletion marker is written; the helm workload instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
 // @ID delete-v0-helmWorkloadInstance
 // @Accept json
 // @Produce json

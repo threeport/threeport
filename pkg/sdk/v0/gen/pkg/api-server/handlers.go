@@ -131,7 +131,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 					notifyControllersUpdateHandler = Comment("notify controller if reconciliation is required and the update is notifiable")
 					notifyControllersUpdateHandler.Line()
-					notifyControllersUpdateHandler.If(Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("!=").Nil().Op("&&").Op("!*").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("&&").Qual(
+					notifyControllersUpdateHandler.If(Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("!=").Nil().Op("&&").Op("!*").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("&&").Line().Qual(
 						"github.com/threeport/threeport/pkg/api/v0",
 						"ReconciliationUpdateNotifiable",
 					).Call(
@@ -1999,25 +1999,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					"@Description Delete a %s by ID from the database.",
 					strcase.ToDelimited(apiObject.TypeName, ' '),
 				))
-				f.Comment(fmt.Sprintf(
-					"@Description Blocking: attached object references pointing at this %s with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.",
-					strcase.ToDelimited(apiObject.TypeName, ' '),
-				))
-				f.Comment(fmt.Sprintf(
-					"@Description Cascade: deleting a %s also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.",
-					strcase.ToDelimited(apiObject.TypeName, ' '),
-				))
-				if apiObject.Reconciler {
-					f.Comment(fmt.Sprintf(
-						"@Description Reconciled type: this endpoint returns after the deletion marker is written; the %s reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
-						strcase.ToDelimited(apiObject.TypeName, ' '),
-					))
-				} else {
-					f.Comment(fmt.Sprintf(
-						"@Description Non-reconciled type: this endpoint returns after the %s row and any cascading children have been removed synchronously.",
-						strcase.ToDelimited(apiObject.TypeName, ' '),
-					))
-				}
 				f.Comment(fmt.Sprintf(
 					"@ID delete-%s-%s", objCollection.Version, strcase.ToLowerCamel(apiObject.TypeName),
 				))

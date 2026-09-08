@@ -343,7 +343,8 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	}
 
 	// notify controller if reconciliation is required and the update is notifiable
-	if existingSecretDefinition.Reconciled != nil && !*existingSecretDefinition.Reconciled && api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretDefinition.Reconciliation) {
+	if existingSecretDefinition.Reconciled != nil && !*existingSecretDefinition.Reconciled &&
+		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretDefinition.Reconciliation) {
 		notifPayload, err := existingSecretDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -455,7 +456,8 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 	}
 
 	// notify controller if reconciliation is required and the update is notifiable
-	if existingSecretDefinition.Reconciled != nil && !*existingSecretDefinition.Reconciled && api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretDefinition.Reconciliation) {
+	if existingSecretDefinition.Reconciled != nil && !*existingSecretDefinition.Reconciled &&
+		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretDefinition.Reconciliation) {
 		notifPayload, err := existingSecretDefinition.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -483,9 +485,6 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 
 // @Summary deletes a secret definition.
 // @Description Delete a secret definition by ID from the database.
-// @Description Blocking: attached object references pointing at this secret definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a secret definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Reconciled type: this endpoint returns after the deletion marker is written; the secret definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
 // @ID delete-v0-secretDefinition
 // @Accept json
 // @Produce json
@@ -929,7 +928,8 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	}
 
 	// notify controller if reconciliation is required and the update is notifiable
-	if existingSecretInstance.Reconciled != nil && !*existingSecretInstance.Reconciled && api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretInstance.Reconciliation) {
+	if existingSecretInstance.Reconciled != nil && !*existingSecretInstance.Reconciled &&
+		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretInstance.Reconciliation) {
 		notifPayload, err := existingSecretInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1041,7 +1041,8 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 	}
 
 	// notify controller if reconciliation is required and the update is notifiable
-	if existingSecretInstance.Reconciled != nil && !*existingSecretInstance.Reconciled && api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretInstance.Reconciliation) {
+	if existingSecretInstance.Reconciled != nil && !*existingSecretInstance.Reconciled &&
+		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingSecretInstance.Reconciliation) {
 		notifPayload, err := existingSecretInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -1069,9 +1070,6 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 
 // @Summary deletes a secret instance.
 // @Description Delete a secret instance by ID from the database.
-// @Description Blocking: attached object references pointing at this secret instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a secret instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Reconciled type: this endpoint returns after the deletion marker is written; the secret instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
 // @ID delete-v0-secretInstance
 // @Accept json
 // @Produce json

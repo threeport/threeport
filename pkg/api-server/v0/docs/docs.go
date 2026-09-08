@@ -1145,7 +1145,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a attached object reference by ID from the database.\nBlocking: attached object references pointing at this attached object reference with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a attached object reference also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the attached object reference row and any cascading children have been removed synchronously.",
+                "description": "Delete a attached object reference by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1444,7 +1444,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a aws eks kubernetes runtime definition by ID from the database.\nBlocking: attached object references pointing at this aws eks kubernetes runtime definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a aws eks kubernetes runtime definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the aws eks kubernetes runtime definition row and any cascading children have been removed synchronously.",
+                "description": "Delete a aws eks kubernetes runtime definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1743,7 +1743,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a aws eks kubernetes runtime instance by ID from the database.\nBlocking: attached object references pointing at this aws eks kubernetes runtime instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a aws eks kubernetes runtime instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the aws eks kubernetes runtime instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a aws eks kubernetes runtime instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2042,7 +2042,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a aws provider by ID from the database.\nBlocking: attached object references pointing at this aws provider with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a aws provider also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the aws provider row and any cascading children have been removed synchronously.",
+                "description": "Delete a aws provider by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2341,7 +2341,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a control plane definition by ID from the database.\nBlocking: attached object references pointing at this control plane definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a control plane definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the control plane definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a control plane definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2640,7 +2640,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a control plane instance by ID from the database.\nBlocking: attached object references pointing at this control plane instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a control plane instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the control plane instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a control plane instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2939,7 +2939,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a domain name definition by ID from the database.\nBlocking: attached object references pointing at this domain name definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a domain name definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the domain name definition row and any cascading children have been removed synchronously.",
+                "description": "Delete a domain name definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3238,7 +3238,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a domain name instance by ID from the database.\nBlocking: attached object references pointing at this domain name instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a domain name instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the domain name instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a domain name instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3602,7 +3602,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a event by ID from the database.\nBlocking: attached object references pointing at this event with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a event also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the event row and any cascading children have been removed synchronously.",
+                "description": "Delete a event by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3901,7 +3901,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a gateway definition by ID from the database.\nBlocking: attached object references pointing at this gateway definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a gateway definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the gateway definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a gateway definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4200,7 +4200,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a gateway http port by ID from the database.\nBlocking: attached object references pointing at this gateway http port with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a gateway http port also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the gateway http port row and any cascading children have been removed synchronously.",
+                "description": "Delete a gateway http port by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4499,7 +4499,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a gateway instance by ID from the database.\nBlocking: attached object references pointing at this gateway instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a gateway instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the gateway instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a gateway instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4798,7 +4798,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a gateway tcp port by ID from the database.\nBlocking: attached object references pointing at this gateway tcp port with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a gateway tcp port also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the gateway tcp port row and any cascading children have been removed synchronously.",
+                "description": "Delete a gateway tcp port by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5097,7 +5097,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a gcp gke kubernetes runtime definition by ID from the database.\nBlocking: attached object references pointing at this gcp gke kubernetes runtime definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a gcp gke kubernetes runtime definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the gcp gke kubernetes runtime definition row and any cascading children have been removed synchronously.",
+                "description": "Delete a gcp gke kubernetes runtime definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5396,7 +5396,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a gcp gke kubernetes runtime instance by ID from the database.\nBlocking: attached object references pointing at this gcp gke kubernetes runtime instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a gcp gke kubernetes runtime instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the gcp gke kubernetes runtime instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a gcp gke kubernetes runtime instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5695,7 +5695,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a gcp provider by ID from the database.\nBlocking: attached object references pointing at this gcp provider with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a gcp provider also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the gcp provider row and any cascading children have been removed synchronously.",
+                "description": "Delete a gcp provider by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5994,7 +5994,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a helm workload definition by ID from the database.\nBlocking: attached object references pointing at this helm workload definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a helm workload definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the helm workload definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a helm workload definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6293,7 +6293,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a helm workload instance by ID from the database.\nBlocking: attached object references pointing at this helm workload instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a helm workload instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the helm workload instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a helm workload instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6592,7 +6592,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a kubernetes runtime definition by ID from the database.\nBlocking: attached object references pointing at this kubernetes runtime definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a kubernetes runtime definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the kubernetes runtime definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a kubernetes runtime definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6891,7 +6891,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a kubernetes runtime instance by ID from the database.\nBlocking: attached object references pointing at this kubernetes runtime instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a kubernetes runtime instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the kubernetes runtime instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a kubernetes runtime instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7190,7 +7190,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a kubernetes workload definition by ID from the database.\nBlocking: attached object references pointing at this kubernetes workload definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a kubernetes workload definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the kubernetes workload definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a kubernetes workload definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7489,7 +7489,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a kubernetes workload instance by ID from the database.\nBlocking: attached object references pointing at this kubernetes workload instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a kubernetes workload instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the kubernetes workload instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a kubernetes workload instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7835,7 +7835,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a kubernetes workload resource definition by ID from the database.\nBlocking: attached object references pointing at this kubernetes workload resource definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a kubernetes workload resource definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the kubernetes workload resource definition row and any cascading children have been removed synchronously.",
+                "description": "Delete a kubernetes workload resource definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8134,7 +8134,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a kubernetes workload resource instance by ID from the database.\nBlocking: attached object references pointing at this kubernetes workload resource instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a kubernetes workload resource instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the kubernetes workload resource instance row and any cascading children have been removed synchronously.",
+                "description": "Delete a kubernetes workload resource instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8433,7 +8433,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a log backend by ID from the database.\nBlocking: attached object references pointing at this log backend with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a log backend also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the log backend row and any cascading children have been removed synchronously.",
+                "description": "Delete a log backend by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8732,7 +8732,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a log storage definition by ID from the database.\nBlocking: attached object references pointing at this log storage definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a log storage definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the log storage definition row and any cascading children have been removed synchronously.",
+                "description": "Delete a log storage definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -9031,7 +9031,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a log storage instance by ID from the database.\nBlocking: attached object references pointing at this log storage instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a log storage instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the log storage instance row and any cascading children have been removed synchronously.",
+                "description": "Delete a log storage instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -9330,7 +9330,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a logging definition by ID from the database.\nBlocking: attached object references pointing at this logging definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a logging definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the logging definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a logging definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -9629,7 +9629,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a logging instance by ID from the database.\nBlocking: attached object references pointing at this logging instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a logging instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the logging instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a logging instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -9928,7 +9928,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a machine runtime definition by ID from the database.\nBlocking: attached object references pointing at this machine runtime definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a machine runtime definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the machine runtime definition row and any cascading children have been removed synchronously.",
+                "description": "Delete a machine runtime definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -10227,7 +10227,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a machine runtime instance by ID from the database.\nBlocking: attached object references pointing at this machine runtime instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a machine runtime instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the machine runtime instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a machine runtime instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -10526,7 +10526,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a machine workload definition by ID from the database.\nBlocking: attached object references pointing at this machine workload definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a machine workload definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the machine workload definition row and any cascading children have been removed synchronously.",
+                "description": "Delete a machine workload definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -10825,7 +10825,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a machine workload instance by ID from the database.\nBlocking: attached object references pointing at this machine workload instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a machine workload instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the machine workload instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a machine workload instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -11124,7 +11124,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a metrics definition by ID from the database.\nBlocking: attached object references pointing at this metrics definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a metrics definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the metrics definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a metrics definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -11423,7 +11423,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a metrics instance by ID from the database.\nBlocking: attached object references pointing at this metrics instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a metrics instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the metrics instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a metrics instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -11766,7 +11766,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a module api route by ID from the database.\nBlocking: attached object references pointing at this module api route with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a module api route also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the module api route row and any cascading children have been removed synchronously.",
+                "description": "Delete a module api route by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -12065,7 +12065,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a module api by ID from the database.\nBlocking: attached object references pointing at this module api with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a module api also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the module api row and any cascading children have been removed synchronously.",
+                "description": "Delete a module api by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -12364,7 +12364,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a module controller by ID from the database.\nBlocking: attached object references pointing at this module controller with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a module controller also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the module controller row and any cascading children have been removed synchronously.",
+                "description": "Delete a module controller by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -12746,7 +12746,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a module object by ID from the database.\nBlocking: attached object references pointing at this module object with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a module object also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the module object row and any cascading children have been removed synchronously.",
+                "description": "Delete a module object by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -13045,7 +13045,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a observability dashboard definition by ID from the database.\nBlocking: attached object references pointing at this observability dashboard definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a observability dashboard definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the observability dashboard definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a observability dashboard definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -13344,7 +13344,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a observability dashboard instance by ID from the database.\nBlocking: attached object references pointing at this observability dashboard instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a observability dashboard instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the observability dashboard instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a observability dashboard instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -13643,7 +13643,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a observability stack definition by ID from the database.\nBlocking: attached object references pointing at this observability stack definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a observability stack definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the observability stack definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a observability stack definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -13942,7 +13942,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a observability stack instance by ID from the database.\nBlocking: attached object references pointing at this observability stack instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a observability stack instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the observability stack instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a observability stack instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -14241,7 +14241,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a oci oke kubernetes runtime definition by ID from the database.\nBlocking: attached object references pointing at this oci oke kubernetes runtime definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a oci oke kubernetes runtime definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the oci oke kubernetes runtime definition row and any cascading children have been removed synchronously.",
+                "description": "Delete a oci oke kubernetes runtime definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -14540,7 +14540,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a oci oke kubernetes runtime instance by ID from the database.\nBlocking: attached object references pointing at this oci oke kubernetes runtime instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a oci oke kubernetes runtime instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the oci oke kubernetes runtime instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a oci oke kubernetes runtime instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -14839,7 +14839,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a oci provider by ID from the database.\nBlocking: attached object references pointing at this oci provider with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a oci provider also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the oci provider row and any cascading children have been removed synchronously.",
+                "description": "Delete a oci provider by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -15138,7 +15138,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a profile by ID from the database.\nBlocking: attached object references pointing at this profile with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a profile also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the profile row and any cascading children have been removed synchronously.",
+                "description": "Delete a profile by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -15437,7 +15437,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a secret definition by ID from the database.\nBlocking: attached object references pointing at this secret definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a secret definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the secret definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a secret definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -15736,7 +15736,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a secret instance by ID from the database.\nBlocking: attached object references pointing at this secret instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a secret instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the secret instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a secret instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -16035,7 +16035,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a terraform definition by ID from the database.\nBlocking: attached object references pointing at this terraform definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a terraform definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the terraform definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a terraform definition by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -16334,7 +16334,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a terraform instance by ID from the database.\nBlocking: attached object references pointing at this terraform instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a terraform instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nReconciled type: this endpoint returns after the deletion marker is written; the terraform instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.",
+                "description": "Delete a terraform instance by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -16633,7 +16633,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a tier by ID from the database.\nBlocking: attached object references pointing at this tier with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.\nCascade: deleting a tier also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.\nNon-reconciled type: this endpoint returns after the tier row and any cascading children have been removed synchronously.",
+                "description": "Delete a tier by ID from the database.",
                 "consumes": [
                     "application/json"
                 ],
@@ -16788,7 +16788,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "Relationship": {
-                    "description": "Relationship classifies this reference and drives lifecycle behavior\nvia gorm hooks and generated code that reveals information about a\ntype's foreign keys:\n  - \"describes\": informational; does not block delete or update of the base.\n  - \"requires\": blocks any caller from deleting the base while this\n    reference exists, control plane callers included.\n  - \"owns\": blocks both delete and update of the base, except for a\n    caller whose mTLS certificate carries the control plane\n    organizational unit. That exemption covers every control plane\n    component, not only the controller registered for the attached\n    object's type.\n    An owned base has at most one owner (enforced by the partial\n    index idx_attached_object_reference_owns_base above); an owner may own many bases.\n  - \"marries\": enforces 1-to-1 cardinality between base and attacher\n    via the partial indexes above; blocks both delete and update of\n    the base under the same control plane exemption as \"owns\".",
+                    "description": "Relationship classifies this reference:\n  - \"describes\": informational; does not block delete or update of the base.\n  - \"requires\": blocks any caller from deleting the base while this\n    reference exists, control plane callers included.\n  - \"owns\": blocks both delete and update of the base, except for a\n    caller whose mTLS certificate carries the control plane\n    organizational unit. That exemption covers every control plane\n    component, not only the controller registered for the attached\n    object's type.\n    An owned base has at most one owner; an owner may own many bases.\n  - \"marries\": enforces 1-to-1 cardinality between base and attacher\n    and blocks both delete and update of the base under the same\n    control plane exemption as \"owns\".",
                     "allOf": [
                         {
                             "$ref": "#/definitions/v0.Relationship"
@@ -19685,7 +19685,7 @@ const docTemplate = `{
                     ]
                 },
                 "Type": {
-                    "description": "Type names the kind of the returned Data elements, qualified as\n\u003capi-namespace\u003e/\u003cversion\u003e.\u003cTypeName\u003e so a client reads the object's\nidentity off the body rather than deriving it from the request URL.",
+                    "description": "Type is \u003capi-namespace\u003e/\u003cversion\u003e.\u003cTypeName\u003e, set even when Data is empty.",
                     "type": "string",
                     "example": "threeport.io/v0.KubernetesWorkloadInstance"
                 }

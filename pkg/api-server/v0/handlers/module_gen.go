@@ -429,9 +429,6 @@ func (h Handler) ReplaceModuleApi(c echo.Context) error {
 
 // @Summary deletes a module api.
 // @Description Delete a module api by ID from the database.
-// @Description Blocking: attached object references pointing at this module api with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a module api also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Non-reconciled type: this endpoint returns after the module api row and any cascading children have been removed synchronously.
 // @ID delete-v0-moduleApi
 // @Accept json
 // @Produce json
@@ -906,9 +903,6 @@ func (h Handler) ReplaceModuleApiRoute(c echo.Context) error {
 
 // @Summary deletes a module api route.
 // @Description Delete a module api route by ID from the database.
-// @Description Blocking: attached object references pointing at this module api route with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a module api route also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Non-reconciled type: this endpoint returns after the module api route row and any cascading children have been removed synchronously.
 // @ID delete-v0-moduleApiRoute
 // @Accept json
 // @Produce json
@@ -1383,9 +1377,6 @@ func (h Handler) ReplaceModuleController(c echo.Context) error {
 
 // @Summary deletes a module controller.
 // @Description Delete a module controller by ID from the database.
-// @Description Blocking: attached object references pointing at this module controller with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a module controller also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Non-reconciled type: this endpoint returns after the module controller row and any cascading children have been removed synchronously.
 // @ID delete-v0-moduleController
 // @Accept json
 // @Produce json
@@ -1860,9 +1851,6 @@ func (h Handler) ReplaceModuleObject(c echo.Context) error {
 
 // @Summary deletes a module object.
 // @Description Delete a module object by ID from the database.
-// @Description Blocking: attached object references pointing at this module object with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a module object also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Non-reconciled type: this endpoint returns after the module object row and any cascading children have been removed synchronously.
 // @ID delete-v0-moduleObject
 // @Accept json
 // @Produce json

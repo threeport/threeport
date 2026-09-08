@@ -433,9 +433,6 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeDefinition(c echo.Context) error 
 
 // @Summary deletes a oci oke kubernetes runtime definition.
 // @Description Delete a oci oke kubernetes runtime definition by ID from the database.
-// @Description Blocking: attached object references pointing at this oci oke kubernetes runtime definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a oci oke kubernetes runtime definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Non-reconciled type: this endpoint returns after the oci oke kubernetes runtime definition row and any cascading children have been removed synchronously.
 // @ID delete-v0-ociOkeKubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
@@ -826,7 +823,8 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if reconciliation is required and the update is notifiable
-	if existingOciOkeKubernetesRuntimeInstance.Reconciled != nil && !*existingOciOkeKubernetesRuntimeInstance.Reconciled && api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingOciOkeKubernetesRuntimeInstance.Reconciliation) {
+	if existingOciOkeKubernetesRuntimeInstance.Reconciled != nil && !*existingOciOkeKubernetesRuntimeInstance.Reconciled &&
+		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingOciOkeKubernetesRuntimeInstance.Reconciliation) {
 		notifPayload, err := existingOciOkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -938,7 +936,8 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if reconciliation is required and the update is notifiable
-	if existingOciOkeKubernetesRuntimeInstance.Reconciled != nil && !*existingOciOkeKubernetesRuntimeInstance.Reconciled && api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingOciOkeKubernetesRuntimeInstance.Reconciliation) {
+	if existingOciOkeKubernetesRuntimeInstance.Reconciled != nil && !*existingOciOkeKubernetesRuntimeInstance.Reconciled &&
+		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingOciOkeKubernetesRuntimeInstance.Reconciliation) {
 		notifPayload, err := existingOciOkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -966,9 +965,6 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 
 // @Summary deletes a oci oke kubernetes runtime instance.
 // @Description Delete a oci oke kubernetes runtime instance by ID from the database.
-// @Description Blocking: attached object references pointing at this oci oke kubernetes runtime instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a oci oke kubernetes runtime instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Reconciled type: this endpoint returns after the deletion marker is written; the oci oke kubernetes runtime instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
 // @ID delete-v0-ociOkeKubernetesRuntimeInstance
 // @Accept json
 // @Produce json
@@ -1496,9 +1492,6 @@ func (h Handler) ReplaceOciProvider(c echo.Context) error {
 
 // @Summary deletes a oci provider.
 // @Description Delete a oci provider by ID from the database.
-// @Description Blocking: attached object references pointing at this oci provider with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a oci provider also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Non-reconciled type: this endpoint returns after the oci provider row and any cascading children have been removed synchronously.
 // @ID delete-v0-ociProvider
 // @Accept json
 // @Produce json

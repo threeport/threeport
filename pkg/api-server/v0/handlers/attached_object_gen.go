@@ -429,9 +429,6 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 
 // @Summary deletes a attached object reference.
 // @Description Delete a attached object reference by ID from the database.
-// @Description Blocking: attached object references pointing at this attached object reference with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a attached object reference also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Non-reconciled type: this endpoint returns after the attached object reference row and any cascading children have been removed synchronously.
 // @ID delete-v0-attachedObjectReference
 // @Accept json
 // @Produce json

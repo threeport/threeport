@@ -43,9 +43,7 @@ definitions:
         allOf:
         - $ref: '#/definitions/v0.Relationship'
         description: |-
-          Relationship classifies this reference and drives lifecycle behavior
-          via gorm hooks and generated code that reveals information about a
-          type's foreign keys:
+          Relationship classifies this reference:
             - "describes": informational; does not block delete or update of the base.
             - "requires": blocks any caller from deleting the base while this
               reference exists, control plane callers included.
@@ -54,11 +52,10 @@ definitions:
               organizational unit. That exemption covers every control plane
               component, not only the controller registered for the attached
               object's type.
-              An owned base has at most one owner (enforced by the partial
-              index idx_attached_object_reference_owns_base above); an owner may own many bases.
+              An owned base has at most one owner; an owner may own many bases.
             - "marries": enforces 1-to-1 cardinality between base and attacher
-              via the partial indexes above; blocks both delete and update of
-              the base under the same control plane exemption as "owns".
+              and blocks both delete and update of the base under the same
+              control plane exemption as "owns".
     required:
     - AttachedObjectID
     - AttachedObjectType
@@ -2831,10 +2828,8 @@ definitions:
         - $ref: '#/definitions/v0.Status'
         description: Status represents an error that occurred while handling a request.
       Type:
-        description: |-
-          Type names the kind of the returned Data elements, qualified as
-          <api-namespace>/<version>.<TypeName> so a client reads the object's
-          identity off the body rather than deriving it from the request URL.
+        description: Type is <api-namespace>/<version>.<TypeName>, set even when Data
+          is empty.
         example: threeport.io/v0.KubernetesWorkloadInstance
         type: string
     type: object
@@ -3892,11 +3887,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a attached object reference by ID from the database.
-        Blocking: attached object references pointing at this attached object reference with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a attached object reference also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the attached object reference row and any cascading children have been removed synchronously.
+      description: Delete a attached object reference by ID from the database.
       operationId: delete-v0-attachedObjectReference
       parameters:
       - description: ID
@@ -4110,11 +4101,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a aws eks kubernetes runtime definition by ID from the database.
-        Blocking: attached object references pointing at this aws eks kubernetes runtime definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a aws eks kubernetes runtime definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the aws eks kubernetes runtime definition row and any cascading children have been removed synchronously.
+      description: Delete a aws eks kubernetes runtime definition by ID from the database.
       operationId: delete-v0-awsEksKubernetesRuntimeDefinition
       parameters:
       - description: ID
@@ -4330,11 +4317,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a aws eks kubernetes runtime instance by ID from the database.
-        Blocking: attached object references pointing at this aws eks kubernetes runtime instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a aws eks kubernetes runtime instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the aws eks kubernetes runtime instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a aws eks kubernetes runtime instance by ID from the database.
       operationId: delete-v0-awsEksKubernetesRuntimeInstance
       parameters:
       - description: ID
@@ -4547,11 +4530,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a aws provider by ID from the database.
-        Blocking: attached object references pointing at this aws provider with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a aws provider also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the aws provider row and any cascading children have been removed synchronously.
+      description: Delete a aws provider by ID from the database.
       operationId: delete-v0-awsProvider
       parameters:
       - description: ID
@@ -4762,11 +4741,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a control plane definition by ID from the database.
-        Blocking: attached object references pointing at this control plane definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a control plane definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the control plane definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a control plane definition by ID from the database.
       operationId: delete-v0-controlPlaneDefinition
       parameters:
       - description: ID
@@ -4978,11 +4953,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a control plane instance by ID from the database.
-        Blocking: attached object references pointing at this control plane instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a control plane instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the control plane instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a control plane instance by ID from the database.
       operationId: delete-v0-controlPlaneInstance
       parameters:
       - description: ID
@@ -5194,11 +5165,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a domain name definition by ID from the database.
-        Blocking: attached object references pointing at this domain name definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a domain name definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the domain name definition row and any cascading children have been removed synchronously.
+      description: Delete a domain name definition by ID from the database.
       operationId: delete-v0-domainNameDefinition
       parameters:
       - description: ID
@@ -5410,11 +5377,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a domain name instance by ID from the database.
-        Blocking: attached object references pointing at this domain name instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a domain name instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the domain name instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a domain name instance by ID from the database.
       operationId: delete-v0-domainNameInstance
       parameters:
       - description: ID
@@ -5670,11 +5633,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a event by ID from the database.
-        Blocking: attached object references pointing at this event with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a event also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the event row and any cascading children have been removed synchronously.
+      description: Delete a event by ID from the database.
       operationId: delete-v0-event
       parameters:
       - description: ID
@@ -5885,11 +5844,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a gateway definition by ID from the database.
-        Blocking: attached object references pointing at this gateway definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a gateway definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the gateway definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a gateway definition by ID from the database.
       operationId: delete-v0-gatewayDefinition
       parameters:
       - description: ID
@@ -6100,11 +6055,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a gateway http port by ID from the database.
-        Blocking: attached object references pointing at this gateway http port with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a gateway http port also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the gateway http port row and any cascading children have been removed synchronously.
+      description: Delete a gateway http port by ID from the database.
       operationId: delete-v0-gatewayHttpPort
       parameters:
       - description: ID
@@ -6315,11 +6266,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a gateway instance by ID from the database.
-        Blocking: attached object references pointing at this gateway instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a gateway instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the gateway instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a gateway instance by ID from the database.
       operationId: delete-v0-gatewayInstance
       parameters:
       - description: ID
@@ -6530,11 +6477,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a gateway tcp port by ID from the database.
-        Blocking: attached object references pointing at this gateway tcp port with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a gateway tcp port also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the gateway tcp port row and any cascading children have been removed synchronously.
+      description: Delete a gateway tcp port by ID from the database.
       operationId: delete-v0-gatewayTcpPort
       parameters:
       - description: ID
@@ -6747,11 +6690,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a gcp gke kubernetes runtime definition by ID from the database.
-        Blocking: attached object references pointing at this gcp gke kubernetes runtime definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a gcp gke kubernetes runtime definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the gcp gke kubernetes runtime definition row and any cascading children have been removed synchronously.
+      description: Delete a gcp gke kubernetes runtime definition by ID from the database.
       operationId: delete-v0-gcpGkeKubernetesRuntimeDefinition
       parameters:
       - description: ID
@@ -6967,11 +6906,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a gcp gke kubernetes runtime instance by ID from the database.
-        Blocking: attached object references pointing at this gcp gke kubernetes runtime instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a gcp gke kubernetes runtime instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the gcp gke kubernetes runtime instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a gcp gke kubernetes runtime instance by ID from the database.
       operationId: delete-v0-gcpGkeKubernetesRuntimeInstance
       parameters:
       - description: ID
@@ -7184,11 +7119,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a gcp provider by ID from the database.
-        Blocking: attached object references pointing at this gcp provider with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a gcp provider also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the gcp provider row and any cascading children have been removed synchronously.
+      description: Delete a gcp provider by ID from the database.
       operationId: delete-v0-gcpProvider
       parameters:
       - description: ID
@@ -7399,11 +7330,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a helm workload definition by ID from the database.
-        Blocking: attached object references pointing at this helm workload definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a helm workload definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the helm workload definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a helm workload definition by ID from the database.
       operationId: delete-v0-helmWorkloadDefinition
       parameters:
       - description: ID
@@ -7615,11 +7542,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a helm workload instance by ID from the database.
-        Blocking: attached object references pointing at this helm workload instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a helm workload instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the helm workload instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a helm workload instance by ID from the database.
       operationId: delete-v0-helmWorkloadInstance
       parameters:
       - description: ID
@@ -7831,11 +7754,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a kubernetes runtime definition by ID from the database.
-        Blocking: attached object references pointing at this kubernetes runtime definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a kubernetes runtime definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the kubernetes runtime definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a kubernetes runtime definition by ID from the database.
       operationId: delete-v0-kubernetesRuntimeDefinition
       parameters:
       - description: ID
@@ -8047,11 +7966,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a kubernetes runtime instance by ID from the database.
-        Blocking: attached object references pointing at this kubernetes runtime instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a kubernetes runtime instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the kubernetes runtime instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a kubernetes runtime instance by ID from the database.
       operationId: delete-v0-kubernetesRuntimeInstance
       parameters:
       - description: ID
@@ -8263,11 +8178,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a kubernetes workload definition by ID from the database.
-        Blocking: attached object references pointing at this kubernetes workload definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a kubernetes workload definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the kubernetes workload definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a kubernetes workload definition by ID from the database.
       operationId: delete-v0-kubernetesWorkloadDefinition
       parameters:
       - description: ID
@@ -8479,11 +8390,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a kubernetes workload instance by ID from the database.
-        Blocking: attached object references pointing at this kubernetes workload instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a kubernetes workload instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the kubernetes workload instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a kubernetes workload instance by ID from the database.
       operationId: delete-v0-kubernetesWorkloadInstance
       parameters:
       - description: ID
@@ -8729,11 +8636,8 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a kubernetes workload resource definition by ID from the database.
-        Blocking: attached object references pointing at this kubernetes workload resource definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a kubernetes workload resource definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the kubernetes workload resource definition row and any cascading children have been removed synchronously.
+      description: Delete a kubernetes workload resource definition by ID from the
+        database.
       operationId: delete-v0-kubernetesWorkloadResourceDefinition
       parameters:
       - description: ID
@@ -8949,11 +8853,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a kubernetes workload resource instance by ID from the database.
-        Blocking: attached object references pointing at this kubernetes workload resource instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a kubernetes workload resource instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the kubernetes workload resource instance row and any cascading children have been removed synchronously.
+      description: Delete a kubernetes workload resource instance by ID from the database.
       operationId: delete-v0-kubernetesWorkloadResourceInstance
       parameters:
       - description: ID
@@ -9167,11 +9067,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a log backend by ID from the database.
-        Blocking: attached object references pointing at this log backend with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a log backend also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the log backend row and any cascading children have been removed synchronously.
+      description: Delete a log backend by ID from the database.
       operationId: delete-v0-logBackend
       parameters:
       - description: ID
@@ -9382,11 +9278,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a log storage definition by ID from the database.
-        Blocking: attached object references pointing at this log storage definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a log storage definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the log storage definition row and any cascading children have been removed synchronously.
+      description: Delete a log storage definition by ID from the database.
       operationId: delete-v0-logStorageDefinition
       parameters:
       - description: ID
@@ -9598,11 +9490,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a log storage instance by ID from the database.
-        Blocking: attached object references pointing at this log storage instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a log storage instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the log storage instance row and any cascading children have been removed synchronously.
+      description: Delete a log storage instance by ID from the database.
       operationId: delete-v0-logStorageInstance
       parameters:
       - description: ID
@@ -9813,11 +9701,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a logging definition by ID from the database.
-        Blocking: attached object references pointing at this logging definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a logging definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the logging definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a logging definition by ID from the database.
       operationId: delete-v0-loggingDefinition
       parameters:
       - description: ID
@@ -10028,11 +9912,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a logging instance by ID from the database.
-        Blocking: attached object references pointing at this logging instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a logging instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the logging instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a logging instance by ID from the database.
       operationId: delete-v0-loggingInstance
       parameters:
       - description: ID
@@ -10243,11 +10123,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a machine runtime definition by ID from the database.
-        Blocking: attached object references pointing at this machine runtime definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a machine runtime definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the machine runtime definition row and any cascading children have been removed synchronously.
+      description: Delete a machine runtime definition by ID from the database.
       operationId: delete-v0-machineRuntimeDefinition
       parameters:
       - description: ID
@@ -10459,11 +10335,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a machine runtime instance by ID from the database.
-        Blocking: attached object references pointing at this machine runtime instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a machine runtime instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the machine runtime instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a machine runtime instance by ID from the database.
       operationId: delete-v0-machineRuntimeInstance
       parameters:
       - description: ID
@@ -10675,11 +10547,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a machine workload definition by ID from the database.
-        Blocking: attached object references pointing at this machine workload definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a machine workload definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the machine workload definition row and any cascading children have been removed synchronously.
+      description: Delete a machine workload definition by ID from the database.
       operationId: delete-v0-machineWorkloadDefinition
       parameters:
       - description: ID
@@ -10891,11 +10759,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a machine workload instance by ID from the database.
-        Blocking: attached object references pointing at this machine workload instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a machine workload instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the machine workload instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a machine workload instance by ID from the database.
       operationId: delete-v0-machineWorkloadInstance
       parameters:
       - description: ID
@@ -11107,11 +10971,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a metrics definition by ID from the database.
-        Blocking: attached object references pointing at this metrics definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a metrics definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the metrics definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a metrics definition by ID from the database.
       operationId: delete-v0-metricsDefinition
       parameters:
       - description: ID
@@ -11322,11 +11182,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a metrics instance by ID from the database.
-        Blocking: attached object references pointing at this metrics instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a metrics instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the metrics instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a metrics instance by ID from the database.
       operationId: delete-v0-metricsInstance
       parameters:
       - description: ID
@@ -11570,11 +11426,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a module api route by ID from the database.
-        Blocking: attached object references pointing at this module api route with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a module api route also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the module api route row and any cascading children have been removed synchronously.
+      description: Delete a module api route by ID from the database.
       operationId: delete-v0-moduleApiRoute
       parameters:
       - description: ID
@@ -11785,11 +11637,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a module api by ID from the database.
-        Blocking: attached object references pointing at this module api with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a module api also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the module api row and any cascading children have been removed synchronously.
+      description: Delete a module api by ID from the database.
       operationId: delete-v0-moduleApi
       parameters:
       - description: ID
@@ -12000,11 +11848,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a module controller by ID from the database.
-        Blocking: attached object references pointing at this module controller with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a module controller also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the module controller row and any cascading children have been removed synchronously.
+      description: Delete a module controller by ID from the database.
       operationId: delete-v0-moduleController
       parameters:
       - description: ID
@@ -12272,11 +12116,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a module object by ID from the database.
-        Blocking: attached object references pointing at this module object with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a module object also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the module object row and any cascading children have been removed synchronously.
+      description: Delete a module object by ID from the database.
       operationId: delete-v0-moduleObject
       parameters:
       - description: ID
@@ -12488,11 +12328,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a observability dashboard definition by ID from the database.
-        Blocking: attached object references pointing at this observability dashboard definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a observability dashboard definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the observability dashboard definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a observability dashboard definition by ID from the database.
       operationId: delete-v0-observabilityDashboardDefinition
       parameters:
       - description: ID
@@ -12704,11 +12540,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a observability dashboard instance by ID from the database.
-        Blocking: attached object references pointing at this observability dashboard instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a observability dashboard instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the observability dashboard instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a observability dashboard instance by ID from the database.
       operationId: delete-v0-observabilityDashboardInstance
       parameters:
       - description: ID
@@ -12920,11 +12752,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a observability stack definition by ID from the database.
-        Blocking: attached object references pointing at this observability stack definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a observability stack definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the observability stack definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a observability stack definition by ID from the database.
       operationId: delete-v0-observabilityStackDefinition
       parameters:
       - description: ID
@@ -13136,11 +12964,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a observability stack instance by ID from the database.
-        Blocking: attached object references pointing at this observability stack instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a observability stack instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the observability stack instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a observability stack instance by ID from the database.
       operationId: delete-v0-observabilityStackInstance
       parameters:
       - description: ID
@@ -13354,11 +13178,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a oci oke kubernetes runtime definition by ID from the database.
-        Blocking: attached object references pointing at this oci oke kubernetes runtime definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a oci oke kubernetes runtime definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the oci oke kubernetes runtime definition row and any cascading children have been removed synchronously.
+      description: Delete a oci oke kubernetes runtime definition by ID from the database.
       operationId: delete-v0-ociOkeKubernetesRuntimeDefinition
       parameters:
       - description: ID
@@ -13574,11 +13394,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a oci oke kubernetes runtime instance by ID from the database.
-        Blocking: attached object references pointing at this oci oke kubernetes runtime instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a oci oke kubernetes runtime instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the oci oke kubernetes runtime instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a oci oke kubernetes runtime instance by ID from the database.
       operationId: delete-v0-ociOkeKubernetesRuntimeInstance
       parameters:
       - description: ID
@@ -13791,11 +13607,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a oci provider by ID from the database.
-        Blocking: attached object references pointing at this oci provider with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a oci provider also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the oci provider row and any cascading children have been removed synchronously.
+      description: Delete a oci provider by ID from the database.
       operationId: delete-v0-ociProvider
       parameters:
       - description: ID
@@ -14006,11 +13818,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a profile by ID from the database.
-        Blocking: attached object references pointing at this profile with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a profile also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the profile row and any cascading children have been removed synchronously.
+      description: Delete a profile by ID from the database.
       operationId: delete-v0-profile
       parameters:
       - description: ID
@@ -14221,11 +14029,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a secret definition by ID from the database.
-        Blocking: attached object references pointing at this secret definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a secret definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the secret definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a secret definition by ID from the database.
       operationId: delete-v0-secretDefinition
       parameters:
       - description: ID
@@ -14436,11 +14240,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a secret instance by ID from the database.
-        Blocking: attached object references pointing at this secret instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a secret instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the secret instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a secret instance by ID from the database.
       operationId: delete-v0-secretInstance
       parameters:
       - description: ID
@@ -14651,11 +14451,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a terraform definition by ID from the database.
-        Blocking: attached object references pointing at this terraform definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a terraform definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the terraform definition reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a terraform definition by ID from the database.
       operationId: delete-v0-terraformDefinition
       parameters:
       - description: ID
@@ -14866,11 +14662,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a terraform instance by ID from the database.
-        Blocking: attached object references pointing at this terraform instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a terraform instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Reconciled type: this endpoint returns after the deletion marker is written; the terraform instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
+      description: Delete a terraform instance by ID from the database.
       operationId: delete-v0-terraformInstance
       parameters:
       - description: ID
@@ -15081,11 +14873,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: |-
-        Delete a tier by ID from the database.
-        Blocking: attached object references pointing at this tier with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-        Cascade: deleting a tier also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-        Non-reconciled type: this endpoint returns after the tier row and any cascading children have been removed synchronously.
+      description: Delete a tier by ID from the database.
       operationId: delete-v0-tier
       parameters:
       - description: ID

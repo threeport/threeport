@@ -433,9 +433,6 @@ func (h Handler) ReplaceGcpGkeKubernetesRuntimeDefinition(c echo.Context) error 
 
 // @Summary deletes a gcp gke kubernetes runtime definition.
 // @Description Delete a gcp gke kubernetes runtime definition by ID from the database.
-// @Description Blocking: attached object references pointing at this gcp gke kubernetes runtime definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a gcp gke kubernetes runtime definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Non-reconciled type: this endpoint returns after the gcp gke kubernetes runtime definition row and any cascading children have been removed synchronously.
 // @ID delete-v0-gcpGkeKubernetesRuntimeDefinition
 // @Accept json
 // @Produce json
@@ -826,7 +823,8 @@ func (h Handler) UpdateGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if reconciliation is required and the update is notifiable
-	if existingGcpGkeKubernetesRuntimeInstance.Reconciled != nil && !*existingGcpGkeKubernetesRuntimeInstance.Reconciled && api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingGcpGkeKubernetesRuntimeInstance.Reconciliation) {
+	if existingGcpGkeKubernetesRuntimeInstance.Reconciled != nil && !*existingGcpGkeKubernetesRuntimeInstance.Reconciled &&
+		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingGcpGkeKubernetesRuntimeInstance.Reconciliation) {
 		notifPayload, err := existingGcpGkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -938,7 +936,8 @@ func (h Handler) ReplaceGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 	}
 
 	// notify controller if reconciliation is required and the update is notifiable
-	if existingGcpGkeKubernetesRuntimeInstance.Reconciled != nil && !*existingGcpGkeKubernetesRuntimeInstance.Reconciled && api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingGcpGkeKubernetesRuntimeInstance.Reconciliation) {
+	if existingGcpGkeKubernetesRuntimeInstance.Reconciled != nil && !*existingGcpGkeKubernetesRuntimeInstance.Reconciled &&
+		api_v0.ReconciliationUpdateNotifiable(prevReconciliation, existingGcpGkeKubernetesRuntimeInstance.Reconciliation) {
 		notifPayload, err := existingGcpGkeKubernetesRuntimeInstance.NotificationPayload(
 			notifications.NotificationOperationUpdated,
 			false,
@@ -966,9 +965,6 @@ func (h Handler) ReplaceGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 
 // @Summary deletes a gcp gke kubernetes runtime instance.
 // @Description Delete a gcp gke kubernetes runtime instance by ID from the database.
-// @Description Blocking: attached object references pointing at this gcp gke kubernetes runtime instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a gcp gke kubernetes runtime instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Reconciled type: this endpoint returns after the deletion marker is written; the gcp gke kubernetes runtime instance reconciler performs cascade cleanup asynchronously and finalizes the row when children are removed.
 // @ID delete-v0-gcpGkeKubernetesRuntimeInstance
 // @Accept json
 // @Produce json
@@ -1496,9 +1492,6 @@ func (h Handler) ReplaceGcpProvider(c echo.Context) error {
 
 // @Summary deletes a gcp provider.
 // @Description Delete a gcp provider by ID from the database.
-// @Description Blocking: attached object references pointing at this gcp provider with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a gcp provider also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Non-reconciled type: this endpoint returns after the gcp provider row and any cascading children have been removed synchronously.
 // @ID delete-v0-gcpProvider
 // @Accept json
 // @Produce json

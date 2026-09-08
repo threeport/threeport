@@ -429,9 +429,6 @@ func (h Handler) ReplaceLogBackend(c echo.Context) error {
 
 // @Summary deletes a log backend.
 // @Description Delete a log backend by ID from the database.
-// @Description Blocking: attached object references pointing at this log backend with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a log backend also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Non-reconciled type: this endpoint returns after the log backend row and any cascading children have been removed synchronously.
 // @ID delete-v0-logBackend
 // @Accept json
 // @Produce json
@@ -906,9 +903,6 @@ func (h Handler) ReplaceLogStorageDefinition(c echo.Context) error {
 
 // @Summary deletes a log storage definition.
 // @Description Delete a log storage definition by ID from the database.
-// @Description Blocking: attached object references pointing at this log storage definition with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a log storage definition also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Non-reconciled type: this endpoint returns after the log storage definition row and any cascading children have been removed synchronously.
 // @ID delete-v0-logStorageDefinition
 // @Accept json
 // @Produce json
@@ -1389,9 +1383,6 @@ func (h Handler) ReplaceLogStorageInstance(c echo.Context) error {
 
 // @Summary deletes a log storage instance.
 // @Description Delete a log storage instance by ID from the database.
-// @Description Blocking: attached object references pointing at this log storage instance with relationship:requires always block the delete and return 409 listing them. References with relationship:owns or relationship:marries block the same way unless the caller is a control plane component. References with relationship:describes never block.
-// @Description Cascade: deleting a log storage instance also removes the attached object reference rows it holds as the attacher, in the same transaction. The objects those references point at are not deleted.
-// @Description Non-reconciled type: this endpoint returns after the log storage instance row and any cascading children have been removed synchronously.
 // @ID delete-v0-logStorageInstance
 // @Accept json
 // @Produce json
