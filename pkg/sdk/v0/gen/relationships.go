@@ -12,9 +12,14 @@ import (
 	"strings"
 )
 
-// The generated migration calls CreateTable once per model, so table order
-// is the order of names we emit. A foreign key must point at a table that
-// already exists.
+// The generated initial migration calls CreateTable once per model in the
+// order of names it is given. CREATE TABLE with a foreign key fails unless
+// the referenced table already exists, so those names have to go out
+// referenced-first. The generator cannot import the model packages to
+// reflect on them: it runs against whichever tree is being generated, and
+// a module's types are not a compile-time dependency of this package.
+// Foreign keys are read from the model source, a cycle is rejected at
+// generate time, and the names are sorted referenced-first.
 
 // ValidateRelationshipCycles reports one cycle in the foreign-key graph.
 // A self-reference is not a cycle: gorm puts that constraint on the table's

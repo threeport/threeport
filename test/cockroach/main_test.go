@@ -34,22 +34,27 @@ var testPort string
 
 // TestMain starts one CockroachDB container for the package.
 func TestMain(m *testing.M) {
+	// skip when docker is not on PATH
 	if _, err := exec.LookPath("docker"); err != nil {
 		fmt.Println("docker not available; skipping the database tests")
 		os.Exit(0)
 	}
 
+	// start one container for the package
 	container, port, err := startCockroach()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to start cockroachdb: %v\n", err)
 		os.Exit(1)
 	}
+
+	// os.Exit skips defers; every exit path below removes the container itself
 	defer func() {
 		if err := exec.Command("docker", "rm", "--force", container).Run(); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to remove the cockroachdb container: %v\n", err)
 		}
 	}()
 
+	// publish the host port and build the shared schema
 	testPort = port
 	testDb, err = openSchema(port)
 	if err != nil {
@@ -58,14 +63,17 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	// run the package tests
 	code := m.Run()
 
+	// remove the container and return their exit code
 	exec.Command("docker", "rm", "--force", container).Run()
 	os.Exit(code)
 }
 
 // startCockroach runs a single-node CockroachDB and returns its id and host port.
 func startCockroach() (string, string, error) {
+	// start a detached single-node container
 	run := exec.Command(
 		"docker", "run", "--detach",
 		"--publish", "26257",
@@ -80,10 +88,13 @@ func startCockroach() (string, string, error) {
 	}
 	container := strings.TrimSpace(stdout.String())
 
+	// read the host port docker published for 26257
 	out, err := exec.Command("docker", "port", container, "26257/tcp").CombinedOutput()
 	if err != nil {
 		return container, "", fmt.Errorf("failed to read the published port: %w: %s", err, out)
 	}
+
+	// take the port after the last colon of the first mapping
 	mapping := strings.TrimSpace(strings.Split(string(out), "\n")[0])
 	index := strings.LastIndex(mapping, ":")
 	if index < 0 {
@@ -95,6 +106,7 @@ func startCockroach() (string, string, error) {
 
 // openSchema waits for SQL, creates the API database, and AutoMigrates the test models.
 func openSchema(port string) (*gorm.DB, error) {
+	// wait until SQL accepts connections
 	var root *gorm.DB
 	deadline := time.Now().Add(startTimeout)
 	for {
@@ -112,15 +124,18 @@ func openSchema(port string) (*gorm.DB, error) {
 		time.Sleep(500 * time.Millisecond)
 	}
 
+	// create the API database
 	if err := root.Exec(fmt.Sprintf("CREATE DATABASE %s", databaseName)).Error; err != nil {
 		return nil, fmt.Errorf("failed to create the database: %w", err)
 	}
 
+	// open a handle on it
 	db, err := open(port, databaseName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open the database: %w", err)
 	}
 
+	// AutoMigrate the models the handler tests share
 	if err := db.AutoMigrate(
 		&api_v0.AttachedObjectReference{},
 		&api_v0.DomainNameDefinition{},
@@ -137,10 +152,12 @@ func openSchema(port string) (*gorm.DB, error) {
 func freshDatabase(t *testing.T, name string) *gorm.DB {
 	t.Helper()
 
+	// create an empty database in the test container
 	if err := testDb.Exec(fmt.Sprintf("CREATE DATABASE %s", name)).Error; err != nil {
 		t.Fatalf("create database %s: %v", name, err)
 	}
 
+	// open a handle on it
 	db, err := open(testPort, name)
 	if err != nil {
 		t.Fatalf("open database %s: %v", name, err)
