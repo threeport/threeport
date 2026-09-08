@@ -46,22 +46,29 @@ func (h Handler) AddKubernetesWorkloadResourceDefinitions(c echo.Context) error 
 
 	// create all kubernetes workload resource definitions or none at all
 	var createdWRDs []v0.KubernetesWorkloadResourceDefinition
-	err := h.DB.Transaction(func(tx *gorm.DB) error {
-		for _, wrd := range k8sWorkloadResourceDefinitions {
-			if result := h.DB.Create(&wrd); result.Error != nil {
-				return result.Error
+	result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		createdWRDs = nil
+		err := db.Transaction(func(tx *gorm.DB) error {
+			for _, wrd := range k8sWorkloadResourceDefinitions {
+				if r := tx.Create(&wrd); r.Error != nil {
+					return r.Error
+				}
+				createdWRDs = append(createdWRDs, wrd)
 			}
-			createdWRDs = append(createdWRDs, wrd)
+			return nil
+		})
+		if err != nil {
+			_ = db.AddError(err)
+			return db
 		}
-
-		return nil
+		return db
 	})
-	if err != nil {
-		h.Logger.Error("handler error: error creating kubernetes workload resource definitions", zap.Error(err))
+	if result.Error != nil {
+		h.Logger.Error("handler error: error creating kubernetes workload resource definitions", zap.Error(result.Error))
 		return apiserver_lib.RespondWriteError(
 			c,
 			h.Logger,
-			err,
+			result.Error,
 			new(v0.KubernetesWorkloadResourceDefinition),
 			fullyQualifiedType,
 		)

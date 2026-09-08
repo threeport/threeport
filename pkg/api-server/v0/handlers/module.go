@@ -45,7 +45,9 @@ func (h Handler) AddModuleApiRouteWithModuleObjectReferences(c echo.Context) err
 	}
 
 	// persist to DB
-	if result := h.DB.Omit("ModuleObjects.*").Create(&moduleApiRoute); result.Error != nil {
+	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		return db.Omit("ModuleObjects.*").Create(&moduleApiRoute)
+	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError

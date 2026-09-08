@@ -9,6 +9,7 @@ import (
 	echo "github.com/labstack/echo/v4"
 	zap "go.uber.org/zap"
 	"gorm.io/datatypes"
+	gorm "gorm.io/gorm"
 
 	notif "github.com/threeport/threeport/internal/secret/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -78,7 +79,9 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 		data := secretDefinition.Data
 
 		// persist to DB
-		if result := h.DB.Create(&secretDefinition); result.Error != nil {
+		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+			return db.Create(&secretDefinition)
+		}); result.Error != nil {
 			h.Logger.Error("handler error: error persisting secret definition to DB", zap.Error(result.Error))
 			return apiserver_lib.RespondWriteError(
 				c,
