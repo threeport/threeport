@@ -26,8 +26,20 @@ func getGormDbFromContext(ctx context.Context) (*gorm.DB, error) {
 	return gormDb, nil
 }
 
-// createMissingJoinTables creates a join table for each many-to-many field that has none.
-func createMissingJoinTables(gormDb *gorm.DB, models []interface{}) error {
+// createMissingTables creates a table for each model and many-to-many join that has none.
+// CreateTable does not add join tables.
+func createMissingTables(gormDb *gorm.DB, models []interface{}) error {
+	// create model tables
+	for _, model := range models {
+		if gormDb.Migrator().HasTable(model) {
+			continue
+		}
+		if err := gormDb.Migrator().CreateTable(model); err != nil {
+			return fmt.Errorf("failed to create table for %T: %w", model, err)
+		}
+	}
+
+	// create join tables after both sides exist
 	for _, model := range models {
 		stmt := &gorm.Statement{DB: gormDb}
 		if err := stmt.Parse(model); err != nil {
@@ -53,8 +65,8 @@ func createMissingJoinTables(gormDb *gorm.DB, models []interface{}) error {
 	return nil
 }
 
-// dropJoinTables drops each many-to-many join table.
-func dropJoinTables(gormDb *gorm.DB, models []interface{}) error {
+// dropTables drops many-to-many join tables, then each model table.
+func dropTables(gormDb *gorm.DB, models []interface{}) error {
 	for _, model := range models {
 		stmt := &gorm.Statement{DB: gormDb}
 		if err := stmt.Parse(model); err != nil {
@@ -70,6 +82,12 @@ func dropJoinTables(gormDb *gorm.DB, models []interface{}) error {
 			if err := gormDb.Migrator().DropTable(rel.JoinTable.Table); err != nil {
 				return fmt.Errorf("failed to drop join table %s: %w", rel.JoinTable.Table, err)
 			}
+		}
+	}
+
+	for _, model := range models {
+		if err := gormDb.Migrator().DropTable(model); err != nil {
+			return fmt.Errorf("could not drop table with gorm db: %w", err)
 		}
 	}
 

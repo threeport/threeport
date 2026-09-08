@@ -42,11 +42,23 @@ func GenDbMigratorUtils(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
-	f.Comment("createMissingJoinTables creates a join table for each many-to-many field that has none.")
-	f.Func().Id("createMissingJoinTables").Params(
+	f.Comment("createMissingTables creates a table for each model and many-to-many join that has none.")
+	f.Comment("CreateTable does not add join tables.")
+	f.Func().Id("createMissingTables").Params(
 		Id("gormDb").Op("*").Qual("gorm.io/gorm", "DB"),
 		Id("models").Index().Interface(),
 	).Error().Block(
+		Comment("create model tables"),
+		For(List(Id("_"), Id("model")).Op(":=").Range().Id("models")).Block(
+			If(Id("gormDb").Dot("Migrator").Call().Dot("HasTable").Call(Id("model"))).Block(
+				Continue(),
+			),
+			If(Err().Op(":=").Id("gormDb").Dot("Migrator").Call().Dot("CreateTable").Call(Id("model")), Err().Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(Lit("failed to create table for %T: %w"), Id("model"), Err())),
+			),
+		),
+		Line(),
+		Comment("create join tables after both sides exist"),
 		For(List(Id("_"), Id("model")).Op(":=").Range().Id("models")).Block(
 			Id("stmt").Op(":=").Op("&").Qual("gorm.io/gorm", "Statement").Values(Dict{
 				Id("DB"): Id("gormDb"),
@@ -79,8 +91,8 @@ func GenDbMigratorUtils(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
-	f.Comment("dropJoinTables drops each many-to-many join table.")
-	f.Func().Id("dropJoinTables").Params(
+	f.Comment("dropTables drops many-to-many join tables, then each model table.")
+	f.Func().Id("dropTables").Params(
 		Id("gormDb").Op("*").Qual("gorm.io/gorm", "DB"),
 		Id("models").Index().Interface(),
 	).Error().Block(
@@ -105,6 +117,12 @@ func GenDbMigratorUtils(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Err(),
 					)),
 				),
+			),
+		),
+		Line(),
+		For(List(Id("_"), Id("model")).Op(":=").Range().Id("models")).Block(
+			If(Err().Op(":=").Id("gormDb").Dot("Migrator").Call().Dot("DropTable").Call(Id("model")), Err().Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(Lit("could not drop table with gorm db: %w"), Err())),
 			),
 		),
 		Line(),
