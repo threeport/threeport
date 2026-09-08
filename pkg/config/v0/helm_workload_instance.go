@@ -25,15 +25,15 @@ type HelmWorkloadInstanceConfig struct {
 // HelmWorkloadInstanceValues contains all the attributes needed to manage
 // the HelmWorkloadInstance API object.
 type HelmWorkloadInstanceValues struct {
-	Name                      *string                          `json:",omitempty"`
-	Values                    *string                          `json:",omitempty"`
-	ValuesDocument            *string                          `json:",omitempty"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:",omitempty"`
-	ReleaseNamespace          *string                          `json:",omitempty"`
-	HelmWorkloadDefinition    *HelmWorkloadDefinitionValues    `json:",omitempty"`
-	HelmWorkloadConfigPath    *string                          `json:",omitempty"`
-	Status                    *string                          `json:",omitempty"`
-	Age                       *string                          `json:",omitempty"`
+	Name                      *string
+	Values                    *string
+	ValuesDocument            *string
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+	ReleaseNamespace          *string
+	HelmWorkloadDefinition    *HelmWorkloadDefinitionValues
+	HelmWorkloadConfigPath    *string
+	Status                    *string
+	Age                       *string
 }
 
 // Get gets helm workload instances from the Threeport API.

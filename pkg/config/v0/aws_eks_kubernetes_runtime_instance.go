@@ -26,13 +26,13 @@ type AwsEksKubernetesRuntimeInstanceConfig struct {
 // AwsEksKubernetesRuntimeInstanceValues contains all the attributes needed to manage
 // the AwsEksKubernetesRuntimeInstance API object.
 type AwsEksKubernetesRuntimeInstanceValues struct {
-	Name                              *string                                  `json:",omitempty"`
-	AwsProviderName                   *string                                  `json:",omitempty"`
-	Region                            *string                                  `json:",omitempty"`
-	AwsEksKubernetesRuntimeDefinition *AwsEksKubernetesRuntimeDefinitionValues `json:",omitempty"`
-	KubernetesRuntimeInstance         *KubernetesRuntimeInstanceValues         `json:",omitempty"`
-	Reconciled                        *bool                                    `json:",omitempty"`
-	Age                               *string                                  `json:",omitempty"`
+	Name                              *string
+	AwsProviderName                   *string
+	Region                            *string
+	AwsEksKubernetesRuntimeDefinition *AwsEksKubernetesRuntimeDefinitionValues
+	KubernetesRuntimeInstance         *KubernetesRuntimeInstanceValues
+	Reconciled                        *bool
+	Age                               *string
 }
 
 // Get gets aws eks kubernetes runtime instances from the Threeport API.
