@@ -167,3 +167,19 @@ func TestJSONSerializer_EnvelopeFieldsSurvive(t *testing.T) {
 		assert.Contains(t, rec.Body.String(), `"Data":[]`, "an empty non-nil Data must not become null")
 	})
 }
+
+// TestJSONSerializer_EnvelopePointerForm covers `c.JSON(code, &response)`.
+// Every helper in api.go passes a Response by value today, so a value-only
+// type assertion would look correct while leaving the pointer form to silently
+// lose its envelope fields the first time someone writes one.
+func TestJSONSerializer_EnvelopePointerForm(t *testing.T) {
+	c, rec := newSerializerContext()
+	response := Response{Status: Status{Code: 404, Message: "Not Found", Error: "object not found"}}
+
+	require.NoError(t, c.JSON(http.StatusNotFound, &response))
+
+	assert.JSONEq(t,
+		`{"Meta":{"Pagination":{"Limit":0,"NextCursor":0,"QueryId":"","HasMore":false},"ObjectCount":0},`+
+			`"Type":"","Data":null,"Status":{"code":404,"message":"Not Found","error":"object not found"}}`,
+		rec.Body.String())
+}

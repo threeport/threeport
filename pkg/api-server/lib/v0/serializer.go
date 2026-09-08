@@ -75,7 +75,15 @@ func (s *JSONSerializer) Serialize(c echo.Context, i interface{}, indent string)
 	// the response envelope keeps every field it always had; only the API
 	// objects it carries are subject to omission. FormatNilSliceAsNull matches
 	// encoding/json, which writes a nil Data as null rather than [].
-	if response, ok := i.(Response); ok {
+	//
+	// every helper in api.go hands c.JSON a Response by value today, but the
+	// pointer form is matched too: missing it would silently drop the envelope
+	// fields again, and a caller has no way to see that from the call site.
+	response, ok := i.(Response)
+	if pointer, isPointer := i.(*Response); isPointer && pointer != nil {
+		response, ok = *pointer, true
+	}
+	if ok {
 		envelope, err := envelopeFor(response)
 		if err != nil {
 			return err
