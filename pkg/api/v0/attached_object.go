@@ -51,19 +51,19 @@ type AttachedObjectReference struct {
 	// determine the base object's lifecycle, depending on the type of
 	// relationship (see below). Stored as a fully qualified type name
 	// in the form "<api-namespace>/<version>.<TypeName>".
-	ObjectType *string `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique,where:deleted_at IS NULL;uniqueIndex:idx_attached_object_reference_marries_base,where:relationship = 'marries' AND deleted_at IS NULL;uniqueIndex:idx_attached_object_reference_owns_base,where:relationship = 'owns' AND deleted_at IS NULL"`
+	ObjectType *string `validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique,where:deleted_at IS NULL;uniqueIndex:idx_attached_object_reference_marries_base,where:relationship = 'marries' AND deleted_at IS NULL;uniqueIndex:idx_attached_object_reference_owns_base,where:relationship = 'owns' AND deleted_at IS NULL"`
 
 	// ObjectID is the database ID of the base object.
-	ObjectID *uint `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique,where:deleted_at IS NULL;uniqueIndex:idx_attached_object_reference_marries_base,where:relationship = 'marries' AND deleted_at IS NULL;uniqueIndex:idx_attached_object_reference_owns_base,where:relationship = 'owns' AND deleted_at IS NULL"`
+	ObjectID *uint `validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique,where:deleted_at IS NULL;uniqueIndex:idx_attached_object_reference_marries_base,where:relationship = 'marries' AND deleted_at IS NULL;uniqueIndex:idx_attached_object_reference_owns_base,where:relationship = 'owns' AND deleted_at IS NULL"`
 
 	// AttachedObjectType is the kind of the object doing the attaching;
 	// the side that can determine the base object's lifecycle. Stored
 	// as a fully qualified type name in the form
 	// "<api-namespace>/<version>.<TypeName>".
-	AttachedObjectType *string `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique,where:deleted_at IS NULL;uniqueIndex:idx_attached_object_reference_marries_attached,where:relationship = 'marries' AND deleted_at IS NULL"`
+	AttachedObjectType *string `validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique,where:deleted_at IS NULL;uniqueIndex:idx_attached_object_reference_marries_attached,where:relationship = 'marries' AND deleted_at IS NULL"`
 
 	// AttachedObjectID is the database ID of the attaching object.
-	AttachedObjectID *uint `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique,where:deleted_at IS NULL;uniqueIndex:idx_attached_object_reference_marries_attached,where:relationship = 'marries' AND deleted_at IS NULL"`
+	AttachedObjectID *uint `validate:"required" gorm:"not null;uniqueIndex:idx_attached_object_unique,where:deleted_at IS NULL;uniqueIndex:idx_attached_object_reference_marries_attached,where:relationship = 'marries' AND deleted_at IS NULL"`
 
 	// Relationship classifies this reference:
 	//   - "describes": informational; does not block delete or update of the base.
@@ -78,5 +78,5 @@ type AttachedObjectReference struct {
 	//   - "marries": enforces 1-to-1 cardinality between base and attacher
 	//     and blocks both delete and update of the base under the same
 	//     control plane exemption as "owns".
-	Relationship *Relationship `json:",omitempty" validate:"optional" gorm:"default:'describes'"`
+	Relationship *Relationship `validate:"optional" gorm:"default:'describes'"`
 }

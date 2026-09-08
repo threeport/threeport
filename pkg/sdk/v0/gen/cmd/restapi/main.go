@@ -282,6 +282,15 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		).Call()
 		g.Line()
 
+		g.Comment("omit absent fields from responses instead of spelling them")
+		g.Comment("out as null, so api types don't need `json:\",omitempty\"`")
+		g.Comment("struct tags")
+		g.Id("e").Dot("JSONSerializer").Op("=").Qual(
+			"github.com/threeport/threeport/pkg/api-server/lib/v0",
+			"NewJSONSerializer",
+		).Call()
+		g.Line()
+
 		g.Var().Id("validate").Op("*").Qual("github.com/go-playground/validator/v10", "Validate")
 		g.Id("validate").Op("=").Qual("github.com/go-playground/validator/v10", "New").Call()
 		g.Id("validate").Dot("RegisterValidation").Call(

@@ -3,23 +3,23 @@ package v0
 // Definition includes a set of fields for every definition object.
 type Definition struct {
 	// An arbitrary name for the definition.
-	Name *string `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:,where:deleted_at IS NULL"`
+	Name *string `validate:"required" gorm:"not null;uniqueIndex:,where:deleted_at IS NULL"`
 
 	// The profile to associate with the definition.  Profile is a named
 	// standard configuration for a definition object.
-	ProfileID *uint `json:",omitempty" validate:"optional,association"`
+	ProfileID *uint `validate:"optional,association"`
 
 	// The tier to associate with the definition.  Tier is a level of
 	// criticality for access control.
-	TierID *uint `json:",omitempty" validate:"optional,association"`
+	TierID *uint `validate:"optional,association"`
 }
 
 // Instance includes a set of fields for every instance object.
 type Instance struct {
 	// An arbitrary name the instance
-	Name *string `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:,where:deleted_at IS NULL"`
+	Name *string `validate:"required" gorm:"not null;uniqueIndex:,where:deleted_at IS NULL"`
 
 	// The status of the instance.
 	//TODO: use a custom type
-	Status *string `json:",omitempty" validate:"optional"`
+	Status *string `validate:"optional"`
 }

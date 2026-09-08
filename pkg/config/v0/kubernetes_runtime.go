@@ -21,15 +21,15 @@ type KubernetesRuntimeConfig struct {
 // KubernetesRuntimeDefinition and KubernetesRuntimeInstance API objects
 // together with a single operation.
 type KubernetesRuntimeValues struct {
-	Name                      *string `json:",omitempty"`
-	InfraProvider             *string `json:",omitempty"`
-	InfraProviderAccountName  *string `json:",omitempty"`
-	HighAvailability          *bool   `json:",omitempty"`
-	Location                  *string `json:",omitempty"`
-	ThreeportControlPlaneHost *bool   `json:",omitempty"`
-	DefaultRuntime            *bool   `json:",omitempty"`
-	ThreeportAgentImage       *string `json:",omitempty"`
-	Age                       *string `json:",omitempty"`
+	Name                      *string
+	InfraProvider             *string
+	InfraProviderAccountName  *string
+	HighAvailability          *bool
+	Location                  *string
+	ThreeportControlPlaneHost *bool
+	DefaultRuntime            *bool
+	ThreeportAgentImage       *string
+	Age                       *string
 }
 
 // Get gets a kubernetes runtime definition and instance from the Threeport API.

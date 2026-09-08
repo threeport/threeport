@@ -13,11 +13,6 @@ const (
 	GormTag         TagKey = "gorm"
 )
 
-// JsonOmitempty is the json-tag substring every `validate:"optional"`
-// field must carry so absent values are dropped on serialize rather
-// than emitting JSON null / zero values.
-const JsonOmitempty = "omitempty"
-
 // RelationshipTypeKey is the modifier name in a relationship tag value
 // (e.g. `relationship:"requires;type:KubernetesRuntimeInstance"`).
 const RelationshipTypeKey = "type"

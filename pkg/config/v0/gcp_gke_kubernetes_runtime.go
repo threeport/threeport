@@ -21,16 +21,16 @@ type GcpGkeKubernetesRuntimeConfig struct {
 // GcpGkeKubernetesRuntimeDefinition and GcpGkeKubernetesRuntimeInstance API objects
 // together with a single operation.
 type GcpGkeKubernetesRuntimeValues struct {
-	Name                         *string `json:",omitempty"`
-	GcpProviderName              *string `json:",omitempty"`
-	ZoneCount                    *int    `json:",omitempty"`
-	DefaultNodeGroupInstanceType *string `json:",omitempty"`
-	DefaultNodeGroupInitialSize  *int    `json:",omitempty"`
-	DefaultNodeGroupMinimumSize  *int    `json:",omitempty"`
-	DefaultNodeGroupMaximumSize  *int    `json:",omitempty"`
-	Region                       *string `json:",omitempty"`
-	Reconciled                   *bool   `json:",omitempty"`
-	Age                          *string `json:",omitempty"`
+	Name                         *string
+	GcpProviderName              *string
+	ZoneCount                    *int
+	DefaultNodeGroupInstanceType *string
+	DefaultNodeGroupInitialSize  *int
+	DefaultNodeGroupMinimumSize  *int
+	DefaultNodeGroupMaximumSize  *int
+	Region                       *string
+	Reconciled                   *bool
+	Age                          *string
 }
 
 // Get gets a gcp gke kubernetes runtime definition and instance from the Threeport API.

@@ -61,9 +61,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 	var route api_v0.ModuleApiRoute
 	var result *gorm.DB
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for Secret object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controller secret-controller
 	controller = api_v0.ModuleController{
 		DeploymentName: util.Ptr(threeportNamespace + "/threeport-secret-controller"),
@@ -165,9 +165,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for SecretInstance: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for Actuator object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering object Profile
 	object = api_v0.ModuleObject{
 		Description: util.Ptr("Profile is a named standard configuration for a definition object."),
@@ -256,9 +256,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for Tier: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for Aws object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controller aws-controller
 	controller = api_v0.ModuleController{
 		DeploymentName: util.Ptr(threeportNamespace + "/threeport-aws-controller"),
@@ -403,9 +403,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for AwsProvider: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for Oci object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controller oci-controller
 	controller = api_v0.ModuleController{
 		DeploymentName: util.Ptr(threeportNamespace + "/threeport-oci-controller"),
@@ -550,9 +550,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for OciProvider: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for Gcp object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controller gcp-controller
 	controller = api_v0.ModuleController{
 		DeploymentName: util.Ptr(threeportNamespace + "/threeport-gcp-controller"),
@@ -697,9 +697,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for GcpProvider: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for ControlPlane object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controller control-plane-controller
 	controller = api_v0.ModuleController{
 		DeploymentName: util.Ptr(threeportNamespace + "/threeport-control-plane-controller"),
@@ -801,15 +801,15 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for ControlPlaneInstance: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for  object group
-	// /////////////////////////////////////////////////////////////////////////////
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for  object group
-	// /////////////////////////////////////////////////////////////////////////////
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for Events object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering object Event
 	object = api_v0.ModuleObject{
 		Description: util.Ptr("Event is a record of an event in the system."),
@@ -854,9 +854,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for Event: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for Gateway object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controller gateway-controller
 	controller = api_v0.ModuleController{
 		DeploymentName: util.Ptr(threeportNamespace + "/threeport-gateway-controller"),
@@ -1135,9 +1135,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for GatewayTcpPort: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for HelmWorkload object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controller helm-workload-controller
 	controller = api_v0.ModuleController{
 		DeploymentName: util.Ptr(threeportNamespace + "/threeport-helm-workload-controller"),
@@ -1239,9 +1239,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for HelmWorkloadInstance: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for MachineRuntime object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controller machine-runtime-controller
 	controller = api_v0.ModuleController{
 		DeploymentName: util.Ptr(threeportNamespace + "/threeport-machine-runtime-controller"),
@@ -1342,9 +1342,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for MachineRuntimeInstance: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for MachineWorkload object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controller machine-workload-controller
 	controller = api_v0.ModuleController{
 		DeploymentName: util.Ptr(threeportNamespace + "/threeport-machine-workload-controller"),
@@ -1445,9 +1445,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for MachineWorkloadInstance: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for KubernetesRuntime object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controller kubernetes-runtime-controller
 	controller = api_v0.ModuleController{
 		DeploymentName: util.Ptr(threeportNamespace + "/threeport-kubernetes-runtime-controller"),
@@ -1549,9 +1549,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for KubernetesRuntimeInstance: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for Log object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering object LogBackend
 	object = api_v0.ModuleObject{
 		Description: util.Ptr("LogBackend is where the log messages are stored."),
@@ -1684,9 +1684,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for LogStorageInstance: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for Observability object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controller observability-controller
 	controller = api_v0.ModuleController{
 		DeploymentName: util.Ptr(threeportNamespace + "/threeport-observability-controller"),
@@ -2058,9 +2058,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for ObservabilityStackInstance: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for Terraform object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controller terraform-controller
 	controller = api_v0.ModuleController{
 		DeploymentName: util.Ptr(threeportNamespace + "/threeport-terraform-controller"),
@@ -2162,9 +2162,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for TerraformInstance: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for KubernetesWorkload object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controller kubernetes-workload-controller
 	controller = api_v0.ModuleController{
 		DeploymentName: util.Ptr(threeportNamespace + "/threeport-kubernetes-workload-controller"),
@@ -2354,9 +2354,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for KubernetesWorkloadResourceInstance: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for AttachedObject object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering object AttachedObjectReference
 	object = api_v0.ModuleObject{
 		Description: util.Ptr("AttachedObjectReference is a reference to an attached object. Four DB indexes are declared in the GORM tags below: - idx_attached_object_unique: partial unique composite across (object_type, object_id, attached_object_type, attached_object_id) where deleted_at IS NULL. Enforces that a given (base, attacher) pair appears in at most one *live* row regardless of relationship kind. - idx_attached_object_reference_marries_base: partial unique composite across (object_type, object_id) where relationship = 'marries' AND deleted_at IS NULL. Enforces that the base side of a marriage appears in at most one *live* marries row (1-to-1 cardinality for the base). The deleted_at predicate keeps soft-deleted rows out of the unique slot so a base can be re-married after teardown. - idx_attached_object_reference_marries_attached: partial unique composite across (attached_object_type, attached_object_id) where relationship = 'marries' AND deleted_at IS NULL. Same constraint applied to the attacher side. - idx_attached_object_reference_owns_base: partial unique composite across (object_type, object_id) where relationship = 'owns' AND deleted_at IS NULL. Enforces that an owned base appears in at most one *live* owns row. The attacher side is intentionally unconstrained for owns: an owner may own many bases. Each participating column repeats the index name in its `uniqueIndex:` tag; GORM bundles them by name. The `,where:...` suffix makes an index partial: only rows matching the predicate are indexed. Every one of these carries deleted_at IS NULL because attached object references use gorm soft-delete (see Common). Without it a soft-deleted row keeps its unique slot until cockroach hard-deletes it, so re-attaching the same pair is refused in the meantime and the caller is answered a conflict it cannot clear."),
@@ -2401,9 +2401,9 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 		return fmt.Errorf("failed to register object route for AttachedObjectReference: %w", result.Error)
 	}
 
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering controllers, objects and routes for Module object group
-	// /////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////
 	// registering object ModuleApi
 	object = api_v0.ModuleObject{
 		Description: util.Ptr("ModuleApi represents an API server for a Threeport module. The (Name, ApiNamespace) pair is unique."),

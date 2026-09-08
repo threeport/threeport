@@ -35,7 +35,7 @@ func fixture(
 }
 
 // tag is a terse helper for fixture tag maps. Pass alternating key/value
-// pairs: tag("validate", "required", "json", ",omitempty").
+// pairs: tag("validate", "required", "gorm", "not null").
 func tag(kv ...string) map[string]string {
 	m := make(map[string]string, len(kv)/2)
 	for i := 0; i < len(kv); i += 2 {
@@ -48,54 +48,32 @@ func tag(kv ...string) map[string]string {
 // Example:
 //
 //	type Foo struct {
-//	    Name *string `json:",omitempty" validate:"required"`
+//	    Name *string `validate:"required"`
 //	}
 //
 // Expected: no error.
 func TestValidateTags_Valid(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {"Name": tag("json", ",omitempty", "validate", "required")},
+			"Foo": {"Name": tag("validate", "required")},
 		},
 		nil, nil, nil,
 	)
 	assert.NoError(t, g.ValidateTags())
 }
 
-// TestValidateTags_ValidateRequiredMissingOmitempty enforces the omitempty
-// pairing rule.
-// Example:
-//
-//	type Foo struct {
-//	    Name *string `validate:"required"`
-//	}
-//
-// Expected: error citing "Foo.Name" requires `json:",omitempty"`.
-func TestValidateTags_ValidateRequiredMissingOmitempty(t *testing.T) {
-	g := fixture(
-		map[string]map[string]map[string]string{
-			"Foo": {"Name": tag("validate", "required")},
-		},
-		nil, nil, nil,
-	)
-	err := g.ValidateTags()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Foo.Name")
-	assert.Contains(t, err.Error(), "omitempty")
-}
-
 // TestValidateTags_BogusValidateValue rejects unknown validate-tag values.
 // Example:
 //
 //	type Foo struct {
-//	    Name *string `json:",omitempty" validate:"mandatory"`
+//	    Name *string `validate:"mandatory"`
 //	}
 //
 // Expected: error citing the invalid value "mandatory".
 func TestValidateTags_BogusValidateValue(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {"Name": tag("json", ",omitempty", "validate", "mandatory")},
+			"Foo": {"Name": tag("validate", "mandatory")},
 		},
 		nil, nil, nil,
 	)
@@ -109,14 +87,14 @@ func TestValidateTags_BogusValidateValue(t *testing.T) {
 // Example:
 //
 //	type Foo struct {
-//	    Token *string `json:",omitempty" validate:"required" encrypt:"false"`
+//	    Token *string `validate:"required" encrypt:"false"`
 //	}
 //
 // Expected: error citing encrypt:"false".
 func TestValidateTags_BogusEncryptValue(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {"Token": tag("json", ",omitempty", "validate", "required", "encrypt", "false")},
+			"Foo": {"Token": tag("validate", "required", "encrypt", "false")},
 		},
 		nil, nil, nil,
 	)
@@ -131,14 +109,14 @@ func TestValidateTags_BogusEncryptValue(t *testing.T) {
 // Example:
 //
 //	type Foo struct {
-//	    Name *string `json:",omitempty" query:"name" validate:"required"`
+//	    Name *string `query:"name" validate:"required"`
 //	}
 //
 // Expected: error citing the query tag.
 func TestValidateTags_QueryTagRejected(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {"Name": tag("json", ",omitempty", "validate", "required", "query", "name")},
+			"Foo": {"Name": tag("validate", "required", "query", "name")},
 		},
 		nil, nil, nil,
 	)
@@ -152,14 +130,14 @@ func TestValidateTags_QueryTagRejected(t *testing.T) {
 // Example:
 //
 //	type Foo struct {
-//	    X *string `json:",omitempty" persist:"true" validate:"optional"`
+//	    X *string `persist:"true" validate:"optional"`
 //	}
 //
 // Expected: error citing persist:"true".
 func TestValidateTags_PersistTagInvalidValue(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {"X": tag("json", ",omitempty", "validate", "optional", "persist", "true")},
+			"Foo": {"X": tag("validate", "optional", "persist", "true")},
 		},
 		nil, nil, nil,
 	)
@@ -173,14 +151,14 @@ func TestValidateTags_PersistTagInvalidValue(t *testing.T) {
 // Example:
 //
 //	type Foo struct {
-//	    BarID *uint `json:",omitempty" validate:"required" relationship:"unknown"`
+//	    BarID *uint `validate:"required" relationship:"unknown"`
 //	}
 //
 // Expected: error citing the invalid kind.
 func TestValidateTags_BogusRelationshipKind(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {"BarID": tag("json", ",omitempty", "validate", "required", "relationship", "unknown")},
+			"Foo": {"BarID": tag("validate", "required", "relationship", "unknown")},
 		},
 		nil,
 		map[string]map[string]string{
@@ -199,14 +177,14 @@ func TestValidateTags_BogusRelationshipKind(t *testing.T) {
 // Example:
 //
 //	type Foo struct {
-//	    BarName *string `json:",omitempty" validate:"required" relationship:"requires"`
+//	    BarName *string `validate:"required" relationship:"requires"`
 //	}
 //
 // Expected: error citing the wrong field type.
 func TestValidateTags_RelationshipNonUintField(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {"BarName": tag("json", ",omitempty", "validate", "required", "relationship", "requires")},
+			"Foo": {"BarName": tag("validate", "required", "relationship", "requires")},
 		},
 		nil,
 		map[string]map[string]string{
@@ -224,7 +202,7 @@ func TestValidateTags_RelationshipNonUintField(t *testing.T) {
 // Example:
 //
 //	type Foo struct {
-//	    BarID *uint `json:",omitempty" validate:"required" relationship:"requires;type:Ghost"`
+//	    BarID *uint `validate:"required" relationship:"requires;type:Ghost"`
 //	}
 //
 // (Ghost is not declared anywhere in the fixture.)
@@ -232,7 +210,7 @@ func TestValidateTags_RelationshipNonUintField(t *testing.T) {
 func TestValidateTags_RelationshipUnknownTypeModifier(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {"BarID": tag("json", ",omitempty", "validate", "required", "relationship", "requires;type:Ghost")},
+			"Foo": {"BarID": tag("validate", "required", "relationship", "requires;type:Ghost")},
 		},
 		nil,
 		map[string]map[string]string{
@@ -253,7 +231,7 @@ func TestValidateTags_RelationshipUnknownTypeModifier(t *testing.T) {
 // Example:
 //
 //	type Foo struct {
-//	    SomeID *uint `json:",omitempty" validate:"required" relationship:"requires;type:Bar"`
+//	    SomeID *uint `validate:"required" relationship:"requires;type:Bar"`
 //	}
 //	type Bar struct { ... }
 //
@@ -262,8 +240,8 @@ func TestValidateTags_RelationshipUnknownTypeModifier(t *testing.T) {
 func TestValidateTags_RelationshipKnownTypeModifier(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {"SomeID": tag("json", ",omitempty", "validate", "required", "relationship", "requires;type:Bar")},
-			"Bar": {"Name": tag("json", ",omitempty", "validate", "required")},
+			"Foo": {"SomeID": tag("validate", "required", "relationship", "requires;type:Bar")},
+			"Bar": {"Name": tag("validate", "required")},
 		},
 		nil,
 		map[string]map[string]string{
@@ -279,14 +257,14 @@ func TestValidateTags_RelationshipKnownTypeModifier(t *testing.T) {
 // Example:
 //
 //	type Foo struct {
-//	    BarID *uint `json:",omitempty" validate:"required" relationship:"requires;bogus:Foo"`
+//	    BarID *uint `validate:"required" relationship:"requires;bogus:Foo"`
 //	}
 //
 // Expected: error citing the unknown modifier key.
 func TestValidateTags_RelationshipUnknownModifierKey(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {"BarID": tag("json", ",omitempty", "validate", "required", "relationship", "requires;bogus:Foo")},
+			"Foo": {"BarID": tag("validate", "required", "relationship", "requires;bogus:Foo")},
 		},
 		nil,
 		map[string]map[string]string{
@@ -304,14 +282,14 @@ func TestValidateTags_RelationshipUnknownModifierKey(t *testing.T) {
 // Example:
 //
 //	type Foo struct {
-//	    BarID *uint `json:",omitempty" validate:"required" relationship:"requires;noColon"`
+//	    BarID *uint `validate:"required" relationship:"requires;noColon"`
 //	}
 //
 // Expected: error citing the malformed modifier.
 func TestValidateTags_RelationshipMalformedModifier(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {"BarID": tag("json", ",omitempty", "validate", "required", "relationship", "requires;noColon")},
+			"Foo": {"BarID": tag("validate", "required", "relationship", "requires;noColon")},
 		},
 		nil,
 		map[string]map[string]string{
@@ -336,7 +314,7 @@ func TestValidateTags_RelationshipMalformedModifier(t *testing.T) {
 func TestValidateTags_ModuleModeAllowsUnknownType(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
-			"Foo": {"BarID": tag("json", ",omitempty", "validate", "required", "relationship", "requires;type:Ghost")},
+			"Foo": {"BarID": tag("validate", "required", "relationship", "requires;type:Ghost")},
 		},
 		nil,
 		map[string]map[string]string{
@@ -358,8 +336,8 @@ func TestValidateTags_StableErrorOrdering(t *testing.T) {
 	build := func() *Generator {
 		return fixture(
 			map[string]map[string]map[string]string{
-				"Alpha": {"X": tag("json", ",omitempty", "validate", "wrong1")},
-				"Beta":  {"Y": tag("json", ",omitempty", "validate", "wrong2")},
+				"Alpha": {"X": tag("validate", "wrong1")},
+				"Beta":  {"Y": tag("validate", "wrong2")},
 			},
 			nil, nil, nil,
 		)
@@ -391,7 +369,7 @@ func TestValidateTags_RejectsNonStandardEmbed(t *testing.T) {
 		map[string][]string{"Foo": {"Random"}},
 		nil,
 		map[string]map[string]map[string]string{
-			"Random": {"X": tag("json", ",omitempty", "validate", "optional")},
+			"Random": {"X": tag("validate", "optional")},
 		},
 	)
 	err := g.ValidateTags()
@@ -407,8 +385,8 @@ func TestHasFieldWithTagValue_Match(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
 			"Foo": {
-				"Name": tag("json", ",omitempty", "validate", "required"),
-				"Data": tag("json", ",omitempty", "validate", "required", "persist", "false"),
+				"Name": tag("validate", "required"),
+				"Data": tag("validate", "required", "persist", "false"),
 			},
 		},
 		nil, nil, nil,
@@ -424,7 +402,7 @@ func TestHasFieldWithTagValue_FieldNameAgnostic(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
 			"Foo": {
-				"Payload": tag("json", ",omitempty", "validate", "required", "persist", "false"),
+				"Payload": tag("validate", "required", "persist", "false"),
 			},
 		},
 		nil, nil, nil,
@@ -439,8 +417,8 @@ func TestHasFieldWithTagValue_NoMatch(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
 			"Foo": {
-				"Name": tag("json", ",omitempty", "validate", "required"),
-				"Data": tag("json", ",omitempty", "validate", "required", "persist", "true"),
+				"Name": tag("validate", "required"),
+				"Data": tag("validate", "required", "persist", "true"),
 			},
 		},
 		nil, nil, nil,
