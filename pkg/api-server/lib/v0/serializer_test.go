@@ -118,3 +118,52 @@ func TestJSONSerializer_DeserializeUnchanged(t *testing.T) {
 	require.True(t, ok, "a malformed body must surface as an echo.HTTPError")
 	assert.Equal(t, http.StatusBadRequest, httpErr.Code)
 }
+
+// TestJSONSerializer_EnvelopeFieldsSurvive pins down the boundary of the omit
+// policy. The API objects lost their json:",omitempty" tags; the Response
+// envelope never carried them, so applying the option to the whole document
+// would drop a zero Meta, an empty Type and a nil Data from every error
+// response and the zero pagination fields from every successful one. Both
+// cases below are byte-identical to what echo's default serializer produced
+// before the tags were removed.
+func TestJSONSerializer_EnvelopeFieldsSurvive(t *testing.T) {
+	t.Run("error response keeps the whole envelope", func(t *testing.T) {
+		c, rec := newSerializerContext()
+		response := Response{Status: Status{Code: 404, Message: "Not Found", Error: "object not found"}}
+
+		require.NoError(t, c.JSON(http.StatusNotFound, response))
+
+		assert.JSONEq(t,
+			`{"Meta":{"Pagination":{"Limit":0,"NextCursor":0,"QueryId":"","HasMore":false},"ObjectCount":0},`+
+				`"Type":"","Data":null,"Status":{"code":404,"message":"Not Found","error":"object not found"}}`,
+			rec.Body.String())
+	})
+
+	t.Run("success keeps the envelope and omits inside Data", func(t *testing.T) {
+		c, rec := newSerializerContext()
+		name := "threeport-dev-0"
+		response := Response{
+			Meta:   Meta{Pagination: Pagination{Limit: 100}, ObjectCount: 1},
+			Type:   "KubernetesRuntimeDefinition",
+			Data:   []Object{serializerPayload{Name: &name}},
+			Status: Status{Code: 200, Message: "OK"},
+		}
+
+		require.NoError(t, c.JSON(http.StatusOK, response))
+
+		assert.JSONEq(t,
+			`{"Meta":{"Pagination":{"Limit":100,"NextCursor":0,"QueryId":"","HasMore":false},"ObjectCount":1},`+
+				`"Type":"KubernetesRuntimeDefinition","Data":[{"Name":"threeport-dev-0"}],`+
+				`"Status":{"code":200,"message":"OK","error":""}}`,
+			rec.Body.String())
+	})
+
+	t.Run("an empty result set stays an empty array", func(t *testing.T) {
+		c, rec := newSerializerContext()
+		response := Response{Data: []Object{}, Status: Status{Code: 200, Message: "OK"}}
+
+		require.NoError(t, c.JSON(http.StatusOK, response))
+
+		assert.Contains(t, rec.Body.String(), `"Data":[]`, "an empty non-nil Data must not become null")
+	})
+}

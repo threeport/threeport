@@ -36,6 +36,22 @@ func Complete(message string) {
 	util.CliOutputComplete(message)
 }
 
+// marshalYaml converts an object to YAML with absent fields omitted.
+//
+// sigs.k8s.io/yaml marshals through encoding/json, so it honored the
+// json:",omitempty" tag the api types used to carry. With the tag gone, a
+// direct yaml.Marshal prints every unset pointer as an explicit null. Routing
+// through encoding/json/v2 with OmitZeroStructFields and converting the result
+// keeps `tptctl get -o yaml` looking the way it did.
+func marshalYaml(object interface{}) ([]byte, error) {
+	marshaled, err := jsonv2.Marshal(object, jsonv2.OmitZeroStructFields(true))
+	if err != nil {
+		return nil, err
+	}
+
+	return yaml.JSONToYAML(marshaled)
+}
+
 // YamlObjectOutput marshals an object or slice of objects to YAML and prints the output.
 // If there is only one object in a slice, it will marshal the single object directly to YAML.
 // If there are multiple objects in a slice, it will marshal the entire slice to YAML.
@@ -48,14 +64,14 @@ func YamlObjectOutput(objects interface{}) error {
 		// If it's a slice with exactly one element, marshal just that element
 		if val.Len() == 1 {
 			singleObject := val.Index(0).Interface()
-			o, err := yaml.Marshal(singleObject)
+			o, err := marshalYaml(singleObject)
 			if err != nil {
 				return err
 			}
 			output = o
 		} else {
 			// Marshal the entire slice
-			o, err := yaml.Marshal(objects)
+			o, err := marshalYaml(objects)
 			if err != nil {
 				return err
 			}
@@ -63,7 +79,7 @@ func YamlObjectOutput(objects interface{}) error {
 		}
 	} else {
 		// Not a slice, marshal as-is
-		o, err := yaml.Marshal(objects)
+		o, err := marshalYaml(objects)
 		if err != nil {
 			return err
 		}

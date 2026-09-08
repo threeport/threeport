@@ -32,11 +32,61 @@ func NewJSONSerializer() *JSONSerializer {
 	return &JSONSerializer{}
 }
 
+// rawEnvelope mirrors Response with Data already marshaled. It exists so the
+// envelope's own fields serialize unconditionally while the API objects inside
+// Data still get the omit-zero policy.
+type rawEnvelope struct {
+	Meta   Meta
+	Type   string
+	Data   []jsontext.Value
+	Status Status
+}
+
+// envelopeFor pre-marshals a Response's Data elements under the omit-zero
+// policy and returns the envelope to write in its place.
+//
+// The policy belongs to the API objects, which lost their json:",omitempty"
+// tags; the envelope never carried them. Applying the option to the whole
+// document would omit a zero Meta, an empty Type and a nil Data from every
+// error response, and drop the zero-valued pagination fields from every
+// successful one, which changes a wire format callers already depend on.
+func envelopeFor(r Response) (rawEnvelope, error) {
+	var data []jsontext.Value
+	if r.Data != nil {
+		data = make([]jsontext.Value, 0, len(r.Data))
+		for _, object := range r.Data {
+			marshaled, err := jsonv2.Marshal(object, jsonv2.OmitZeroStructFields(true))
+			if err != nil {
+				return rawEnvelope{}, err
+			}
+			data = append(data, marshaled)
+		}
+	}
+
+	return rawEnvelope{Meta: r.Meta, Type: r.Type, Data: data, Status: r.Status}, nil
+}
+
 // Serialize writes i to the response as JSON, omitting zero-valued struct
 // fields. A non-empty indent produces a pretty document, as echo's JSONPretty
 // expects.
 func (s *JSONSerializer) Serialize(c echo.Context, i interface{}, indent string) error {
 	opts := []jsonv2.Options{jsonv2.OmitZeroStructFields(true)}
+
+	// the response envelope keeps every field it always had; only the API
+	// objects it carries are subject to omission. FormatNilSliceAsNull matches
+	// encoding/json, which writes a nil Data as null rather than [].
+	if response, ok := i.(Response); ok {
+		envelope, err := envelopeFor(response)
+		if err != nil {
+			return err
+		}
+		i = envelope
+		opts = []jsonv2.Options{
+			jsonv2.OmitZeroStructFields(false),
+			jsonv2.FormatNilSliceAsNull(true),
+		}
+	}
+
 	if indent != "" {
 		opts = append(opts, jsontext.WithIndent(indent))
 	}
