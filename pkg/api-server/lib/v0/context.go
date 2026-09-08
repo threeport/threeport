@@ -72,6 +72,12 @@ func (c *CustomContext) GetPaginationParams() (*PageRequestParams, error) {
 		}
 		params.Limit = int64(limit)
 	}
+	// reject non-positive limits upfront: crdb rejects negatives at the
+	// SQL layer (leaking sqlstate) and a zero limit still triggers the
+	// materialized-view creation path, leaving orphaned views behind
+	if params.Limit <= 0 {
+		return params, fmt.Errorf("limit value must be positive: got %d", params.Limit)
+	}
 	if params.Limit > MaxPaginationLimitValue {
 		return params, fmt.Errorf("limit value is too large: %d - maximum value is %d", params.Limit, MaxPaginationLimitValue)
 	}
@@ -105,8 +111,12 @@ func PayloadCheck(
 
 	// get payload k/v pairs
 	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
+		// a body that parses as neither an object nor an array is a
+		// malformed request the caller can correct, so it answers 400. A
+		// 500 here tells a controller the server is at fault and to retry
+		// a request that can never succeed
 		if err = json.Unmarshal(bodyBytes, &payloadArray); err != nil {
-			return 500, err
+			return 400, err
 		} else {
 			if len(payloadArray) == 0 {
 				return 400, errors.New(ErrMsgJSONPayloadEmpty)

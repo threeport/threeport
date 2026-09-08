@@ -704,8 +704,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}
 						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
-							"ResponseStatus500",
-						).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
+							"ResponseStatusBindErr",
+						).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
 					}))
 					g.Line()
 					g.Comment("check for missing required fields")
@@ -829,7 +829,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				f.Comment("@Accept json")
 				f.Comment("@Produce json")
 				f.Comment(fmt.Sprintf(
-					"@Param %s query string false \"%s search by name\"",
+					"@Param %s query string false \"filter by exact %s name (case sensitive)\"",
 					"name", // TODO: get fields from model for query params
 					strcase.ToDelimited(apiObject.TypeName, ' '),
 				))
@@ -860,6 +860,14 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				).Parens(List(
 					Error(),
 				)).Block(
+					Id("objectType").Op(":=").Qual(
+						fmt.Sprintf(
+							"%s/pkg/api/%s",
+							gen.ModulePath,
+							objCollection.Version,
+						),
+						fmt.Sprintf("ObjectType%s", apiObject.TypeName),
+					),
 					Id("fullyQualifiedType").Op(":=").Id("new").Call(Qual(fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version), apiObject.TypeName)).Dot("GetFullyQualifiedType").Call(),
 					Line(),
 					Comment("get pagination parameters"),
@@ -895,10 +903,13 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Qual("go.uber.org/zap", "Error").Call(Id("err")),
 							)
 						}
+						// bind failures on the list endpoint reflect malformed or
+						// unknown query params; return 400 so the caller sees a
+						// client-input error, not an internal server error
 						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
-							"ResponseStatus500",
-						).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
+							"ResponseStatus400",
+						).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType")))
 					})),
 					Line(),
 					Id("pagination").Op(":=").New(Qual(
@@ -991,59 +1002,40 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Id("returnedCount").Op("=").Int64().Call(Len(Op("*").Id("records"))),
 								),
 								Case(Lit(true)).Block(
-									Comment("if we have to paginate, create the materialized view and use it to fetch the first page of records"),
+									Comment("dispatch to the configured pagination strategy to fetch the first page"),
 									Id("queryTable").Op(":=").Id("filter").Dot("TableName").Call(),
-									List(Id("viewName"), Id("qid"), Id("err")).Op(":=").Do(func(s *Statement) {
+									List(Id("queryId"), Id("count"), Id("err")).Op(":=").Do(func(s *Statement) {
 										if gen.Module {
 											s.Id("h").Dot("Handler")
 										} else {
 											s.Id("h")
 										}
-									}).Dot("CreateMaterializedView").Call(Id("queryTable")),
-									If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
-										if gen.Module {
-											h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-												Lit("handler error: error creating materialized view"),
-												Qual("go.uber.org/zap", "Error").Call(Id("err")),
-											)
-										} else {
-											h.Id("h").Dot("Logger").Dot("Error").Call(
-												Lit("handler error: error creating materialized view"),
-												Qual("go.uber.org/zap", "Error").Call(Id("err")),
-											)
-										}
-										h.Return(Qual(
-											"github.com/threeport/threeport/pkg/api-server/lib/v0",
-											"ResponseStatus500",
-										).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
-									}),
-									Id("pagination").Dot("QueryId").Op("=").Id("qid"),
-									Line(),
-									Comment("fetch records from the new materialized view"),
-									List(Id("returnedCount"), Id("err")).Op("=").Do(func(s *Statement) {
-										if gen.Module {
-											s.Id("h").Dot("Handler")
-										} else {
-											s.Id("h")
-										}
-									}).Dot("GetMaterializedViewRecords").Call(Id("records"), Id("viewName"), Id("pageParams")),
-									If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
-										if gen.Module {
-											h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-												Lit("handler error: error finding records"),
-												Qual("go.uber.org/zap", "Error").Call(Id("err")),
-											)
-										} else {
-											h.Id("h").Dot("Logger").Dot("Error").Call(
-												Lit("handler error: error finding records"),
-												Qual("go.uber.org/zap", "Error").Call(Id("err")),
-											)
-										}
-										h.Return(Qual(
-											"github.com/threeport/threeport/pkg/api-server/lib/v0",
-											"ResponseStatus500",
-										).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
-									}),
+									}).Dot("DispatchGetPaginatedRecords").Call(
+										// the page reads through the same request-scoped, filtered db the
+										// count used, so both see one set of rows
+										Do(func(s *Statement) {
+											if gen.Module {
+												s.Id("h").Dot("Handler")
+											} else {
+												s.Id("h")
+											}
+										}).Dot("RequestDB").Call(Id("c")).Dot("Model").Call(
+											Op("&").Qual(
+												fmt.Sprintf(
+													"%s/pkg/api/%s",
+													gen.ModulePath,
+													objCollection.Version,
+												),
+												apiObject.TypeName,
+											).Values(),
+										).Dot("Where").Call(Op("&").Id("filter")),
+										Id("records"),
+										Id("queryTable"),
+										Id("pageParams"),
+									),
+									If(Id("err").Op("!=").Nil()).BlockFunc(paginationErrorResponse(gen)),
+									Id("pagination").Dot("QueryId").Op("=").Id("queryId"),
+									Id("returnedCount").Op("=").Id("count"),
 									Line(),
 									Comment("set the cursor for the next page of results"),
 									If(Len(Op("*").Id("records")).Op(">").Lit(0)).Block(
@@ -1066,60 +1058,40 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							).Op(",").Id("fullyQualifiedType"))),
 						),
 						Case(Id("pageParams").Dot("QueryId").Op("!=").Lit("").Op("&&").Id("pageParams").Dot("Cursor").Op("!=").Lit(0)).Block(
-							Comment("use query ID to find the materialized view name"),
-							List(Id("viewName"), Id("err")).Op(":=").Do(func(s *Statement) {
+							Comment("continuation: dispatch to the configured pagination strategy to fetch the next page"),
+							Id("queryTable").Op(":=").Id("filter").Dot("TableName").Call(),
+							List(Id("queryId"), Id("count"), Id("err")).Op(":=").Do(func(s *Statement) {
 								if gen.Module {
 									s.Id("h").Dot("Handler")
 								} else {
 									s.Id("h")
 								}
-							}).Dot("GetMaterializedViewName").Call(Id("pageParams").Dot("QueryId")),
-							If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
-								if gen.Module {
-									h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-										Lit("handler error: error finding materialized view"),
-										Qual("go.uber.org/zap", "Error").Call(Id("err")),
-									)
-								} else {
-									h.Id("h").Dot("Logger").Dot("Error").Call(
-										Lit("handler error: error finding materialized view"),
-										Qual("go.uber.org/zap", "Error").Call(Id("err")),
-									)
-								}
-								h.Return(Qual(
-									"github.com/threeport/threeport/pkg/api-server/lib/v0",
-									"ResponseStatus500",
-								).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
-							}),
-							Line(),
-							Comment("fetch records from the materialized view based on cursor"),
-							List(Id("returnedCount"), Id("err")).Op("=").Do(func(s *Statement) {
-								if gen.Module {
-									s.Id("h").Dot("Handler")
-								} else {
-									s.Id("h")
-								}
-							}).Dot("GetMaterializedViewRecords").Call(Id("records"), Id("viewName"), Id("pageParams")),
-							If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
-								if gen.Module {
-									h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-										Lit("handler error: error finding records"),
-										Qual("go.uber.org/zap", "Error").Call(Id("err")),
-									)
-								} else {
-									h.Id("h").Dot("Logger").Dot("Error").Call(
-										Lit("handler error: error finding records"),
-										Qual("go.uber.org/zap", "Error").Call(Id("err")),
-									)
-								}
-								h.Return(Qual(
-									"github.com/threeport/threeport/pkg/api-server/lib/v0",
-									"ResponseStatus500",
-								).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
-							}),
-							Line(),
-							Comment("set the query ID for the next page of results"),
-							Id("pagination").Dot("QueryId").Op("=").Id("pageParams").Dot("QueryId"),
+							}).Dot("DispatchGetPaginatedRecords").Call(
+								// the page reads through the same request-scoped, filtered db the
+								// count used, so both see one set of rows
+								Do(func(s *Statement) {
+									if gen.Module {
+										s.Id("h").Dot("Handler")
+									} else {
+										s.Id("h")
+									}
+								}).Dot("RequestDB").Call(Id("c")).Dot("Model").Call(
+									Op("&").Qual(
+										fmt.Sprintf(
+											"%s/pkg/api/%s",
+											gen.ModulePath,
+											objCollection.Version,
+										),
+										apiObject.TypeName,
+									).Values(),
+								).Dot("Where").Call(Op("&").Id("filter")),
+								Id("records"),
+								Id("queryTable"),
+								Id("pageParams"),
+							),
+							If(Id("err").Op("!=").Nil()).BlockFunc(paginationErrorResponse(gen)),
+							Id("pagination").Dot("QueryId").Op("=").Id("queryId"),
+							Id("returnedCount").Op("=").Id("count"),
 							Line(),
 							Comment("set the cursor for the next page of results"),
 							If(Len(Op("*").Id("records")).Op(">").Lit(0)).Block(
@@ -1517,8 +1489,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							}
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
+								"ResponseStatusBindErr",
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
 						}),
 					)
 					if apiObject.Reconciler {
@@ -1820,8 +1792,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							}
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
+								"ResponseStatusBindErr",
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
 						}),
 					)
 					g.Line()
@@ -2122,6 +2094,46 @@ const (
 	blockedDeleteCheckSole blockedDeleteCheckRole = iota
 	blockedDeleteCheckBackstop
 )
+
+// paginationErrorResponse returns the body of the error branch a paginated
+// list handler runs when the dispatcher fails. A queryid the client can
+// correct answers 400 without a log line, since it reports a bad request
+// rather than a fault: either the id names no snapshot the server issued, or
+// the snapshot it named has expired and the client has to start over with no
+// queryid. Everything else is a server fault, so it is logged and answers 500.
+func paginationErrorResponse(gen *gen.Generator) func(*Group) {
+	const apiServerLib = "github.com/threeport/threeport/pkg/api-server/lib/v0"
+
+	return func(h *Group) {
+		h.If(
+			Qual("errors", "Is").Call(
+				Id("err"),
+				Qual(apiServerLib, "ErrInvalidPaginationQueryId"),
+			).Op("||").Qual("errors", "Is").Call(
+				Id("err"),
+				Qual(apiServerLib, "ErrPaginationSessionExpired"),
+			),
+		).Block(
+			Return(Qual(apiServerLib, "ResponseStatus400").Call(
+				Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType"),
+			)),
+		)
+		if gen.Module {
+			h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+				Lit("handler error: error fetching paginated records"),
+				Qual("go.uber.org/zap", "Error").Call(Id("err")),
+			)
+		} else {
+			h.Id("h").Dot("Logger").Dot("Error").Call(
+				Lit("handler error: error fetching paginated records"),
+				Qual("go.uber.org/zap", "Error").Call(Id("err")),
+			)
+		}
+		h.Return(Qual(apiServerLib, "ResponseStatus500").Call(
+			Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType"),
+		))
+	}
+}
 
 // emitBlockedDeleteCheck appends the delete-blocked branch that turns a
 // typed signal from the BeforeDelete hook into a 409 listing blockers.

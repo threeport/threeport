@@ -24,6 +24,7 @@ import (
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	log "github.com/threeport/threeport/pkg/log/v0"
 	zap "go.uber.org/zap"
+	stdlog "log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -40,11 +41,16 @@ func main() {
 	var autoMigrate bool
 	var verbose bool
 	var authEnabled bool
+	var paginationMode string
 	flag.StringVar(&envFile, "env-file", "/etc/threeport/env", "File from which to load environment")
 	flag.BoolVar(&autoMigrate, "auto-migrate", false, "If true API server will auto migrate DB schema")
 	flag.BoolVar(&verbose, "verbose", false, "Write logs with v(1).InfoLevel and above")
 	flag.BoolVar(&authEnabled, "auth-enabled", true, "Enable client certificate authentication")
+	flag.StringVar(&paginationMode, "pagination-mode", string(apiserver_lib.PaginationModeAsOfSystemTime), "Pagination backend: as-of-system-time | materialized-view")
 	flag.Parse()
+	if !apiserver_lib.ValidPaginationMode(paginationMode) {
+		stdlog.Fatalf("invalid pagination-mode %q, want as-of-system-time or materialized-view", paginationMode)
+	}
 
 	// set up echo
 	e := echo.New()
@@ -154,6 +160,7 @@ func main() {
 	// handlers
 	// v0
 	h_v0 := handlers_v0.New(db, nc, *js, &logger)
+	h_v0.PaginationMode = apiserver_lib.PaginationMode(paginationMode)
 
 	// routes
 	routes_v0.SwaggerRoutes(e)

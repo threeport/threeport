@@ -44,7 +44,26 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		handlerRegistration.Id(fmt.Sprintf("h_%s", versionConf.VersionName)).Op(":=").Qual(
 			fmt.Sprintf("%s/pkg/api-server/%s/handlers", gen.ModulePath, versionConf.VersionName),
 			"New",
-		).Call(List(Id("db"), Id("nc"), Op("*").Id("js"), Op("&").Id("logger")))
+		).Call(List(
+			Id("db"),
+			Id("nc"),
+			Op("*").Id("js"),
+			Op("&").Id("logger"),
+		))
+
+		// assign the pagination mode rather than passing it to the
+		// constructor, so adding or dropping the knob never changes a
+		// signature a module compiles against
+		handlerRegistration.Line()
+		if gen.Module {
+			handlerRegistration.Id(fmt.Sprintf("h_%s", versionConf.VersionName)).Dot("Handler").Dot("PaginationMode")
+		} else {
+			handlerRegistration.Id(fmt.Sprintf("h_%s", versionConf.VersionName)).Dot("PaginationMode")
+		}
+		handlerRegistration.Op("=").Qual(
+			"github.com/threeport/threeport/pkg/api-server/lib/v0",
+			"PaginationMode",
+		).Call(Id("paginationMode"))
 	}
 	handlerRegistration.Line()
 
@@ -118,6 +137,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 	f.ImportAlias("github.com/labstack/echo/v4", "echo")
 	f.ImportAlias("github.com/go-playground/validator/v10", "validator")
+	f.ImportAlias("log", "stdlog")
 	f.ImportAlias(util.SetImportAlias(
 		"github.com/threeport/threeport/pkg/log/v0",
 		"log",
@@ -188,6 +208,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Var().Id("autoMigrate").Bool()
 		g.Var().Id("verbose").Bool()
 		g.Var().Id("authEnabled").Bool()
+		g.Var().Id("paginationMode").String()
 		if gen.Module {
 			g.Qual("flag", "StringVar").Call(
 				Id("&threeportEnvFile"),
@@ -227,7 +248,25 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			True(),
 			Lit("Enable client certificate authentication"),
 		)
+		g.Qual("flag", "StringVar").Call(
+			Id("&paginationMode"),
+			Lit("pagination-mode"),
+			Id("string").Call(Qual(
+				"github.com/threeport/threeport/pkg/api-server/lib/v0",
+				"PaginationModeAsOfSystemTime",
+			)),
+			Lit("Pagination backend: as-of-system-time | materialized-view"),
+		)
 		g.Qual("flag", "Parse").Call()
+		g.If(Op("!").Qual(
+			"github.com/threeport/threeport/pkg/api-server/lib/v0",
+			"ValidPaginationMode",
+		).Call(Id("paginationMode"))).Block(
+			Qual("log", "Fatalf").Call(
+				Lit("invalid pagination-mode %q, want as-of-system-time or materialized-view"),
+				Id("paginationMode"),
+			),
+		)
 		g.Line()
 
 		g.Comment("set up echo")

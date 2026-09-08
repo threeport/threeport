@@ -967,7 +967,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "attached object reference search by name",
+                        "description": "filter by exact attached object reference name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -1266,7 +1266,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "aws eks kubernetes runtime definition search by name",
+                        "description": "filter by exact aws eks kubernetes runtime definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -1565,7 +1565,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "aws eks kubernetes runtime instance search by name",
+                        "description": "filter by exact aws eks kubernetes runtime instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -1864,7 +1864,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "aws provider search by name",
+                        "description": "filter by exact aws provider name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -2163,7 +2163,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "control plane definition search by name",
+                        "description": "filter by exact control plane definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -2462,7 +2462,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "control plane instance search by name",
+                        "description": "filter by exact control plane instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -2761,7 +2761,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "domain name definition search by name",
+                        "description": "filter by exact domain name definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -3060,7 +3060,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "domain name instance search by name",
+                        "description": "filter by exact domain name instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -3359,7 +3359,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "event search by name",
+                        "description": "filter by exact event name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -3723,7 +3723,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "gateway definition search by name",
+                        "description": "filter by exact gateway definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -4022,7 +4022,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "gateway http port search by name",
+                        "description": "filter by exact gateway http port name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -4321,7 +4321,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "gateway instance search by name",
+                        "description": "filter by exact gateway instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -4620,7 +4620,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "gateway tcp port search by name",
+                        "description": "filter by exact gateway tcp port name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -4919,7 +4919,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "gcp gke kubernetes runtime definition search by name",
+                        "description": "filter by exact gcp gke kubernetes runtime definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -5218,7 +5218,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "gcp gke kubernetes runtime instance search by name",
+                        "description": "filter by exact gcp gke kubernetes runtime instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -5517,7 +5517,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "gcp provider search by name",
+                        "description": "filter by exact gcp provider name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -5816,7 +5816,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "helm workload definition search by name",
+                        "description": "filter by exact helm workload definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -6115,7 +6115,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "helm workload instance search by name",
+                        "description": "filter by exact helm workload instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -6414,7 +6414,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "kubernetes runtime definition search by name",
+                        "description": "filter by exact kubernetes runtime definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -6713,7 +6713,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "kubernetes runtime instance search by name",
+                        "description": "filter by exact kubernetes runtime instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -7012,7 +7012,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "kubernetes workload definition search by name",
+                        "description": "filter by exact kubernetes workload definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -7311,7 +7311,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "kubernetes workload instance search by name",
+                        "description": "filter by exact kubernetes workload instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -7657,7 +7657,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "kubernetes workload resource definition search by name",
+                        "description": "filter by exact kubernetes workload resource definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -7956,7 +7956,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "kubernetes workload resource instance search by name",
+                        "description": "filter by exact kubernetes workload resource instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -8255,7 +8255,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "log backend search by name",
+                        "description": "filter by exact log backend name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -8554,7 +8554,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "log storage definition search by name",
+                        "description": "filter by exact log storage definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -8853,7 +8853,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "log storage instance search by name",
+                        "description": "filter by exact log storage instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -9152,7 +9152,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "logging definition search by name",
+                        "description": "filter by exact logging definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -9451,7 +9451,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "logging instance search by name",
+                        "description": "filter by exact logging instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -9750,7 +9750,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "machine runtime definition search by name",
+                        "description": "filter by exact machine runtime definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -10049,7 +10049,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "machine runtime instance search by name",
+                        "description": "filter by exact machine runtime instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -10348,7 +10348,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "machine workload definition search by name",
+                        "description": "filter by exact machine workload definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -10647,7 +10647,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "machine workload instance search by name",
+                        "description": "filter by exact machine workload instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -10946,7 +10946,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "metrics definition search by name",
+                        "description": "filter by exact metrics definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -11245,7 +11245,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "metrics instance search by name",
+                        "description": "filter by exact metrics instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -11588,7 +11588,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "module api route search by name",
+                        "description": "filter by exact module api route name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -11887,7 +11887,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "module api search by name",
+                        "description": "filter by exact module api name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -12186,7 +12186,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "module controller search by name",
+                        "description": "filter by exact module controller name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -12485,7 +12485,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "module object search by name",
+                        "description": "filter by exact module object name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -12574,7 +12574,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "module object search by name",
+                        "description": "filter by exact module object name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -12867,7 +12867,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "observability dashboard definition search by name",
+                        "description": "filter by exact observability dashboard definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -13166,7 +13166,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "observability dashboard instance search by name",
+                        "description": "filter by exact observability dashboard instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -13465,7 +13465,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "observability stack definition search by name",
+                        "description": "filter by exact observability stack definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -13764,7 +13764,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "observability stack instance search by name",
+                        "description": "filter by exact observability stack instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -14063,7 +14063,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "oci oke kubernetes runtime definition search by name",
+                        "description": "filter by exact oci oke kubernetes runtime definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -14362,7 +14362,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "oci oke kubernetes runtime instance search by name",
+                        "description": "filter by exact oci oke kubernetes runtime instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -14661,7 +14661,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "oci provider search by name",
+                        "description": "filter by exact oci provider name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -14960,7 +14960,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "profile search by name",
+                        "description": "filter by exact profile name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -15259,7 +15259,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "secret definition search by name",
+                        "description": "filter by exact secret definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -15558,7 +15558,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "secret instance search by name",
+                        "description": "filter by exact secret instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -15857,7 +15857,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "terraform definition search by name",
+                        "description": "filter by exact terraform definition name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -16156,7 +16156,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "terraform instance search by name",
+                        "description": "filter by exact terraform instance name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }
@@ -16455,7 +16455,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "tier search by name",
+                        "description": "filter by exact tier name (case sensitive)",
                         "name": "name",
                         "in": "query"
                     }

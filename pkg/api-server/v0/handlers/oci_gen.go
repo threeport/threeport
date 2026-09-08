@@ -55,7 +55,7 @@ func (h Handler) AddOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 
 	if err := c.Bind(&ociOkeKubernetesRuntimeDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
@@ -103,12 +103,13 @@ func (h Handler) AddOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 // @ID get-v0-ociOkeKubernetesRuntimeDefinitions
 // @Accept json
 // @Produce json
-// @Param name query string false "oci oke kubernetes runtime definition search by name"
+// @Param name query string false "filter by exact oci oke kubernetes runtime definition name (case sensitive)"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/oci-oke-kubernetes-runtime-definitions [GET]
 func (h Handler) GetOciOkeKubernetesRuntimeDefinitions(c echo.Context) error {
+	objectType := api_v0.ObjectTypeOciOkeKubernetesRuntimeDefinition
 	fullyQualifiedType := new(api_v0.OciOkeKubernetesRuntimeDefinition).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -121,7 +122,7 @@ func (h Handler) GetOciOkeKubernetesRuntimeDefinitions(c echo.Context) error {
 	var filter api_v0.OciOkeKubernetesRuntimeDefinition
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -152,21 +153,18 @@ func (h Handler) GetOciOkeKubernetesRuntimeDefinitions(c echo.Context) error {
 			}
 			returnedCount = int64(len(*records))
 		case true:
-			// if we have to paginate, create the materialized view and use it to fetch the first page of records
+			// dispatch to the configured pagination strategy to fetch the first page
 			queryTable := filter.TableName()
-			viewName, qid, err := h.CreateMaterializedView(queryTable)
+			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.OciOkeKubernetesRuntimeDefinition{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
-				h.Logger.Error("handler error: error creating materialized view", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				}
+				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 			}
-			pagination.QueryId = qid
-
-			// fetch records from the new materialized view
-			returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-			if err != nil {
-				h.Logger.Error("handler error: error finding records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
-			}
+			pagination.QueryId = queryId
+			returnedCount = count
 
 			// set the cursor for the next page of results
 			if len(*records) > 0 {
@@ -179,22 +177,18 @@ func (h Handler) GetOciOkeKubernetesRuntimeDefinitions(c echo.Context) error {
 		// client provided a query ID but no cursor, so we cannot fetch the next page of results
 		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), fullyQualifiedType)
 	case pageParams.QueryId != "" && pageParams.Cursor != 0:
-		// use query ID to find the materialized view name
-		viewName, err := h.GetMaterializedViewName(pageParams.QueryId)
+		// continuation: dispatch to the configured pagination strategy to fetch the next page
+		queryTable := filter.TableName()
+		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.OciOkeKubernetesRuntimeDefinition{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
-			h.Logger.Error("handler error: error finding materialized view", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+			}
+			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 		}
-
-		// fetch records from the materialized view based on cursor
-		returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-		if err != nil {
-			h.Logger.Error("handler error: error finding records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
-		}
-
-		// set the query ID for the next page of results
-		pagination.QueryId = pageParams.QueryId
+		pagination.QueryId = queryId
+		returnedCount = count
 
 		// set the cursor for the next page of results
 		if len(*records) > 0 {
@@ -300,7 +294,7 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 	var updatedOciOkeKubernetesRuntimeDefinition api_v0.OciOkeKubernetesRuntimeDefinition
 	if err := c.Bind(&updatedOciOkeKubernetesRuntimeDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// update object in database
@@ -378,7 +372,7 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeDefinition(c echo.Context) error 
 	var updatedOciOkeKubernetesRuntimeDefinition api_v0.OciOkeKubernetesRuntimeDefinition
 	if err := c.Bind(&updatedOciOkeKubernetesRuntimeDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
@@ -535,7 +529,7 @@ func (h Handler) AddOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 
 	if err := c.Bind(&ociOkeKubernetesRuntimeInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
@@ -597,12 +591,13 @@ func (h Handler) AddOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 // @ID get-v0-ociOkeKubernetesRuntimeInstances
 // @Accept json
 // @Produce json
-// @Param name query string false "oci oke kubernetes runtime instance search by name"
+// @Param name query string false "filter by exact oci oke kubernetes runtime instance name (case sensitive)"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/oci-oke-kubernetes-runtime-instances [GET]
 func (h Handler) GetOciOkeKubernetesRuntimeInstances(c echo.Context) error {
+	objectType := api_v0.ObjectTypeOciOkeKubernetesRuntimeInstance
 	fullyQualifiedType := new(api_v0.OciOkeKubernetesRuntimeInstance).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -615,7 +610,7 @@ func (h Handler) GetOciOkeKubernetesRuntimeInstances(c echo.Context) error {
 	var filter api_v0.OciOkeKubernetesRuntimeInstance
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -646,21 +641,18 @@ func (h Handler) GetOciOkeKubernetesRuntimeInstances(c echo.Context) error {
 			}
 			returnedCount = int64(len(*records))
 		case true:
-			// if we have to paginate, create the materialized view and use it to fetch the first page of records
+			// dispatch to the configured pagination strategy to fetch the first page
 			queryTable := filter.TableName()
-			viewName, qid, err := h.CreateMaterializedView(queryTable)
+			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.OciOkeKubernetesRuntimeInstance{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
-				h.Logger.Error("handler error: error creating materialized view", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				}
+				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 			}
-			pagination.QueryId = qid
-
-			// fetch records from the new materialized view
-			returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-			if err != nil {
-				h.Logger.Error("handler error: error finding records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
-			}
+			pagination.QueryId = queryId
+			returnedCount = count
 
 			// set the cursor for the next page of results
 			if len(*records) > 0 {
@@ -673,22 +665,18 @@ func (h Handler) GetOciOkeKubernetesRuntimeInstances(c echo.Context) error {
 		// client provided a query ID but no cursor, so we cannot fetch the next page of results
 		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), fullyQualifiedType)
 	case pageParams.QueryId != "" && pageParams.Cursor != 0:
-		// use query ID to find the materialized view name
-		viewName, err := h.GetMaterializedViewName(pageParams.QueryId)
+		// continuation: dispatch to the configured pagination strategy to fetch the next page
+		queryTable := filter.TableName()
+		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.OciOkeKubernetesRuntimeInstance{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
-			h.Logger.Error("handler error: error finding materialized view", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+			}
+			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 		}
-
-		// fetch records from the materialized view based on cursor
-		returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-		if err != nil {
-			h.Logger.Error("handler error: error finding records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
-		}
-
-		// set the query ID for the next page of results
-		pagination.QueryId = pageParams.QueryId
+		pagination.QueryId = queryId
+		returnedCount = count
 
 		// set the cursor for the next page of results
 		if len(*records) > 0 {
@@ -794,7 +782,7 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	var updatedOciOkeKubernetesRuntimeInstance api_v0.OciOkeKubernetesRuntimeInstance
 	if err := c.Bind(&updatedOciOkeKubernetesRuntimeInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -891,7 +879,7 @@ func (h Handler) ReplaceOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	var updatedOciOkeKubernetesRuntimeInstance api_v0.OciOkeKubernetesRuntimeInstance
 	if err := c.Bind(&updatedOciOkeKubernetesRuntimeInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
@@ -1114,7 +1102,7 @@ func (h Handler) AddOciProvider(c echo.Context) error {
 
 	if err := c.Bind(&ociProvider); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
@@ -1162,12 +1150,13 @@ func (h Handler) AddOciProvider(c echo.Context) error {
 // @ID get-v0-ociProviders
 // @Accept json
 // @Produce json
-// @Param name query string false "oci provider search by name"
+// @Param name query string false "filter by exact oci provider name (case sensitive)"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/oci-providers [GET]
 func (h Handler) GetOciProviders(c echo.Context) error {
+	objectType := api_v0.ObjectTypeOciProvider
 	fullyQualifiedType := new(api_v0.OciProvider).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -1180,7 +1169,7 @@ func (h Handler) GetOciProviders(c echo.Context) error {
 	var filter api_v0.OciProvider
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -1211,21 +1200,18 @@ func (h Handler) GetOciProviders(c echo.Context) error {
 			}
 			returnedCount = int64(len(*records))
 		case true:
-			// if we have to paginate, create the materialized view and use it to fetch the first page of records
+			// dispatch to the configured pagination strategy to fetch the first page
 			queryTable := filter.TableName()
-			viewName, qid, err := h.CreateMaterializedView(queryTable)
+			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.OciProvider{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
-				h.Logger.Error("handler error: error creating materialized view", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				}
+				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 			}
-			pagination.QueryId = qid
-
-			// fetch records from the new materialized view
-			returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-			if err != nil {
-				h.Logger.Error("handler error: error finding records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
-			}
+			pagination.QueryId = queryId
+			returnedCount = count
 
 			// set the cursor for the next page of results
 			if len(*records) > 0 {
@@ -1238,22 +1224,18 @@ func (h Handler) GetOciProviders(c echo.Context) error {
 		// client provided a query ID but no cursor, so we cannot fetch the next page of results
 		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), fullyQualifiedType)
 	case pageParams.QueryId != "" && pageParams.Cursor != 0:
-		// use query ID to find the materialized view name
-		viewName, err := h.GetMaterializedViewName(pageParams.QueryId)
+		// continuation: dispatch to the configured pagination strategy to fetch the next page
+		queryTable := filter.TableName()
+		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.OciProvider{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
-			h.Logger.Error("handler error: error finding materialized view", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
+			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+			}
+			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 		}
-
-		// fetch records from the materialized view based on cursor
-		returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-		if err != nil {
-			h.Logger.Error("handler error: error finding records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
-		}
-
-		// set the query ID for the next page of results
-		pagination.QueryId = pageParams.QueryId
+		pagination.QueryId = queryId
+		returnedCount = count
 
 		// set the cursor for the next page of results
 		if len(*records) > 0 {
@@ -1359,7 +1341,7 @@ func (h Handler) UpdateOciProvider(c echo.Context) error {
 	var updatedOciProvider api_v0.OciProvider
 	if err := c.Bind(&updatedOciProvider); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// update object in database
@@ -1437,7 +1419,7 @@ func (h Handler) ReplaceOciProvider(c echo.Context) error {
 	var updatedOciProvider api_v0.OciProvider
 	if err := c.Bind(&updatedOciProvider); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields

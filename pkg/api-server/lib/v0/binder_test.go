@@ -74,11 +74,72 @@ func TestQueryBinder_MissingParamLeavesFieldZero(t *testing.T) {
 	assert.Nil(t, filter.Count, "Count stays nil when no count param present")
 }
 
-// TestQueryBinder_UnknownParamIgnored verifies extra query params that
-// don't correspond to any field are silently dropped rather than
-// erroring out - matches the permissive default binder.
-func TestQueryBinder_UnknownParamIgnored(t *testing.T) {
+// TestQueryBinder_UnknownParamRejected verifies a query param matching no
+// field is rejected with an error naming the offending key.
+func TestQueryBinder_UnknownParamRejected(t *testing.T) {
 	c, _ := newBindContext(http.MethodGet, "/?name=keep&irrelevant=junk", nil)
+	var filter bindTestFilter
+	err := NewQueryBinder().Bind(&filter, c)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "irrelevant")
+}
+
+// bindTestExtender declares extra accepted query keys via ExtraQueryKeys,
+// mirroring an api type (e.g. Event) whose handler reads synthetic filter
+// keys directly from the query string rather than binding them onto a
+// field.
+type bindTestExtender struct {
+	bindTestFilter
+}
+
+func (bindTestExtender) ExtraQueryKeys() []string {
+	return []string{"objecttypename", "objectversion"}
+}
+
+// TestQueryBinder_ExtraQueryKeysAccepted confirms keys a bound type
+// declares via ExtraQueryKeys pass the unknown-key gate even though no
+// struct field matches them, while the type's real fields still bind.
+func TestQueryBinder_ExtraQueryKeysAccepted(t *testing.T) {
+	c, _ := newBindContext(http.MethodGet, "/?name=keep&objecttypename=Widget&objectversion=v0", nil)
+	var filter bindTestExtender
+	require.NoError(t, NewQueryBinder().Bind(&filter, c))
+
+	require.NotNil(t, filter.Name)
+	assert.Equal(t, "keep", *filter.Name, "real field still binds alongside declared synthetic keys")
+}
+
+// TestQueryBinder_ExtraQueryKeysStillRejectsUnknown confirms declaring
+// extra keys does not disable typo protection: a key that is neither a
+// field nor declared is still rejected.
+func TestQueryBinder_ExtraQueryKeysStillRejectsUnknown(t *testing.T) {
+	c, _ := newBindContext(http.MethodGet, "/?objecttypename=Widget&bogus=junk", nil)
+	var filter bindTestExtender
+	err := NewQueryBinder().Bind(&filter, c)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bogus")
+}
+
+// TestQueryBinder_ReservedPaginationParamsAllowed confirms that keys
+// consumed by the api-server pagination layer (queryid, cursor, limit)
+// pass through the unknown-key gate even though they are not fields on
+// the filter struct.
+func TestQueryBinder_ReservedPaginationParamsAllowed(t *testing.T) {
+	c, _ := newBindContext(http.MethodGet, "/?name=keep&queryid=abc&cursor=1&limit=10", nil)
+	var filter bindTestFilter
+	require.NoError(t, NewQueryBinder().Bind(&filter, c))
+
+	require.NotNil(t, filter.Name)
+	assert.Equal(t, "keep", *filter.Name)
+}
+
+// TestQueryBinder_ReservedScopeParamsAllowed confirms the scope params
+// the api-server consumes directly (includedeleted to bypass the
+// soft-delete filter, ids to restrict a list to a set of row ids) pass
+// the unknown-key gate even though neither is a field on the filter
+// struct. ids resolution across modules relies on this: a bulk name
+// lookup lists by `?ids=`, so rejecting the key would fail that lookup.
+func TestQueryBinder_ReservedScopeParamsAllowed(t *testing.T) {
+	c, _ := newBindContext(http.MethodGet, "/?name=keep&includedeleted=true&ids=1,2,3", nil)
 	var filter bindTestFilter
 	require.NoError(t, NewQueryBinder().Bind(&filter, c))
 
