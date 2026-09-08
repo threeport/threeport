@@ -40,6 +40,76 @@ func GenDbMigratorUtils(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 		Return(Id("gormDb"), Nil()),
 	)
+	f.Line()
+
+	f.Comment("createMissingJoinTables creates a join table for each many-to-many field that has none.")
+	f.Func().Id("createMissingJoinTables").Params(
+		Id("gormDb").Op("*").Qual("gorm.io/gorm", "DB"),
+		Id("models").Index().Interface(),
+	).Error().Block(
+		For(List(Id("_"), Id("model")).Op(":=").Range().Id("models")).Block(
+			Id("stmt").Op(":=").Op("&").Qual("gorm.io/gorm", "Statement").Values(Dict{
+				Id("DB"): Id("gormDb"),
+			}),
+			If(Err().Op(":=").Id("stmt").Dot("Parse").Call(Id("model")), Err().Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(Lit("failed to parse %T: %w"), Id("model"), Err())),
+			),
+			If(Id("stmt").Dot("Schema").Op("==").Nil()).Block(
+				Continue(),
+			),
+			For(List(Id("_"), Id("rel")).Op(":=").Range().Id("stmt").Dot("Schema").Dot("Relationships").Dot("Many2Many")).Block(
+				If(Id("rel").Dot("JoinTable").Op("==").Nil().Op("||").Id("rel").Dot("Field").Op("==").Nil().Op("||").Id("rel").Dot("Field").Dot("IgnoreMigration")).Block(
+					Continue(),
+				),
+				Id("join").Op(":=").Qual("reflect", "New").Call(Id("rel").Dot("JoinTable").Dot("ModelType")).Dot("Interface").Call(),
+				If(Id("gormDb").Dot("Migrator").Call().Dot("HasTable").Call(Id("join"))).Block(
+					Continue(),
+				),
+				If(Err().Op(":=").Id("gormDb").Dot("Migrator").Call().Dot("CreateTable").Call(Id("join")), Err().Op("!=").Nil()).Block(
+					Return(Qual("fmt", "Errorf").Call(
+						Lit("failed to create join table %s: %w"),
+						Id("rel").Dot("JoinTable").Dot("Table"),
+						Err(),
+					)),
+				),
+			),
+		),
+		Line(),
+		Return(Nil()),
+	)
+	f.Line()
+
+	f.Comment("dropJoinTables drops each many-to-many join table.")
+	f.Func().Id("dropJoinTables").Params(
+		Id("gormDb").Op("*").Qual("gorm.io/gorm", "DB"),
+		Id("models").Index().Interface(),
+	).Error().Block(
+		For(List(Id("_"), Id("model")).Op(":=").Range().Id("models")).Block(
+			Id("stmt").Op(":=").Op("&").Qual("gorm.io/gorm", "Statement").Values(Dict{
+				Id("DB"): Id("gormDb"),
+			}),
+			If(Err().Op(":=").Id("stmt").Dot("Parse").Call(Id("model")), Err().Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(Lit("failed to parse %T: %w"), Id("model"), Err())),
+			),
+			If(Id("stmt").Dot("Schema").Op("==").Nil()).Block(
+				Continue(),
+			),
+			For(List(Id("_"), Id("rel")).Op(":=").Range().Id("stmt").Dot("Schema").Dot("Relationships").Dot("Many2Many")).Block(
+				If(Id("rel").Dot("JoinTable").Op("==").Nil()).Block(
+					Continue(),
+				),
+				If(Err().Op(":=").Id("gormDb").Dot("Migrator").Call().Dot("DropTable").Call(Id("rel").Dot("JoinTable").Dot("Table")), Err().Op("!=").Nil()).Block(
+					Return(Qual("fmt", "Errorf").Call(
+						Lit("failed to drop join table %s: %w"),
+						Id("rel").Dot("JoinTable").Dot("Table"),
+						Err(),
+					)),
+				),
+			),
+		),
+		Line(),
+		Return(Nil()),
+	)
 
 	// write code to file if not excluded by SDK config
 	genFilepath := filepath.Join("cmd", "database-migrator", "migrations", "util_gen.go")

@@ -39,6 +39,11 @@ func Up000001(ctx context.Context, db *sql.DB) error {
 		}
 	}
 
+	// create a join table for each many-to-many field that has none
+	if err := createMissingJoinTables(gormDb, dbInterfaces000001()); err != nil {
+		return err
+	}
+
 	// uniform row-level time-to-live on events
 	if err := gormDb.Exec(fmt.Sprintf(
 		"ALTER TABLE v0_events SET (ttl_expire_after = '%s', ttl_job_cron = '@hourly')",
@@ -71,6 +76,11 @@ func Up000001(ctx context.Context, db *sql.DB) error {
 func Down000001(ctx context.Context, db *sql.DB) error {
 	gormDb, err := getGormDbFromContext(ctx)
 	if err != nil {
+		return err
+	}
+
+	// drop join tables before the models they reference
+	if err := dropJoinTables(gormDb, dbInterfaces000001()); err != nil {
 		return err
 	}
 

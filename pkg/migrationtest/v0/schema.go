@@ -80,6 +80,15 @@ func assertCoverage(
 			declared[name] = true
 		}
 
+		for _, rel := range stmt.Schema.Relationships.Many2Many {
+			if rel.JoinTable == nil {
+				continue
+			}
+			if !gormDb.Migrator().HasTable(rel.JoinTable.Table) {
+				t.Errorf("no migration creates join table %s for %T.%s", rel.JoinTable.Table, model, rel.Name)
+			}
+		}
+
 		if !gormDb.Migrator().HasTable(model) {
 			t.Errorf("no migration creates table %s for %T", stmt.Schema.Table, model)
 			continue

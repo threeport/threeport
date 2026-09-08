@@ -5,6 +5,8 @@ package migrations
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	gorm "gorm.io/gorm"
 )
 
@@ -22,4 +24,54 @@ func getGormDbFromContext(ctx context.Context) (*gorm.DB, error) {
 	}
 
 	return gormDb, nil
+}
+
+// createMissingJoinTables creates a join table for each many-to-many field that has none.
+func createMissingJoinTables(gormDb *gorm.DB, models []interface{}) error {
+	for _, model := range models {
+		stmt := &gorm.Statement{DB: gormDb}
+		if err := stmt.Parse(model); err != nil {
+			return fmt.Errorf("failed to parse %T: %w", model, err)
+		}
+		if stmt.Schema == nil {
+			continue
+		}
+		for _, rel := range stmt.Schema.Relationships.Many2Many {
+			if rel.JoinTable == nil || rel.Field == nil || rel.Field.IgnoreMigration {
+				continue
+			}
+			join := reflect.New(rel.JoinTable.ModelType).Interface()
+			if gormDb.Migrator().HasTable(join) {
+				continue
+			}
+			if err := gormDb.Migrator().CreateTable(join); err != nil {
+				return fmt.Errorf("failed to create join table %s: %w", rel.JoinTable.Table, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// dropJoinTables drops each many-to-many join table.
+func dropJoinTables(gormDb *gorm.DB, models []interface{}) error {
+	for _, model := range models {
+		stmt := &gorm.Statement{DB: gormDb}
+		if err := stmt.Parse(model); err != nil {
+			return fmt.Errorf("failed to parse %T: %w", model, err)
+		}
+		if stmt.Schema == nil {
+			continue
+		}
+		for _, rel := range stmt.Schema.Relationships.Many2Many {
+			if rel.JoinTable == nil {
+				continue
+			}
+			if err := gormDb.Migrator().DropTable(rel.JoinTable.Table); err != nil {
+				return fmt.Errorf("failed to drop join table %s: %w", rel.JoinTable.Table, err)
+			}
+		}
+	}
+
+	return nil
 }

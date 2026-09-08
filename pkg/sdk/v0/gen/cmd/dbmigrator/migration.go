@@ -64,6 +64,18 @@ func GenDbMigratorMigration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error 
 		),
 		Line(),
 
+		Comment("create a join table for each many-to-many field that has none"),
+		If(
+			Err().Op(":=").Id("createMissingJoinTables").Call(
+				Id("gormDb"),
+				Id(fmt.Sprintf("dbInterfaces%s", migrationVersion)).Call(),
+			),
+			Err().Op("!=").Nil(),
+		).Block(
+			Return(Err()),
+		),
+		Line(),
+
 		Return(Nil()),
 	)
 	f.Line()
@@ -74,6 +86,18 @@ func GenDbMigratorMigration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error 
 	).Error().Block(
 		List(Id("gormDb"), Err()).Op(":=").Id("getGormDbFromContext").Call(Id("ctx")),
 		If(Err().Op("!=").Nil()).Block(
+			Return(Err()),
+		),
+		Line(),
+
+		Comment("drop join tables before the models they reference"),
+		If(
+			Err().Op(":=").Id("dropJoinTables").Call(
+				Id("gormDb"),
+				Id(fmt.Sprintf("dbInterfaces%s", migrationVersion)).Call(),
+			),
+			Err().Op("!=").Nil(),
+		).Block(
 			Return(Err()),
 		),
 		Line(),
