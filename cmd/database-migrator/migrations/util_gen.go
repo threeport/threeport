@@ -5,9 +5,8 @@ package migrations
 import (
 	"context"
 	"fmt"
-	"reflect"
-
 	gorm "gorm.io/gorm"
+	"reflect"
 )
 
 func getGormDbFromContext(ctx context.Context) (*gorm.DB, error) {
