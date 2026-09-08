@@ -27,7 +27,7 @@ func getGormDbFromContext(ctx context.Context) (*gorm.DB, error) {
 }
 
 // createMissingTables creates a table for each model and many-to-many join that has none.
-// CreateTable does not add join tables.
+// GORM's CreateTable on a parent model does not add that model's join tables.
 func createMissingTables(gormDb *gorm.DB, models []interface{}) error {
 	// create model tables
 	for _, model := range models {

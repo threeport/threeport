@@ -43,7 +43,7 @@ func GenDbMigratorUtils(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Line()
 
 	f.Comment("createMissingTables creates a table for each model and many-to-many join that has none.")
-	f.Comment("CreateTable does not add join tables.")
+	f.Comment("GORM's CreateTable on a parent model does not add that model's join tables.")
 	f.Func().Id("createMissingTables").Params(
 		Id("gormDb").Op("*").Qual("gorm.io/gorm", "DB"),
 		Id("models").Index().Interface(),
