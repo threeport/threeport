@@ -13,9 +13,8 @@ import (
 	"gorm.io/datatypes"
 )
 
-// fastRefreshConfig returns a lifecycle config with a millisecond-scale
-// refresh interval so refreshAck tests tick quickly. All other tunables
-// keep production-scale values that the tests never reach.
+// fastRefreshConfig returns a lifecycle config whose refresh interval is
+// 5 milliseconds so a test can observe ticks in milliseconds.
 func fastRefreshConfig() LifecycleConfig {
 	return LifecycleConfig{
 		StaleAckThreshold: 240 * time.Second,
@@ -26,20 +25,21 @@ func fastRefreshConfig() LifecycleConfig {
 	}
 }
 
-// TestRefreshAck_QuitClean asserts the quit-channel branch of refreshAck:
-// the loop ticks on the configured refresh interval, returns promptly
-// once quit is signalled, and stops invoking the refresh function after
-// it returns.
+// TestRefreshAck_QuitClean covers a quit signal stopping further refresh
+// calls after the loop has ticked.
 func TestRefreshAck_QuitClean(t *testing.T) {
+	// set a short refresh interval
 	restore := setLifecycleConfig(fastRefreshConfig())
 	t.Cleanup(restore)
 
+	// count refresh calls
 	var calls int64
 	refresh := func() error {
 		atomic.AddInt64(&calls, 1)
 		return nil
 	}
 
+	// run refreshAck in a goroutine
 	quit := make(chan bool, 1)
 	done := make(chan struct{})
 	go func() {
@@ -47,11 +47,12 @@ func TestRefreshAck_QuitClean(t *testing.T) {
 		refreshAck(refresh, quit, newTestLogger())
 	}()
 
-	// prove the loop is ticking before signalling quit
+	// wait for at least two ticks before quit
 	require.Eventually(t, func() bool {
 		return atomic.LoadInt64(&calls) >= 2
 	}, 10*time.Second, time.Millisecond, "refreshAck should tick on the refresh interval")
 
+	// send quit and wait for return
 	quit <- true
 	select {
 	case <-done:
@@ -59,21 +60,21 @@ func TestRefreshAck_QuitClean(t *testing.T) {
 		t.Fatal("refreshAck did not return after quit signal")
 	}
 
-	// after the loop has returned, the call count must freeze; the grace
-	// window spans many refresh intervals to catch a stray ticker
+	// assert refresh calls stay settled across many refresh intervals
 	settled := atomic.LoadInt64(&calls)
 	assert.Never(t, func() bool {
 		return atomic.LoadInt64(&calls) != settled
 	}, 100*time.Millisecond, 5*time.Millisecond, "refresh calls must stop after refreshAck returns")
 }
 
-// TestRefreshAck_RefreshErrorDoesNotBlock asserts the error branch of the
-// tick case: refresh failures are logged and swallowed, the loop keeps
-// ticking through them, and quit still exits the loop promptly.
+// TestRefreshAck_RefreshErrorDoesNotBlock covers refresh errors leaving
+// the tick loop running.
 func TestRefreshAck_RefreshErrorDoesNotBlock(t *testing.T) {
+	// set a short refresh interval
 	restore := setLifecycleConfig(fastRefreshConfig())
 	t.Cleanup(restore)
 
+	// fail the first three refresh calls
 	var calls int64
 	refresh := func() error {
 		if atomic.AddInt64(&calls, 1) <= 3 {
@@ -82,6 +83,7 @@ func TestRefreshAck_RefreshErrorDoesNotBlock(t *testing.T) {
 		return nil
 	}
 
+	// run refreshAck in a goroutine
 	quit := make(chan bool, 1)
 	done := make(chan struct{})
 	go func() {
@@ -89,11 +91,12 @@ func TestRefreshAck_RefreshErrorDoesNotBlock(t *testing.T) {
 		refreshAck(refresh, quit, newTestLogger())
 	}()
 
-	// the loop must tick well past the three failing calls
+	// wait for ticks past the failing calls
 	require.Eventually(t, func() bool {
 		return atomic.LoadInt64(&calls) >= 6
 	}, 10*time.Second, time.Millisecond, "refreshAck should keep ticking through refresh errors")
 
+	// send quit and wait for return
 	quit <- true
 	select {
 	case <-done:
@@ -102,30 +105,33 @@ func TestRefreshAck_RefreshErrorDoesNotBlock(t *testing.T) {
 	}
 }
 
-// streamHarness wires a fake streamable provider, a save recorder, and
-// the channels needed to drive a streamState goroutine under test. The
-// watched path is built through a real PulumiWorkspace rooted in a temp
-// dir, matching production path construction exactly.
+// streamHarness is a test fixture that runs a stream loop against a fake
+// streamable provider and records each saved state.
 type streamHarness struct {
 	t     *testing.T
 	infra *fakeStreamableInfra
-	path  string
+	// The state file path
+	path string
 
-	mu    sync.Mutex
+	mu sync.Mutex
+	// The states received by a save callback
 	saved []*datatypes.JSON
 
+	// The quit signal for the stream loop
 	quit chan bool
+	// The channel closed when the stream loop returns
 	done chan struct{}
 }
 
-// newStreamHarness resolves a state file path via PulumiWorkspace under
-// t.TempDir() and returns a harness around a fake streamable provider
-// reporting that path.
+// newStreamHarness returns a streamHarness with a nested state file path
+// under a temp directory.
 func newStreamHarness(t *testing.T) *streamHarness {
 	t.Helper()
+	// derive a nested state file path under a temp dir
 	ws := NewPulumiWorkspace("test-instance", "test-project", WithStateDirRoot(t.TempDir()))
 	path, err := ws.GetStateFilePath()
 	require.NoError(t, err)
+	// return a harness pointing at that path
 	return &streamHarness{
 		t:     t,
 		infra: newFakeStreamableInfra(path),
@@ -135,14 +141,15 @@ func newStreamHarness(t *testing.T) *streamHarness {
 	}
 }
 
-// start launches streamState in a goroutine; done closes when it
-// returns. A cleanup sends a non-blocking quit so a failed test never
-// leaks the watcher goroutine.
+// start launches the stream loop and registers a non-blocking quit
+// cleanup so a failed test does not leak the goroutine.
 func (h *streamHarness) start() {
+	// launch streamState
 	go func() {
 		defer close(h.done)
 		streamState(h.infra, h.saveState, h.quit, newTestLogger())
 	}()
+	// send quit on cleanup if the test did not
 	h.t.Cleanup(func() {
 		select {
 		case h.quit <- true:
@@ -151,7 +158,7 @@ func (h *streamHarness) start() {
 	})
 }
 
-// saveState records every state pushed by streamState.
+// saveState records each saved state for later assertions.
 func (h *streamHarness) saveState(state *datatypes.JSON) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -159,54 +166,57 @@ func (h *streamHarness) saveState(state *datatypes.JSON) error {
 	return nil
 }
 
-// saveCount returns the number of recorded saves.
+// saveCount returns the number of saved states.
 func (h *streamHarness) saveCount() int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return len(h.saved)
 }
 
-// lastSaved returns the most recently recorded state, or nil if no save
-// occurred.
+// lastSaved returns the most recent saved state, or nil if none.
 func (h *streamHarness) lastSaved() *datatypes.JSON {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	// return nil when nothing has been saved
 	if len(h.saved) == 0 {
 		return nil
 	}
+	// return the most recent saved state
 	return h.saved[len(h.saved)-1]
 }
 
-// writeStateFile writes content to the watched state file to fire a
-// real fsnotify event, creating the parent directory if needed. Uses
-// assert (not require) so it is safe inside Eventually conditions,
-// which run on a non-test goroutine.
+// writeStateFile writes the watched state file to fire a watcher event.
+// It uses assert so a failure does not FailNow off the test goroutine.
 func (h *streamHarness) writeStateFile(content string) {
+	// create the state file directory
 	if !assert.NoError(h.t, os.MkdirAll(filepath.Dir(h.path), 0755)) {
 		return
 	}
+	// write the state file
 	assert.NoError(h.t, os.WriteFile(h.path, []byte(content), 0644))
 }
 
-// writeSiblingFile writes a differently named file in the watched
-// directory; its events must be filtered out by base filename.
+// writeSiblingFile writes content to a non-state file in the same
+// directory as the watched state file.
 func (h *streamHarness) writeSiblingFile(content string) {
 	sibling := filepath.Join(filepath.Dir(h.path), "sibling.json")
+	// create the state file directory
 	if !assert.NoError(h.t, os.MkdirAll(filepath.Dir(h.path), 0755)) {
 		return
 	}
+	// write a sibling file in the same directory
 	assert.NoError(h.t, os.WriteFile(sibling, []byte(content), 0644))
 }
 
-// sendQuit signals streamState to stop.
+// sendQuit signals the stream loop to return.
 func (h *streamHarness) sendQuit() {
 	h.quit <- true
 }
 
-// waitDone blocks until streamState returns or fails the test at the
-// deadline. Call only from the test goroutine.
+// waitDone fails the test if the stream loop does not return in time.
 func (h *streamHarness) waitDone(deadline time.Duration) {
 	h.t.Helper()
+	// wait for streamState to return
 	select {
 	case <-h.done:
 	case <-time.After(deadline):
@@ -214,117 +224,120 @@ func (h *streamHarness) waitDone(deadline time.Duration) {
 	}
 }
 
-// TestStreamState_ValidJSON_SavesImmediately asserts the happy streaming
-// path: streamState creates the state directory itself, watches it, and
-// on a real fsnotify write event reads the state file and pushes the
-// exact bytes through the save callback.
+// TestStreamState_ValidJSON_SavesImmediately covers a valid state file
+// write triggering a save.
 func TestStreamState_ValidJSON_SavesImmediately(t *testing.T) {
 	h := newStreamHarness(t)
+	// seed a valid canned read result
 	want := validStackState()
 	h.infra.setReadState(want, nil)
 
+	// start streamState
 	h.start()
 
-	// streamState must create the watch directory before the test writes
-	// anything, so wait for the parent dir to appear
+	// wait for the state directory before writing
 	stateDir := filepath.Dir(h.path)
 	require.Eventually(t, func() bool {
 		_, err := os.Stat(stateDir)
 		return err == nil
 	}, 10*time.Second, 10*time.Millisecond, "streamState should create the state directory")
 
-	// rewrite the file until a save lands; the watcher registration is
-	// not observable, so poll-writing absorbs the startup race
+	// write until a save lands since the watch is not observable
 	require.Eventually(t, func() bool {
 		h.writeStateFile(string(*want))
 		return h.saveCount() >= 1
 	}, 10*time.Second, 50*time.Millisecond, "state file write should trigger a save")
 
+	// assert the saved bytes match the canned read
 	got := h.lastSaved()
 	require.NotNil(t, got)
 	assert.Equal(t, string(*want), string(*got), "saved state must match the bytes read from the state file")
+	// assert the write triggered a read
 	assert.GreaterOrEqual(t, h.infra.readStateCallCount(), 1, "state file event should trigger a read")
 
+	// send quit and wait for return
 	h.sendQuit()
 	h.waitDone(5 * time.Second)
 }
 
-// TestStreamState_PartialJSON_Skipped asserts the invalid-JSON guard: a
-// state file read returning partial JSON is skipped without saving and
-// without ending the loop, and a later valid read still saves.
+// TestStreamState_PartialJSON_Skipped covers invalid JSON being skipped
+// and a later valid write still saving.
 func TestStreamState_PartialJSON_Skipped(t *testing.T) {
 	h := newStreamHarness(t)
+	// seed a partial JSON canned read
 	partial := jsonPtr(`{"deployment":{"resources":[`)
 	h.infra.setReadState(partial, nil)
 
+	// start streamState
 	h.start()
 
-	// rewrite the file until an event has been consumed, proven by the
-	// read counter advancing
+	// write the partial file until a read is recorded
 	require.Eventually(t, func() bool {
 		h.writeStateFile(string(*partial))
 		return h.infra.readStateCallCount() >= 1
 	}, 10*time.Second, 50*time.Millisecond, "state file write should trigger a read")
 
-	// invalid JSON must never reach the save callback
+	// assert no save was recorded
 	assert.Never(t, func() bool {
 		return h.saveCount() > 0
 	}, 300*time.Millisecond, 20*time.Millisecond, "partial JSON must not be saved")
 
-	// prove the loop survived the skip: a valid read now saves
+	// seed a valid canned read
 	want := validStackState()
 	h.infra.setReadState(want, nil)
+	// write a valid file to prove the loop survived the skip
 	require.Eventually(t, func() bool {
 		h.writeStateFile(string(*want))
 		return h.saveCount() >= 1
 	}, 10*time.Second, 50*time.Millisecond, "valid state after a skipped partial write should save")
 
+	// send quit and wait for return
 	h.sendQuit()
 	h.waitDone(5 * time.Second)
 }
 
-// TestStreamState_QuitOrdering_NoLateWrite asserts the quit ordering
-// contract: once quit has been honored and streamState has returned, a
-// subsequent state file write produces no save.
+// TestStreamState_QuitOrdering_NoLateWrite covers a state file write
+// after quit being ignored.
 func TestStreamState_QuitOrdering_NoLateWrite(t *testing.T) {
 	h := newStreamHarness(t)
+	// seed a valid canned read
 	want := validStackState()
 	h.infra.setReadState(want, nil)
 
+	// start streamState
 	h.start()
 
-	// confirm the watcher is live before quitting so the quit interrupts
-	// an active watch rather than a not-yet-started one
+	// write until a save lands so quit hits a live watch
 	require.Eventually(t, func() bool {
 		h.writeStateFile(string(*want))
 		return h.saveCount() >= 1
 	}, 10*time.Second, 50*time.Millisecond, "state file write should trigger a save before quit")
 
+	// send quit and wait for return
 	h.sendQuit()
 	h.waitDone(5 * time.Second)
 
-	// the count is frozen once the goroutine has returned; writes after
-	// quit must never produce a late save
+	// write the state file after quit
 	settled := h.saveCount()
 	h.writeStateFile(string(*want))
+	// assert no further save is recorded
 	assert.Never(t, func() bool {
 		return h.saveCount() > settled
 	}, 500*time.Millisecond, 25*time.Millisecond, "no save may occur after quit was honored")
 }
 
-// TestStreamState_NonStateFileEvent_Ignored asserts the filename filter:
-// events for other files in the watched directory trigger neither a
-// state file read nor a save, while the loop stays live for real state
-// file events.
+// TestStreamState_NonStateFileEvent_Ignored covers a sibling file write
+// being ignored while a later state file write still saves.
 func TestStreamState_NonStateFileEvent_Ignored(t *testing.T) {
 	h := newStreamHarness(t)
+	// seed a valid canned read
 	want := validStackState()
 	h.infra.setReadState(want, nil)
 
+	// start streamState
 	h.start()
 
-	// hammer the watched directory with sibling file writes; none may
-	// trigger a read or a save
+	// write a sibling file and assert no reads or saves
 	deadline := time.Now().Add(time.Second)
 	for time.Now().Before(deadline) {
 		h.writeSiblingFile(`{"unrelated":true}`)
@@ -333,13 +346,13 @@ func TestStreamState_NonStateFileEvent_Ignored(t *testing.T) {
 		time.Sleep(25 * time.Millisecond)
 	}
 
-	// prove the watcher was live the whole time: a real state file write
-	// still produces a save
+	// write the state file to prove the loop stayed live
 	require.Eventually(t, func() bool {
 		h.writeStateFile(string(*want))
 		return h.saveCount() >= 1
 	}, 10*time.Second, 50*time.Millisecond, "state file write should still save after sibling events")
 
+	// send quit and wait for return
 	h.sendQuit()
 	h.waitDone(5 * time.Second)
 }

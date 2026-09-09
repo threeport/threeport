@@ -43,9 +43,8 @@ type PulumiWorkspace struct {
 	// stateDir is the path to the Pulumi state directory on disk.
 	stateDir string
 
-	// stateDirRoot is an optional override for the root directory under
-	// which the per-instance state dir is built. When empty, the default
-	// runtime state dir is used.
+	// stateDirRoot is the parent of the instance state directory.
+	// Empty uses ~/.threeport/pulumi-state.
 	stateDirRoot string
 
 	// Logger enables structured logging for Pulumi operations.
@@ -54,37 +53,25 @@ type PulumiWorkspace struct {
 	Logger *logr.Logger
 }
 
-// PulumiWorkspaceOption configures a PulumiWorkspace created by
-// NewPulumiWorkspace.
+// PulumiWorkspaceOption configures a PulumiWorkspace.
 type PulumiWorkspaceOption func(*PulumiWorkspace)
 
-// WithStateDirRoot overrides the root directory under which the workspace
-// builds its per-instance state dir, so tests can point stack state at a
-// temp dir. Every method that resolves the state dir honors it, including
-// the existence check and the delete.
-//
-// It covers the state dir and nothing else. The pulumi home dir still
-// resolves from os.UserHomeDir(), so a caller that wants a run confined to
-// a temp dir has to redirect HOME as well.
+// WithStateDirRoot sets the parent of the instance state directory.
 func WithStateDirRoot(root string) PulumiWorkspaceOption {
 	return func(w *PulumiWorkspace) {
 		w.stateDirRoot = root
 	}
 }
 
-// NewPulumiWorkspace returns a workspace for the named runtime instance
-// under the given pulumi project. The state file path resolves to
-// stateDir/.pulumi/stacks/<project>/<name>.json.
-//
-// The name is required and resolving a state dir without one returns an
-// error. The project is not enforced here, because the gke path builds a
-// workspace first and fills the project in afterwards; passing an empty
-// project yields a path with an empty project segment until it is set.
+// NewPulumiWorkspace returns a Pulumi workspace for a runtime instance
+// and project.
 func NewPulumiWorkspace(name, project string, opts ...PulumiWorkspaceOption) *PulumiWorkspace {
+	// set name and project
 	w := &PulumiWorkspace{
 		RuntimeInstanceName: name,
 		ProjectName:         project,
 	}
+	// apply options
 	for _, opt := range opts {
 		opt(w)
 	}
@@ -527,31 +514,33 @@ func (w *PulumiWorkspace) getEnvVars() (map[string]string, error) {
 	}, nil
 }
 
-// resolveStateDir returns the state directory for the Pulumi stack without
-// creating it, so a caller that only needs the path does not bring the
-// directory into existence as a side effect.
+// resolveStateDir returns the instance state directory path without
+// creating it. An empty runtime instance name is rejected.
 func (w *PulumiWorkspace) resolveStateDir() (string, error) {
-	// an empty instance name joins to the shared base directory, so two
-	// unnamed instances would share one state dir
+	// reject an empty name that joins to the parent of every instance dir
 	if w.RuntimeInstanceName == "" {
 		return "", errors.New("runtime instance name is empty; refusing to build state directory path")
 	}
 
-	// resolve from the injected root when set, otherwise fall back to the
-	// default runtime state dir
+	// join the injected root with the instance name
 	if w.stateDirRoot != "" {
 		return filepath.Join(w.stateDirRoot, w.RuntimeInstanceName), nil
 	}
+	// fall back to the default state directory
 	return GetPulumiRuntimeStateDir(w.RuntimeInstanceName)
 }
 
-// setStateDir resolves the Pulumi stack state directory and creates it.
+// setStateDir resolves the instance state directory, records it, and
+// creates the directory.
 func (w *PulumiWorkspace) setStateDir() error {
+	// resolve the state directory path
 	dir, err := w.resolveStateDir()
 	if err != nil {
 		return err
 	}
+	// record the path on the workspace
 	w.stateDir = dir
+	// create the state directory
 	if err := os.MkdirAll(w.stateDir, 0755); err != nil {
 		return fmt.Errorf("failed to create state directory: %w", err)
 	}

@@ -15,30 +15,31 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// peakWatcher samples inFlightCount and records the highest value it saw.
-// Sampling can only miss a spike, never invent one, so a peak above the cap
-// is proof the cap broke while a peak at or below it is corroborating
-// evidence rather than a guarantee. The semaphore is what enforces the cap.
+// peakWatcher is a sampler that records the highest in-flight operation
+// count observed while it runs. Sampling can miss a spike and cannot
+// invent one, so a peak above the cap proves the cap broke.
 type peakWatcher struct {
-	// peak is the highest in-flight count any sample observed.
+	// The highest sampled in-flight count
 	peak int64
 
-	// stop closes to end the sampling loop.
+	// The channel that stops the sampling goroutine
 	stop chan struct{}
 
-	// done closes once the sampling goroutine has returned.
+	// The channel closed when the sampling goroutine returns
 	done chan struct{}
 }
 
-// peakSampleInterval paces the sampling loop. Without it the watcher pins a
-// core for the length of the test and competes with the goroutines it is
-// measuring, which on a two-core runner changes the result it reports.
+// peakSampleInterval is how often the peak watcher samples in-flight
+// count. Without an interval the sampler pins a core and competes with
+// the goroutines it measures.
 const peakSampleInterval = 100 * time.Microsecond
 
-// startPeakWatcher launches the sampling goroutine and returns the watcher
-// it samples into.
+// startPeakWatcher starts a sampler that records the highest in-flight
+// count observed.
 func startPeakWatcher() *peakWatcher {
+	// construct watcher with stop and done channels
 	w := &peakWatcher{stop: make(chan struct{}), done: make(chan struct{})}
+	// sample in-flight count until stopped
 	go func() {
 		defer close(w.done)
 		ticker := time.NewTicker(peakSampleInterval)
@@ -48,7 +49,9 @@ func startPeakWatcher() *peakWatcher {
 			case <-w.stop:
 				return
 			case <-ticker.C:
+				// read current in-flight count
 				cur := inFlightCount()
+				// raise peak when current is higher
 				for {
 					old := atomic.LoadInt64(&w.peak)
 					if cur <= old || atomic.CompareAndSwapInt64(&w.peak, old, cur) {
@@ -61,41 +64,46 @@ func startPeakWatcher() *peakWatcher {
 	return w
 }
 
-// stopAndPeak stops the sampling goroutine, waits for it to exit, and
-// returns the highest in-flight count recorded.
+// stopAndPeak stops the sampler and returns the highest in-flight count
+// seen.
 func (w *peakWatcher) stopAndPeak() int64 {
+	// stop the sampler
 	close(w.stop)
+	// wait for the sampler to return
 	<-w.done
+	// return the highest in-flight count seen
 	return atomic.LoadInt64(&w.peak)
 }
 
-// waitForInFlightZero polls until no infra operation is executing or the
-// deadline passes.
+// waitForInFlightZero fatals if in-flight operations have not drained
+// to zero within the given duration.
 func waitForInFlightZero(t *testing.T, within time.Duration) {
 	t.Helper()
+	// bound the wait at within
 	deadline := time.Now().Add(within)
 	for time.Now().Before(deadline) {
+		// return once no operations are in flight
 		if inFlightCount() == 0 {
 			return
 		}
+		// wait 1ms between polls
 		time.Sleep(time.Millisecond)
 	}
+	// fail if operations have not drained within the bound
 	t.Fatalf("in-flight operations did not drain to zero within %s (still %d)", within, inFlightCount())
 }
 
-// TestReconcilerLoop_2000Instances_SemaphoreCapped is the headline scale
-// test. It models the reconciler requeue loop: the semaphore acquire is
-// non-blocking, so a call when the pool is full returns (30, nil) without
-// launching. Blocking deploys hold every slot so the cap is observable;
-// the watcher proves the count of concurrently-executing operations never
-// exceeds the injected capacity no matter how hard the loop drives.
+// TestReconcilerLoop_2000Instances_SemaphoreCapped covers 2000 blocked
+// creates against a capacity-5 pool never exceeding five in flight.
 func TestReconcilerLoop_2000Instances_SemaphoreCapped(t *testing.T) {
 	const (
 		n = 2000
 		k = 5
 	)
+	// set semaphore capacity to 5
 	configureSemaphoreTest(t, k)
 
+	// block 2000 independent deploys so they hold semaphore slots
 	fis := make([]*fakeInfra, n)
 	fls := make([]*fakeLifecycle, n)
 	for i := range fis {
@@ -104,34 +112,29 @@ func TestReconcilerLoop_2000Instances_SemaphoreCapped(t *testing.T) {
 		fls[i] = newFakeLifecycle()
 		fls[i].setInfra(fis[i])
 	}
-	// release before the drain cleanup runs (cleanups are LIFO, and
-	// configureSemaphoreTest registered the drain wait first)
+	// release blocked deploys after the test
 	t.Cleanup(func() {
 		for _, fi := range fis {
 			fi.releaseDeploy()
 		}
 	})
 
+	// sample peak in-flight count
 	watcher := startPeakWatcher()
 	log := newTestLogger()
 
-	// drive several full passes over every instance; with blocking
-	// deploys only k slots ever fill and the rest requeue at 30
+	// run five create-handler passes over all 2000 instances
 	for pass := 0; pass < 5; pass++ {
 		for i := 0; i < n; i++ {
 			requeue, err := HandleInfraCreate(fls[i], log)
 			require.NoError(t, err)
-			// a launched instance requeues at 120; a pool-full instance
-			// at 30; never anything else on this path
+			// assert each create requeues 30 or 120
 			require.Contains(t, []int64{30, 120}, requeue)
 		}
 	}
 
-	// the k blocked deploys should now hold every slot. the observed count
-	// is recorded by the condition and reported after the wait: passing
-	// inFlightCount() as a format argument reports the value from before
-	// the wait started, which is always zero here. the store is atomic
-	// because testify runs the condition on its own goroutine
+	// wait until in-flight count saturates at capacity; lastCount is
+	// atomic because Eventually runs the condition on another goroutine
 	var lastCount atomic.Int64
 	reached := assert.Eventually(t, func() bool {
 		c := inFlightCount()
@@ -141,29 +144,32 @@ func TestReconcilerLoop_2000Instances_SemaphoreCapped(t *testing.T) {
 	require.True(t, reached,
 		"expected exactly %d blocked operations, last saw %d", k, lastCount.Load())
 
+	// stop sampling and read peak
 	peak := watcher.stopAndPeak()
+	// assert peak never exceeds capacity
 	assert.LessOrEqual(t, peak, int64(k), "concurrently executing operations must never exceed the semaphore capacity")
+	// assert the pool saturates at capacity
 	assert.Equal(t, int64(k), peak, "with blocking deploys the pool should saturate at the capacity")
 
-	// release and confirm the pool drains back to zero
+	// release the held slots and wait for drain
 	for _, fi := range fis {
 		fi.releaseDeploy()
 	}
 	waitForInFlightZero(t, 10*time.Second)
 }
 
-// TestReconcilerLoop_2000CreateAndDelete_Mixed drives 1000 create and 1000
-// delete launches interleaved under a small pool with fast-succeeding
-// operations. It proves the cap holds under sustained mixed churn and that
-// the loop never deadlocks, exercised under the race detector.
+// TestReconcilerLoop_2000CreateAndDelete_Mixed covers 1000 creates and
+// 1000 deletes interleaved under a capacity-25 pool.
 func TestReconcilerLoop_2000CreateAndDelete_Mixed(t *testing.T) {
 	const (
 		creates = 1000
 		deletes = 1000
 		k       = 25
 	)
+	// set semaphore capacity to 25
 	configureSemaphoreTest(t, k)
 
+	// succeed 1000 independent creates
 	createFls := make([]*fakeLifecycle, creates)
 	for i := range createFls {
 		fi := newFakeInfra()
@@ -172,6 +178,7 @@ func TestReconcilerLoop_2000CreateAndDelete_Mixed(t *testing.T) {
 		fl.setInfra(fi)
 		createFls[i] = fl
 	}
+	// succeed 1000 independent deletes with deletion already scheduled
 	deleteFls := make([]*fakeLifecycle, deletes)
 	for i := range deleteFls {
 		fi := newFakeInfra()
@@ -183,27 +190,32 @@ func TestReconcilerLoop_2000CreateAndDelete_Mixed(t *testing.T) {
 		deleteFls[i] = fl
 	}
 
+	// sample peak in-flight count
 	watcher := startPeakWatcher()
 	log := newTestLogger()
 
-	// the driver takes a stop channel and collects its own error rather
-	// than calling t.Errorf: on the timeout path below the test goroutine
-	// has already finished, and logging from a goroutine after its test
-	// completes panics the whole binary
+	// stop the driver if the test returns
 	stop := make(chan struct{})
 	defer close(stop)
 
+	// close done when the driver returns
 	done := make(chan struct{})
+	// collect driver errors instead of calling t.Error; a late t.Error
+	// panics with Log in goroutine after <test> has completed
 	var driverErr error
+
+	// run create and delete handlers on a driver goroutine
 	go func() {
 		defer close(done)
 		for pass := 0; pass < 10; pass++ {
 			for i := 0; i < creates; i++ {
+				// return if the test has finished
 				select {
 				case <-stop:
 					return
 				default:
 				}
+				// call create then delete for this pair
 				if _, err := HandleInfraCreate(createFls[i], log); err != nil {
 					driverErr = fmt.Errorf("create handler errored: %w", err)
 					return
@@ -216,6 +228,7 @@ func TestReconcilerLoop_2000CreateAndDelete_Mixed(t *testing.T) {
 		}
 	}()
 
+	// wait for the driver to finish or time out
 	select {
 	case <-done:
 		require.NoError(t, driverErr)
@@ -223,21 +236,22 @@ func TestReconcilerLoop_2000CreateAndDelete_Mixed(t *testing.T) {
 		t.Fatal("mixed reconciler loop deadlocked or made no progress within 60s")
 	}
 
+	// stop sampling and read peak
 	peak := watcher.stopAndPeak()
+	// assert peak never exceeds capacity
 	assert.LessOrEqual(t, peak, int64(k), "mixed create/delete churn must never exceed the semaphore capacity")
 
+	// wait for in-flight operations to drain
 	waitForInFlightZero(t, 10*time.Second)
 }
 
-// TestPerInstanceStateDirIsolation builds many workspaces through the
-// exported constructor with a shared temp root and asserts each resolves
-// to a distinct state file path, then writes to all of them concurrently
-// to prove the per-instance directories never collide. The writes go
-// straight to the resolved paths so the test needs no Pulumi backend.
+// TestPerInstanceStateDirIsolation covers concurrent writes to distinct
+// instance state files leaving each file with only its own content.
 func TestPerInstanceStateDirIsolation(t *testing.T) {
 	const n = 100
 	root := t.TempDir()
 
+	// collect unique state file paths for 100 instances
 	paths := make([]string, n)
 	seen := make(map[string]bool, n)
 	for i := 0; i < n; i++ {
@@ -249,27 +263,29 @@ func TestPerInstanceStateDirIsolation(t *testing.T) {
 		paths[i] = p
 	}
 
-	// each goroutine reports through assert rather than require: require
-	// calls t.FailNow, which stops only the goroutine it runs on, so the
-	// read-back loop below would then fail on a file nobody wrote and bury
-	// the real cause
+	// write distinct content to each path concurrently; use assert not
+	// require because FailNow from a worker only stops that goroutine
 	var wg sync.WaitGroup
 	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
+			// create the state file parent directory
 			if !assert.NoError(t, os.MkdirAll(filepath.Dir(paths[i]), 0755)) {
 				return
 			}
+			// write this instance's content
 			content := fmt.Sprintf("state-for-inst-%d", i)
 			assert.NoError(t, os.WriteFile(paths[i], []byte(content), 0644))
 		}(i)
 	}
 	wg.Wait()
+	// skip read-back if a concurrent write failed
 	if t.Failed() {
 		t.Fatal("concurrent state file writes failed; skipping read-back")
 	}
 
+	// assert each file holds only its own content
 	for i := 0; i < n; i++ {
 		got, err := os.ReadFile(paths[i])
 		require.NoError(t, err)
