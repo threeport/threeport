@@ -2450,7 +2450,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object ModuleApiRoute
 	object = api_v0.ModuleObject{
-		Description: util.Ptr("ModuleApiRoute represents a route supported by a module API."),
+		Description: util.Ptr("ModuleApiRoute represents a route supported by a module API. Path is unique among undeleted rows, across every module API."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("ModuleApiRoute"),
 		Version:     util.Ptr("v0"),
