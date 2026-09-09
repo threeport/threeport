@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -46,9 +47,9 @@ const (
 // AwsEksKubernetesRuntimeInstance, etc.) stay off the list.
 //
 // TODO: promote to an SDK-generated manifest driven by a per-type
-// top_level: true field in sdk-config.yaml so modules (Router,
-// RouterFleetInstance) can register their own top-level kinds via
-// IsTopLevel() instead of extending this hardcoded set.
+// top_level: true field in sdk-config.yaml so modules can register
+// their own top-level kinds via IsTopLevel() instead of extending this
+// hardcoded set.
 var topLevelObjectKinds = map[string]bool{
 	"KubernetesRuntimeDefinition":  true,
 	"KubernetesRuntimeInstance":    true,
@@ -159,7 +160,7 @@ Use --since=<duration> to filter events by recency (e.g. --since=10m). Zero disa
 
 Use --type Normal|Warning to filter events by type. Empty disables the filter.
 
-Use --wide to widen the MESSAGE column to the terminal width so long notes render inline.
+Use --wide to print the full note with no truncation, even when the terminal wraps.
 
 AGE column: a single value is the event's age; a "first..last" span (e.g. 1h5m..1h4m) means the event was first observed at "first" ago and last observed at "last" ago.
 
@@ -174,16 +175,16 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 		if eventsFor != "" {
 			switch {
 			case eventsObjectKind != "":
-				cli.Error("", fmt.Errorf("--for and --object-kind are mutually exclusive"))
+				cli.Error("", errors.New("--for and --object-kind are mutually exclusive"))
 				os.Exit(1)
 			case eventsApiGroup != "":
-				cli.Error("", fmt.Errorf("--for and --api-group are mutually exclusive"))
+				cli.Error("", errors.New("--for and --api-group are mutually exclusive"))
 				os.Exit(1)
 			case eventsName != "":
-				cli.Error("", fmt.Errorf("--for and --name are mutually exclusive"))
+				cli.Error("", errors.New("--for and --name are mutually exclusive"))
 				os.Exit(1)
 			case eventsObjectId != "":
-				cli.Error("", fmt.Errorf("--for and --id are mutually exclusive"))
+				cli.Error("", errors.New("--for and --id are mutually exclusive"))
 				os.Exit(1)
 			}
 		}
@@ -191,7 +192,14 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 		// an id names the subject directly and a name resolves it, so the
 		// two select different rows and the request has no single answer
 		if eventsObjectId != "" && eventsName != "" {
-			cli.Error("", fmt.Errorf("--id and --name are mutually exclusive"))
+			cli.Error("", errors.New("--id and --name are mutually exclusive"))
+			os.Exit(1)
+		}
+
+		switch eventsType {
+		case "", "Normal", "Warning":
+		default:
+			cli.Error("", fmt.Errorf("unrecognized type: %s (expected Normal or Warning)", eventsType))
 			os.Exit(1)
 		}
 
@@ -203,10 +211,15 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 			cli.Error("failed to build events query", err)
 			os.Exit(1)
 		}
+		if eventsType != "" {
+			if queryString != "" {
+				queryString += "&"
+			}
+			queryString += "type=" + url.QueryEscape(eventsType)
+		}
 
-		// fetch events; the client walks pagination internally, then the
-		// caller-supplied limit caps the returned slice
-		events, err := client_v0.GetEventsJoinAttachedObjectReferenceByQueryString(apiClient, apiEndpoint, queryString, eventsLimit)
+		// fetch every matching page; --limit is a display cap after sort
+		events, err := client_v0.GetEventsJoinAttachedObjectReferenceByQueryString(apiClient, apiEndpoint, queryString, 0)
 		if err != nil {
 			cli.Error("failed to retrieve events", err)
 			os.Exit(1)
@@ -228,24 +241,8 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 			cutoff := time.Now().Add(-eventsSince)
 			filtered := make([]v0.Event, 0, len(*events))
 			for _, e := range *events {
-				if e.EventTime != nil && e.EventTime.After(cutoff) {
-					filtered = append(filtered, e)
-				}
-			}
-			events = &filtered
-		}
-
-		// validate --type up front, then drop non-matching rows when set
-		switch eventsType {
-		case "", "Normal", "Warning":
-		default:
-			cli.Error("", fmt.Errorf("unrecognized type: %s (expected Normal or Warning)", eventsType))
-			os.Exit(1)
-		}
-		if eventsType != "" {
-			filtered := make([]v0.Event, 0, len(*events))
-			for _, e := range *events {
-				if util.DerefString(e.Type) == eventsType {
+				activity := eventActivityTime(&e)
+				if activity != nil && activity.After(cutoff) {
 					filtered = append(filtered, e)
 				}
 			}
@@ -266,7 +263,7 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 		// oldest without complaint.
 		if eventsReverse {
 			if cmd.Flags().Changed("sort") && eventsSort == "newest" {
-				cli.Error("", fmt.Errorf("--reverse and --sort=newest are mutually exclusive"))
+				cli.Error("", errors.New("--reverse and --sort=newest are mutually exclusive"))
 				os.Exit(1)
 			}
 			eventsSort = "oldest"
@@ -284,7 +281,8 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 			os.Exit(1)
 		}
 		sort.SliceStable(*events, func(i, j int) bool {
-			ti, tj := (*events)[i].EventTime, (*events)[j].EventTime
+			ti := eventActivityTime(&(*events)[i])
+			tj := eventActivityTime(&(*events)[j])
 			if ti == nil || tj == nil {
 				return ti != nil
 			}
@@ -584,4 +582,13 @@ func isTopLevelEvent(e *v0.Event) bool {
 		return false
 	}
 	return topLevelObjectKinds[typeName]
+}
+
+// eventActivityTime returns the timestamp newest-sort and --since use:
+// last observation when present, otherwise first observation.
+func eventActivityTime(e *v0.Event) *time.Time {
+	if e.LastObservedTime != nil {
+		return e.LastObservedTime
+	}
+	return e.EventTime
 }

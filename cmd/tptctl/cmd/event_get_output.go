@@ -17,10 +17,9 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// outputEventsTable produces the tabular output for the events list. Each
-// element of events is a server-side aggregated bucket: Count reflects
-// the number of raw rows collapsed into the bucket, EventTime is the
-// oldest observation, and LastObservedTime is the newest.
+// outputEventsTable produces the tabular output for the events list. Count
+// is the number of times this event has been recorded, EventTime is the
+// first observation, and LastObservedTime is the newest.
 //
 // Runs two passes over the slice: the first pass decides which optional
 // columns appear (COUNT drops when every row's count is 1; each row's
