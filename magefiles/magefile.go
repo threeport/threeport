@@ -534,10 +534,12 @@ func (Test) ModuleInstall() error {
 		return err
 	}
 
-	// the install deploys images by tag, so push them first
+	// the install deploys images by tag, so push them first. The no-arg
+	// development target fills repo, tag, and arch from the development
+	// registry and this checkout's version, matching the install below
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
-		"mage", "build:allImages",
+		"mage", "build:allImagesDev",
 	); err != nil {
 		return fmt.Errorf("failed to build the module images: %w", err)
 	}
