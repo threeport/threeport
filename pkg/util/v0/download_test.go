@@ -2,6 +2,7 @@ package v0
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -42,9 +43,36 @@ func gzippedTar(t *testing.T, name string, content []byte) *bytes.Buffer {
 	return buf
 }
 
+// zippedFile writes a zip containing one regular-file entry at name holding
+// content and returns the archive path.
+func zippedFile(t *testing.T, name string, content []byte) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "archive.zip")
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("Create error: %v", err)
+	}
+
+	zipWriter := zip.NewWriter(file)
+	entry, err := zipWriter.Create(name)
+	if err != nil {
+		t.Fatalf("Create zip entry error: %v", err)
+	}
+	if _, err := entry.Write(content); err != nil {
+		t.Fatalf("Write error: %v", err)
+	}
+	if err := zipWriter.Close(); err != nil {
+		t.Fatalf("zip Close error: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("file Close error: %v", err)
+	}
+	return path
+}
+
 // TestReleaseAssetInfix_MapsOSAndArch asserts releaseAssetInfix reproduces the
 // goreleaser archive naming: amd64 to x86_64, arm64 verbatim, 386 to i386, and
-// title-cased OS tokens for linux and darwin.
+// title-cased OS tokens for linux, darwin, and windows.
 func TestReleaseAssetInfix_MapsOSAndArch(t *testing.T) {
 	// each case pairs a GOOS/GOARCH input with the expected goreleaser infix
 	cases := []struct {
@@ -52,11 +80,13 @@ func TestReleaseAssetInfix_MapsOSAndArch(t *testing.T) {
 		goarch string
 		want   string
 	}{
-		{"linux", "amd64", "Linux_x86_64"},   // amd64 maps to x86_64
-		{"linux", "arm64", "Linux_arm64"},    // arm64 passes through verbatim
-		{"linux", "386", "Linux_i386"},       // 386 maps to i386
-		{"darwin", "amd64", "Darwin_x86_64"}, // darwin title-cases to Darwin
-		{"darwin", "arm64", "Darwin_arm64"},  // darwin with arm64 passthrough
+		{"linux", "amd64", "Linux_x86_64"},     // amd64 maps to x86_64
+		{"linux", "arm64", "Linux_arm64"},      // arm64 passes through verbatim
+		{"linux", "386", "Linux_i386"},         // 386 maps to i386
+		{"darwin", "amd64", "Darwin_x86_64"},   // darwin title-cases to Darwin
+		{"darwin", "arm64", "Darwin_arm64"},    // darwin with arm64 passthrough
+		{"windows", "amd64", "Windows_x86_64"}, // windows title-cases to Windows
+		{"windows", "arm64", "Windows_arm64"},  // windows with arm64 passthrough
 	}
 
 	// assert each input produces the goreleaser infix
@@ -64,6 +94,30 @@ func TestReleaseAssetInfix_MapsOSAndArch(t *testing.T) {
 		got := releaseAssetInfix(c.goos, c.goarch)
 		if got != c.want {
 			t.Errorf("releaseAssetInfix(%q, %q)=%q, want %q", c.goos, c.goarch, got, c.want)
+		}
+	}
+}
+
+// TestReleaseAssetSuffix_SelectsArchiveExtension asserts windows archives end
+// in .zip and every other OS ends in .tar.gz.
+func TestReleaseAssetSuffix_SelectsArchiveExtension(t *testing.T) {
+	// each case pairs a GOOS/GOARCH input with the expected archive suffix
+	cases := []struct {
+		goos   string
+		goarch string
+		want   string
+	}{
+		{"linux", "amd64", "_Linux_x86_64.tar.gz"},  // gzipped tar on linux
+		{"darwin", "arm64", "_Darwin_arm64.tar.gz"}, // gzipped tar on darwin
+		{"windows", "amd64", "_Windows_x86_64.zip"}, // zip on windows amd64
+		{"windows", "arm64", "_Windows_arm64.zip"},  // zip on windows arm64
+	}
+
+	// assert each input produces the goreleaser archive suffix
+	for _, c := range cases {
+		got := releaseAssetSuffix(c.goos, c.goarch)
+		if got != c.want {
+			t.Errorf("releaseAssetSuffix(%q, %q)=%q, want %q", c.goos, c.goarch, got, c.want)
 		}
 	}
 }
@@ -143,6 +197,54 @@ func TestExtractBinary_LeavesNoPartialBinaryOnTruncatedArchive(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Fatalf("destDir holds %d entries, want 0", len(entries))
+	}
+}
+
+// TestExtractZip_InstallsExecutableFromVersionedDir asserts extractZip installs
+// tptctl.exe executable from a versioned zip entry and preserves its contents.
+func TestExtractZip_InstallsExecutableFromVersionedDir(t *testing.T) {
+	// build a zip whose binary lives under a versioned top-level directory
+	want := []byte("tptctl windows binary bytes")
+	archivePath := zippedFile(t, "v1.2.3-dist/tptctl.exe", want)
+	destDir := t.TempDir()
+
+	// extract tptctl by its name without the .exe suffix
+	if err := extractZip(archivePath, "tptctl", destDir); err != nil {
+		t.Fatalf("extractZip error: %v", err)
+	}
+
+	// assert tptctl.exe is in destDir
+	destPath := filepath.Join(destDir, "tptctl.exe")
+	info, err := os.Stat(destPath)
+	if err != nil {
+		t.Fatalf("Stat error: %v", err)
+	}
+
+	// assert the installed binary is executable
+	if info.Mode().Perm() != 0o755 {
+		t.Fatalf("mode=%o, want 0755", info.Mode().Perm())
+	}
+
+	// assert the installed binary matches the archive contents
+	got, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("ReadFile error: %v", err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("contents=%q, want %q", got, want)
+	}
+}
+
+// TestExtractZip_RejectsArchiveWithoutMatch asserts extractZip returns an
+// error when the zip holds other-binary.exe rather than tptctl.exe.
+func TestExtractZip_RejectsArchiveWithoutMatch(t *testing.T) {
+	// build a zip that holds other-binary.exe instead of tptctl.exe
+	archivePath := zippedFile(t, "v1.2.3-dist/other-binary.exe", []byte("nope"))
+	destDir := t.TempDir()
+
+	// extract tptctl and assert extractZip returns an error
+	if err := extractZip(archivePath, "tptctl", destDir); err == nil {
+		t.Fatalf("expected error for missing tptctl.exe, got nil")
 	}
 }
 

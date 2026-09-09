@@ -2,6 +2,7 @@ package v0
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
@@ -67,6 +68,20 @@ func releaseArchSuffix(goarch string) string {
 // goreleaser mapping.
 func releaseAssetInfix(goos, goarch string) string {
 	return titleCaseOS(goos) + "_" + releaseArchSuffix(goarch)
+}
+
+// releaseArchiveExt returns the archive extension goreleaser publishes for
+// goos: zip on windows, gzipped tar everywhere else.
+func releaseArchiveExt(goos string) string {
+	if goos == "windows" {
+		return ".zip"
+	}
+	return ".tar.gz"
+}
+
+// releaseAssetSuffix returns the goreleaser archive name suffix for goos and goarch.
+func releaseAssetSuffix(goos, goarch string) string {
+	return "_" + releaseAssetInfix(goos, goarch) + releaseArchiveExt(goos)
 }
 
 // titleCaseOS upper-cases the first letter of a GOOS value to match the
@@ -176,10 +191,11 @@ func githubGet(rawURL, token, accept string, timeout time.Duration) (*http.Respo
 }
 
 // DownloadReleaseBinary downloads binaryName from the tag release of repo (an
-// "owner/name" path on github.com) and installs it executable into destDir. The
-// archive is verified against the release's published checksums before anything
-// is extracted, so a release without them fails rather than installing an
-// unverified binary. token may be empty for public repos.
+// "owner/name" path on github.com) and installs it executable into destDir.
+// Windows archives install as binaryName.exe. The archive is verified against
+// the release's published checksums before anything is extracted, so a release
+// without them fails rather than installing an unverified binary. token may be
+// empty for public repos.
 func DownloadReleaseBinary(repo, tag, binaryName, destDir, token string) error {
 	if err := validateRepo(repo); err != nil {
 		return err
@@ -189,7 +205,7 @@ func DownloadReleaseBinary(repo, tag, binaryName, destDir, token string) error {
 	}
 
 	// resolve the archive asset matching the running OS and architecture
-	assetSuffix := "_" + releaseAssetInfix(runtime.GOOS, runtime.GOARCH) + ".tar.gz"
+	assetSuffix := releaseAssetSuffix(runtime.GOOS, runtime.GOARCH)
 	releaseURL := releaseMetadataURL(repo, tag)
 	resp, err := githubGet(releaseURL, token, "application/vnd.github+json", releaseMetadataTimeout)
 	if err != nil {
@@ -243,6 +259,11 @@ func DownloadReleaseBinary(repo, tag, binaryName, destDir, token string) error {
 			"failed to verify %s: checksum %s does not match the published %s",
 			archive.Name, gotDigest, wantDigest,
 		)
+	}
+
+	// extract a zip asset with the zip reader
+	if strings.HasSuffix(archive.Name, ".zip") {
+		return extractZip(archivePath, binaryName, destDir)
 	}
 
 	staged, err := os.Open(archivePath)
@@ -338,36 +359,75 @@ func extractBinary(r io.Reader, binaryName, destDir string) error {
 			continue
 		}
 
-		if err := os.MkdirAll(destDir, 0o755); err != nil {
-			return fmt.Errorf("failed to create destination directory: %w", err)
-		}
-
-		out, err := os.CreateTemp(destDir, "."+binaryName+"-*")
-		if err != nil {
-			return fmt.Errorf("failed to create destination file: %w", err)
-		}
-		stagedPath := out.Name()
-
-		if _, err := io.Copy(out, io.LimitReader(tarReader, maxArchiveBytes)); err != nil {
-			out.Close()
-			os.Remove(stagedPath)
-			return fmt.Errorf("failed to write binary: %w", err)
-		}
-		if err := out.Close(); err != nil {
-			os.Remove(stagedPath)
-			return fmt.Errorf("failed to close binary: %w", err)
-		}
-		if err := os.Chmod(stagedPath, 0o755); err != nil {
-			os.Remove(stagedPath)
-			return fmt.Errorf("failed to set binary mode: %w", err)
-		}
-		if err := os.Rename(stagedPath, filepath.Join(destDir, binaryName)); err != nil {
-			os.Remove(stagedPath)
-			return fmt.Errorf("failed to install binary: %w", err)
-		}
-
-		return nil
+		return installExtractedBinary(tarReader, binaryName, destDir)
 	}
 
 	return fmt.Errorf("failed to find %s in release archive", binaryName)
+}
+
+// extractZip reads the zip at archivePath and writes binaryName into destDir,
+// executable, keeping a .exe suffix when the archive entry has one. The binary
+// is staged under a temporary name and renamed into place, so an interrupted
+// read leaves no partial executable.
+func extractZip(archivePath, binaryName, destDir string) error {
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return fmt.Errorf("failed to open zip archive: %w", err)
+	}
+	defer reader.Close()
+
+	exeName := binaryName + ".exe"
+	for _, file := range reader.File {
+		// match the binary by base name, including a windows .exe suffix
+		info := file.FileInfo()
+		base := filepath.Base(file.Name)
+		if !info.Mode().IsRegular() || (base != binaryName && base != exeName) {
+			continue
+		}
+
+		rc, err := file.Open()
+		if err != nil {
+			return fmt.Errorf("failed to open zip entry: %w", err)
+		}
+		defer rc.Close()
+
+		return installExtractedBinary(rc, base, destDir)
+	}
+
+	return fmt.Errorf("failed to find %s in release archive", binaryName)
+}
+
+// installExtractedBinary writes r into destDir/destName, executable. The binary
+// is staged under a temporary name and renamed into place, so an interrupted
+// read leaves no partial executable.
+func installExtractedBinary(r io.Reader, destName, destDir string) error {
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	out, err := os.CreateTemp(destDir, "."+destName+"-*")
+	if err != nil {
+		return fmt.Errorf("failed to create destination file: %w", err)
+	}
+	stagedPath := out.Name()
+
+	if _, err := io.Copy(out, io.LimitReader(r, maxArchiveBytes)); err != nil {
+		out.Close()
+		os.Remove(stagedPath)
+		return fmt.Errorf("failed to write binary: %w", err)
+	}
+	if err := out.Close(); err != nil {
+		os.Remove(stagedPath)
+		return fmt.Errorf("failed to close binary: %w", err)
+	}
+	if err := os.Chmod(stagedPath, 0o755); err != nil {
+		os.Remove(stagedPath)
+		return fmt.Errorf("failed to set binary mode: %w", err)
+	}
+	if err := os.Rename(stagedPath, filepath.Join(destDir, destName)); err != nil {
+		os.Remove(stagedPath)
+		return fmt.Errorf("failed to install binary: %w", err)
+	}
+
+	return nil
 }
