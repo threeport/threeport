@@ -474,8 +474,8 @@ func TestValidateTags_AcceptsCompositeScopedNameIndex(t *testing.T) {
 	assert.NoError(t, namedFixture(tagValue).ValidateTags())
 }
 
-// TestValidateTags_SkipsExemptObject covers ModuleObject, which has no name index.
-func TestValidateTags_SkipsExemptObject(t *testing.T) {
+// TestValidateTags_RejectsModuleObjectWithoutNameIndex covers ModuleObject with no name index.
+func TestValidateTags_RejectsModuleObjectWithoutNameIndex(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
 			"ModuleObject": {"Name": tag("json", ",omitempty", "validate", "required", "gorm", "not null")},
@@ -483,7 +483,9 @@ func TestValidateTags_SkipsExemptObject(t *testing.T) {
 		nil, nil, nil,
 	)
 	g.ApiObjectGroups[0].ApiObjects[0].NameField = true
-	assert.NoError(t, g.ValidateTags())
+	err := g.ValidateTags()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ModuleObject.Name")
 }
 
 // TestValidateTags_ResolvesNameThroughAnEmbed covers Name inherited from an embed.

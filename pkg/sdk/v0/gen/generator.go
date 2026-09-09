@@ -1076,9 +1076,6 @@ func (g *Generator) ValidateTags() error {
 			if !object.NameField {
 				continue
 			}
-			if _, exempt := nameIndexExemptions[object.TypeName]; exempt {
-				continue
-			}
 			gormTag, resolved := g.resolveNameTag(group, object.TypeName)
 			if !resolved {
 				continue
@@ -1106,11 +1103,6 @@ const nameFieldName = "Name"
 const nameIndexTag = "not null;uniqueIndex:,where:deleted_at IS NULL"
 
 const indexClassUnique = "UNIQUE"
-
-// nameIndexExemptions lists objects whose name uniqueness is not a table index.
-var nameIndexExemptions = map[string]string{
-	"ModuleObject": "unique within one module api rather than globally, enforced by a create hook",
-}
 
 // resolveNameTag returns the gorm tag on Name, including from an anonymous embed.
 func (g *Generator) resolveNameTag(group ApiObjectGroup, objectName string) (string, bool) {

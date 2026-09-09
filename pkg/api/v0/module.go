@@ -68,11 +68,12 @@ type ModuleController struct {
 
 // ModuleObject is an API object that is managed by a module in Threeport.  This provides
 // central registry of all API objects across all modules for each Threeport control plane.
+// The (Name, ModuleApiID) pair is unique.
 type ModuleObject struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The name of the API object.
-	Name *string `validate:"required" gorm:"not null"`
+	Name *string `validate:"required" gorm:"not null;uniqueIndex:idx_module_object_identity,where:deleted_at IS NULL"`
 
 	// The version of the API object, expressed as `v0`, `v1`, `v2`, etc.
 	Version *string `validate:"required" gorm:"not null"`
@@ -81,7 +82,7 @@ type ModuleObject struct {
 	Description *string `validate:"optional"`
 
 	// The module API this controller is connected to.
-	ModuleApiID *uint `validate:"required" gorm:"not null" relationship:"requires"`
+	ModuleApiID *uint `validate:"required" gorm:"not null;uniqueIndex:idx_module_object_identity,where:deleted_at IS NULL" relationship:"requires"`
 
 	// The controller that reconciles state for this API object, if applicable.  Note: some API objects
 	// do not require reconciliation by a controller - this field will be null in those cases.

@@ -260,6 +260,42 @@ func newCreateRequest(route, body string) (*apiserver_lib.CustomContext, *httpte
 	return &apiserver_lib.CustomContext{Context: c}, recorder
 }
 
+// TestModuleObjectNameIsUniquePerModuleApi covers the same name on two module APIs.
+func TestModuleObjectNameIsUniquePerModuleApi(t *testing.T) {
+	firstApi := api_v0.ModuleApi{
+		Name:     util.Ptr("module-object-index-first"),
+		Endpoint: util.Ptr("first.example:8080"),
+	}
+	secondApi := api_v0.ModuleApi{
+		Name:     util.Ptr("module-object-index-second"),
+		Endpoint: util.Ptr("second.example:8080"),
+	}
+	require.NoError(t, testDb.Create(&firstApi).Error, "the first module api is accepted")
+	require.NoError(t, testDb.Create(&secondApi).Error, "the second module api is accepted")
+
+	name := "SharedObject"
+	version := "v0"
+	require.NoError(t, testDb.Create(&api_v0.ModuleObject{
+		Name:        &name,
+		Version:     &version,
+		ModuleApiID: firstApi.ID,
+	}).Error, "the first object is accepted")
+	require.NoError(t, testDb.Create(&api_v0.ModuleObject{
+		Name:        &name,
+		Version:     &version,
+		ModuleApiID: secondApi.ID,
+	}).Error, "the same name is accepted on a second module api")
+
+	err := testDb.Create(&api_v0.ModuleObject{
+		Name:        &name,
+		Version:     util.Ptr("v1"),
+		ModuleApiID: firstApi.ID,
+	}).Error
+	require.Error(t, err, "a second object under the same name on the first module api is refused")
+	conflict := apiserver_lib.UniqueViolation(err, new(api_v0.ModuleObject))
+	assert.NotNil(t, conflict, "the refusal is a unique violation")
+}
+
 // registerValidateTags registers obj's validate tags, as the API server does at start.
 func registerValidateTags(objectType string, obj any) {
 	taggedFields := map[string]*apiserver_lib.FieldsByTag{
