@@ -40,17 +40,16 @@ func TestGetAgeFormattedPrecise(t *testing.T) {
 		age  time.Duration
 		want string
 	}{
-		// scheduler skew adds a few ms to the actual duration, so pick
-		// values well away from rounding boundaries to avoid flakiness
+		// pick ages away from rounding boundaries; scheduler skew adds a few ms
 		{"sub-second rounds to 100ms", 380 * time.Millisecond, "400ms"},
 		{"under-minute rounds to second", 42 * time.Second, "42s"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// timestamp is the reference age in the past
+			// construct a timestamp of the fixture age
 			ts := now.Add(-tt.age)
-			// GetAgeFormattedPrecise reports the age of that timestamp
+			// check the formatted precise age
 			if got := GetAgeFormattedPrecise(&ts); got != tt.want {
 				t.Fatalf("GetAgeFormattedPrecise(age=%v) = %q, want %q", tt.age, got, tt.want)
 			}
@@ -91,4 +90,3 @@ func TestGetAgeFormatted(t *testing.T) {
 		})
 	}
 }
-

@@ -23,8 +23,7 @@ func v0KubernetesWorkloadDefinitionCreated(
 	k8sWorkloadDefinition *v0.KubernetesWorkloadDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-	// record the start of the reconciliation before the fan-out so the
-	// causal boundary is visible in events even if a downstream call fails
+	// record start before the fan-out so a later failure still has a start event
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeNormal),
@@ -108,8 +107,7 @@ func v0KubernetesWorkloadDefinitionDeleted(
 		return 0, nil
 	}
 
-	// record the start of the deletion after the idempotency guards so
-	// requeues on already-scheduled deletes do not spam the event log
+	// record start after deletion is confirmed so a requeue does not spam events
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeNormal),

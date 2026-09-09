@@ -53,23 +53,22 @@ func GetAge(timestamp *time.Time) *time.Duration {
 	return &roundedTime
 }
 
-// GetAgeFormattedPrecise returns the age of a timestamp as a formatted
-// string with sub-second precision under one second and second precision
-// under one minute; from one minute upward delegates to GetAgeFormatted
-// so the coarser rounding rules are shared.
+// GetAgeFormattedPrecise returns the age of a timestamp as a formatted string,
+// rounding to 100 milliseconds under one second and to seconds under one minute.
+// Durations of one minute or more stay in minutes.
 func GetAgeFormattedPrecise(timestamp *time.Time) string {
 	now := time.Now()
 	duration := now.Sub(*timestamp)
 
 	switch {
 	case duration < time.Second:
-		// sub-second: round to 100ms so the cell stays narrow
+		// less than 1 second: round to 100 milliseconds
 		return duration.Round(100 * time.Millisecond).String()
 	case duration < minute:
-		// under one minute: round to the nearest second
+		// less than 1 minute: round to nearest second
 		return duration.Round(time.Second).String()
 	default:
-		// one minute and up: reuse the coarser rounding rules
+		// 1 minute and longer: use the coarser formatted age
 		return GetAgeFormatted(timestamp)
 	}
 }
@@ -85,12 +84,10 @@ func GetAgeFormatted(timestamp *time.Time) string {
 
 	switch {
 	case duration < minute:
-		// under one minute: render raw seconds so callers can distinguish
-		// a fresh event from a stale one at 30s resolution
+		// less than 1 minute: show seconds
 		return duration.String()
 	case duration < hour:
-		// one minute to one hour: format as "Nm" or "NmXs" so a whole
-		// minute value doesn't carry a trailing 0s from duration.String()
+		// 1 minute to 1 hour: show minutes and seconds, dropping a trailing 0s
 		minutes := int(duration.Minutes())
 		seconds := int(duration.Seconds()) % 60
 		if seconds == 0 {

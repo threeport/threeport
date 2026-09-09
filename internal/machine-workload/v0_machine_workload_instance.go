@@ -85,9 +85,7 @@ func v0MachineWorkloadInstanceCreated(
 		return 0, fmt.Errorf("failed to update machine workload instance with run result: %w", err)
 	}
 
-	// requeue in 30s on failure so the script is retried; propagate the
-	// ErrWithEvent so the wrapper substitutes the specific reason for
-	// the generic FailedCreate event
+	// requeue the script failure after the status is persisted
 	if scriptErr != nil {
 		return 30, scriptErr
 	}
@@ -146,9 +144,7 @@ func v0MachineWorkloadInstanceUpdated(
 		return 0, fmt.Errorf("failed to update machine workload instance with run result: %w", err)
 	}
 
-	// requeue in 30s on failure so the script is retried; propagate the
-	// ErrWithEvent so the wrapper substitutes the specific reason for
-	// the generic FailedUpdate event
+	// requeue the script failure after the status is persisted
 	if scriptErr != nil {
 		return 30, scriptErr
 	}
@@ -185,13 +181,10 @@ func v0MachineWorkloadInstanceDeleted(
 		return 0, fmt.Errorf("failed to get machine runtime instance: %w", err)
 	}
 
-	// run the delete script and record results; delete does not persist a
-	// status back to the instance since the row is about to be removed
+	// run the delete script without persisting status; the instance is being removed
 	_, scriptErr := runScript(r, machineWorkloadInstance, mri, mwd, *mwd.DeleteScript, "delete", log)
 
-	// requeue in 30s on failure so the script is retried; propagate the
-	// ErrWithEvent so the wrapper substitutes the specific reason for
-	// the generic FailedDelete event
+	// requeue the script failure
 	if scriptErr != nil {
 		return 30, scriptErr
 	}
@@ -199,12 +192,8 @@ func v0MachineWorkloadInstanceDeleted(
 	return 0, nil
 }
 
-// runScript establishes an SSH connection to the machine runtime, executes the
-// given script, and returns the derived workload instance status along with an
-// error carrying the specific-reason event for failure paths. Success emits a
-// Normal event in place; failure paths defer emission to the wrapper's
-// HandleEventOverride so the specific reason replaces the generic FailedCreate
-// / FailedUpdate / FailedDelete event.
+// runScript connects to the runtime, runs the named script, and returns
+// the resulting workload status. A non-nil error carries the failure event.
 func runScript(
 	r *controller.Reconciler,
 	mwi *v0.MachineWorkloadInstance,
@@ -217,8 +206,7 @@ func runScript(
 	// establish ssh connection to the runtime
 	sshClient, _, err := machine.GetClient(mri, r.EncryptionKey)
 	if err != nil {
-		// return an ErrWithEvent so the wrapper substitutes the specific
-		// reason for the generic FailedCreate / FailedUpdate / FailedDelete
+		// surface the connect failure as an event
 		note := fmt.Sprintf("failed to connect to machine runtime instance: %s", err)
 		return status.WorkloadInstanceStatusError, &tp_errors.ErrWithEvent{
 			Message: note,
@@ -263,7 +251,7 @@ func runScript(
 		mwd.Timeout,
 	)
 
-	// derive status and event content from the execution result
+	// derive status and event content from the result
 	var wlStatus status.WorkloadInstanceStatus
 	var reason, eventType, message string
 	switch {
@@ -286,9 +274,7 @@ func runScript(
 		message = fmt.Sprintf("%s script failed with exit code %d (stderr: %s)", scriptName, exitCode, truncateMessage(sanitizeScriptOutput(stderr)))
 	}
 
-	// success path logs completion; failure paths defer to the wrapper via
-	// ErrWithEvent so the specific reason replaces the generic FailedCreate
-	// / FailedUpdate / FailedDelete event
+	// log a successful run; stdout is diagnostic detail, not an event
 	if wlStatus == status.WorkloadInstanceStatusHealthy {
 		log.Info(
 			"machine workload script completed successfully",

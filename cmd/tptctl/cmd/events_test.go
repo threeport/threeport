@@ -8,11 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBuildEventsQueryString covers the mapping from flags to query keys, which
-// is where a flag combination the API accepts either reaches it or is silently
-// dropped. Each case names the flags it sets in the order the builder takes
-// them: --for, --object-kind, --api-group, --name, --id, --reason.
+// TestBuildEventsQueryString covers encoding the subject flags as listing query parameters.
 func TestBuildEventsQueryString(t *testing.T) {
+	// flags is [for, object-kind, api-group, name, id, reason]
 	tests := []struct {
 		name     string
 		flags    [6]string
@@ -65,6 +63,7 @@ func TestBuildEventsQueryString(t *testing.T) {
 			encoded, err := buildEventsQueryString(f[0], f[1], f[2], f[3], f[4], f[5])
 			require.NoError(t, err)
 
+			// parse so keys compare without encoding order
 			values, err := url.ParseQuery(encoded)
 			require.NoError(t, err)
 
@@ -76,9 +75,7 @@ func TestBuildEventsQueryString(t *testing.T) {
 	}
 }
 
-// TestBuildEventsQueryStringRejectsANonNumericId covers the one thing the id
-// flag validates. The API answers 400 on a value it cannot parse, so catching
-// it here turns a round trip into an immediate message naming the flag.
+// TestBuildEventsQueryStringRejectsANonNumericId rejects a non-numeric --id.
 func TestBuildEventsQueryStringRejectsANonNumericId(t *testing.T) {
 	_, err := buildEventsQueryString("", "", "", "", "not-a-number", "")
 

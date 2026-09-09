@@ -46,22 +46,14 @@ type RelationshipTaggedForeignKeyProvider interface {
 	RelationshipTaggedForeignKeys() []RelationshipTaggedForeignKey
 }
 
-// AssociationTypesProvider is implemented by every API type that has at
-// least one has-many association slice ([]*T with validate:"...,association"
-// and no gorm:"many2many:...") where T does NOT declare a
-// relationship:"requires" back-FK to this type. These are the truly-owned
-// many-side. Currently untagged; if the convention becomes to tag such
-// slices with relationship:"owns", this method can be retired in favor of
-// RelationshipTaggedForeignKeys.
+// AssociationTypesProvider is implemented by API types that list owned
+// has-many children with no requires back-reference, as fully qualified type names.
 type AssociationTypesProvider interface {
 	AssociationTypes() []string
 }
 
-// AssociationRequiredByTypesProvider is implemented by every API type that
-// has at least one has-many association slice where T declares a
-// relationship:"requires" back-FK to this type. These slice entries are
-// dependents, not owned children; the parent's existence is a prerequisite
-// for theirs but the parent does not create them.
+// AssociationRequiredByTypesProvider is implemented by API types that list
+// dependents which require them. Those children are not owned.
 type AssociationRequiredByTypesProvider interface {
 	AssociationRequiredByTypes() []string
 }

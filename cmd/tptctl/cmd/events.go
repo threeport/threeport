@@ -41,15 +41,8 @@ const (
 	eventShortAlias = "ev"
 )
 
-// topLevelObjectKinds lists the core API type names considered
-// top-level for the --top-level filter. Sub-object types
-// (GcpGceMachineRuntimeInstance, KubernetesWorkloadResourceInstance,
-// AwsEksKubernetesRuntimeInstance, etc.) stay off the list.
-//
-// TODO: promote to an SDK-generated manifest driven by a per-type
-// top_level: true field in sdk-config.yaml so modules can register
-// their own top-level kinds via IsTopLevel() instead of extending this
-// hardcoded set.
+// topLevelObjectKinds is the set of core kinds --top-level keeps. Sub-object
+// kinds such as KubernetesWorkloadResourceInstance stay off the list.
 var topLevelObjectKinds = map[string]bool{
 	"KubernetesRuntimeDefinition":  true,
 	"KubernetesRuntimeInstance":    true,
@@ -169,9 +162,7 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 	Run: func(cmd *cobra.Command, args []string) {
 		apiClient, _, apiEndpoint, requestedControlPlane := GetClientContext(cmd)
 
-		// reject mutually exclusive filters up front. --for encodes every
-		// narrow filter's information in one shape, so it cannot combine
-		// with any of the narrow flags
+		// reject --for paired with any other subject selector
 		if eventsFor != "" {
 			switch {
 			case eventsObjectKind != "":
@@ -189,8 +180,7 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 			}
 		}
 
-		// an id names the subject directly and a name resolves it, so the
-		// two select different rows and the request has no single answer
+		// reject --id paired with --name
 		if eventsObjectId != "" && eventsName != "" {
 			cli.Error("", errors.New("--id and --name are mutually exclusive"))
 			os.Exit(1)
@@ -203,7 +193,7 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 			os.Exit(1)
 		}
 
-		// build query string from the requested filter
+		// build the listing query from the subject flags
 		queryString, err := buildEventsQueryString(
 			eventsFor, eventsObjectKind, eventsApiGroup, eventsName, eventsObjectId, eventsReason,
 		)
@@ -225,7 +215,7 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 			os.Exit(1)
 		}
 
-		// drop events on sub-object kinds when --top-level is set
+		// drop events whose kind is not a top-level object
 		if eventsTopLevel {
 			filtered := make([]v0.Event, 0, len(*events))
 			for _, e := range *events {
@@ -236,7 +226,7 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 			events = &filtered
 		}
 
-		// drop events older than --since ago when the flag is set
+		// drop events older than --since
 		if eventsSince > 0 {
 			cutoff := time.Now().Add(-eventsSince)
 			filtered := make([]v0.Event, 0, len(*events))
@@ -257,10 +247,7 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 			os.Exit(0)
 		}
 
-		// -r / --reverse folds into --sort=newest. When both are set
-		// explicitly and they conflict, reject rather than silently pick
-		// one. Combining --reverse with the default sort just flips to
-		// oldest without complaint.
+		// treat --reverse as --sort=oldest; reject it with an explicit --sort=newest
 		if eventsReverse {
 			if cmd.Flags().Changed("sort") && eventsSort == "newest" {
 				cli.Error("", errors.New("--reverse and --sort=newest are mutually exclusive"))
@@ -298,8 +285,7 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 			events = &truncated
 		}
 
-		// dispatch on output format: tabular prints via tabwriter with an
-		// in-body truncation hint; yaml and json emit the raw payload.
+		// print as tabular, yaml, or json
 		switch eventsOutput {
 		case "tabular":
 			if err := outputEventsTable(events, eventsWide); err != nil {
@@ -395,37 +381,8 @@ func init() {
 	)
 }
 
-// buildEventsQueryString turns the --for / --object-kind / --api-group /
-// --name flags into the events query string. Callers must ensure --for is
-// not combined with any of the narrow flags (the caller guards this
-// mutex before invoking).
-//
-// --for accepts three input shapes, narrowing the query as more parts are
-// supplied:
-//
-//	<kebab-kind>/<name>                                 - broad, any namespace/version
-//	<version>.<kebab-kind>/<name>                       - narrow to one version
-//	<namespace>/<version>.<kebab-kind>/<name>           - exact fully qualified type match
-//
-// The kind segment carries the optional version inline as
-// "<version>.<kind>", mirroring the fully qualified type form.
-//
-// --object-kind, --api-group, --name, and --id each set exactly one query key.
-// They combine freely so a caller can narrow by any subset (kind + name,
-// group + kind, group + id, or all three), except that --id and --name select
-// the subject two different ways and are rejected together.
-//
-// --reason accepts an exact match ("SuccessfulCreate") or a trailing-star
-// prefix ("Create*"). Exact match maps to ?reason=X; prefix strips the
-// trailing star and maps to ?reasonprefix=X. Combines freely with the
-// other flags.
-//
-// --name, and the name segment of --for, accept the same two shapes.
-// An exact name maps to ?objectname=X; a trailing-star name strips the
-// star and maps to ?objectnameprefix=X, which matches every object
-// whose name starts with the token.
-//
-// Empty flags return an empty string so the caller queries every event.
+// buildEventsQueryString encodes --for or the independent subject flags as listing
+// query parameters. An empty result queries every event.
 func buildEventsQueryString(forFlag, objectKindFlag, apiGroupFlag, nameFlag, objectIdFlag, reasonFlag string) (string, error) {
 	// no filter requested - return empty so the caller queries every event
 	if forFlag == "" && objectKindFlag == "" && apiGroupFlag == "" &&
@@ -435,15 +392,14 @@ func buildEventsQueryString(forFlag, objectKindFlag, apiGroupFlag, nameFlag, obj
 
 	q := url.Values{}
 
-	// reason: exact match, or trailing-star prefix
+	// encode --reason as exact match or trailing-star prefix
 	if reasonFlag != "" {
 		if err := setReasonQueryParam(q, reasonFlag); err != nil {
 			return "", err
 		}
 	}
 
-	// narrow flags: each maps to one query key. Any subset may be set;
-	// each additional key AND-narrows the server-side match.
+	// encode the independent subject flags, each AND-narrowing the match
 	if forFlag == "" {
 		if objectKindFlag != "" {
 			q.Set("objecttypename", strcase.ToCamel(objectKindFlag))
@@ -465,8 +421,7 @@ func buildEventsQueryString(forFlag, objectKindFlag, apiGroupFlag, nameFlag, obj
 		return q.Encode(), nil
 	}
 
-	// --for: split slash-delimited segments. parse right-to-left so the
-	// optional namespace lands in the right slot
+	// parse --for right to left as [<namespace>/][<version>.]<kind>/<name>
 	parts := strings.Split(forFlag, "/")
 	if len(parts) < 2 || len(parts) > 3 {
 		return "", fmt.Errorf(
@@ -517,15 +472,8 @@ func buildEventsQueryString(forFlag, objectKindFlag, apiGroupFlag, nameFlag, obj
 	return q.Encode(), nil
 }
 
-// setObjectNameQueryParam maps an object name onto the events query. An
-// exact value like "myfleet2" sets objectname=X for a server-side
-// equality match; a trailing-star value like "myfleet2*" strips the star
-// and sets objectnameprefix=X, which matches every object whose name
-// starts with the token, so a fleet and the children named after it
-// come back together. A bare "*" or an embedded star is rejected.
-//
-// flag and flagValue name the source flag in the error message, since
-// --for carries its name as the last segment of a larger value.
+// setObjectNameQueryParam writes objectname or objectnameprefix from a trailing
+// star. flag and flagValue name the source in errors.
 func setObjectNameQueryParam(q url.Values, flag, flagValue, name string) error {
 	if strings.HasSuffix(name, "*") {
 		prefix := strings.TrimSuffix(name, "*")
@@ -545,11 +493,8 @@ func setObjectNameQueryParam(q url.Values, flag, flagValue, name string) error {
 	return nil
 }
 
-// setReasonQueryParam maps the --reason flag onto the events query. An
-// exact value like "SuccessfulCreate" sets reason=X for a server-side
-// equality match; a trailing-star value like "Create*" strips the star
-// and sets reasonprefix=X for a server-side LIKE prefix match. A bare
-// "*" or an embedded star is rejected.
+// setReasonQueryParam writes reason or reasonprefix from a trailing star, and
+// rejects a star anywhere else.
 func setReasonQueryParam(q url.Values, reasonFlag string) error {
 	if strings.HasSuffix(reasonFlag, "*") {
 		prefix := strings.TrimSuffix(reasonFlag, "*")
@@ -569,9 +514,8 @@ func setReasonQueryParam(q url.Values, reasonFlag string) error {
 	return nil
 }
 
-// isTopLevelEvent reports whether the event's ObjectType is a top-level
-// object kind per topLevelObjectKinds. Events missing or malformed
-// ObjectType are treated as non-top-level.
+// isTopLevelEvent reports whether the event's subject kind is a top-level object.
+// A missing or malformed type is not top-level.
 func isTopLevelEvent(e *v0.Event) bool {
 	rawType := util.DerefString(e.ObjectType)
 	if rawType == "" {
@@ -584,8 +528,7 @@ func isTopLevelEvent(e *v0.Event) bool {
 	return topLevelObjectKinds[typeName]
 }
 
-// eventActivityTime returns the timestamp newest-sort and --since use:
-// last observation when present, otherwise first observation.
+// eventActivityTime returns the last observation when present, otherwise the first.
 func eventActivityTime(e *v0.Event) *time.Time {
 	if e.LastObservedTime != nil {
 		return e.LastObservedTime

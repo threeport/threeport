@@ -21,22 +21,21 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// events perf harness knobs. eventCount * moduleLatency is the wall-clock
-// cost of the sequential per-id fan-out mode; the fixed handler resolves
-// the same batch well under perfLatencyCeiling by parallelizing or
-// batching the module lookups.
+// Sequential per-id lookups cost perfEventCount * perfModuleLatency.
+// Parallel or batched lookups stay under perfLatencyCeiling.
 const (
-	perfEventCount     = 20
-	perfModuleLatency  = 200 * time.Millisecond
+	// perfEventCount is the event count in the enrich workload.
+	perfEventCount = 20
+	// perfModuleLatency is the delay the fake module injects per request.
+	perfModuleLatency = 200 * time.Millisecond
+	// perfLatencyCeiling is the p95 budget for one enrich.
 	perfLatencyCeiling = 2 * time.Second
-	perfIterations     = 5
+	// perfIterations is the number of timed enrich samples.
+	perfIterations = 5
 )
 
-// setupEventsPerfHarness stands up an in-memory sqlite db, a fake module
-// api that sleeps perfModuleLatency per response, and perfEventCount
-// events whose subject is a module-owned Widget. The returned enrich
-// closure runs enrichEventsWithObjectInfo against a fresh copy of the
-// seeded event slice so repeated iterations start from the same state.
+// setupEventsPerfHarness starts a delayed fake module, seeds sqlite with a
+// Widget registry and events, and returns an enrich function over that data.
 func setupEventsPerfHarness(tb testing.TB) (
 	db *gorm.DB,
 	enrich func() error,
@@ -45,13 +44,12 @@ func setupEventsPerfHarness(tb testing.TB) (
 ) {
 	tb.Helper()
 
-	// fake module api serving GET /example-com/v0/widgets/{id} with a
-	// one-row Data payload; sleeps to make the per-id sequential fan-out
-	// mode expensive enough to distinguish from the parallel path.
+	// fake module GET; the sleep makes sequential per-id lookups miss the ceiling
 	var counter int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt64(&counter, 1)
 		time.Sleep(perfModuleLatency)
+		// use the last path segment as the object ID
 		segs := strings.Split(strings.TrimSuffix(r.URL.Path, "/"), "/")
 		idStr := segs[len(segs)-1]
 		row := map[string]interface{}{"ID": idStr, "Name": "widget-" + idStr}
@@ -63,9 +61,7 @@ func setupEventsPerfHarness(tb testing.TB) (
 		_ = json.NewEncoder(w).Encode(body)
 	}))
 
-	// in-memory sqlite mirrors the schema tables the enrich path reads:
-	// events for the subject columns, module_apis + module_api_routes +
-	// module_objects + the m2m junction for the type->endpoint lookup.
+	// open an in-memory sqlite database for the registry and events
 	d, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(tb, err)
 	require.NoError(tb, d.AutoMigrate(
@@ -75,13 +71,10 @@ func setupEventsPerfHarness(tb testing.TB) (
 		&api.ModuleObject{},
 	))
 
-	// module route lookup stores host:port; the client prepends http://
+	// strip the scheme; the request client prepends http or https from TLS config
 	endpoint := strings.TrimPrefix(server.URL, "http://")
 
-	// seed the module owning example.com/v0.Widget with a CRUD route
-	// pointing at the fake server. GetModuleRouteForType joins across
-	// v0_module_apis, v0_module_api_routes, v0_module_objects, and the
-	// m2m junction, so every one gets a row.
+	// skip create hooks; registry rows are fixtures, not API traffic
 	skipHooks := d.Session(&gorm.Session{SkipHooks: true})
 	modApi := &api.ModuleApi{
 		Name:         util.Ptr("widget-module"),
@@ -101,15 +94,13 @@ func setupEventsPerfHarness(tb testing.TB) (
 		ModuleApiID: modApi.ID,
 	}
 	require.NoError(tb, skipHooks.Create(route).Error)
-	// direct junction insert so BeforeCreate hooks don't reject the
-	// already-persisted ModuleObject as duplicate.
+	// insert the join row; association create would reject the existing object
 	require.NoError(tb, skipHooks.Exec(
 		"INSERT INTO v0_module_api_routes_module_objects (module_api_route_id, module_object_id) VALUES (?, ?)",
 		route.ID, obj.ID,
 	).Error)
 
-	// seed events whose subject is a module-owned Widget. SkipHooks
-	// keeps the insert to plain SQL the sqlite driver accepts.
+	// seed one event per widget ID
 	now := time.Now()
 	seeds := make([]api.Event, perfEventCount)
 	for i := 0; i < perfEventCount; i++ {
@@ -131,10 +122,7 @@ func setupEventsPerfHarness(tb testing.TB) (
 
 	logger := zap.NewNop()
 
-	// each enrich call gets a shallow copy of the seed slice with
-	// ObjectName cleared so a prior iteration's resolved name can't
-	// short-circuit the module lookup on the next. The subject columns
-	// stay set, because enrichment reads them off the row.
+	// copy seeds and clear ObjectName so a prior resolve cannot skip the lookup
 	enrich = func() error {
 		fresh := make([]api.Event, len(seeds))
 		copy(fresh, seeds)
@@ -147,11 +135,8 @@ func setupEventsPerfHarness(tb testing.TB) (
 	return d, enrich, &counter, teardown
 }
 
-// BenchmarkGetEventsWithFakeModules measures wall-clock cost of the
-// enrichment path (module name lookup) with perfEventCount events
-// pointing at a slow module. Reports p50 and p95 via b.ReportMetric so
-// CI can trend regressions before they cross the hard ceiling asserted
-// by TestGetEventsEnrich_LatencyCeiling.
+// BenchmarkGetEventsWithFakeModules measures event-name enrich against a
+// delayed fake module and reports p50 and p95.
 func BenchmarkGetEventsWithFakeModules(b *testing.B) {
 	_, enrich, _, teardown := setupEventsPerfHarness(b)
 	defer teardown()
@@ -167,6 +152,7 @@ func BenchmarkGetEventsWithFakeModules(b *testing.B) {
 	}
 	b.StopTimer()
 
+	// report p50 and p95 of enrich duration
 	sort.Slice(durations, func(i, j int) bool { return durations[i] < durations[j] })
 	p50 := durations[percentileIndex(len(durations), 50)]
 	p95 := durations[percentileIndex(len(durations), 95)]
@@ -174,22 +160,16 @@ func BenchmarkGetEventsWithFakeModules(b *testing.B) {
 	b.ReportMetric(float64(p95.Milliseconds()), "p95-ms")
 }
 
-// TestGetEventsEnrich_LatencyCeiling fails when the module name lookup
-// falls back to a sequential per-id fan-out. With perfEventCount events
-// and a perfModuleLatency-per-request fake module, a sequential run
-// costs perfEventCount * perfModuleLatency (well over perfLatencyCeiling);
-// a parallel or batched implementation finishes under the ceiling. This
-// is the regression guard for the 51s events endpoint mode observed in
-// production.
+// TestGetEventsEnrich_LatencyCeiling rejects a sequential per-id module
+// lookup whose p95 exceeds perfLatencyCeiling.
 func TestGetEventsEnrich_LatencyCeiling(t *testing.T) {
 	_, enrich, _, teardown := setupEventsPerfHarness(t)
 	defer teardown()
 
-	// warm run: primes the DB path and validates the harness compiles a
-	// real call before we start timing.
+	// run once before timing to prime the database path
 	require.NoError(t, enrich())
 
-	// timed runs: collect perfIterations samples, sort, take p95.
+	// collect timed enrich samples
 	durations := make([]time.Duration, perfIterations)
 	for i := 0; i < perfIterations; i++ {
 		start := time.Now()
@@ -199,8 +179,7 @@ func TestGetEventsEnrich_LatencyCeiling(t *testing.T) {
 	sort.Slice(durations, func(i, j int) bool { return durations[i] < durations[j] })
 	p95 := durations[percentileIndex(len(durations), 95)]
 
-	// hard ceiling: sequential fan-out would take
-	// perfEventCount*perfModuleLatency which is well above perfLatencyCeiling.
+	// fail when p95 exceeds the sequential-lookup budget
 	if p95 > perfLatencyCeiling {
 		t.Fatalf(
 			"events enrich p95 %s exceeds ceiling %s (workload: %d events, %s per module lookup); "+
@@ -210,8 +189,8 @@ func TestGetEventsEnrich_LatencyCeiling(t *testing.T) {
 	}
 }
 
-// percentileIndex returns the sorted-slice index for the given
-// percentile (0..100) over n samples, clamped to [0, n-1].
+// percentileIndex returns the sorted-slice index for pct over n samples,
+// clamped to [0, n-1].
 func percentileIndex(n, pct int) int {
 	if n <= 0 {
 		return 0

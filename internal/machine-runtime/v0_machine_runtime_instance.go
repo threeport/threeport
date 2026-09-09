@@ -27,11 +27,7 @@ func v0MachineRuntimeInstanceCreated(
 	// establish an ssh connection to the machine
 	sshClient, capturedHostKey, err := machine.GetClient(machineRuntimeInstance, r.EncryptionKey)
 	if err != nil {
-		// always retry ssh client failures, since a misconfigured credential
-		// or unreachable host may be fixed externally without any change
-		// to this object, so reconciliation should keep trying;
-		// return an ErrWithEvent so the wrapper substitutes the specific
-		// reason for the generic FailedCreate event
+		// retry: a credential or host may be fixed without changing this object.
 		note := fmt.Sprintf("failed to connect to machine runtime instance via ssh: %s", err)
 		return 30, &tp_errors.ErrWithEvent{
 			Message: note,
@@ -64,9 +60,7 @@ func v0MachineRuntimeInstanceCreated(
 
 	// verify the connection is usable
 	if err := machine.Ping(sshClient); err != nil {
-		// always retry, same reasoning as the GetClient path above;
-		// return an ErrWithEvent so the wrapper substitutes the specific
-		// reason for the generic FailedCreate event
+		// retry: the host may become reachable without changing this object.
 		note := fmt.Sprintf("failed to ping machine runtime instance: %s", err)
 		return 30, &tp_errors.ErrWithEvent{
 			Message: note,

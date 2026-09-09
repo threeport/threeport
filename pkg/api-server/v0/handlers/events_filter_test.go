@@ -11,9 +11,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// TestBoundEventFilterClauseEmpty verifies an unfiltered list request adds no
-// predicate at all, so the paginated query carries only the WHERE the handler
-// builds for itself.
+// TestBoundEventFilterClauseEmpty covers an empty filter producing no SQL.
 func TestBoundEventFilterClauseEmpty(t *testing.T) {
 	clause, values := boundEventFilterClause(&v0.Event{})
 
@@ -21,10 +19,8 @@ func TestBoundEventFilterClauseEmpty(t *testing.T) {
 	assert.Empty(t, values)
 }
 
-// TestBoundEventFilterClauseColumns verifies each bindable event column
-// becomes a placeholder predicate carrying its value out of band. A paginated
-// branch builds its query as a string, so a filter the client bound reaches
-// the query only through this fragment.
+// TestBoundEventFilterClauseColumns covers each bindable field mapping to
+// its column and a single bound value.
 func TestBoundEventFilterClauseColumns(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -61,8 +57,8 @@ func TestBoundEventFilterClauseColumns(t *testing.T) {
 	}
 }
 
-// TestBoundEventFilterClauseCombines verifies several bound columns AND
-// together in a stable order, with one placeholder per value.
+// TestBoundEventFilterClauseCombines covers multiple fields AND-ed in a
+// stable order with one bound value each.
 func TestBoundEventFilterClauseCombines(t *testing.T) {
 	clause, values := boundEventFilterClause(&v0.Event{
 		Note:                util.Ptr("boom"),
@@ -76,10 +72,10 @@ func TestBoundEventFilterClauseCombines(t *testing.T) {
 	assert.Equal(t, []interface{}{"boom", "Warning", "kubernetes-workload-controller"}, values)
 }
 
-// TestBoundEventFilterClauseKeepsValuesOutOfSQL is the reason this renders to
-// placeholders rather than interpolating. A filter value carrying SQL has to
-// reach the driver as data, never as query text.
+// TestBoundEventFilterClauseKeepsValuesOutOfSQL rejects interpolating a
+// filter value into the SQL text.
 func TestBoundEventFilterClauseKeepsValuesOutOfSQL(t *testing.T) {
+	// payload that would be a statement if interpolated
 	hostile := "'; DROP TABLE v0_events; --"
 
 	clause, values := boundEventFilterClause(&v0.Event{Note: util.Ptr(hostile)})
@@ -90,9 +86,8 @@ func TestBoundEventFilterClauseKeepsValuesOutOfSQL(t *testing.T) {
 	assert.Equal(t, hostile, values[0], "the value travels as a bind parameter")
 }
 
-// TestBoundEventFilterClauseSkipsReason verifies reason is left to the
-// handler's own reason and reasonprefix handling, so a reason filter is not
-// applied twice with two different predicates.
+// TestBoundEventFilterClauseSkipsReason covers a Reason-only filter producing
+// no clause. Reason query params own that column.
 func TestBoundEventFilterClauseSkipsReason(t *testing.T) {
 	clause, values := boundEventFilterClause(&v0.Event{Reason: util.Ptr("FailedCreate")})
 

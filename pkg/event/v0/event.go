@@ -50,19 +50,14 @@ type EventRecorder struct {
 	ReportingController string
 }
 
-// RecordEvent posts an event about the given object. The api server
-// dedups on insert against the unique index over the event's subject
-// and content, so an emit repeating an event already on file bumps that
-// row's Count instead of adding a row. fullyQualifiedObjectType must be
-// the form returned by GetFullyQualifiedType.
+// RecordEvent stamps the reporting controller, timestamps, and count 1,
+// binds the event to the subject object, and stores it.
 func (r *EventRecorder) RecordEvent(
 	event *api.Event,
 	objectId uint,
 	fullyQualifiedObjectType string,
 ) error {
-	// stamp reporter, timestamps, and count on the in-memory event.
-	// count is 1 on the wire; the api server's conflict handling
-	// increments the stored count when the row is already on file.
+	// stamp controller, timestamps, count 1, and an empty note when unset
 	now := time.Now()
 	event.ReportingController = &r.ReportingController
 	event.EventTime = util.Ptr(now)
@@ -72,10 +67,7 @@ func (r *EventRecorder) RecordEvent(
 		event.Note = util.Ptr("")
 	}
 
-	// carry the subject on the in-memory Event. ObjectType and ObjectID
-	// are columns on the event row and part of the dedup index, so the
-	// api server's beforeCreate validates both and the insert conflicts
-	// against any row sharing this subject and content.
+	// bind the event to the subject object
 	event.ObjectType = util.Ptr(fullyQualifiedObjectType)
 	event.ObjectID = util.Ptr(objectId)
 
@@ -85,12 +77,8 @@ func (r *EventRecorder) RecordEvent(
 	return nil
 }
 
-// HandleEventOverride records the given event unless the error is an
-// ErrWithEvent, in which case it records the event carried by the
-// error. errors.As unwraps ErrWithEvent through wrapped error chains,
-// so a handler that wraps the returned error still routes the specific
-// event through the same substitution path. fullyQualifiedObjectType
-// must be the form returned by GetFullyQualifiedType.
+// HandleEventOverride records the event carried by a typed error, or the
+// fallback event with the error appended to its note.
 func (r *EventRecorder) HandleEventOverride(
 	event *api.Event,
 	objectId uint,
@@ -109,8 +97,7 @@ func (r *EventRecorder) HandleEventOverride(
 			log.Error(err, "failed to record event")
 		}
 	default:
-		// wrap the operation error into Note so the failure surfaces
-		// on the recorded event; cap at 500 chars to bound row size.
+		// append the error to the fallback note, truncated to 500 bytes to bound row size
 		if err != nil && event != nil {
 			wrapped := fmt.Sprintf("%s: %v", util.Deref(event.Note), err)
 			if len(wrapped) > 500 {
@@ -142,24 +129,8 @@ func GetSuccessReasonForOperation(operation notifications.NotificationOperation)
 	}
 }
 
-// CreateNote returns the Note text for a CreateInProgress event. The
-// format is:
-//
-//	"creating[; owns X, Y][; associates A, B][; marries M][; required by R]"
-//
-// Sources per clause:
-//
-//   - owns: foreign-key fields tagged relationship:"owns" from
-//     RelationshipTaggedForeignKeys()
-//   - associates: AssociationTypes() (has-many slices where the child
-//     does not require the owner back)
-//   - marries: foreign-key fields tagged relationship:"marries" plus
-//     any caller-supplied extras
-//   - required by: AssociationRequiredByTypes() (has-many slices where
-//     the child requires the owner)
-//
-// A type that appears both as a tagged foreign key and in an association
-// slice is emitted once via the foreign-key path.
+// CreateNote returns a create-progress note listing owned, associated,
+// married, and required-by kinds. Extra married kinds may be supplied.
 func CreateNote(
 	owner api.RelationshipTaggedForeignKeyProvider,
 	marriesExtras ...string,
@@ -185,23 +156,14 @@ func CreateNote(
 	return strings.Join(parts, "; ")
 }
 
-// UpdateNote returns the Note text for an UpdateInProgress event. An
-// update does not change the owner's composition, so no clauses are
-// appended.
+// UpdateNote returns the update-progress note. An update does not change
+// the owner's composition, so no relationship clauses are appended.
 func UpdateNote() string {
 	return "updating"
 }
 
-// DeleteNote returns the Note text for a DeleteInProgress event. The
-// format is:
-//
-//	"deleting[; cascades to owned X, Y, Z][; married M]"
-//
-// Owns, associates, and required-by kinds fold into a single "cascades
-// to owned" list because the reconciler eagerly cascades all three.
-// Marries stays separate to preserve the bidirectional 1:1 semantic.
-// The Reason column carries the DeleteInProgress action, so the note
-// omits the redundant "delete" verb.
+// DeleteNote returns a delete-progress note listing cascade targets and
+// married kinds. Extra married kinds may be supplied.
 func DeleteNote(
 	owner api.RelationshipTaggedForeignKeyProvider,
 	marriesExtras ...string,
@@ -242,9 +204,8 @@ func DeleteNote(
 	return strings.Join(parts, "; ")
 }
 
-// foreignKeyKinds splits the owner's relationship-tagged foreign keys
-// into the owns and marries kind lists. Owns is deduped by kebab kind;
-// marries is returned in declaration order.
+// foreignKeyKinds returns unique owned kinds and married kinds in
+// declaration order from the owner's tagged foreign keys.
 func foreignKeyKinds(owner api.RelationshipTaggedForeignKeyProvider) (owns, marries []string) {
 	seenOwns := map[string]bool{}
 	for _, fk := range owner.RelationshipTaggedForeignKeys() {
@@ -262,9 +223,8 @@ func foreignKeyKinds(owner api.RelationshipTaggedForeignKeyProvider) (owns, marr
 	return owns, marries
 }
 
-// associationKinds returns the kebab kinds from AssociationTypes(),
-// skipping any kind already present in ownsSeen. Returns nil when the
-// owner does not implement AssociationTypesProvider.
+// associationKinds returns associated kinds that are not already listed
+// as owned, or nil if the owner does not provide association types.
 func associationKinds(owner api.RelationshipTaggedForeignKeyProvider, ownsSeen []string) []string {
 	provider, ok := owner.(api.AssociationTypesProvider)
 	if !ok {
@@ -286,9 +246,8 @@ func associationKinds(owner api.RelationshipTaggedForeignKeyProvider, ownsSeen [
 	return kinds
 }
 
-// associationRequiredByKinds returns the kebab kinds from
-// AssociationRequiredByTypes(). Returns nil when the owner does not
-// implement AssociationRequiredByTypesProvider.
+// associationRequiredByKinds returns unique kinds that list this owner
+// as required, or nil if the owner does not provide them.
 func associationRequiredByKinds(owner api.RelationshipTaggedForeignKeyProvider) []string {
 	provider, ok := owner.(api.AssociationRequiredByTypesProvider)
 	if !ok {
@@ -307,40 +266,38 @@ func associationRequiredByKinds(owner api.RelationshipTaggedForeignKeyProvider) 
 	return kinds
 }
 
-// ownsClause formats "owns X, Y".
+// ownsClause formats the owned-kinds fragment of a progress note.
 func ownsClause(kinds []string) string {
 	return "owns " + strings.Join(kinds, ", ")
 }
 
-// associatesClause formats "associates A, B".
+// associatesClause formats the associated-kinds fragment of a progress note.
 func associatesClause(kinds []string) string {
 	return "associates " + strings.Join(kinds, ", ")
 }
 
-// marriesClause formats "marries M".
+// marriesClause formats the married-kinds fragment of a create-progress note.
 func marriesClause(kinds []string) string {
 	return "marries " + strings.Join(kinds, ", ")
 }
 
-// requiredByClause formats "required by R".
+// requiredByClause formats the required-by-kinds fragment of a progress note.
 func requiredByClause(kinds []string) string {
 	return "required by " + strings.Join(kinds, ", ")
 }
 
-// cascadeOwnedClause formats "cascades to owned X, Y, Z".
+// cascadeOwnedClause formats the cascade-target fragment of a delete-progress note.
 func cascadeOwnedClause(kinds []string) string {
 	return "cascades to owned " + strings.Join(kinds, ", ")
 }
 
-// marriedClause formats "married M".
+// marriedClause formats the married-kinds fragment of a delete-progress note.
 func marriedClause(kinds []string) string {
 	return "married " + strings.Join(kinds, ", ")
 }
 
-// kebabKindFromQualifiedType parses a fully-qualified type name like
-// "threeport.io/v0.MachineRuntimeDefinition" and returns the kebab-case
-// kind ("machine-runtime-definition"). Falls back to the raw input on
-// parse failure.
+// kebabKindFromQualifiedType returns the kebab-case type name from a
+// qualified type such as threeport.io/v0.Widget, or the input if parsing fails.
 func kebabKindFromQualifiedType(qualifiedType string) string {
 	_, _, typeName, ok := apilib.ParseQualifiedType(qualifiedType)
 	if !ok {

@@ -13,38 +13,36 @@ import (
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 )
 
-// newListRequest drives a generated list handler the way the router does: the
-// strict query binder registered on the echo instance, and the context wrapped
-// so the handler's type assertion to CustomContext succeeds. No database is
-// involved because a bind failure is decided before the handler queries.
+// newListRequest returns a CustomContext and recorder for a GET of target.
 func newListRequest(target string) (*apiserver_lib.CustomContext, *httptest.ResponseRecorder) {
 	e := echo.New()
+	// install QueryBinder so unknown keys fail the bind
 	e.Binder = apiserver_lib.NewQueryBinder()
 	req := httptest.NewRequest(http.MethodGet, target, nil)
 	rec := httptest.NewRecorder()
 
+	// wrap in CustomContext so the handler's type assertion succeeds
 	return &apiserver_lib.CustomContext{Context: e.NewContext(req, rec)}, rec
 }
 
-// TestListHandlerRejectsUnknownQueryParamWith400 asserts the layer that
-// actually sets the status, not the binder underneath it. A typo'd filter is
-// client error, and answering 500 tells the caller to retry something that will
-// never succeed. The binder test proves the error is produced; this proves the
-// handler turns it into the right status.
+// TestListHandlerRejectsUnknownQueryParamWith400 rejects nmae with 400, not
+// 500, and names the unknown key in the body.
 func TestListHandlerRejectsUnknownQueryParamWith400(t *testing.T) {
+	// GET with a typo of name
 	c, rec := newListRequest("/v0/kubernetes-workload-definitions?nmae=my-app")
+	// handler with no DB; 400 paths return before the query
 	h := Handler{Logger: zap.NewNop()}
 
+	// run the list handler
 	require.NoError(t, h.GetKubernetesWorkloadDefinitions(c))
 
+	// check 400 names the unknown key
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "nmae", "the response names the parameter that was rejected")
 }
 
-// TestListHandlerRejectsBadLimitWith400 asserts the same for a limit the
-// pagination params reject. A non-positive limit reaches CockroachDB as a
-// negative LIMIT and surfaces its sqlstate to the client, so it has to be
-// refused before the query is built.
+// TestListHandlerRejectsBadLimitWith400 rejects a non-positive, over-max, or
+// unparseable limit or cursor with 400.
 func TestListHandlerRejectsBadLimitWith400(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -59,11 +57,14 @@ func TestListHandlerRejectsBadLimitWith400(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			// GET the bad query
 			c, rec := newListRequest(test.target)
 			h := Handler{Logger: zap.NewNop()}
 
+			// run the list handler
 			require.NoError(t, h.GetKubernetesWorkloadDefinitions(c))
 
+			// check 400
 			assert.Equal(t, http.StatusBadRequest, rec.Code)
 		})
 	}

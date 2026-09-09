@@ -11,8 +11,8 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
 
-	api "github.com/threeport/threeport/pkg/api/v0"
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	api "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	sdkgen "github.com/threeport/threeport/pkg/sdk/v0/gen"
@@ -33,8 +33,7 @@ func GenApiObjectMethods(gen *sdkgen.Generator, sdkConfig *sdk.SdkConfig) error 
 		}
 	}
 
-	// flatten FieldTypes alongside typeToTags so the has-many association
-	// scan can pair each field's tag map with its Go type expression
+	// flatten FieldTypes so the has-many scan can pair each field's tags with its Go type
 	typeToFieldTypes := make(map[string]map[string]string)
 	for _, group := range gen.ApiObjectGroups {
 		for typeName, fieldTypeMap := range group.FieldTypes {
@@ -306,29 +305,29 @@ func GenApiObjectMethods(gen *sdkgen.Generator, sdkConfig *sdk.SdkConfig) error 
 									default:
 										relationshipQual = Qual("github.com/threeport/threeport/pkg/api/v0", "RelationshipRequires")
 									}
-								// reference the target type either locally or via Qual for
-								// a cross-module ref (which is always to a core type, since
-								// modules can't ref other modules)
-								var targetTypeRef *Statement
-								if gen.Module && !localTypes[fk.objectType] {
-									targetTypeRef = Qual(
-										"github.com/threeport/threeport/pkg/api/v0",
-										fk.objectType,
-									)
-								} else {
-									targetTypeRef = Id(fk.objectType)
-								}
-								vg.Values(Dict{
-									Id("FieldName"): Lit(fk.fieldName),
-									// call GetFullyQualifiedType on the target type
-									// so the call site reads as intent ("identify rows
-									// in the AOR table by qualified type") and the
-									// reader can hop to the method to see the literal
-									Id("ObjectType"): Id("new").Call(targetTypeRef).
-										Dot("GetFullyQualifiedType").Call(),
-									Id("Relationship"): relationshipQual,
-									Id("ObjectID"):     Id(receiver).Dot(fk.fieldName),
-								})
+									// reference the target type either locally or via Qual for
+									// a cross-module ref (which is always to a core type, since
+									// modules can't ref other modules)
+									var targetTypeRef *Statement
+									if gen.Module && !localTypes[fk.objectType] {
+										targetTypeRef = Qual(
+											"github.com/threeport/threeport/pkg/api/v0",
+											fk.objectType,
+										)
+									} else {
+										targetTypeRef = Id(fk.objectType)
+									}
+									vg.Values(Dict{
+										Id("FieldName"): Lit(fk.fieldName),
+										// call GetFullyQualifiedType on the target type
+										// so the call site reads as intent ("identify rows
+										// in the AOR table by qualified type") and the
+										// reader can hop to the method to see the literal
+										Id("ObjectType"): Id("new").Call(targetTypeRef).
+											Dot("GetFullyQualifiedType").Call(),
+										Id("Relationship"): relationshipQual,
+										Id("ObjectID"):     Id(receiver).Dot(fk.fieldName),
+									})
 								}
 							})
 						})
@@ -336,28 +335,15 @@ func GenApiObjectMethods(gen *sdkgen.Generator, sdkConfig *sdk.SdkConfig) error 
 					}
 				}
 
-				// AssociationTypes and AssociationRequiredByTypes methods
-				// emitted for any type with at least one has-many association
-				// children slice: a []*T field tagged with validate containing
-				// "association", excluding gorm many2many M:N joins (which
-				// share, not own or require).
-				//
-				// Slices split by whether the child T carries a back-FK to
-				// this parent with relationship:"requires":
-				//   - no such back-FK: truly-owned child, goes in AssociationTypes
-				//   - has such back-FK: dependent child, goes in AssociationRequiredByTypes
-				//
-				// Conservative fallback: if T lives outside the current gen
-				// module (typeToTags has no entry for it), assume it may
-				// require the parent back and classify as
-				// AssociationRequiredByTypes.
+				// AssociationTypes and AssociationRequiredByTypes methods emitted from
+				// has-many association slices, split by whether the child requires the parent
 				{
 					var associationTypes []string
 					var requiredByTypes []string
 					if tagsForType, ok := typeToTags[apiObj.TypeName]; ok {
 						fieldTypesForType := typeToFieldTypes[apiObj.TypeName]
 						for fieldName, tagMap := range tagsForType {
-							// require the association token in the validate tag
+							// keep fields tagged validate:association
 							val, ok := tagMap[string(lib.ValidateTag)]
 							if !ok {
 								continue
@@ -372,19 +358,17 @@ func GenApiObjectMethods(gen *sdkgen.Generator, sdkConfig *sdk.SdkConfig) error 
 							if !hasAssociation {
 								continue
 							}
-							// exclude M:N shared relationships; a many2many
-							// gorm tag is a join, not an ownership edge
+							// skip a many-to-many join; it is a shared edge, not ownership
 							if gormTag := tagMap["gorm"]; strings.Contains(gormTag, "many2many:") {
 								continue
 							}
-							// require a has-many slice of pointers: []*T
+							// keep has-many slices of pointers
 							fieldType := fieldTypesForType[fieldName]
 							if !strings.HasPrefix(fieldType, "[]*") {
 								continue
 							}
 							targetType := strings.TrimPrefix(fieldType, "[]*")
-							// classify by inspecting T's own fields for a
-							// back-FK to the parent tagged relationship:"requires"
+							// classify by a requires foreign key on the child back to this type
 							if childHasRequiresBackFK(typeToTags, targetType, apiObj.TypeName) {
 								requiredByTypes = append(requiredByTypes, targetType)
 							} else {
@@ -409,9 +393,7 @@ func GenApiObjectMethods(gen *sdkgen.Generator, sdkConfig *sdk.SdkConfig) error 
 						).Id(methodName).Params().Index().String().BlockFunc(func(g *Group) {
 							g.Return().Index().String().ValuesFunc(func(vg *Group) {
 								for _, targetType := range targetTypes {
-									// reference the target type either locally or via
-									// Qual for a cross-module ref (always to a core
-									// type, since modules can't ref other modules)
+									// qualify a module-only reference into threeport core
 									var targetTypeRef *Statement
 									if gen.Module && !localTypes[targetType] {
 										targetTypeRef = Qual(
@@ -526,11 +508,8 @@ func GenApiObjectMethods(gen *sdkgen.Generator, sdkConfig *sdk.SdkConfig) error 
 	return nil
 }
 
-// childHasRequiresBackFK reports whether the child type has a foreign-key
-// field tagged relationship:"requires" that points back to the parent type.
-// Returns false when the child type is not present in the tag registry, which
-// signals the child lives outside the current gen module; callers apply the
-// conservative fallback (classify as required-by) at the call site.
+// childHasRequiresBackFK reports whether childType has a requires foreign key
+// pointing at parentType. A child whose tags omit parentType is treated as requiring the parent.
 func childHasRequiresBackFK(
 	typeToTags map[string]map[string]map[string]string,
 	childType string,
@@ -538,8 +517,7 @@ func childHasRequiresBackFK(
 ) bool {
 	childTags, ok := typeToTags[childType]
 	if !ok {
-		// child lives outside this gen module; conservative fallback
-		// applied by caller treats the absence as "may require back"
+		// treat a child outside this gen as requiring the parent
 		return true
 	}
 	for fieldName, tagMap := range childTags {

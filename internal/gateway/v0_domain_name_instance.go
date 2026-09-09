@@ -26,8 +26,7 @@ func v0DomainNameInstanceCreated(
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record the start of the reconciliation before the fan-out so the
-	// causal boundary is visible in events even if a downstream call fails
+	// record reconciliation start so a later failure still has a start event
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeNormal),
@@ -56,8 +55,7 @@ func v0DomainNameInstanceUpdated(
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record the start of the reconciliation before the fan-out so the
-	// causal boundary is visible in events even if a downstream call fails
+	// record reconciliation start so a later failure still has a start event
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeNormal),

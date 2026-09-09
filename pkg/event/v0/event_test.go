@@ -21,8 +21,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// recordedRequest captures one inbound HTTP request so tests can
-// assert on URL, query, method, and parsed body.
+// recordedRequest is one captured HTTP request from the mock API.
 type recordedRequest struct {
 	method string
 	path   string
@@ -30,9 +29,8 @@ type recordedRequest struct {
 	body   []byte
 }
 
-// mockEventAPI is an httptest fake that returns 201 + the inbound
-// body on POST /v0/events. The response uses the apiserver_lib.Response
-// envelope so client_lib.GetResponse decodes correctly.
+// mockEventAPI is an httptest handler that records inbound requests for
+// assertions.
 type mockEventAPI struct {
 	t        *testing.T
 	requests []recordedRequest
@@ -75,8 +73,8 @@ func writeEnvelope(t *testing.T, w http.ResponseWriter, status int, data []apise
 	_, _ = w.Write(body)
 }
 
-// newRecorderForTest stands up the mock API and returns a recorder
-// bound to its URL.
+// newRecorderForTest returns an EventRecorder pointed at an httptest server
+// that records inbound requests. The cleanup function closes the server.
 func newRecorderForTest(t *testing.T) (*EventRecorder, *mockEventAPI, func()) {
 	t.Helper()
 	mock := &mockEventAPI{t: t}
@@ -92,8 +90,8 @@ func newRecorderForTest(t *testing.T) (*EventRecorder, *mockEventAPI, func()) {
 	return rec, mock, srv.Close
 }
 
-// findRequest returns the first recorded request matching method and
-// a path prefix. Fails the test if none match.
+// findRequest returns the first recorded request matching method and path
+// prefix, or fails the test.
 func findRequest(t *testing.T, mock *mockEventAPI, method, pathPrefix string) recordedRequest {
 	t.Helper()
 	mock.mu.Lock()
@@ -117,31 +115,24 @@ func baseEvent() *api.Event {
 	}
 }
 
-// TestRecordEvent_AlwaysPostsRawRowWithCountOne covers the writer
-// contract: every emit POSTs Count=1. The api server upserts on
-// idx_events_dedup and increments the stored count. The POST body
-// carries the subject fields, the reporting controller, and non-nil
-// EventTime / LastObservedTime.
+// TestRecordEvent_AlwaysPostsRawRowWithCountOne covers a single POST of an
+// event row with Count 1 and stamped controller, times, and object fields.
 func TestRecordEvent_AlwaysPostsRawRowWithCountOne(t *testing.T) {
 	rec, mock, cleanup := newRecorderForTest(t)
 	defer cleanup()
 
-	// drive a single emit through the recorder; the fake API records
-	// every inbound request so the assertions below check both what
-	// was called and what was omitted.
+	// record the event
 	err := rec.RecordEvent(baseEvent(), 42, "threeport.io/v0.KubernetesWorkloadInstance")
 	require.NoError(t, err)
 
-	// exactly one request should have fired, and it must be the POST
-	// on the events collection endpoint.
+	// check a single POST and no preceding GET
 	mock.mu.Lock()
 	require.Len(t, mock.requests, 1, "recorder should not issue a preceding GET; the api server upserts on insert")
 	assert.Equal(t, http.MethodPost, mock.requests[0].method)
 	assert.Equal(t, api.PathEvents, mock.requests[0].path)
 	mock.mu.Unlock()
 
-	// the body must carry Count=1, both timestamps set, the reporting
-	// controller name, and the subject linkage fields.
+	// check Count 1, timestamps, controller, and object fields
 	post := findRequest(t, mock, http.MethodPost, api.PathEvents)
 	var posted api.Event
 	require.NoError(t, json.Unmarshal(post.body, &posted))
@@ -157,17 +148,13 @@ func TestRecordEvent_AlwaysPostsRawRowWithCountOne(t *testing.T) {
 	assert.Equal(t, uint(42), *posted.ObjectID)
 }
 
-// TestHandleEventOverride_UsesErrWithEventWhenPresent covers the
-// error-substitution path: when the caller returns an ErrWithEvent,
-// HandleEventOverride records the carried event instead of the
-// generic fallback the wrapper would emit.
+// TestHandleEventOverride_UsesErrWithEventWhenPresent covers recording the
+// event carried on the error instead of the fallback event.
 func TestHandleEventOverride_UsesErrWithEventWhenPresent(t *testing.T) {
 	rec, mock, cleanup := newRecorderForTest(t)
 	defer cleanup()
 
-	// build a specific-reason event wrapped in ErrWithEvent; this
-	// stands in for a v0 handler that returned a failure with an
-	// override event attached.
+	// set the override event on the error
 	specific := api.Event{
 		Reason: util.Ptr("SSHConnectFailed"),
 		Note:   util.Ptr("dial tcp: refused"),
@@ -175,8 +162,7 @@ func TestHandleEventOverride_UsesErrWithEventWhenPresent(t *testing.T) {
 	}
 	errWith := &tp_errors.ErrWithEvent{Message: "ssh failed", Event: specific}
 
-	// call HandleEventOverride with the generic fallback plus the
-	// wrapped err; the specific event should win.
+	// run the override handler
 	logger := logr.Discard()
 	generic := &api.Event{
 		Reason: util.Ptr("FailedCreate"),
@@ -185,8 +171,7 @@ func TestHandleEventOverride_UsesErrWithEventWhenPresent(t *testing.T) {
 	}
 	rec.HandleEventOverride(generic, 42, "threeport.io/v0.MachineRuntimeInstance", errWith, &logger)
 
-	// the POST body should carry the ErrWithEvent's Reason, not the
-	// generic wrapper's FailedCreate.
+	// check the posted reason is the override
 	post := findRequest(t, mock, http.MethodPost, api.PathEvents)
 	var posted api.Event
 	require.NoError(t, json.Unmarshal(post.body, &posted))
@@ -194,16 +179,13 @@ func TestHandleEventOverride_UsesErrWithEventWhenPresent(t *testing.T) {
 	assert.Equal(t, "SSHConnectFailed", *posted.Reason, "override event carried by ErrWithEvent takes precedence")
 }
 
-// TestHandleEventOverride_UnwrapsWrappedErrWithEvent covers the
-// errors.As unwrap contract: an ErrWithEvent wrapped by fmt.Errorf
-// (e.g. a caller that added context before returning) still routes
-// to the substitution path.
+// TestHandleEventOverride_UnwrapsWrappedErrWithEvent covers an override
+// event nested under errors.Join still supplying the recorded reason.
 func TestHandleEventOverride_UnwrapsWrappedErrWithEvent(t *testing.T) {
 	rec, mock, cleanup := newRecorderForTest(t)
 	defer cleanup()
 
-	// wrap the ErrWithEvent one layer deep to model a caller that
-	// added context; errors.As should still find the sentinel.
+	// set the override event on a joined error
 	specific := api.Event{
 		Reason: util.Ptr("CreateResourceError"),
 		Note:   util.Ptr("api call rejected"),
@@ -212,8 +194,7 @@ func TestHandleEventOverride_UnwrapsWrappedErrWithEvent(t *testing.T) {
 	inner := &tp_errors.ErrWithEvent{Message: "boom", Event: specific}
 	wrapped := errors.Join(errors.New("outer"), inner)
 
-	// drive the override with the wrapped err; expect the specific
-	// reason to land in the POST body.
+	// run the override handler
 	logger := logr.Discard()
 	generic := &api.Event{
 		Reason: util.Ptr("FailedCreate"),
@@ -229,15 +210,13 @@ func TestHandleEventOverride_UnwrapsWrappedErrWithEvent(t *testing.T) {
 	assert.Equal(t, "CreateResourceError", *posted.Reason, "errors.As unwraps ErrWithEvent through fmt.Errorf/errors.Join layers")
 }
 
-// TestHandleEventOverride_UsesFallbackWhenNoErrWithEvent covers the
-// no-override path: a plain error routes the generic wrapper event
-// through, unchanged.
+// TestHandleEventOverride_UsesFallbackWhenNoErrWithEvent covers recording
+// the fallback event when the error carries no override.
 func TestHandleEventOverride_UsesFallbackWhenNoErrWithEvent(t *testing.T) {
 	rec, mock, cleanup := newRecorderForTest(t)
 	defer cleanup()
 
-	// plain error, no ErrWithEvent underneath: recorder falls back to
-	// the caller-supplied fallback event (the generic FailedCreate).
+	// run the override handler with a plain error
 	logger := logr.Discard()
 	generic := &api.Event{
 		Reason: util.Ptr("FailedCreate"),

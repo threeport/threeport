@@ -22,8 +22,7 @@ func v0SecretInstanceCreated(
 	secretInstance *v0.SecretInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record the start of the reconciliation before the fan-out so the
-	// causal boundary is visible in events even if a downstream call fails
+	// record reconciliation start so a later failure still has a start event
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeNormal),
@@ -89,8 +88,7 @@ func v0SecretInstanceDeleted(
 		return 0, nil
 	}
 
-	// record the start of the deletion after the idempotency guards so
-	// requeues on already-scheduled deletes do not spam the event log
+	// record deletion start after confirmed deletions return
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeNormal),

@@ -64,8 +64,7 @@ func v0LoggingDefinitionCreated(
 	loggingDefinition *v0.LoggingDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-	// record the start of the reconciliation before the fan-out so the
-	// causal boundary is visible in events even if a downstream call fails
+	// record that create started before downstream work so a later failure still shows the start
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeNormal),
@@ -141,8 +140,7 @@ func v0LoggingDefinitionDeleted(
 	loggingDefinition *v0.LoggingDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-	// record the start of the deletion before the fan-out so the causal
-	// boundary is visible in events even if a downstream call fails
+	// record that delete started before downstream work so a later failure still shows the start
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeNormal),

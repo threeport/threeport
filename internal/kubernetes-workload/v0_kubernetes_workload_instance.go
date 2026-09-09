@@ -30,8 +30,7 @@ func v0KubernetesWorkloadInstanceCreated(
 	k8sWorkloadInstance *v0.KubernetesWorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record the start of the reconciliation before the fan-out so the
-	// causal boundary is visible in events even if a downstream call fails
+	// record reconciliation start before any downstream call
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeNormal),
@@ -180,8 +179,7 @@ func v0KubernetesWorkloadInstanceCreated(
 		// create kube resource
 		_, err = kube.CreateResource(kubeObject, dynamicKubeClient, *mapper)
 		if err != nil {
-			// return an ErrWithEvent so the wrapper substitutes the specific
-			// reason for the generic FailedCreate event
+			// surface the kube create failure as a warning event
 			return 0, &tp_errors.ErrWithEvent{
 				Message: fmt.Sprintf("failed to create Kubernetes resource: %s", err),
 				Event: v0.Event{
@@ -267,8 +265,7 @@ func v0KubernetesWorkloadInstanceUpdated(
 	k8sWorkloadInstance *v0.KubernetesWorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record the start of the reconciliation before the fan-out so the
-	// causal boundary is visible in events even if a downstream call fails
+	// record reconciliation start before any downstream call
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeNormal),
@@ -434,8 +431,7 @@ func v0KubernetesWorkloadInstanceDeleted(
 		return 0, nil
 	}
 
-	// record the start of the deletion after the idempotency guards so
-	// requeues on already-scheduled deletes do not spam the event log
+	// record deletion start after the deletion-confirmed guard
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeNormal),

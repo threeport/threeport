@@ -19,9 +19,8 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// newEventsHandler returns a handler backed by an in-memory sqlite
-// database holding the event table and the module registry the subject
-// filter resolves a bare kind against.
+// newEventsHandler returns a Handler backed by an in-memory sqlite database
+// holding the event table and the registries a subject filter resolves against.
 func newEventsHandler(t *testing.T) Handler {
 	t.Helper()
 
@@ -37,9 +36,7 @@ func newEventsHandler(t *testing.T) Handler {
 		&api.Tier{},
 	))
 
-	// the resolved-name cache is process-wide, so empty it per test:
-	// two tests holding different names behind the same (type, id) have
-	// to each see their own.
+	// empty the process-wide name cache so the same (type, id) cannot leak a name
 	moduleNameCache.mu.Lock()
 	moduleNameCache.entries = map[nameCacheKey]nameCacheEntry{}
 	moduleNameCache.mu.Unlock()
@@ -47,11 +44,8 @@ func newEventsHandler(t *testing.T) Handler {
 	return Handler{DB: db, Logger: zap.NewNop()}
 }
 
-// getEvents drives the events handler the way the router does: the
-// strict query binder registered on the echo instance, and the context
-// wrapped so the handler's type assertion to CustomContext succeeds.
-// The returned events come out of the response body, so a test reads
-// what a client would receive.
+// getEvents issues a GET with the query binder and a wrapped context the
+// handler type-asserts, and returns the status and decoded events.
 func getEvents(t *testing.T, h Handler, query string) (int, []api.Event) {
 	t.Helper()
 
@@ -75,9 +69,7 @@ func getEvents(t *testing.T, h Handler, query string) (int, []api.Event) {
 	return rec.Code, body.Data
 }
 
-// seedEvent writes one event row with the given subject. Hooks are
-// skipped so the insert stays plain SQL the sqlite driver accepts; the
-// read path these tests cover runs no hooks of its own.
+// seedEvent inserts one Event with create hooks skipped and returns the stored row.
 func seedEvent(t *testing.T, db *gorm.DB, reason, objectType string, objectID uint) *api.Event {
 	t.Helper()
 
@@ -98,10 +90,8 @@ func seedEvent(t *testing.T, db *gorm.DB, reason, objectType string, objectID ui
 	return e
 }
 
-// registerModuleObject records a module and one object it owns, which
-// is what GetObjectTypes reads to turn a bare kind into the fully
-// qualified types the subject filter uses. No route is registered, so
-// name resolution finds no module endpoint and leaves ObjectName unset.
+// registerModuleObject inserts a module-owned kind so a listing can resolve that
+// kind to its fully qualified types.
 func registerModuleObject(t *testing.T, db *gorm.DB, apiNamespace, kind, version string) {
 	t.Helper()
 
@@ -120,8 +110,7 @@ func registerModuleObject(t *testing.T, db *gorm.DB, apiNamespace, kind, version
 	}).Error)
 }
 
-// eventIDs pulls the ids out of a response page so an assertion can name
-// the rows it expects rather than only their number.
+// eventIDs returns the ids of events in order.
 func eventIDs(events []api.Event) []uint {
 	ids := make([]uint, 0, len(events))
 	for _, e := range events {
@@ -131,10 +120,8 @@ func eventIDs(events []api.Event) []uint {
 	return ids
 }
 
-// TestGetEvents_ObjectIdAloneFiltersAcrossSubjectTypes covers an
-// objectid supplied without a type. The subject sits on the event row,
-// so an id narrows the listing on its own and every type carrying that
-// id is in the result.
+// TestGetEvents_ObjectIdAloneFiltersAcrossSubjectTypes covers an objectid query
+// that matches every subject type sharing that id.
 func TestGetEvents_ObjectIdAloneFiltersAcrossSubjectTypes(t *testing.T) {
 	h := newEventsHandler(t)
 
@@ -149,10 +136,8 @@ func TestGetEvents_ObjectIdAloneFiltersAcrossSubjectTypes(t *testing.T) {
 		"an id filters on its own across every subject type")
 }
 
-// TestGetEvents_ObjectIdWithObjectNameReturns400 covers the pairing the
-// handler refuses. An id names the subject directly and a name resolves
-// it, so the two together select two different row sets and the request
-// has no single answer.
+// TestGetEvents_ObjectIdWithObjectNameReturns400 rejects pairing objectid with
+// objectname.
 func TestGetEvents_ObjectIdWithObjectNameReturns400(t *testing.T) {
 	h := newEventsHandler(t)
 	seedEvent(t, h.DB, "R0", "example.com/v0.Widget", 7)
@@ -162,11 +147,8 @@ func TestGetEvents_ObjectIdWithObjectNameReturns400(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, code)
 }
 
-// TestGetEvents_ObjectTypeNameNarrowsToResolvedTypes covers a bare kind
-// alongside an id. The kind resolves through the module registry to the
-// fully qualified types that carry it, and the listing holds only events
-// whose object_type is one of them, so an unrelated type sharing the id
-// stays out.
+// TestGetEvents_ObjectTypeNameNarrowsToResolvedTypes covers objecttypename plus
+// objectid matching only the registered fully qualified type.
 func TestGetEvents_ObjectTypeNameNarrowsToResolvedTypes(t *testing.T) {
 	h := newEventsHandler(t)
 	registerModuleObject(t, h.DB, "example.com", "Widget", "v0")
@@ -182,9 +164,8 @@ func TestGetEvents_ObjectTypeNameNarrowsToResolvedTypes(t *testing.T) {
 		"only the resolved fully qualified type matches")
 }
 
-// TestGetEvents_ExcludesSoftDeletedEvent covers deleted_at scoping on
-// the listing. A soft-deleted event keeps its subject, so the filter
-// still matches it and only the scoping keeps it out.
+// TestGetEvents_ExcludesSoftDeletedEvent covers a listing that omits a
+// soft-deleted event.
 func TestGetEvents_ExcludesSoftDeletedEvent(t *testing.T) {
 	h := newEventsHandler(t)
 
@@ -205,9 +186,8 @@ func TestGetEvents_ExcludesSoftDeletedEvent(t *testing.T) {
 		"a soft-deleted event stays out of the listing")
 }
 
-// seedProfile writes a Profile row at the given id, one of the two core
-// types these tests use as an event subject whose name resolves through
-// core SQL.
+// seedProfile inserts a Profile at a chosen id so a name query can resolve
+// against a core type in the same database.
 func seedProfile(t *testing.T, db *gorm.DB, id uint, name string) {
 	t.Helper()
 
@@ -217,9 +197,8 @@ func seedProfile(t *testing.T, db *gorm.DB, id uint, name string) {
 	}).Error)
 }
 
-// seedTier writes a Tier row at the given id, the second core subject
-// type these tests use, so a name prefix can be shown reaching across
-// types.
+// seedTier inserts a Tier at a chosen id so a name query can resolve against a
+// core type in the same database.
 func seedTier(t *testing.T, db *gorm.DB, id uint, name string) {
 	t.Helper()
 
@@ -230,12 +209,8 @@ func seedTier(t *testing.T, db *gorm.DB, id uint, name string) {
 	}).Error)
 }
 
-// TestGetEvents_ObjectNamePrefixMatchesAcrossSubjectTypes covers the
-// case the prefix exists for: a fleet object and the children whose
-// names extend the fleet name sit under different types, and one query
-// returns every event about them. The Tier sharing an id with the
-// matching Profile stays out, so the match is per (type, id) pair
-// rather than by id alone.
+// TestGetEvents_ObjectNamePrefixMatchesAcrossSubjectTypes covers an objectnameprefix
+// that matches across subject types and ignores a same-id type whose name does not.
 func TestGetEvents_ObjectNamePrefixMatchesAcrossSubjectTypes(t *testing.T) {
 	h := newEventsHandler(t)
 
@@ -256,10 +231,8 @@ func TestGetEvents_ObjectNamePrefixMatchesAcrossSubjectTypes(t *testing.T) {
 		"a name prefix reaches every subject type whose name starts with it")
 }
 
-// TestGetEvents_ObjectNamePrefixNarrowsToObjectTypeName covers a prefix
-// alongside a bare kind. The kind resolves through the core registry,
-// and only subjects of that kind are matched, so the same prefix
-// answers with one type's events.
+// TestGetEvents_ObjectNamePrefixNarrowsToObjectTypeName covers objecttypename
+// plus objectnameprefix matching only that kind.
 func TestGetEvents_ObjectNamePrefixNarrowsToObjectTypeName(t *testing.T) {
 	h := newEventsHandler(t)
 	withCoreObjectVersions(t, "Tier", "v0")
@@ -277,9 +250,8 @@ func TestGetEvents_ObjectNamePrefixNarrowsToObjectTypeName(t *testing.T) {
 		"the kind narrows the prefix to one subject type")
 }
 
-// TestGetEvents_ObjectNamePrefixMatchingNothingReturns404 covers a
-// prefix no subject name starts with. Nothing resolves, so the handler
-// answers not found rather than returning every event.
+// TestGetEvents_ObjectNamePrefixMatchingNothingReturns404 covers an
+// objectnameprefix that matches no object.
 func TestGetEvents_ObjectNamePrefixMatchingNothingReturns404(t *testing.T) {
 	h := newEventsHandler(t)
 
@@ -291,9 +263,8 @@ func TestGetEvents_ObjectNamePrefixMatchingNothingReturns404(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, code)
 }
 
-// TestGetEvents_ObjectNamePrefixRejections covers the shapes the handler
-// refuses: a prefix paired with either of the other two subject
-// selectors, and a prefix carrying a character a name cannot hold.
+// TestGetEvents_ObjectNamePrefixRejections rejects pairing objectnameprefix with
+// objectname or objectid, and a prefix carrying a character a name cannot hold.
 func TestGetEvents_ObjectNamePrefixRejections(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -318,9 +289,8 @@ func TestGetEvents_ObjectNamePrefixRejections(t *testing.T) {
 	}
 }
 
-// withCoreObjectVersions registers one core kind in the in-memory
-// version registry for the length of a test, which is what turns a bare
-// kind on the query into a fully qualified core type.
+// withCoreObjectVersions sets the in-memory core type registry to one kind for
+// the duration of the test, which is how a bare kind becomes a fully qualified type.
 func withCoreObjectVersions(t *testing.T, kind, version string) {
 	t.Helper()
 
@@ -331,11 +301,8 @@ func withCoreObjectVersions(t *testing.T, kind, version string) {
 	t.Cleanup(func() { apiserver_lib.ObjectVersions = previous })
 }
 
-// TestGetEvents_ObjectNameAloneMatchesAcrossSubjectTypes covers a name
-// supplied with no kind, which is what a caller holding only the name
-// from an error message or a console can send. The name resolves against
-// every subject type the event rows carry, and each type keeps the ids
-// it resolved, so a second type sharing an id with the match stays out.
+// TestGetEvents_ObjectNameAloneMatchesAcrossSubjectTypes covers an objectname
+// that matches across subject types and ignores a same-id type whose name does not.
 func TestGetEvents_ObjectNameAloneMatchesAcrossSubjectTypes(t *testing.T) {
 	h := newEventsHandler(t)
 
@@ -354,10 +321,8 @@ func TestGetEvents_ObjectNameAloneMatchesAcrossSubjectTypes(t *testing.T) {
 		"a name reaches every subject type carrying it, paired with that type's ids")
 }
 
-// TestGetEvents_ObjectNameNarrowsToObjectTypeName covers a name
-// alongside a bare kind. The kind resolves through the core registry and
-// only subjects of that kind are matched, so the same name answers with
-// one type's events.
+// TestGetEvents_ObjectNameNarrowsToObjectTypeName covers objecttypename plus
+// objectname matching only that kind.
 func TestGetEvents_ObjectNameNarrowsToObjectTypeName(t *testing.T) {
 	h := newEventsHandler(t)
 	withCoreObjectVersions(t, "Tier", "v0")
@@ -375,9 +340,8 @@ func TestGetEvents_ObjectNameNarrowsToObjectTypeName(t *testing.T) {
 		"the kind narrows the name to one subject type")
 }
 
-// TestGetEvents_ObjectNameMatchingNothingReturns404 covers a name no
-// subject carries. Nothing resolves, so the handler answers not found
-// rather than returning every event.
+// TestGetEvents_ObjectNameMatchingNothingReturns404 covers an objectname that
+// matches no object.
 func TestGetEvents_ObjectNameMatchingNothingReturns404(t *testing.T) {
 	h := newEventsHandler(t)
 
@@ -389,10 +353,8 @@ func TestGetEvents_ObjectNameMatchingNothingReturns404(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, code)
 }
 
-// TestGetEvents_ObjectTypeNameAloneFiltersByKind covers a bare kind with
-// no id and no name. Every event whose subject is one of the types the
-// kind resolves to is in the answer, and a same-named type in another
-// api namespace stays out.
+// TestGetEvents_ObjectTypeNameAloneFiltersByKind covers a bare objecttypename
+// that matches every id under the registered kind and excludes the same kind in another namespace.
 func TestGetEvents_ObjectTypeNameAloneFiltersByKind(t *testing.T) {
 	h := newEventsHandler(t)
 	registerModuleObject(t, h.DB, "example.com", "Widget", "v0")
@@ -409,9 +371,8 @@ func TestGetEvents_ObjectTypeNameAloneFiltersByKind(t *testing.T) {
 		"a bare kind filters on its own, across every id under it")
 }
 
-// TestGetEvents_ObjectTypeNameAloneUnregisteredReturns404 covers a bare
-// kind no registry carries. The kind resolves to no type, so the handler
-// answers not found rather than returning every event.
+// TestGetEvents_ObjectTypeNameAloneUnregisteredReturns404 covers an
+// objecttypename that is not registered.
 func TestGetEvents_ObjectTypeNameAloneUnregisteredReturns404(t *testing.T) {
 	h := newEventsHandler(t)
 	seedEvent(t, h.DB, "R0", "example.com/v0.Widget", 7)

@@ -12,9 +12,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// eventDedupColumns are the columns of the unique index idx_events_dedup,
-// declared on the Event fields above. ON CONFLICT names them in this order
-// to pick that index as its arbiter.
+// eventDedupColumns is the ON CONFLICT arbiter, matching the unique index on Event.
 var eventDedupColumns = []clause.Column{
 	{Name: "reason"},
 	{Name: "note"},
@@ -24,21 +22,8 @@ var eventDedupColumns = []clause.Column{
 	{Name: "object_id"},
 }
 
-// beforeCreate runs before the Event is created. It validates that the
-// caller supplied both subject fields (ObjectType + ObjectID) and that
-// ObjectType is in the fully-qualified form, then adds an ON CONFLICT
-// clause so a repeated event updates the row already on file.
-//
-// A controller that keeps failing re-emits the same event on every
-// requeue, at most once every 30 seconds, which reaches roughly 2,900
-// rows a day for one stuck object. The clause goes here rather than at
-// the call site so it covers a client posting to the events endpoint
-// directly.
-//
-// The conflict target lists the index columns and repeats the index
-// predicate. CockroachDB refuses a partial unique index as an arbiter
-// through ON CONSTRAINT, answering SQLSTATE 42809, and accepts it only in
-// the ON CONFLICT (columns) WHERE predicate form.
+// beforeCreate validates the Event subject and attaches an on-conflict upsert
+// so a repeated event updates the row already on file.
 func (e *Event) beforeCreate(tx *gorm.DB) error {
 	if e.ObjectType == nil || e.ObjectID == nil {
 		return util.NewBadRequestError(
@@ -52,16 +37,13 @@ func (e *Event) beforeCreate(tx *gorm.DB) error {
 		))
 	}
 
-	// a NULL note is distinct from every other NULL in a unique index, so
-	// two emits that omit Note would both insert. Store empty string so
-	// they collide on idx_events_dedup.
+	// store empty string; NULL notes do not collide in a unique index
 	if e.Note == nil {
 		e.Note = util.Ptr("")
 	}
 
-	// count carries the running total and last_observed_time the newest
-	// sighting, so the row keeps event_time as when the failure first
-	// appeared. tptctl renders the pair as a "first..last" age span.
+	// upsert: increment count and last observed time, leave event time as first observed
+	// CockroachDB will not use a partial unique index as an ON CONSTRAINT arbiter
 	tx.Statement.AddClause(clause.OnConflict{
 		Columns:     eventDedupColumns,
 		TargetWhere: clause.Where{Exprs: []clause.Expression{gorm.Expr("deleted_at IS NULL")}},
@@ -76,21 +58,6 @@ func (e *Event) beforeCreate(tx *gorm.DB) error {
 }
 
 // beforeUpdate runs before the Event is updated.
-//
-// Receiver semantics depend on the GORM call shape; see
-// pkg/api/lib/v0/update_helpers.go for the full model. The simplest
-// per-field check is:
-//   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
-//     and PUT, handles the DB load internally
-//
-// Lower-level helpers, useful when IsFieldChanged doesn't fit:
-//   - lib.IncomingValues(tx): values being written
-//   - lib.IsFullReplace(tx): true on PUT (Save shape)
-//   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-//
-// Import:
-//
-//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (e *Event) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }

@@ -22,14 +22,12 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
 
-// moduleLookupOverallTimeout caps the total wall-clock time spent
-// resolving a batch of module names, keeping a slow or unreachable
-// module from stalling the enclosing response beyond this bound.
+// moduleLookupOverallTimeout is the budget for one module HTTP lookup.
+// A slow or unreachable module must not stall the enclosing response.
 const moduleLookupOverallTimeout = 10 * time.Second
 
-// moduleLookupMaxConcurrency bounds the fan-out of concurrent module
-// HTTP GETs so a large id list can't exhaust file descriptors or
-// swamp the module api-server.
+// moduleLookupMaxConcurrency is the cap on parallel module HTTP requests.
+// A large ID list must not exhaust file descriptors or overload a module.
 const moduleLookupMaxConcurrency = 8
 
 // parseRowID extracts a uint ID from a JSON-decoded row's ID field.
@@ -49,22 +47,13 @@ func parseRowID(idValue interface{}) (id uint, recognized bool, err error) {
 	return 0, false, nil
 }
 
-// moduleHTTPClient is the HTTP client used for module API dispatch.
-// Module Services expose the module api-server on port 443 with mTLS
-// when the control plane runs with auth enabled, and on port 80 with
-// plain HTTP when auth is disabled. The client picks TLS + client
-// certificate when /etc/threeport client credentials are mounted (the
-// same secret the rest-api process reads for its own server cert) and
-// falls back to plain HTTP otherwise. A short timeout caps cross-module
-// lookups so a misconfigured or unreachable module doesn't stall
-// response formatting; the caller falls back to id-only when the
-// lookup fails.
+// moduleHTTPClient is the shared HTTP client for module lookups.
+// TLS is used when client certs are mounted; each request times out at 3s.
 var moduleHTTPClient = func() *http.Client {
 	authEnabled := moduleClientCertsMounted()
 	c, err := client_lib.GetHTTPClient(authEnabled, "", "", "", "")
 	if err != nil {
-		// fall back to a plain-http client so a missing or unreadable
-		// cert bundle doesn't take down every module name resolution
+		// fall back to plain HTTP if the cert bundle is missing or unreadable
 		c, _ = client_lib.GetHTTPClient(false, "", "", "", "")
 		if c == nil {
 			c = http.DefaultClient
@@ -74,9 +63,8 @@ var moduleHTTPClient = func() *http.Client {
 	return c
 }()
 
-// moduleClientCertsMounted reports whether the mTLS client-cert bundle
-// this process would use to reach module Services is present on disk
-// at the standard /etc/threeport mount points.
+// moduleClientCertsMounted reports whether client cert, key, and CA files
+// are present under /etc/threeport. Missing files mean unauthenticated HTTP.
 func moduleClientCertsMounted() bool {
 	configDir := "/etc/threeport"
 	if _, err := os.Stat(filepath.Join(configDir, "cert", "tls.crt")); err != nil {
@@ -91,11 +79,8 @@ func moduleClientCertsMounted() bool {
 	return true
 }
 
-// GetObjectNames returns id->name for each id of the given object type,
-// dispatching to core SQL or the owning module's API as needed. Returns
-// an empty map if the type has no resolver. includeDeleted=true includes
-// soft-deleted rows. ctx bounds the overall lookup so a slow module
-// endpoint can't stall response formatting.
+// GetObjectNames returns id->name for each ID of objectType.
+// includeDeleted includes soft-deleted rows; unknown types return an empty map.
 func GetObjectNames(ctx context.Context, db *gorm.DB, objectType string, ids []uint, includeDeleted bool) (map[uint]string, error) {
 	// nothing to look up
 	if len(ids) == 0 {
@@ -130,21 +115,10 @@ func GetObjectNames(ctx context.Context, db *gorm.DB, objectType string, ids []u
 	return getNamesFromModule(ctx, endpoint, path, ids, includeDeleted)
 }
 
-// GetObjectIDsByName returns the IDs of all objects with the given name
-// for the given object type, dispatching to core SQL or the owning
-// module's API as needed. Returns an empty slice if the type has no
-// resolver or no objects match. Name uniqueness is not enforced at
-// the database level, so a single name can legitimately resolve to
-// multiple ids.
-//
-// Soft-deleted objects are included. An object's event history outlives
-// the object, so a name that resolves to a deleted row still names the
-// subject those events belong to, and dropping it would answer a name
-// filter with fewer events than the same subject's id filter returns.
+// GetObjectIDsByName returns every ID of objectType whose Name equals name,
+// including soft-deleted rows. Unknown types return an error.
 func GetObjectIDsByName(db *gorm.DB, objectType, name string) ([]uint, error) {
-	// try the core SQL resolver first; return early if the type is core.
-	// Unscoped lifts gorm's deleted_at predicate so a deleted subject
-	// still resolves.
+	// include soft-deleted rows so a name still resolves after delete
 	ids, err := apiserver_lib.GetCoreObjectIDsByName(db.Unscoped(), objectType, name)
 	if err == nil {
 		return ids, nil
@@ -171,14 +145,8 @@ func GetObjectIDsByName(db *gorm.DB, objectType, name string) ([]uint, error) {
 	return getIDsFromModuleByName(endpoint, path, objectType, name)
 }
 
-// getNamesFromModule fetches id->name for every id from the module API
-// in one list call per chunk of at most apiserver_lib.MaxPaginationLimitValue
-// ids, filtered server-side via ?ids=<csv>. Modules that predate the ids
-// filter still return their default page rather than an id-scoped result;
-// that is detected here and the caller falls back to the per-id path.
-// Concurrency across chunks is capped at moduleLookupMaxConcurrency and
-// the whole fan-out is bounded by moduleLookupOverallTimeout (or an
-// earlier deadline on ctx).
+// getNamesFromModule fetches names from the owning module in ID batches.
+// A response that includes an unrequested ID falls back to one GET per ID.
 func getNamesFromModule(ctx context.Context, endpoint, path string, ids []uint, includeDeleted bool) (map[uint]string, error) {
 	// preallocate the result map at the upper bound; ids that fail
 	// lookup simply won't appear in it
@@ -187,58 +155,45 @@ func getNamesFromModule(ctx context.Context, endpoint, path string, ids []uint, 
 		return out, nil
 	}
 
-	// derive an overall deadline; context propagation keeps whichever
-	// of the parent or derived deadline fires first
+	// bound the whole lookup so a hung module cannot stall the caller
 	overallCtx, cancel := context.WithTimeout(ctx, moduleLookupOverallTimeout)
 	defer cancel()
 
-	// build the requested-id set for feature-detect. A module that
-	// hasn't picked up the ids filter returns its default page, which
-	// may include ids we didn't ask for; a request that included ids=
-	// AND respected it can only return a subset of the requested ids.
+	// remember requested IDs; extra IDs mean the module ignored the ids filter
 	requested := make(map[uint]struct{}, len(ids))
 	for _, id := range ids {
 		requested[id] = struct{}{}
 	}
 
-	// chunk the id list at the module's per-request page limit so a
-	// large blocking-delete lookup still fits inside one round trip
-	// per chunk
+	// split IDs so each GET stays within the list page size
 	chunks := chunkIDs(ids, apiserver_lib.MaxPaginationLimitValue)
 
-	// guards concurrent writes to out and to the fallback trigger
+	// guard out and fallback across workers
 	var mu sync.Mutex
 	var fallback bool
 
-	// bound fan-out with errgroup's SetLimit; the per-request cap
-	// still comes from moduleHTTPClient.Timeout, so a single slow
-	// endpoint can't hold a worker past that bound
+	// run chunk GETs in parallel; in-flight requests use the client timeout
 	g, gctx := errgroup.WithContext(overallCtx)
 	g.SetLimit(moduleLookupMaxConcurrency)
 
 	for _, chunk := range chunks {
 		chunk := chunk
 
-		// stop dispatching once the overall context is done; already
-		// in-flight requests still complete under the shared client's
-		// per-request timeout
+		// stop enqueueing once the overall timeout fires
 		if gctx.Err() != nil {
 			break
 		}
 
 		g.Go(func() error {
-			// short-circuit if the overall deadline fired while we
-			// were queued behind the concurrency cap
+			// skip the request if cancelled while queued behind the cap
 			if gctx.Err() != nil {
 				return nil
 			}
 
-			// build the chunked list URL. e.g.
-			// "threeport-widget-api-server.threeport-control-plane.svc.cluster.local/example-com/v0/widgets?ids=1,2,3&limit=3"
-			// (GetResponse below prepends the http(s):// scheme based on TLS config)
+			// build the batched list URL for this chunk
 			url := buildBulkListURL(endpoint, path, chunk, includeDeleted)
 
-			// dispatch via the shared module HTTP client
+			// GET the chunk from the module
 			resp, err := client_lib.GetResponse(
 				moduleHTTPClient,
 				url,
@@ -248,9 +203,7 @@ func getNamesFromModule(ctx context.Context, endpoint, path string, ids []uint, 
 				http.StatusOK,
 			)
 
-			// transport or non-200 error; skip this chunk rather
-			// than failing the whole batch, the caller renders
-			// id-only for missing names
+			// skip a failed chunk so other IDs can still resolve
 			if err != nil {
 				return nil
 			}
@@ -258,9 +211,7 @@ func getNamesFromModule(ctx context.Context, endpoint, path string, ids []uint, 
 				return nil
 			}
 
-			// walk the returned rows; short-circuit into the
-			// fallback path if any row's id isn't one we asked
-			// for, since that means the module ignored ids=
+			// collect names for requested IDs; extra IDs trigger per-ID fallback
 			for _, item := range resp.Data {
 				row, ok := item.(map[string]interface{})
 				if !ok {
@@ -286,22 +237,18 @@ func getNamesFromModule(ctx context.Context, endpoint, path string, ids []uint, 
 		})
 	}
 
-	// worker goroutines never return non-nil, so Wait always returns
-	// nil; the call drains all outstanding workers before returning
+	// drain in-flight chunks; workers never return an error
 	_ = g.Wait()
 
-	// a module that ignored the ids filter poisoned this batch's
-	// name map; discard the partial result and rebuild via per-id
-	// GETs so the caller still gets a usable id->name map
+	// ids filter was ignored; discard the bulk result and fetch per ID
 	if fallback {
 		return getNamesFromModulePerID(overallCtx, endpoint, path, ids, includeDeleted)
 	}
 	return out, nil
 }
 
-// chunkIDs splits ids into contiguous slices of at most size ids each.
-// A non-positive size returns a single chunk holding the whole slice so
-// callers never see an infinite loop under a bad limit constant.
+// chunkIDs splits ids into slices of at most size. A non-positive size
+// returns ids as a single chunk so the loop cannot run forever.
 func chunkIDs(ids []uint, size int) [][]uint {
 	if size <= 0 || len(ids) <= size {
 		return [][]uint{ids}
@@ -317,9 +264,8 @@ func chunkIDs(ids []uint, size int) [][]uint {
 	return chunks
 }
 
-// buildBulkListURL formats a module list URL that filters by id set. Limit
-// is pinned to the chunk size so the module returns every requested row in
-// one page.
+// buildBulkListURL builds a list GET with ids and limit set to the chunk
+// so pagination cannot truncate the result.
 func buildBulkListURL(endpoint, path string, ids []uint, includeDeleted bool) string {
 	parts := make([]string, len(ids))
 	for i, id := range ids {
@@ -340,10 +286,7 @@ func buildBulkListURL(endpoint, path string, ids []uint, includeDeleted bool) st
 	return url
 }
 
-// getNamesFromModulePerID falls back to one GET per id, used when a module
-// hasn't picked up the ids= list filter and returned its default page.
-// Kept in place so the switch to bulk lookup degrades gracefully rather
-// than silently dropping names for older modules.
+// getNamesFromModulePerID fetches one object per ID from the module.
 func getNamesFromModulePerID(ctx context.Context, endpoint, path string, ids []uint, includeDeleted bool) (map[uint]string, error) {
 	out := make(map[uint]string, len(ids))
 	if len(ids) == 0 {
@@ -404,15 +347,10 @@ func getNamesFromModulePerID(ctx context.Context, endpoint, path string, ids []u
 	return out, nil
 }
 
-// getIDsFromModuleByName issues a name-filtered GET to the module API
-// and returns every matching row's ID. An empty result is returned as
-// an empty slice with no error. Soft-deleted rows are requested for the
-// same reason the core resolver lifts its deleted_at predicate: a
-// subject's event history outlives the subject.
+// getIDsFromModuleByName returns every ID whose Name equals name from the
+// module, including soft-deleted rows.
 func getIDsFromModuleByName(endpoint, path, objectType, name string) ([]uint, error) {
-	// build the name-filtered list URL. e.g.
-	// "threeport-widget-api-server.threeport-control-plane.svc.cluster.local/example-com/v0/widgets?name=my-widget&includedeleted=true"
-	// (GetResponse below prepends the http(s):// scheme based on TLS config)
+	// list by name, including soft-deleted rows
 	url := fmt.Sprintf(
 		"%s%s?name=%s&%s=true",
 		endpoint,

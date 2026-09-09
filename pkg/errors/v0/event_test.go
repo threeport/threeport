@@ -12,12 +12,10 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// TestErrWithEvent_ErrorReturnsMessage covers the Error() contract:
-// the returned string carries the constructor's Message verbatim so
-// caller-side log lines stay stable.
+// TestErrWithEvent_ErrorReturnsMessage covers Error returning the Message
+// field verbatim, not the event note.
 func TestErrWithEvent_ErrorReturnsMessage(t *testing.T) {
-	// build a sentinel with a distinctive message so the assertion
-	// catches accidental prefixing or reformatting.
+	// construct an error whose message differs from the event note
 	err := &ErrWithEvent{
 		Message: "ssh dial failed",
 		Event: v0.Event{
@@ -27,18 +25,14 @@ func TestErrWithEvent_ErrorReturnsMessage(t *testing.T) {
 		},
 	}
 
-	// Error() must round-trip the Message field with no additions.
+	// check Error returns Message with no prefix
 	require.Equal(t, "ssh dial failed", err.Error())
 }
 
-// TestErrWithEvent_UnwrapsThroughErrorsAs covers the substitution
-// contract HandleEventOverride relies on: errors.As reaches the
-// wrapped ErrWithEvent through a fmt.Errorf %w chain so a caller
-// that added context still lets the recorder swap in the specific
-// event.
+// TestErrWithEvent_UnwrapsThroughErrorsAs covers errors.As finding the
+// typed error through two wrapping layers.
 func TestErrWithEvent_UnwrapsThroughErrorsAs(t *testing.T) {
-	// wrap the sentinel with fmt.Errorf %w twice so the unwrap has
-	// real work to do.
+	// wrap the typed error twice with fmt.Errorf
 	inner := &ErrWithEvent{
 		Message: "boom",
 		Event: v0.Event{
@@ -48,8 +42,7 @@ func TestErrWithEvent_UnwrapsThroughErrorsAs(t *testing.T) {
 	}
 	outer := fmt.Errorf("wrap two: %w", fmt.Errorf("wrap one: %w", inner))
 
-	// errors.As should find the sentinel through the two wraps and
-	// bind it into the target variable.
+	// check errors.As recovers the carried event
 	var got *ErrWithEvent
 	require.True(t, errors.As(outer, &got), "errors.As must unwrap ErrWithEvent through fmt.Errorf %%w layers")
 	require.NotNil(t, got)

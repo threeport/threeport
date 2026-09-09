@@ -11,14 +11,8 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
 
-// GetEventsJoinAttachedObjectReferenceByQueryString retrieves events filtered
-// by the subject columns each event row carries, object type and object ID.
-// The function name and the endpoint path keep their spelling because clients
-// call /v0/events-join-attached-object-references. When max > 0 the caller receives at
-// most max events: the server-side page limit is capped to max so the API stops
-// producing rows once the cap is reached, and the pagination loop exits as soon
-// as the accumulated count meets or exceeds max. Pass max = 0 to fetch every
-// matching event.
+// GetEventsJoinAttachedObjectReferenceByQueryString fetches events matching
+// queryString, paging until the server has no more. max>0 caps the result; 0 fetches all.
 func GetEventsJoinAttachedObjectReferenceByQueryString(
 	apiClient *http.Client,
 	apiAddr string,
@@ -27,9 +21,7 @@ func GetEventsJoinAttachedObjectReferenceByQueryString(
 ) (*[]v0.Event, error) {
 	var events []v0.Event
 
-	// cap the server-side page limit at max so the API returns only what the
-	// caller asked for; the server enforces its own MaxPaginationLimitValue,
-	// so leave larger caps to the server default.
+	// use max as the page size when it fits the server page cap; larger max keeps the default
 	pageLimit := 0
 	if max > 0 && max <= apiserver_lib.MaxPaginationLimitValue {
 		pageLimit = max
@@ -62,8 +54,7 @@ func GetEventsJoinAttachedObjectReferenceByQueryString(
 
 		allPageData = append(allPageData, response.Data...)
 
-		// stop paginating once the caller's cap is reached; trim any
-		// overshoot from the final page below.
+		// stop once the result has reached max; trim the last page's overshoot
 		if max > 0 && len(allPageData) >= max {
 			allPageData = allPageData[:max]
 			break

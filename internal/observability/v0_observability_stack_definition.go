@@ -21,8 +21,7 @@ func v0ObservabilityStackDefinitionCreated(
 	observabilityStackDefinition *v0.ObservabilityStackDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-	// record the start of the reconciliation before the fan-out so the
-	// causal boundary is visible in events even if a downstream call fails
+	// record reconciliation start before downstream work
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeNormal),
@@ -77,8 +76,7 @@ func v0ObservabilityStackDefinitionDeleted(
 	observabilityStackDefinition *v0.ObservabilityStackDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-	// record the start of the deletion before the fan-out so the causal
-	// boundary is visible in events even if a downstream call fails
+	// record deletion start before downstream work
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeNormal),

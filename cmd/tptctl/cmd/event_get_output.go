@@ -17,23 +17,10 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// outputEventsTable produces the tabular output for the events list. Count
-// is the number of times this event has been recorded, EventTime is the
-// first observation, and LastObservedTime is the newest.
-//
-// Runs two passes over the slice: the first pass decides which optional
-// columns appear (COUNT drops when every row's count is 1; each row's
-// AGE renders as a single instant or a span depending on that row's own
-// times), pre-formats every cell, and tracks the widest numeric-cell
-// string so the second pass can right-pad COUNT and AGE for right-aligned
-// display. Left-align stays the tabwriter default for text columns.
-// The default view sizes MESSAGE to fit the terminal width so no row
-// wraps. --wide disables truncation entirely, showing full untruncated
-// notes even if the terminal wraps them, so operators can copy the
-// complete text out of the buffer.
+// outputEventsTable produces the tabular output for the
+// 'get events' command. When wide is true the MESSAGE column is not truncated.
 func outputEventsTable(events *[]v0.Event, wide bool) error {
-	// decide whether COUNT belongs on the output; any Count>1 in the set
-	// turns the column on
+	// show COUNT only when at least one event has occurred more than once
 	showCount := false
 	for _, e := range *events {
 		if e.Count != nil && *e.Count > 1 {
@@ -42,8 +29,8 @@ func outputEventsTable(events *[]v0.Event, wide bool) error {
 		}
 	}
 
-	// pre-format every cell in the first pass so we can measure the widest
-	// numeric cell before emitting
+	// rowCells is one formatted table row, held until column widths
+	// and the MESSAGE cap are known.
 	type rowCells struct {
 		eventType string
 		apiGroup  string
@@ -76,15 +63,12 @@ func outputEventsTable(events *[]v0.Event, wide bool) error {
 		}
 		r.object = formatEventObject(group, kind, r.name)
 
-		// COUNT cell stays populated only when the column is shown
+		// fill COUNT only when the column is shown
 		if showCount && e.Count != nil {
 			r.count = fmt.Sprintf("%d", *e.Count)
 		}
 
-		// AGE cell renders as a single instant when this row's first and
-		// last observation match, or as a span "<age_of_first>..<age_of_last>"
-		// when they differ (oldest observation on the left, most recent on
-		// the right)
+		// span first..last when first and last observation differ
 		if !eventTimesEqual(e.EventTime, e.LastObservedTime) {
 			r.age = fmt.Sprintf(
 				"%s..%s",
@@ -95,15 +79,11 @@ func outputEventsTable(events *[]v0.Event, wide bool) error {
 			r.age = util.GetAgeFormattedPrecise(e.EventTime)
 		}
 
-		// collapse whitespace runs in the note so multi-line script
-		// output renders on one row; the raw form is stashed on r.message
-		// and truncation happens after the width budget is known
+		// collapse note whitespace so multi-line notes stay on one row
 		rawNote := util.DerefString(e.Note)
 		r.message = strings.Join(strings.Fields(rawNote), " ")
 
-		// track the widest cell so the second pass can right-align numerics
-		// and, when --wide is set, budget the MESSAGE column against the
-		// terminal width
+		// track the widest cell in each column for the MESSAGE budget
 		if len(r.count) > maxCountWidth {
 			maxCountWidth = len(r.count)
 		}
@@ -129,10 +109,7 @@ func outputEventsTable(events *[]v0.Event, wide bool) error {
 		rows = append(rows, r)
 	}
 
-	// decide the MESSAGE cap: default view sizes MESSAGE to the terminal
-	// width minus every other column's budget so no row wraps; --wide
-	// disables truncation entirely so operators can copy the full note out
-	// of the terminal even if it wraps
+	// size MESSAGE to the remaining terminal width
 	messageCap := computeDefaultMessageCap(
 		maxTypeWidth,
 		maxApiGroupWidth,
@@ -147,10 +124,7 @@ func outputEventsTable(events *[]v0.Event, wide bool) error {
 		messageCap = 0
 	}
 
-	// truncate MESSAGE cells against the chosen cap when non-zero;
-	// messageCap of zero disables truncation entirely under --wide.
-	// anyTruncated fires when at least one row overflows so the footer
-	// hint can nudge the user toward -o yaml
+	// truncate messages that exceed the cap
 	if messageCap > 0 {
 		for i := range rows {
 			if len(rows[i].message) > messageCap {
@@ -164,9 +138,7 @@ func outputEventsTable(events *[]v0.Event, wide bool) error {
 	// width of any individual cell's content
 	writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
 
-	// header keeps API GROUP, KIND, and NAME as separate columns so
-	// each cell is copy-pasteable on its own and consistent with the
-	// established output shape
+	// write the header; API GROUP, KIND, and NAME stay separate so each cell is copy-pasteable
 	header := []string{"TYPE", "API GROUP", "KIND", "NAME"}
 	header = append(header, "REASON")
 	header = append(header, fmt.Sprintf("%*s", maxAgeWidth, "AGE"))
@@ -176,8 +148,7 @@ func outputEventsTable(events *[]v0.Event, wide bool) error {
 	header = append(header, "MESSAGE")
 	fmt.Fprintln(writer, strings.Join(header, "\t"))
 
-	// emit one tab-separated row through the writer; numeric cells carry
-	// leading spaces so they read right-aligned against the header
+	// write one row per event
 	for _, r := range rows {
 		row := []string{r.eventType, r.apiGroup, r.kind, r.name}
 		row = append(row, r.reason)
@@ -190,20 +161,15 @@ func outputEventsTable(events *[]v0.Event, wide bool) error {
 	}
 	writer.Flush()
 
-	// nudge the reader toward -o yaml when at least one note was
-	// shortened; write to stderr so pipes and pagers only see the table
+	// warn on stderr so pipes and pagers only see the table
 	if anyTruncated {
 		fmt.Fprintln(os.Stderr, "MESSAGE truncated; use 'tptctl get events -o yaml' for full text")
 	}
 	return nil
 }
 
-// computeDefaultMessageCap returns the MESSAGE column budget for default
-// output. On a TTY it subtracts every other column's measured width and
-// the tabwriter padding from the terminal width, floored at 40 so a
-// narrow terminal still gets a usable cap. Off a TTY (piped or redirected
-// stdout) it falls back to 200 so `tptctl get events > out.txt` remains
-// readable.
+// computeDefaultMessageCap returns the MESSAGE column width that keeps a
+// table row inside the terminal. Returns a fallback width when stdout is not a tty.
 func computeDefaultMessageCap(
 	typeW, apiGroupW, kindW, nameW, reasonW, ageW, countW int,
 	showCount bool,
@@ -211,21 +177,15 @@ func computeDefaultMessageCap(
 	const (
 		wideFallback = 200
 		wideMinCap   = 40
-		// tabwriter is configured with minwidth=4, tabwidth=4, padding=4;
-		// the actual inter-column gap is padding characters wide
+		// inter-column gap, matching the table writer's padding
 		tabwriterPadding = 4
-		// TruncateString appends "..." when it truncates, so a truncated
-		// MESSAGE cell renders 3 chars wider than the cap; reserve budget
-		// for the suffix so the row still fits in termWidth.
+		// truncated messages append "..."; reserve those bytes so the row still fits
 		truncateSuffixLen = 3
-		// reserve one column of headroom for terminals that defer-wrap on
-		// the final column (tmux over mosh); without it the trailing "..."
-		// spills onto its own line even when the arithmetic looks tight.
+		// leave one column so a full-width row does not wrap
 		terminalSafetyMargin = 1
 	)
 
-	// piped or redirected output has no terminal width; use a fixed
-	// fallback that still fits typical script output
+	// piped or redirected stdout has no terminal width
 	if !term.IsTerminal(int(os.Stdout.Fd())) {
 		return wideFallback
 	}
@@ -234,14 +194,14 @@ func computeDefaultMessageCap(
 		return wideFallback
 	}
 
-	// sum the non-MESSAGE column widths and their padding gaps
+	// seven columns by default; COUNT adds an eighth
 	numCols := 7
 	nonMessage := typeW + apiGroupW + kindW + nameW + reasonW + ageW
 	if showCount {
 		numCols = 8
 		nonMessage += countW
 	}
-	// numCols - 1 inter-column gaps between all columns including MESSAGE
+	// leftover terminal width is the MESSAGE cap
 	budget := termWidth - nonMessage - tabwriterPadding*(numCols-1) - truncateSuffixLen - terminalSafetyMargin
 	if budget < wideMinCap {
 		return wideMinCap
@@ -249,11 +209,7 @@ func computeDefaultMessageCap(
 	return budget
 }
 
-// eventTimesEqual reports whether two timestamps refer to the same
-// observation for column-collapse purposes. Two nil pointers are equal;
-// two set pointers are equal when their times match to the second so
-// nanosecond drift from write-side rounding does not force the FIRST and
-// LAST seen columns apart.
+// eventTimesEqual reports whether two timestamps match at one-second resolution.
 func eventTimesEqual(a, b *time.Time) bool {
 	if a == nil && b == nil {
 		return true
@@ -264,15 +220,9 @@ func eventTimesEqual(a, b *time.Time) bool {
 	return a.Round(time.Second).Equal(b.Round(time.Second))
 }
 
-// formatEventApiGroupAndKind splits the event's ObjectType into the
-// API GROUP and KIND cells. Parses via apilib.ParseQualifiedType so the
-// namespace becomes the group and the CamelCase type name becomes the
-// kebab-case kind. Falls back to ("", rawType) on parse failure so
-// malformed values are still greppable, and to ("", "") when ObjectType
-// is nil.
+// formatEventApiGroupAndKind returns the subject's API group and kebab-case kind.
 func formatEventApiGroupAndKind(e *v0.Event) (group, kind string) {
-	// kind half reuses the standalone helper so future kind-formatting
-	// changes only need to land in one place
+	// derive kind first so a malformed type still fills the kind cell
 	kind = formatEventObjectKind(e)
 
 	rawType := util.DerefString(e.ObjectType)
@@ -286,11 +236,8 @@ func formatEventApiGroupAndKind(e *v0.Event) (group, kind string) {
 	return namespace, kind
 }
 
-// formatEventObjectKind renders the OBJECT KIND cell as the kebab-case form
-// of the event's ObjectType. For an event with
-// ObjectType="example.com/v0.RouterInstance" the result is "router-instance".
-// Falls back to the raw fully qualified type on parse failure, and empty
-// when ObjectType is nil.
+// formatEventObjectKind returns the kebab-case kind of the event's subject.
+// For ObjectType "example.com/v0.RouterInstance" the kind is "router-instance".
 func formatEventObjectKind(e *v0.Event) string {
 	// no recorded subject - nothing to render
 	rawType := util.DerefString(e.ObjectType)
@@ -305,19 +252,14 @@ func formatEventObjectKind(e *v0.Event) string {
 		return rawType
 	}
 
-	// CamelCase -> kebab so the kind cell matches the --for and
-	// --object-kind flag shape. "RouterInstance" -> "router-instance"
+	// kebab-case matches --for and --object-kind
 	return strcase.ToKebab(typeName)
 }
 
-// formatEventObject renders the compact OBJECT cell used when --wide is
-// off. Threeport-owned subjects render bare as "kind/name"; subjects owned
-// by another api group prefix the group as "group:kind/name" so a mixed
-// event stream still reads unambiguously. Empty parts are elided so a
-// subject with no resolved kind or name still yields a usable string.
+// formatEventObject returns a compact subject string. The API group is
+// omitted for core types.
 func formatEventObject(group, kind, name string) string {
-	// build the "kind/name" core, tolerating an empty kind or name so a
-	// row with only one of the two still renders something greppable
+	// compose kind/name, then kind, then name
 	var target string
 	switch {
 	case kind != "" && name != "":
@@ -328,32 +270,25 @@ func formatEventObject(group, kind, name string) string {
 		target = name
 	}
 
-	// bare threeport subjects skip the group prefix; anything else keeps
-	// the group so the reader can tell modules apart at a glance
+	// omit the core API group; keep any other group so a mixed stream names the module
 	if group == "" || group == "threeport.io" {
 		return target
 	}
 	return group + ":" + target
 }
 
-// formatEventObjectName renders the NAME cell for an event. Prefers
-// ObjectName when resolved (the common case after the events-join handler
-// enriches the row); falls back to the numeric ObjectID so the user still
-// has something to grep. The full name is returned so operators can
-// copy-paste it into follow-up commands.
+// formatEventObjectName returns the subject's name, or id:<id> when the name is unset.
 func formatEventObjectName(e *v0.Event) string {
-	// prefer name when resolved
+	// prefer the object name
 	if name := util.DerefString(e.ObjectName); name != "" {
 		return name
 	}
 
-	// name wasn't resolved (lookup failed, deleted subject); fall back to
-	// the id with an "id:" prefix so the reader can tell this is a raw
-	// identifier and not a real object name
+	// fall back to id:<id> so a missing name is not mistaken for a real object name
 	if e.ObjectID != nil {
 		return fmt.Sprintf("id:%d", *e.ObjectID)
 	}
 
-	// neither name nor id present
+	// no subject identity to render
 	return ""
 }

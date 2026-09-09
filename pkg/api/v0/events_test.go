@@ -26,11 +26,7 @@ func baseEvent() *Event {
 	}
 }
 
-// TestEventBeforeCreate_SubjectValidation covers the three reject
-// shapes plus the happy path. The hook is the only place that
-// guarantees the subject columns are non-nil and fully qualified, and
-// they carry the dedup key, so a row that got past it would either
-// break the unique index or record an event nothing can look up.
+// TestEventBeforeCreate_SubjectValidation covers subject field validation on create.
 func TestEventBeforeCreate_SubjectValidation(t *testing.T) {
 	cases := []struct {
 		name        string
@@ -91,27 +87,27 @@ func TestEventBeforeCreate_SubjectValidation(t *testing.T) {
 			e.ObjectType = tc.objectType
 			e.ObjectID = tc.objectID
 
+			// create with the case's subject fields
 			err := db.Create(e).Error
 			if tc.wantErr {
+				// reject a missing or malformed subject
 				require.Error(t, err)
 				for _, sub := range tc.wantErrSubs {
 					assert.Contains(t, err.Error(), sub)
 				}
 				return
 			}
+			// accept a well-formed fully qualified type
 			require.NoError(t, err)
 		})
 	}
 }
 
-// TestEventAfterCreate_WritesOnlyTheEventRow pins the write surface of
-// an event create. The subject lives in the object_type and object_id
-// columns, so the create touches the events table and nothing else.
-// The test collects the tables the create callbacks build against, so a
-// second insert shows up as an extra table.
+// TestEventAfterCreate_WritesOnlyTheEventRow covers that create writes the event row alone.
 func TestEventAfterCreate_WritesOnlyTheEventRow(t *testing.T) {
 	db := dryRunDB(t)
 
+	// capture tables written during create
 	var tables []string
 	require.NoError(t, db.Callback().Create().After("gorm:create").Register(
 		"test:capture_created_tables",
@@ -122,8 +118,10 @@ func TestEventAfterCreate_WritesOnlyTheEventRow(t *testing.T) {
 	e.ObjectType = util.Ptr("threeport.io/v0.KubernetesWorkloadInstance")
 	e.ObjectID = util.Ptr(uint(42))
 
+	// create a well-formed event
 	require.NoError(t, db.Create(e).Error)
 
+	// only the event table is written
 	assert.Equal(t, []string{"v0_events"}, tables,
 		"an event create writes the event row alone")
 }

@@ -6,55 +6,44 @@ import (
 	"time"
 )
 
-// nameCacheTTL is how long a resolved (objectType, id) -> Name entry
-// stays valid in the in-process cache. Kept short so rename/delete
-// churn on hot object types shows up in the events feed within one
-// TTL window without an explicit invalidation path.
+// An in-process cache of object names keyed by type and id. There is no
+// invalidation path; a short TTL is the freshness bound.
+
+// nameCacheTTL is how long a resolved object name is reused before the next lookup.
 const nameCacheTTL = 30 * time.Second
 
-// nameCacheSweepInterval is how often the background sweeper evicts
-// expired entries. Set to twice the TTL so most entries age out through
-// the sweeper rather than at read time.
+// nameCacheSweepInterval is how often expired entries are removed. Twice the
+// TTL so expiry is reclaimed by the sweeper, not at read time.
 const nameCacheSweepInterval = 60 * time.Second
 
-// nameCacheMaxEntries caps the total number of cached entries. Above
-// this cap, the sweeper drops entries at random until the size is back
-// under the cap. Random-drop avoids the bookkeeping cost of full LRU
-// while still bounding worst-case memory under a burst of distinct ids.
+// nameCacheMaxEntries is the cap on cached names. Random eviction bounds memory.
 const nameCacheMaxEntries = 5000
 
-// nameCacheKey identifies a cached name by its fully qualified object
-// type and numeric id. Keeping the key value-typed lets it live in a
-// plain map without a hash helper.
+// nameCacheKey is the lookup key for one cached name.
 type nameCacheKey struct {
 	ObjType string
 	ID      uint
 }
 
-// nameCacheEntry is one cached resolved name plus the deadline after
-// which it stops counting as a hit.
+// nameCacheEntry is one cached name and the time it becomes a miss.
 type nameCacheEntry struct {
 	Name      string
 	ExpiresAt time.Time
 }
 
-// nameCache holds (objectType, id) -> Name entries with per-entry TTL
-// and a size cap. Reads take the RLock; writes and sweeps take the
-// exclusive lock.
+// nameCache is a bounded, TTL map of object names.
 type nameCache struct {
 	mu      sync.RWMutex
 	entries map[nameCacheKey]nameCacheEntry
 }
 
-// moduleNameCache is the process-wide cache consulted by the events
-// enrichment path before dispatching to core SQL or module HTTP.
+// moduleNameCache is the process-wide cache of resolved object names.
 var moduleNameCache = &nameCache{
 	entries: make(map[nameCacheKey]nameCacheEntry, nameCacheMaxEntries),
 }
 
-// Get returns the cached name for (objType, id) if one is present and
-// not expired. A miss returns ("", false); a stale entry counts as a
-// miss even before the sweeper evicts it.
+// Get returns a cached name that has not expired. An expired entry is a miss
+// and stays in the map until the next sweep.
 func (c *nameCache) Get(objType string, id uint) (string, bool) {
 	c.mu.RLock()
 	entry, ok := c.entries[nameCacheKey{ObjType: objType, ID: id}]
@@ -62,18 +51,18 @@ func (c *nameCache) Get(objType string, id uint) (string, bool) {
 	if !ok {
 		return "", false
 	}
+	// treat an expired entry as a miss without taking the write lock
 	if time.Now().After(entry.ExpiresAt) {
 		return "", false
 	}
 	return entry.Name, true
 }
 
-// Put stores name for (objType, id) with a fresh TTL. When the write
-// would push the cache above nameCacheMaxEntries, evict enough entries
-// (chosen by map-iteration order) to make room first.
+// Put stores a name with a fresh expiry. Evicts at random if the map is at cap.
 func (c *nameCache) Put(objType string, id uint, name string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	// make room for this insert when the map is already at cap
 	if len(c.entries) >= nameCacheMaxEntries {
 		c.evictRandomLocked(len(c.entries) - nameCacheMaxEntries + 1)
 	}
@@ -83,27 +72,25 @@ func (c *nameCache) Put(objType string, id uint, name string) {
 	}
 }
 
-// sweep drops every entry whose deadline has passed, then enforces the
-// size cap by evicting extra entries at random when the map is still
-// oversized. Runs under the exclusive lock so concurrent Get and Put
-// see a consistent view.
+// sweep deletes expired entries and randomly evicts down to the cap if still over.
 func (c *nameCache) sweep() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	now := time.Now()
+	// drop entries whose TTL has elapsed
 	for k, entry := range c.entries {
 		if now.After(entry.ExpiresAt) {
 			delete(c.entries, k)
 		}
 	}
+	// hold the cap if expiry alone did not
 	if len(c.entries) > nameCacheMaxEntries {
 		c.evictRandomLocked(len(c.entries) - nameCacheMaxEntries)
 	}
 }
 
-// evictRandomLocked drops n entries chosen by map-iteration order,
-// which Go randomizes across ranges. Caller must hold the exclusive
-// lock. A non-positive n is a no-op.
+// evictRandomLocked drops n entries. Map iteration order supplies the randomness.
+// The caller must hold c.mu for write.
 func (c *nameCache) evictRandomLocked(n int) {
 	if n <= 0 {
 		return
@@ -118,13 +105,10 @@ func (c *nameCache) evictRandomLocked(n int) {
 	}
 }
 
-// init starts the background sweeper. The goroutine lives for the
-// lifetime of the process; the api-server has no shutdown hook that
-// would benefit from tearing it down.
+// init starts the background sweeper for the process lifetime.
 func init() {
-	// small jitter on the first tick so multiple processes started at
-	// once don't synchronize their sweep passes
 	go func() {
+		// delay the first sweep so processes started together do not lockstep
 		jitter := time.Duration(rand.Int63n(int64(nameCacheSweepInterval)))
 		time.Sleep(jitter)
 		ticker := time.NewTicker(nameCacheSweepInterval)

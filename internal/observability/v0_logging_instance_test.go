@@ -15,18 +15,15 @@ import (
 )
 
 // TestV0LoggingInstanceCreatedEmitsReconciliationStartedBeforeFanOut covers
-// the ReconciliationStarted emit at the top of v0LoggingInstanceCreated:
-// the event lands on the recorder before the fan-out proceeds, so a
-// reader sees the causal boundary even when a downstream API call fails.
+// ReconciliationStarted being recorded even when the definition fetch fails.
 func TestV0LoggingInstanceCreatedEmitsReconciliationStartedBeforeFanOut(t *testing.T) {
-	// stub API returning 500 on every call so the first client fetch after
-	// the emit fails, isolating the emit as the only observable behavior
+	// fail every API call so only the started event and the fetch error remain
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer server.Close()
 
-	// wire a reconciler with a fake recorder so the test can inspect the emit
+	// capture recorded events
 	recorder := machinetest.NewFakeRecorder()
 	r := &controller.Reconciler{
 		APIClient:      server.Client(),
@@ -34,8 +31,7 @@ func TestV0LoggingInstanceCreatedEmitsReconciliationStartedBeforeFanOut(t *testi
 		EventsRecorder: recorder,
 	}
 
-	// drive the created handler with a minimally-populated instance so the
-	// emit runs before the client fetch, which is expected to error out
+	// logging instance whose definition fetch will fail
 	loggingInstance := &v0.LoggingInstance{
 		Common:              v0.Common{ID: util.Ptr(uint(42))},
 		Instance:            v0.Instance{Name: util.Ptr("test-logging-instance")},
@@ -43,20 +39,20 @@ func TestV0LoggingInstanceCreatedEmitsReconciliationStartedBeforeFanOut(t *testi
 	}
 
 	log := logr.Discard()
+	// run create reconciliation against the failing API
 	_, err := v0LoggingInstanceCreated(r, loggingInstance, &log)
 
-	// downstream fetch is expected to fail; the recorder capture is the
-	// behavior under test
+	// the fetch failure still surfaces; the recorder is what this test checks
 	assert.Error(t, err, "handler should surface the downstream fetch failure")
 
-	// assert the emit landed on the recorder before the failure
+	// one ReconciliationStarted event was recorded before the fetch failed
 	events := recorder.GetEvents()
 	assert.Len(t, events, 1, "one ReconciliationStarted event should be recorded")
 	if len(events) == 0 {
 		return
 	}
 
-	// assert the recorded event carries the expected subject and payload
+	// the event names this logging instance
 	got := events[0]
 	assert.Equal(t, uint(42), got.ObjectID, "event object ID should match the logging instance")
 	assert.Equal(t, "threeport.io/v0.LoggingInstance", got.Type, "event object type should be the fully qualified type")

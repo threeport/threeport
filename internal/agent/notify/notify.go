@@ -221,10 +221,7 @@ func sendThreeportUpdates(
 		ReportingController: "agent",
 	}
 	for _, evt := range *pendingEvents {
-		// skip events that did not match any of the recognized subject
-		// types in the caller's switch. ObjectType and ObjectID identify
-		// the event's subject and the api server requires both on
-		// create.
+		// skip a nil subject; retrying cannot fill it. log so the drop is visible
 		if evt.ObjectType == nil || evt.ObjectID == nil {
 			continue
 		}
