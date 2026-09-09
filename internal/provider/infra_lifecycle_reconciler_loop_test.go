@@ -93,9 +93,10 @@ func waitForInFlightZero(t *testing.T, within time.Duration) {
 	t.Fatalf("in-flight operations did not drain to zero within %s (still %d)", within, inFlightCount())
 }
 
-// TestReconcilerLoop_2000Instances_SemaphoreCapped covers 2000 blocked
-// creates against a capacity-5 pool never exceeding five in flight.
-func TestReconcilerLoop_2000Instances_SemaphoreCapped(t *testing.T) {
+// TestInfraLifecycleReconcilerLoop_2000Instances_SemaphoreCapped covers
+// 2000 blocked creates against a capacity-5 pool never exceeding five
+// in flight.
+func TestInfraLifecycleReconcilerLoop_2000Instances_SemaphoreCapped(t *testing.T) {
 	const (
 		n = 2000
 		k = 5
@@ -158,9 +159,9 @@ func TestReconcilerLoop_2000Instances_SemaphoreCapped(t *testing.T) {
 	waitForInFlightZero(t, 10*time.Second)
 }
 
-// TestReconcilerLoop_2000CreateAndDelete_Mixed covers 1000 creates and
-// 1000 deletes interleaved under a capacity-25 pool.
-func TestReconcilerLoop_2000CreateAndDelete_Mixed(t *testing.T) {
+// TestInfraLifecycleReconcilerLoop_2000CreateAndDelete_Mixed covers 1000
+// creates and 1000 deletes interleaved under a capacity-25 pool.
+func TestInfraLifecycleReconcilerLoop_2000CreateAndDelete_Mixed(t *testing.T) {
 	const (
 		creates = 1000
 		deletes = 1000
@@ -233,7 +234,7 @@ func TestReconcilerLoop_2000CreateAndDelete_Mixed(t *testing.T) {
 	case <-done:
 		require.NoError(t, driverErr)
 	case <-time.After(60 * time.Second):
-		t.Fatal("mixed reconciler loop deadlocked or made no progress within 60s")
+		t.Fatal("mixed infra lifecycle reconciler loop deadlocked or made no progress within 60s")
 	}
 
 	// stop sampling and read peak
