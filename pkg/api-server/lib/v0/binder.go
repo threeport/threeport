@@ -5,11 +5,36 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 )
+
+// reservedQueryParams are keys the api-server layer consumes directly
+// for pagination and query scopes rather than binding onto a filter
+// struct. The query binder treats them as known so requests carrying
+// them are not rejected as unknown-key errors.
+var reservedQueryParams = map[string]bool{
+	QueryParamQueryId:        true,
+	QueryParamCursor:         true,
+	QueryParamLimit:          true,
+	QueryParamIncludeDeleted: true,
+	// the ids scope filter restricts a list to a set of row ids. It is
+	// spelled as a literal because no constant names it in this package.
+	"ids": true,
+}
+
+// QueryKeyExtender lets a bound type declare query keys a handler
+// consumes directly (via `QueryParam()`) rather than binding onto one of
+// the type's fields. The binder treats the declared keys as known so a
+// well-formed request carrying them is not rejected as unknown, while a
+// genuinely unknown key on the same endpoint is still rejected. Keys are
+// compared case-insensitively, matching the field-name derivation.
+type QueryKeyExtender interface {
+	ExtraQueryKeys() []string
+}
 
 // QueryBinder overrides echo's default binder so api types don't need
 // `query:"..."` struct tags. Each settable struct field is bound from
@@ -65,7 +90,9 @@ func (b *QueryBinder) Bind(i interface{}, c echo.Context) error {
 }
 
 // bindQueryParams unwraps the target pointer and dispatches to the
-// per-field walk when it points at a struct.
+// per-field walk when it points at a struct. Unknown query keys are
+// rejected upfront so a typo or filter against a nonexistent field
+// surfaces as a 400 instead of silently returning unfiltered results.
 func (b *QueryBinder) bindQueryParams(qp url.Values, i interface{}) error {
 	// no params in the URL means no bind work to do
 	if len(qp) == 0 {
@@ -85,7 +112,59 @@ func (b *QueryBinder) bindQueryParams(qp url.Values, i interface{}) error {
 	if v.Kind() != reflect.Struct {
 		return nil
 	}
+
+	// collect the query keys this struct accepts, then check each
+	// incoming key against it
+	known := make(map[string]bool)
+	collectKnownFieldNames(v.Type(), known)
+	// a bound type may accept filter keys its handler reads directly
+	// rather than binding onto a field; fold those in so they pass the
+	// unknown-key gate. assert on i, the original pointer, so a
+	// value-receiver `ExtraQueryKeys()` stays in the method set.
+	if ext, ok := i.(QueryKeyExtender); ok {
+		for _, k := range ext.ExtraQueryKeys() {
+			known[strings.ToLower(k)] = true
+		}
+	}
+	if unknown := unknownQueryKeys(qp, known); len(unknown) > 0 {
+		return fmt.Errorf("unknown query parameter(s): %s", strings.Join(unknown, ", "))
+	}
 	return bindStructFields(qp, v)
+}
+
+// collectKnownFieldNames walks structType and populates known with the
+// lowercased Go field name for every exported field, recursing into
+// anonymous embeds so their fields participate as if declared on the
+// outer type.
+func collectKnownFieldNames(structType reflect.Type, known map[string]bool) {
+	for i := 0; i < structType.NumField(); i++ {
+		field := structType.Field(i)
+		if field.Anonymous && field.Type.Kind() == reflect.Struct {
+			collectKnownFieldNames(field.Type, known)
+			continue
+		}
+		if !field.IsExported() {
+			continue
+		}
+		known[strings.ToLower(field.Name)] = true
+	}
+}
+
+// unknownQueryKeys returns the sorted list of query keys that neither
+// match a known struct field nor a reserved pagination param. The
+// comparison lowercases each incoming key so a client varying key case
+// is treated the same as the canonical lowercased form.
+func unknownQueryKeys(qp url.Values, known map[string]bool) []string {
+	var unknown []string
+	for k := range qp {
+		lower := strings.ToLower(k)
+		if known[lower] || reservedQueryParams[lower] {
+			continue
+		}
+		unknown = append(unknown, k)
+	}
+	sort.Strings(unknown)
+	return unknown
 }
 
 // bindStructFields assigns each settable field of structValue from the

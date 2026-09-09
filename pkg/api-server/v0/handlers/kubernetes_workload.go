@@ -34,7 +34,7 @@ func (h Handler) AddKubernetesWorkloadResourceDefinitions(c echo.Context) error 
 
 	if err := c.Bind(&k8sWorkloadResourceDefinitions); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields

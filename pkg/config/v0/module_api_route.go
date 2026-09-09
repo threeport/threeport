@@ -22,9 +22,9 @@ type ModuleApiRouteConfig struct {
 // ModuleApiRouteValues contains all the attributes needed to manage
 // the ModuleApiRoute API object.
 type ModuleApiRouteValues struct {
-	Path      *string          `json:",omitempty"`
-	ModuleApi *ModuleApiValues `json:",omitempty"`
-	Age       *string          `json:",omitempty"`
+	Path      *string
+	ModuleApi *ModuleApiValues
+	Age       *string
 }
 
 // Get gets module api routes from the Threeport API.

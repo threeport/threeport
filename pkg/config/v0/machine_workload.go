@@ -21,17 +21,17 @@ type MachineWorkloadConfig struct {
 // MachineWorkloadDefinition and MachineWorkloadInstance API objects
 // together with a single operation.
 type MachineWorkloadValues struct {
-	Name                   *string  `json:",omitempty"`
-	CreateScript           *string  `json:",omitempty"`
-	UpdateScript           *string  `json:",omitempty"`
-	DeleteScript           *string  `json:",omitempty"`
-	Shell                  *string  `json:",omitempty"`
-	WorkingDir             *string  `json:",omitempty"`
-	Timeout                *int     `json:",omitempty"`
-	Env                    []string `json:",omitempty"`
-	MachineRuntimeInstance *string  `json:",omitempty"`
-	Status                 *string  `json:",omitempty"`
-	Age                    *string  `json:",omitempty"`
+	Name                   *string
+	CreateScript           *string
+	UpdateScript           *string
+	DeleteScript           *string
+	Shell                  *string
+	WorkingDir             *string
+	Timeout                *int
+	Env                    []string
+	MachineRuntimeInstance *string
+	Status                 *string
+	Age                    *string
 }
 
 // Get gets a machine workload definition and instance from the Threeport API.

@@ -53,7 +53,7 @@ func (h Handler) AddKubernetesWorkloadDefinition(c echo.Context) error {
 
 	if err := c.Bind(&kubernetesWorkloadDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
@@ -123,7 +123,7 @@ func (h Handler) AddKubernetesWorkloadDefinition(c echo.Context) error {
 // @ID get-v0-kubernetesWorkloadDefinitions
 // @Accept json
 // @Produce json
-// @Param name query string false "kubernetes workload definition search by name"
+// @Param name query string false "filter by exact kubernetes workload definition name (case sensitive)"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -141,7 +141,7 @@ func (h Handler) GetKubernetesWorkloadDefinitions(c echo.Context) error {
 	var filter api_v0.KubernetesWorkloadDefinition
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -172,21 +172,18 @@ func (h Handler) GetKubernetesWorkloadDefinitions(c echo.Context) error {
 			}
 			returnedCount = int64(len(*records))
 		case true:
-			// if we have to paginate, create the materialized view and use it to fetch the first page of records
+			// dispatch to the configured pagination strategy to fetch the first page
 			queryTable := filter.TableName()
-			viewName, qid, err := h.CreateMaterializedView(queryTable)
+			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.KubernetesWorkloadDefinition{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
-				h.Logger.Error("handler error: error creating materialized view", zap.Error(err))
+				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				}
+				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
 				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 			}
-			pagination.QueryId = qid
-
-			// fetch records from the new materialized view
-			returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-			if err != nil {
-				h.Logger.Error("handler error: error finding records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-			}
+			pagination.QueryId = queryId
+			returnedCount = count
 
 			// set the cursor for the next page of results
 			if len(*records) > 0 {
@@ -199,22 +196,18 @@ func (h Handler) GetKubernetesWorkloadDefinitions(c echo.Context) error {
 		// client provided a query ID but no cursor, so we cannot fetch the next page of results
 		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), objectType)
 	case pageParams.QueryId != "" && pageParams.Cursor != 0:
-		// use query ID to find the materialized view name
-		viewName, err := h.GetMaterializedViewName(pageParams.QueryId)
+		// continuation: dispatch to the configured pagination strategy to fetch the next page
+		queryTable := filter.TableName()
+		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.KubernetesWorkloadDefinition{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
-			h.Logger.Error("handler error: error finding materialized view", zap.Error(err))
+			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+			}
+			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 		}
-
-		// fetch records from the materialized view based on cursor
-		returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-		if err != nil {
-			h.Logger.Error("handler error: error finding records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-		}
-
-		// set the query ID for the next page of results
-		pagination.QueryId = pageParams.QueryId
+		pagination.QueryId = queryId
+		returnedCount = count
 
 		// set the cursor for the next page of results
 		if len(*records) > 0 {
@@ -318,7 +311,7 @@ func (h Handler) UpdateKubernetesWorkloadDefinition(c echo.Context) error {
 	var updatedKubernetesWorkloadDefinition api_v0.KubernetesWorkloadDefinition
 	if err := c.Bind(&updatedKubernetesWorkloadDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// update object in database
@@ -400,7 +393,7 @@ func (h Handler) ReplaceKubernetesWorkloadDefinition(c echo.Context) error {
 	var updatedKubernetesWorkloadDefinition api_v0.KubernetesWorkloadDefinition
 	if err := c.Bind(&updatedKubernetesWorkloadDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
@@ -596,7 +589,7 @@ func (h Handler) AddKubernetesWorkloadInstance(c echo.Context) error {
 
 	if err := c.Bind(&kubernetesWorkloadInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
@@ -666,7 +659,7 @@ func (h Handler) AddKubernetesWorkloadInstance(c echo.Context) error {
 // @ID get-v0-kubernetesWorkloadInstances
 // @Accept json
 // @Produce json
-// @Param name query string false "kubernetes workload instance search by name"
+// @Param name query string false "filter by exact kubernetes workload instance name (case sensitive)"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -684,7 +677,7 @@ func (h Handler) GetKubernetesWorkloadInstances(c echo.Context) error {
 	var filter api_v0.KubernetesWorkloadInstance
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -715,21 +708,18 @@ func (h Handler) GetKubernetesWorkloadInstances(c echo.Context) error {
 			}
 			returnedCount = int64(len(*records))
 		case true:
-			// if we have to paginate, create the materialized view and use it to fetch the first page of records
+			// dispatch to the configured pagination strategy to fetch the first page
 			queryTable := filter.TableName()
-			viewName, qid, err := h.CreateMaterializedView(queryTable)
+			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.KubernetesWorkloadInstance{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
-				h.Logger.Error("handler error: error creating materialized view", zap.Error(err))
+				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				}
+				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
 				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 			}
-			pagination.QueryId = qid
-
-			// fetch records from the new materialized view
-			returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-			if err != nil {
-				h.Logger.Error("handler error: error finding records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-			}
+			pagination.QueryId = queryId
+			returnedCount = count
 
 			// set the cursor for the next page of results
 			if len(*records) > 0 {
@@ -742,22 +732,18 @@ func (h Handler) GetKubernetesWorkloadInstances(c echo.Context) error {
 		// client provided a query ID but no cursor, so we cannot fetch the next page of results
 		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), objectType)
 	case pageParams.QueryId != "" && pageParams.Cursor != 0:
-		// use query ID to find the materialized view name
-		viewName, err := h.GetMaterializedViewName(pageParams.QueryId)
+		// continuation: dispatch to the configured pagination strategy to fetch the next page
+		queryTable := filter.TableName()
+		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.KubernetesWorkloadInstance{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
-			h.Logger.Error("handler error: error finding materialized view", zap.Error(err))
+			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+			}
+			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 		}
-
-		// fetch records from the materialized view based on cursor
-		returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-		if err != nil {
-			h.Logger.Error("handler error: error finding records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-		}
-
-		// set the query ID for the next page of results
-		pagination.QueryId = pageParams.QueryId
+		pagination.QueryId = queryId
+		returnedCount = count
 
 		// set the cursor for the next page of results
 		if len(*records) > 0 {
@@ -861,7 +847,7 @@ func (h Handler) UpdateKubernetesWorkloadInstance(c echo.Context) error {
 	var updatedKubernetesWorkloadInstance api_v0.KubernetesWorkloadInstance
 	if err := c.Bind(&updatedKubernetesWorkloadInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// update object in database
@@ -943,7 +929,7 @@ func (h Handler) ReplaceKubernetesWorkloadInstance(c echo.Context) error {
 	var updatedKubernetesWorkloadInstance api_v0.KubernetesWorkloadInstance
 	if err := c.Bind(&updatedKubernetesWorkloadInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
@@ -1133,7 +1119,7 @@ func (h Handler) AddKubernetesWorkloadResourceDefinition(c echo.Context) error {
 
 	if err := c.Bind(&kubernetesWorkloadResourceDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
@@ -1173,7 +1159,7 @@ func (h Handler) AddKubernetesWorkloadResourceDefinition(c echo.Context) error {
 // @ID get-v0-kubernetesWorkloadResourceDefinitions
 // @Accept json
 // @Produce json
-// @Param name query string false "kubernetes workload resource definition search by name"
+// @Param name query string false "filter by exact kubernetes workload resource definition name (case sensitive)"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1191,7 +1177,7 @@ func (h Handler) GetKubernetesWorkloadResourceDefinitions(c echo.Context) error 
 	var filter api_v0.KubernetesWorkloadResourceDefinition
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -1222,21 +1208,18 @@ func (h Handler) GetKubernetesWorkloadResourceDefinitions(c echo.Context) error 
 			}
 			returnedCount = int64(len(*records))
 		case true:
-			// if we have to paginate, create the materialized view and use it to fetch the first page of records
+			// dispatch to the configured pagination strategy to fetch the first page
 			queryTable := filter.TableName()
-			viewName, qid, err := h.CreateMaterializedView(queryTable)
+			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.KubernetesWorkloadResourceDefinition{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
-				h.Logger.Error("handler error: error creating materialized view", zap.Error(err))
+				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				}
+				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
 				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 			}
-			pagination.QueryId = qid
-
-			// fetch records from the new materialized view
-			returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-			if err != nil {
-				h.Logger.Error("handler error: error finding records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-			}
+			pagination.QueryId = queryId
+			returnedCount = count
 
 			// set the cursor for the next page of results
 			if len(*records) > 0 {
@@ -1249,22 +1232,18 @@ func (h Handler) GetKubernetesWorkloadResourceDefinitions(c echo.Context) error 
 		// client provided a query ID but no cursor, so we cannot fetch the next page of results
 		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), objectType)
 	case pageParams.QueryId != "" && pageParams.Cursor != 0:
-		// use query ID to find the materialized view name
-		viewName, err := h.GetMaterializedViewName(pageParams.QueryId)
+		// continuation: dispatch to the configured pagination strategy to fetch the next page
+		queryTable := filter.TableName()
+		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.KubernetesWorkloadResourceDefinition{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
-			h.Logger.Error("handler error: error finding materialized view", zap.Error(err))
+			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+			}
+			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 		}
-
-		// fetch records from the materialized view based on cursor
-		returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-		if err != nil {
-			h.Logger.Error("handler error: error finding records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-		}
-
-		// set the query ID for the next page of results
-		pagination.QueryId = pageParams.QueryId
+		pagination.QueryId = queryId
+		returnedCount = count
 
 		// set the cursor for the next page of results
 		if len(*records) > 0 {
@@ -1368,7 +1347,7 @@ func (h Handler) UpdateKubernetesWorkloadResourceDefinition(c echo.Context) erro
 	var updatedKubernetesWorkloadResourceDefinition api_v0.KubernetesWorkloadResourceDefinition
 	if err := c.Bind(&updatedKubernetesWorkloadResourceDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// update object in database
@@ -1436,7 +1415,7 @@ func (h Handler) ReplaceKubernetesWorkloadResourceDefinition(c echo.Context) err
 	var updatedKubernetesWorkloadResourceDefinition api_v0.KubernetesWorkloadResourceDefinition
 	if err := c.Bind(&updatedKubernetesWorkloadResourceDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
@@ -1575,7 +1554,7 @@ func (h Handler) AddKubernetesWorkloadResourceInstance(c echo.Context) error {
 
 	if err := c.Bind(&kubernetesWorkloadResourceInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields
@@ -1615,7 +1594,7 @@ func (h Handler) AddKubernetesWorkloadResourceInstance(c echo.Context) error {
 // @ID get-v0-kubernetesWorkloadResourceInstances
 // @Accept json
 // @Produce json
-// @Param name query string false "kubernetes workload resource instance search by name"
+// @Param name query string false "filter by exact kubernetes workload resource instance name (case sensitive)"
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
@@ -1633,7 +1612,7 @@ func (h Handler) GetKubernetesWorkloadResourceInstances(c echo.Context) error {
 	var filter api_v0.KubernetesWorkloadResourceInstance
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -1664,21 +1643,18 @@ func (h Handler) GetKubernetesWorkloadResourceInstances(c echo.Context) error {
 			}
 			returnedCount = int64(len(*records))
 		case true:
-			// if we have to paginate, create the materialized view and use it to fetch the first page of records
+			// dispatch to the configured pagination strategy to fetch the first page
 			queryTable := filter.TableName()
-			viewName, qid, err := h.CreateMaterializedView(queryTable)
+			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.KubernetesWorkloadResourceInstance{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
-				h.Logger.Error("handler error: error creating materialized view", zap.Error(err))
+				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				}
+				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
 				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 			}
-			pagination.QueryId = qid
-
-			// fetch records from the new materialized view
-			returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-			if err != nil {
-				h.Logger.Error("handler error: error finding records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-			}
+			pagination.QueryId = queryId
+			returnedCount = count
 
 			// set the cursor for the next page of results
 			if len(*records) > 0 {
@@ -1691,22 +1667,18 @@ func (h Handler) GetKubernetesWorkloadResourceInstances(c echo.Context) error {
 		// client provided a query ID but no cursor, so we cannot fetch the next page of results
 		return apiserver_lib.ResponseStatus400(c, pageParams, errors.New("cursor is required when query ID is provided"), objectType)
 	case pageParams.QueryId != "" && pageParams.Cursor != 0:
-		// use query ID to find the materialized view name
-		viewName, err := h.GetMaterializedViewName(pageParams.QueryId)
+		// continuation: dispatch to the configured pagination strategy to fetch the next page
+		queryTable := filter.TableName()
+		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.KubernetesWorkloadResourceInstance{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
-			h.Logger.Error("handler error: error finding materialized view", zap.Error(err))
+			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+			}
+			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 		}
-
-		// fetch records from the materialized view based on cursor
-		returnedCount, err = h.GetMaterializedViewRecords(records, viewName, pageParams)
-		if err != nil {
-			h.Logger.Error("handler error: error finding records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
-		}
-
-		// set the query ID for the next page of results
-		pagination.QueryId = pageParams.QueryId
+		pagination.QueryId = queryId
+		returnedCount = count
 
 		// set the cursor for the next page of results
 		if len(*records) > 0 {
@@ -1810,7 +1782,7 @@ func (h Handler) UpdateKubernetesWorkloadResourceInstance(c echo.Context) error 
 	var updatedKubernetesWorkloadResourceInstance api_v0.KubernetesWorkloadResourceInstance
 	if err := c.Bind(&updatedKubernetesWorkloadResourceInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// update object in database
@@ -1878,7 +1850,7 @@ func (h Handler) ReplaceKubernetesWorkloadResourceInstance(c echo.Context) error
 	var updatedKubernetesWorkloadResourceInstance api_v0.KubernetesWorkloadResourceInstance
 	if err := c.Bind(&updatedKubernetesWorkloadResourceInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
 	// check for missing required fields

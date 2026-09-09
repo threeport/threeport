@@ -83,14 +83,14 @@ type WordpressDefinition struct {
 	tpapi_v0.Common         `swaggerignore:"true" mapstructure:",squash"`
 	tpapi_v0.Reconciliation `mapstructure:",squash"`
 	tpapi_v0.Definition     `mapstructure:",squash"`
-	WordpressInstances      []*WordpressInstance `json:",omitempty" validate:"optional,association"`
+	WordpressInstances      []*WordpressInstance `validate:"optional,association"`
 }
 
 type WordpressInstance struct {
 	tpapi_v0.Common         `swaggerignore:"true" mapstructure:",squash"`
 	tpapi_v0.Reconciliation `mapstructure:",squash"`
 	tpapi_v0.Instance       `mapstructure:",squash"`
-	WordpressDefinitionID   *uint `json:",omitempty" validate:"required" gorm:"not null"`
+	WordpressDefinitionID   *uint `validate:"required" gorm:"not null"`
 }
 ```
 
@@ -115,17 +115,17 @@ type WordpressDefinition struct {
 
 	// The environment type used to determine config settings for a wordpress
 	// definition.
-	Environment *string `json:",omitempty" validate:"optional" gorm:"default:dev"`
+	Environment *string `validate:"optional" gorm:"default:dev"`
 
 	// The number of pod replicas to deploy for the WordPress app
-	Replicas *int `json:",omitempty" validate:"optional"`
+	Replicas *int `validate:"optional"`
 
 	// If true, a cloud provider's managed database will be used for the
 	// WordPress DB.  If false, a containerized database will be deployed to
 	// Kubernetes.
-	ManagedDatabase *bool `json:",omitempty" validate:"optional" gorm:"default:false"`
+	ManagedDatabase *bool `validate:"optional" gorm:"default:false"`
 
-	WordpressInstances []*WordpressInstance `json:",omitempty" validate:"optional,association"`
+	WordpressInstances []*WordpressInstance `validate:"optional,association"`
 }
 
 type WordpressInstance struct {
@@ -135,9 +135,9 @@ type WordpressInstance struct {
 
 	// When using a DomainName, the subdomain to use to reach the WordPress
 	// instance.
-	SubDomain *string `json:",omitempty" validate:"optional"`
+	SubDomain *string `validate:"optional"`
 
-	WordpressDefinitionID *uint `json:",omitempty" validate:"required" gorm:"not null"`
+	WordpressDefinitionID *uint `validate:"required" gorm:"not null"`
 }
 ```
 

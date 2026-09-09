@@ -26,13 +26,13 @@ type GcpGkeKubernetesRuntimeInstanceConfig struct {
 // GcpGkeKubernetesRuntimeInstanceValues contains all the attributes needed to manage
 // the GcpGkeKubernetesRuntimeInstance API object.
 type GcpGkeKubernetesRuntimeInstanceValues struct {
-	Name                              *string                                  `json:",omitempty"`
-	Region                            *string                                  `json:",omitempty"`
-	GcpProviderName                   *string                                  `json:",omitempty"`
-	GcpGkeKubernetesRuntimeDefinition *GcpGkeKubernetesRuntimeDefinitionValues `json:",omitempty"`
-	KubernetesRuntimeInstance         *KubernetesRuntimeInstanceValues         `json:",omitempty"`
-	Reconciled                        *bool                                    `json:",omitempty"`
-	Age                               *string                                  `json:",omitempty"`
+	Name                              *string
+	Region                            *string
+	GcpProviderName                   *string
+	GcpGkeKubernetesRuntimeDefinition *GcpGkeKubernetesRuntimeDefinitionValues
+	KubernetesRuntimeInstance         *KubernetesRuntimeInstanceValues
+	Reconciled                        *bool
+	Age                               *string
 }
 
 // Get gets gcp gke kubernetes runtime instances from the Threeport API.
