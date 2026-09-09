@@ -409,11 +409,11 @@ func TestParseCgroupV2MaxReadsBytesAndRejectsMax(t *testing.T) {
 	}
 }
 
-// TestParseCgroupV1LimitReadsBytesAndRejectsSentinel covers parseCgroupV1Limit
+// TestParseCgroupV1LimitReadsBytesAndRejectsUnlimited covers parseCgroupV1Limit
 // returning the byte count for a real limit and reporting false for the
 // near-int64-max value that cgroup v1 uses for "no limit", plus the usual
 // malformed-input cases.
-func TestParseCgroupV1LimitReadsBytesAndRejectsSentinel(t *testing.T) {
+func TestParseCgroupV1LimitReadsBytesAndRejectsUnlimited(t *testing.T) {
 	// each case pairs a memory.limit_in_bytes snippet with its expected
 	// (value, ok)
 	cases := []struct {
@@ -655,8 +655,8 @@ func TestImagetoolsArgsRejectsEmptyArches(t *testing.T) {
 	// an empty arch slice cannot stitch a manifest
 	args, target, err := imagetoolsArgs("ghcr.io/threeport", "threeport-rest-api", "v0.7.0", nil)
 	// the action under test surfaces the required-arches error
-	if err == nil || !strings.Contains(err.Error(), "--arches is required") {
-		t.Fatalf("expected --arches is required, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "failed to find per-arch tags") {
+		t.Fatalf("expected failed to find per-arch tags, got %v", err)
 	}
 	// and returns no argv or target on the error path
 	if args != nil || target != "" {

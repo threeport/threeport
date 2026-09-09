@@ -1618,9 +1618,10 @@ func (Build) AllImages() error {
 // arch and combined into <repo>/<image>:<tag> via
 // `docker buildx imagetools create`.
 func (Package) Manifest(imageName string) error {
-	imageRepo, imageTag, err := util.ResolveImageCoordinates(".", installer.DevImageNamespace, version.GetVersion())
+	imageRepo := util.ResolveImageRepo(installer.DevImageNamespace)
+	imageTag, err := util.ResolveImageTag(".", version.GetVersion())
 	if err != nil {
-		return fmt.Errorf("failed to resolve image coordinates: %w", err)
+		return fmt.Errorf("failed to resolve image tag: %w", err)
 	}
 
 	arches, err := util.DiscoverArches(imageRepo+"/"+imageName, imageTag)
@@ -1641,9 +1642,10 @@ func (Package) Manifest(imageName string) error {
 // control worker concurrency (e.g. `PARALLEL_IMAGE_BUILD=4 mage
 // package:allManifests`).
 func (Package) AllManifests() error {
-	imageRepo, imageTag, err := util.ResolveImageCoordinates(".", installer.DevImageNamespace, version.GetVersion())
+	imageRepo := util.ResolveImageRepo(installer.DevImageNamespace)
+	imageTag, err := util.ResolveImageTag(".", version.GetVersion())
 	if err != nil {
-		return fmt.Errorf("failed to resolve image coordinates: %w", err)
+		return fmt.Errorf("failed to resolve image tag: %w", err)
 	}
 
 	// gather every component image: rest-api, db migrator, agent, and

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -678,7 +679,11 @@ func gitOutput(workingDir string, args ...string) string {
 // arch set. imageRef is a repository with no tag, e.g.
 // "ghcr.io/owner/threeport-rest-api".
 func DiscoverArches(imageRef, baseTag string) ([]string, error) {
-	repo, err := name.NewRepository(imageRef)
+	opts := []name.Option{}
+	if registryAllowsHTTP(imageRef) {
+		opts = append(opts, name.Insecure)
+	}
+	repo, err := name.NewRepository(imageRef, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image repository %q: %w", imageRef, err)
 	}
@@ -692,6 +697,19 @@ func DiscoverArches(imageRef, baseTag string) ([]string, error) {
 		return nil, fmt.Errorf("failed to list tags for %q: %w", imageRef, err)
 	}
 	return archSuffixes(tags, baseTag), nil
+}
+
+// registryAllowsHTTP reports whether imageRef's registry is a loopback
+// address, which the local kind registry serves over HTTP.
+func registryAllowsHTTP(imageRef string) bool {
+	host := imageRef
+	if i := strings.Index(imageRef, "/"); i >= 0 {
+		host = imageRef[:i]
+	}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
 }
 
 // archSuffixes returns the sorted arch suffixes of every tag shaped
@@ -734,7 +752,7 @@ func ParseArches(arch string) []string {
 // an error, since a manifest needs at least one source.
 func imagetoolsArgs(repo, image, tag string, arches []string) (args []string, target string, err error) {
 	if len(arches) == 0 {
-		return nil, "", errors.New("--arches is required")
+		return nil, "", fmt.Errorf("failed to find per-arch tags for %s/%s:%s", repo, image, tag)
 	}
 
 	// build the canonical target tag and the per-arch source tags

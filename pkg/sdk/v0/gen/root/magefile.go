@@ -269,13 +269,15 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Comment("arch and combined into <repo>/<image>:<tag> via")
 	f.Comment("`docker buildx imagetools create`.")
 	f.Func().Params(Id("Package")).Id("Manifest").Params(Id("imageName").String()).Error().Block(
-		List(Id("imageRepo"), Id("imageTag"), Err()).Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "ResolveImageCoordinates").Call(
-			Lit("."),
+		Id("imageRepo").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "ResolveImageRepo").Call(
 			Qual(installerPkg, "DevImageNamespace"),
+		),
+		List(Id("imageTag"), Err()).Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "ResolveImageTag").Call(
+			Lit("."),
 			Qual(fmt.Sprintf("%s/internal/version", gen.ModulePath), "GetVersion").Call(),
 		),
 		If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to resolve image coordinates: %w"), Err())),
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to resolve image tag: %w"), Err())),
 		),
 		Line(),
 
@@ -309,13 +311,15 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Comment("control worker concurrency (e.g. `PARALLEL_IMAGE_BUILD=4 mage")
 	f.Comment("package:allManifests`).")
 	f.Func().Params(Id("Package")).Id("AllManifests").Params().Error().BlockFunc(func(g *Group) {
-		g.List(Id("imageRepo"), Id("imageTag"), Id("err")).Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "ResolveImageCoordinates").Call(
-			Lit("."),
+		g.Id("imageRepo").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "ResolveImageRepo").Call(
 			Qual(installerPkg, "DevImageNamespace"),
+		)
+		g.List(Id("imageTag"), Id("err")).Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "ResolveImageTag").Call(
+			Lit("."),
 			Qual(fmt.Sprintf("%s/internal/version", gen.ModulePath), "GetVersion").Call(),
 		)
 		g.If(Id("err").Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to resolve image coordinates: %w"), Id("err"))),
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to resolve image tag: %w"), Id("err"))),
 		)
 		g.Line()
 		// gather every component image. For threeport-core, source from
@@ -1230,7 +1234,7 @@ func emitCiEnvFunc(f *File, modulePath string) {
 	f.Comment("Env prints KEY=value lines for the workflow to append to GITHUB_ENV. It emits")
 	f.Comment("only the values that non-mage steps consume: the pinned threeport repo,")
 	f.Comment("version, and ghcr namespace the gh release download and tptctl up steps read;")
-	f.Comment("the module's own image tag the tptctl router install step reads; GOFLAGS, the")
+	f.Comment("the module's own image tag the module install step reads; GOFLAGS, the")
 	f.Comment("memory-derived go-build worker count the non-mage steps inherit; and")
 	f.Comment("GORELEASER_PARALLELISM, a quarter of that worker count, the number of")
 	f.Comment("whole-tree targets goreleaser builds at once since each links the full tree.")
@@ -1300,7 +1304,7 @@ func emitCiTeardownFunc(f *File) {
 		),
 		Comment("remove the local image registry"),
 		If(Err().Op(":=").Parens(Id("Dev").Values()).Dot("LocalRegistryDown").Call().Op(";").Err().Op("!=").Nil()).Block(
-			Qual("fmt", "Printf").Call(Lit("ci:teardown: remove local registry: %v\n"), Err()),
+			Qual("fmt", "Fprintf").Call(Qual("os", "Stderr"), Lit("ci:teardown: remove local registry: %v\n"), Err()),
 		),
 		Comment("reclaim dangling images, stopped containers, and build cache"),
 		Id("teardownStep").Call(Lit("docker"), Lit("system"), Lit("prune"), Lit("-f")),
@@ -1324,7 +1328,8 @@ func emitTeardownStepFunc(f *File) {
 				Id("name"), Id("args").Op("..."),
 			).Dot("CombinedOutput").Call().Op(";").Err().Op("!=").Nil(),
 		).Block(
-			Qual("fmt", "Printf").Call(
+			Qual("fmt", "Fprintf").Call(
+				Qual("os", "Stderr"),
 				Lit("ci:teardown: %s %v failed: %v (%s)\n"),
 				Id("name"),
 				Id("args"),
