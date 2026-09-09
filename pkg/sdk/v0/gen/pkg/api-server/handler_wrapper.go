@@ -38,12 +38,11 @@ func GenHandlerWrapper(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Id("nc").Op("*").Qual("github.com/nats-io/nats.go", "Conn"),
 			Id("rc").Qual("github.com/nats-io/nats.go", "JetStreamContext"),
 			Id("logger").Op("*").Qual("go.uber.org/zap", "Logger"),
-			Id("paginationMode").Qual("github.com/threeport/threeport/pkg/api-server/lib/v0", "PaginationMode"),
 		).Id("Handler").Block(
 			Id("handler").Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/api-server/v0/handlers",
 				"New",
-			).Call(List(Id("db"), Id("nc"), Id("rc"), Id("logger"), Id("paginationMode"))),
+			).Call(List(Id("db"), Id("nc"), Id("rc"), Id("logger"))),
 
 			Return(Id("Handler").Values(Dict{
 				Id("Handler"): Id("handler"),
