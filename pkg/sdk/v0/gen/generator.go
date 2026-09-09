@@ -1096,8 +1096,11 @@ func (g *Generator) ValidateTags() error {
 	return g.ValidateRelationshipCycles()
 }
 
+// undeletedRowPredicate is the unique-index conjunct that excludes soft-deleted rows.
+const undeletedRowPredicate = "deleted_at IS NULL"
+
 // nameIndexTag is a unique index among undeleted rows.
-const nameIndexTag = "not null;uniqueIndex:,where:deleted_at IS NULL"
+const nameIndexTag = "not null;uniqueIndex:,where:" + undeletedRowPredicate
 
 const uniqueIndexToken = "uniqueIndex"
 
@@ -1124,17 +1127,37 @@ func validateUniqueIndex(objectName, fieldName, gormTag string) []string {
 		)}
 	}
 
-	for _, index := range fieldSchema.ParseIndexes() {
-		if index.Class == indexClassUnique && index.Where != "" {
-			return nil
-		}
-	}
-
-	// unique among undeleted rows; anything else lets a soft-deleted value block reuse
-	return []string{fmt.Sprintf(
+	unscoped := []string{fmt.Sprintf(
 		"%s.%s: %s:%q builds no unique index scoped to undeleted rows",
 		objectName, fieldName, lib.GormTag, gormTag,
 	)}
+
+	foundUnique := false
+	for _, index := range fieldSchema.ParseIndexes() {
+		if index.Class != indexClassUnique {
+			continue
+		}
+		foundUnique = true
+		if !uniqueIndexScopesUndeleted(index.Where) {
+			return unscoped
+		}
+	}
+	if foundUnique {
+		return nil
+	}
+
+	// unique among undeleted rows; anything else lets a soft-deleted value block reuse
+	return unscoped
+}
+
+// uniqueIndexScopesUndeleted reports whether a unique-index where clause includes undeleted rows.
+func uniqueIndexScopesUndeleted(where string) bool {
+	for _, part := range strings.Split(where, " AND ") {
+		if strings.TrimSpace(part) == undeletedRowPredicate {
+			return true
+		}
+	}
+	return false
 }
 
 // ParseRelationshipTagValue splits a relationship tag value of the form

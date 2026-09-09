@@ -472,6 +472,29 @@ func TestValidateTags_AcceptsCompositeScopedNameIndex(t *testing.T) {
 	assert.NoError(t, namedFixture(tagValue).ValidateTags())
 }
 
+// TestValidateTags_RejectsUniqueIndexWithUnrelatedWhere covers a uniqueIndex whose where is not undeleted rows.
+func TestValidateTags_RejectsUniqueIndexWithUnrelatedWhere(t *testing.T) {
+	err := namedFixture("not null;uniqueIndex:,where:active = true").ValidateTags()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Foo.Name")
+	assert.Contains(t, err.Error(), "undeleted")
+}
+
+// TestValidateTags_AcceptsUniqueIndexWithExtraAndCondition covers a uniqueIndex with an extra AND condition.
+func TestValidateTags_AcceptsUniqueIndexWithExtraAndCondition(t *testing.T) {
+	tagValue := "not null;uniqueIndex:idx_marries,where:relationship = 'marries' AND deleted_at IS NULL"
+	assert.NoError(t, namedFixture(tagValue).ValidateTags())
+}
+
+// TestValidateTags_RejectsMixedScopedAndUnscopedUniqueIndex covers a field with one unscoped uniqueIndex among scoped ones.
+func TestValidateTags_RejectsMixedScopedAndUnscopedUniqueIndex(t *testing.T) {
+	tagValue := "not null;uniqueIndex:idx_a,where:deleted_at IS NULL;uniqueIndex:idx_b"
+	err := namedFixture(tagValue).ValidateTags()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Foo.Name")
+	assert.Contains(t, err.Error(), "undeleted")
+}
+
 // TestValidateTags_AcceptsModuleObjectWithoutNameIndex covers ModuleObject with no uniqueIndex.
 func TestValidateTags_AcceptsModuleObjectWithoutNameIndex(t *testing.T) {
 	g := fixture(
