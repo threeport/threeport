@@ -1,15 +1,15 @@
 package v0
 
-const (
-	PathModuleApiRouteWithModuleObjectReferences = "/v0/module-api-route-with-module-object-references"
-	PathModuleObjectsWithModuleApiRoutes         = "/v0/module-objects-with-module-api-routes"
-)
-
 // Most API types unique-index Name among undeleted rows. The types here
 // do not all follow that: ModuleApi is unique on (Name, ApiNamespace),
 // ModuleObject on (Name, Version, ModuleApiID) so two versions of the
 // same object can coexist on one module API. ModuleController
 // unique-indexes Name alone, like most types.
+
+const (
+	PathModuleApiRouteWithModuleObjectReferences = "/v0/module-api-route-with-module-object-references"
+	PathModuleObjectsWithModuleApiRoutes         = "/v0/module-objects-with-module-api-routes"
+)
 
 // ModuleApi represents an API server for a Threeport module. The
 // (Name, ApiNamespace) pair is unique.
