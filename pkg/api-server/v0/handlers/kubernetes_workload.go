@@ -47,6 +47,7 @@ func (h Handler) AddKubernetesWorkloadResourceDefinitions(c echo.Context) error 
 	// create all kubernetes workload resource definitions or none at all
 	var createdWRDs []v0.KubernetesWorkloadResourceDefinition
 	result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// drop prior appends if Write retries
 		createdWRDs = nil
 		err := db.Transaction(func(tx *gorm.DB) error {
 			for _, wrd := range k8sWorkloadResourceDefinitions {
