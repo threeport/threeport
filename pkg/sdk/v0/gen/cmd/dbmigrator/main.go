@@ -17,7 +17,8 @@ import (
 // migrationTestPackage is imported by both generated schema-drift tests.
 const migrationTestPackage = "github.com/threeport/threeport/pkg/migrationtest/v0"
 
-// GenDbMigratorMain generates source code for the DB migrator main package.
+// GenDbMigratorMain generates the database-migrator main package.
+// Core and modules both emit this as boilerplate.
 func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("main")
 	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
@@ -356,6 +357,12 @@ func genSchemaDriftTestInMemory(
 
 	f.ImportAlias(migrationTestPackage, "migrationtest")
 
+	f.Comment("This test applies the scaffolding initial migration in sqlite and")
+	f.Comment("checks every persisted model has a table and matching columns.")
+	f.Comment("It is boilerplate so the model list stays in lockstep with")
+	f.Comment("DatabaseInitNames. 000001 is scaffolding and is not regenerated.")
+	f.Line()
+
 	// emit persistedModels, then the sqlite coverage test
 	f.Comment("persistedModels returns one instance of every model the API persists.")
 	f.Func().Id("persistedModels").Params().Params(Index().Interface()).Block(
@@ -412,6 +419,13 @@ func genSchemaDriftTestOnServer(
 	f.ImportAlias(migrationTestPackage, "migrationtest")
 	// blank-import migrations so goose's registry is populated
 	f.Anon(fmt.Sprintf("%s/cmd/database-migrator/migrations", gen.ModulePath))
+
+	f.Comment("This test applies the scaffolding initial migration and checks")
+	f.Comment("every persisted model has a table and matching columns. It is")
+	f.Comment("boilerplate so the model list stays in lockstep with")
+	f.Comment("DatabaseInitNames. 000001 is scaffolding and is not regenerated.")
+	f.Comment("Modules emit the same test against sqlite.")
+	f.Line()
 
 	f.Comment("persistedModels returns one instance of every model the API persists.")
 	f.Func().Id("persistedModels").Params().Params(Index().Interface()).Block(

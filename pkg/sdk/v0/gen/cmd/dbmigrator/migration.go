@@ -13,8 +13,8 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
-// GenDbMigratorMigration generates the migration used to set the database
-// schema before the API server starts.
+// GenDbMigratorMigration generates the scaffolding initial migration.
+// A new module emits this as 000001_init.go. An existing file is not overwritten.
 func GenDbMigratorMigration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("migrations")
 	f.HeaderComment(sdk.HeaderCommentGenMod)

@@ -80,6 +80,7 @@ func assertCoverage(
 			declared[name] = true
 		}
 
+		// join tables CreateTable on a parent does not add
 		for _, rel := range stmt.Schema.Relationships.Many2Many {
 			if rel.JoinTable == nil {
 				continue
@@ -89,6 +90,7 @@ func assertCoverage(
 			}
 		}
 
+		// skip a model whose table the migration never created
 		if !gormDb.Migrator().HasTable(model) {
 			t.Errorf("no migration creates table %s for %T", stmt.Schema.Table, model)
 			continue
@@ -97,6 +99,7 @@ func assertCoverage(
 		// columns the migrations created
 		created := columnsOf(t, gormDb, model, stmt.Schema.Table)
 
+		// fields with no column
 		var missingColumns []string
 		for name := range declared {
 			if !created[name] {
@@ -104,6 +107,7 @@ func assertCoverage(
 			}
 		}
 
+		// columns with no field
 		var missingFields []string
 		for name := range created {
 			if !declared[name] {

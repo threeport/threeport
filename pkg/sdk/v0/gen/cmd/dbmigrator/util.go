@@ -13,7 +13,8 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
-// GenDbMigratorUtils generates the migrations utils.
+// GenDbMigratorUtils generates the migrations helpers.
+// Core and modules both emit this as boilerplate.
 func GenDbMigratorUtils(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("migrations")
 	f.HeaderComment(sdk.HeaderCommentGenNoEdit)

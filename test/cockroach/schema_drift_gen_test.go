@@ -9,6 +9,12 @@ import (
 	"testing"
 )
 
+// This test applies the scaffolding initial migration and checks
+// every persisted model has a table and matching columns. It is
+// boilerplate so the model list stays in lockstep with
+// DatabaseInitNames. 000001 is scaffolding and is not regenerated.
+// Modules emit the same test against sqlite.
+
 // persistedModels returns one instance of every model the API persists.
 func persistedModels() []interface{} {
 	return []interface{}{

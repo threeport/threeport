@@ -5,6 +5,12 @@ const (
 	PathModuleObjectsWithModuleApiRoutes         = "/v0/module-objects-with-module-api-routes"
 )
 
+// Most API types unique-index Name among undeleted rows. The types here
+// do not all follow that: ModuleApi is unique on (Name, ApiNamespace),
+// ModuleObject on (Name, Version, ModuleApiID) so two versions of the
+// same object can coexist on one module API. ModuleController
+// unique-indexes Name alone, like most types.
+
 // ModuleApi represents an API server for a Threeport module. The
 // (Name, ApiNamespace) pair is unique.
 type ModuleApi struct {

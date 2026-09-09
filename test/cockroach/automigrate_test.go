@@ -11,8 +11,11 @@ import (
 	migrations "github.com/threeport/threeport/cmd/database-migrator/migrations"
 )
 
-// Second AutoMigrate on CockroachDB tries to drop a unique constraint that
-// was never created. The initial migration therefore only creates missing tables.
+// AutoMigrate is not the install path. A second pass on CockroachDB tries
+// to DROP CONSTRAINT uni_<table>_name, which CreateTable never created,
+// and CockroachDB replies SQLSTATE 42704. These tests keep that rejection
+// in view so AutoMigrate cannot return as the install path, and they show
+// createMissingTables completing a partial schema.
 
 // nameGuarded is a model with the partial unique index API name fields use.
 type nameGuarded struct {
