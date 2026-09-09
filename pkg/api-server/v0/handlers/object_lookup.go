@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -416,7 +417,7 @@ func getIDsFromModuleByName(endpoint, path, objectType, name string) ([]uint, er
 		"%s%s?name=%s&%s=true",
 		endpoint,
 		path,
-		name,
+		url.QueryEscape(name),
 		apiserver_lib.QueryParamIncludeDeleted,
 	)
 

@@ -218,6 +218,11 @@ func (h Handler) GetEventsJoinAttachedObjectReferences(c echo.Context) error {
 			fmt.Errorf("invalid objectnameprefix %q: expected DNS-like name token", targetNamePrefix),
 			objectType)
 	}
+	if targetName != "" && !objectNamePattern.MatchString(targetName) {
+		return apiserver_lib.ResponseStatus400(c, pageParams,
+			fmt.Errorf("invalid objectname %q: expected DNS-like name token", targetName),
+			objectType)
+	}
 
 	var ids []uint
 	var fullyQualifiedTypes []string
