@@ -4,7 +4,7 @@ package fixture
 
 import (
 	logr "github.com/go-logr/logr"
-	v0 "github.com/threeport/threeport/internal/reconcilertest/pkg/api/v0"
+	api "github.com/threeport/threeport/internal/reconcilertest/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
@@ -16,7 +16,7 @@ import (
 // has been created.
 func v0ReconcilerTestVolatileInstanceCreated(
 	r *controller.Reconciler,
-	reconcilerTestVolatileInstance *v0.ReconcilerTestVolatileInstance,
+	reconcilerTestVolatileInstance *api.ReconcilerTestVolatileInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	return activeSpy.record("volatile-create")
@@ -26,7 +26,7 @@ func v0ReconcilerTestVolatileInstanceCreated(
 // has been updated.
 func v0ReconcilerTestVolatileInstanceUpdated(
 	r *controller.Reconciler,
-	reconcilerTestVolatileInstance *v0.ReconcilerTestVolatileInstance,
+	reconcilerTestVolatileInstance *api.ReconcilerTestVolatileInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	return activeSpy.record("volatile-update")
@@ -36,7 +36,7 @@ func v0ReconcilerTestVolatileInstanceUpdated(
 // has been deleted.
 func v0ReconcilerTestVolatileInstanceDeleted(
 	r *controller.Reconciler,
-	reconcilerTestVolatileInstance *v0.ReconcilerTestVolatileInstance,
+	reconcilerTestVolatileInstance *api.ReconcilerTestVolatileInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	return activeSpy.record("volatile-delete")

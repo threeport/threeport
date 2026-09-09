@@ -17,21 +17,11 @@ import (
 )
 
 // ModuleRouter maps module route paths to their handler functions and holds the
-// settings the module proxy uses to reach module API servers.
+// settings the module proxy uses to reach module API servers. The scheme and
+// transport are written once before the server accepts a request and read later
+// when a module registers a route; a second writer would need a lock.
 type ModuleRouter struct {
-	routes sync.Map
-
-	// proxyScheme and proxyTransport record how the module proxy reaches a
-	// module API server: over https with the control plane client certificate
-	// when auth is enabled, over plain http otherwise.  A module can register a
-	// route after the API server has started, and the afterCreate hook on
-	// ModuleApiRoute builds that route's proxy from these fields, so the runtime
-	// path gets what the startup path configured.
-	//
-	// Only SetProxyConfig writes them, and only InitModuleRouter calls it, before
-	// the server accepts a request.  Every read therefore happens after the
-	// write, on a goroutine the server started later.  A second writer would
-	// break that and need a lock.
+	routes         sync.Map
 	proxyScheme    string
 	proxyTransport http.RoundTripper
 }
@@ -140,9 +130,8 @@ func moduleProxyTransport(authEnabled bool) (http.RoundTripper, error) {
 }
 
 // SetProxyConfig sets the scheme and transport the module proxy uses to reach
-// module API servers.  InitModuleRouter calls it once at startup so a route
-// registered later reaches its module the same way the routes present at
-// startup do.
+// module API servers. Call it once at startup so a later-registered route
+// reaches its module the same way the routes present at startup do.
 func (e *ModuleRouter) SetProxyConfig(scheme string, transport http.RoundTripper) {
 	e.proxyScheme = scheme
 	e.proxyTransport = transport

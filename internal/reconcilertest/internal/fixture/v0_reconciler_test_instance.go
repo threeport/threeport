@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	logr "github.com/go-logr/logr"
-	v0 "github.com/threeport/threeport/internal/reconcilertest/pkg/api/v0"
+	api "github.com/threeport/threeport/internal/reconcilertest/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 )
 
@@ -79,7 +79,7 @@ func InstallSpy(spy *Spy) func() {
 // has been created.
 func v0ReconcilerTestInstanceCreated(
 	r *controller.Reconciler,
-	reconcilerTestInstance *v0.ReconcilerTestInstance,
+	reconcilerTestInstance *api.ReconcilerTestInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	return activeSpy.record("create")
@@ -89,7 +89,7 @@ func v0ReconcilerTestInstanceCreated(
 // has been updated.
 func v0ReconcilerTestInstanceUpdated(
 	r *controller.Reconciler,
-	reconcilerTestInstance *v0.ReconcilerTestInstance,
+	reconcilerTestInstance *api.ReconcilerTestInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	return activeSpy.record("update")
@@ -99,7 +99,7 @@ func v0ReconcilerTestInstanceUpdated(
 // has been deleted.
 func v0ReconcilerTestInstanceDeleted(
 	r *controller.Reconciler,
-	reconcilerTestInstance *v0.ReconcilerTestInstance,
+	reconcilerTestInstance *api.ReconcilerTestInstance,
 	log *logr.Logger,
 ) (int64, error) {
 	return activeSpy.record("delete")

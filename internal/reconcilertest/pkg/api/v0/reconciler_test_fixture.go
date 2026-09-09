@@ -21,7 +21,7 @@ type ReconcilerTestInstance struct {
 	tpapi.Reconciliation `mapstructure:",squash"`
 
 	// The latest status recorded by the reconciler.
-	Status *string `json:",omitempty" validate:"optional"`
+	Status *string `validate:"optional"`
 }
 
 // ReconcilerTestVolatileInstance is a second fixture object carrying a field
@@ -36,5 +36,5 @@ type ReconcilerTestVolatileInstance struct {
 
 	// Data reaches the reconciler through the notification and is never
 	// written to the database.
-	Data *string `json:",omitempty" validate:"optional" persist:"false"`
+	Data *string `validate:"optional" persist:"false"`
 }

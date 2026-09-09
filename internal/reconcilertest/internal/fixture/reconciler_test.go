@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/threeport/threeport/internal/machinetest"
-	v0 "github.com/threeport/threeport/internal/reconcilertest/pkg/api/v0"
+	api "github.com/threeport/threeport/internal/reconcilertest/pkg/api/v0"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	tpapi "github.com/threeport/threeport/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
@@ -46,8 +46,8 @@ type harness struct {
 	api *machinetest.APIStub
 
 	objMu    sync.Mutex
-	obj      *v0.ReconcilerTestInstance
-	volatile *v0.ReconcilerTestVolatileInstance
+	obj      *api.ReconcilerTestInstance
+	volatile *api.ReconcilerTestVolatileInstance
 
 	// apiStatus is the status the object-fetch endpoint answers with. A 404
 	// drives the halt path, where the reconciler stops without requeuing
@@ -110,11 +110,11 @@ func newHarness(t *testing.T) *harness {
 		js:  js,
 		spy: NewSpy(),
 		api: machinetest.NewAPIStub(t),
-		obj: &v0.ReconcilerTestInstance{
+		obj: &api.ReconcilerTestInstance{
 			Common:   tpapi.Common{ID: util.Ptr(uint(fixtureObjectID))},
 			Instance: tpapi.Instance{Name: util.Ptr("fixture")},
 		},
-		volatile: &v0.ReconcilerTestVolatileInstance{
+		volatile: &api.ReconcilerTestVolatileInstance{
 			Common:   tpapi.Common{ID: util.Ptr(uint(fixtureObjectID))},
 			Instance: tpapi.Instance{Name: util.Ptr("volatile-fixture")},
 		},
@@ -125,7 +125,7 @@ func newHarness(t *testing.T) *harness {
 	// the reconciler fetches the latest object before dispatching, and
 	// patches it after a non-delete operation succeeds
 	h.api.Mux.HandleFunc(
-		fmt.Sprintf("%s/%d", v0.PathReconcilerTestInstances, fixtureObjectID),
+		fmt.Sprintf("%s/%d", api.PathReconcilerTestInstances, fixtureObjectID),
 		func(w http.ResponseWriter, r *http.Request) {
 			status := int(h.apiStatus.Load())
 			if status != http.StatusOK {
@@ -141,7 +141,7 @@ func newHarness(t *testing.T) *harness {
 	// the volatile object's reconciler never fetches, but it still patches
 	// Reconciled after a successful operation
 	h.api.Mux.HandleFunc(
-		fmt.Sprintf("%s/%d", v0.PathReconcilerTestVolatileInstances, fixtureObjectID),
+		fmt.Sprintf("%s/%d", api.PathReconcilerTestVolatileInstances, fixtureObjectID),
 		func(w http.ResponseWriter, r *http.Request) {
 			h.objMu.Lock()
 			defer h.objMu.Unlock()

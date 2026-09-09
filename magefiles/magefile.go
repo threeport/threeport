@@ -273,7 +273,7 @@ func (Dev) GenerateCode() error {
 	}
 
 	if err := (Dev{}).GenerateFixture(); err != nil {
-		return fmt.Errorf("reconciler test fixture generation failed: %w", err)
+		return fmt.Errorf("failed to generate the reconciler test fixture: %w", err)
 	}
 
 	fmt.Println("code generated successfully")
@@ -470,21 +470,21 @@ func controlPlaneConfigProblems() []error {
 	cfgFile := cli.DetermineThreeportConfigPath("")
 	data, err := os.ReadFile(cfgFile)
 	if err != nil {
-		return []error{fmt.Errorf("no usable Threeport config: %w", err)}
+		return []error{fmt.Errorf("failed to read the Threeport config: %w", err)}
 	}
 	var threeportConfig cli.ThreeportConfig
 	if err := yaml.Unmarshal(data, &threeportConfig); err != nil {
-		return []error{fmt.Errorf("no usable Threeport config: %w", err)}
+		return []error{fmt.Errorf("failed to parse the Threeport config: %w", err)}
 	}
 
 	controlPlaneName := threeportConfig.CurrentControlPlane
 	if controlPlaneName == "" {
-		return []error{errors.New("the Threeport config names no current control plane")}
+		return []error{errors.New("current control plane must be set in the Threeport config")}
 	}
 
 	if _, err := threeportConfig.GetThreeportAPIEndpoint(controlPlaneName); err != nil {
 		return []error{fmt.Errorf(
-			"control plane %s has no API endpoint in the Threeport config: %w",
+			"failed to get the API endpoint for control plane %s: %w",
 			controlPlaneName, err,
 		)}
 	}
