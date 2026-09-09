@@ -141,6 +141,7 @@ func openSchema(port string) (*gorm.DB, error) {
 		&api_v0.DomainNameDefinition{},
 		&api_v0.ModuleApi{},
 		&api_v0.ModuleObject{},
+		&api_v0.ModuleApiRoute{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to build the schema: %w", err)
 	}

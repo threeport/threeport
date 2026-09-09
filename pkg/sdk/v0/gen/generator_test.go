@@ -441,24 +441,22 @@ func namedFixture(gormTag string) *Generator {
 	return g
 }
 
-// TestValidateTags_AcceptsScopedUniqueNameIndex covers the required Name gorm tag.
+// TestValidateTags_AcceptsScopedUniqueNameIndex covers a Name uniqueIndex scoped to undeleted rows.
 func TestValidateTags_AcceptsScopedUniqueNameIndex(t *testing.T) {
 	assert.NoError(t, namedFixture(nameIndexTag).ValidateTags())
 }
 
-// TestValidateTags_RejectsUnscopedNameIndex covers a Name index without deleted_at.
+// TestValidateTags_RejectsUnscopedNameIndex covers a Name uniqueIndex without a where clause.
 func TestValidateTags_RejectsUnscopedNameIndex(t *testing.T) {
 	err := namedFixture("not null;uniqueIndex").ValidateTags()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Foo.Name")
-	assert.Contains(t, err.Error(), "deleted_at IS NULL")
+	assert.Contains(t, err.Error(), "undeleted")
 }
 
-// TestValidateTags_RejectsNameFieldWithNoIndex covers a Name field with no index.
-func TestValidateTags_RejectsNameFieldWithNoIndex(t *testing.T) {
-	err := namedFixture("not null").ValidateTags()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Foo.Name")
+// TestValidateTags_AcceptsNameFieldWithNoIndex covers a Name field with no uniqueIndex.
+func TestValidateTags_AcceptsNameFieldWithNoIndex(t *testing.T) {
+	assert.NoError(t, namedFixture("not null").ValidateTags())
 }
 
 // TestValidateTags_RejectsNameIndexMissingTheColon covers uniqueIndex without a colon.
@@ -474,22 +472,44 @@ func TestValidateTags_AcceptsCompositeScopedNameIndex(t *testing.T) {
 	assert.NoError(t, namedFixture(tagValue).ValidateTags())
 }
 
-// TestValidateTags_RejectsModuleObjectWithoutNameIndex covers ModuleObject with no name index.
-func TestValidateTags_RejectsModuleObjectWithoutNameIndex(t *testing.T) {
+// TestValidateTags_AcceptsModuleObjectWithoutNameIndex covers ModuleObject with no uniqueIndex.
+func TestValidateTags_AcceptsModuleObjectWithoutNameIndex(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
 			"ModuleObject": {"Name": tag("json", ",omitempty", "validate", "required", "gorm", "not null")},
 		},
 		nil, nil, nil,
 	)
-	g.ApiObjectGroups[0].ApiObjects[0].NameField = true
-	err := g.ValidateTags()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "ModuleObject.Name")
+	assert.NoError(t, g.ValidateTags())
 }
 
-// TestValidateTags_ResolvesNameThroughAnEmbed covers Name inherited from an embed.
-func TestValidateTags_ResolvesNameThroughAnEmbed(t *testing.T) {
+// TestValidateTags_AcceptsScopedUniqueIndexOnPath covers Path uniqueIndex scoped to undeleted rows.
+func TestValidateTags_AcceptsScopedUniqueIndexOnPath(t *testing.T) {
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"ModuleApiRoute": {"Path": tag("validate", "required", "gorm", nameIndexTag)},
+		},
+		nil, nil, nil,
+	)
+	assert.NoError(t, g.ValidateTags())
+}
+
+// TestValidateTags_RejectsUnscopedUniqueIndexOnPath covers Path uniqueIndex without a where clause.
+func TestValidateTags_RejectsUnscopedUniqueIndexOnPath(t *testing.T) {
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"ModuleApiRoute": {"Path": tag("validate", "required", "gorm", "not null;uniqueIndex")},
+		},
+		nil, nil, nil,
+	)
+	err := g.ValidateTags()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ModuleApiRoute.Path")
+	assert.Contains(t, err.Error(), "undeleted")
+}
+
+// TestValidateTags_RejectsUnscopedUniqueIndexOnEmbed covers uniqueIndex on an embed field.
+func TestValidateTags_RejectsUnscopedUniqueIndexOnEmbed(t *testing.T) {
 	g := fixture(
 		map[string]map[string]map[string]string{
 			"Foo": {},
@@ -497,14 +517,27 @@ func TestValidateTags_ResolvesNameThroughAnEmbed(t *testing.T) {
 		map[string][]string{"Foo": {"Definition"}},
 		nil,
 		map[string]map[string]map[string]string{
-			"Definition": {"Name": tag("json", ",omitempty", "validate", "required", "gorm", "not null")},
+			"Definition": {"Name": tag("validate", "required", "gorm", "not null;uniqueIndex")},
 		},
 	)
-	g.ApiObjectGroups[0].ApiObjects[0].NameField = true
-
 	err := g.ValidateTags()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Foo.Name")
+	assert.Contains(t, err.Error(), "Definition.Name")
+}
+
+// TestValidateTags_AcceptsEmbedWithoutUniqueIndex covers an embed Name with no uniqueIndex.
+func TestValidateTags_AcceptsEmbedWithoutUniqueIndex(t *testing.T) {
+	g := fixture(
+		map[string]map[string]map[string]string{
+			"Foo": {},
+		},
+		map[string][]string{"Foo": {"Definition"}},
+		nil,
+		map[string]map[string]map[string]string{
+			"Definition": {"Name": tag("validate", "required", "gorm", "not null")},
+		},
+	)
+	assert.NoError(t, g.ValidateTags())
 }
 
 // TestValidateTags_SkipsUnresolvableNameField covers a Name field outside the parsed tree.

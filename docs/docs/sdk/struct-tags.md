@@ -71,8 +71,9 @@ values:
   `validate:"required"` for symmetric API and DB enforcement.
 - `default:<value>`: column default (e.g. `default:false`,
   `default:'describes'`).
-- `uniqueIndex:idx_<name>`: unique index. Multiple columns can share an
-  index name to form a composite unique index.
+- `uniqueIndex:idx_<name>,where:deleted_at IS NULL`: unique index among
+  undeleted rows. Multiple columns can share an index name to form a
+  composite unique index.
 - `type:jsonb;serializer:json`: store a Go slice or struct as PostgreSQL
   JSONB with JSON marshaling on read/write.
 - `primarykey`: primary key. Only used on `Common.ID`.

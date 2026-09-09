@@ -4,7 +4,8 @@ package v0
 // do not all follow that: ModuleApi is unique on (Name, ApiNamespace),
 // ModuleObject on (Name, Version, ModuleApiID) so two versions of the
 // same object can coexist on one module API. ModuleController
-// unique-indexes Name alone, like most types.
+// unique-indexes Name alone, like most types. ModuleApiRoute
+// unique-indexes Path among undeleted rows, across every module API.
 
 const (
 	PathModuleApiRouteWithModuleObjectReferences = "/v0/module-api-route-with-module-object-references"
@@ -41,12 +42,13 @@ type ModuleApi struct {
 	ModuleObjects []*ModuleObject `validate:"optional,association"`
 }
 
-// ModuleApiRoute represents a route supported by a module API.
+// ModuleApiRoute represents a route supported by a module API. Path is
+// unique among undeleted rows, across every module API.
 type ModuleApiRoute struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The URL path supported by the module API.
-	Path *string `validate:"required" gorm:"not null"`
+	Path *string `validate:"required" gorm:"not null;uniqueIndex:,where:deleted_at IS NULL"`
 
 	// The module API this route belongs to.
 	ModuleApiID *uint `validate:"required" gorm:"not null" relationship:"requires"`

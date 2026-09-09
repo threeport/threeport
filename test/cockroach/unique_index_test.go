@@ -302,6 +302,39 @@ func TestModuleObjectIdentityIsUniquePerModuleApi(t *testing.T) {
 	assert.NotNil(t, conflict, "the refusal is a unique violation")
 }
 
+// TestModuleApiRoutePathIsUnique covers Path uniqueness across module APIs.
+func TestModuleApiRoutePathIsUnique(t *testing.T) {
+	firstApi := api_v0.ModuleApi{
+		Name:     util.Ptr("route-path-index-first"),
+		Endpoint: util.Ptr("first-route.example:8080"),
+	}
+	secondApi := api_v0.ModuleApi{
+		Name:     util.Ptr("route-path-index-second"),
+		Endpoint: util.Ptr("second-route.example:8080"),
+	}
+	require.NoError(t, testDb.Create(&firstApi).Error, "the first module api is accepted")
+	require.NoError(t, testDb.Create(&secondApi).Error, "the second module api is accepted")
+
+	path := "/v0/shared-route-path"
+	require.NoError(t, testDb.Create(&api_v0.ModuleApiRoute{
+		Path:        &path,
+		ModuleApiID: firstApi.ID,
+	}).Error, "the first route is accepted")
+
+	err := testDb.Create(&api_v0.ModuleApiRoute{
+		Path:        &path,
+		ModuleApiID: secondApi.ID,
+	}).Error
+	require.Error(t, err, "the same path is refused on a second module api")
+	conflict := apiserver_lib.UniqueViolation(err, new(api_v0.ModuleApiRoute))
+	assert.NotNil(t, conflict, "the refusal is a unique violation")
+
+	require.NoError(t, testDb.Create(&api_v0.ModuleApiRoute{
+		Path:        util.Ptr("/v0/other-route-path"),
+		ModuleApiID: secondApi.ID,
+	}).Error, "a different path is accepted on the second module api")
+}
+
 // registerValidateTags registers obj's validate tags, as the API server does at start.
 func registerValidateTags(objectType string, obj any) {
 	taggedFields := map[string]*apiserver_lib.FieldsByTag{

@@ -56,7 +56,8 @@ type Generator struct {
 	// (common.go, class.go) so they don't appear in any ApiObjectGroup's
 	// StructTags, but their fields participate in binding via the
 	// QueryBinder's anonymous-embed recursion. ValidateTags reads these
-	// tags to resolve the gorm tag on an inherited Name field.
+	// tags so a uniqueIndex on an inherited field is checked the same way
+	// as one on a domain type.
 	// Shape: typeName -> fieldName -> tagKey -> tagValue.
 	EmbedTypes map[string]map[string]map[string]string
 
@@ -1052,6 +1053,9 @@ func (g *Generator) ValidateTags() error {
 						objectName, fieldName, lib.QueryTag,
 					))
 				}
+				problems = append(problems, validateUniqueIndex(
+					objectName, fieldName, tagMap[string(lib.GormTag)],
+				)...)
 			}
 
 			// reject api type embeds outside the allowed base-type set.
@@ -1070,17 +1074,12 @@ func (g *Generator) ValidateTags() error {
 		}
 	}
 
-	// require a unique name index on undeleted rows
-	for _, group := range g.ApiObjectGroups {
-		for _, object := range group.ApiObjects {
-			if !object.NameField {
-				continue
-			}
-			gormTag, resolved := g.resolveNameTag(group, object.TypeName)
-			if !resolved {
-				continue
-			}
-			problems = append(problems, validateNameIndex(object.TypeName, gormTag)...)
+	// uniqueIndex on an embed is not in any group's StructTags
+	for typeName, fieldMap := range g.EmbedTypes {
+		for fieldName, tagMap := range fieldMap {
+			problems = append(problems, validateUniqueIndex(
+				typeName, fieldName, tagMap[string(lib.GormTag)],
+			)...)
 		}
 	}
 
@@ -1097,56 +1096,44 @@ func (g *Generator) ValidateTags() error {
 	return g.ValidateRelationshipCycles()
 }
 
-const nameFieldName = "Name"
-
-// nameIndexTag is the gorm tag a Name field must carry: unique among undeleted rows.
+// nameIndexTag is a unique index among undeleted rows.
 const nameIndexTag = "not null;uniqueIndex:,where:deleted_at IS NULL"
+
+const uniqueIndexToken = "uniqueIndex"
 
 const indexClassUnique = "UNIQUE"
 
-// resolveNameTag returns the gorm tag on Name, including from an anonymous embed.
-func (g *Generator) resolveNameTag(group ApiObjectGroup, objectName string) (string, bool) {
-	if tagMap, ok := group.StructTags[objectName][nameFieldName]; ok {
-		return tagMap[string(lib.GormTag)], true
+// validateUniqueIndex reports a uniqueIndex tag that does not unique-index undeleted rows.
+func validateUniqueIndex(objectName, fieldName, gormTag string) []string {
+	if !strings.Contains(gormTag, uniqueIndexToken) {
+		return nil
 	}
 
-	// Name often lives on Definition or Instance
-	for _, embed := range group.StructEmbeds[objectName] {
-		if tagMap, ok := g.EmbedTypes[embed][nameFieldName]; ok {
-			return tagMap[string(lib.GormTag)], true
-		}
-	}
-
-	return "", false
-}
-
-// validateNameIndex reports a Name gorm tag that does not unique-index undeleted rows.
-func validateNameIndex(objectName, gormTag string) []string {
 	// ask gorm what the tag builds; a string match would accept tags gorm ignores
-	nameOnly := reflect.StructOf([]reflect.StructField{{
-		Name: nameFieldName,
+	fieldOnly := reflect.StructOf([]reflect.StructField{{
+		Name: fieldName,
 		Type: reflect.TypeOf((*string)(nil)),
 		Tag:  reflect.StructTag(fmt.Sprintf("%s:%q", lib.GormTag, gormTag)),
 	}})
 
-	nameSchema, err := schema.Parse(reflect.New(nameOnly).Interface(), &sync.Map{}, schema.NamingStrategy{})
+	fieldSchema, err := schema.Parse(reflect.New(fieldOnly).Interface(), &sync.Map{}, schema.NamingStrategy{})
 	if err != nil {
 		return []string{fmt.Sprintf(
 			"%s.%s: gorm rejected %s:%q: %v",
-			objectName, nameFieldName, lib.GormTag, gormTag, err,
+			objectName, fieldName, lib.GormTag, gormTag, err,
 		)}
 	}
 
-	for _, index := range nameSchema.ParseIndexes() {
+	for _, index := range fieldSchema.ParseIndexes() {
 		if index.Class == indexClassUnique && index.Where != "" {
 			return nil
 		}
 	}
 
-	// unique among undeleted rows; anything else lets a soft-deleted name block reuse
+	// unique among undeleted rows; anything else lets a soft-deleted value block reuse
 	return []string{fmt.Sprintf(
-		"%s.%s: %s:%q builds no unique index scoped to undeleted rows; use %s:%q",
-		objectName, nameFieldName, lib.GormTag, gormTag, lib.GormTag, nameIndexTag,
+		"%s.%s: %s:%q builds no unique index scoped to undeleted rows",
+		objectName, fieldName, lib.GormTag, gormTag,
 	)}
 }
 

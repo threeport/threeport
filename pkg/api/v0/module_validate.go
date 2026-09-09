@@ -3,15 +3,12 @@
 package v0
 
 import (
-	"errors"
 	"fmt"
 	"net/http/httputil"
 	"net/url"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
-
-	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // beforeCreate validates the ModuleApi before create.
@@ -55,28 +52,9 @@ func (m *ModuleApi) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// beforeCreate ensures no API route with the route path already exists
-// before persisting an API route.
+// beforeCreate validates the ModuleApiRoute before create.
 func (m *ModuleApiRoute) beforeCreate(tx *gorm.DB) error {
-	var existingRoute ModuleApiRoute
-	if result := tx.Where("path = ?", *m.Path).First(&existingRoute); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			// no existing API module route with this path - return without
-			// error
-			return nil
-		}
-		// return any error that is NotFound
-		return fmt.Errorf("failed to look up API routes for matching paths: %w", result.Error)
-	}
-
-	// no error returned from API route lookup - return conflict error
-	return util_v0.NewConflictError(
-		fmt.Sprintf(
-			"module API route already exists with path %s for module API with D %d",
-			*m.Path,
-			*m.ModuleApiID,
-		),
-	)
+	return nil
 }
 
 // beforeUpdate validates the ModuleApiRoute before update.
