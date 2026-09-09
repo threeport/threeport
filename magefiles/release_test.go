@@ -2,128 +2,116 @@ package main
 
 import "testing"
 
-// TestValidateBaseAcceptsCleanVersions covers validateBase() accepting a
-// bare X.Y.Z and a v-prefixed one, returning the version without the v.
+// TestValidateBaseAcceptsCleanVersions accepts a three-part version with or without a leading v.
 func TestValidateBaseAcceptsCleanVersions(t *testing.T) {
-	// each input is a well-formed base, with or without the leading v
+	// three-part versions, with and without a leading v
 	cases := []struct{ in, want string }{
 		{"0.7.0", "0.7.0"},
 		{"v0.7.0", "0.7.0"},
 		{"10.20.30", "10.20.30"},
 	}
 	for _, c := range cases {
-		// the action under test: normalize and validate the base
+		// accept a three-part version
 		got, err := validateBase(c.in)
-		// a clean version validates and comes back without the leading v
+		// a clean version returns no error
 		if err != nil {
 			t.Errorf("validateBase(%q) returned error: %v", c.in, err)
 		}
+		// a three-part base comes back, without a leading v
 		if got != c.want {
 			t.Errorf("validateBase(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
 }
 
-// TestValidateBaseRejectsMalformed covers validateBase() rejecting anything
-// that is not a bare X.Y.Z core, including prerelease and partial versions.
+// TestValidateBaseRejectsMalformed rejects two-part, prerelease, four-part, non-numeric, and empty versions.
 func TestValidateBaseRejectsMalformed(t *testing.T) {
-	// each input is not a bare three-part numeric version
+	// two-part, prerelease, four-part, non-numeric, and empty
 	for _, in := range []string{"0.7", "0.7.0-dev.1", "1.2.3.4", "x.y.z", ""} {
-		// the action under test: validate a malformed base
+		// reject each as malformed
 		if _, err := validateBase(in); err == nil {
-			// a malformed base must surface an error, not pass silently
 			t.Errorf("validateBase(%q) accepted a malformed version", in)
 		}
 	}
 }
 
-// TestHighestCounterOrdersNumerically covers highestCounter() selecting the
-// max counter by numeric value, the case that catches the dev.10 > dev.9
-// lexical-sort footgun.
+// TestHighestCounterOrdersNumerically covers a two-digit counter beating a one-digit one.
 func TestHighestCounterOrdersNumerically(t *testing.T) {
-	// tags span single- and double-digit counters under the dev prefix
+	// counters 1, 2, 9, and 10
 	tags := []string{"v0.7.0-dev.1", "v0.7.0-dev.2", "v0.7.0-dev.9", "v0.7.0-dev.10"}
-	// the action under test: pick the highest counter under the prefix
+	// pick the highest counter
 	got := highestCounter(tags, "v0.7.0-dev.")
-	// 10 must win over 9, which a lexical sort would get wrong
+	// 10 beats 9
 	if got != 10 {
 		t.Errorf("highestCounter = %d, want 10", got)
 	}
 }
 
-// TestHighestCounterEmptyIsZero covers highestCounter() returning 0 for no
-// matching tags, so the first cut falls through to counter 1.
+// TestHighestCounterEmptyIsZero asserts an empty tag list yields zero.
 func TestHighestCounterEmptyIsZero(t *testing.T) {
-	// no tags at all, the first-cut bootstrap case
+	// no tags listed
 	if got := highestCounter(nil, "v0.7.0-dev."); got != 0 {
 		t.Errorf("highestCounter(nil) = %d, want 0", got)
 	}
 }
 
-// TestHighestCounterIgnoresOtherChannels covers highestCounter() counting
-// only tags under the requested prefix, keeping the dev and rc counters
-// independent.
+// TestHighestCounterIgnoresOtherChannels covers a dev count ignoring rc tags and an rc count ignoring dev tags.
 func TestHighestCounterIgnoresOtherChannels(t *testing.T) {
-	// a mix of dev and rc tags under the same base
+	// mixed dev and rc tags
 	tags := []string{"v0.7.0-dev.3", "v0.7.0-rc.7", "v0.7.0-rc.8"}
-	// counting the dev prefix must ignore the rc tags
+	// the dev prefix counts only the dev tag
 	if got := highestCounter(tags, "v0.7.0-dev."); got != 3 {
 		t.Errorf("highestCounter(dev) = %d, want 3", got)
 	}
-	// and counting rc must ignore dev
+	// the rc prefix counts only the rc tags
 	if got := highestCounter(tags, "v0.7.0-rc."); got != 8 {
 		t.Errorf("highestCounter(rc) = %d, want 8", got)
 	}
 }
 
-// TestFormatVersionChannelAndGa covers formatVersion() producing a
-// counter-suffixed tag for a channel build and a bare base for ga.
+// TestFormatVersionChannelAndGa covers a channel tag and a general-availability tag.
 func TestFormatVersionChannelAndGa(t *testing.T) {
-	// a dev channel build carries the channel and counter
+	// a dev channel tag
 	if got := formatVersion("0.7.0", "dev", false, 3); got != "v0.7.0-dev.3" {
 		t.Errorf("formatVersion dev = %q, want v0.7.0-dev.3", got)
 	}
-	// an rc build carries the rc channel and counter
+	// an rc channel tag
 	if got := formatVersion("0.7.0", "rc", false, 1); got != "v0.7.0-rc.1" {
 		t.Errorf("formatVersion rc = %q, want v0.7.0-rc.1", got)
 	}
-	// a ga build is the bare v-prefixed base, ignoring channel and counter
+	// a general-availability tag is v plus the base
 	if got := formatVersion("0.7.0", "", true, 0); got != "v0.7.0" {
 		t.Errorf("formatVersion ga = %q, want v0.7.0", got)
 	}
 }
 
-// TestJoinImageTagUsesRefNameOnTag covers joinImageTag() returning the git
-// tag verbatim on a tag build, so the released image matches the git tag.
+// TestJoinImageTagUsesRefNameOnTag covers a tag build using the ref name as the image tag.
 func TestJoinImageTagUsesRefNameOnTag(t *testing.T) {
-	// a tag build supplies the tag ref name and ignores version and sha
+	// a tag ref, with a version and sha that must not appear
 	got := joinImageTag("tag", "v0.7.0", "v0.7.0-dev", "abc1234")
-	// the tag ref name wins outright
+	// return the ref name as the image tag
 	if got != "v0.7.0" {
 		t.Errorf("joinImageTag(tag) = %q, want v0.7.0", got)
 	}
 }
 
-// TestJoinImageTagJoinsVersionAndSha covers joinImageTag() on a non-tag
-// build joining the version base to the short sha with a dot.
+// TestJoinImageTagJoinsVersionAndSha covers a non-tag build tagging the image as version.sha.
 func TestJoinImageTagJoinsVersionAndSha(t *testing.T) {
-	// a branch build leaves ref type empty and falls through to the join
+	// a branch ref
 	got := joinImageTag("branch", "dev", "v0.7.0-dev", "abc1234")
-	// the version and sha join with a dot, yielding the dev image tag
+	// join version and sha with a dot
 	if got != "v0.7.0-dev.abc1234" {
 		t.Errorf("joinImageTag(branch) = %q, want v0.7.0-dev.abc1234", got)
 	}
-	// an unset ref type also falls through to the join
+	// an unset ref joins version and sha with a dot
 	if got := joinImageTag("", "", "v0.7.0-dev", "abc1234"); got != "v0.7.0-dev.abc1234" {
 		t.Errorf("joinImageTag(unset) = %q, want v0.7.0-dev.abc1234", got)
 	}
 }
 
-// TestBaseFromVersionStripsPrefixAndSuffix covers baseFromVersion() reducing
-// a full version to the bare X.Y.Z core by dropping the leading v and the
-// prerelease suffix from the first hyphen.
+// TestBaseFromVersionStripsPrefixAndSuffix covers reducing a version to its three-part base.
 func TestBaseFromVersionStripsPrefixAndSuffix(t *testing.T) {
-	// each input pairs a version string with the bare base it reduces to
+	// versions with a leading v, a channel suffix, or both
 	cases := []struct{ in, want string }{
 		{"v0.7.0-dev", "0.7.0"},
 		{"v0.7.0", "0.7.0"},
@@ -131,19 +119,18 @@ func TestBaseFromVersionStripsPrefixAndSuffix(t *testing.T) {
 		{"v1.2.3-rc.4", "1.2.3"},
 	}
 	for _, c := range cases {
-		// the action under test: reduce the version to its base
+		// a three-part base remains
 		if got := baseFromVersion(c.in); got != c.want {
 			t.Errorf("baseFromVersion(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
 }
 
-// TestBaseFromVersionFeedsValidateBase covers the parse output validating as
-// a clean base, the contract cutRelease() relies on.
+// TestBaseFromVersionFeedsValidateBase covers a channel version accepted as a three-part base.
 func TestBaseFromVersionFeedsValidateBase(t *testing.T) {
-	// derive the base from a prerelease version the way cutRelease does
+	// a channel version
 	base := baseFromVersion("v0.7.0-dev")
-	// the derived base must pass validation and come back unchanged
+	// accept the stripped value as a three-part base
 	got, err := validateBase(base)
 	if err != nil {
 		t.Errorf("validateBase(%q) returned error: %v", base, err)

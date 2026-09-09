@@ -47,7 +47,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.ImportAlias(installerPkg, "installer")
 	f.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
 
-	// the module ci targets read the embedded version
+	// alias the version package the module CI targets read
 	if gen.Module {
 		f.ImportAlias(fmt.Sprintf("%s/internal/version", gen.ModulePath), "version")
 	}
@@ -75,10 +75,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		f.Line()
 	}
 
-	// modules emit a Ci namespace whose targets feed values to CI workflow
-	// steps and tear down what an integration job leaves behind. The core
-	// threeport repo keeps its hand-written ci targets, so this stays gated on
-	// the module case.
+	// emit the module-only Ci namespace for env export and teardown
 	if gen.Module {
 		f.Comment("Ci provides a type for methods that emit values for CI workflow steps.")
 		f.Type().Id("Ci").Qual("github.com/magefile/mage/mg", "Namespace")
@@ -89,13 +86,11 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		emitTeardownStepFunc(f)
 	}
 
-	// test targets shared by every repo that runs the generator
+	// emit test targets
 	emitTestUnitFunc(f)
 	emitTestIntegrationFunc(f)
 
-	// download targets shared by every repo that runs the generator, fetching
-	// the threeport binaries from a github release and installing them where
-	// the install targets place locally-built binaries.
+	// emit download targets for threeport-sdk and tptctl
 	emitInstallDirFunc(f)
 	emitDownloadHelper(f)
 	emitDownloadFunc(f, "Sdk", "threeport-sdk")
@@ -386,7 +381,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	})
 	f.Line()
 
-	// helper: parse the PARALLEL_IMAGE_BUILD env var, self-compute when unset
+	// parse PARALLEL_IMAGE_BUILD, self-compute when unset
 	f.Comment("parallelFromEnv returns the PARALLEL_IMAGE_BUILD env var as an int. When")
 	f.Comment("unset or empty it self-computes twice the memory-derived build worker count,")
 	f.Comment("since packaging and pushing images is lighter than compiling.")
@@ -402,7 +397,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Return(Id("n"))
 	})
 
-	// helper: env var lookup with a fallback default
+	// look up an env var with a fallback default
 	f.Comment("envOr returns the trimmed value of the named env var, or def if it is unset or empty.")
 	f.Func().Id("envOr").Params(Id("key").String(), Id("def").String()).String().Block(
 		If(Id("v").Op(":=").Qual("strings", "TrimSpace").Call(Qual("os", "Getenv").Call(Id("key"))).Op(";").Id("v").Op("!=").Lit("")).Block(
@@ -720,10 +715,8 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	return nil
 }
 
-// emitBinFunc writes a no-arg `func (Build) <BinFunc>() error` that compiles
-// the component's binary for the arch(es) resolved by getBuildVals (the ARCH
-// env var or the local CPU arch) via util.BuildBinaries. A comma-separated
-// ARCH builds one binary per arch under bin/<arch>/.
+// emitBinFunc writes a (Build).<funcName> method that compiles the
+// named binary for ARCH, defaulting to the local CPU architecture.
 func emitBinFunc(f *File, funcName, displayName, binaryName, packageDir string) {
 	f.Comment(fmt.Sprintf("%s builds the %s binary for the arch(es) in the ARCH env", funcName, displayName))
 	f.Comment("var, defaulting to the local CPU architecture.")
@@ -763,16 +756,8 @@ func emitBinFunc(f *File, funcName, displayName, binaryName, packageDir string) 
 	f.Line()
 }
 
-// emitTestUnitFunc writes a no-arg `func (Test) Unit() error` that runs the
-// unit tests across the threeport packages via util.RunCommandStreamOutput.
-// -race is always on, because the packages under test start goroutines the
-// tests then assert against, and a data race there is invisible without the
-// detector. -p is sized at runtime from util.BuildParallelism(), because the
-// cgo-enabled go-sqlite3 build pulls per-package memory above the default
-// GOMAXPROCS concurrency on small CI runners, so honoring the same
-// memory-aware worker count the build targets use keeps `go test` from
-// OOM-killing the pod. That sizing matters more with the detector on, which
-// multiplies each test binary's memory several times over.
+// emitTestUnitFunc writes Test.Unit, which runs go test -race over
+// pkg, internal, cmd, and magefiles.
 func emitTestUnitFunc(f *File) {
 	f.Comment("Unit runs the unit tests across the threeport packages.")
 	f.Func().Params(Id("Test")).Id("Unit").Params().Error().Block(
@@ -804,11 +789,8 @@ func emitTestUnitFunc(f *File) {
 	f.Line()
 }
 
-// emitTestIntegrationFunc writes a no-arg `func (Test) Integration() error`
-// that runs the integration tests against an existing Threeport control plane
-// via util.RunCommandStreamOutput. -p mirrors emitTestUnitFunc so the
-// compile concurrency stays consistent across both test entry points; the
-// integration tests share the cgo-enabled test binary build path.
+// emitTestIntegrationFunc writes Test.Integration, which runs the
+// integration tests under test/integration.
 func emitTestIntegrationFunc(f *File) {
 	f.Comment("Integration runs integration tests against an existing Threeport control plane.")
 	f.Func().Params(Id("Test")).Id("Integration").Params().Error().Block(
@@ -837,11 +819,8 @@ func emitTestIntegrationFunc(f *File) {
 	f.Line()
 }
 
-// emitDownloadFunc writes a no-arg `func (Download) <funcName>() error` that
-// downloads the named threeport binary from a github release and installs it
-// where the install targets place locally-built binaries. The body is thin: it
-// delegates the repo, version, and destination resolution to the shared
-// download helper.
+// emitDownloadFunc writes a (Download).<funcName> method that installs
+// the named threeport binary from a github release.
 func emitDownloadFunc(f *File, funcName, binary string) {
 	f.Comment(fmt.Sprintf(
 		"%s downloads the %s binary from a threeport github release and installs", funcName, binary,
@@ -853,10 +832,8 @@ func emitDownloadFunc(f *File, funcName, binary string) {
 	f.Line()
 }
 
-// emitInstallDirFunc writes the helper that resolves where go install places
-// binaries. Both the install targets and the download targets write there, and
-// emitting it keeps a repo that has no hand-written magefile from generating a
-// call to a function nothing defines.
+// emitInstallDirFunc writes installDir so generated install and
+// download targets have a destination function to call.
 func emitInstallDirFunc(f *File) {
 	f.Comment("installDir returns the directory `go install` writes binaries to:")
 	f.Comment("$GOBIN if set, otherwise $GOPATH/bin. build.Default.GOPATH falls back")
@@ -876,14 +853,10 @@ func emitInstallDirFunc(f *File) {
 	f.Line()
 }
 
-// emitDownloadHelper writes the side-effecting glue the download targets share:
-// it reads go.mod to find the threeport dependency, falling back to the core
-// repository's own release tags when no dependency is declared, then downloads
-// the requested binary into the install directory. The pure parsing lives in
-// the util package; this helper performs the file reads, git calls, and the
-// network download.
+// emitDownloadHelper writes downloadThreeportBinary and the helpers
+// that resolve the source release and download into the install directory.
 func emitDownloadHelper(f *File) {
-	// shared download helper: resolve (repo, version, destDir, token) then download
+	// resolve repo, version, destDir, and token, then download
 	f.Comment("downloadThreeportBinary downloads the named binary from a threeport github")
 	f.Comment("release and installs it into the directory the install targets use. It")
 	f.Comment("resolves the source release from the threeport dependency in go.mod when one")
@@ -945,7 +918,7 @@ func emitDownloadHelper(f *File) {
 	)
 	f.Line()
 
-	// core-repo resolver: version file base + highest matching remote tag + origin repo
+	// resolve version-file base, highest matching remote tag, and origin repo
 	f.Comment("coreThreeportRelease resolves the release the core threeport repository should")
 	f.Comment("download its own binaries from: the highest existing release tag matching the")
 	f.Comment("version file's base, paired with the origin repository as an owner/name path.")
@@ -991,7 +964,7 @@ func emitDownloadHelper(f *File) {
 	)
 	f.Line()
 
-	// parse `git ls-remote --tags` output into bare tag names
+	// parse git ls-remote --tags output into bare tag names
 	f.Comment("parseLsRemoteTags extracts bare tag names from `git ls-remote --tags` output,")
 	f.Comment("dropping the refs/tags/ prefix and the ^{} dereference lines so each annotated")
 	f.Comment("tag is counted once.")
@@ -1009,7 +982,7 @@ func emitDownloadHelper(f *File) {
 	)
 	f.Line()
 
-	// origin repo as an owner/name path from $GITHUB_REPOSITORY or the remote url
+	// resolve origin owner/name from GITHUB_REPOSITORY or the remote url
 	f.Comment("originRepo returns the current repository as an owner/name path, preferring")
 	f.Comment("the GITHUB_REPOSITORY env var when set and otherwise parsing the origin")
 	f.Comment("remote url. Both https and ssh remote forms are accepted.")
@@ -1077,14 +1050,8 @@ func emitDownloadHelper(f *File) {
 	f.Line()
 }
 
-// emitImageFunc writes a no-arg `func (Build) <ImageFunc>() error` that
-// compiles the binary for the resolved arch(es) via BuildBinaries, then
-// delegates packaging to the per-component package function. Repo and tag
-// derive from the CI context when GITHUB_ACTIONS is set, otherwise the dev
-// namespace and current version; IMAGE_REPO and IMAGE_TAG override either way.
-// Arch comes from the ARCH env var or the local CPU arch. When
-// called from AllImages the BuildBinaries call is a Go cache hit (AllImages
-// pre-compiled the same package earlier); standalone it does the compile.
+// emitImageFunc writes a (Build).<funcName> method that compiles the
+// named binary then packages it via the matching package method.
 func emitImageFunc(f *File, funcName, displayName, binaryName, packageDir, packageFuncName, installerPkg, modulePath string) {
 	f.Comment(fmt.Sprintf("%s builds and pushes a %s container image.", funcName, displayName))
 	f.Func().Params(Id("Build")).Id(funcName).Params().Parens(Error()).Block(
@@ -1171,9 +1138,8 @@ func emitImagePackageFunc(f *File, packageFuncName, displayName, target, binaryN
 	f.Line()
 }
 
-// emitPrebuildBlock writes the upfront BuildBinaries call used by AllImages.
-// Declares workingDir and arch (from getBuildVals: the ARCH env var or the
-// local CPU arch) in the caller's scope so the wrap helper can reference arch.
+// emitPrebuildBlock writes AllImages' upfront compile and declares
+// workingDir and arch in the caller so wrap can pass them through.
 func emitPrebuildBlock(g *Group, components []componentSpec) {
 	g.List(Id("workingDir"), Id("arch"), Id("err")).Op(":=").Id("getBuildVals").Call()
 	g.If(Id("err").Op("!=").Nil()).Block(
@@ -1227,9 +1193,8 @@ func emitWrapHelper(g *Group, repo, tag Code) {
 	)
 }
 
-// emitCiEnvFunc writes a no-arg `func (Ci) Env() error` that prints the
-// KEY=value lines the non-mage CI steps consume. The modulePath qualifies the
-// embedded version package the module image tag derives from.
+// emitCiEnvFunc writes Ci.Env, which prints KEY=value pin and
+// parallelism lines for a workflow to append to GITHUB_ENV.
 func emitCiEnvFunc(f *File, modulePath string) {
 	f.Comment("Env prints KEY=value lines for the workflow to append to GITHUB_ENV. It emits")
 	f.Comment("only the values that non-mage steps consume: the pinned threeport repo,")
@@ -1272,9 +1237,8 @@ func emitCiEnvFunc(f *File, modulePath string) {
 	f.Line()
 }
 
-// emitCiTeardownFunc writes a no-arg `func (Ci) Teardown() error` that removes
-// what an integration job leaves behind. The body calls the generated Dev local
-// registry target, which lives in the same generated file.
+// emitCiTeardownFunc writes Ci.Teardown, which removes what an
+// integration job leaves behind, gated on the CI env var.
 func emitCiTeardownFunc(f *File) {
 	f.Comment("Teardown removes what an integration job leaves behind: the test control")
 	f.Comment("plane and its kind cluster, the threeport client config, the local image")
@@ -1313,9 +1277,8 @@ func emitCiTeardownFunc(f *File) {
 	f.Line()
 }
 
-// emitTeardownStepFunc writes the variadic `teardownStep` helper that runs a
-// cleanup command best-effort, logging on failure so one failed command does
-// not abort the rest of teardown.
+// emitTeardownStepFunc writes teardownStep, which runs a cleanup
+// command best-effort and logs on failure so teardown continues.
 func emitTeardownStepFunc(f *File) {
 	f.Comment("teardownStep runs a cleanup command best-effort, logging on failure so one")
 	f.Comment("failed command does not abort the rest of teardown.")

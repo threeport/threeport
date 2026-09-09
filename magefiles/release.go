@@ -17,28 +17,29 @@ type Release mg.Namespace
 // baseVersionPattern matches a bare X.Y.Z release version.
 var baseVersionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 
-// versionFile holds the version string read by imagetag and the release
-// targets, relative to the repo root mage runs from.
+// versionFile is the version path relative to the repo root mage runs from.
 const versionFile = "internal/version/version.txt"
 
-// Imagetag prints the image tag for the current build: the git tag itself
-// on a tag build, otherwise the version file's base joined to the short
-// commit sha as v<base>-dev.<sha>.
+// Imagetag prints GITHUB_REF_NAME when GITHUB_REF_TYPE is tag, otherwise
+// the version and short sha.
 func Imagetag() error {
+	// read the short commit sha
 	sha, err := gitOutput("rev-parse", "--short=7", "HEAD")
 	if err != nil {
 		return fmt.Errorf("failed to read short commit sha: %w", err)
 	}
+	// read the version file
 	v, err := readVersion()
 	if err != nil {
 		return err
 	}
+	// print the joined image tag
 	fmt.Println(joinImageTag(os.Getenv("GITHUB_REF_TYPE"), os.Getenv("GITHUB_REF_NAME"), v, sha))
 	return nil
 }
 
-// joinImageTag returns refName on a tag build, otherwise version joined to
-// sha with a dot, yielding v<base>-dev.<sha>.
+// joinImageTag returns the git tag name when refType is tag, otherwise
+// version and sha joined with a dot.
 func joinImageTag(refType, refName, version, sha string) string {
 	if refType == "tag" {
 		return refName
@@ -55,58 +56,58 @@ func readVersion() (string, error) {
 	return strings.TrimSpace(string(contents)), nil
 }
 
-// baseFromVersion derives the bare X.Y.Z base from a version string by
-// stripping a leading v and any prerelease suffix from the first hyphen.
+// baseFromVersion returns the X.Y.Z core of a version, dropping a leading
+// v and any prerelease suffix from the first hyphen.
 func baseFromVersion(version string) string {
+	// drop a leading v
 	version = strings.TrimPrefix(version, "v")
+	// drop a prerelease suffix from the first hyphen
 	if i := strings.Index(version, "-"); i >= 0 {
 		version = version[:i]
 	}
 	return version
 }
 
-// Dev cuts the next dev build under the version file's base, tagging the
-// latest dev commit as v<base>-dev.<next N> and pushing the tag.
+// Dev cuts the next vX.Y.Z-dev.N tag on the latest pushed dev commit
+// and pushes it.
 func (Release) Dev() error {
 	return cutRelease("dev", false)
 }
 
-// Rc cuts the next release candidate under the version file's base, tagging
-// the latest dev commit as v<base>-rc.<next N> and pushing the tag.
+// Rc cuts the next vX.Y.Z-rc.N tag on the latest pushed dev commit
+// and pushes it.
 func (Release) Rc() error {
 	return cutRelease("rc", false)
 }
 
-// Ga cuts the general-availability release for the version file's base,
-// tagging the latest dev commit as v<base> and pushing the tag.
+// Ga cuts a vX.Y.Z tag on the latest pushed dev commit and pushes it.
 func (Release) Ga() error {
 	return cutRelease("", true)
 }
 
-// cutRelease tags the latest pushed dev commit as a release and pushes the
-// tag, which triggers the release and image workflows. The base comes from
-// the version file. A channel build auto-increments the per-channel counter
-// under the base; a ga build tags the bare base. The push remote resolves to
-// the RELEASE_REMOTE env override, otherwise to the remote the local dev
-// branch tracks, otherwise to origin.
+// cutRelease tags the latest pushed dev commit and pushes the tag. A
+// channel cut increments that channel's counter; a ga cut uses the bare base.
 func cutRelease(channel string, ga bool) error {
+	// read the version file
 	fileVersion, err := readVersion()
 	if err != nil {
 		return err
 	}
+	// validate the X.Y.Z base
 	base, err := validateBase(baseFromVersion(fileVersion))
 	if err != nil {
 		return err
 	}
 
+	// resolve the git remote to fetch from and push to
 	remote := resolveReleaseRemote()
 
-	// fetch first so the counter and the tag target see the latest pushed dev
+	// fetch remote dev and tags so the counter and tag target are current
 	if err := git("fetch", remote, "dev", "--tags"); err != nil {
 		return fmt.Errorf("failed to fetch %s: %w", remote, err)
 	}
 
-	// a channel build bumps its per-channel counter; a ga build needs none
+	// set the next channel counter, or 0 for ga
 	next := 0
 	if !ga {
 		next, err = nextCounter(base, channel)
@@ -114,37 +115,41 @@ func cutRelease(channel string, ga bool) error {
 			return fmt.Errorf("failed to compute next %s counter: %w", channel, err)
 		}
 	}
+	// format the release tag
 	version := formatVersion(base, channel, ga, next)
 
-	// refuse to reuse an existing tag
+	// reject a tag that already exists
 	if exec.Command("git", "rev-parse", "-q", "--verify", "refs/tags/"+version).Run() == nil {
 		return fmt.Errorf("tag %s already exists", version)
 	}
 
-	// tag the latest pushed dev head; the tag push is the release event
+	// tag the latest pushed dev head
 	if err := git("tag", "-a", version, remote+"/dev", "-m", "release "+version); err != nil {
 		return fmt.Errorf("failed to tag %s: %w", version, err)
 	}
+	// push the tag
 	if err := git("push", remote, version); err != nil {
 		return fmt.Errorf("failed to push %s: %w", version, err)
 	}
 
+	// report the pushed tag
 	fmt.Printf("pushed %s via %s\n", version, remote)
 	return nil
 }
 
-// validateBase strips a leading v and reports whether the remainder is a
-// bare X.Y.Z release version, returning the cleaned base.
+// validateBase returns a bare X.Y.Z base, stripping a leading v and
+// rejecting any other form.
 func validateBase(base string) (string, error) {
+	// drop a leading v
 	base = strings.TrimPrefix(base, "v")
+	// reject anything that is not X.Y.Z
 	if !baseVersionPattern.MatchString(base) {
 		return "", fmt.Errorf("base must be X.Y.Z, got %q", base)
 	}
 	return base, nil
 }
 
-// formatVersion builds the tag string: the bare v<base> for a ga release,
-// or v<base>-<channel>.<next> for a channel build.
+// formatVersion returns vX.Y.Z for a ga cut and vX.Y.Z-channel.N otherwise.
 func formatVersion(base, channel string, ga bool, next int) string {
 	if ga {
 		return "v" + base
@@ -152,18 +157,20 @@ func formatVersion(base, channel string, ga bool, next int) string {
 	return fmt.Sprintf("v%s-%s.%d", base, channel, next)
 }
 
-// nextCounter returns one more than the highest counter among the existing
-// v<base>-<channel>.N tags, or 1 when none exist.
+// nextCounter returns one more than the highest existing tag counter for
+// the base and channel, or 1 when none exist.
 func nextCounter(base, channel string) (int, error) {
+	// list existing tags for this base and channel
 	out, err := gitOutput("tag", "--list", fmt.Sprintf("v%s-%s.*", base, channel))
 	if err != nil {
 		return 0, err
 	}
+	// add one to the highest existing counter
 	return highestCounter(strings.Fields(out), fmt.Sprintf("v%s-%s.", base, channel)) + 1, nil
 }
 
-// highestCounter returns the largest numeric N among tags shaped <prefix>N,
-// or 0 when none match. It parses N numerically so dev.10 ranks above dev.2.
+// highestCounter returns the largest integer N among tags shaped prefixN,
+// or 0 if none parse.
 func highestCounter(tags []string, prefix string) int {
 	highest := 0
 	for _, tag := range tags {
@@ -178,22 +185,22 @@ func highestCounter(tags []string, prefix string) int {
 	return highest
 }
 
-// resolveReleaseRemote picks the remote to fetch dev from and push the tag
-// to. RELEASE_REMOTE overrides everything so a caller can force a specific
-// remote; without it, the remote the local dev branch tracks fits any clone
-// whose remote is not named origin (a fork, an internal mirror, a rename);
-// origin is the final fallback for a fresh clone with no tracking set.
+// resolveReleaseRemote returns the remote used to fetch dev and push the
+// tag: RELEASE_REMOTE, the remote tracking local dev, or origin.
 func resolveReleaseRemote() string {
+	// prefer RELEASE_REMOTE when set
 	if r := os.Getenv("RELEASE_REMOTE"); r != "" {
 		return r
 	}
+	// use the remote tracking local dev
 	if r, err := gitOutput("config", "--get", "branch.dev.remote"); err == nil && r != "" {
 		return r
 	}
+	// fall back to origin
 	return "origin"
 }
 
-// git runs a git command and surfaces its combined output on failure.
+// git runs git with args and returns a combined-output error on failure.
 func git(args ...string) error {
 	if output, err := exec.Command("git", args...).CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to run git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(string(output)), err)
@@ -201,7 +208,7 @@ func git(args ...string) error {
 	return nil
 }
 
-// gitOutput runs a git command and returns its trimmed standard output.
+// gitOutput runs git with args and returns trimmed stdout.
 func gitOutput(args ...string) (string, error) {
 	output, err := exec.Command("git", args...).Output()
 	if err != nil {

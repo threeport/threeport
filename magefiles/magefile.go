@@ -279,14 +279,12 @@ func (Test) Commits() error {
 	return nil
 }
 
-// testControlPlaneName is the control plane test:up creates and ci:teardown
-// removes. Both read it here so a rename cannot leave the teardown naming a
-// control plane that no longer exists.
+// testControlPlaneName is the control plane name tptctl up creates
+// and tptctl down removes so both sides name the same plane.
 const testControlPlaneName = "dev-0"
 
 // Up spins up a control plane using tptctl and a local registry for testing.
-// It resolves the same image repo and tag the image build self-derives, so
-// the control plane pulls the images that build:allImages just pushed.
+// Repo and tag are the same ones the image build derives, so tptctl pulls those images.
 func (Test) Up() error {
 	imageRepo, imageTag, err := util.ResolveImageCoordinates(".", installer.DevImageNamespace, version.GetVersion())
 	if err != nil {

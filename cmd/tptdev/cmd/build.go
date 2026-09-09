@@ -29,15 +29,10 @@ import (
 
 // imageBuildTarget returns the Dockerfile target for a component.
 // terraform-controller needs the terraform CLI on PATH at runtime;
-// oci-controller and gcp-controller both need the pulumi CLI;
+// oci-controller and gcp-controller need the pulumi CLI on PATH at runtime;
 // helm-workload-controller needs writable helm cache and data
-// directories, which the plain target does not provide. Those route to
-// the `release-terraform` / `release-pulumi` / `release-helm` targets;
+// directories that the `release` target does not provide;
 // everything else uses the distroless `release` target.
-//
-// This mapping is duplicated by the mage build path, so a component
-// added here is added there too or the two builds produce different
-// images for the same component.
 func imageBuildTarget(componentName string) string {
 	switch componentName {
 	case installer.ThreeportTerraformControllerName:
@@ -86,9 +81,7 @@ var buildCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// default the tag to the sha-suffixed dev tag the image build resolves
-		// so build and a later install agree on the exact commit; falls back to
-		// the base version outside a git checkout.
+		// default the image tag so build and install name the same image
 		if cliArgs.ControlPlaneImageTag == "" {
 			tag, err := util.ResolveImageTag(cliArgs.ThreeportPath, version.GetVersion())
 			if err != nil {

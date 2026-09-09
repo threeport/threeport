@@ -144,10 +144,9 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	if a.ControlPlaneImageTag != "" {
 		cpi.SetAllImageTags(a.ControlPlaneImageTag)
 	} else if a.ControlPlaneImageRepo == threeport.DevImageNamespace && os.Getenv("GITHUB_ACTIONS") == "" {
-		// local dev against the local registry: match the sha-suffixed tag the
-		// local image build produced so the deployment references the exact
-		// commit built rather than the mutable base tag. gated on being outside
-		// CI so the CI install path keeps its existing tag behavior unchanged.
+		// resolve a version.sha tag matching a local image build,
+		// not the mutable bare version. skip GitHub Actions to keep
+		// the installer default
 		devTag, err := util.ResolveImageTag(a.ThreeportPath, version.GetVersion())
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve dev image tag: %w", err)

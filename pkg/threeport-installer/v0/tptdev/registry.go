@@ -157,12 +157,9 @@ func DeleteLocalRegistry() error {
 		return fmt.Errorf("failed to stop registry docker container: %w", err)
 	}
 
-	// RemoveVolumes takes the registry's storage with it. The registry image
-	// declares its storage path as a volume, so each container created here
-	// gets an anonymous volume of its own, and leaving it behind strands every
-	// image that was pushed to that registry. A caller taking the registry down
-	// is done with those images, and a fresh registry never reads them, so the
-	// volume has no reader once its container is gone.
+	// remove the registry container and the anonymous volume docker created
+	// from the image's /var/lib/registry path. that volume outlives the
+	// container, holds every pushed image, and is not attached later
 	if err := cli.ContainerRemove(ctx, registryName, container.RemoveOptions{
 		RemoveVolumes: true,
 	}); err != nil {

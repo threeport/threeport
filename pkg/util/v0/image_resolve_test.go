@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// TestResolveImageRepoPrefersExplicitOverride covers ResolveImageRepo
-// returning IMAGE_REPO verbatim when set, ahead of any CI or dev derivation.
+// TestResolveImageRepoPrefersExplicitOverride covers ResolveImageRepo returning
+// IMAGE_REPO verbatim when set, ahead of any CI or dev derivation.
 func TestResolveImageRepoPrefersExplicitOverride(t *testing.T) {
 	// an explicit override plus CI signals that would otherwise derive ghcr
 	t.Setenv("IMAGE_REPO", "localhost:5001")
@@ -81,42 +81,43 @@ func TestResolveImageTagEchoesRefNameOnTagBuild(t *testing.T) {
 	}
 }
 
-// gitRedirectVars name the environment variables that point git at a repository
-// of their own, overriding both the working directory and an explicit -C path.
-// git exports them to hook processes, so a suite invoked from a pre-push hook
-// resolves the outer repository unless they are cleared.
+// gitRedirectVars lists git environment variables that redirect git at
+// another repository. git exports them to hook processes, so a suite
+// started from a pre-push hook sees the hook's repository until they
+// are cleared.
 var gitRedirectVars = []string{"GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE"}
 
-// clearGitRedirects unsets the redirect variables for the duration of the test.
-// Unsetting rather than emptying matters: git rejects an empty GIT_DIR as an
-// invalid path, which fails even a command handed a valid repository elsewhere.
+// clearGitRedirects unsets git's repository-redirect environment
+// variables for the rest of the test. git treats a set-but-empty GIT_DIR
+// as a path, so Unsetenv is required after t.Setenv records the original.
 func clearGitRedirects(t *testing.T) {
 	t.Helper()
+	// t.Setenv records each original and restores it at cleanup; Unsetenv
+	// is what the later git command actually sees
 	for _, name := range gitRedirectVars {
-		// t.Setenv records the original value and restores it at cleanup; the
-		// unset that follows is what the command actually sees
 		t.Setenv(name, "")
 		os.Unsetenv(name)
 	}
 }
 
-// isolateFromGit puts the resolver somewhere no repository can be found, so the
-// sha read fails and the fallback path runs.
+// isolateFromGit moves the test into an empty temp directory with git's
+// repository-redirect variables cleared, so git sees no checkout.
 func isolateFromGit(t *testing.T) {
 	t.Helper()
+	// drop git redirects inherited from the test process
 	clearGitRedirects(t)
+	// leave the enclosing repository so git cannot discover it by walking up
 	t.Chdir(t.TempDir())
 }
 
 // TestResolveImageTagFallsBackToVersionOutsideCheckout covers ResolveImageTag
-// returning the bare version default when it runs outside CI and outside a git
-// checkout, where no short commit sha is available to suffix.
+// returning the bare version default outside CI and outside a git checkout.
 func TestResolveImageTagFallsBackToVersionOutsideCheckout(t *testing.T) {
-	// not in CI, and run from outside any git checkout so the sha read fails
-	// and the resolver falls back to the bare version default
+	// no IMAGE_TAG, outside CI, ARCH unset
 	t.Setenv("IMAGE_TAG", "")
 	t.Setenv("GITHUB_ACTIONS", "")
 	t.Setenv("ARCH", "")
+	// leave the enclosing checkout so a sha read cannot pass
 	isolateFromGit(t)
 	// the bare version default passes through when no sha is available
 	got, err := ResolveImageTag("", "v0.1.0-dev")
@@ -128,34 +129,33 @@ func TestResolveImageTagFallsBackToVersionOutsideCheckout(t *testing.T) {
 	}
 }
 
-// TestResolveImageTagSuffixesShaInCheckout covers ResolveImageTag suffixing the
-// version default with the short commit sha when it runs outside CI inside a git
-// checkout, so the tag names the exact commit built.
+// TestResolveImageTagSuffixesShaInCheckout covers ResolveImageTag suffixing
+// the version default with a short sha in a git checkout.
 func TestResolveImageTagSuffixesShaInCheckout(t *testing.T) {
 	// not in CI; the test runs inside the repo checkout, so a short sha is read
 	t.Setenv("IMAGE_TAG", "")
 	t.Setenv("GITHUB_ACTIONS", "")
 	t.Setenv("ARCH", "")
-	// the resolved tag is <version>.<sha> with a seven-character sha
+	// resolve against the process working directory, this checkout
 	got, err := ResolveImageTag("", "v0.1.0-dev")
 	if err != nil {
 		t.Fatalf("ResolveImageTag returned error: %v", err)
 	}
+	// the tag starts with the version default and a trailing dot
 	prefix := "v0.1.0-dev."
 	if !strings.HasPrefix(got, prefix) {
 		t.Fatalf("ResolveImageTag = %q, want prefix %q", got, prefix)
 	}
+	// the sha suffix is seven characters
 	if sha := strings.TrimPrefix(got, prefix); len(sha) != 7 {
 		t.Errorf("sha suffix = %q, want seven characters", sha)
 	}
 }
 
-// TestResolveImageTagIgnoresArch covers ResolveImageTag leaving the canonical
-// tag undecorated whatever ARCH holds. tptctl up and the module install command
-// resolve the tag they pull through here, so an ARCH exported in the caller's
-// shell must not point an install at a single-arch image.
+// TestResolveImageTagIgnoresArch covers ResolveImageTag leaving an override
+// tag undecorated when ARCH is set.
 func TestResolveImageTagIgnoresArch(t *testing.T) {
-	// an explicit override plus a single-arch ARCH that a build would decorate with
+	// an explicit override plus a single ARCH value
 	t.Setenv("IMAGE_TAG", "v9.9.9")
 	t.Setenv("GITHUB_ACTIONS", "true")
 	t.Setenv("ARCH", "arm64")
@@ -186,15 +186,15 @@ func TestBuildImageTagDecoratesSingleArch(t *testing.T) {
 	}
 }
 
-// TestBuildImageTagSingleArchDecoratesFallbackVersion covers the -<arch>
-// decoration landing on the bare version default when the resolver falls back
-// outside CI and outside a git checkout.
+// TestBuildImageTagSingleArchDecoratesFallbackVersion covers buildImageTag
+// decorating the bare version default with -<arch> outside CI and outside a
+// git checkout.
 func TestBuildImageTagSingleArchDecoratesFallbackVersion(t *testing.T) {
-	// not in CI, single-arch ARCH set, and run from outside any git checkout so
-	// the resolver falls back to the bare version default before decorating
+	// no IMAGE_TAG, outside CI, a single ARCH value
 	t.Setenv("IMAGE_TAG", "")
 	t.Setenv("GITHUB_ACTIONS", "")
 	t.Setenv("ARCH", "amd64")
+	// leave the enclosing checkout so the version default is the tag
 	isolateFromGit(t)
 	// the arch decorates the bare fallback version
 	got, err := buildImageTag("", "v0.1.0-dev")
@@ -207,9 +207,9 @@ func TestBuildImageTagSingleArchDecoratesFallbackVersion(t *testing.T) {
 }
 
 // TestBuildImageTagCommaListArchIsBare covers a comma-list ARCH leaving the
-// resolved tag undecorated, the bare-tag path the manifest job consumes.
+// resolved tag undecorated.
 func TestBuildImageTagCommaListArchIsBare(t *testing.T) {
-	// an override with a comma-list ARCH, as the manifest stitch sets
+	// an override with a comma-list ARCH, as a one-shot multi-arch build sets
 	t.Setenv("IMAGE_TAG", "v9.9.9")
 	t.Setenv("GITHUB_ACTIONS", "true")
 	t.Setenv("ARCH", "amd64,arm64")
@@ -223,24 +223,28 @@ func TestBuildImageTagCommaListArchIsBare(t *testing.T) {
 	}
 }
 
-// initRepo creates a git repository holding one empty commit and returns its
-// path alongside the seven-character sha of that commit. The redirect variables
-// must already be cleared, which clearGitRedirects does.
+// initRepo creates a git repository holding one empty commit and
+// returns its path and seven-character HEAD sha. Redirect variables
+// must already be cleared before this helper runs.
 func initRepo(t *testing.T) (dir, sha string) {
 	t.Helper()
+	// create an empty directory for the fixture repository
 	dir = t.TempDir()
+	// init main, set identity, and seed one empty commit
 	commands := [][]string{
 		{"init", "--initial-branch=main"},
 		{"config", "user.email", "test@example.com"},
 		{"config", "user.name", "test"},
 		{"commit", "--allow-empty", "-m", "seed"},
 	}
+	// run the seed commands against that directory
 	for _, args := range commands {
 		out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput()
 		if err != nil {
 			t.Fatalf("git %v in fixture repo: %s: %v", args, out, err)
 		}
 	}
+	// read the seven-character HEAD sha
 	out, err := exec.Command("git", "-C", dir, "rev-parse", "--short=7", "HEAD").Output()
 	if err != nil {
 		t.Fatalf("failed to read fixture repo sha: %v", err)
@@ -249,17 +253,16 @@ func initRepo(t *testing.T) (dir, sha string) {
 }
 
 // TestResolveImageTagReadsShaFromRepoDir covers ResolveImageTag reading the
-// commit sha from the repository it is handed rather than from the directory the
-// process runs in, so a caller holding a repository path tags the code it is
-// actually building.
+// short sha from the repository it is handed rather than the process working
+// directory.
 func TestResolveImageTagReadsShaFromRepoDir(t *testing.T) {
-	// not in CI, and run from a directory holding no repository so a
-	// working-directory read cannot pass
+	// no IMAGE_TAG, outside CI, ARCH unset
 	t.Setenv("IMAGE_TAG", "")
 	t.Setenv("GITHUB_ACTIONS", "")
 	t.Setenv("ARCH", "")
+	// leave the process checkout so a working-directory read cannot pass
 	isolateFromGit(t)
-	// a fixture repository stands in for the caller's tree
+	// a fixture repository with a known HEAD sha
 	repoDir, want := initRepo(t)
 	// the tag carries the fixture repository's sha
 	got, err := ResolveImageTag(repoDir, "v0.1.0-dev")
@@ -272,9 +275,9 @@ func TestResolveImageTagReadsShaFromRepoDir(t *testing.T) {
 }
 
 // TestJoinImageTagJoinsVersionAndSha covers joinImageTag joining a version
-// and short sha with a dot, the dev-path tag the workflows push.
+// and a short sha with a dot.
 func TestJoinImageTagJoinsVersionAndSha(t *testing.T) {
-	// the version carries the v prefix and dev suffix as version.txt holds it
+	// join a version and a short sha with a dot
 	if got := joinImageTag("v0.1.0-dev", "abc1234"); got != "v0.1.0-dev.abc1234" {
 		t.Errorf("joinImageTag = %q, want v0.1.0-dev.abc1234", got)
 	}
