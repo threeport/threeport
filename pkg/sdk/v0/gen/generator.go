@@ -14,8 +14,8 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
 
-	api "github.com/threeport/threeport/pkg/api/v0"
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	api "github.com/threeport/threeport/pkg/api/v0"
 	sdk "github.com/threeport/threeport/pkg/sdk/v0"
 	sdkutil "github.com/threeport/threeport/pkg/sdk/v0/util"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -580,10 +580,7 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 				return apiObjects[i].TypeName < apiObjects[j].TypeName
 			})
 
-			// set of this group's object names, used to attribute tags from
-			// model files other than the group file: a group object declared in
-			// its own source file contributes its tags, while unrelated types in
-			// the version directory are skipped
+			// index this group's object names so a type in its own file still contributes tags
 			groupObjectNames := make(map[string]bool)
 			for _, c := range apiObjects {
 				groupObjectNames[c.TypeName] = true
@@ -597,10 +594,7 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 			// can flatten embedded fields into the collision check
 			structEmbeds := make(map[string][]string)
 
-			// list the hand-authored model files in the version directory so a
-			// group object declared in its own file is parsed alongside the
-			// group file; generated, validation, and test files carry no model
-			// definitions
+			// list hand-written model files in the version package
 			versionDir := filepath.Join("pkg", "api", version)
 			modelFileEntries, err := os.ReadDir(versionDir)
 			if err != nil {
@@ -612,6 +606,7 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 				if entry.IsDir() || !strings.HasSuffix(name, ".go") {
 					continue
 				}
+				// skip generated, test, and validation files; they carry no model definitions
 				if strings.HasSuffix(name, "_gen.go") ||
 					strings.HasSuffix(name, "_test.go") ||
 					strings.HasSuffix(name, "_validate.go") {
@@ -619,25 +614,26 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 				}
 				modelFilenames = append(modelFilenames, name)
 			}
+			// sort so parse order is stable across runs
 			sort.Strings(modelFilenames)
 
-			// inspect each model file's syntax tree for the object models
+			// inspect each model file for object models
 			for _, modelFilename := range modelFilenames {
-				// the group file records every struct it declares, including
-				// nested helper types; other files contribute only this group's
-				// objects so unrelated types are not pulled into the group
+				// the group file records every struct it declares, including helper types
 				isGroupFile := modelFilename == filename
 
 				modelFilepath := filepath.Join(versionDir, modelFilename)
 				fset := token.NewFileSet()
+				// parse including comments so type godoc can be copied
 				pf, err := parser.ParseFile(fset, modelFilepath, nil, parser.ParseComments|parser.AllErrors)
 				if err != nil {
 					return fmt.Errorf("failed to parse source code file: %w", err)
 				}
 
-				// create a comment map to associate comments with AST nodes
+				// map comments onto declarations for object descriptions
 				commentMap := ast.NewCommentMap(fset, pf, pf.Comments)
 
+				// walk type declarations
 				for _, node := range pf.Decls {
 					switch node.(type) {
 					case *ast.GenDecl:
@@ -645,19 +641,12 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 						genDecl := node.(*ast.GenDecl)
 						for _, spec := range genDecl.Specs {
 							switch spec.(type) {
-							// in the case we're looking at a struct type definition, inspect
 							case *ast.TypeSpec:
-								// if the spec is a type spec, get the type spec and
-								// its name
 								typeSpec := spec.(*ast.TypeSpec)
 								objectName = typeSpec.Name.Name
 
-								// check if this is a struct type
 								if structType, ok := typeSpec.Type.(*ast.StructType); ok {
-									// outside the group file, record only this group's
-									// objects so a type split into its own file
-									// contributes its tags without pulling in
-									// unrelated types from the version directory
+									// skip unrelated types in other files
 									if !isGroupFile && !groupObjectNames[objectName] {
 										continue
 									}
@@ -668,16 +657,13 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 										}
 									}
 
-									// extract comment description for the struct type
 									if mc != nil {
+										// copy the type's godoc into Description as a single line
 										if commentGroups, exists := commentMap[genDecl]; exists && len(commentGroups) > 0 {
-											// extract the comment text from the first comment group and clean it up
 											commentText := commentGroups[0].Text()
 											commentText = strings.TrimSpace(commentText)
-											// normalize whitespace and remove unnecessary line breaks
 											commentText = strings.ReplaceAll(commentText, "\n", " ")
 											commentText = strings.ReplaceAll(commentText, "\r", " ")
-											// replace multiple consecutive spaces with single space
 											for strings.Contains(commentText, "  ") {
 												commentText = strings.ReplaceAll(commentText, "  ", " ")
 											}
@@ -689,49 +675,43 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 									structTags[objectName] = make(map[string]map[string]string)
 									fieldTypes[objectName] = make(map[string]string)
 
-									// if so, iterate over the fields
+									// inspect each field
 									for _, field := range structType.Fields.List {
-										// fields will be of type *ast.Ident
+										// mark NameField when the field type is Name, Definition, or Instance
 										if identType, ok := field.Type.(*ast.Ident); ok {
 											if util.StringSliceContains(nameFields(), identType.Name, true) {
 												mc.NameField = true
 											}
 										}
-										// structs will be of type *ast.SelectorExpr
+										// mark NameField when a qualified type ends in those names
 										if identType, ok := field.Type.(*ast.SelectorExpr); ok {
 											if util.StringSliceContains(nameFields(), identType.Sel.Name, true) {
 												mc.NameField = true
 											}
 										}
-										// each field is an *ast.Field, which has a Names field that
-										// is a []*ast.Ident - iterate over those names to find the
-										// one we're looking for
+										// mark NameField when the field itself is named Name, Definition, or Instance
 										for _, name := range field.Names {
 											if util.StringSliceContains(nameFields(), name.Name, true) {
 												mc.NameField = true
 											}
 										}
 
-										// anonymous embed: record the embed type name on
-										// this struct, then move on. The embed's own field
-										// tags live in g.EmbedTypes (parsed once up front).
+										// record an in-package anonymous embed and skip tag parsing on it
 										if len(field.Names) == 0 {
-											// anon embed type is either a bare identifier
-											// (e.g. `Common`) or a selector (e.g.
-											// `pkgalias.SomeType`); only the bare-ident case
-											// applies to threeport's in-package embeds
 											if ident, ok := field.Type.(*ast.Ident); ok {
 												structEmbeds[objectName] = append(structEmbeds[objectName], ident.Name)
 											}
 											continue
 										}
 										fieldName := field.Names[0].Name
+										// require a struct tag on every named field
 										if field.Tag == nil {
 											return fmt.Errorf(
 												"field %s in object %s has no struct tags defined",
 												fieldName, objectName,
 											)
 										}
+										// parse tags and record the field's Go type expression
 										tagMap := util.ParseStructTag(field.Tag.Value)
 										structTags[objectName][fieldName] = tagMap
 										fieldTypes[objectName][fieldName] = types.ExprString(field.Type)
@@ -1035,18 +1015,9 @@ var allowedEmbed = map[string]bool{
 // error messages. Kept in sync with allowedEmbed.
 const allowedEmbedNames = "Common, Definition, Instance, or Reconciliation"
 
-// ValidateTags walks every API object's struct tags and returns a non-nil
-// error if any threeport-specific tag has an invalid value.
-//
-// Validates:
-//   - relationship: kind is recognized; modifier keys are recognized;
-//     the target type (`type:<TypeName>` modifier or the field name minus
-//     its "ID" suffix) names a registered API object; field type is *uint
-//   - encrypt: value matches EncryptTrue
-//   - validate: value matches a recognized validator value
-//   - persist: value matches PersistFalse (true is the default; omit the tag)
-//   - query: rejected outright; query keys derive from the lowercased field
-//     name, so an explicit override is redundant and a rename hazard
+// ValidateTags reports invalid relationship, encrypt, validate, persist, and
+// query tags, and disallowed anonymous embeds, on every API object group.
+// It collects every problem, sorts them, and returns them in one error.
 func (g *Generator) ValidateTags() error {
 	// build the set of registered API type names so the relationship
 	// validator can verify that any `type:<TypeName>` modifier names a

@@ -11,29 +11,34 @@ func RunCommandStreamOutput(command string, args ...string) error {
 	return RunCommandStreamOutputInDir("", command, args...)
 }
 
-// RunCommandStreamOutputInDir runs a command from the given directory and
-// streams the output back to the user. An empty directory runs the command
-// from the caller's working directory.
+// RunCommandStreamOutputInDir runs a command from dir and streams the output
+// back to the user. An empty string runs the command from the caller's
+// working directory.
 func RunCommandStreamOutputInDir(dir string, command string, args ...string) error {
+	// construct the command with dir as the child's working directory
 	cmd := exec.Command(command, args...)
 	cmd.Dir = dir
 
+	// get stdout pipe
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("error getting stdout pipe: %w", err)
 	}
 
+	// get stderr pipe
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("error getting stderr pipe: %w", err)
 	}
 
+	// start the command
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("error starting command: %w", err)
 	}
 
 	done := make(chan struct{})
 
+	// stream stdout lines to the user
 	go func() {
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
@@ -45,6 +50,7 @@ func RunCommandStreamOutputInDir(dir string, command string, args ...string) err
 		done <- struct{}{}
 	}()
 
+	// stream stderr lines to the user
 	go func() {
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
@@ -57,11 +63,12 @@ func RunCommandStreamOutputInDir(dir string, command string, args ...string) err
 		done <- struct{}{}
 	}()
 
-	// drain both scanners first: the wait below closes the pipes they read
-	// from, so a wait that runs first loses whatever output has not been read
+	// drain both scanners first: Wait closes the pipes they read from,
+	// so waiting first loses unread output
 	<-done
 	<-done
 
+	// wait for the command to exit
 	if err := cmd.Wait(); err != nil {
 		return fmt.Errorf("error waiting for command: %w", err)
 	}

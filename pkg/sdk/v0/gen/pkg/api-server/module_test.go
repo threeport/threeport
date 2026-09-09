@@ -10,9 +10,8 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/gen"
 )
 
-// moduleFixtureGenerator returns a generator populated the way the SDK
-// populates one for a module: a module path that is not the threeport project,
-// and a single object group carrying a reconciled definition and instance.
+// moduleFixtureGenerator returns a generator with a module path outside
+// the threeport project and one reconciled Widget group.
 func moduleFixtureGenerator() *gen.Generator {
 	return &gen.Generator{
 		Module:     true,
@@ -34,8 +33,8 @@ func moduleFixtureGenerator() *gen.Generator {
 	}
 }
 
-// moduleFixtureSdkConfig returns the SDK config fields the module registration
-// generator reads.
+// moduleFixtureSdkConfig returns an SDK config named Widget in the
+// widget.example.com namespace.
 func moduleFixtureSdkConfig() *sdk.SdkConfig {
 	return &sdk.SdkConfig{
 		ModuleName:   "Widget",
@@ -43,70 +42,73 @@ func moduleFixtureSdkConfig() *sdk.SdkConfig {
 	}
 }
 
-// generateModuleRegistration runs the module registration generator with the
-// working directory pointed at a scratch tree, then returns what it wrote.
-// The generator writes to a path relative to the working directory, so the
-// chdir keeps the run out of the repository.
+// generateModuleRegistration writes module registration source into a
+// scratch directory and returns it.
 func generateModuleRegistration(t *testing.T) string {
 	t.Helper()
 
+	// get the process working directory
 	originalDir, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("failed to read working directory: %v", err)
 	}
+	// change to a scratch directory so relative writes stay out of the source tree
 	if err := os.Chdir(t.TempDir()); err != nil {
 		t.Fatalf("failed to change to scratch directory: %v", err)
 	}
+	// restore the process working directory
 	t.Cleanup(func() {
 		if err := os.Chdir(originalDir); err != nil {
 			t.Fatalf("failed to restore working directory: %v", err)
 		}
 	})
 
+	// generate the module registration source
 	if err := GenModuleRegistration(moduleFixtureGenerator(), moduleFixtureSdkConfig()); err != nil {
 		t.Fatalf("GenModuleRegistration returned an error: %v", err)
 	}
 
+	// read the generated module registration
 	generated, err := os.ReadFile(filepath.Join("pkg", "api-server", "v0", "module_gen.go"))
 	if err != nil {
 		t.Fatalf("failed to read generated module registration: %v", err)
 	}
 
+	// return the generated source
 	return string(generated)
 }
 
-// TestGenModuleRegistrationEmitsModuleName asserts that the registration code a
-// module gets carries the module name the control plane registers it under,
-// built from the API namespace and the kebab-cased module name.
+// TestGenModuleRegistrationEmitsModuleName covers the module name the
+// control plane registers the module under.
 func TestGenModuleRegistrationEmitsModuleName(t *testing.T) {
+	// generate the module registration source
 	generated := generateModuleRegistration(t)
 
-	// the name is what a second install of the same module looks itself up by,
-	// so a change here silently orphans the record the first install created
+	// check the generated source declares the module name
 	if want := `"widget.example.com/widget-module-api"`; !strings.Contains(generated, want) {
 		t.Errorf("generated module registration does not declare module name %s", want)
 	}
 }
 
-// TestGenModuleRegistrationImportsModuleRoutes asserts that the generated code
-// reaches the module's own route package rather than the core one, which is
-// what makes the output specific to the module it was generated for.
+// TestGenModuleRegistrationImportsModuleRoutes covers the generated
+// import of the module's own routes package.
 func TestGenModuleRegistrationImportsModuleRoutes(t *testing.T) {
+	// generate the module registration source
 	generated := generateModuleRegistration(t)
 
+	// check the generated source imports the module's own routes package
 	if want := `"example.com/widget-module/pkg/api-server/v0/routes"`; !strings.Contains(generated, want) {
 		t.Errorf("generated module registration does not import %s", want)
 	}
 }
 
-// TestGenModuleRegistrationRegistersReconciledObjects asserts that every
-// reconciled object and its controller get a registration block, since an
-// object missing one is invisible to the control plane while still compiling.
+// TestGenModuleRegistrationRegistersReconciledObjects covers the generated
+// lookups for the controller and its objects.
 func TestGenModuleRegistrationRegistersReconciledObjects(t *testing.T) {
+	// generate the module registration source
 	generated := generateModuleRegistration(t)
 
-	// each lookup is the query the module makes against the control plane on
-	// startup, so its absence means the object or controller never registers
+	// check the generated source looks up the controller and both objects
 	for _, want := range []string{
 		`fmt.Sprintf("name=%s&moduleapiid=%d", "widget-controller"`,
 		`"name=WidgetDefinition&moduleapiid=%d"`,
@@ -118,31 +120,36 @@ func TestGenModuleRegistrationRegistersReconciledObjects(t *testing.T) {
 	}
 }
 
-// TestGenModuleRegistrationHonorsExcludeFiles asserts that a project excluding
-// the registration file gets no file written, which is how a module supplies
-// its own registration by hand.
+// TestGenModuleRegistrationHonorsExcludeFiles covers skipping the write
+// when the output path is excluded.
 func TestGenModuleRegistrationHonorsExcludeFiles(t *testing.T) {
+	// get the process working directory
 	originalDir, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("failed to read working directory: %v", err)
 	}
+	// change to a scratch directory so relative writes stay out of the source tree
 	if err := os.Chdir(t.TempDir()); err != nil {
 		t.Fatalf("failed to change to scratch directory: %v", err)
 	}
+	// restore the process working directory
 	t.Cleanup(func() {
 		if err := os.Chdir(originalDir); err != nil {
 			t.Fatalf("failed to restore working directory: %v", err)
 		}
 	})
 
+	// exclude the generated registration file
 	generatedPath := filepath.Join("pkg", "api-server", "v0", "module_gen.go")
 	sdkConfig := moduleFixtureSdkConfig()
 	sdkConfig.ExcludeFiles = []string{generatedPath}
 
+	// generate the module registration source
 	if err := GenModuleRegistration(moduleFixtureGenerator(), sdkConfig); err != nil {
 		t.Fatalf("GenModuleRegistration returned an error: %v", err)
 	}
 
+	// check the excluded file was not written
 	if _, err := os.Stat(generatedPath); !os.IsNotExist(err) {
 		t.Errorf("excluded file %s was written anyway", generatedPath)
 	}

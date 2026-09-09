@@ -7,15 +7,16 @@ import (
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 )
 
-// CaptureCaller returns middleware that stashes the caller's identity in the
-// request context, where the database hooks read it to decide whether a caller
-// may change rows another object owns.
+// Database hooks read caller identity from the request context to
+// decide whether a caller may change rows another object owns.
+
+// CaptureCaller returns middleware that stashes the mTLS peer identity
+// on the request context. It does not authenticate or reject the request.
 func CaptureCaller(authEnabled bool) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			// copy identity from the leaf client certificate subject
 			if tlsState := c.Request().TLS; tlsState != nil && len(tlsState.PeerCertificates) > 0 {
-				// read the caller from the subject of the client certificate the
-				// server already verified against the control plane CA
 				subject := tlsState.PeerCertificates[0].Subject
 				id := lib.CallerIdentity{CommonName: subject.CommonName}
 				if len(subject.Organization) > 0 {
@@ -30,10 +31,9 @@ func CaptureCaller(authEnabled bool) echo.MiddlewareFunc {
 				return next(c)
 			}
 
+			// treat the caller as the control plane when auth is off so
+			// reconcilers can still update the rows they own
 			if !authEnabled {
-				// treat every caller as the control plane when auth is off, since
-				// no client certificate exists to read and internal reconcilers
-				// must keep updating the rows they own
 				c.SetRequest(c.Request().WithContext(
 					lib.WithCaller(c.Request().Context(), lib.CallerIdentity{
 						OrganizationalUnit: auth.OUControlPlane,
@@ -42,8 +42,8 @@ func CaptureCaller(authEnabled bool) echo.MiddlewareFunc {
 				return next(c)
 			}
 
-			// leave the identity empty so a request with no client certificate
-			// on a path other than the mTLS listener is handled as external
+			// leave identity empty so a request with no client
+			// certificate is handled as an external caller
 			return next(c)
 		}
 	}

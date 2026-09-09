@@ -561,8 +561,7 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
-	// emit the module API lookup as a helper so the registration entrypoint
-	// stays flat
+	// emit the module API lookup helper so the registration entrypoint stays flat
 	f.Comment("resolveModuleApi looks up the module API by name. It returns the record")
 	f.Comment("when one is registered under that name, and otherwise reports that a fresh")
 	f.Comment("record must be created.")
@@ -603,9 +602,7 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	)
 	f.Line()
 
-	// emit the controller create-then-rebind helper, which lets a module that
-	// was partially installed before finish registering instead of failing on
-	// the leftover controller row
+	// emit the controller create-then-rebind helper
 	f.Comment("upsertModuleController creates the module controller. When the create")
 	f.Comment("hits a name conflict, it looks up the existing row by name alone and, if")
 	f.Comment("that row points at a different module_api_id, updates it to the current")
@@ -665,8 +662,7 @@ func GenModuleRegistration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			),
 			Return(Id("existing"), Nil()),
 		),
-		// the prior binding is nil when the conflicting row was never bound, so
-		// render it separately rather than formatting the pointer itself
+		// render the prior module API id as text, none when unset
 		Id("priorModuleApi").Op(":=").Lit("none"),
 		If(Id("existing").Dot("ModuleApiID").Op("!=").Nil()).Block(
 			Id("priorModuleApi").Op("=").Qual("fmt", "Sprintf").Call(

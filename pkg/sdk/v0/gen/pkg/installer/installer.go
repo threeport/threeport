@@ -46,10 +46,8 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	moduleNameCamel := strcase.ToCamel(sdkConfig.ModuleName)
 	moduleNameLowerCamel := strcase.ToLowerCamel(sdkConfig.ModuleName)
 
-	// pick the module's first generated API object as the route to poll for
-	// readiness. Its versioned api package exposes a Path<PluralTypeName>
-	// constant naming the REST collection route, which is served through the
-	// Threeport API once the module API server is running.
+	// pick the first API object's collection path constant as the readiness probe
+	// any collection GET is enough, so the first object found is used
 	var readinessRouteVersion string
 	var readinessRoutePathConst string
 	for _, objCollection := range gen.VersionedApiObjectCollections {
@@ -880,13 +878,9 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 			g.Line()
 		}
 
-		// emit the readiness poll last so it confirms the whole module is serving:
-		// the module API server is reached through the Threeport API, so poll one of
-		// the module's collection routes through the Threeport API client until it
-		// returns HTTP 200. The API server Service and controllers are created above,
-		// so by the time the poll runs the proxied request can reach a serving pod;
-		// until then the proxied call returns an empty or error body rather than a
-		// decodable response, so the retry keeps waiting before the install returns.
+		// emit a wait that GETs that path through the Threeport API until 200
+		// the poll runs last so the API Service already exists
+		// a 200 means the module is serving through the Threeport API proxy
 		if readinessRoutePathConst != "" {
 			readinessRoutePackage := fmt.Sprintf(
 				"%s/pkg/api/%s",

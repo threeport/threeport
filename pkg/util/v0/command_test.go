@@ -11,18 +11,20 @@ import (
 )
 
 // captureStdout runs fn with os.Stdout replaced by a pipe and returns
-// everything written to it.  The helpers under test print with fmt.Println,
-// which writes to os.Stdout directly, so reading their output means replacing
-// that file for the duration of the call.
+// everything written to it. The helpers under test print with fmt.Println,
+// which writes to os.Stdout, so the capture replaces that file while fn runs.
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
 
+	// open a pipe to replace stdout
 	read, write, err := os.Pipe()
 	require.NoError(t, err, "failed to open a pipe to replace stdout")
 
+	// replace stdout with the write end
 	original := os.Stdout
 	os.Stdout = write
 
+	// drain the pipe in the background
 	captured := make(chan string, 1)
 	go func() {
 		var builder strings.Builder
@@ -34,19 +36,23 @@ func captureStdout(t *testing.T, fn func()) string {
 		captured <- builder.String()
 	}()
 
+	// run the function under the replaced stdout
 	fn()
 
+	// restore stdout
 	os.Stdout = original
+	// close the write end so the reader sees EOF
 	require.NoError(t, write.Close(), "failed to close the replacement stdout")
 
+	// wait for the drained output
 	return <-captured
 }
 
-// TestRunCommandStreamOutputInDirRunsFromTheGivenDirectory asserts that the
+// TestRunCommandStreamOutputInDirRunsFromTheGivenDirectory covers that the
 // directory applies to the command alone, leaving the calling process where it
 // was so a later command still resolves paths against it.
 func TestRunCommandStreamOutputInDirRunsFromTheGivenDirectory(t *testing.T) {
-	// setup: a directory holding one file, named so a listing identifies it
+	// create a directory holding one file a listing can identify
 	dir := t.TempDir()
 	require.NoError(
 		t,
@@ -54,10 +60,11 @@ func TestRunCommandStreamOutputInDirRunsFromTheGivenDirectory(t *testing.T) {
 		"failed to write the marker file",
 	)
 
+	// record the calling process working directory
 	before, err := os.Getwd()
 	require.NoError(t, err, "failed to read the working directory")
 
-	// action: list the temporary directory from the caller's own directory
+	// list the temporary directory from the caller's own directory
 	output := captureStdout(t, func() {
 		assert.NoError(t, RunCommandStreamOutputInDir(dir, "ls"), "the listing should succeed")
 	})

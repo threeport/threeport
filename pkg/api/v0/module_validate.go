@@ -112,11 +112,9 @@ func (m *ModuleApiRoute) afterCreate(tx *gorm.DB) error {
 		return nil
 	}
 
-	// a module can register after the API server has started, so this hook never
-	// sees the auth flag that decided how to reach a module API server. Read the
-	// scheme and transport the router recorded at startup instead, and read them
-	// once here rather than on every proxied request.
+	// get proxy scheme and transport recorded at startup - this hook does not receive the auth flag
 	scheme, transport := ModRouter.ProxyConfig()
+	// add reverse proxy route for this path
 	ModRouter.AddRoute(*m.Path, func(c echo.Context) error {
 		proxyUrl, err := url.Parse(
 			fmt.Sprintf("%s://%s", scheme, *modApi.Endpoint),
