@@ -48,33 +48,28 @@ images to be pushed to - and pulled from - a remote registry.
 mage dev:localRegistryUp
 ```
 
-Build all Threeport control plane images and push them to the local registry:
+Build all Threeport control plane images and push them to the local registry.
+With no overrides, `mage build:allImages` pushes to `localhost:5001` and tags
+each image with the current version plus the short commit sha.
 
 ```bash
-mage build:allImagesDev
+mage build:allImages
 ```
 
 Install Threeport from the newly built images.  `--name` is an arbitrary name
-you choose for this control plane instance.  `--control-plane-image-tag` must
-match the tag `mage build:allImagesDev` just pushed to the registry - that tag
-comes from `internal/version/version.txt` (the same file
-`mage build:allImagesDev` reads via `version.GetVersion()`), so rather than
-hardcoding a version that will go stale as this branch is synced with new
-releases, read it from that file.  `--control-plane-image-namespace` is always
-`localhost:5001` for this local-registry workflow:
+you choose for this control plane instance.  Omit `--control-plane-image-tag`
+so `tptctl up` resolves the same sha-suffixed tag the build pushed.
+`--control-plane-image-namespace` is always `localhost:5001` for this
+local-registry workflow:
 
 ```bash
 CONTROL_PLANE_NAME=dev-0  # an arbitrary name for the Threeport installation
-CONTROL_PLANE_IMAGE_NAMESPACE=localhost:5001
-CONTROL_PLANE_IMAGE_TAG=$(cat internal/version/version.txt)
 
 tptctl up \
   --name "$CONTROL_PLANE_NAME" \
   --provider kind \
-  --auth-enabled=false \
   --local-registry \
-  --control-plane-image-namespace "$CONTROL_PLANE_IMAGE_NAMESPACE" \
-  --control-plane-image-tag "$CONTROL_PLANE_IMAGE_TAG"
+  --control-plane-image-namespace localhost:5001
 ```
 
 This will start a local kind cluster and install the control plane.  You can now
