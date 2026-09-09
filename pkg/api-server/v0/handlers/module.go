@@ -145,7 +145,6 @@ func (h Handler) fetchModuleObjectPage(
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/module-objects-with-module-api-routes [GET]
 func (h Handler) GetModuleObjectsWithModuleApiRoutes(c echo.Context) error {
-	objectType := api_v0.ObjectTypeModuleObject
 	fullyQualifiedType := new(api_v0.ModuleObject).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -158,7 +157,7 @@ func (h Handler) GetModuleObjectsWithModuleApiRoutes(c echo.Context) error {
 	var filter api_v0.ModuleObject
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -195,10 +194,10 @@ func (h Handler) GetModuleObjectsWithModuleApiRoutes(c echo.Context) error {
 			page, _, err := h.fetchModuleObjectPage(c, &filter, pageParams, pagination)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 			}
 			records = page
 
@@ -217,10 +216,10 @@ func (h Handler) GetModuleObjectsWithModuleApiRoutes(c echo.Context) error {
 		page, fetchedCount, err := h.fetchModuleObjectPage(c, &filter, pageParams, pagination)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 		}
 		records = page
 
