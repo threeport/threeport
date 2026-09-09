@@ -359,8 +359,12 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Id("c"),
 									Nil(),
 									Qual("errors", "New").Call(Qual("fmt", "Sprintf").Call(
-										Line().Lit("object with ID %d already being deleted"),
+										Line().Lit("object with ID %d %s"),
 										Line().Op("*").Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("ID"),
+										Line().Qual(
+											"github.com/threeport/threeport/pkg/api/v0",
+											"ErrMsgAlreadyBeingDeleted",
+										),
 										Line(),
 									)),
 									Id("objectType"),
@@ -522,10 +526,13 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Len(Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot(instancesName)).Op("!=").Lit(0).Block(
 							Id("err").Op(":=").Qual("errors", "New").Call(
 								Lit(fmt.Sprintf(
-									"%s has related %s - cannot be deleted",
+									"%s has related %s - ",
 									strcase.ToDelimited(apiObject.TypeName, ' '),
 									strcase.ToDelimited(instancesName, ' '),
-								)),
+								)).Op("+").Qual(
+									"github.com/threeport/threeport/pkg/api/v0",
+									"ErrMsgDeleteBlocked",
+								),
 							),
 							Return().Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",

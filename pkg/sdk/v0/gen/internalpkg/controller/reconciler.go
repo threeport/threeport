@@ -436,6 +436,72 @@ func GenReconcilers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	return nil
 }
 
+const clientLib = "github.com/threeport/threeport/pkg/client/lib/v0"
+
+// emitDeleteConflictWait emits the retryable-delete 409 branch: log at
+// Info, record ReasonDeleteInProgress, wait 30 seconds, and continue.
+func emitDeleteConflictWait(k *Group, errVar, logMsg, varObjectName string) {
+	k.If(
+		Qual("errors", "Is").Call(
+			Id(errVar),
+			Qual(clientLib, "ErrDeleteInProgress"),
+		).Op("||").Qual("errors", "Is").Call(
+			Id(errVar),
+			Qual(clientLib, "ErrDeleteBlocked"),
+		),
+	).Block(
+		Id("log").Dot("Info").Call(
+			Line().Lit(logMsg),
+			Line().Lit("cause"), Id(errVar).Dot("Error").Call(),
+			Line(),
+		),
+		Id("deleteNote").Op(":=").Lit("deleting"),
+		If(
+			List(Id("owner"), Id("ok")).Op(":=").Id(varObjectName).Assert(
+				Qual(
+					"github.com/threeport/threeport/pkg/api/v0",
+					"RelationshipTaggedForeignKeyProvider",
+				),
+			),
+			Id("ok"),
+		).Block(
+			Id("deleteNote").Op("=").Qual(
+				"github.com/threeport/threeport/pkg/event/v0",
+				"DeleteNote",
+			).Call(Id("owner")),
+		),
+		If(
+			Id("recordErr").Op(":=").Id("r").Dot("EventsRecorder").Dot("RecordEvent").Call(
+				Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
+					Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+						Qual("github.com/threeport/threeport/pkg/event/v0", "ReasonDeleteInProgress"),
+					),
+					Id("Note"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Id("deleteNote")),
+					Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+						Qual("github.com/threeport/threeport/pkg/event/v0", "TypeNormal"),
+					),
+				}),
+				Line().Id(varObjectName).Dot("GetId").Call(),
+				Line().Id(varObjectName).Dot("GetFullyQualifiedType").Call(),
+				Line(),
+			).Op(";").Id("recordErr").Op("!=").Nil().Block(
+				Id("log").Dot("Error").Call(
+					Id("recordErr"),
+					Lit("failed to record DeleteInProgress event"),
+				),
+			),
+		),
+		Id("r").Dot("UnlockAndRequeue").Call(
+			Line().Id(varObjectName),
+			Line().Lit(int64(30)),
+			Line().Id("lockReleased"),
+			Line().Id("msg"),
+			Line(),
+		),
+		Continue(),
+	)
+}
+
 // getLatestObject generates the source code for a controller's reconcile functions
 // to get the latest object if the "persist" field is not present or set to true.
 func getLatestObject(
@@ -569,34 +635,21 @@ func operationCase(
 			)
 		})
 		h.If(Id("operationErr").Op("!=").Nil()).BlockFunc(func(k *Group) {
-			// The API answers 409 on a delete it cannot carry out yet, either
-			// because the object is already being deleted or because something
-			// still attached to it has to go first. Both clear on their own, so
-			// wait at a flat 30 seconds and log at Info instead of recording a
-			// failure. Create and update skip this branch and take the error path
-			// below: a 409 there is almost always a name that is already taken,
+			// Match the retryable delete 409s (already underway, or blocked
+			// by attached objects / related instances) and wait at a flat 30
+			// seconds. Emit ReasonDeleteInProgress so the wait is visible
+			// from the events list. Create and update skip this branch: a
+			// 409 there is almost always a name that is already taken,
 			// which is permanent and earns the Warning event and the backoff.
 			if op == "delete" {
-				k.If(Qual("errors", "Is").Call(
-					Id("operationErr"),
-					Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrConflict"),
-				)).Block(
-					Id("log").Dot("Info").Call(
-						Line().Lit(fmt.Sprintf(
-							"conflict reconciling deleted %s object, requeueing",
-							strcase.ToDelimited(obj.Name, ' '),
-						)),
-						Line().Lit("cause"), Id("operationErr").Dot("Error").Call(),
-						Line(),
+				emitDeleteConflictWait(
+					k,
+					"operationErr",
+					fmt.Sprintf(
+						"conflict reconciling deleted %s object, requeueing",
+						strcase.ToDelimited(obj.Name, ' '),
 					),
-					Id("r").Dot("UnlockAndRequeue").Call(
-						Line().Id(varObjectName),
-						Line().Lit(int64(30)),
-						Line().Id("lockReleased"),
-						Line().Id("msg"),
-						Line(),
-					),
-					Continue(),
+					varObjectName,
 				)
 			}
 			k.Id("errorMsg").Op(":=").Lit(fmt.Sprintf(
@@ -720,43 +773,31 @@ func operationCase(
 				Line().Id(varObjectName).Dot("GetId").Call(),
 				Line(),
 			)
-			h.If(Id("err").Op("!=").Nil()).Block(
-				// The API answers 409 when it will not drop the row yet, which
-				// clears on its own. Wait at a flat 30 seconds and log at Info
-				// rather than fail the reconciliation.
-				If(Qual("errors", "Is").Call(
-					Id("err"),
-					Qual("github.com/threeport/threeport/pkg/client/lib/v0", "ErrConflict"),
-				)).Block(
-					Id("log").Dot("Info").Call(
-						Line().Lit(fmt.Sprintf(
-							"conflict deleting %s, requeueing",
-							strcase.ToDelimited(obj.Name, ' '),
-						)),
-						Line().Lit("cause"), Id("err").Dot("Error").Call(),
-						Line(),
+			h.If(Id("err").Op("!=").Nil()).BlockFunc(func(k *Group) {
+				// The API answers 409 when it will not drop the row yet.
+				// Wait at a flat 30 seconds, emit ReasonDeleteInProgress,
+				// and log at Info rather than fail the reconciliation.
+				emitDeleteConflictWait(
+					k,
+					"err",
+					fmt.Sprintf(
+						"conflict deleting %s, requeueing",
+						strcase.ToDelimited(obj.Name, ' '),
 					),
-					Id("r").Dot("UnlockAndRequeue").Call(
-						Line().Id(varObjectName),
-						Line().Lit(int64(30)),
-						Line().Id("lockReleased"),
-						Line().Id("msg"),
-						Line(),
-					),
-					Continue(),
-				),
-				Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
+					varObjectName,
+				)
+				k.Id("log").Dot("Error").Call(Id("err"), Lit(fmt.Sprintf(
 					"failed to delete %s",
 					strcase.ToDelimited(obj.Name, ' '),
-				))),
-				Id("r").Dot("UnlockAndRequeue").Call(
+				)))
+				k.Id("r").Dot("UnlockAndRequeue").Call(
 					Id(varObjectName),
 					Id("requeueDelay"),
 					Id("lockReleased"),
 					Id("msg"),
-				),
-				Continue(),
-			)
+				)
+				k.Continue()
+			})
 		}
 	})
 }
