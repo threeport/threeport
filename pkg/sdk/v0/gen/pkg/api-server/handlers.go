@@ -838,12 +838,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line().Func().Params(
 								Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
 							).Error().BlockFunc(func(t *Group) {
-								t.Id("scopedDB").Op(":=").Id("tx").Dot("Scopes").Call(
-									Qual(
-										"github.com/threeport/threeport/pkg/api-server/lib/v0",
-										"QueryScopes",
-									).Call(Id("c")).Op("..."),
-								)
 								t.Comment("the database assigns the primary key, so a retried attempt")
 								t.Comment("must not carry the one a rolled-back attempt was given")
 								t.Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("ID").Op("=").Nil()
@@ -854,7 +848,12 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										apiObject.TypeName,
 									)
 									t.If(
-										Id("result").Op(":=").Id("scopedDB").Dot("Where").Call(
+										Id("result").Op(":=").Id("tx").Dot("Scopes").Call(
+											Qual(
+												"github.com/threeport/threeport/pkg/api-server/lib/v0",
+												"QueryScopes",
+											).Call(Id("c")).Op("..."),
+										).Dot("Where").Call(
 											Lit("name = ?"),
 											Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("Name"),
 										).Dot("First").Call(
@@ -873,7 +872,12 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									t.Comment("and let the caller answer 409")
 									t.If(Id("nameUsed")).Block(Return(Nil()))
 								}
-								t.Return(Id("scopedDB").Dot("Create").Call(
+								t.Return(Id("tx").Dot("Scopes").Call(
+									Qual(
+										"github.com/threeport/threeport/pkg/api-server/lib/v0",
+										"QueryScopes",
+									).Call(Id("c")).Op("..."),
+								).Dot("Create").Call(
 									Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
 								).Dot("Error"))
 							}),
@@ -1640,26 +1644,30 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Line().Func().Params(
 								Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
 							).Error().BlockFunc(func(t *Group) {
-								t.Id("scopedDB").Op(":=").Id("tx").Dot("Scopes").Call(
-									Qual(
-										"github.com/threeport/threeport/pkg/api-server/lib/v0",
-										"QueryScopes",
-									).Call(Id("c")).Op("..."),
-								)
 								t.Comment("a retried attempt must not read into the previous one's leftovers")
 								t.Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op("=").Qual(
 									fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
 									apiObject.TypeName,
 								).Values()
 								t.If(
-									Id("result").Op(":=").Id("scopedDB").Dot("First").Call(
+									Id("result").Op(":=").Id("tx").Dot("Scopes").Call(
+										Qual(
+											"github.com/threeport/threeport/pkg/api-server/lib/v0",
+											"QueryScopes",
+										).Call(Id("c")).Op("..."),
+									).Dot("First").Call(
 										Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
 										Id(fmt.Sprintf("%sID", strcase.ToLowerCamel(apiObject.TypeName))),
 									).Op(";").Id("result").Dot("Error").Op("!=").Nil(),
 								).Block(
 									Return(Id("result").Dot("Error")),
 								)
-								t.Return(Id("scopedDB").Dot("Model").Call(
+								t.Return(Id("tx").Dot("Scopes").Call(
+									Qual(
+										"github.com/threeport/threeport/pkg/api-server/lib/v0",
+										"QueryScopes",
+									).Call(Id("c")).Op("..."),
+								).Dot("Model").Call(
 									Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
 								).Dot("Updates").Call(
 									Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),

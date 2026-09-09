@@ -65,11 +65,10 @@ func (h Handler) AddEvent(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			event.ID = nil
-			return scopedDB.Create(&event).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&event).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -293,13 +292,12 @@ func (h Handler) UpdateEvent(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingEvent = api_v0.Event{}
-			if result := scopedDB.First(&existingEvent, eventID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingEvent, eventID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingEvent).Updates(&updatedEvent).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingEvent).Updates(&updatedEvent).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

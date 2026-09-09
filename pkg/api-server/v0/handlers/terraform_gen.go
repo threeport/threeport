@@ -73,13 +73,12 @@ func (h Handler) AddTerraformDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			terraformDefinition.ID = nil
 			nameUsed = true
 			var existingTerraformDefinition api_v0.TerraformDefinition
-			if result := scopedDB.Where("name = ?", terraformDefinition.Name).First(&existingTerraformDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", terraformDefinition.Name).First(&existingTerraformDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -90,7 +89,7 @@ func (h Handler) AddTerraformDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&terraformDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&terraformDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -331,13 +330,12 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingTerraformDefinition = api_v0.TerraformDefinition{}
-			if result := scopedDB.First(&existingTerraformDefinition, terraformDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingTerraformDefinition, terraformDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingTerraformDefinition).Updates(&updatedTerraformDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingTerraformDefinition).Updates(&updatedTerraformDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -655,13 +653,12 @@ func (h Handler) AddTerraformInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			terraformInstance.ID = nil
 			nameUsed = true
 			var existingTerraformInstance api_v0.TerraformInstance
-			if result := scopedDB.Where("name = ?", terraformInstance.Name).First(&existingTerraformInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", terraformInstance.Name).First(&existingTerraformInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -672,7 +669,7 @@ func (h Handler) AddTerraformInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&terraformInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&terraformInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -913,13 +910,12 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingTerraformInstance = api_v0.TerraformInstance{}
-			if result := scopedDB.First(&existingTerraformInstance, terraformInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingTerraformInstance, terraformInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingTerraformInstance).Updates(&updatedTerraformInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingTerraformInstance).Updates(&updatedTerraformInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

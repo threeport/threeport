@@ -73,13 +73,12 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			domainNameDefinition.ID = nil
 			nameUsed = true
 			var existingDomainNameDefinition api_v0.DomainNameDefinition
-			if result := scopedDB.Where("name = ?", domainNameDefinition.Name).First(&existingDomainNameDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", domainNameDefinition.Name).First(&existingDomainNameDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -90,7 +89,7 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&domainNameDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&domainNameDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -317,13 +316,12 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingDomainNameDefinition = api_v0.DomainNameDefinition{}
-			if result := scopedDB.First(&existingDomainNameDefinition, domainNameDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingDomainNameDefinition, domainNameDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingDomainNameDefinition).Updates(&updatedDomainNameDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingDomainNameDefinition).Updates(&updatedDomainNameDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -571,13 +569,12 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			domainNameInstance.ID = nil
 			nameUsed = true
 			var existingDomainNameInstance api_v0.DomainNameInstance
-			if result := scopedDB.Where("name = ?", domainNameInstance.Name).First(&existingDomainNameInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", domainNameInstance.Name).First(&existingDomainNameInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -588,7 +585,7 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&domainNameInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&domainNameInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -829,13 +826,12 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingDomainNameInstance = api_v0.DomainNameInstance{}
-			if result := scopedDB.First(&existingDomainNameInstance, domainNameInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingDomainNameInstance, domainNameInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingDomainNameInstance).Updates(&updatedDomainNameInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingDomainNameInstance).Updates(&updatedDomainNameInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1147,13 +1143,12 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			gatewayDefinition.ID = nil
 			nameUsed = true
 			var existingGatewayDefinition api_v0.GatewayDefinition
-			if result := scopedDB.Where("name = ?", gatewayDefinition.Name).First(&existingGatewayDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", gatewayDefinition.Name).First(&existingGatewayDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -1164,7 +1159,7 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&gatewayDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&gatewayDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -1405,13 +1400,12 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingGatewayDefinition = api_v0.GatewayDefinition{}
-			if result := scopedDB.First(&existingGatewayDefinition, gatewayDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingGatewayDefinition, gatewayDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingGatewayDefinition).Updates(&updatedGatewayDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingGatewayDefinition).Updates(&updatedGatewayDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1725,11 +1719,10 @@ func (h Handler) AddGatewayHttpPort(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			gatewayHttpPort.ID = nil
-			return scopedDB.Create(&gatewayHttpPort).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&gatewayHttpPort).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -1953,13 +1946,12 @@ func (h Handler) UpdateGatewayHttpPort(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingGatewayHttpPort = api_v0.GatewayHttpPort{}
-			if result := scopedDB.First(&existingGatewayHttpPort, gatewayHttpPortID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingGatewayHttpPort, gatewayHttpPortID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingGatewayHttpPort).Updates(&updatedGatewayHttpPort).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingGatewayHttpPort).Updates(&updatedGatewayHttpPort).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -2201,13 +2193,12 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			gatewayInstance.ID = nil
 			nameUsed = true
 			var existingGatewayInstance api_v0.GatewayInstance
-			if result := scopedDB.Where("name = ?", gatewayInstance.Name).First(&existingGatewayInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", gatewayInstance.Name).First(&existingGatewayInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -2218,7 +2209,7 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&gatewayInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&gatewayInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -2459,13 +2450,12 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingGatewayInstance = api_v0.GatewayInstance{}
-			if result := scopedDB.First(&existingGatewayInstance, gatewayInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingGatewayInstance, gatewayInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingGatewayInstance).Updates(&updatedGatewayInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingGatewayInstance).Updates(&updatedGatewayInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -2773,11 +2763,10 @@ func (h Handler) AddGatewayTcpPort(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			gatewayTcpPort.ID = nil
-			return scopedDB.Create(&gatewayTcpPort).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&gatewayTcpPort).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -3001,13 +2990,12 @@ func (h Handler) UpdateGatewayTcpPort(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingGatewayTcpPort = api_v0.GatewayTcpPort{}
-			if result := scopedDB.First(&existingGatewayTcpPort, gatewayTcpPortID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingGatewayTcpPort, gatewayTcpPortID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingGatewayTcpPort).Updates(&updatedGatewayTcpPort).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingGatewayTcpPort).Updates(&updatedGatewayTcpPort).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

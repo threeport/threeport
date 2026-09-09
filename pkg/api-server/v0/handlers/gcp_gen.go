@@ -73,13 +73,12 @@ func (h Handler) AddGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			gcpGkeKubernetesRuntimeDefinition.ID = nil
 			nameUsed = true
 			var existingGcpGkeKubernetesRuntimeDefinition api_v0.GcpGkeKubernetesRuntimeDefinition
-			if result := scopedDB.Where("name = ?", gcpGkeKubernetesRuntimeDefinition.Name).First(&existingGcpGkeKubernetesRuntimeDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", gcpGkeKubernetesRuntimeDefinition.Name).First(&existingGcpGkeKubernetesRuntimeDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -90,7 +89,7 @@ func (h Handler) AddGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&gcpGkeKubernetesRuntimeDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&gcpGkeKubernetesRuntimeDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -317,13 +316,12 @@ func (h Handler) UpdateGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingGcpGkeKubernetesRuntimeDefinition = api_v0.GcpGkeKubernetesRuntimeDefinition{}
-			if result := scopedDB.First(&existingGcpGkeKubernetesRuntimeDefinition, gcpGkeKubernetesRuntimeDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingGcpGkeKubernetesRuntimeDefinition, gcpGkeKubernetesRuntimeDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingGcpGkeKubernetesRuntimeDefinition).Updates(&updatedGcpGkeKubernetesRuntimeDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingGcpGkeKubernetesRuntimeDefinition).Updates(&updatedGcpGkeKubernetesRuntimeDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -571,13 +569,12 @@ func (h Handler) AddGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			gcpGkeKubernetesRuntimeInstance.ID = nil
 			nameUsed = true
 			var existingGcpGkeKubernetesRuntimeInstance api_v0.GcpGkeKubernetesRuntimeInstance
-			if result := scopedDB.Where("name = ?", gcpGkeKubernetesRuntimeInstance.Name).First(&existingGcpGkeKubernetesRuntimeInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", gcpGkeKubernetesRuntimeInstance.Name).First(&existingGcpGkeKubernetesRuntimeInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -588,7 +585,7 @@ func (h Handler) AddGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&gcpGkeKubernetesRuntimeInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&gcpGkeKubernetesRuntimeInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -829,13 +826,12 @@ func (h Handler) UpdateGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingGcpGkeKubernetesRuntimeInstance = api_v0.GcpGkeKubernetesRuntimeInstance{}
-			if result := scopedDB.First(&existingGcpGkeKubernetesRuntimeInstance, gcpGkeKubernetesRuntimeInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingGcpGkeKubernetesRuntimeInstance, gcpGkeKubernetesRuntimeInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingGcpGkeKubernetesRuntimeInstance).Updates(&updatedGcpGkeKubernetesRuntimeInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingGcpGkeKubernetesRuntimeInstance).Updates(&updatedGcpGkeKubernetesRuntimeInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1147,13 +1143,12 @@ func (h Handler) AddGcpProvider(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			gcpProvider.ID = nil
 			nameUsed = true
 			var existingGcpProvider api_v0.GcpProvider
-			if result := scopedDB.Where("name = ?", gcpProvider.Name).First(&existingGcpProvider); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", gcpProvider.Name).First(&existingGcpProvider); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -1164,7 +1159,7 @@ func (h Handler) AddGcpProvider(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&gcpProvider).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&gcpProvider).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -1391,13 +1386,12 @@ func (h Handler) UpdateGcpProvider(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingGcpProvider = api_v0.GcpProvider{}
-			if result := scopedDB.First(&existingGcpProvider, gcpProviderID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingGcpProvider, gcpProviderID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingGcpProvider).Updates(&updatedGcpProvider).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingGcpProvider).Updates(&updatedGcpProvider).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

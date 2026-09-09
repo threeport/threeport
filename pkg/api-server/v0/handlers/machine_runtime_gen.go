@@ -73,13 +73,12 @@ func (h Handler) AddMachineRuntimeDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			machineRuntimeDefinition.ID = nil
 			nameUsed = true
 			var existingMachineRuntimeDefinition api_v0.MachineRuntimeDefinition
-			if result := scopedDB.Where("name = ?", machineRuntimeDefinition.Name).First(&existingMachineRuntimeDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", machineRuntimeDefinition.Name).First(&existingMachineRuntimeDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -90,7 +89,7 @@ func (h Handler) AddMachineRuntimeDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&machineRuntimeDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&machineRuntimeDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -317,13 +316,12 @@ func (h Handler) UpdateMachineRuntimeDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingMachineRuntimeDefinition = api_v0.MachineRuntimeDefinition{}
-			if result := scopedDB.First(&existingMachineRuntimeDefinition, machineRuntimeDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingMachineRuntimeDefinition, machineRuntimeDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingMachineRuntimeDefinition).Updates(&updatedMachineRuntimeDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingMachineRuntimeDefinition).Updates(&updatedMachineRuntimeDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -571,13 +569,12 @@ func (h Handler) AddMachineRuntimeInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			machineRuntimeInstance.ID = nil
 			nameUsed = true
 			var existingMachineRuntimeInstance api_v0.MachineRuntimeInstance
-			if result := scopedDB.Where("name = ?", machineRuntimeInstance.Name).First(&existingMachineRuntimeInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", machineRuntimeInstance.Name).First(&existingMachineRuntimeInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -588,7 +585,7 @@ func (h Handler) AddMachineRuntimeInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&machineRuntimeInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&machineRuntimeInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -829,13 +826,12 @@ func (h Handler) UpdateMachineRuntimeInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingMachineRuntimeInstance = api_v0.MachineRuntimeInstance{}
-			if result := scopedDB.First(&existingMachineRuntimeInstance, machineRuntimeInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingMachineRuntimeInstance, machineRuntimeInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingMachineRuntimeInstance).Updates(&updatedMachineRuntimeInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingMachineRuntimeInstance).Updates(&updatedMachineRuntimeInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

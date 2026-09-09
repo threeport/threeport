@@ -73,13 +73,12 @@ func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			kubernetesRuntimeDefinition.ID = nil
 			nameUsed = true
 			var existingKubernetesRuntimeDefinition api_v0.KubernetesRuntimeDefinition
-			if result := scopedDB.Where("name = ?", kubernetesRuntimeDefinition.Name).First(&existingKubernetesRuntimeDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", kubernetesRuntimeDefinition.Name).First(&existingKubernetesRuntimeDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -90,7 +89,7 @@ func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&kubernetesRuntimeDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&kubernetesRuntimeDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -331,13 +330,12 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingKubernetesRuntimeDefinition = api_v0.KubernetesRuntimeDefinition{}
-			if result := scopedDB.First(&existingKubernetesRuntimeDefinition, kubernetesRuntimeDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingKubernetesRuntimeDefinition, kubernetesRuntimeDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingKubernetesRuntimeDefinition).Updates(&updatedKubernetesRuntimeDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingKubernetesRuntimeDefinition).Updates(&updatedKubernetesRuntimeDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -655,13 +653,12 @@ func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			kubernetesRuntimeInstance.ID = nil
 			nameUsed = true
 			var existingKubernetesRuntimeInstance api_v0.KubernetesRuntimeInstance
-			if result := scopedDB.Where("name = ?", kubernetesRuntimeInstance.Name).First(&existingKubernetesRuntimeInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", kubernetesRuntimeInstance.Name).First(&existingKubernetesRuntimeInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -672,7 +669,7 @@ func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&kubernetesRuntimeInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&kubernetesRuntimeInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -913,13 +910,12 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingKubernetesRuntimeInstance = api_v0.KubernetesRuntimeInstance{}
-			if result := scopedDB.First(&existingKubernetesRuntimeInstance, kubernetesRuntimeInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingKubernetesRuntimeInstance, kubernetesRuntimeInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingKubernetesRuntimeInstance).Updates(&updatedKubernetesRuntimeInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingKubernetesRuntimeInstance).Updates(&updatedKubernetesRuntimeInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

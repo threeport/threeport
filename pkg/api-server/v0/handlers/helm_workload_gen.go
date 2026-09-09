@@ -73,13 +73,12 @@ func (h Handler) AddHelmWorkloadDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			helmWorkloadDefinition.ID = nil
 			nameUsed = true
 			var existingHelmWorkloadDefinition api_v0.HelmWorkloadDefinition
-			if result := scopedDB.Where("name = ?", helmWorkloadDefinition.Name).First(&existingHelmWorkloadDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", helmWorkloadDefinition.Name).First(&existingHelmWorkloadDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -90,7 +89,7 @@ func (h Handler) AddHelmWorkloadDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&helmWorkloadDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&helmWorkloadDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -331,13 +330,12 @@ func (h Handler) UpdateHelmWorkloadDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingHelmWorkloadDefinition = api_v0.HelmWorkloadDefinition{}
-			if result := scopedDB.First(&existingHelmWorkloadDefinition, helmWorkloadDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingHelmWorkloadDefinition, helmWorkloadDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingHelmWorkloadDefinition).Updates(&updatedHelmWorkloadDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingHelmWorkloadDefinition).Updates(&updatedHelmWorkloadDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -655,13 +653,12 @@ func (h Handler) AddHelmWorkloadInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			helmWorkloadInstance.ID = nil
 			nameUsed = true
 			var existingHelmWorkloadInstance api_v0.HelmWorkloadInstance
-			if result := scopedDB.Where("name = ?", helmWorkloadInstance.Name).First(&existingHelmWorkloadInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", helmWorkloadInstance.Name).First(&existingHelmWorkloadInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -672,7 +669,7 @@ func (h Handler) AddHelmWorkloadInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&helmWorkloadInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&helmWorkloadInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -913,13 +910,12 @@ func (h Handler) UpdateHelmWorkloadInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingHelmWorkloadInstance = api_v0.HelmWorkloadInstance{}
-			if result := scopedDB.First(&existingHelmWorkloadInstance, helmWorkloadInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingHelmWorkloadInstance, helmWorkloadInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingHelmWorkloadInstance).Updates(&updatedHelmWorkloadInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingHelmWorkloadInstance).Updates(&updatedHelmWorkloadInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

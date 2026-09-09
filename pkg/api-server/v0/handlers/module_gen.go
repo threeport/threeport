@@ -69,13 +69,12 @@ func (h Handler) AddModuleApi(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			moduleApi.ID = nil
 			nameUsed = true
 			var existingModuleApi api_v0.ModuleApi
-			if result := scopedDB.Where("name = ?", moduleApi.Name).First(&existingModuleApi); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", moduleApi.Name).First(&existingModuleApi); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -86,7 +85,7 @@ func (h Handler) AddModuleApi(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&moduleApi).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&moduleApi).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -313,13 +312,12 @@ func (h Handler) UpdateModuleApi(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingModuleApi = api_v0.ModuleApi{}
-			if result := scopedDB.First(&existingModuleApi, moduleApiID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingModuleApi, moduleApiID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingModuleApi).Updates(&updatedModuleApi).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingModuleApi).Updates(&updatedModuleApi).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -557,11 +555,10 @@ func (h Handler) AddModuleApiRoute(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			moduleApiRoute.ID = nil
-			return scopedDB.Create(&moduleApiRoute).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&moduleApiRoute).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -785,13 +782,12 @@ func (h Handler) UpdateModuleApiRoute(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingModuleApiRoute = api_v0.ModuleApiRoute{}
-			if result := scopedDB.First(&existingModuleApiRoute, moduleApiRouteID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingModuleApiRoute, moduleApiRouteID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingModuleApiRoute).Updates(&updatedModuleApiRoute).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingModuleApiRoute).Updates(&updatedModuleApiRoute).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1033,13 +1029,12 @@ func (h Handler) AddModuleController(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			moduleController.ID = nil
 			nameUsed = true
 			var existingModuleController api_v0.ModuleController
-			if result := scopedDB.Where("name = ?", moduleController.Name).First(&existingModuleController); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", moduleController.Name).First(&existingModuleController); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -1050,7 +1045,7 @@ func (h Handler) AddModuleController(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&moduleController).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&moduleController).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -1277,13 +1272,12 @@ func (h Handler) UpdateModuleController(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingModuleController = api_v0.ModuleController{}
-			if result := scopedDB.First(&existingModuleController, moduleControllerID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingModuleController, moduleControllerID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingModuleController).Updates(&updatedModuleController).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingModuleController).Updates(&updatedModuleController).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1521,11 +1515,10 @@ func (h Handler) AddModuleObject(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			moduleObject.ID = nil
-			return scopedDB.Create(&moduleObject).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&moduleObject).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -1749,13 +1742,12 @@ func (h Handler) UpdateModuleObject(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingModuleObject = api_v0.ModuleObject{}
-			if result := scopedDB.First(&existingModuleObject, moduleObjectID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingModuleObject, moduleObjectID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingModuleObject).Updates(&updatedModuleObject).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingModuleObject).Updates(&updatedModuleObject).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

@@ -73,13 +73,12 @@ func (h Handler) AddKubernetesWorkloadDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			kubernetesWorkloadDefinition.ID = nil
 			nameUsed = true
 			var existingKubernetesWorkloadDefinition api_v0.KubernetesWorkloadDefinition
-			if result := scopedDB.Where("name = ?", kubernetesWorkloadDefinition.Name).First(&existingKubernetesWorkloadDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", kubernetesWorkloadDefinition.Name).First(&existingKubernetesWorkloadDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -90,7 +89,7 @@ func (h Handler) AddKubernetesWorkloadDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&kubernetesWorkloadDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&kubernetesWorkloadDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -331,13 +330,12 @@ func (h Handler) UpdateKubernetesWorkloadDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingKubernetesWorkloadDefinition = api_v0.KubernetesWorkloadDefinition{}
-			if result := scopedDB.First(&existingKubernetesWorkloadDefinition, kubernetesWorkloadDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingKubernetesWorkloadDefinition, kubernetesWorkloadDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingKubernetesWorkloadDefinition).Updates(&updatedKubernetesWorkloadDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingKubernetesWorkloadDefinition).Updates(&updatedKubernetesWorkloadDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -655,13 +653,12 @@ func (h Handler) AddKubernetesWorkloadInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			kubernetesWorkloadInstance.ID = nil
 			nameUsed = true
 			var existingKubernetesWorkloadInstance api_v0.KubernetesWorkloadInstance
-			if result := scopedDB.Where("name = ?", kubernetesWorkloadInstance.Name).First(&existingKubernetesWorkloadInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", kubernetesWorkloadInstance.Name).First(&existingKubernetesWorkloadInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -672,7 +669,7 @@ func (h Handler) AddKubernetesWorkloadInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&kubernetesWorkloadInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&kubernetesWorkloadInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -913,13 +910,12 @@ func (h Handler) UpdateKubernetesWorkloadInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingKubernetesWorkloadInstance = api_v0.KubernetesWorkloadInstance{}
-			if result := scopedDB.First(&existingKubernetesWorkloadInstance, kubernetesWorkloadInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingKubernetesWorkloadInstance, kubernetesWorkloadInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingKubernetesWorkloadInstance).Updates(&updatedKubernetesWorkloadInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingKubernetesWorkloadInstance).Updates(&updatedKubernetesWorkloadInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1227,11 +1223,10 @@ func (h Handler) AddKubernetesWorkloadResourceDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			kubernetesWorkloadResourceDefinition.ID = nil
-			return scopedDB.Create(&kubernetesWorkloadResourceDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&kubernetesWorkloadResourceDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -1455,13 +1450,12 @@ func (h Handler) UpdateKubernetesWorkloadResourceDefinition(c echo.Context) erro
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingKubernetesWorkloadResourceDefinition = api_v0.KubernetesWorkloadResourceDefinition{}
-			if result := scopedDB.First(&existingKubernetesWorkloadResourceDefinition, kubernetesWorkloadResourceDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingKubernetesWorkloadResourceDefinition, kubernetesWorkloadResourceDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingKubernetesWorkloadResourceDefinition).Updates(&updatedKubernetesWorkloadResourceDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingKubernetesWorkloadResourceDefinition).Updates(&updatedKubernetesWorkloadResourceDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1699,11 +1693,10 @@ func (h Handler) AddKubernetesWorkloadResourceInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			kubernetesWorkloadResourceInstance.ID = nil
-			return scopedDB.Create(&kubernetesWorkloadResourceInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&kubernetesWorkloadResourceInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -1927,13 +1920,12 @@ func (h Handler) UpdateKubernetesWorkloadResourceInstance(c echo.Context) error 
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingKubernetesWorkloadResourceInstance = api_v0.KubernetesWorkloadResourceInstance{}
-			if result := scopedDB.First(&existingKubernetesWorkloadResourceInstance, kubernetesWorkloadResourceInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingKubernetesWorkloadResourceInstance, kubernetesWorkloadResourceInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingKubernetesWorkloadResourceInstance).Updates(&updatedKubernetesWorkloadResourceInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingKubernetesWorkloadResourceInstance).Updates(&updatedKubernetesWorkloadResourceInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

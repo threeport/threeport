@@ -73,13 +73,12 @@ func (h Handler) AddMachineWorkloadDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			machineWorkloadDefinition.ID = nil
 			nameUsed = true
 			var existingMachineWorkloadDefinition api_v0.MachineWorkloadDefinition
-			if result := scopedDB.Where("name = ?", machineWorkloadDefinition.Name).First(&existingMachineWorkloadDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", machineWorkloadDefinition.Name).First(&existingMachineWorkloadDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -90,7 +89,7 @@ func (h Handler) AddMachineWorkloadDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&machineWorkloadDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&machineWorkloadDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -317,13 +316,12 @@ func (h Handler) UpdateMachineWorkloadDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingMachineWorkloadDefinition = api_v0.MachineWorkloadDefinition{}
-			if result := scopedDB.First(&existingMachineWorkloadDefinition, machineWorkloadDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingMachineWorkloadDefinition, machineWorkloadDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingMachineWorkloadDefinition).Updates(&updatedMachineWorkloadDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingMachineWorkloadDefinition).Updates(&updatedMachineWorkloadDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -571,13 +569,12 @@ func (h Handler) AddMachineWorkloadInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			machineWorkloadInstance.ID = nil
 			nameUsed = true
 			var existingMachineWorkloadInstance api_v0.MachineWorkloadInstance
-			if result := scopedDB.Where("name = ?", machineWorkloadInstance.Name).First(&existingMachineWorkloadInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", machineWorkloadInstance.Name).First(&existingMachineWorkloadInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -588,7 +585,7 @@ func (h Handler) AddMachineWorkloadInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&machineWorkloadInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&machineWorkloadInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -829,13 +826,12 @@ func (h Handler) UpdateMachineWorkloadInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingMachineWorkloadInstance = api_v0.MachineWorkloadInstance{}
-			if result := scopedDB.First(&existingMachineWorkloadInstance, machineWorkloadInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingMachineWorkloadInstance, machineWorkloadInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingMachineWorkloadInstance).Updates(&updatedMachineWorkloadInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingMachineWorkloadInstance).Updates(&updatedMachineWorkloadInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

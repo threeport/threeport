@@ -73,13 +73,12 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			secretDefinition.ID = nil
 			nameUsed = true
 			var existingSecretDefinition api_v0.SecretDefinition
-			if result := scopedDB.Where("name = ?", secretDefinition.Name).First(&existingSecretDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", secretDefinition.Name).First(&existingSecretDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -90,7 +89,7 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&secretDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&secretDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -331,13 +330,12 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingSecretDefinition = api_v0.SecretDefinition{}
-			if result := scopedDB.First(&existingSecretDefinition, secretDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingSecretDefinition, secretDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingSecretDefinition).Updates(&updatedSecretDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingSecretDefinition).Updates(&updatedSecretDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -655,13 +653,12 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			secretInstance.ID = nil
 			nameUsed = true
 			var existingSecretInstance api_v0.SecretInstance
-			if result := scopedDB.Where("name = ?", secretInstance.Name).First(&existingSecretInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", secretInstance.Name).First(&existingSecretInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -672,7 +669,7 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&secretInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&secretInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -913,13 +910,12 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingSecretInstance = api_v0.SecretInstance{}
-			if result := scopedDB.First(&existingSecretInstance, secretInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingSecretInstance, secretInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingSecretInstance).Updates(&updatedSecretInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingSecretInstance).Updates(&updatedSecretInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

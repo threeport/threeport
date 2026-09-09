@@ -74,13 +74,12 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			controlPlaneDefinition.ID = nil
 			nameUsed = true
 			var existingControlPlaneDefinition api_v0.ControlPlaneDefinition
-			if result := scopedDB.Where("name = ?", controlPlaneDefinition.Name).First(&existingControlPlaneDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", controlPlaneDefinition.Name).First(&existingControlPlaneDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -91,7 +90,7 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&controlPlaneDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&controlPlaneDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -332,13 +331,12 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingControlPlaneDefinition = api_v0.ControlPlaneDefinition{}
-			if result := scopedDB.First(&existingControlPlaneDefinition, controlPlaneDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingControlPlaneDefinition, controlPlaneDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingControlPlaneDefinition).Updates(&updatedControlPlaneDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingControlPlaneDefinition).Updates(&updatedControlPlaneDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -656,13 +654,12 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			controlPlaneInstance.ID = nil
 			nameUsed = true
 			var existingControlPlaneInstance api_v0.ControlPlaneInstance
-			if result := scopedDB.Where("name = ?", controlPlaneInstance.Name).First(&existingControlPlaneInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", controlPlaneInstance.Name).First(&existingControlPlaneInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -673,7 +670,7 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&controlPlaneInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&controlPlaneInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -914,13 +911,12 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingControlPlaneInstance = api_v0.ControlPlaneInstance{}
-			if result := scopedDB.First(&existingControlPlaneInstance, controlPlaneInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingControlPlaneInstance, controlPlaneInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingControlPlaneInstance).Updates(&updatedControlPlaneInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingControlPlaneInstance).Updates(&updatedControlPlaneInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

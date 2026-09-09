@@ -73,13 +73,12 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			awsEksKubernetesRuntimeDefinition.ID = nil
 			nameUsed = true
 			var existingAwsEksKubernetesRuntimeDefinition api_v0.AwsEksKubernetesRuntimeDefinition
-			if result := scopedDB.Where("name = ?", awsEksKubernetesRuntimeDefinition.Name).First(&existingAwsEksKubernetesRuntimeDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", awsEksKubernetesRuntimeDefinition.Name).First(&existingAwsEksKubernetesRuntimeDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -90,7 +89,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&awsEksKubernetesRuntimeDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&awsEksKubernetesRuntimeDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -317,13 +316,12 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingAwsEksKubernetesRuntimeDefinition = api_v0.AwsEksKubernetesRuntimeDefinition{}
-			if result := scopedDB.First(&existingAwsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingAwsEksKubernetesRuntimeDefinition, awsEksKubernetesRuntimeDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingAwsEksKubernetesRuntimeDefinition).Updates(&updatedAwsEksKubernetesRuntimeDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingAwsEksKubernetesRuntimeDefinition).Updates(&updatedAwsEksKubernetesRuntimeDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -571,13 +569,12 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			awsEksKubernetesRuntimeInstance.ID = nil
 			nameUsed = true
 			var existingAwsEksKubernetesRuntimeInstance api_v0.AwsEksKubernetesRuntimeInstance
-			if result := scopedDB.Where("name = ?", awsEksKubernetesRuntimeInstance.Name).First(&existingAwsEksKubernetesRuntimeInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", awsEksKubernetesRuntimeInstance.Name).First(&existingAwsEksKubernetesRuntimeInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -588,7 +585,7 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&awsEksKubernetesRuntimeInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&awsEksKubernetesRuntimeInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -829,13 +826,12 @@ func (h Handler) UpdateAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingAwsEksKubernetesRuntimeInstance = api_v0.AwsEksKubernetesRuntimeInstance{}
-			if result := scopedDB.First(&existingAwsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingAwsEksKubernetesRuntimeInstance, awsEksKubernetesRuntimeInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingAwsEksKubernetesRuntimeInstance).Updates(&updatedAwsEksKubernetesRuntimeInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingAwsEksKubernetesRuntimeInstance).Updates(&updatedAwsEksKubernetesRuntimeInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1147,13 +1143,12 @@ func (h Handler) AddAwsProvider(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			awsProvider.ID = nil
 			nameUsed = true
 			var existingAwsProvider api_v0.AwsProvider
-			if result := scopedDB.Where("name = ?", awsProvider.Name).First(&existingAwsProvider); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", awsProvider.Name).First(&existingAwsProvider); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -1164,7 +1159,7 @@ func (h Handler) AddAwsProvider(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&awsProvider).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&awsProvider).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -1391,13 +1386,12 @@ func (h Handler) UpdateAwsProvider(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingAwsProvider = api_v0.AwsProvider{}
-			if result := scopedDB.First(&existingAwsProvider, awsProviderID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingAwsProvider, awsProviderID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingAwsProvider).Updates(&updatedAwsProvider).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingAwsProvider).Updates(&updatedAwsProvider).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

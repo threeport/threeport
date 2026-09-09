@@ -69,13 +69,12 @@ func (h Handler) AddProfile(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			profile.ID = nil
 			nameUsed = true
 			var existingProfile api_v0.Profile
-			if result := scopedDB.Where("name = ?", profile.Name).First(&existingProfile); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", profile.Name).First(&existingProfile); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -86,7 +85,7 @@ func (h Handler) AddProfile(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&profile).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&profile).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -313,13 +312,12 @@ func (h Handler) UpdateProfile(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingProfile = api_v0.Profile{}
-			if result := scopedDB.First(&existingProfile, profileID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingProfile, profileID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingProfile).Updates(&updatedProfile).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingProfile).Updates(&updatedProfile).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -561,13 +559,12 @@ func (h Handler) AddTier(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			tier.ID = nil
 			nameUsed = true
 			var existingTier api_v0.Tier
-			if result := scopedDB.Where("name = ?", tier.Name).First(&existingTier); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", tier.Name).First(&existingTier); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -578,7 +575,7 @@ func (h Handler) AddTier(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&tier).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&tier).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -805,13 +802,12 @@ func (h Handler) UpdateTier(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingTier = api_v0.Tier{}
-			if result := scopedDB.First(&existingTier, tierID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingTier, tierID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingTier).Updates(&updatedTier).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingTier).Updates(&updatedTier).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

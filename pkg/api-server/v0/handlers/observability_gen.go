@@ -73,13 +73,12 @@ func (h Handler) AddLoggingDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			loggingDefinition.ID = nil
 			nameUsed = true
 			var existingLoggingDefinition api_v0.LoggingDefinition
-			if result := scopedDB.Where("name = ?", loggingDefinition.Name).First(&existingLoggingDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", loggingDefinition.Name).First(&existingLoggingDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -90,7 +89,7 @@ func (h Handler) AddLoggingDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&loggingDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&loggingDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -331,13 +330,12 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingLoggingDefinition = api_v0.LoggingDefinition{}
-			if result := scopedDB.First(&existingLoggingDefinition, loggingDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingLoggingDefinition, loggingDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingLoggingDefinition).Updates(&updatedLoggingDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingLoggingDefinition).Updates(&updatedLoggingDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -655,13 +653,12 @@ func (h Handler) AddLoggingInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			loggingInstance.ID = nil
 			nameUsed = true
 			var existingLoggingInstance api_v0.LoggingInstance
-			if result := scopedDB.Where("name = ?", loggingInstance.Name).First(&existingLoggingInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", loggingInstance.Name).First(&existingLoggingInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -672,7 +669,7 @@ func (h Handler) AddLoggingInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&loggingInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&loggingInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -913,13 +910,12 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingLoggingInstance = api_v0.LoggingInstance{}
-			if result := scopedDB.First(&existingLoggingInstance, loggingInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingLoggingInstance, loggingInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingLoggingInstance).Updates(&updatedLoggingInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingLoggingInstance).Updates(&updatedLoggingInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1231,13 +1227,12 @@ func (h Handler) AddMetricsDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			metricsDefinition.ID = nil
 			nameUsed = true
 			var existingMetricsDefinition api_v0.MetricsDefinition
-			if result := scopedDB.Where("name = ?", metricsDefinition.Name).First(&existingMetricsDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", metricsDefinition.Name).First(&existingMetricsDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -1248,7 +1243,7 @@ func (h Handler) AddMetricsDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&metricsDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&metricsDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -1489,13 +1484,12 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingMetricsDefinition = api_v0.MetricsDefinition{}
-			if result := scopedDB.First(&existingMetricsDefinition, metricsDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingMetricsDefinition, metricsDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingMetricsDefinition).Updates(&updatedMetricsDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingMetricsDefinition).Updates(&updatedMetricsDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1813,13 +1807,12 @@ func (h Handler) AddMetricsInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			metricsInstance.ID = nil
 			nameUsed = true
 			var existingMetricsInstance api_v0.MetricsInstance
-			if result := scopedDB.Where("name = ?", metricsInstance.Name).First(&existingMetricsInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", metricsInstance.Name).First(&existingMetricsInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -1830,7 +1823,7 @@ func (h Handler) AddMetricsInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&metricsInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&metricsInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -2071,13 +2064,12 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingMetricsInstance = api_v0.MetricsInstance{}
-			if result := scopedDB.First(&existingMetricsInstance, metricsInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingMetricsInstance, metricsInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingMetricsInstance).Updates(&updatedMetricsInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingMetricsInstance).Updates(&updatedMetricsInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -2389,13 +2381,12 @@ func (h Handler) AddObservabilityDashboardDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			observabilityDashboardDefinition.ID = nil
 			nameUsed = true
 			var existingObservabilityDashboardDefinition api_v0.ObservabilityDashboardDefinition
-			if result := scopedDB.Where("name = ?", observabilityDashboardDefinition.Name).First(&existingObservabilityDashboardDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", observabilityDashboardDefinition.Name).First(&existingObservabilityDashboardDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -2406,7 +2397,7 @@ func (h Handler) AddObservabilityDashboardDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&observabilityDashboardDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&observabilityDashboardDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -2647,13 +2638,12 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingObservabilityDashboardDefinition = api_v0.ObservabilityDashboardDefinition{}
-			if result := scopedDB.First(&existingObservabilityDashboardDefinition, observabilityDashboardDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingObservabilityDashboardDefinition, observabilityDashboardDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingObservabilityDashboardDefinition).Updates(&updatedObservabilityDashboardDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingObservabilityDashboardDefinition).Updates(&updatedObservabilityDashboardDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -2971,13 +2961,12 @@ func (h Handler) AddObservabilityDashboardInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			observabilityDashboardInstance.ID = nil
 			nameUsed = true
 			var existingObservabilityDashboardInstance api_v0.ObservabilityDashboardInstance
-			if result := scopedDB.Where("name = ?", observabilityDashboardInstance.Name).First(&existingObservabilityDashboardInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", observabilityDashboardInstance.Name).First(&existingObservabilityDashboardInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -2988,7 +2977,7 @@ func (h Handler) AddObservabilityDashboardInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&observabilityDashboardInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&observabilityDashboardInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -3229,13 +3218,12 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingObservabilityDashboardInstance = api_v0.ObservabilityDashboardInstance{}
-			if result := scopedDB.First(&existingObservabilityDashboardInstance, observabilityDashboardInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingObservabilityDashboardInstance, observabilityDashboardInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingObservabilityDashboardInstance).Updates(&updatedObservabilityDashboardInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingObservabilityDashboardInstance).Updates(&updatedObservabilityDashboardInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -3547,13 +3535,12 @@ func (h Handler) AddObservabilityStackDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			observabilityStackDefinition.ID = nil
 			nameUsed = true
 			var existingObservabilityStackDefinition api_v0.ObservabilityStackDefinition
-			if result := scopedDB.Where("name = ?", observabilityStackDefinition.Name).First(&existingObservabilityStackDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", observabilityStackDefinition.Name).First(&existingObservabilityStackDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -3564,7 +3551,7 @@ func (h Handler) AddObservabilityStackDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&observabilityStackDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&observabilityStackDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -3805,13 +3792,12 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingObservabilityStackDefinition = api_v0.ObservabilityStackDefinition{}
-			if result := scopedDB.First(&existingObservabilityStackDefinition, observabilityStackDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingObservabilityStackDefinition, observabilityStackDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingObservabilityStackDefinition).Updates(&updatedObservabilityStackDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingObservabilityStackDefinition).Updates(&updatedObservabilityStackDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -4129,13 +4115,12 @@ func (h Handler) AddObservabilityStackInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			observabilityStackInstance.ID = nil
 			nameUsed = true
 			var existingObservabilityStackInstance api_v0.ObservabilityStackInstance
-			if result := scopedDB.Where("name = ?", observabilityStackInstance.Name).First(&existingObservabilityStackInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", observabilityStackInstance.Name).First(&existingObservabilityStackInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -4146,7 +4131,7 @@ func (h Handler) AddObservabilityStackInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&observabilityStackInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&observabilityStackInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -4387,13 +4372,12 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingObservabilityStackInstance = api_v0.ObservabilityStackInstance{}
-			if result := scopedDB.First(&existingObservabilityStackInstance, observabilityStackInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingObservabilityStackInstance, observabilityStackInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingObservabilityStackInstance).Updates(&updatedObservabilityStackInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingObservabilityStackInstance).Updates(&updatedObservabilityStackInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

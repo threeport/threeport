@@ -73,13 +73,12 @@ func (h Handler) AddOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			ociOkeKubernetesRuntimeDefinition.ID = nil
 			nameUsed = true
 			var existingOciOkeKubernetesRuntimeDefinition api_v0.OciOkeKubernetesRuntimeDefinition
-			if result := scopedDB.Where("name = ?", ociOkeKubernetesRuntimeDefinition.Name).First(&existingOciOkeKubernetesRuntimeDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", ociOkeKubernetesRuntimeDefinition.Name).First(&existingOciOkeKubernetesRuntimeDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -90,7 +89,7 @@ func (h Handler) AddOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&ociOkeKubernetesRuntimeDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&ociOkeKubernetesRuntimeDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -317,13 +316,12 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingOciOkeKubernetesRuntimeDefinition = api_v0.OciOkeKubernetesRuntimeDefinition{}
-			if result := scopedDB.First(&existingOciOkeKubernetesRuntimeDefinition, ociOkeKubernetesRuntimeDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingOciOkeKubernetesRuntimeDefinition, ociOkeKubernetesRuntimeDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingOciOkeKubernetesRuntimeDefinition).Updates(&updatedOciOkeKubernetesRuntimeDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingOciOkeKubernetesRuntimeDefinition).Updates(&updatedOciOkeKubernetesRuntimeDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -571,13 +569,12 @@ func (h Handler) AddOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			ociOkeKubernetesRuntimeInstance.ID = nil
 			nameUsed = true
 			var existingOciOkeKubernetesRuntimeInstance api_v0.OciOkeKubernetesRuntimeInstance
-			if result := scopedDB.Where("name = ?", ociOkeKubernetesRuntimeInstance.Name).First(&existingOciOkeKubernetesRuntimeInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", ociOkeKubernetesRuntimeInstance.Name).First(&existingOciOkeKubernetesRuntimeInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -588,7 +585,7 @@ func (h Handler) AddOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&ociOkeKubernetesRuntimeInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&ociOkeKubernetesRuntimeInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -829,13 +826,12 @@ func (h Handler) UpdateOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingOciOkeKubernetesRuntimeInstance = api_v0.OciOkeKubernetesRuntimeInstance{}
-			if result := scopedDB.First(&existingOciOkeKubernetesRuntimeInstance, ociOkeKubernetesRuntimeInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingOciOkeKubernetesRuntimeInstance, ociOkeKubernetesRuntimeInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingOciOkeKubernetesRuntimeInstance).Updates(&updatedOciOkeKubernetesRuntimeInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingOciOkeKubernetesRuntimeInstance).Updates(&updatedOciOkeKubernetesRuntimeInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1147,13 +1143,12 @@ func (h Handler) AddOciProvider(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			ociProvider.ID = nil
 			nameUsed = true
 			var existingOciProvider api_v0.OciProvider
-			if result := scopedDB.Where("name = ?", ociProvider.Name).First(&existingOciProvider); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", ociProvider.Name).First(&existingOciProvider); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -1164,7 +1159,7 @@ func (h Handler) AddOciProvider(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&ociProvider).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&ociProvider).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -1391,13 +1386,12 @@ func (h Handler) UpdateOciProvider(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingOciProvider = api_v0.OciProvider{}
-			if result := scopedDB.First(&existingOciProvider, ociProviderID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingOciProvider, ociProviderID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingOciProvider).Updates(&updatedOciProvider).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingOciProvider).Updates(&updatedOciProvider).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

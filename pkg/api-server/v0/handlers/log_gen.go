@@ -69,13 +69,12 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			logBackend.ID = nil
 			nameUsed = true
 			var existingLogBackend api_v0.LogBackend
-			if result := scopedDB.Where("name = ?", logBackend.Name).First(&existingLogBackend); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", logBackend.Name).First(&existingLogBackend); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -86,7 +85,7 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&logBackend).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&logBackend).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -313,13 +312,12 @@ func (h Handler) UpdateLogBackend(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingLogBackend = api_v0.LogBackend{}
-			if result := scopedDB.First(&existingLogBackend, logBackendID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingLogBackend, logBackendID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingLogBackend).Updates(&updatedLogBackend).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingLogBackend).Updates(&updatedLogBackend).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -561,13 +559,12 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			logStorageDefinition.ID = nil
 			nameUsed = true
 			var existingLogStorageDefinition api_v0.LogStorageDefinition
-			if result := scopedDB.Where("name = ?", logStorageDefinition.Name).First(&existingLogStorageDefinition); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", logStorageDefinition.Name).First(&existingLogStorageDefinition); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -578,7 +575,7 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&logStorageDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&logStorageDefinition).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -805,13 +802,12 @@ func (h Handler) UpdateLogStorageDefinition(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingLogStorageDefinition = api_v0.LogStorageDefinition{}
-			if result := scopedDB.First(&existingLogStorageDefinition, logStorageDefinitionID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingLogStorageDefinition, logStorageDefinitionID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingLogStorageDefinition).Updates(&updatedLogStorageDefinition).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingLogStorageDefinition).Updates(&updatedLogStorageDefinition).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1059,13 +1055,12 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// the database assigns the primary key, so a retried attempt
 			// must not carry the one a rolled-back attempt was given
 			logStorageInstance.ID = nil
 			nameUsed = true
 			var existingLogStorageInstance api_v0.LogStorageInstance
-			if result := scopedDB.Where("name = ?", logStorageInstance.Name).First(&existingLogStorageInstance); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", logStorageInstance.Name).First(&existingLogStorageInstance); result.Error != nil {
 				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return result.Error
 				}
@@ -1076,7 +1071,7 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 			if nameUsed {
 				return nil
 			}
-			return scopedDB.Create(&logStorageInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&logStorageInstance).Error
 		},
 	); err != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
@@ -1303,13 +1298,12 @@ func (h Handler) UpdateLogStorageInstance(c echo.Context) error {
 	if err := crdbgorm.ExecuteTx(
 		c.Request().Context(), h.DB, nil,
 		func(tx *gorm.DB) error {
-			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
 			// a retried attempt must not read into the previous one's leftovers
 			existingLogStorageInstance = api_v0.LogStorageInstance{}
-			if result := scopedDB.First(&existingLogStorageInstance, logStorageInstanceID); result.Error != nil {
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingLogStorageInstance, logStorageInstanceID); result.Error != nil {
 				return result.Error
 			}
-			return scopedDB.Model(&existingLogStorageInstance).Updates(&updatedLogStorageInstance).Error
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingLogStorageInstance).Updates(&updatedLogStorageInstance).Error
 		},
 	); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
