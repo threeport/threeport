@@ -59,11 +59,12 @@ Needs a running control plane and a registry the cluster can pull from.
 
 | Job | Target | Needs |
 |---|---|---|
-| `Module Generation` | `mage test:moduleGen` | Nothing |
+| `Unit Tests` | `mage test:moduleGen` | Nothing |
 | `Integration Tests` | `mage test:moduleInstall` | Control plane, registry |
 
-`Module Generation` is its own job because it compiles a second Go module and
-needs no cluster to do it.
+`mage test:moduleGen` runs in the unit job because it compiles a second Go
+module and needs no cluster.  `mage test:moduleInstall` runs after the
+integration tests, on the control plane that job already created.
 
 ## What it catches
 
