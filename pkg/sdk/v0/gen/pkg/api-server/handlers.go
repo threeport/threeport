@@ -1998,33 +1998,57 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.Line()
 					g.Comment("persist provided data")
 					g.Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("ID")
+					g.Comment("the save runs inside a retryable transaction. Under SERIALIZABLE")
+					g.Comment("isolation CockroachDB answers a write conflict with SQLSTATE 40001")
+					g.Comment("and expects the client to re-run it. Only the write is retried: the")
+					g.Comment("read above contributes the primary key, which the URL fixes, so it")
+					g.Comment("cannot go stale between attempts.")
 					g.If(
-						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Module {
-								s.Id("h").Dot("Handler")
-							} else {
-								s.Id("h")
-							}
-						}).Dot("RequestDB").Call(Id("c")).Dot("Session").Call(
-							Op("&").Qual(
-								"gorm.io/gorm",
-								"Session",
-							).Values(Dict{
-								Id("FullSaveAssociations"): Lit(false),
-							})).Dot("Omit").Call(
-							Lit("CreatedAt").Op(",").Lit("DeletedAt"),
-						).Dot("Save").Call(
-							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
-						).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+						Id("err").Op(":=").Qual(
+							"github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm",
+							"ExecuteTx",
+						).Call(
+							Line().Id("c").Dot("Request").Call().Dot("Context").Call(),
+							Do(func(s *Statement) {
+								if gen.Module {
+									s.Id("h").Dot("Handler").Dot("DB")
+								} else {
+									s.Id("h").Dot("DB")
+								}
+							}),
+							Nil(),
+							Line().Func().Params(
+								Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
+							).Error().Block(
+								Return(Id("tx").Dot("Scopes").Call(
+									Qual(
+										"github.com/threeport/threeport/pkg/api-server/lib/v0",
+										"QueryScopes",
+									).Call(Id("c")).Op("..."),
+								).Dot("Session").Call(
+									Op("&").Qual(
+										"gorm.io/gorm",
+										"Session",
+									).Values(Dict{
+										Id("FullSaveAssociations"): Lit(false),
+									}),
+								).Dot("Omit").Call(
+									Lit("CreatedAt").Op(",").Lit("DeletedAt"),
+								).Dot("Save").Call(
+									Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
+								).Dot("Error")),
+							),
+							Line(),
+						).Op(";").Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
 							if gen.Module {
 								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error persisting object"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
 								)
 							} else {
 								h.Id("h").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error persisting object"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
 								)
 							}
 							h.Comment("check if this is a custom HTTP error with specific status code")
@@ -2032,7 +2056,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								"github.com/threeport/threeport/pkg/util/v0",
 								"HttpError",
 							)
-							h.If(Qual("errors", "As").Call(Id("result").Dot("Error"), Op("&").Id("httpErr"))).Block(
+							h.If(Qual("errors", "As").Call(Id("err"), Op("&").Id("httpErr"))).Block(
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatusErr",
@@ -2040,14 +2064,14 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Line().Id("httpErr").Dot("GetStatusCode").Call(),
 									Id("c"),
 									Nil(),
-									Id("result").Dot("Error"),
+									Id("err"),
 									Id("objectType").Op(",").Line(),
 								)),
 							)
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+							).Call(Id("c"), Nil(), Id("err"), Id("objectType")))
 						}),
 					)
 					g.Line()
