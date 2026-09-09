@@ -109,7 +109,6 @@ func (h Handler) AddOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/oci-oke-kubernetes-runtime-definitions [GET]
 func (h Handler) GetOciOkeKubernetesRuntimeDefinitions(c echo.Context) error {
-	objectType := api_v0.ObjectTypeOciOkeKubernetesRuntimeDefinition
 	fullyQualifiedType := new(api_v0.OciOkeKubernetesRuntimeDefinition).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -122,7 +121,7 @@ func (h Handler) GetOciOkeKubernetesRuntimeDefinitions(c echo.Context) error {
 	var filter api_v0.OciOkeKubernetesRuntimeDefinition
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -158,10 +157,10 @@ func (h Handler) GetOciOkeKubernetesRuntimeDefinitions(c echo.Context) error {
 			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.OciOkeKubernetesRuntimeDefinition{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 			}
 			pagination.QueryId = queryId
 			returnedCount = count
@@ -182,10 +181,10 @@ func (h Handler) GetOciOkeKubernetesRuntimeDefinitions(c echo.Context) error {
 		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.OciOkeKubernetesRuntimeDefinition{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 		}
 		pagination.QueryId = queryId
 		returnedCount = count
@@ -597,7 +596,6 @@ func (h Handler) AddOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/oci-oke-kubernetes-runtime-instances [GET]
 func (h Handler) GetOciOkeKubernetesRuntimeInstances(c echo.Context) error {
-	objectType := api_v0.ObjectTypeOciOkeKubernetesRuntimeInstance
 	fullyQualifiedType := new(api_v0.OciOkeKubernetesRuntimeInstance).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -610,7 +608,7 @@ func (h Handler) GetOciOkeKubernetesRuntimeInstances(c echo.Context) error {
 	var filter api_v0.OciOkeKubernetesRuntimeInstance
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -646,10 +644,10 @@ func (h Handler) GetOciOkeKubernetesRuntimeInstances(c echo.Context) error {
 			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.OciOkeKubernetesRuntimeInstance{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 			}
 			pagination.QueryId = queryId
 			returnedCount = count
@@ -670,10 +668,10 @@ func (h Handler) GetOciOkeKubernetesRuntimeInstances(c echo.Context) error {
 		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.OciOkeKubernetesRuntimeInstance{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 		}
 		pagination.QueryId = queryId
 		returnedCount = count
@@ -1156,7 +1154,6 @@ func (h Handler) AddOciProvider(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/oci-providers [GET]
 func (h Handler) GetOciProviders(c echo.Context) error {
-	objectType := api_v0.ObjectTypeOciProvider
 	fullyQualifiedType := new(api_v0.OciProvider).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -1169,7 +1166,7 @@ func (h Handler) GetOciProviders(c echo.Context) error {
 	var filter api_v0.OciProvider
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -1205,10 +1202,10 @@ func (h Handler) GetOciProviders(c echo.Context) error {
 			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.OciProvider{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 			}
 			pagination.QueryId = queryId
 			returnedCount = count
@@ -1229,10 +1226,10 @@ func (h Handler) GetOciProviders(c echo.Context) error {
 		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.OciProvider{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 		}
 		pagination.QueryId = queryId
 		returnedCount = count

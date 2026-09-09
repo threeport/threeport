@@ -109,7 +109,6 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/domain-name-definitions [GET]
 func (h Handler) GetDomainNameDefinitions(c echo.Context) error {
-	objectType := api_v0.ObjectTypeDomainNameDefinition
 	fullyQualifiedType := new(api_v0.DomainNameDefinition).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -122,7 +121,7 @@ func (h Handler) GetDomainNameDefinitions(c echo.Context) error {
 	var filter api_v0.DomainNameDefinition
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -158,10 +157,10 @@ func (h Handler) GetDomainNameDefinitions(c echo.Context) error {
 			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.DomainNameDefinition{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 			}
 			pagination.QueryId = queryId
 			returnedCount = count
@@ -182,10 +181,10 @@ func (h Handler) GetDomainNameDefinitions(c echo.Context) error {
 		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.DomainNameDefinition{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 		}
 		pagination.QueryId = queryId
 		returnedCount = count
@@ -597,7 +596,6 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/domain-name-instances [GET]
 func (h Handler) GetDomainNameInstances(c echo.Context) error {
-	objectType := api_v0.ObjectTypeDomainNameInstance
 	fullyQualifiedType := new(api_v0.DomainNameInstance).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -610,7 +608,7 @@ func (h Handler) GetDomainNameInstances(c echo.Context) error {
 	var filter api_v0.DomainNameInstance
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -646,10 +644,10 @@ func (h Handler) GetDomainNameInstances(c echo.Context) error {
 			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.DomainNameInstance{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 			}
 			pagination.QueryId = queryId
 			returnedCount = count
@@ -670,10 +668,10 @@ func (h Handler) GetDomainNameInstances(c echo.Context) error {
 		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.DomainNameInstance{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 		}
 		pagination.QueryId = queryId
 		returnedCount = count
@@ -1170,7 +1168,6 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gateway-definitions [GET]
 func (h Handler) GetGatewayDefinitions(c echo.Context) error {
-	objectType := api_v0.ObjectTypeGatewayDefinition
 	fullyQualifiedType := new(api_v0.GatewayDefinition).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -1183,7 +1180,7 @@ func (h Handler) GetGatewayDefinitions(c echo.Context) error {
 	var filter api_v0.GatewayDefinition
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -1219,10 +1216,10 @@ func (h Handler) GetGatewayDefinitions(c echo.Context) error {
 			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.GatewayDefinition{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 			}
 			pagination.QueryId = queryId
 			returnedCount = count
@@ -1243,10 +1240,10 @@ func (h Handler) GetGatewayDefinitions(c echo.Context) error {
 		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.GatewayDefinition{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 		}
 		pagination.QueryId = queryId
 		returnedCount = count
@@ -1735,7 +1732,6 @@ func (h Handler) AddGatewayHttpPort(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gateway-http-ports [GET]
 func (h Handler) GetGatewayHttpPorts(c echo.Context) error {
-	objectType := api_v0.ObjectTypeGatewayHttpPort
 	fullyQualifiedType := new(api_v0.GatewayHttpPort).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -1748,7 +1744,7 @@ func (h Handler) GetGatewayHttpPorts(c echo.Context) error {
 	var filter api_v0.GatewayHttpPort
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -1784,10 +1780,10 @@ func (h Handler) GetGatewayHttpPorts(c echo.Context) error {
 			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.GatewayHttpPort{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 			}
 			pagination.QueryId = queryId
 			returnedCount = count
@@ -1808,10 +1804,10 @@ func (h Handler) GetGatewayHttpPorts(c echo.Context) error {
 		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.GatewayHttpPort{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 		}
 		pagination.QueryId = queryId
 		returnedCount = count
@@ -2217,7 +2213,6 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gateway-instances [GET]
 func (h Handler) GetGatewayInstances(c echo.Context) error {
-	objectType := api_v0.ObjectTypeGatewayInstance
 	fullyQualifiedType := new(api_v0.GatewayInstance).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -2230,7 +2225,7 @@ func (h Handler) GetGatewayInstances(c echo.Context) error {
 	var filter api_v0.GatewayInstance
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -2266,10 +2261,10 @@ func (h Handler) GetGatewayInstances(c echo.Context) error {
 			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.GatewayInstance{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 			}
 			pagination.QueryId = queryId
 			returnedCount = count
@@ -2290,10 +2285,10 @@ func (h Handler) GetGatewayInstances(c echo.Context) error {
 		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.GatewayInstance{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 		}
 		pagination.QueryId = queryId
 		returnedCount = count
@@ -2776,7 +2771,6 @@ func (h Handler) AddGatewayTcpPort(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/gateway-tcp-ports [GET]
 func (h Handler) GetGatewayTcpPorts(c echo.Context) error {
-	objectType := api_v0.ObjectTypeGatewayTcpPort
 	fullyQualifiedType := new(api_v0.GatewayTcpPort).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -2789,7 +2783,7 @@ func (h Handler) GetGatewayTcpPorts(c echo.Context) error {
 	var filter api_v0.GatewayTcpPort
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -2825,10 +2819,10 @@ func (h Handler) GetGatewayTcpPorts(c echo.Context) error {
 			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.GatewayTcpPort{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 			}
 			pagination.QueryId = queryId
 			returnedCount = count
@@ -2849,10 +2843,10 @@ func (h Handler) GetGatewayTcpPorts(c echo.Context) error {
 		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.GatewayTcpPort{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 		}
 		pagination.QueryId = queryId
 		returnedCount = count

@@ -123,7 +123,6 @@ func (h Handler) AddTerraformDefinition(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/terraform-definitions [GET]
 func (h Handler) GetTerraformDefinitions(c echo.Context) error {
-	objectType := api_v0.ObjectTypeTerraformDefinition
 	fullyQualifiedType := new(api_v0.TerraformDefinition).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -136,7 +135,7 @@ func (h Handler) GetTerraformDefinitions(c echo.Context) error {
 	var filter api_v0.TerraformDefinition
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -172,10 +171,10 @@ func (h Handler) GetTerraformDefinitions(c echo.Context) error {
 			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.TerraformDefinition{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 			}
 			pagination.QueryId = queryId
 			returnedCount = count
@@ -196,10 +195,10 @@ func (h Handler) GetTerraformDefinitions(c echo.Context) error {
 		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.TerraformDefinition{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 		}
 		pagination.QueryId = queryId
 		returnedCount = count
@@ -702,7 +701,6 @@ func (h Handler) AddTerraformInstance(c echo.Context) error {
 // @Failure 500 {object} v0.Response "Internal Server Error"
 // @Router /v0/terraform-instances [GET]
 func (h Handler) GetTerraformInstances(c echo.Context) error {
-	objectType := api_v0.ObjectTypeTerraformInstance
 	fullyQualifiedType := new(api_v0.TerraformInstance).GetFullyQualifiedType()
 
 	// get pagination parameters
@@ -715,7 +713,7 @@ func (h Handler) GetTerraformInstances(c echo.Context) error {
 	var filter api_v0.TerraformInstance
 	if err := c.Bind(&filter); err != nil {
 		h.Logger.Error("handler error: error binding filter", zap.Error(err))
-		return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+		return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 	}
 
 	pagination := new(apiserver_lib.Pagination)
@@ -751,10 +749,10 @@ func (h Handler) GetTerraformInstances(c echo.Context) error {
 			queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.TerraformInstance{}).Where(&filter), records, queryTable, pageParams)
 			if err != nil {
 				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 			}
 			pagination.QueryId = queryId
 			returnedCount = count
@@ -775,10 +773,10 @@ func (h Handler) GetTerraformInstances(c echo.Context) error {
 		queryId, count, err := h.DispatchGetPaginatedRecords(h.RequestDB(c).Model(&api_v0.TerraformInstance{}).Where(&filter), records, queryTable, pageParams)
 		if err != nil {
 			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
-				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, fullyQualifiedType)
 			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
-			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
+			return apiserver_lib.ResponseStatus500(c, pageParams, err, fullyQualifiedType)
 		}
 		pagination.QueryId = queryId
 		returnedCount = count
