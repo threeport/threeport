@@ -464,7 +464,7 @@ func (h Handler) DeleteControlPlaneDefinition(c echo.Context) error {
 
 	// check to make sure no dependent instances exist for this definition
 	if len(controlPlaneDefinition.ControlPlaneInstances) != 0 {
-		err := errors.New("control plane definition has related control plane instances - cannot be deleted")
+		err := errors.New("control plane definition has related control plane instances - " + api_v0.ErrMsgDeleteBlocked)
 		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
 	}
 
@@ -512,8 +512,9 @@ func (h Handler) DeleteControlPlaneDefinition(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*controlPlaneDefinition.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), objectType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
@@ -1042,8 +1043,9 @@ func (h Handler) DeleteControlPlaneInstance(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*controlPlaneInstance.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), objectType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted

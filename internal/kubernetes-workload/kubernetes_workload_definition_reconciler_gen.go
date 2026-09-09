@@ -264,11 +264,26 @@ func KubernetesWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of kubernetes workload definition encountered for creation")
 				}
 				if operationErr != nil {
-					if errors.Is(operationErr, tpclient_lib.ErrConflict) {
+					if errors.Is(operationErr, tpclient_lib.ErrDeleteInProgress) || errors.Is(operationErr, tpclient_lib.ErrDeleteBlocked) {
 						log.Info(
 							"conflict reconciling deleted kubernetes workload definition object, requeueing",
 							"cause", operationErr.Error(),
 						)
+						deleteNote := "deleting"
+						if owner, ok := kubernetesWorkloadDefinition.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
+							deleteNote = event.DeleteNote(owner)
+						}
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(deleteNote),
+								Reason: util.Ptr(event.ReasonDeleteInProgress),
+								Type:   util.Ptr(event.TypeNormal),
+							},
+							kubernetesWorkloadDefinition.GetId(),
+							kubernetesWorkloadDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record DeleteInProgress event")
+						}
 						r.UnlockAndRequeue(
 							kubernetesWorkloadDefinition,
 							int64(30),
@@ -333,11 +348,26 @@ func KubernetesWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					kubernetesWorkloadDefinition.GetId(),
 				)
 				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrConflict) {
+					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
 						log.Info(
 							"conflict deleting kubernetes workload definition, requeueing",
 							"cause", err.Error(),
 						)
+						deleteNote := "deleting"
+						if owner, ok := kubernetesWorkloadDefinition.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
+							deleteNote = event.DeleteNote(owner)
+						}
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(deleteNote),
+								Reason: util.Ptr(event.ReasonDeleteInProgress),
+								Type:   util.Ptr(event.TypeNormal),
+							},
+							kubernetesWorkloadDefinition.GetId(),
+							kubernetesWorkloadDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record DeleteInProgress event")
+						}
 						r.UnlockAndRequeue(
 							kubernetesWorkloadDefinition,
 							int64(30),

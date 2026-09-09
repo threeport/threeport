@@ -463,7 +463,7 @@ func (h Handler) DeleteLoggingDefinition(c echo.Context) error {
 
 	// check to make sure no dependent instances exist for this definition
 	if len(loggingDefinition.LoggingInstances) != 0 {
-		err := errors.New("logging definition has related logging instances - cannot be deleted")
+		err := errors.New("logging definition has related logging instances - " + api_v0.ErrMsgDeleteBlocked)
 		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
 	}
 
@@ -511,8 +511,9 @@ func (h Handler) DeleteLoggingDefinition(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*loggingDefinition.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), objectType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
@@ -1041,8 +1042,9 @@ func (h Handler) DeleteLoggingInstance(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*loggingInstance.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), objectType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
@@ -1529,7 +1531,7 @@ func (h Handler) DeleteMetricsDefinition(c echo.Context) error {
 
 	// check to make sure no dependent instances exist for this definition
 	if len(metricsDefinition.MetricsInstances) != 0 {
-		err := errors.New("metrics definition has related metrics instances - cannot be deleted")
+		err := errors.New("metrics definition has related metrics instances - " + api_v0.ErrMsgDeleteBlocked)
 		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
 	}
 
@@ -1577,8 +1579,9 @@ func (h Handler) DeleteMetricsDefinition(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*metricsDefinition.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), objectType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
@@ -2107,8 +2110,9 @@ func (h Handler) DeleteMetricsInstance(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*metricsInstance.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), objectType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
@@ -2595,7 +2599,7 @@ func (h Handler) DeleteObservabilityDashboardDefinition(c echo.Context) error {
 
 	// check to make sure no dependent instances exist for this definition
 	if len(observabilityDashboardDefinition.ObservabilityDashboardInstances) != 0 {
-		err := errors.New("observability dashboard definition has related observability dashboard instances - cannot be deleted")
+		err := errors.New("observability dashboard definition has related observability dashboard instances - " + api_v0.ErrMsgDeleteBlocked)
 		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
 	}
 
@@ -2643,8 +2647,9 @@ func (h Handler) DeleteObservabilityDashboardDefinition(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*observabilityDashboardDefinition.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), objectType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
@@ -3173,8 +3178,9 @@ func (h Handler) DeleteObservabilityDashboardInstance(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*observabilityDashboardInstance.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), objectType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
@@ -3661,7 +3667,7 @@ func (h Handler) DeleteObservabilityStackDefinition(c echo.Context) error {
 
 	// check to make sure no dependent instances exist for this definition
 	if len(observabilityStackDefinition.ObservabilityStackInstances) != 0 {
-		err := errors.New("observability stack definition has related observability stack instances - cannot be deleted")
+		err := errors.New("observability stack definition has related observability stack instances - " + api_v0.ErrMsgDeleteBlocked)
 		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
 	}
 
@@ -3709,8 +3715,9 @@ func (h Handler) DeleteObservabilityStackDefinition(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*observabilityStackDefinition.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), objectType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
@@ -4239,8 +4246,9 @@ func (h Handler) DeleteObservabilityStackInstance(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*observabilityStackInstance.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), objectType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted

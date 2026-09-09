@@ -235,11 +235,26 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of secret definition encountered for creation")
 				}
 				if operationErr != nil {
-					if errors.Is(operationErr, tpclient_lib.ErrConflict) {
+					if errors.Is(operationErr, tpclient_lib.ErrDeleteInProgress) || errors.Is(operationErr, tpclient_lib.ErrDeleteBlocked) {
 						log.Info(
 							"conflict reconciling deleted secret definition object, requeueing",
 							"cause", operationErr.Error(),
 						)
+						deleteNote := "deleting"
+						if owner, ok := secretDefinition.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
+							deleteNote = event.DeleteNote(owner)
+						}
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(deleteNote),
+								Reason: util.Ptr(event.ReasonDeleteInProgress),
+								Type:   util.Ptr(event.TypeNormal),
+							},
+							secretDefinition.GetId(),
+							secretDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record DeleteInProgress event")
+						}
 						r.UnlockAndRequeue(
 							secretDefinition,
 							int64(30),
@@ -304,11 +319,26 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					secretDefinition.GetId(),
 				)
 				if err != nil {
-					if errors.Is(err, tpclient_lib.ErrConflict) {
+					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
 						log.Info(
 							"conflict deleting secret definition, requeueing",
 							"cause", err.Error(),
 						)
+						deleteNote := "deleting"
+						if owner, ok := secretDefinition.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
+							deleteNote = event.DeleteNote(owner)
+						}
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&api_v0.Event{
+								Note:   util.Ptr(deleteNote),
+								Reason: util.Ptr(event.ReasonDeleteInProgress),
+								Type:   util.Ptr(event.TypeNormal),
+							},
+							secretDefinition.GetId(),
+							secretDefinition.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record DeleteInProgress event")
+						}
 						r.UnlockAndRequeue(
 							secretDefinition,
 							int64(30),

@@ -435,7 +435,7 @@ func (h Handler) DeleteMachineWorkloadDefinition(c echo.Context) error {
 
 	// check to make sure no dependent instances exist for this definition
 	if len(machineWorkloadDefinition.MachineWorkloadInstances) != 0 {
-		err := errors.New("machine workload definition has related machine workload instances - cannot be deleted")
+		err := errors.New("machine workload definition has related machine workload instances - " + api_v0.ErrMsgDeleteBlocked)
 		return apiserver_lib.ResponseStatus409(c, nil, err, objectType)
 	}
 
@@ -962,8 +962,9 @@ func (h Handler) DeleteMachineWorkloadInstance(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*machineWorkloadInstance.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), objectType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
