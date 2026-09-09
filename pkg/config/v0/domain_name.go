@@ -21,13 +21,13 @@ type DomainNameConfig struct {
 // DomainNameDefinition and DomainNameInstance API objects
 // together with a single operation.
 type DomainNameValues struct {
-	Name                       *string                           `json:",omitempty"`
-	Domain                     *string                           `json:",omitempty"`
-	Zone                       *string                           `json:",omitempty"`
-	AdminEmail                 *string                           `json:",omitempty"`
-	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:",omitempty"`
-	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:",omitempty"`
-	Age                        *string                           `json:",omitempty"`
+	Name                       *string
+	Domain                     *string
+	Zone                       *string
+	AdminEmail                 *string
+	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues
+	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues
+	Age                        *string
 }
 
 // Get gets a domain name definition and instance from the Threeport API.

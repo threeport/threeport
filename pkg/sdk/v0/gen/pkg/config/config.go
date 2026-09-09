@@ -98,8 +98,8 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							defObject,
 							instObject,
 						),
-						Id("Name").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
-						Id("Age").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
+						Id("Name").Op("*").String(),
+						Id("Age").Op("*").String(),
 					)
 					f.Line()
 
@@ -710,28 +710,28 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						if apiObject.DefinedInstanceInstance {
 							f.Type().Id(valuesObjectName).Struct(
 								Comment(configFieldTodoComment),
-								Id("Name").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
-								Id(defObject).Op("*").Id(defValuesObject).Tag(map[string]string{"json": ",omitempty"}),
-								Id("Age").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
+								Id("Name").Op("*").String(),
+								Id(defObject).Op("*").Id(defValuesObject),
+								Id("Age").Op("*").String(),
 							)
 						} else {
 							f.Type().Id(valuesObjectName).Struct(
 								Comment(configFieldTodoComment),
-								Id("Name").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
-								Id("Age").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
+								Id("Name").Op("*").String(),
+								Id("Age").Op("*").String(),
 							)
 						}
 					} else {
 						if apiObject.DefinedInstanceInstance {
 							f.Type().Id(valuesObjectName).Struct(
 								Comment(configFieldTodoComment),
-								Id(defObject).Op("*").Id(defValuesObject).Tag(map[string]string{"json": ",omitempty"}),
-								Id("Age").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
+								Id(defObject).Op("*").Id(defValuesObject),
+								Id("Age").Op("*").String(),
 							)
 						} else {
 							f.Type().Id(valuesObjectName).Struct(
 								Comment(configFieldTodoComment),
-								Id("Age").Op("*").String().Tag(map[string]string{"json": ",omitempty"}),
+								Id("Age").Op("*").String(),
 							)
 						}
 					}

@@ -23,14 +23,14 @@ type HelmWorkloadDefinitionConfig struct {
 // HelmWorkloadDefinitionValues contains all the attributes needed to manage
 // the HelmWorkloadDefinition API object.
 type HelmWorkloadDefinitionValues struct {
-	Name                   *string `json:",omitempty"`
-	Repo                   *string `json:",omitempty"`
-	Chart                  *string `json:",omitempty"`
-	ChartVersion           *string `json:",omitempty"`
-	Values                 *string `json:",omitempty"`
-	ValuesDocument         *string `json:",omitempty"`
-	HelmWorkloadConfigPath *string `json:",omitempty"`
-	Age                    *string `json:",omitempty"`
+	Name                   *string
+	Repo                   *string
+	Chart                  *string
+	ChartVersion           *string
+	Values                 *string
+	ValuesDocument         *string
+	HelmWorkloadConfigPath *string
+	Age                    *string
 }
 
 // Get gets helm workload definitions from the Threeport API.

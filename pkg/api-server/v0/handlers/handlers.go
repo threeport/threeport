@@ -19,16 +19,21 @@ import (
 // Handler is the main handler for the API server.  It contains the database connection,
 // NATS connection, JetStream context, logger, and pagination mode.
 type Handler struct {
-	DB             *gorm.DB
-	NC             *nats.Conn
-	JS             nats.JetStreamContext
-	Logger         *zap.Logger
+	DB     *gorm.DB
+	NC     *nats.Conn
+	JS     nats.JetStreamContext
+	Logger *zap.Logger
+
+	// PaginationMode selects the strategy paginated list reads use. The
+	// zero value means `PaginationModeAsOfSystemTime`, so a handler built
+	// without one pages the way the flag's default does.
 	PaginationMode apiserver_lib.PaginationMode
 }
 
-// New returns a new Handler configured with the given pagination mode.
-func New(db *gorm.DB, nc *nats.Conn, rc nats.JetStreamContext, logger *zap.Logger, paginationMode apiserver_lib.PaginationMode) Handler {
-	return Handler{DB: db, NC: nc, JS: rc, Logger: logger, PaginationMode: paginationMode}
+// New returns a new Handler. It leaves PaginationMode at its zero value, which
+// reads as the default strategy; assign the field to select the other one.
+func New(db *gorm.DB, nc *nats.Conn, rc nats.JetStreamContext, logger *zap.Logger) Handler {
+	return Handler{DB: db, NC: nc, JS: rc, Logger: logger}
 }
 
 // RequestDB returns the handler DB scoped to the HTTP request, with query
@@ -247,6 +252,17 @@ func (h Handler) GetPaginatedRecordsAsOfSystemTime(
 	return hlc, count, nil
 }
 
+// paginationMode returns the strategy this handler pages with. An unset field
+// reads as the default, so a handler assembled without one still pages, and
+// every paginating handler agrees on which strategy that is.
+func (h Handler) paginationMode() apiserver_lib.PaginationMode {
+	if h.PaginationMode == "" {
+		return apiserver_lib.PaginationModeAsOfSystemTime
+	}
+
+	return h.PaginationMode
+}
+
 // DispatchGetPaginatedRecords fetches one page of results from queryTable
 // using the handler's configured pagination strategy. query is the caller's
 // request-scoped, model-bound, filtered db, and both strategies read through it
@@ -262,10 +278,11 @@ func (h Handler) GetPaginatedRecordsAsOfSystemTime(
 // Under `PaginationModeMaterializedView` a view is created on the initial call
 // (empty pageParams.QueryId) and looked up by queryId on continuation; the view
 // is dropped once a page comes back shorter than the limit, so the TTL sweeper
-// doesn't have to, and a queryid naming no live view returns
-// `ErrPaginationSessionExpired`. Under `PaginationModeAsOfSystemTime` a fresh
-// HLC is captured on the initial call and the caller's queryId is validated and
-// reused on continuation; page-SELECT errors pass through
+// doesn't have to. A queryid naming no live view returns
+// `ErrPaginationSessionExpired`, and so does a view that the sweeper drops
+// between that lookup and the page read. Under `PaginationModeAsOfSystemTime` a
+// fresh HLC is captured on the initial call and the caller's queryId is
+// validated and reused on continuation; page-SELECT errors pass through
 // `TranslatePaginationSessionError()` so a GC-expired snapshot reaches the
 // client as the same expired-session error.
 func (h Handler) DispatchGetPaginatedRecords(
@@ -279,7 +296,7 @@ func (h Handler) DispatchGetPaginatedRecords(
 	// reuse it once the page has been fetched
 	query = query.Session(&gorm.Session{})
 
-	switch h.PaginationMode {
+	switch h.paginationMode() {
 	case apiserver_lib.PaginationModeAsOfSystemTime:
 		hlc, count, err := h.GetPaginatedRecordsAsOfSystemTime(query, records, queryTable, pageParams)
 		if err != nil {
@@ -316,6 +333,15 @@ func (h Handler) DispatchGetPaginatedRecords(
 
 		count, err := h.GetMaterializedViewRecords(query, records, viewName, pageParams)
 		if err != nil {
+			// a continuation races the TTL sweeper: the view resolved
+			// above can be dropped before this read runs, and the
+			// undefined-table failure that comes back means the snapshot
+			// is gone rather than the server being broken. A first page
+			// reads a view it created a moment earlier, so the same
+			// failure there is a real fault and stays one.
+			if pageParams.QueryId != "" {
+				return queryId, count, apiserver_lib.TranslateDroppedViewError(err, viewName)
+			}
 			return queryId, count, err
 		}
 

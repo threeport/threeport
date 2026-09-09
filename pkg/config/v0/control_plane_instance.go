@@ -25,13 +25,13 @@ type ControlPlaneInstanceConfig struct {
 // ControlPlaneInstanceValues contains all the attributes needed to manage
 // the ControlPlaneInstance API object.
 type ControlPlaneInstanceValues struct {
-	Name                      *string                          `json:",omitempty"`
-	Namespace                 *string                          `json:",omitempty"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:",omitempty"`
-	ControlPlaneDefinition    *ControlPlaneDefinitionValues    `json:",omitempty"`
-	CustomComponentInfo       []*api_v0.ControlPlaneComponent  `json:",omitempty"`
-	Genesis                   *bool                            `json:",omitempty"`
-	Age                       *string                          `json:",omitempty"`
+	Name                      *string
+	Namespace                 *string
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+	ControlPlaneDefinition    *ControlPlaneDefinitionValues
+	CustomComponentInfo       []*api_v0.ControlPlaneComponent
+	Genesis                   *bool
+	Age                       *string
 }
 
 // Get gets control plane instances from the Threeport API.

@@ -11,25 +11,25 @@ type Event struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// A short, machine understandable string that gives the reason for the event being generated.
-	Reason *string `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
+	Reason *string `validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
 
 	// A human-readable description of the status of this operation.
-	Note *string `json:",omitempty" validate:"optional" gorm:"uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
+	Note *string `validate:"optional" gorm:"uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
 
 	// The number of times this event has occurred.
-	Count *uint `json:",omitempty" validate:"required" gorm:"not null"`
+	Count *uint `validate:"required" gorm:"not null"`
 
 	// Time when this Event was first observed.
-	EventTime *time.Time `json:",omitempty" validate:"required" gorm:"not null"`
+	EventTime *time.Time `validate:"required" gorm:"not null"`
 
 	// The time at which the most recent occurrence of this event was recorded.
-	LastObservedTime *time.Time `json:",omitempty" validate:"required" gorm:"not null"`
+	LastObservedTime *time.Time `validate:"required" gorm:"not null"`
 
 	// Type of this event (Normal, Warning), new types could be added in the future.
-	Type *string `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
+	Type *string `validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
 
 	// Name of the controller that emitted this Event.
-	ReportingController *string `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
+	ReportingController *string `validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
 
 	// The event's subject: the object the event is about.
 	//
@@ -50,9 +50,9 @@ type Event struct {
 	// A consumer like `tptctl get events` uses them to render
 	// "threeport.io/machine-runtime-instance/some-host" in the OBJECT
 	// column.
-	ObjectType *string `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
-	ObjectID   *uint   `json:",omitempty" validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
-	ObjectName *string `json:",omitempty" validate:"optional" gorm:"-"`
+	ObjectType *string `validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
+	ObjectID   *uint   `validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
+	ObjectName *string `validate:"optional" gorm:"-"`
 }
 
 // ExtraQueryKeys returns the input-only filter keys the events read

@@ -140,3 +140,73 @@ func TestTranslatePaginationSessionError(t *testing.T) {
 		}
 	})
 }
+
+// TestTranslateDroppedViewError covers the race between the TTL sweeper and a
+// continuation request: the view is resolved by name, dropped, and then read.
+// The read fails with an undefined table, which leaves the client where an
+// expired snapshot does, so it has to carry the restart hint rather than report
+// a server fault. The match is deliberately narrow, and the cases below fix
+// where its edges sit.
+func TestTranslateDroppedViewError(t *testing.T) {
+	const viewName = "paginated_20260813120000_a1b2c3d4e5f6g7h8"
+
+	t.Run("nil stays nil", func(t *testing.T) {
+		assert.NoError(t, TranslateDroppedViewError(nil, viewName))
+	})
+
+	t.Run("dropped view gains the restart hint", func(t *testing.T) {
+		crdbErr := fmt.Errorf(
+			"handler error: error finding records: %w",
+			fmt.Errorf("ERROR: relation %q does not exist (SQLSTATE 42P01)", viewName),
+		)
+
+		translated := TranslateDroppedViewError(crdbErr, viewName)
+
+		require.Error(t, translated)
+		assert.Contains(t, translated.Error(), "pagination session expired")
+		assert.Contains(t, translated.Error(), "restart pagination with no queryid")
+		assert.ErrorIs(t, translated, ErrPaginationSessionExpired,
+			"the handlers match on this to answer 400 rather than 500")
+		assert.ErrorIs(t, translated, crdbErr, "the CRDB error stays wrapped for the logs")
+	})
+
+	t.Run("the sqlstate alone is enough", func(t *testing.T) {
+		// the wording belongs to the server and can change between
+		// releases; the code is the part the driver always carries
+		crdbErr := fmt.Errorf("ERROR: unknown relation %q (SQLSTATE 42P01)", viewName)
+
+		assert.ErrorIs(t, TranslateDroppedViewError(crdbErr, viewName), ErrPaginationSessionExpired)
+	})
+
+	t.Run("a missing base table stays a server fault", func(t *testing.T) {
+		// the reason the match is scoped to the resolved view: the same
+		// failure against the source table means the schema is broken, and
+		// no amount of restarting pagination fixes that
+		const baseTable = "v0_kubernetes_workload_definitions"
+		baseErr := errors.New(`ERROR: relation "` + baseTable + `" does not exist (SQLSTATE 42P01)`)
+
+		assert.Same(t, baseErr, TranslateDroppedViewError(baseErr, baseTable),
+			"a table name carrying no pagination view prefix never matches")
+		assert.Same(t, baseErr, TranslateDroppedViewError(baseErr, viewName),
+			"the failure has to name the view that was resolved")
+	})
+
+	t.Run("another failure against the same view is returned unchanged", func(t *testing.T) {
+		// the view being named is not on its own an expired session: this
+		// one is the server giving up on a query it could still run
+		other := fmt.Errorf(
+			"ERROR: query execution canceled reading %q (SQLSTATE 57014)", viewName,
+		)
+
+		assert.NotErrorIs(t, TranslateDroppedViewError(other, viewName), ErrPaginationSessionExpired)
+	})
+
+	t.Run("an empty view name never matches", func(t *testing.T) {
+		// an unresolved view reaches ErrPaginationSessionExpired at the
+		// lookup, so a translation here would be papering over a caller
+		// that skipped that check
+		other := errors.New("ERROR: relation \"\" does not exist (SQLSTATE 42P01)")
+
+		assert.Same(t, other, TranslateDroppedViewError(other, ""))
+	})
+}

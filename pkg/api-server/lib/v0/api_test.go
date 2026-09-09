@@ -46,12 +46,20 @@ func TestResponseStatusBindErr_UnmarshalTypeErrorReturns400(t *testing.T) {
 	// assert HTTP status is 400, not 500
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-	// assert response body carries the underlying unmarshal message so the
-	// client can see which field went wrong
+	// assert the body carries the unmarshal message and nothing else. An
+	// exact match is what makes this assertion able to fail: a Contains on
+	// the same substring passed both before and after the body stopped
+	// repeating the status code and naming Go types
 	var resp Response
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.Equal(t, http.StatusBadRequest, resp.Status.Code)
-	assert.Contains(t, resp.Status.Error, "Unmarshal type error")
+	assert.Equal(t,
+		"Unmarshal type error: expected=uint, got=string, field=KubernetesRuntimeDefinitionID, offset=47",
+		resp.Status.Error)
+	assert.NotContains(t, resp.Status.Error, "code=400",
+		"the status code belongs in Status.Code, not repeated in the message")
+	assert.NotContains(t, resp.Status.Error, "internal=",
+		"the wrapped cause is for the log line, not the client")
 }
 
 // TestResponseStatusBindErr_PlainErrorFallsBackTo500 confirms non-HTTP

@@ -184,6 +184,9 @@ func (h Handler) GetModuleObjectsWithModuleApiRoutes(c echo.Context) error {
 			// from the total count above, so the fetched count is unused
 			page, _, err := h.fetchModuleObjectPage(c, &filter, pageParams, pagination)
 			if err != nil {
+				if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+					return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+				}
 				h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
 				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 			}
@@ -203,6 +206,9 @@ func (h Handler) GetModuleObjectsWithModuleApiRoutes(c echo.Context) error {
 		// anchored on the first page
 		page, fetchedCount, err := h.fetchModuleObjectPage(c, &filter, pageParams, pagination)
 		if err != nil {
+			if errors.Is(err, apiserver_lib.ErrInvalidPaginationQueryId) || errors.Is(err, apiserver_lib.ErrPaginationSessionExpired) {
+				return apiserver_lib.ResponseStatus400(c, pageParams, err, objectType)
+			}
 			h.Logger.Error("handler error: error fetching paginated records", zap.Error(err))
 			return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 		}

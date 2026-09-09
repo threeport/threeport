@@ -116,6 +116,17 @@ func GetThreeportControlPlaneKubernetesRuntimeInstance(apiClient *http.Client, a
 		return &kubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	// the filter answers 200 with an empty Data on no match, so the index
+	// below panics without this. A control plane whose runtime instance row
+	// is missing is exactly the degraded state a caller is trying to tear
+	// down, which is when the panic used to land.
+	if len(response.Data) == 0 {
+		return &kubernetesRuntimeInstance, errors.New("no kubernetes runtime instance found hosting the threeport control plane")
+	}
+	if len(response.Data) > 1 {
+		return &kubernetesRuntimeInstance, errors.New("multiple kubernetes runtime instances marked as threeport control plane host")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return &kubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)

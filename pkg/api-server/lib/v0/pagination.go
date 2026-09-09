@@ -132,3 +132,34 @@ func TranslatePaginationSessionError(err error) error {
 	}
 	return err
 }
+
+// undefinedTableSQLState is the SQLSTATE a read against a table or view that is
+// not there comes back with, which the driver carries in the error text
+// alongside the server's message.
+const undefinedTableSQLState = "42P01"
+
+// TranslateDroppedViewError maps an undefined-table failure naming viewName
+// onto ErrPaginationSessionExpired, keeping the original wrapped for the logs.
+// The TTL sweeper can drop a pagination view between the lookup that resolves
+// its name and the read that pages from it, and the client's recourse there is
+// the same as for an expired snapshot: restart with no queryid.
+//
+// The match is scoped twice, to a name carrying the pagination view prefix and
+// to that name appearing in the message, so a base table that is genuinely
+// missing stays a server fault. Any other error is returned unchanged.
+func TranslateDroppedViewError(err error, viewName string) error {
+	if err == nil {
+		return nil
+	}
+	if !strings.HasPrefix(viewName, PaginationViewPrefix+"_") {
+		return err
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, viewName) {
+		return err
+	}
+	if strings.Contains(msg, "does not exist") || strings.Contains(msg, undefinedTableSQLState) {
+		return fmt.Errorf("%w: %w", ErrPaginationSessionExpired, err)
+	}
+	return err
+}

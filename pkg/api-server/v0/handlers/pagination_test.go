@@ -221,6 +221,45 @@ func TestViewLookupRejectsInjectedQueryId(t *testing.T) {
 	})
 }
 
+// TestUnsetModePagesAsOfSystemTime verifies both paginating call sites read an
+// unset mode the same way. The api-server assigns the mode from a validated
+// flag, so an empty field means a handler assembled without one, and the two
+// used to disagree: the dispatcher paged against an HLC snapshot while the
+// events handler fell through to a materialized view.
+func TestUnsetModePagesAsOfSystemTime(t *testing.T) {
+	t.Run("through the dispatcher", func(t *testing.T) {
+		h, sql := newDryRunHandler(t, "")
+		c := newListContext("/v0/kubernetes-workload-definitions")
+
+		_, _, err := h.DispatchGetPaginatedRecords(
+			h.listQuery(c, &api_v0.KubernetesWorkloadDefinition{}),
+			&[]api_v0.KubernetesWorkloadDefinition{},
+			"v0_kubernetes_workload_definitions",
+			&apiserver_lib.PageRequestParams{QueryId: testHLC, Cursor: 42, Limit: 100},
+		)
+
+		require.NoError(t, err)
+		assert.Contains(t, *sql, "AS OF SYSTEM TIME '"+testHLC+"'")
+	})
+
+	t.Run("through the events handler", func(t *testing.T) {
+		h, sql := newDryRunHandler(t, "")
+		c, rec := newHandlerRequest(clientErrorCase{
+			method: http.MethodGet,
+			route:  "/v0/events",
+			target: "/v0/events?queryid=" + testHLC + "&cursor=42&limit=100",
+		})
+
+		require.NoError(t, h.GetEventsJoinAttachedObjectReferences(c))
+
+		// the materialized-view branch reads the queryid as a view suffix
+		// and rejects an HLC token as malformed, so the client's own
+		// snapshot came back as a client error before this fix
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, *sql, "AS OF SYSTEM TIME '"+testHLC+"'")
+	})
+}
+
 // TestDispatchRejectsUnknownMode verifies a mode that reached the handler
 // without passing ValidPaginationMode is refused rather than silently paging
 // through one of the two real strategies.

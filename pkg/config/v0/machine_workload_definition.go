@@ -23,15 +23,15 @@ type MachineWorkloadDefinitionConfig struct {
 // MachineWorkloadDefinitionValues contains all the attributes needed to manage
 // the MachineWorkloadDefinition API object.
 type MachineWorkloadDefinitionValues struct {
-	Name         *string  `json:",omitempty"`
-	CreateScript *string  `json:",omitempty"`
-	UpdateScript *string  `json:",omitempty"`
-	DeleteScript *string  `json:",omitempty"`
-	Shell        *string  `json:",omitempty"`
-	WorkingDir   *string  `json:",omitempty"`
-	Timeout      *int     `json:",omitempty"`
-	Env          []string `json:",omitempty"`
-	Age          *string  `json:",omitempty"`
+	Name         *string
+	CreateScript *string
+	UpdateScript *string
+	DeleteScript *string
+	Shell        *string
+	WorkingDir   *string
+	Timeout      *int
+	Env          []string
+	Age          *string
 }
 
 // Get gets machine workload definitions from the Threeport API.

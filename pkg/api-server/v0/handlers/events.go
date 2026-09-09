@@ -582,7 +582,7 @@ func (h Handler) GetEventsJoinAttachedObjectReferences(c echo.Context) error {
 
 			whereClause := buildRawWhere()
 
-			switch h.PaginationMode {
+			switch h.paginationMode() {
 			case apiserver_lib.PaginationModeAsOfSystemTime:
 				// capture the HLC once; the client echoes it back on
 				// every continuation so all pages read the same snapshot
@@ -698,7 +698,7 @@ func (h Handler) GetEventsJoinAttachedObjectReferences(c echo.Context) error {
 		// stays empty and the drop below is skipped.
 		var viewName string
 
-		switch h.PaginationMode {
+		switch h.paginationMode() {
 		case apiserver_lib.PaginationModeAsOfSystemTime:
 			// treat the caller queryId as an HLC token; validate to
 			// reject anything that would smuggle SQL into AS OF SYSTEM
@@ -727,9 +727,16 @@ func (h Handler) GetEventsJoinAttachedObjectReferences(c echo.Context) error {
 				boundClause,
 				pageParams.Limit,
 			)
+			// a snapshot past the garbage-collection threshold is the
+			// client's to recover from by restarting pagination, so it
+			// answers 400 the way the generated list handlers do
 			if result := h.DB.Raw(recordsQuery, boundValues...).Find(records); result.Error != nil {
+				pageErr := apiserver_lib.TranslatePaginationSessionError(result.Error)
+				if errors.Is(pageErr, apiserver_lib.ErrPaginationSessionExpired) {
+					return apiserver_lib.ResponseStatus400(c, pageParams, pageErr, objectType)
+				}
 				h.Logger.Error("handler error: error finding records", zap.Error(result.Error))
-				return apiserver_lib.ResponseStatus500(c, pageParams, apiserver_lib.TranslatePaginationSessionError(result.Error), objectType)
+				return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
 			}
 			returnedCount = int64(len(*records))
 
@@ -744,18 +751,12 @@ func (h Handler) GetEventsJoinAttachedObjectReferences(c echo.Context) error {
 
 			// use the query ID to find the materialized view name (the view
 			// name is deterministic from the queryId)
-			resolvedViewName, err := h.GetMaterializedViewName(pageParams.QueryId)
+			var err error
+			viewName, err = h.GetMaterializedViewName(pageParams.QueryId)
 			if err != nil {
 				h.Logger.Error("handler error: error finding materialized view", zap.Error(err))
 				return apiserver_lib.ResponseStatus500(c, pageParams, err, objectType)
 			}
-			// a queryid that names no live view means the snapshot is
-			// gone. An empty name would otherwise build SQL with no table
-			// and fail as a syntax error.
-			if resolvedViewName == "" {
-				return apiserver_lib.ResponseStatus400(c, pageParams, apiserver_lib.ErrPaginationSessionExpired, objectType)
-			}
-			viewName = resolvedViewName
 
 			// a queryid naming no live view means the snapshot is gone,
 			// either dropped with the tail page or swept by the TTL. An
@@ -778,7 +779,14 @@ func (h Handler) GetEventsJoinAttachedObjectReferences(c echo.Context) error {
 				viewBoundClause,
 				pageParams.Limit,
 			)
+			// the TTL sweeper can drop the view between the lookup above
+			// and this read, which leaves the client in the same place an
+			// expired snapshot does: restart pagination with no queryid
 			if result := h.DB.Raw(recordsQuery, boundValues...).Find(records); result.Error != nil {
+				pageErr := apiserver_lib.TranslateDroppedViewError(result.Error, viewName)
+				if errors.Is(pageErr, apiserver_lib.ErrPaginationSessionExpired) {
+					return apiserver_lib.ResponseStatus400(c, pageParams, pageErr, objectType)
+				}
 				h.Logger.Error("handler error: error finding records", zap.Error(result.Error))
 				return apiserver_lib.ResponseStatus500(c, pageParams, result.Error, objectType)
 			}

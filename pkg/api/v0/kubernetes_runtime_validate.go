@@ -7,9 +7,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 )
 
 // KubernetesRuntimeInfraProvider indicates which infrastructure provider is being

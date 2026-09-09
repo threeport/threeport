@@ -21,15 +21,15 @@ type KubernetesWorkloadConfig struct {
 // KubernetesWorkloadDefinition and KubernetesWorkloadInstance API objects
 // together with a single operation.
 type KubernetesWorkloadValues struct {
-	Name                      *string                          `json:",omitempty"`
-	YAMLDocument              *string                          `json:",omitempty"`
-	WorkloadConfigPath        *string                          `json:",omitempty"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:",omitempty"`
-	DomainName                *DomainNameDefinitionValues      `json:",omitempty"`
-	Gateway                   *GatewayDefinitionValues         `json:",omitempty"`
-	Secret                    *SecretValues                    `json:",omitempty"`
-	Status                    *string                          `json:",omitempty"`
-	Age                       *string                          `json:",omitempty"`
+	Name                      *string
+	YAMLDocument              *string
+	WorkloadConfigPath        *string
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+	DomainName                *DomainNameDefinitionValues
+	Gateway                   *GatewayDefinitionValues
+	Secret                    *SecretValues
+	Status                    *string
+	Age                       *string
 }
 
 // Get gets a kubernetes workload definition and instance from the Threeport API.

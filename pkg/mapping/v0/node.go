@@ -1,4 +1,4 @@
-package mapping
+package v0
 
 import (
 	"fmt"
@@ -6,8 +6,8 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// RegionMap contains a threeport location with the corresponding regions for
-// cloud providers.
+// MachineTypeMap contains a node profile and node size with the corresponding
+// machine types for cloud providers.
 type MachineTypeMap struct {
 	NodeProfile    string
 	NodeSize       string
@@ -269,6 +269,20 @@ func GetMachineTypeMap() *[]MachineTypeMap {
 	}
 }
 
+// ValidMachineSize reports whether the machine size matches a supported node
+// size under any node profile. Each profile carries its own subset of sizes,
+// so a size accepted here can still be unsupported for the profile a caller
+// ends up using; GetMachineType reports that case with the sizes the profile
+// does support.
+func ValidMachineSize(machineSize string) bool {
+	for _, machineType := range *GetMachineTypeMap() {
+		if machineSize == machineType.NodeSize {
+			return true
+		}
+	}
+	return false
+}
+
 // GetMachineType returns a cloud provider machine type for a given provider,
 // node profile and node size.
 func GetMachineType(provider, nodeProfile, nodeSize string) (string, error) {
@@ -276,11 +290,11 @@ func GetMachineType(provider, nodeProfile, nodeSize string) (string, error) {
 		if m.NodeProfile == nodeProfile {
 			if m.NodeSize == nodeSize {
 				switch provider {
-				case "aws":
+				case util.AwsProvider:
 					return m.AwsMachineType, nil
-				case "oci":
+				case util.OciProvider:
 					return m.OciMachineType, nil
-				case "gcp":
+				case util.GcpProvider:
 					return m.GcpMachineType, nil
 				default:
 					msg := fmt.Sprintf("provider %s not supported", provider)
@@ -327,7 +341,7 @@ func GetNodeSizeForProfile(nodeProfile string) ([]string, error) {
 	return nodeSizes, nil
 }
 
-// GetNodProfiles returns all unique node profiles supported.
+// GetNodeProfiles returns all unique node profiles supported.
 func GetNodeProfiles() []string {
 	var nodeProfiles []string
 	for _, m := range *GetMachineTypeMap() {
