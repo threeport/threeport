@@ -1,6 +1,7 @@
 package v0
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -15,18 +16,15 @@ const threeportModulePath = "github.com/threeport/threeport"
 // names the repository the release binaries come from; otherwise a `require
 // github.com/threeport/threeport <version>` line yields the upstream repository
 // at that version. found is false when the go.mod declares no threeport
-// dependency, or when the only directive is a replace to a local filesystem
-// path (which carries no release version to download from).
+// dependency. A replace to a local filesystem path returns an error, because
+// that checkout has no release to download.
 func ParseThreeportDependency(gomod string) (repo, version string, found bool, err error) {
 	repo, version, kind := parseThreeportReplace(gomod)
 	switch kind {
 	case replaceVersioned:
 		return repo, version, true, nil
 	case replaceLocal:
-		// a local checkout replaces the dependency, so there is no release to
-		// download; report no dependency rather than falling through to the
-		// require placeholder version.
-		return "", "", false, nil
+		return "", "", false, fmt.Errorf("failed to resolve threeport release: go.mod replaces github.com/threeport/threeport with a local path; install the binary from that checkout")
 	}
 	if version, ok := parseThreeportRequire(gomod); ok {
 		return shortModulePath(threeportModulePath), version, true, nil

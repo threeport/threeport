@@ -100,8 +100,8 @@ require github.com/spf13/cobra v1.8.0
 }
 
 // TestParseThreeportDependencyRejectsLocalPathReplace asserts a replace to a
-// local filesystem path reports found=false, since a local path carries no
-// release version to download from, and does not panic.
+// local filesystem path returns an error, since that checkout has no release
+// to download.
 func TestParseThreeportDependencyRejectsLocalPathReplace(t *testing.T) {
 	// a module replacing threeport with a relative local checkout
 	gomod := `module github.com/example/consumer
@@ -112,12 +112,11 @@ require github.com/threeport/threeport v0.0.0-00010101000000-000000000000
 
 replace github.com/threeport/threeport => ../threeport
 `
-	// parse rejects the local replace and finds no downloadable release
+	// parse rejects the local replace rather than treating it as no dependency
 	repo, version, found, err := ParseThreeportDependency(gomod)
-	if err != nil {
-		t.Fatalf("ParseThreeportDependency error: %v", err)
+	if err == nil {
+		t.Fatalf("ParseThreeportDependency repo=%q version=%q found=%v, want error", repo, version, found)
 	}
-	// assert the local replace is treated as no release source
 	if found || repo != "" || version != "" {
 		t.Fatalf("repo=%q version=%q found=%v, want empty found=false", repo, version, found)
 	}
@@ -171,7 +170,7 @@ replace (
 }
 
 // TestParseThreeportDependencyRejectsGroupedLocalPathReplace asserts a local-path
-// replace inside a grouped block reports found=false. Missing it would let the
+// replace inside a grouped block returns an error. Missing it would let the
 // require version through, defeating local-path pairing silently.
 func TestParseThreeportDependencyRejectsGroupedLocalPathReplace(t *testing.T) {
 	// a module pairing against a local threeport checkout from a grouped block
@@ -184,10 +183,10 @@ replace (
 	github.com/threeport/threeport => ../threeport
 )
 `
-	// parse rejects the local replace and finds no downloadable release
+	// parse rejects the local replace rather than treating it as no dependency
 	repo, version, found, err := ParseThreeportDependency(gomod)
-	if err != nil {
-		t.Fatalf("ParseThreeportDependency error: %v", err)
+	if err == nil {
+		t.Fatalf("ParseThreeportDependency repo=%q version=%q found=%v, want error", repo, version, found)
 	}
 	// assert the require version does not leak through
 	if found || repo != "" || version != "" {
