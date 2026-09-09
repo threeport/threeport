@@ -68,6 +68,9 @@ func (r *EventRecorder) RecordEvent(
 	event.EventTime = util.Ptr(now)
 	event.LastObservedTime = util.Ptr(now)
 	event.Count = util.Ptr(uint(1))
+	if event.Note == nil {
+		event.Note = util.Ptr("")
+	}
 
 	// carry the subject on the in-memory Event. ObjectType and ObjectID
 	// are columns on the event row and part of the dedup index, so the

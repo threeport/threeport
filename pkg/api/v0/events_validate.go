@@ -52,6 +52,13 @@ func (e *Event) beforeCreate(tx *gorm.DB) error {
 		))
 	}
 
+	// a NULL note is distinct from every other NULL in a unique index, so
+	// two emits that omit Note would both insert. Store empty string so
+	// they collide on idx_events_dedup.
+	if e.Note == nil {
+		e.Note = util.Ptr("")
+	}
+
 	// count carries the running total and last_observed_time the newest
 	// sighting, so the row keeps event_time as when the failure first
 	// appeared. tptctl renders the pair as a "first..last" age span.

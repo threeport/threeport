@@ -117,11 +117,11 @@ func baseEvent() *api.Event {
 	}
 }
 
-// TestRecordEvent_AlwaysPostsRawRowWithCountOne covers the current
-// writer contract: every emit stores a fresh Count=1 row. no GET
-// happens (dedup and aggregation live at read time in the events
-// endpoint), and the POST body carries the subject fields, the
-// reporting controller, and non-nil EventTime / LastObservedTime.
+// TestRecordEvent_AlwaysPostsRawRowWithCountOne covers the writer
+// contract: every emit POSTs Count=1. The api server upserts on
+// idx_events_dedup and increments the stored count. The POST body
+// carries the subject fields, the reporting controller, and non-nil
+// EventTime / LastObservedTime.
 func TestRecordEvent_AlwaysPostsRawRowWithCountOne(t *testing.T) {
 	rec, mock, cleanup := newRecorderForTest(t)
 	defer cleanup()
@@ -135,7 +135,7 @@ func TestRecordEvent_AlwaysPostsRawRowWithCountOne(t *testing.T) {
 	// exactly one request should have fired, and it must be the POST
 	// on the events collection endpoint.
 	mock.mu.Lock()
-	require.Len(t, mock.requests, 1, "recorder should not issue a preceding GET; server aggregates at read time")
+	require.Len(t, mock.requests, 1, "recorder should not issue a preceding GET; the api server upserts on insert")
 	assert.Equal(t, http.MethodPost, mock.requests[0].method)
 	assert.Equal(t, api.PathEvents, mock.requests[0].path)
 	mock.mu.Unlock()
@@ -146,7 +146,7 @@ func TestRecordEvent_AlwaysPostsRawRowWithCountOne(t *testing.T) {
 	var posted api.Event
 	require.NoError(t, json.Unmarshal(post.body, &posted))
 	require.NotNil(t, posted.Count)
-	assert.Equal(t, uint(1), *posted.Count, "each raw row stores Count=1; aggregation happens at read time")
+	assert.Equal(t, uint(1), *posted.Count, "each emit posts Count=1; the api server increments the stored count on conflict")
 	require.NotNil(t, posted.EventTime)
 	require.NotNil(t, posted.LastObservedTime)
 	require.NotNil(t, posted.ReportingController)
