@@ -203,6 +203,69 @@ func TestEncryptHookRejectsRedactedPlaceholder(t *testing.T) {
 	assert.Contains(t, err.Error(), "redacted placeholder", "error should explain the placeholder rejection")
 }
 
+// TestRedactEncryptedValuesPreservesEnvKeys covers the KEY=VALUE
+// slice shape: redaction must leave the KEY= prefix intact on each
+// entry so a tptctl get -> tptctl replace round trip still hands the
+// encrypt hook a well-formed KEY=VALUE payload rather than a bare
+// placeholder that fails the KEY=VALUE parse.
+func TestRedactEncryptedValuesPreservesEnvKeys(t *testing.T) {
+	// seed a slice-shaped encrypted field with two KEY=VALUE entries
+	env := []string{"DB_PASSWORD=cipher1", "API_KEY=cipher2"}
+	obj := &testSecret{Env: &env}
+
+	// redact in place; the returned interface is the same object
+	_ = RedactEncryptedValues(obj)
+
+	// each entry retains its KEY= prefix and the value is the placeholder
+	require.Len(t, env, 2)
+	assert.Equal(t, "DB_PASSWORD="+encryption.RedactedValuePlaceholder, env[0], "KEY= prefix must survive redaction on first entry")
+	assert.Equal(t, "API_KEY="+encryption.RedactedValuePlaceholder, env[1], "KEY= prefix must survive redaction on second entry")
+}
+
+// TestRedactedEnvRoundTripsToPlaceholderError drives the whole round
+// trip the KEY= prefix exists for. Redaction is what tptctl get prints
+// when no encryption key is available, and sending that document back
+// unedited is tptctl replace. The hook has to reject it with the
+// placeholder error, which is a bad-request naming the offending entry,
+// rather than the KEY=VALUE parse error. That parse error is a plain
+// error rather than a *util.HttpError, so the generated handler turns it
+// into a 500 and the caller never learns what to fix.
+func TestRedactedEnvRoundTripsToPlaceholderError(t *testing.T) {
+	db, _ := setupEncryptTestDB(t)
+
+	// what tptctl get prints with no key available. The prefix itself is
+	// asserted by TestRedactEncryptedValuesPreservesEnvKeys; this test
+	// takes redaction as given and checks only what the replay does, so
+	// losing the prefix surfaces here as the wrong error rather than as a
+	// failed precondition.
+	env := []string{"DB_PASSWORD=hunter2", "API_KEY=abc-123"}
+	_ = RedactEncryptedValues(&testSecret{Name: "test", Env: &env})
+
+	// what tptctl replace sends back: the same document, unedited
+	err := db.Create(&testSecret{Name: "test", Env: &env}).Error
+
+	require.Error(t, err, "replaying a redacted payload must be rejected")
+	assert.ErrorContains(t, err, "redacted placeholder", "the rejection must be the placeholder error")
+	assert.ErrorContains(t, err, "Env[0]", "the message must name which entry needs a real value")
+	assert.NotContains(t, err.Error(), "not in KEY=VALUE format", "reaching the parse error means the KEY= prefix was lost")
+}
+
+// TestRedactEncryptedValuesRedactsStringField pins the *string branch
+// contract: a non-nil pointer is replaced with the placeholder in
+// place, a nil pointer is left alone.
+func TestRedactEncryptedValuesRedactsStringField(t *testing.T) {
+	// non-nil *string: underlying value is replaced by the placeholder
+	obj := &testSecret{Token: testTokenPtr("plaintext-secret")}
+	_ = RedactEncryptedValues(obj)
+	require.NotNil(t, obj.Token, "non-nil pointer stays non-nil after redact")
+	assert.Equal(t, encryption.RedactedValuePlaceholder, *obj.Token, "value must be replaced with the placeholder")
+
+	// nil *string: pointer stays nil, hook does not deref
+	nilObj := &testSecret{}
+	_ = RedactEncryptedValues(nilObj)
+	assert.Nil(t, nilObj.Token, "nil pointer must be left alone")
+}
+
 // TestEncryptHookSkipsAlreadyEncryptedInbound verifies the
 // IsEncrypted guard: a caller resubmitting ciphertext is not
 // double-encrypted, which would otherwise corrupt the field.
