@@ -167,7 +167,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of kubernetes runtime definition encountered for creation")
+					operationErr = errors.New("unrecognized version of kubernetes runtime definition encountered for create operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile created kubernetes runtime definition object"
@@ -202,6 +202,10 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
+				if kubernetesRuntimeDefinition.ScheduledForDeletion() != nil {
+					log.Info("kubernetes runtime definition scheduled for deletion - skipping update")
+					break
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch kubernetesRuntimeDefinition.GetVersion() {
@@ -214,7 +218,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of kubernetes runtime definition encountered for creation")
+					operationErr = errors.New("unrecognized version of kubernetes runtime definition encountered for update operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile updated kubernetes runtime definition object"
@@ -261,7 +265,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of kubernetes runtime definition encountered for creation")
+					operationErr = errors.New("unrecognized version of kubernetes runtime definition encountered for delete operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile deleted kubernetes runtime definition object"
