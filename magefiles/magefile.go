@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"slices"
 
+	"gopkg.in/yaml.v3"
+
 	version "github.com/threeport/threeport/internal/version"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	sdk "github.com/threeport/threeport/pkg/sdk/v0"
@@ -464,11 +466,19 @@ func (Test) ModuleGen() error {
 // naming a control plane to work against.  Every target that needs one shares
 // this, and adds whatever else it requires.
 func controlPlaneConfigProblems() []error {
-	threeportConfig, controlPlaneName, err := cli.GetThreeportConfig("")
-	switch {
-	case err != nil:
+	// tptctl writes this file in a subprocess, so read it from disk
+	cfgFile := cli.DetermineThreeportConfigPath("")
+	data, err := os.ReadFile(cfgFile)
+	if err != nil {
 		return []error{fmt.Errorf("no usable Threeport config: %w", err)}
-	case controlPlaneName == "":
+	}
+	var threeportConfig cli.ThreeportConfig
+	if err := yaml.Unmarshal(data, &threeportConfig); err != nil {
+		return []error{fmt.Errorf("no usable Threeport config: %w", err)}
+	}
+
+	controlPlaneName := threeportConfig.CurrentControlPlane
+	if controlPlaneName == "" {
 		return []error{errors.New("the Threeport config names no current control plane")}
 	}
 
@@ -503,6 +513,7 @@ func checkModuleInstallPrerequisites() error {
 	if _, err := exec.LookPath("mage"); err != nil {
 		problems = append(problems, errors.New("mage is not on PATH"))
 	}
+	problems = append(problems, controlPlaneConfigProblems()...)
 
 	return unmetPrerequisites("module install", problems)
 }
@@ -540,6 +551,7 @@ func (Test) ModuleInstall() error {
 	); err != nil {
 		return fmt.Errorf("failed to install the module plugin: %w", err)
 	}
+	defer removeModuleTestPlugin()
 
 	install := Install{}
 	if err := install.Tptctl(); err != nil {
@@ -556,10 +568,6 @@ func (Test) ModuleInstall() error {
 		"-r", installer.DevImageNamespace,
 	); err != nil {
 		return fmt.Errorf("failed to install the module: %w", err)
-	}
-
-	if err := removeModuleTestPlugin(); err != nil {
-		return err
 	}
 	if err := resetModuleTestDir(); err != nil {
 		return err
