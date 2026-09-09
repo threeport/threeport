@@ -6,13 +6,12 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
-	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 )
 
 var (
@@ -20,6 +19,7 @@ var (
 	nodeSize       string
 	awsMachineType string
 	ociMachineType string
+	gcpMachineType string
 )
 
 // ConfigGetControlPlanesCmd represents the get-instances command
@@ -30,31 +30,10 @@ var ConfigGetMachinesCmd = &cobra.Command{
 	Long:         `Get a list of available Threeport node profiles and node sizes with their corresponding cloud provider machine types.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		// validate flags
-		providedFlags := []string{}
-		if nodeProfile != "" {
-			providedFlags = append(providedFlags, "--location")
-		}
-		if nodeSize != "" {
-			providedFlags = append(providedFlags, "--continent")
-		}
-		if awsMachineType != "" {
-			providedFlags = append(providedFlags, "--aws-region")
-		}
-		if ociMachineType != "" {
-			providedFlags = append(providedFlags, "--oci-region")
-		}
-
-		if len(providedFlags) > 1 {
-			err := fmt.Sprintf("only one filter flag can be provided at a time. Provided flags: %s\n", strings.Join(providedFlags, ", "))
-			cli.Error(err, nil)
-			os.Exit(1)
-		}
-
 		// get the machine type map and print to table
 		machineTypeMap := mapping.GetMachineTypeMap()
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-		fmt.Fprintln(writer, "NODE PROFILE\t NODE SIZE\t AWS MACHINE TYPE\t OCI MACHINE TYPE")
+		fmt.Fprintln(writer, "NODE PROFILE\t NODE SIZE\t AWS MACHINE TYPE\t OCI MACHINE TYPE\t GCP MACHINE TYPE")
 		filterFound := false
 		switch {
 		case nodeProfile != "":
@@ -63,7 +42,7 @@ var ConfigGetMachinesCmd = &cobra.Command{
 					continue
 				}
 				filterFound = true
-				fmt.Fprintln(writer, machineType.NodeProfile, "\t", machineType.NodeSize, "\t", machineType.AwsMachineType, "\t", machineType.OciMachineType)
+				fmt.Fprintln(writer, machineType.NodeProfile, "\t", machineType.NodeSize, "\t", machineType.AwsMachineType, "\t", machineType.OciMachineType, "\t", machineType.GcpMachineType)
 			}
 		case nodeSize != "":
 			for _, machineType := range *machineTypeMap {
@@ -71,7 +50,7 @@ var ConfigGetMachinesCmd = &cobra.Command{
 					continue
 				}
 				filterFound = true
-				fmt.Fprintln(writer, machineType.NodeProfile, "\t", machineType.NodeSize, "\t", machineType.AwsMachineType, "\t", machineType.OciMachineType)
+				fmt.Fprintln(writer, machineType.NodeProfile, "\t", machineType.NodeSize, "\t", machineType.AwsMachineType, "\t", machineType.OciMachineType, "\t", machineType.GcpMachineType)
 			}
 		case awsMachineType != "":
 			for _, machineType := range *machineTypeMap {
@@ -79,7 +58,7 @@ var ConfigGetMachinesCmd = &cobra.Command{
 					continue
 				}
 				filterFound = true
-				fmt.Fprintln(writer, machineType.NodeProfile, "\t", machineType.NodeSize, "\t", machineType.AwsMachineType, "\t", machineType.OciMachineType)
+				fmt.Fprintln(writer, machineType.NodeProfile, "\t", machineType.NodeSize, "\t", machineType.AwsMachineType, "\t", machineType.OciMachineType, "\t", machineType.GcpMachineType)
 			}
 		case ociMachineType != "":
 			for _, machineType := range *machineTypeMap {
@@ -87,12 +66,20 @@ var ConfigGetMachinesCmd = &cobra.Command{
 					continue
 				}
 				filterFound = true
-				fmt.Fprintln(writer, machineType.NodeProfile, "\t", machineType.NodeSize, "\t", machineType.AwsMachineType, "\t", machineType.OciMachineType)
+				fmt.Fprintln(writer, machineType.NodeProfile, "\t", machineType.NodeSize, "\t", machineType.AwsMachineType, "\t", machineType.OciMachineType, "\t", machineType.GcpMachineType)
+			}
+		case gcpMachineType != "":
+			for _, machineType := range *machineTypeMap {
+				if machineType.GcpMachineType != gcpMachineType {
+					continue
+				}
+				filterFound = true
+				fmt.Fprintln(writer, machineType.NodeProfile, "\t", machineType.NodeSize, "\t", machineType.AwsMachineType, "\t", machineType.OciMachineType, "\t", machineType.GcpMachineType)
 			}
 		default:
 			filterFound = true
 			for _, machineType := range *machineTypeMap {
-				fmt.Fprintln(writer, machineType.NodeProfile, "\t", machineType.NodeSize, "\t", machineType.AwsMachineType, "\t", machineType.OciMachineType)
+				fmt.Fprintln(writer, machineType.NodeProfile, "\t", machineType.NodeSize, "\t", machineType.AwsMachineType, "\t", machineType.OciMachineType, "\t", machineType.GcpMachineType)
 			}
 		}
 		if !filterFound {
@@ -121,5 +108,20 @@ func init() {
 	ConfigGetMachinesCmd.Flags().StringVarP(
 		&ociMachineType,
 		"oci-machine-type", "o", "", "OCI machine type to get machines for",
+	)
+	ConfigGetMachinesCmd.Flags().StringVarP(
+		&gcpMachineType,
+		"gcp-machine-type", "g", "", "GCP machine type to get machines for",
+	)
+
+	// One filter at a time. cobra enforces this before Run and panics at
+	// startup on a name no flag declares, so a name here that no longer
+	// matches a declaration above fails loudly instead of silently.
+	ConfigGetMachinesCmd.MarkFlagsMutuallyExclusive(
+		"node-profile",
+		"node-size",
+		"aws-machine-type",
+		"oci-machine-type",
+		"gcp-machine-type",
 	)
 }

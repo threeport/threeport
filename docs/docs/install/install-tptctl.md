@@ -14,17 +14,38 @@ TPTCTL_VERSION=$(curl -s "https://api.github.com/repos/threeport/threeport/relea
 ```
 
 Otherwise, look up the version at the [releases
-page](https://github.com/threeport/releases/releases) and set it like so:
+page](https://github.com/threeport/threeport/releases) and set it like so:
+
+<pre><code><span>TPTCTL_VERSION=<span id="tptctl-latest">v0.6.1</span></span></code></pre>
+
+<script>
+(function () {
+  var el = document.getElementById('tptctl-latest');
+  if (!el) return;
+  fetch('https://api.github.com/repos/threeport/threeport/releases/latest')
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (d.tag_name) el.textContent = d.tag_name; })
+    .catch(function () {});
+})();
+</script>
+
+## Set Platform Variables
+
+Release artifacts use `arm64` for 64-bit ARM, but `uname -m` reports `aarch64`
+on Linux. Set the package name once so the rest of the commands stay consistent:
 
 ```bash
-TPTCTL_VERSION=v0.5.1  # substitute latest version
+TPTCTL_ARCH=$(uname -m)
+[ "$TPTCTL_ARCH" = "aarch64" ] && TPTCTL_ARCH=arm64
+TPTCTL_PKG="threeport_${TPTCTL_VERSION}_$(uname)_${TPTCTL_ARCH}"
 ```
 
 ## Download
 
 Download the release and checksums:
+
 ```bash
-curl -LO "https://github.com/threeport/threeport/releases/download/$TPTCTL_VERSION/tptctl_${TPTCTL_VERSION}_$(uname)_$(uname -m).tar.gz"
+curl -LO "https://github.com/threeport/threeport/releases/download/$TPTCTL_VERSION/${TPTCTL_PKG}.tar.gz"
 curl -L "https://github.com/threeport/threeport/releases/download/$TPTCTL_VERSION/checksums.txt" > checksums.txt
 ```
 
@@ -32,24 +53,37 @@ curl -L "https://github.com/threeport/threeport/releases/download/$TPTCTL_VERSIO
 
 Optional but recommended.
 
-Run the following command on Linux to verify the integrity of the package:
+On Linux:
 
 ```bash
 sha256sum -c --ignore-missing checksums.txt
 ```
 
+On MacOS, `sha256sum` is not installed by default. Use `shasum` instead:
+
+```bash
+shasum -a 256 -c --ignore-missing checksums.txt
+```
+
 ## Install
 
 ```bash
-tar xf tptctl_${TPTCTL_VERSION}_$(uname)_$(uname -m).tar.gz
-sudo mv tptctl_${TPTCTL_VERSION}_$(uname)_$(uname -m)/tptctl /usr/local/bin
+tar xf "${TPTCTL_PKG}.tar.gz"
+sudo mv "${TPTCTL_PKG}/tptctl" /usr/local/bin
+```
+
+The archive also contains `threeport-sdk` and a README. If you want the SDK on
+your path as well:
+
+```bash
+sudo mv "${TPTCTL_PKG}/threeport-sdk" /usr/local/bin
 ```
 
 ## Cleanup
 
 ```bash
-rm checksums.txt tptctl_${TPTCTL_VERSION}_$(uname)_$(uname -m).tar.gz
-rm -rf tptctl_${TPTCTL_VERSION}_$(uname)_$(uname -m)
+rm checksums.txt "${TPTCTL_PKG}.tar.gz"
+rm -rf "${TPTCTL_PKG}"
 ```
 
 ## View Usage Info
@@ -60,11 +94,21 @@ tptctl help
 
 ## Note for MacOS Users
 
-If you have issues running `tptctl` on your machine, follow the steps outlined by Apple
-[here](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac).
+The binary is not notarized, so Gatekeeper will block the first run. The
+quickest fix is to remove the quarantine attribute:
+
+```bash
+sudo xattr -d com.apple.quarantine /usr/local/bin/tptctl
+```
+
+Alternatively, run `tptctl` once and let MacOS block it. Then open System
+Settings, go to Privacy & Security, scroll to Security and click "Open Anyway".
+That button only appears after a blocked launch attempt and stays available for
+about an hour. See Apple's
+[documentation](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac)
+for details.
 
 ## Next Steps
 
 Now that you have tptctl installed, we suggest you follow our [guide to install
 Threeport locally](install-threeport-local.md).
-

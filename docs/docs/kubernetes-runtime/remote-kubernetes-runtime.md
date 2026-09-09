@@ -59,12 +59,11 @@ cluster will be installed across.  When `false` it will installed across two AZs
 
 The `Location` field tells Threeport where to install the Kubernetes cluster.
 `NorthAmerica:NewYork` is a Threeport abstraction that allows users to reference
-a common set of locations, regardless of provider.  For AWS, this translates to
-the `us-east-1` region.  When other cloud providers are supported, it will
-reference the appropriate region for the cloud provider being used.  For now,
-you can reference the [Threeport source
-code](https://github.com/threeport/threeport/blob/main/internal/kubernetes-runtime/mapping/location.go#L49)
-to see which locations map to which regions in AWS.
+a common set of locations, regardless of provider.  It resolves to the
+`us-east-1` region on AWS, `us-ashburn-1` on OCI and `us-east4` on GCP.  You
+can reference the [Threeport source
+code](https://github.com/threeport/threeport/blob/main/pkg/mapping/v0/location.go)
+to see which locations map to which regions on each cloud provider.
 
 The `DefaultRuntime` field indicates that, when deploying workloads, if a
 Kubernetes Runtime is not specified, it will use this one by default.

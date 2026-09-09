@@ -1,4 +1,10 @@
-package mapping
+// Package v0 translates threeport's provider-neutral vocabulary into the
+// identifiers each cloud provider uses. It maps a threeport location to an
+// AWS, OCI or GCP region, and a node profile with a node size to a machine
+// type on each of those providers. It also reports whether a location or
+// machine size is one threeport supports, so callers can reject bad input
+// before it reaches a controller.
+package v0
 
 import (
 	"fmt"

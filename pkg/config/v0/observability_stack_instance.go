@@ -23,21 +23,21 @@ type ObservabilityStackInstanceConfig struct {
 // ObservabilityStackInstanceValues contains all the attributes needed to manage
 // the ObservabilityStackInstance API object.
 type ObservabilityStackInstanceValues struct {
-	Name                                  *string                             `json:",omitempty"`
-	KubernetesRuntimeInstance             *KubernetesRuntimeInstanceValues    `json:",omitempty"`
-	MetricsEnabled                        *bool                               `json:",omitempty"`
-	LoggingEnabled                        *bool                               `json:",omitempty"`
-	GrafanaHelmValues                     *string                             `json:",omitempty"`
-	GrafanaHelmValuesDocument             *string                             `json:",omitempty"`
-	LokiHelmValues                        *string                             `json:",omitempty"`
-	LokiHelmValuesDocument                *string                             `json:",omitempty"`
-	PromtailHelmValues                    *string                             `json:",omitempty"`
-	PromtailHelmValuesDocument            *string                             `json:",omitempty"`
-	KubePrometheusStackHelmValues         *string                             `json:",omitempty"`
-	KubePrometheusStackHelmValuesDocument *string                             `json:",omitempty"`
-	ObservabilityConfigPath               *string                             `json:",omitempty"`
-	ObservabilityStackDefinition          *ObservabilityStackDefinitionValues `json:",omitempty"`
-	Age                                   *string                             `json:",omitempty"`
+	Name                                  *string
+	KubernetesRuntimeInstance             *KubernetesRuntimeInstanceValues
+	MetricsEnabled                        *bool
+	LoggingEnabled                        *bool
+	GrafanaHelmValues                     *string
+	GrafanaHelmValuesDocument             *string
+	LokiHelmValues                        *string
+	LokiHelmValuesDocument                *string
+	PromtailHelmValues                    *string
+	PromtailHelmValuesDocument            *string
+	KubePrometheusStackHelmValues         *string
+	KubePrometheusStackHelmValuesDocument *string
+	ObservabilityConfigPath               *string
+	ObservabilityStackDefinition          *ObservabilityStackDefinitionValues
+	Age                                   *string
 }
 
 // Get gets observability stack instances from the Threeport API.

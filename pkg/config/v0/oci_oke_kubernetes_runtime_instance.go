@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
+	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -26,12 +26,12 @@ type OciOkeKubernetesRuntimeInstanceConfig struct {
 // OciOkeKubernetesRuntimeInstanceValues contains all the attributes needed to manage
 // the OciOkeKubernetesRuntimeInstance API object.
 type OciOkeKubernetesRuntimeInstanceValues struct {
-	Name                              *string                                  `json:",omitempty"`
-	OciProviderName                   *string                                  `json:",omitempty"`
-	Region                            *string                                  `json:",omitempty"`
-	OciOkeKubernetesRuntimeDefinition *OciOkeKubernetesRuntimeDefinitionValues `json:",omitempty"`
-	Status                            *string                                  `json:",omitempty"`
-	Age                               *string                                  `json:",omitempty"`
+	Name                              *string
+	OciProviderName                   *string
+	Region                            *string
+	OciOkeKubernetesRuntimeDefinition *OciOkeKubernetesRuntimeDefinitionValues
+	Status                            *string
+	Age                               *string
 }
 
 // Get gets oci oke kubernetes runtime instances from the Threeport API.
