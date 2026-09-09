@@ -13,17 +13,12 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// ErrMsgAlreadyBeingDeleted is the substring present in any 409 error
-// returned when a delete is already underway. The client lib detects
-// this fragment to produce ErrDeleteInProgress; both sites must be
-// updated together if this text changes.
+// ErrMsgAlreadyBeingDeleted is the 409 substring the client lib matches
+// to produce ErrDeleteInProgress when deletion is already underway.
 const ErrMsgAlreadyBeingDeleted = "already being deleted"
 
-// ErrMsgDeleteBlocked is the substring present in any 409 error
-// returned when a delete cannot proceed because attached objects or
-// related instances still exist. The client lib detects this fragment
-// to produce ErrDeleteBlocked; both sites must be updated together if
-// this text changes.
+// ErrMsgDeleteBlocked is the 409 substring the client lib matches to produce
+// ErrDeleteBlocked when attached objects or related instances remain.
 const ErrMsgDeleteBlocked = "cannot be deleted"
 
 // BlockedDeleteError reports a delete rejected by one or more attached

@@ -438,8 +438,8 @@ func GenReconcilers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 const clientLib = "github.com/threeport/threeport/pkg/client/lib/v0"
 
-// emitDeleteConflictWait emits the retryable-delete 409 branch: log at
-// Info, record ReasonDeleteInProgress, wait 30 seconds, and continue.
+// emitDeleteConflictWait generates the wait-and-requeue path for delete-in-progress
+// and delete-blocked conflicts, using a flat 30 second delay.
 func emitDeleteConflictWait(k *Group, errVar, logMsg, varObjectName string) {
 	k.If(
 		Qual("errors", "Is").Call(
@@ -635,12 +635,7 @@ func operationCase(
 			)
 		})
 		h.If(Id("operationErr").Op("!=").Nil()).BlockFunc(func(k *Group) {
-			// Match the retryable delete 409s (already underway, or blocked
-			// by attached objects / related instances) and wait at a flat 30
-			// seconds. Emit ReasonDeleteInProgress so the wait is visible
-			// from the events list. Create and update skip this branch: a
-			// 409 there is almost always a name that is already taken,
-			// which is permanent and earns the Warning event and the backoff.
+			// emit the delete-conflict wait before the failure path
 			if op == "delete" {
 				emitDeleteConflictWait(
 					k,
@@ -774,9 +769,7 @@ func operationCase(
 				Line(),
 			)
 			h.If(Id("err").Op("!=").Nil()).BlockFunc(func(k *Group) {
-				// The API answers 409 when it will not drop the row yet.
-				// Wait at a flat 30 seconds, emit ReasonDeleteInProgress,
-				// and log at Info rather than fail the reconciliation.
+				// emit the delete-conflict wait before the failure path
 				emitDeleteConflictWait(
 					k,
 					"err",

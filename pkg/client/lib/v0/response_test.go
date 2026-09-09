@@ -17,10 +17,10 @@ import (
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// TestGetResponse_ConflictCauses covers the 409 split: retryable delete
-// causes wrap ErrConflict with a specific error, and a permanent 409
-// stays ErrConflict alone.
+// TestGetResponse_ConflictCauses covers 409 responses that map to a
+// delete-in-progress, delete-blocked, or general conflict error.
 func TestGetResponse_ConflictCauses(t *testing.T) {
+	// build 409 message cases
 	cases := []struct {
 		name      string
 		message   string
@@ -53,9 +53,10 @@ func TestGetResponse_ConflictCauses(t *testing.T) {
 		},
 	}
 
+	// run each 409 message case
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			// serve one 409 whose Status.Error is the case's message
+			// serve a 409 with the case message
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				body, err := json.Marshal(apiserver_lib.Response{
 					Status: apiserver_lib.Status{
@@ -71,7 +72,7 @@ func TestGetResponse_ConflictCauses(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			// call through GetResponse the same way a delete client does
+			// call GetResponse against the 409
 			_, err := GetResponse(
 				&http.Client{},
 				strings.TrimPrefix(srv.URL, "http://")+"/v0/objects",
@@ -80,12 +81,14 @@ func TestGetResponse_ConflictCauses(t *testing.T) {
 				nil,
 				http.StatusOK,
 			)
+			// require an error
 			require.Error(t, err)
 
-			// retryable causes wrap ErrConflict; permanent ones do not
+			// accept the expected errors
 			for _, want := range tc.wantIs {
 				assert.Truef(t, errors.Is(err, want), "expected errors.Is(..., %v), got %v", want, err)
 			}
+			// reject the excluded errors
 			for _, not := range tc.wantNotIs {
 				assert.Falsef(t, errors.Is(err, not), "did not expect errors.Is(..., %v), got %v", not, err)
 			}

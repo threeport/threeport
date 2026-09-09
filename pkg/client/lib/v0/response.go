@@ -21,10 +21,10 @@ var ErrBadRequest = errors.New("bad request")
 var ErrObjectOwned = errors.New("object owned externally")
 var ErrMisdirectedRequest = errors.New("misdirected request")
 
-// ErrDeleteInProgress wraps ErrConflict for a delete already underway.
+// ErrDeleteInProgress is a conflict for a delete already underway.
 var ErrDeleteInProgress = fmt.Errorf("%w: delete in progress", ErrConflict)
 
-// ErrDeleteBlocked wraps ErrConflict for a delete waiting on attached
+// ErrDeleteBlocked is a conflict for a delete rejected by attached
 // objects or related instances.
 var ErrDeleteBlocked = fmt.Errorf("%w: delete blocked", ErrConflict)
 
