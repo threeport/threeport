@@ -196,7 +196,9 @@ func main() {
 
 		// create certificate pool and add server root certificate authority
 		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
+		if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
+			e.Logger.Fatal("failed to parse certificate authority")
+		}
 
 		// configure https server
 		server := http.Server{

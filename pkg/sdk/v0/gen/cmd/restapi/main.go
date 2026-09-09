@@ -596,7 +596,12 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 			Comment("create certificate pool and add server root certificate authority"),
 			Id("caCertPool").Op(":=").Qual("crypto/x509", "NewCertPool").Call(),
-			Id("caCertPool.AppendCertsFromPEM").Call(Id("caCert")),
+			If(
+				Id("ok").Op(":=").Id("caCertPool.AppendCertsFromPEM").Call(Id("caCert")),
+				Op("!").Id("ok"),
+			).Block(
+				Id("e.Logger.Fatal").Call(Lit("failed to parse certificate authority")),
+			),
 			Line(),
 
 			Comment("configure https server"),
