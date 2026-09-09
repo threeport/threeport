@@ -5,6 +5,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	crdbgorm "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/terraform/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -293,14 +294,6 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeTerraformDefinition
 	terraformDefinitionID := c.Param("id")
 	var existingTerraformDefinition api_v0.TerraformDefinition
-	if result := h.RequestDB(c).First(&existingTerraformDefinition, terraformDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingTerraformDefinition); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
@@ -314,17 +307,36 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
-	// update object in database
-	if result := h.RequestDB(c).Model(&existingTerraformDefinition).Updates(&updatedTerraformDefinition); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+	// the read and the write retry together. Under SERIALIZABLE
+	// isolation CockroachDB answers a conflict with SQLSTATE 40001 and
+	// expects the client to re-run the transaction; a restart that
+	// re-ran only the write would land it on a stale row. RequestDB is
+	// not used because ExecuteTx opens the transaction itself, so the
+	// query scopes it would have applied go on tx instead.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
+			// a retried attempt must not read into the previous one's leftovers
+			existingTerraformDefinition = api_v0.TerraformDefinition{}
+			if result := scopedDB.First(&existingTerraformDefinition, terraformDefinitionID); result.Error != nil {
+				return result.Error
+			}
+			return scopedDB.Model(&existingTerraformDefinition).Updates(&updatedTerraformDefinition).Error
+		},
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, err, objectType)
+		}
+		h.Logger.Error("handler error: error updating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// notify controller if reconciliation is required
@@ -829,14 +841,6 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeTerraformInstance
 	terraformInstanceID := c.Param("id")
 	var existingTerraformInstance api_v0.TerraformInstance
-	if result := h.RequestDB(c).First(&existingTerraformInstance, terraformInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingTerraformInstance); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
@@ -850,17 +854,36 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
-	// update object in database
-	if result := h.RequestDB(c).Model(&existingTerraformInstance).Updates(&updatedTerraformInstance); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+	// the read and the write retry together. Under SERIALIZABLE
+	// isolation CockroachDB answers a conflict with SQLSTATE 40001 and
+	// expects the client to re-run the transaction; a restart that
+	// re-ran only the write would land it on a stale row. RequestDB is
+	// not used because ExecuteTx opens the transaction itself, so the
+	// query scopes it would have applied go on tx instead.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
+			// a retried attempt must not read into the previous one's leftovers
+			existingTerraformInstance = api_v0.TerraformInstance{}
+			if result := scopedDB.First(&existingTerraformInstance, terraformInstanceID); result.Error != nil {
+				return result.Error
+			}
+			return scopedDB.Model(&existingTerraformInstance).Updates(&updatedTerraformInstance).Error
+		},
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, err, objectType)
+		}
+		h.Logger.Error("handler error: error updating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// notify controller if reconciliation is required

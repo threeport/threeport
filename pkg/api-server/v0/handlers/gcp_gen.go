@@ -5,6 +5,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	crdbgorm "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/gcp/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -279,14 +280,6 @@ func (h Handler) UpdateGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGcpGkeKubernetesRuntimeDefinition
 	gcpGkeKubernetesRuntimeDefinitionID := c.Param("id")
 	var existingGcpGkeKubernetesRuntimeDefinition api_v0.GcpGkeKubernetesRuntimeDefinition
-	if result := h.RequestDB(c).First(&existingGcpGkeKubernetesRuntimeDefinition, gcpGkeKubernetesRuntimeDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGcpGkeKubernetesRuntimeDefinition); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
@@ -300,17 +293,36 @@ func (h Handler) UpdateGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
-	// update object in database
-	if result := h.RequestDB(c).Model(&existingGcpGkeKubernetesRuntimeDefinition).Updates(&updatedGcpGkeKubernetesRuntimeDefinition); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+	// the read and the write retry together. Under SERIALIZABLE
+	// isolation CockroachDB answers a conflict with SQLSTATE 40001 and
+	// expects the client to re-run the transaction; a restart that
+	// re-ran only the write would land it on a stale row. RequestDB is
+	// not used because ExecuteTx opens the transaction itself, so the
+	// query scopes it would have applied go on tx instead.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
+			// a retried attempt must not read into the previous one's leftovers
+			existingGcpGkeKubernetesRuntimeDefinition = api_v0.GcpGkeKubernetesRuntimeDefinition{}
+			if result := scopedDB.First(&existingGcpGkeKubernetesRuntimeDefinition, gcpGkeKubernetesRuntimeDefinitionID); result.Error != nil {
+				return result.Error
+			}
+			return scopedDB.Model(&existingGcpGkeKubernetesRuntimeDefinition).Updates(&updatedGcpGkeKubernetesRuntimeDefinition).Error
+		},
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, err, objectType)
+		}
+		h.Logger.Error("handler error: error updating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -750,14 +762,6 @@ func (h Handler) UpdateGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGcpGkeKubernetesRuntimeInstance
 	gcpGkeKubernetesRuntimeInstanceID := c.Param("id")
 	var existingGcpGkeKubernetesRuntimeInstance api_v0.GcpGkeKubernetesRuntimeInstance
-	if result := h.RequestDB(c).First(&existingGcpGkeKubernetesRuntimeInstance, gcpGkeKubernetesRuntimeInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGcpGkeKubernetesRuntimeInstance); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
@@ -771,17 +775,36 @@ func (h Handler) UpdateGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
-	// update object in database
-	if result := h.RequestDB(c).Model(&existingGcpGkeKubernetesRuntimeInstance).Updates(&updatedGcpGkeKubernetesRuntimeInstance); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+	// the read and the write retry together. Under SERIALIZABLE
+	// isolation CockroachDB answers a conflict with SQLSTATE 40001 and
+	// expects the client to re-run the transaction; a restart that
+	// re-ran only the write would land it on a stale row. RequestDB is
+	// not used because ExecuteTx opens the transaction itself, so the
+	// query scopes it would have applied go on tx instead.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
+			// a retried attempt must not read into the previous one's leftovers
+			existingGcpGkeKubernetesRuntimeInstance = api_v0.GcpGkeKubernetesRuntimeInstance{}
+			if result := scopedDB.First(&existingGcpGkeKubernetesRuntimeInstance, gcpGkeKubernetesRuntimeInstanceID); result.Error != nil {
+				return result.Error
+			}
+			return scopedDB.Model(&existingGcpGkeKubernetesRuntimeInstance).Updates(&updatedGcpGkeKubernetesRuntimeInstance).Error
+		},
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, err, objectType)
+		}
+		h.Logger.Error("handler error: error updating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// notify controller if reconciliation is required
@@ -1266,14 +1289,6 @@ func (h Handler) UpdateGcpProvider(c echo.Context) error {
 	objectType := api_v0.ObjectTypeGcpProvider
 	gcpProviderID := c.Param("id")
 	var existingGcpProvider api_v0.GcpProvider
-	if result := h.RequestDB(c).First(&existingGcpProvider, gcpProviderID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingGcpProvider); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
@@ -1287,17 +1302,36 @@ func (h Handler) UpdateGcpProvider(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
-	// update object in database
-	if result := h.RequestDB(c).Model(&existingGcpProvider).Updates(&updatedGcpProvider); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+	// the read and the write retry together. Under SERIALIZABLE
+	// isolation CockroachDB answers a conflict with SQLSTATE 40001 and
+	// expects the client to re-run the transaction; a restart that
+	// re-ran only the write would land it on a stale row. RequestDB is
+	// not used because ExecuteTx opens the transaction itself, so the
+	// query scopes it would have applied go on tx instead.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			scopedDB := tx.Scopes(apiserver_lib.QueryScopes(c)...)
+			// a retried attempt must not read into the previous one's leftovers
+			existingGcpProvider = api_v0.GcpProvider{}
+			if result := scopedDB.First(&existingGcpProvider, gcpProviderID); result.Error != nil {
+				return result.Error
+			}
+			return scopedDB.Model(&existingGcpProvider).Updates(&updatedGcpProvider).Error
+		},
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, err, objectType)
+		}
+		h.Logger.Error("handler error: error updating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
