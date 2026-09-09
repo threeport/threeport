@@ -196,7 +196,7 @@ func resolveReleaseRemote() string {
 // git runs a git command and surfaces its combined output on failure.
 func git(args ...string) error {
 	if output, err := exec.Command("git", args...).CombinedOutput(); err != nil {
-		return fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(string(output)), err)
+		return fmt.Errorf("failed to run git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(string(output)), err)
 	}
 	return nil
 }

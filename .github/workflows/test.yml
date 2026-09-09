@@ -72,7 +72,7 @@ jobs:
       run: mage dev:localRegistryUp
 
     # Native compile via mage (uses the warm Go cache restored by the composite),
-    # then PARALLEL_IMAGE_BUILD workers package images.
+    # then package the images.
     - name: Build and push control plane component images
       run: mage build:allImages
 

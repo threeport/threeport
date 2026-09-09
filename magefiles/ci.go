@@ -90,7 +90,7 @@ func (Ci) Teardown() error {
 	// take the local registry down through the dev target so its container,
 	// port, and network are all handled in one place
 	if err := (Dev{}).LocalRegistryDown(); err != nil {
-		fmt.Printf("ci:teardown: remove local registry: %v\n", err)
+		fmt.Fprintf(os.Stderr, "ci:teardown: remove local registry: %v\n", err)
 	}
 
 	// prune volumes last. A prune skips any volume a container still holds, so
@@ -105,7 +105,7 @@ func (Ci) Teardown() error {
 // failed command doesn't abort the rest of teardown.
 func teardownStep(cmd string, args ...string) {
 	if out, err := exec.Command(cmd, args...).CombinedOutput(); err != nil {
-		fmt.Printf("ci:teardown: %s %v failed: %v (%s)\n",
+		fmt.Fprintf(os.Stderr, "ci:teardown: %s %v failed: %v (%s)\n",
 			cmd, args, err, string(out))
 	}
 }
