@@ -2538,7 +2538,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object ModuleObject
 	object = api_v0.ModuleObject{
-		Description: util.Ptr("ModuleObject is an API object that is managed by a module in Threeport. This provides central registry of all API objects across all modules for each Threeport control plane. The (Name, ModuleApiID) pair is unique."),
+		Description: util.Ptr("ModuleObject is an API object that is managed by a module in Threeport. This provides central registry of all API objects across all modules for each Threeport control plane. The (Name, Version, ModuleApiID) combination is unique."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("ModuleObject"),
 		Version:     util.Ptr("v0"),
