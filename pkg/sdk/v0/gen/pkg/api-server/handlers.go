@@ -860,14 +860,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				).Parens(List(
 					Error(),
 				)).Block(
-					Id("objectType").Op(":=").Qual(
-						fmt.Sprintf(
-							"%s/pkg/api/%s",
-							gen.ModulePath,
-							objCollection.Version,
-						),
-						fmt.Sprintf("ObjectType%s", apiObject.TypeName),
-					),
 					Id("fullyQualifiedType").Op(":=").Id("new").Call(Qual(fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version), apiObject.TypeName)).Dot("GetFullyQualifiedType").Call(),
 					Line(),
 					Comment("get pagination parameters"),
@@ -909,7 +901,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus400",
-						).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType")))
+						).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 					})),
 					Line(),
 					Id("pagination").Op(":=").New(Qual(
@@ -2115,7 +2107,7 @@ func paginationErrorResponse(gen *gen.Generator) func(*Group) {
 			),
 		).Block(
 			Return(Qual(apiServerLib, "ResponseStatus400").Call(
-				Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType"),
+				Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("fullyQualifiedType"),
 			)),
 		)
 		if gen.Module {
@@ -2130,7 +2122,7 @@ func paginationErrorResponse(gen *gen.Generator) func(*Group) {
 			)
 		}
 		h.Return(Qual(apiServerLib, "ResponseStatus500").Call(
-			Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType"),
+			Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("fullyQualifiedType"),
 		))
 	}
 }
