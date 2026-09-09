@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ var (
 var errFakeInfra = errors.New("fakeInfra: injected failure")
 
 // baselineGoroutines holds the goroutine count captured before any test
-// runs, which is what the post-suite leak check compares against.
+// runs, printed with a leak so the process-wide delta is in the output.
 var baselineGoroutines int
 
 // goroutineDrainTimeout bounds the post-suite wait for background
@@ -36,10 +37,8 @@ var baselineGoroutines int
 // window only covers scheduling.
 const goroutineDrainTimeout = 10 * time.Second
 
-// TestMain snapshots the goroutine count, runs the suite, then fails the
-// run when background goroutines outlive it. A leak here means a lifecycle
-// operation returned without stopping something it started, which is the
-// failure the semaphore and ack-refresh work is meant to rule out.
+// TestMain runs the suite, then fails when a lifecycle goroutine is still
+// running. Runtime and testing leftovers are ignored.
 func TestMain(m *testing.M) {
 	baselineGoroutines = runtime.NumGoroutine()
 
@@ -49,11 +48,14 @@ func TestMain(m *testing.M) {
 	// returned early and left its own goroutines behind, and that error is
 	// the one worth reading
 	if code == 0 {
-		if leaked := goroutinesOverBaseline(goroutineDrainTimeout); leaked > 0 {
+		if leaked := lifecycleGoroutinesRemaining(goroutineDrainTimeout); leaked > 0 {
 			fmt.Fprintf(
 				os.Stderr,
-				"goroutine leak: %d above the pre-suite baseline of %d\n",
-				leaked, baselineGoroutines,
+				"goroutine leak: %d lifecycle goroutines still running (process count %d above baseline %d)\n%s\n",
+				leaked,
+				runtime.NumGoroutine()-baselineGoroutines,
+				baselineGoroutines,
+				lifecycleGoroutineStacks(),
 			)
 			code = 1
 		}
@@ -62,18 +64,51 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// goroutinesOverBaseline polls until the goroutine count falls back to the
-// pre-suite baseline and returns 0, or returns how many remain above it
-// once the timeout expires.
-func goroutinesOverBaseline(timeout time.Duration) int {
+// lifecycleGoroutineNames are the functions this package starts in the
+// background. The post-suite check matches these in stacks, not the process count.
+var lifecycleGoroutineNames = []string{
+	"provider.refreshAck",
+	"provider.streamState",
+	"provider.executeInfraCreate",
+	"provider.executeInfraDelete",
+	"provider.launchInfraCreate",
+	"provider.launchInfraDelete",
+}
+
+// lifecycleGoroutineStacks returns the current goroutine dump, used when
+// the leak check fails so the leftover function names are in the output.
+func lifecycleGoroutineStacks() string {
+	buf := make([]byte, 1<<20)
+	n := runtime.Stack(buf, true)
+	return string(buf[:n])
+}
+
+// countLifecycleGoroutines returns how many running goroutines are in a
+// lifecycle function this package started.
+func countLifecycleGoroutines() int {
+	count := 0
+	for _, g := range strings.Split(lifecycleGoroutineStacks(), "\n\n") {
+		for _, name := range lifecycleGoroutineNames {
+			if strings.Contains(g, name) {
+				count++
+				break
+			}
+		}
+	}
+	return count
+}
+
+// lifecycleGoroutinesRemaining polls until no lifecycle goroutine remains
+// and returns 0, or returns how many remain once the timeout expires.
+func lifecycleGoroutinesRemaining(timeout time.Duration) int {
 	deadline := time.Now().Add(timeout)
 	for {
-		over := runtime.NumGoroutine() - baselineGoroutines
-		if over <= 0 {
+		left := countLifecycleGoroutines()
+		if left == 0 {
 			return 0
 		}
 		if time.Now().After(deadline) {
-			return over
+			return left
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
