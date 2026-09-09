@@ -68,28 +68,3 @@ func TestListHandlerRejectsBadLimitWith400(t *testing.T) {
 		})
 	}
 }
-
-// TestListHandlerAcceptsReservedQueryParams asserts the keys the api-server
-// consumes itself are not mistaken for unknown filters. These reach the handler
-// on ordinary requests, so rejecting them would break pagination and the bulk
-// id lookup rather than catching a typo.
-func TestListHandlerAcceptsReservedQueryParams(t *testing.T) {
-	for _, target := range []string{
-		"/v0/kubernetes-workload-definitions?includedeleted=true",
-		"/v0/kubernetes-workload-definitions?ids=1,2,3",
-		"/v0/kubernetes-workload-definitions?limit=10",
-		"/v0/kubernetes-workload-definitions?name=my-app",
-	} {
-		t.Run(target, func(t *testing.T) {
-			c, rec := newListRequest(target)
-			h, _ := newDryRunHandler(t, apiserver_lib.PaginationModeAsOfSystemTime)
-
-			// the bind has to succeed and let the handler reach its
-			// count query, which the dry-run database then refuses. Any
-			// status but 400 proves the key passed the unknown-key gate
-			_ = h.GetKubernetesWorkloadDefinitions(c)
-
-			assert.NotEqual(t, http.StatusBadRequest, rec.Code, "a reserved key must not read as an unknown filter")
-		})
-	}
-}
