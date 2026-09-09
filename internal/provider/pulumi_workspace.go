@@ -545,8 +545,7 @@ func (w *PulumiWorkspace) resolveStateDir() (string, error) {
 	return GetPulumiRuntimeStateDir(w.RuntimeInstanceName)
 }
 
-// setStateDir resolves the state directory for the Pulumi stack and creates
-// it on disk.
+// setStateDir resolves the Pulumi stack state directory and creates it.
 func (w *PulumiWorkspace) setStateDir() error {
 	dir, err := w.resolveStateDir()
 	if err != nil {

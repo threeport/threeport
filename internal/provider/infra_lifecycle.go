@@ -74,10 +74,8 @@ func currentConfig() LifecycleConfig {
 	return lifecycleConfig
 }
 
-// currentSemaphore returns the active semaphore channel. Callers that
-// both acquire and release a slot must capture this once and reuse it,
-// so the release lands on the same channel even if a test swaps the
-// global in between.
+// currentSemaphore returns the active semaphore channel. Callers that acquire
+// and release a slot must capture this once so a config swap cannot move the release.
 func currentSemaphore() chan struct{} {
 	lifecycleMu.RLock()
 	defer lifecycleMu.RUnlock()
@@ -109,10 +107,8 @@ func (c LifecycleConfig) withDefaults() LifecycleConfig {
 	return c
 }
 
-// setLifecycleConfig swaps the lifecycle tunables and re-creates the
-// semaphore channel at the new capacity. Unset fields fall back to the
-// production defaults. Returns a restore func for t.Cleanup. Only for
-// tests.
+// setLifecycleConfig swaps the lifecycle tunables and rebuilds the semaphore
+// at the new capacity. Tests call it and restore through t.Cleanup.
 func setLifecycleConfig(c LifecycleConfig) (restore func()) {
 	c = c.withDefaults()
 
