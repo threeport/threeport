@@ -176,7 +176,7 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 		}
 
 		// fetch every matching page; --limit is a display cap after sort
-		events, err := client_v0.GetEventsJoinAttachedObjectReferenceByQueryString(apiClient, apiEndpoint, queryString, 0)
+		events, err := client_v0.GetEventsFilteredByQueryString(apiClient, apiEndpoint, queryString, 0)
 		if err != nil {
 			cli.Error("failed to retrieve events", err)
 			os.Exit(1)

@@ -67,9 +67,9 @@ func CustomRoutes(h *handlers.Handler) *[]CustomRoute {
 
 		// Lists events, filtered by subject.
 		{
-			Path:    v0.PathEventsJoinAttachedObjectReferences,
+			Path:    v0.PathEventsFiltered,
 			Method:  "GET",
-			Handler: util.Ptr(h.GetEventsJoinAttachedObjectReferences),
+			Handler: util.Ptr(h.GetEventsFiltered),
 			ApiObjects: &[]ApiObject{
 				{
 					Name:    v0.ObjectTypeEvent,

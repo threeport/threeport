@@ -3,10 +3,8 @@ package v0
 import "time"
 
 const (
-	// PathEventsJoinAttachedObjectReferences is the list path for events
-	// filtered by subject. The attached-object-reference spelling is kept
-	// because clients call this path.
-	PathEventsJoinAttachedObjectReferences = "/v0/events-join-attached-object-references"
+	// PathEventsFiltered is the list path for events filtered by subject.
+	PathEventsFiltered = "/v0/events-filtered"
 )
 
 // Event is a record of an event in the system.

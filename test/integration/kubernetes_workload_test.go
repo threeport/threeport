@@ -481,7 +481,7 @@ func TestWorkloadIntegration(t *testing.T) {
 		eventAttemptsMax := 300
 		eventCheckDurationSeconds := 1
 		for eventAttempts < eventAttemptsMax {
-			events, err := client.GetEventsJoinAttachedObjectReferenceByQueryString(
+			events, err := client.GetEventsFilteredByQueryString(
 				apiClient,
 				threeportAPIEndpoint,
 				fmt.Sprintf(

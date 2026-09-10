@@ -144,7 +144,7 @@ var clientErrorCases = []clientErrorCase{
 		name:   "events join handler rejects an unknown query param",
 		source: "events.go",
 		handler: func(h Handler, c echo.Context) error {
-			return h.GetEventsJoinAttachedObjectReferences(c)
+			return h.GetEventsFiltered(c)
 		},
 		method:     http.MethodGet,
 		route:      "/v0/events",
@@ -156,7 +156,7 @@ var clientErrorCases = []clientErrorCase{
 		name:   "events join handler rejects a zero limit",
 		source: "events.go",
 		handler: func(h Handler, c echo.Context) error {
-			return h.GetEventsJoinAttachedObjectReferences(c)
+			return h.GetEventsFiltered(c)
 		},
 		method:     http.MethodGet,
 		route:      "/v0/events",

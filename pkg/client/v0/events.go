@@ -11,9 +11,9 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 )
 
-// GetEventsJoinAttachedObjectReferenceByQueryString fetches events matching
+// GetEventsFilteredByQueryString fetches events matching
 // queryString, paging until the server has no more. max>0 caps the result; 0 fetches all.
-func GetEventsJoinAttachedObjectReferenceByQueryString(
+func GetEventsFilteredByQueryString(
 	apiClient *http.Client,
 	apiAddr string,
 	queryString string,
@@ -32,9 +32,9 @@ func GetEventsJoinAttachedObjectReferenceByQueryString(
 	nextCursor := uint(0)
 	queryId := ""
 	for !allPagesReceived {
-		url := fmt.Sprintf("%s/v0/events-join-attached-object-references?%s", apiAddr, queryString)
+		url := fmt.Sprintf("%s%s?%s", apiAddr, v0.PathEventsFiltered, queryString)
 		if queryId != "" {
-			url = fmt.Sprintf("%s/v0/events-join-attached-object-references?%s&queryid=%s&cursor=%d", apiAddr, queryString, queryId, nextCursor)
+			url = fmt.Sprintf("%s%s?%s&queryid=%s&cursor=%d", apiAddr, v0.PathEventsFiltered, queryString, queryId, nextCursor)
 		}
 		if pageLimit > 0 {
 			url = fmt.Sprintf("%s&limit=%d", url, pageLimit)

@@ -250,7 +250,7 @@ func TestUnsetModePagesAsOfSystemTime(t *testing.T) {
 			target: "/v0/events?queryid=" + testHLC + "&cursor=42&limit=100",
 		})
 
-		require.NoError(t, h.GetEventsJoinAttachedObjectReferences(c))
+		require.NoError(t, h.GetEventsFiltered(c))
 
 		// the materialized-view branch reads the queryid as a view suffix
 		// and rejects an HLC token as malformed, so the client's own

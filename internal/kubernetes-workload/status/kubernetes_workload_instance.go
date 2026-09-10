@@ -77,7 +77,7 @@ func GetKubernetesWorkloadInstanceStatus(
 		return &workloadInstanceStatusDetail
 	}
 
-	workloadEvents, err := client.GetEventsJoinAttachedObjectReferenceByQueryString(
+	workloadEvents, err := client.GetEventsFilteredByQueryString(
 		apiClient,
 		apiEndpoint,
 		fmt.Sprintf(

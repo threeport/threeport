@@ -84,10 +84,10 @@ func boundEventFilterClause(filter *v0.Event) (string, []interface{}) {
 	return strings.Join(fragments, ""), values
 }
 
-// GetEventsJoinAttachedObjectReferences lists events filtered by subject type, id, name, and reason, and fills in each event's object name. The exported name and route path keep the attached-object-reference spelling because clients call /v0/events-join-attached-object-references.
+// GetEventsFiltered lists events filtered by subject type, id, name, and reason, and fills in each event's object name.
 // @Summary gets all events, filtered by subject.
 // @Description Get events from the Threeport database, narrowed by the object_type and object_id columns each event row carries.
-// @ID get-v0-events-join-attached-object-references
+// @ID get-v0-events-filtered
 // @Accept json
 // @Produce json
 // @Param objectid query string false "filter events by object ID"
@@ -101,8 +101,8 @@ func boundEventFilterClause(filter *v0.Event) (string, []interface{}) {
 // @Success 200 {object} v0.Response "OK"
 // @Failure 400 {object} v0.Response "Bad Request"
 // @Failure 500 {object} v0.Response "Internal Server Error"
-// @Router /v0/events-join-attached-object-references [GET]
-func (h Handler) GetEventsJoinAttachedObjectReferences(c echo.Context) error {
+// @Router /v0/events-filtered [GET]
+func (h Handler) GetEventsFiltered(c echo.Context) error {
 	objectType := v0.ObjectTypeEvent
 
 	// get pagination parameters

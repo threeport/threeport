@@ -51,11 +51,11 @@ func getEvents(t *testing.T, h Handler, query string) (int, []api.Event) {
 
 	e := echo.New()
 	e.Binder = apiserver_lib.NewQueryBinder()
-	req := httptest.NewRequest(http.MethodGet, api.PathEventsJoinAttachedObjectReferences+query, nil)
+	req := httptest.NewRequest(http.MethodGet, api.PathEventsFiltered+query, nil)
 	rec := httptest.NewRecorder()
 	c := &apiserver_lib.CustomContext{Context: e.NewContext(req, rec)}
 
-	require.NoError(t, h.GetEventsJoinAttachedObjectReferences(c))
+	require.NoError(t, h.GetEventsFiltered(c))
 
 	if rec.Code != http.StatusOK {
 		return rec.Code, nil
