@@ -439,7 +439,9 @@ func GenReconcilers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 const clientLib = "github.com/threeport/threeport/pkg/client/lib/v0"
 
 // emitDeleteConflictWait generates the wait-and-requeue path for delete-in-progress
-// and delete-blocked conflicts, using a flat 30 second delay.
+// and delete-blocked conflicts, using a flat 30 second delay. It does not
+// record an event: this reconciliation already recorded DeleteInProgress, and
+// a second RecordEvent would bump Count twice.
 func emitDeleteConflictWait(k *Group, errVar, logMsg, varObjectName string) {
 	k.If(
 		Qual("errors", "Is").Call(
@@ -455,49 +457,7 @@ func emitDeleteConflictWait(k *Group, errVar, logMsg, varObjectName string) {
 			Line().Lit("cause"), Id(errVar).Dot("Error").Call(),
 			Line(),
 		),
-		// Emits:
-		//   deleteNote := "deleting"
-		//   if owner, ok := obj.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
-		//     deleteNote = event.DeleteNote(owner)
-		//   }
-		Comment("start with deleting; types without tagged foreign keys keep this note"),
-		Id("deleteNote").Op(":=").Lit("deleting"),
-		Comment("type-assert so types without relationship-tagged foreign keys still emit deleting"),
-		If(
-			List(Id("owner"), Id("ok")).Op(":=").Id(varObjectName).Assert(
-				Qual(
-					"github.com/threeport/threeport/pkg/api/v0",
-					"RelationshipTaggedForeignKeyProvider",
-				),
-			),
-			Id("ok"),
-		).Block(
-			Id("deleteNote").Op("=").Qual(
-				"github.com/threeport/threeport/pkg/event/v0",
-				"DeleteNote",
-			).Call(Id("owner")),
-		),
-		If(
-			Id("recordErr").Op(":=").Id("r").Dot("EventsRecorder").Dot("RecordEvent").Call(
-				Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
-					Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
-						Qual("github.com/threeport/threeport/pkg/event/v0", "ReasonDeleteInProgress"),
-					),
-					Id("Note"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Id("deleteNote")),
-					Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
-						Qual("github.com/threeport/threeport/pkg/event/v0", "TypeNormal"),
-					),
-				}),
-				Line().Id(varObjectName).Dot("GetId").Call(),
-				Line().Id(varObjectName).Dot("GetFullyQualifiedType").Call(),
-				Line(),
-			).Op(";").Id("recordErr").Op("!=").Nil().Block(
-				Id("log").Dot("Error").Call(
-					Id("recordErr"),
-					Lit("failed to record DeleteInProgress event"),
-				),
-			),
-		),
+		Comment("in-progress event already recorded before the handler"),
 		Id("r").Dot("UnlockAndRequeue").Call(
 			Line().Id(varObjectName),
 			Line().Lit(int64(30)),

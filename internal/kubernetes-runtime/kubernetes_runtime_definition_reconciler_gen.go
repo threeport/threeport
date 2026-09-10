@@ -320,23 +320,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 							"conflict reconciling deleted kubernetes runtime definition object, requeueing",
 							"cause", operationErr.Error(),
 						)
-						// start with deleting; types without tagged foreign keys keep this note
-						deleteNote := "deleting"
-						// type-assert so types without relationship-tagged foreign keys still emit deleting
-						if owner, ok := kubernetesRuntimeDefinition.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
-							deleteNote = event.DeleteNote(owner)
-						}
-						if recordErr := r.EventsRecorder.RecordEvent(
-							&api_v0.Event{
-								Note:   util.Ptr(deleteNote),
-								Reason: util.Ptr(event.ReasonDeleteInProgress),
-								Type:   util.Ptr(event.TypeNormal),
-							},
-							kubernetesRuntimeDefinition.GetId(),
-							kubernetesRuntimeDefinition.GetFullyQualifiedType(),
-						); recordErr != nil {
-							log.Error(recordErr, "failed to record DeleteInProgress event")
-						}
+						// in-progress event already recorded before the handler
 						r.UnlockAndRequeue(
 							kubernetesRuntimeDefinition,
 							int64(30),
@@ -406,23 +390,7 @@ func KubernetesRuntimeDefinitionReconciler(r *controller.Reconciler) {
 							"conflict deleting kubernetes runtime definition, requeueing",
 							"cause", err.Error(),
 						)
-						// start with deleting; types without tagged foreign keys keep this note
-						deleteNote := "deleting"
-						// type-assert so types without relationship-tagged foreign keys still emit deleting
-						if owner, ok := kubernetesRuntimeDefinition.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
-							deleteNote = event.DeleteNote(owner)
-						}
-						if recordErr := r.EventsRecorder.RecordEvent(
-							&api_v0.Event{
-								Note:   util.Ptr(deleteNote),
-								Reason: util.Ptr(event.ReasonDeleteInProgress),
-								Type:   util.Ptr(event.TypeNormal),
-							},
-							kubernetesRuntimeDefinition.GetId(),
-							kubernetesRuntimeDefinition.GetFullyQualifiedType(),
-						); recordErr != nil {
-							log.Error(recordErr, "failed to record DeleteInProgress event")
-						}
+						// in-progress event already recorded before the handler
 						r.UnlockAndRequeue(
 							kubernetesRuntimeDefinition,
 							int64(30),

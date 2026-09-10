@@ -320,23 +320,7 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 							"conflict reconciling deleted terraform definition object, requeueing",
 							"cause", operationErr.Error(),
 						)
-						// start with deleting; types without tagged foreign keys keep this note
-						deleteNote := "deleting"
-						// type-assert so types without relationship-tagged foreign keys still emit deleting
-						if owner, ok := terraformDefinition.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
-							deleteNote = event.DeleteNote(owner)
-						}
-						if recordErr := r.EventsRecorder.RecordEvent(
-							&api_v0.Event{
-								Note:   util.Ptr(deleteNote),
-								Reason: util.Ptr(event.ReasonDeleteInProgress),
-								Type:   util.Ptr(event.TypeNormal),
-							},
-							terraformDefinition.GetId(),
-							terraformDefinition.GetFullyQualifiedType(),
-						); recordErr != nil {
-							log.Error(recordErr, "failed to record DeleteInProgress event")
-						}
+						// in-progress event already recorded before the handler
 						r.UnlockAndRequeue(
 							terraformDefinition,
 							int64(30),
@@ -406,23 +390,7 @@ func TerraformDefinitionReconciler(r *controller.Reconciler) {
 							"conflict deleting terraform definition, requeueing",
 							"cause", err.Error(),
 						)
-						// start with deleting; types without tagged foreign keys keep this note
-						deleteNote := "deleting"
-						// type-assert so types without relationship-tagged foreign keys still emit deleting
-						if owner, ok := terraformDefinition.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
-							deleteNote = event.DeleteNote(owner)
-						}
-						if recordErr := r.EventsRecorder.RecordEvent(
-							&api_v0.Event{
-								Note:   util.Ptr(deleteNote),
-								Reason: util.Ptr(event.ReasonDeleteInProgress),
-								Type:   util.Ptr(event.TypeNormal),
-							},
-							terraformDefinition.GetId(),
-							terraformDefinition.GetFullyQualifiedType(),
-						); recordErr != nil {
-							log.Error(recordErr, "failed to record DeleteInProgress event")
-						}
+						// in-progress event already recorded before the handler
 						r.UnlockAndRequeue(
 							terraformDefinition,
 							int64(30),
