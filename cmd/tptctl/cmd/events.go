@@ -13,11 +13,9 @@ import (
 	strcase "github.com/iancoleman/strcase"
 	cobra "github.com/spf13/cobra"
 
-	apilib "github.com/threeport/threeport/pkg/api/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 var (
@@ -30,7 +28,6 @@ var (
 	eventsOutput     string
 	eventsSort       string
 	eventsLimit      int
-	eventsTopLevel   bool
 	eventsWide       bool
 	eventsReverse    bool
 	eventsSince      time.Duration
@@ -40,33 +37,6 @@ var (
 const (
 	eventShortAlias = "ev"
 )
-
-// topLevelObjectKinds is the set of core kinds --top-level keeps. Sub-object
-// kinds such as KubernetesWorkloadResourceInstance stay off the list.
-var topLevelObjectKinds = map[string]bool{
-	"KubernetesRuntimeDefinition":  true,
-	"KubernetesRuntimeInstance":    true,
-	"KubernetesWorkloadDefinition": true,
-	"KubernetesWorkloadInstance":   true,
-	"HelmWorkloadDefinition":       true,
-	"HelmWorkloadInstance":         true,
-	"ControlPlaneDefinition":       true,
-	"ControlPlaneInstance":         true,
-	"GatewayDefinition":            true,
-	"GatewayInstance":              true,
-	"DomainNameDefinition":         true,
-	"DomainNameInstance":           true,
-	"MachineRuntimeDefinition":     true,
-	"MachineRuntimeInstance":       true,
-	"MachineWorkloadDefinition":    true,
-	"MachineWorkloadInstance":      true,
-	"ObservabilityStackDefinition": true,
-	"ObservabilityStackInstance":   true,
-	"SecretDefinition":             true,
-	"SecretInstance":               true,
-	"TerraformDefinition":          true,
-	"TerraformInstance":            true,
-}
 
 // GetEventsCmd represents the command 'tptctl get events'
 var GetEventsCmd = &cobra.Command{
@@ -111,9 +81,6 @@ var GetEventsCmd = &cobra.Command{
   # filter by Reason prefix (trailing * wildcard)
   tptctl get events --reason 'Create*'
 
-  # show only events on top-level object kinds
-  tptctl get events --top-level
-
   # filter to a subject by --for shape
   tptctl get events --for router-machine-set/demo1-router-set
 
@@ -142,8 +109,6 @@ Use --api-group <namespace> to filter events by API group / namespace alone (e.g
 Use --name <name> to filter events by object name alone. Supports exact match (--name=my-app) or prefix match with a trailing star (--name='myfleet2*'). A prefix matches every object whose name starts with the token, across every object kind unless --object-kind or --api-group narrows it, so a fleet and the derived children named after it answer one query. Mutually exclusive with --for; combinable with --object-kind and --api-group.
 
 Use --reason <reason> to filter events by Reason. Supports exact match (--reason=SuccessfulCreate) or prefix match with a trailing star (--reason='Create*'). Case-sensitive CamelCase. Applied server-side.
-
-Use --top-level to drop events on sub-object kinds (e.g. GcpGceMachineRuntimeInstance, KubernetesWorkloadResourceInstance) and keep only events on top-level user-facing kinds.
 
 Use --sort to control row order: newest (default) puts the most recent activity at the top matching kubectl's convention; oldest is reverse and lets a causal sequence read down. -r / --reverse is equivalent to --sort=oldest.
 
@@ -213,17 +178,6 @@ Full event notes (including captured script stdout/stderr) can be viewed with -o
 		if err != nil {
 			cli.Error("failed to retrieve events", err)
 			os.Exit(1)
-		}
-
-		// drop events whose kind is not a top-level object
-		if eventsTopLevel {
-			filtered := make([]v0.Event, 0, len(*events))
-			for _, e := range *events {
-				if isTopLevelEvent(&e) {
-					filtered = append(filtered, e)
-				}
-			}
-			events = &filtered
 		}
 
 		// drop events older than --since
@@ -342,10 +296,6 @@ func init() {
 	GetEventsCmd.Flags().StringVar(
 		&eventsReason,
 		"reason", "", "Filter events by reason. Supports exact match (--reason=SuccessfulCreate) or prefix match with trailing * (--reason='Create*').",
-	)
-	GetEventsCmd.Flags().BoolVar(
-		&eventsTopLevel,
-		"top-level", false, "Show only events for top-level objects. Drops events for owned children (RouterMachineInstance under a Set, MachineRuntimeInstance under a RouterMachine, etc).",
 	)
 	GetEventsCmd.Flags().StringVarP(
 		&eventsOutput,
@@ -512,20 +462,6 @@ func setReasonQueryParam(q url.Values, reasonFlag string) error {
 	}
 	q.Set("reason", reasonFlag)
 	return nil
-}
-
-// isTopLevelEvent reports whether the event's subject kind is a top-level object.
-// A missing or malformed type is not top-level.
-func isTopLevelEvent(e *v0.Event) bool {
-	rawType := util.DerefString(e.ObjectType)
-	if rawType == "" {
-		return false
-	}
-	_, _, typeName, ok := apilib.ParseQualifiedType(rawType)
-	if !ok {
-		return false
-	}
-	return topLevelObjectKinds[typeName]
 }
 
 // eventActivityTime returns the last observation when present, otherwise the first.
