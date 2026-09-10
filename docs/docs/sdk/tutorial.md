@@ -80,14 +80,14 @@ package v0
 import tpapi_v0 "github.com/threeport/threeport/pkg/api/v0"
 
 type WordpressDefinition struct {
-	tpapi_v0.Common         `mapstructure:",squash" swaggerignore:"true"`
+	tpapi_v0.Common         `swaggerignore:"true" mapstructure:",squash"`
 	tpapi_v0.Reconciliation `mapstructure:",squash"`
 	tpapi_v0.Definition     `mapstructure:",squash"`
 	WordpressInstances      []*WordpressInstance `validate:"optional,association"`
 }
 
 type WordpressInstance struct {
-	tpapi_v0.Common         `mapstructure:",squash" swaggerignore:"true"`
+	tpapi_v0.Common         `swaggerignore:"true" mapstructure:",squash"`
 	tpapi_v0.Reconciliation `mapstructure:",squash"`
 	tpapi_v0.Instance       `mapstructure:",squash"`
 	WordpressDefinitionID   *uint `validate:"required" gorm:"not null"`
@@ -109,7 +109,7 @@ package v0
 import tpapi_v0 "github.com/threeport/threeport/pkg/api/v0"
 
 type WordpressDefinition struct {
-	tpapi_v0.Common         `mapstructure:",squash" swaggerignore:"true"`
+	tpapi_v0.Common         `swaggerignore:"true" mapstructure:",squash"`
 	tpapi_v0.Reconciliation `mapstructure:",squash"`
 	tpapi_v0.Definition     `mapstructure:",squash"`
 
@@ -129,7 +129,7 @@ type WordpressDefinition struct {
 }
 
 type WordpressInstance struct {
-	tpapi_v0.Common         `mapstructure:",squash" swaggerignore:"true"`
+	tpapi_v0.Common         `swaggerignore:"true" mapstructure:",squash"`
 	tpapi_v0.Reconciliation `mapstructure:",squash"`
 	tpapi_v0.Instance       `mapstructure:",squash"`
 

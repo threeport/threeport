@@ -33,6 +33,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Id("debug").Bool(),
 		Id("controlPlaneImageRepo").String(),
 		Id("controlPlaneImageTag").String(),
+		Id("imagePullSecretFile").String(),
 	)
 
 	f.Comment("installCmd represents the install command")
@@ -194,6 +195,9 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Id("inst").Dot("ControlPlaneImageRepo").Op("=").Id("controlPlaneImageRepo"),
 			Id("inst").Dot("ControlPlaneImageTag").Op("=").Id("controlPlaneImageTag"),
 			Id("inst").Dot("Debug").Op("=").Id("debug"),
+			Id("inst").Dot("ApiClient").Op("=").Id("apiClient"),
+			Id("inst").Dot("ApiEndpoint").Op("=").Id("apiEndpoint"),
+			Id("inst").Dot("ImagePullSecretFile").Op("=").Id("imagePullSecretFile"),
 			Line(),
 
 			Comment("install extension module"),
@@ -256,6 +260,15 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Lit("t"),
 				Lit(""),
 				Lit("Image tag for threeport control plane images. Defaults to this binary's version, or to the sha-suffixed dev tag of the current commit when pulling from the local registry."),
+			),
+			Line(),
+		),
+		Id("installCmd").Dot("Flags").Call().Dot("StringVar").Call(
+			Line().Op("&").Id("imagePullSecretFile"),
+			Line().List(
+				Lit("image-pull-secret-file"),
+				Lit(""),
+				Lit("Path to a docker config JSON file. When set, a dockerconfigjson Secret is created and referenced from each component's imagePullSecrets so the kubelet can pull from a private registry."),
 			),
 			Line(),
 		),

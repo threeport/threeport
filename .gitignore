@@ -6,3 +6,8 @@ __debug_bin*
 **/.DS_Store
 .claude/
 .venv/
+
+# mage test:moduleGen generates a module here and deletes it again
+test/module/*
+!test/module/sdk-config.yaml
+!test/module/README.md

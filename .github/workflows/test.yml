@@ -46,6 +46,9 @@ jobs:
     - name: Unit tests
       run: mage test:unit
 
+    - name: Generate and type-check a module
+      run: mage test:moduleGen
+
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-24.04
@@ -84,3 +87,6 @@ jobs:
 
     - name: Integration tests
       run: mage test:integration
+
+    - name: Generate, build and install a module
+      run: mage test:moduleInstall
