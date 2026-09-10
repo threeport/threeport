@@ -589,7 +589,9 @@ func operationCase(
 		"github.com/threeport/threeport/pkg/notifications/v0",
 		fmt.Sprintf("NotificationOperation%s", upperOpPast),
 	)).BlockFunc(func(i *Group) {
-		if op == "create" {
+		// skip create and update when deletion is scheduled
+		// a handler error requeues that notification instead of completing it
+		if op == "create" || op == "update" {
 			h.If(Id(varObjectName).Dot("ScheduledForDeletion").Call().Op("!=").Nil()).Block(
 				Id("log").Dot("Info").Call(
 					Lit(fmt.Sprintf(
@@ -629,8 +631,9 @@ func operationCase(
 					"errors",
 					"New",
 				).Call(Lit(fmt.Sprintf(
-					"unrecognized version of %s encountered for creation",
+					"unrecognized version of %s encountered for %s operation",
 					strcase.ToDelimited(obj.Name, ' '),
+					op,
 				))),
 			)
 		})

@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	registryImage = "registry:2"
+	registryImage = "docker.io/library/registry:2"
 	registryName  = "local-registry"
 	registryPort  = "5001"
 )

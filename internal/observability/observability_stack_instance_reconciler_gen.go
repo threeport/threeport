@@ -167,7 +167,7 @@ func ObservabilityStackInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of observability stack instance encountered for creation")
+					operationErr = errors.New("unrecognized version of observability stack instance encountered for create operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile created observability stack instance object"
@@ -202,6 +202,10 @@ func ObservabilityStackInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
+				if observabilityStackInstance.ScheduledForDeletion() != nil {
+					log.Info("observability stack instance scheduled for deletion - skipping update")
+					break
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch observabilityStackInstance.GetVersion() {
@@ -214,7 +218,7 @@ func ObservabilityStackInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of observability stack instance encountered for creation")
+					operationErr = errors.New("unrecognized version of observability stack instance encountered for update operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile updated observability stack instance object"
@@ -261,7 +265,7 @@ func ObservabilityStackInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of observability stack instance encountered for creation")
+					operationErr = errors.New("unrecognized version of observability stack instance encountered for delete operation")
 				}
 				if operationErr != nil {
 					if errors.Is(operationErr, tpclient_lib.ErrDeleteInProgress) || errors.Is(operationErr, tpclient_lib.ErrDeleteBlocked) {

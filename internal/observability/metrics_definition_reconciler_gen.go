@@ -167,7 +167,7 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of metrics definition encountered for creation")
+					operationErr = errors.New("unrecognized version of metrics definition encountered for create operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile created metrics definition object"
@@ -202,6 +202,10 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
+				if metricsDefinition.ScheduledForDeletion() != nil {
+					log.Info("metrics definition scheduled for deletion - skipping update")
+					break
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch metricsDefinition.GetVersion() {
@@ -214,7 +218,7 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of metrics definition encountered for creation")
+					operationErr = errors.New("unrecognized version of metrics definition encountered for update operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile updated metrics definition object"
@@ -261,7 +265,7 @@ func MetricsDefinitionReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of metrics definition encountered for creation")
+					operationErr = errors.New("unrecognized version of metrics definition encountered for delete operation")
 				}
 				if operationErr != nil {
 					if errors.Is(operationErr, tpclient_lib.ErrDeleteInProgress) || errors.Is(operationErr, tpclient_lib.ErrDeleteBlocked) {

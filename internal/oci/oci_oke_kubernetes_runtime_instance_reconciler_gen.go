@@ -167,7 +167,7 @@ func OciOkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of oci oke kubernetes runtime instance encountered for creation")
+					operationErr = errors.New("unrecognized version of oci oke kubernetes runtime instance encountered for create operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile created oci oke kubernetes runtime instance object"
@@ -202,6 +202,10 @@ func OciOkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
+				if ociOkeKubernetesRuntimeInstance.ScheduledForDeletion() != nil {
+					log.Info("oci oke kubernetes runtime instance scheduled for deletion - skipping update")
+					break
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch ociOkeKubernetesRuntimeInstance.GetVersion() {
@@ -214,7 +218,7 @@ func OciOkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of oci oke kubernetes runtime instance encountered for creation")
+					operationErr = errors.New("unrecognized version of oci oke kubernetes runtime instance encountered for update operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile updated oci oke kubernetes runtime instance object"
@@ -261,7 +265,7 @@ func OciOkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of oci oke kubernetes runtime instance encountered for creation")
+					operationErr = errors.New("unrecognized version of oci oke kubernetes runtime instance encountered for delete operation")
 				}
 				if operationErr != nil {
 					if errors.Is(operationErr, tpclient_lib.ErrDeleteInProgress) || errors.Is(operationErr, tpclient_lib.ErrDeleteBlocked) {
