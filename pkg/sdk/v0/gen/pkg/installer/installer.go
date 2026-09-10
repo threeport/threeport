@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	. "github.com/dave/jennifer/jen"
+	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
 
 	cli "github.com/threeport/threeport/pkg/cli/v0"
@@ -27,6 +28,7 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.ImportAlias("github.com/threeport/threeport/pkg/api-server/v0/database", "tp_database")
 	f.ImportAlias("github.com/threeport/threeport/pkg/api/v0", "tp_api")
 	f.ImportAlias("github.com/threeport/threeport/pkg/client/v0", "tp_client")
+	f.ImportAlias("github.com/threeport/threeport/pkg/client/lib/v0", "client_lib")
 	f.ImportAlias("github.com/threeport/threeport/pkg/auth/v0", "tp_auth")
 	f.ImportAlias("github.com/threeport/threeport/pkg/threeport-installer/v0", "tp_installer")
 	f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
@@ -37,10 +39,35 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		)
 	}
 
+	pluralizeClient := pluralize.NewClient()
+
 	moduleNameKebab := strcase.ToKebab(sdkConfig.ModuleName)
 	moduleNameSnake := strcase.ToSnake(sdkConfig.ModuleName)
 	moduleNameCamel := strcase.ToCamel(sdkConfig.ModuleName)
 	moduleNameLowerCamel := strcase.ToLowerCamel(sdkConfig.ModuleName)
+
+	// pick the first API object's collection path constant as the readiness probe
+	// any collection GET is enough, so the first object found is used
+	var readinessRouteVersion string
+	var readinessRoutePathConst string
+	for _, objCollection := range gen.VersionedApiObjectCollections {
+		for _, objGroup := range objCollection.VersionedApiObjectGroups {
+			for _, apiObject := range objGroup.ApiObjects {
+				readinessRouteVersion = objCollection.Version
+				readinessRoutePathConst = fmt.Sprintf(
+					"Path%s",
+					pluralizeClient.Pluralize(apiObject.TypeName, 2, false),
+				)
+				break
+			}
+			if readinessRoutePathConst != "" {
+				break
+			}
+		}
+		if readinessRoutePathConst != "" {
+			break
+		}
+	}
 
 	f.Const().Defs(
 		Id("ReleaseImageNamespace").Op("=").Lit(sdkConfig.ImageNamespace),
@@ -76,6 +103,15 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Line().Comment("The Kubernetes namespace the Threeport control plane is installed in."),
 		Id("ThreeportNamespace").String(),
 
+		Line().Comment("HTTP client for calls to the Threeport API. The module API server is"),
+		Comment("reached through the Threeport API, so this client is used to confirm the"),
+		Comment("module API server is serving before the install returns."),
+		Id("ApiClient").Op("*").Qual("net/http", "Client"),
+
+		Line().Comment("The Threeport API endpoint. Module routes are served through this"),
+		Comment("endpoint, so a module route is polled here to confirm readiness."),
+		Id("ApiEndpoint").String(),
+
 		Line().Comment("The container image repository to pull module's API server and"),
 		Comment("controller/s' container images from."),
 		Id("ControlPlaneImageRepo").String(),
@@ -92,6 +128,12 @@ func GenInstaller(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Comment("a moving tag like 'dev-amd64' and want the cluster to pick up"),
 		Comment("the latest push without rotating tags."),
 		Id("Debug").Bool(),
+
+		Line().Comment("Path to a docker config JSON file. When set, the installer"),
+		Comment("creates a dockerconfigjson Secret from it and references that"),
+		Comment("Secret from each component's imagePullSecrets so the kubelet"),
+		Comment("can pull images from a private registry."),
+		Id("ImagePullSecretFile").String(),
 	)
 
 	// emit getImagePullPolicy() helper on Installer so the per-deployment
@@ -236,6 +278,64 @@ THREEPORT_AUTH_ENABLED=%%[3]t
 		)
 		g.Line()
 
+		g.Comment("optional image pull secret: when a docker config file is given,")
+		g.Comment("create a dockerconfigjson Secret from it and reference it from")
+		g.Comment("each component below so the kubelet can pull private images")
+		g.Var().Id("imagePullSecrets").Op("=").Index().Interface().Values()
+		g.If(Id("i").Dot("ImagePullSecretFile").Op("!=").Lit("")).BlockFunc(func(g *Group) {
+			g.List(Id("dockerConfig"), Err()).Op(":=").Qual("os", "ReadFile").Call(
+				Id("i").Dot("ImagePullSecretFile"),
+			)
+			g.If(Err().Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(
+					Lit("failed to read image pull secret file: %w"),
+					Err(),
+				)),
+			)
+			g.Var().Id("imagePullSecret").Op("=").Op("&").Qual(
+				"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
+				"Unstructured",
+			).Values(Dict{
+				Line().Id("Object"): Map(String()).Interface().Values(Dict{
+					Lit("apiVersion"): Lit("v1"),
+					Lit("kind"):       Lit("Secret"),
+					Lit("type"):       Lit("kubernetes.io/dockerconfigjson"),
+					Lit("metadata"): Map(String()).Interface().Values(Dict{
+						Lit("name"): Lit(fmt.Sprintf(
+							"threeport-%s-image-pull-secret",
+							moduleNameKebab,
+						)),
+						Lit("namespace"): Id("i.ModuleNamespace"),
+					}),
+					Lit("stringData"): Map(String()).Interface().Values(Dict{
+						Line().Lit(".dockerconfigjson"): String().Call(Id("dockerConfig")).Op(",").Line(),
+					}),
+				}).Op(",").Line(),
+			})
+			g.If(List(Id("_"), Err()).Op(":=").Qual(
+				"github.com/threeport/threeport/pkg/kube/v0",
+				"CreateOrUpdateResource",
+			).Call(
+				Id("imagePullSecret"),
+				Id("i.KubeClient"),
+				Op("*").Id("i.KubeRestMapper"),
+			), Err().Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(
+					Lit("failed to create/update image pull secret: %w"),
+					Err(),
+				)),
+			)
+			g.Id("imagePullSecrets").Op("=").Index().Interface().Values(
+				Line().Map(String()).Interface().Values(Dict{
+					Line().Lit("name"): Lit(fmt.Sprintf(
+						"threeport-%s-image-pull-secret",
+						moduleNameKebab,
+					)).Op(",").Line(),
+				}).Op(",").Line(),
+			)
+		})
+		g.Line()
+
 		moduleDbName := fmt.Sprintf("threeport_%s_api", moduleNameSnake)
 		g.Comment("create configmap used to initialize API database")
 		g.Var().Id("dbCreateConfig").Op("=").Op("&").Qual(
@@ -293,8 +393,18 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 				Return(Qual("fmt", "Errorf").Call(Lit("failed to load Threeport API CA cert and key: %w"), Err())),
 			),
 			Line(),
-			Comment("generate a cert and key for the controller that needs to connect to"),
-			Comment("the Threeport API"),
+			Comment("build the module API server service fqdn so the cert covers the name"),
+			Comment("the core uses when it proxies requests to this module over https"),
+			Id("moduleApiServiceName").Op(":=").Qual("fmt", "Sprintf").Call(
+				Lit("%s.%s.svc.cluster.local"),
+				Id("apiServerName"),
+				Id("i.ModuleNamespace"),
+			),
+			Line(),
+			Comment("generate a cert and key for the controller that connects to the"),
+			Comment("Threeport API and for the module API server that serves https; the cert"),
+			Comment("subject carries the control plane organizational unit and the alt name"),
+			Comment("covers the module API server service fqdn"),
 			List(Id("clientCert"), Id("clientKey"), Err()).Op(":=").Qual(
 				"github.com/threeport/threeport/pkg/auth/v0",
 				"GenerateCertificate",
@@ -304,6 +414,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 				Lit(fmt.Sprintf("%s-threeport-module", moduleNameKebab)),
 				Lit(sdkConfig.ApiNamespace),
 				Qual("github.com/threeport/threeport/pkg/auth/v0", "OUControlPlane"),
+				Id("moduleApiServiceName"),
 			),
 			If(Err().Op("!=").Nil()).Block(
 				Return(Qual("fmt", "Errorf").Call(Lit(fmt.Sprintf(
@@ -479,7 +590,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 											Lit("cockroach sql --certs-dir=/etc/threeport/db-certs --host crdb.%s.svc.cluster.local --port 26257 -f /etc/threeport/db-create/db.sql"),
 											Id("i").Dot("ThreeportNamespace"),
 										).Op(",").Line()),
-									Lit("image"):           Lit("cockroachdb/cockroach:v23.1.14"),
+									Lit("image"):           Lit("docker.io/cockroachdb/cockroach:v23.1.14"),
 									Lit("imagePullPolicy"): Id("i").Dot("getImagePullPolicy").Call(),
 									Lit("name"):            Lit("db-init"),
 									Lit("volumeMounts"): Index().Interface().Values(
@@ -529,6 +640,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 							Lit("restartPolicy"):                 Lit("Always"),
 							Lit("terminationGracePeriodSeconds"): Lit(30),
 							Lit("volumes"):                       Id("apiVolumes"),
+							Lit("imagePullSecrets"):              Id("imagePullSecrets"),
 						}),
 					}),
 				}),
@@ -561,6 +673,13 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 			"install %s API server service",
 			moduleNameKebab,
 		))
+		g.Comment("serve mtls over https when auth is enabled, plain http otherwise")
+		g.Id("apiServicePortName").Op(":=").Lit("http")
+		g.Id("apiServicePort").Op(":=").Lit(80)
+		g.If(Id("i").Dot("AuthEnabled")).Block(
+			Id("apiServicePortName").Op("=").Lit("https"),
+			Id("apiServicePort").Op("=").Lit(443),
+		)
 		g.Var().Id(fmt.Sprintf(
 			"%sApiService",
 			moduleNameLowerCamel,
@@ -581,8 +700,8 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 				Lit("spec"): Map(String()).Interface().Values(Dict{
 					Lit("ports"): Index().Interface().Values(
 						Line().Map(String()).Interface().Values(Dict{
-							Lit("name"):       Lit("http"),
-							Lit("port"):       Lit(80),
+							Lit("name"):       Id("apiServicePortName"),
+							Lit("port"):       Id("apiServicePort"),
 							Lit("protocol"):   Lit("TCP"),
 							Lit("targetPort"): Lit(1323),
 						}).Op(",").Line(),
@@ -729,6 +848,7 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 								Lit("restartPolicy"):                 Lit("Always"),
 								Lit("terminationGracePeriodSeconds"): Lit(30),
 								Lit("volumes"):                       Id("tpAuthVolumes"),
+								Lit("imagePullSecrets"):              Id("imagePullSecrets"),
 							}),
 						}),
 					}),
@@ -757,6 +877,91 @@ GRANT ALL ON DATABASE %[1]s TO threeport;`, moduleDbName)).Op(",").Line(),
 			)
 			g.Line()
 		}
+
+		// emit a wait that GETs that path through the Threeport API until 200
+		// the poll runs last so the API Service already exists
+		// a 200 means the module is serving through the Threeport API proxy
+		if readinessRoutePathConst != "" {
+			readinessRoutePackage := fmt.Sprintf(
+				"%s/pkg/api/%s",
+				gen.ModulePath,
+				readinessRouteVersion,
+			)
+			g.Comment("wait for the module API server to start serving")
+			g.Qual("github.com/threeport/threeport/pkg/cli/v0", "Info").Call(
+				Qual("fmt", "Sprintf").Call(
+					Lit(fmt.Sprintf(
+						"Waiting for %s module API to start running at %%s",
+						moduleNameKebab,
+					)),
+					Id("i").Dot("ApiEndpoint"),
+				),
+			)
+			g.Id("attemptsMax").Op(":=").Lit(60)
+			g.Id("waitDurationSeconds").Op(":=").Lit(5)
+			g.If(
+				Err().Op(":=").Qual(
+					"github.com/threeport/threeport/pkg/util/v0",
+					"Retry",
+				).Call(
+					Line().Id("attemptsMax"),
+					Line().Id("waitDurationSeconds"),
+					Line().Func().Params().Error().Block(
+						List(Id("_"), Err()).Op(":=").Qual(
+							"github.com/threeport/threeport/pkg/client/lib/v0",
+							"GetResponse",
+						).Call(
+							Line().Id("i").Dot("ApiClient"),
+							Line().Qual("fmt", "Sprintf").Call(
+								Lit("%s%s"),
+								Id("i").Dot("ApiEndpoint"),
+								Qual(readinessRoutePackage, readinessRoutePathConst),
+							),
+							Line().Qual("net/http", "MethodGet"),
+							Line().Qual("bytes", "NewBuffer").Call(Index().Byte().Values()),
+							Line().Map(String()).String().Values(),
+							Line().Qual("net/http", "StatusOK"),
+							Line(),
+						),
+						If(Err().Op("!=").Nil()).Block(
+							Qual("github.com/threeport/threeport/pkg/cli/v0", "Info").Call(
+								Qual("fmt", "Sprintf").Call(
+									Lit("Connection attempt result: %s"),
+									Err(),
+								),
+							),
+							Return(Qual("fmt", "Errorf").Call(
+								Lit(fmt.Sprintf(
+									"failed to reach %s module API: %%w",
+									moduleNameKebab,
+								)),
+								Err(),
+							)),
+						),
+						Return(Nil()),
+					),
+					Line(),
+				),
+				Err().Op("!=").Nil(),
+			).Block(
+				Return(Qual("fmt", "Errorf").Call(
+					Lit(fmt.Sprintf(
+						"timed out after %%d seconds waiting for 200 response from %s module API: %%w",
+						moduleNameKebab,
+					)),
+					Id("attemptsMax").Op("*").Id("waitDurationSeconds"),
+					Err(),
+				)),
+			)
+			g.Qual("github.com/threeport/threeport/pkg/cli/v0", "Info").Call(
+				Lit(fmt.Sprintf(
+					"%s module API is running",
+					moduleNameCamel,
+				)),
+			)
+			g.Line()
+		}
+
 		g.Return(Nil())
 	})
 	f.Line()

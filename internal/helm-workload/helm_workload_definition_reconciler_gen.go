@@ -167,7 +167,7 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of helm workload definition encountered for creation")
+					operationErr = errors.New("unrecognized version of helm workload definition encountered for create operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile created helm workload definition object"
@@ -202,6 +202,10 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
+				if helmWorkloadDefinition.ScheduledForDeletion() != nil {
+					log.Info("helm workload definition scheduled for deletion - skipping update")
+					break
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch helmWorkloadDefinition.GetVersion() {
@@ -214,7 +218,7 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of helm workload definition encountered for creation")
+					operationErr = errors.New("unrecognized version of helm workload definition encountered for update operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile updated helm workload definition object"
@@ -261,7 +265,7 @@ func HelmWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of helm workload definition encountered for creation")
+					operationErr = errors.New("unrecognized version of helm workload definition encountered for delete operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile deleted helm workload definition object"

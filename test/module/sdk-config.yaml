@@ -1,0 +1,23 @@
+ModuleName: Test
+ApiNamespace: module.threeport.io
+ApiDocs:
+  Title: Threeport Test Module API
+  Description: API server for the module the SDK's module code path is tested against.
+  ContactName: Threeport Maintainers
+  ContactEmail: maintainers@example.com
+ImageNamespace: localhost:5001
+ApiObjectGroups:
+- Name: widget
+  Objects:
+    - Name: WidgetDefinition
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl:
+        Enabled: true
+    - Name: WidgetInstance
+      Versions:
+        - v0
+      Reconcilable: true
+      Tptctl:
+        Enabled: true
