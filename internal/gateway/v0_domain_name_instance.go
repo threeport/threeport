@@ -24,7 +24,6 @@ func v0DomainNameInstanceCreated(
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// validate threeport state
 	err := validateThreeportStateExternalDns(r, domainNameInstance, log)
 	if err != nil {
@@ -41,7 +40,6 @@ func v0DomainNameInstanceUpdated(
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// validate threeport state
 	err := validateThreeportStateExternalDns(r, domainNameInstance, log)
 	if err != nil {

@@ -253,7 +253,6 @@ func v0KubernetesWorkloadInstanceUpdated(
 	k8sWorkloadInstance *v0.KubernetesWorkloadInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// get kubernetes runtime instance info
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 		r.APIClient,

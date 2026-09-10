@@ -36,7 +36,6 @@ func v0ObservabilityStackInstanceCreated(
 	observabilityStackInstance *v0.ObservabilityStackInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// get observability stack definition
 	observabilityStackDefinition, err := client.GetObservabilityStackDefinitionByID(
 		r.APIClient,
@@ -98,7 +97,6 @@ func v0ObservabilityStackInstanceDeleted(
 	observabilityStackInstance *v0.ObservabilityStackInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// create observability stack instance config
 	c := &ObservabilityStackInstanceConfig{
 		r:                            r,

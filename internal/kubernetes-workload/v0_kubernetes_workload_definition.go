@@ -21,7 +21,6 @@ func v0KubernetesWorkloadDefinitionCreated(
 	k8sWorkloadDefinition *v0.KubernetesWorkloadDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// parse YAMLDocument and get kube objects in JSON
 	jsonObjects, err := kube.GetJsonResourcesFromYamlDoc(*k8sWorkloadDefinition.YAMLDocument)
 	if err != nil {

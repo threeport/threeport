@@ -21,7 +21,6 @@ func v0LoggingInstanceCreated(
 	loggingInstance *v0.LoggingInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// get logging definition
 	loggingDefinition, err := client.GetLoggingDefinitionByID(
 		r.APIClient,
@@ -100,7 +99,6 @@ func v0LoggingInstanceDeleted(
 	loggingInstance *v0.LoggingInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// create logging instance config
 	c := &LoggingInstanceConfig{
 		r:                 r,

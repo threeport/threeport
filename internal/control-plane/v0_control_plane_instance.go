@@ -40,7 +40,6 @@ func v0ControlPlaneInstanceCreated(
 	controlPlaneInstance *v0.ControlPlaneInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	var notFirstRun bool
 	if controlPlaneInstance.CreationAcknowledged == nil {
 		notFirstRun = false
@@ -846,7 +845,6 @@ func v0ControlPlaneInstanceDeleted(
 	controlPlaneInstance *v0.ControlPlaneInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// get kubernetes runtime instance info
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(
 		r.APIClient,

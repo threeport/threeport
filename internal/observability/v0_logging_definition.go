@@ -63,7 +63,6 @@ func v0LoggingDefinitionCreated(
 	loggingDefinition *v0.LoggingDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-
 	var err error
 
 	// create logging definition config
@@ -127,7 +126,6 @@ func v0LoggingDefinitionDeleted(
 	loggingDefinition *v0.LoggingDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// create logging definition config
 	c := &LoggingDefinitionConfig{
 		r:                 r,

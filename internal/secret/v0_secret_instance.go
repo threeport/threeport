@@ -20,7 +20,6 @@ func v0SecretInstanceCreated(
 	secretInstance *v0.SecretInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// configure secret instance config
 	c := &SecretInstanceConfig{
 		r:              r,

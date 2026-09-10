@@ -20,7 +20,6 @@ func v0ObservabilityStackDefinitionCreated(
 	observabilityStackDefinition *v0.ObservabilityStackDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// create observability stack definition config
 	c := &ObservabilityStackDefinitionConfig{
 		r:                            r,
@@ -63,7 +62,6 @@ func v0ObservabilityStackDefinitionDeleted(
 	observabilityStackDefinition *v0.ObservabilityStackDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// create observability stack config
 	c := &ObservabilityStackDefinitionConfig{
 		r:                            r,

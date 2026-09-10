@@ -30,7 +30,6 @@ func v0GatewayInstanceCreated(
 	gatewayInstance *v0.GatewayInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// initialize threeport object references
 	kubernetesRuntimeInstance, gatewayDefinition, workloadInstance, err := getThreeportObjects(r, gatewayInstance)
 	if err != nil {
@@ -86,7 +85,6 @@ func v0GatewayInstanceUpdated(
 	gatewayInstance *v0.GatewayInstance,
 	log *logr.Logger,
 ) (int64, error) {
-
 	// initialize threeport object references
 	kubernetesRuntimeInstance, gatewayDefinition, workloadInstance, err := getThreeportObjects(r, gatewayInstance)
 	if err != nil {
