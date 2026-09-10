@@ -502,6 +502,63 @@ func emitDeleteConflictWait(k *Group, errVar, logMsg, varObjectName string) {
 	)
 }
 
+const eventPkg = "github.com/threeport/threeport/pkg/event/v0"
+
+// emitInProgressEvent records Create, Update, or DeleteInProgress before the
+// custom operation handler runs so a later failure still has a start event.
+func emitInProgressEvent(g *Group, op, varObjectName string) {
+	reasonName := fmt.Sprintf("Reason%sInProgress", strcase.ToCamel(op))
+	fallback := "creating"
+	noteFn := "CreateNote"
+	switch op {
+	case "update":
+		fallback = "updating"
+		noteFn = "UpdateNote"
+	case "delete":
+		fallback = "deleting"
+		noteFn = "DeleteNote"
+	}
+
+	g.Comment("record in-progress before the custom handler so a later failure still has a start event")
+	if op == "update" {
+		g.Id("progressNote").Op(":=").Qual(eventPkg, "UpdateNote").Call()
+	} else {
+		g.Id("progressNote").Op(":=").Lit(fallback)
+		g.If(
+			List(Id("owner"), Id("ok")).Op(":=").Id(varObjectName).Assert(
+				Qual(
+					"github.com/threeport/threeport/pkg/api/v0",
+					"RelationshipTaggedForeignKeyProvider",
+				),
+			),
+			Id("ok"),
+		).Block(
+			Id("progressNote").Op("=").Qual(eventPkg, noteFn).Call(Id("owner")),
+		)
+	}
+	g.If(
+		Id("recordErr").Op(":=").Id("r").Dot("EventsRecorder").Dot("RecordEvent").Call(
+			Line().Op("&").Qual("github.com/threeport/threeport/pkg/api/v0", "Event").Values(Dict{
+				Id("Reason"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+					Qual(eventPkg, reasonName),
+				),
+				Id("Note"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(Id("progressNote")),
+				Id("Type"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
+					Qual(eventPkg, "TypeNormal"),
+				),
+			}),
+			Line().Id(varObjectName).Dot("GetId").Call(),
+			Line().Id(varObjectName).Dot("GetFullyQualifiedType").Call(),
+			Line(),
+		).Op(";").Id("recordErr").Op("!=").Nil().Block(
+			Id("log").Dot("Error").Call(
+				Id("recordErr"),
+				Lit("failed to record in-progress event"),
+			),
+		),
+	)
+}
+
 // getLatestObject generates the source code for a controller's reconcile functions
 // to get the latest object if the "persist" field is not present or set to true.
 func getLatestObject(
@@ -603,6 +660,7 @@ func operationCase(
 				Break(),
 			)
 		}
+		emitInProgressEvent(h, op, varObjectName)
 		h.Var().Id("operationErr").Error()
 		h.Var().Id("customRequeueDelay").Int64()
 		h.Switch(Id(varObjectName).Dot("GetVersion").Call()).BlockFunc(func(j *Group) {

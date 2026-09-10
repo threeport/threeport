@@ -19,7 +19,6 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	event "github.com/threeport/threeport/pkg/event/v0"
 	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -31,18 +30,6 @@ func v0GatewayInstanceCreated(
 	gatewayInstance *v0.GatewayInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record reconciliation start so a later failure still has a start event
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr("ReconciliationStarted"),
-			Note:   util.Ptr(fmt.Sprintf("starting reconciliation of gateway instance %s", *gatewayInstance.Name)),
-		},
-		*gatewayInstance.ID,
-		gatewayInstance.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for reconciliation start")
-	}
 
 	// initialize threeport object references
 	kubernetesRuntimeInstance, gatewayDefinition, workloadInstance, err := getThreeportObjects(r, gatewayInstance)
@@ -99,18 +86,6 @@ func v0GatewayInstanceUpdated(
 	gatewayInstance *v0.GatewayInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record reconciliation start so a later failure still has a start event
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr("ReconciliationStarted"),
-			Note:   util.Ptr(fmt.Sprintf("starting reconciliation of gateway instance %s", *gatewayInstance.Name)),
-		},
-		*gatewayInstance.ID,
-		gatewayInstance.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for reconciliation start")
-	}
 
 	// initialize threeport object references
 	kubernetesRuntimeInstance, gatewayDefinition, workloadInstance, err := getThreeportObjects(r, gatewayInstance)
@@ -206,19 +181,6 @@ func v0GatewayInstanceDeleted(
 	// more
 	if gatewayInstance.DeletionConfirmed != nil {
 		return 0, nil
-	}
-
-	// record deletion start after confirmed deletions return
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr("ReconciliationStarted"),
-			Note:   util.Ptr(fmt.Sprintf("starting deletion of gateway instance %s", *gatewayInstance.Name)),
-		},
-		*gatewayInstance.ID,
-		gatewayInstance.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for reconciliation start")
 	}
 
 	// get kubernetes workload resource instances

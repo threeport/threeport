@@ -129,6 +129,20 @@ func GetSuccessReasonForOperation(operation notifications.NotificationOperation)
 	}
 }
 
+// GetInProgressReasonForOperation returns the in-progress reason for the operation.
+func GetInProgressReasonForOperation(operation notifications.NotificationOperation) string {
+	switch operation {
+	case notifications.NotificationOperationCreated:
+		return ReasonCreateInProgress
+	case notifications.NotificationOperationUpdated:
+		return ReasonUpdateInProgress
+	case notifications.NotificationOperationDeleted:
+		return ReasonDeleteInProgress
+	default:
+		return ""
+	}
+}
+
 // CreateNote returns a create-progress note listing owned, associated,
 // married, and required-by kinds. Extra married kinds may be supplied.
 func CreateNote(

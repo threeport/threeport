@@ -10,7 +10,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	event "github.com/threeport/threeport/pkg/event/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -37,18 +36,6 @@ func v0ObservabilityStackInstanceCreated(
 	observabilityStackInstance *v0.ObservabilityStackInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record that create started before downstream work so a later failure still shows the start
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr("ReconciliationStarted"),
-			Note:   util.Ptr(fmt.Sprintf("starting reconciliation of observability stack instance %s", *observabilityStackInstance.Name)),
-		},
-		*observabilityStackInstance.ID,
-		observabilityStackInstance.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for reconciliation start")
-	}
 
 	// get observability stack definition
 	observabilityStackDefinition, err := client.GetObservabilityStackDefinitionByID(
@@ -111,18 +98,6 @@ func v0ObservabilityStackInstanceDeleted(
 	observabilityStackInstance *v0.ObservabilityStackInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record that delete started before downstream work so a later failure still shows the start
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr("ReconciliationStarted"),
-			Note:   util.Ptr(fmt.Sprintf("starting deletion of observability stack instance %s", *observabilityStackInstance.Name)),
-		},
-		*observabilityStackInstance.ID,
-		observabilityStackInstance.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for reconciliation start")
-	}
 
 	// create observability stack instance config
 	c := &ObservabilityStackInstanceConfig{

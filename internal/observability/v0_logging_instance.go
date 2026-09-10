@@ -11,7 +11,6 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	event "github.com/threeport/threeport/pkg/event/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -22,18 +21,6 @@ func v0LoggingInstanceCreated(
 	loggingInstance *v0.LoggingInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record reconciliation start before any downstream call
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr("ReconciliationStarted"),
-			Note:   util.Ptr(fmt.Sprintf("starting reconciliation of logging instance %s", *loggingInstance.Name)),
-		},
-		*loggingInstance.ID,
-		loggingInstance.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for reconciliation start")
-	}
 
 	// get logging definition
 	loggingDefinition, err := client.GetLoggingDefinitionByID(
@@ -113,18 +100,6 @@ func v0LoggingInstanceDeleted(
 	loggingInstance *v0.LoggingInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record deletion start before any downstream call
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr("ReconciliationStarted"),
-			Note:   util.Ptr(fmt.Sprintf("starting deletion of logging instance %s", *loggingInstance.Name)),
-		},
-		*loggingInstance.ID,
-		loggingInstance.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for reconciliation start")
-	}
 
 	// create logging instance config
 	c := &LoggingInstanceConfig{

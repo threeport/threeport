@@ -28,7 +28,6 @@ import (
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	"github.com/threeport/threeport/pkg/encryption/v0"
-	event "github.com/threeport/threeport/pkg/event/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -41,18 +40,6 @@ func v0ControlPlaneInstanceCreated(
 	controlPlaneInstance *v0.ControlPlaneInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record that create started before downstream work so a later failure still shows the start
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr("ReconciliationStarted"),
-			Note:   util.Ptr(fmt.Sprintf("starting reconciliation of control plane instance %s", *controlPlaneInstance.Name)),
-		},
-		*controlPlaneInstance.ID,
-		controlPlaneInstance.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for reconciliation start")
-	}
 
 	var notFirstRun bool
 	if controlPlaneInstance.CreationAcknowledged == nil {
@@ -859,18 +846,6 @@ func v0ControlPlaneInstanceDeleted(
 	controlPlaneInstance *v0.ControlPlaneInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record that delete started before downstream work so a later failure still shows the start
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr("ReconciliationStarted"),
-			Note:   util.Ptr(fmt.Sprintf("starting deletion of control plane instance %s", *controlPlaneInstance.Name)),
-		},
-		*controlPlaneInstance.ID,
-		controlPlaneInstance.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for reconciliation start")
-	}
 
 	// get kubernetes runtime instance info
 	kubernetesRuntimeInstance, err := client.GetKubernetesRuntimeInstanceByID(

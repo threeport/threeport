@@ -10,9 +10,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	event "github.com/threeport/threeport/pkg/event/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 	"gorm.io/datatypes"
 )
 
@@ -23,18 +21,6 @@ func v0KubernetesWorkloadDefinitionCreated(
 	k8sWorkloadDefinition *v0.KubernetesWorkloadDefinition,
 	log *logr.Logger,
 ) (int64, error) {
-	// record start before the fan-out so a later failure still has a start event
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr("ReconciliationStarted"),
-			Note:   util.Ptr(fmt.Sprintf("starting reconciliation of kubernetes workload definition %s", *k8sWorkloadDefinition.Name)),
-		},
-		*k8sWorkloadDefinition.ID,
-		k8sWorkloadDefinition.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for reconciliation start")
-	}
 
 	// parse YAMLDocument and get kube objects in JSON
 	jsonObjects, err := kube.GetJsonResourcesFromYamlDoc(*k8sWorkloadDefinition.YAMLDocument)
@@ -105,19 +91,6 @@ func v0KubernetesWorkloadDefinitionDeleted(
 	// more
 	if k8sWorkloadDefinition.DeletionConfirmed != nil {
 		return 0, nil
-	}
-
-	// record start after deletion is confirmed so a requeue does not spam events
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr("ReconciliationStarted"),
-			Note:   util.Ptr(fmt.Sprintf("starting deletion of kubernetes workload definition %s", *k8sWorkloadDefinition.Name)),
-		},
-		*k8sWorkloadDefinition.ID,
-		k8sWorkloadDefinition.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for reconciliation start")
 	}
 
 	// get related kubernetes workload resource definitions

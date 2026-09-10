@@ -9,6 +9,7 @@ import (
 	client_v0 "github.com/threeport/threeport/internal/reconcilertest/pkg/client/v0"
 	tpapi_lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	tpapi_v0 "github.com/threeport/threeport/pkg/api/v0"
+	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -126,6 +127,22 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					log.Info("reconciler test volatile instance scheduled for deletion - skipping create")
 					break
 				}
+				// record in-progress before the custom handler so a later failure still has a start event
+				progressNote := "creating"
+				if owner, ok := reconcilerTestVolatileInstance.(tpapi_v0.RelationshipTaggedForeignKeyProvider); ok {
+					progressNote = event.CreateNote(owner)
+				}
+				if recordErr := r.EventsRecorder.RecordEvent(
+					&tpapi_v0.Event{
+						Note:   util.Ptr(progressNote),
+						Reason: util.Ptr(event.ReasonCreateInProgress),
+						Type:   util.Ptr(event.TypeNormal),
+					},
+					reconcilerTestVolatileInstance.GetId(),
+					reconcilerTestVolatileInstance.GetFullyQualifiedType(),
+				); recordErr != nil {
+					log.Error(recordErr, "failed to record in-progress event")
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch reconcilerTestVolatileInstance.GetVersion() {
@@ -146,8 +163,8 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					r.EventsRecorder.HandleEventOverride(
 						&tpapi_v0.Event{
 							Note:   util.Ptr(errorMsg),
-							Reason: util.Ptr(event.ReasonFailedCreate),
-							Type:   util.Ptr(event.TypeNormal),
+							Reason: util.Ptr(event.ReasonCreateFailed),
+							Type:   util.Ptr(event.TypeWarning),
 						},
 						reconcilerTestVolatileInstance.GetId(),
 						reconcilerTestVolatileInstance.GetFullyQualifiedType(),
@@ -177,6 +194,19 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					log.Info("reconciler test volatile instance scheduled for deletion - skipping update")
 					break
 				}
+				// record in-progress before the custom handler so a later failure still has a start event
+				progressNote := event.UpdateNote()
+				if recordErr := r.EventsRecorder.RecordEvent(
+					&tpapi_v0.Event{
+						Note:   util.Ptr(progressNote),
+						Reason: util.Ptr(event.ReasonUpdateInProgress),
+						Type:   util.Ptr(event.TypeNormal),
+					},
+					reconcilerTestVolatileInstance.GetId(),
+					reconcilerTestVolatileInstance.GetFullyQualifiedType(),
+				); recordErr != nil {
+					log.Error(recordErr, "failed to record in-progress event")
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch reconcilerTestVolatileInstance.GetVersion() {
@@ -197,8 +227,8 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					r.EventsRecorder.HandleEventOverride(
 						&tpapi_v0.Event{
 							Note:   util.Ptr(errorMsg),
-							Reason: util.Ptr(event.ReasonFailedUpdate),
-							Type:   util.Ptr(event.TypeNormal),
+							Reason: util.Ptr(event.ReasonUpdateFailed),
+							Type:   util.Ptr(event.TypeWarning),
 						},
 						reconcilerTestVolatileInstance.GetId(),
 						reconcilerTestVolatileInstance.GetFullyQualifiedType(),
@@ -224,6 +254,22 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
+				// record in-progress before the custom handler so a later failure still has a start event
+				progressNote := "deleting"
+				if owner, ok := reconcilerTestVolatileInstance.(tpapi_v0.RelationshipTaggedForeignKeyProvider); ok {
+					progressNote = event.DeleteNote(owner)
+				}
+				if recordErr := r.EventsRecorder.RecordEvent(
+					&tpapi_v0.Event{
+						Note:   util.Ptr(progressNote),
+						Reason: util.Ptr(event.ReasonDeleteInProgress),
+						Type:   util.Ptr(event.TypeNormal),
+					},
+					reconcilerTestVolatileInstance.GetId(),
+					reconcilerTestVolatileInstance.GetFullyQualifiedType(),
+				); recordErr != nil {
+					log.Error(recordErr, "failed to record in-progress event")
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch reconcilerTestVolatileInstance.GetVersion() {
@@ -239,13 +285,41 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of reconciler test volatile instance encountered for delete operation")
 				}
 				if operationErr != nil {
+					if errors.Is(operationErr, tpclient_lib.ErrDeleteInProgress) || errors.Is(operationErr, tpclient_lib.ErrDeleteBlocked) {
+						log.Info(
+							"conflict reconciling deleted reconciler test volatile instance object, requeueing",
+							"cause", operationErr.Error(),
+						)
+						deleteNote := "deleting"
+						if owner, ok := reconcilerTestVolatileInstance.(tpapi_v0.RelationshipTaggedForeignKeyProvider); ok {
+							deleteNote = event.DeleteNote(owner)
+						}
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&tpapi_v0.Event{
+								Note:   util.Ptr(deleteNote),
+								Reason: util.Ptr(event.ReasonDeleteInProgress),
+								Type:   util.Ptr(event.TypeNormal),
+							},
+							reconcilerTestVolatileInstance.GetId(),
+							reconcilerTestVolatileInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record DeleteInProgress event")
+						}
+						r.UnlockAndRequeue(
+							reconcilerTestVolatileInstance,
+							int64(30),
+							lockReleased,
+							msg,
+						)
+						continue
+					}
 					errorMsg := "failed to reconcile deleted reconciler test volatile instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&tpapi_v0.Event{
 							Note:   util.Ptr(errorMsg),
-							Reason: util.Ptr(event.ReasonFailedDelete),
-							Type:   util.Ptr(event.TypeNormal),
+							Reason: util.Ptr(event.ReasonDeleteFailed),
+							Type:   util.Ptr(event.TypeWarning),
 						},
 						reconcilerTestVolatileInstance.GetId(),
 						reconcilerTestVolatileInstance.GetFullyQualifiedType(),
@@ -295,6 +369,34 @@ func ReconcilerTestVolatileInstanceReconciler(r *controller.Reconciler) {
 					reconcilerTestVolatileInstance.GetId(),
 				)
 				if err != nil {
+					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+						log.Info(
+							"conflict deleting reconciler test volatile instance, requeueing",
+							"cause", err.Error(),
+						)
+						deleteNote := "deleting"
+						if owner, ok := reconcilerTestVolatileInstance.(tpapi_v0.RelationshipTaggedForeignKeyProvider); ok {
+							deleteNote = event.DeleteNote(owner)
+						}
+						if recordErr := r.EventsRecorder.RecordEvent(
+							&tpapi_v0.Event{
+								Note:   util.Ptr(deleteNote),
+								Reason: util.Ptr(event.ReasonDeleteInProgress),
+								Type:   util.Ptr(event.TypeNormal),
+							},
+							reconcilerTestVolatileInstance.GetId(),
+							reconcilerTestVolatileInstance.GetFullyQualifiedType(),
+						); recordErr != nil {
+							log.Error(recordErr, "failed to record DeleteInProgress event")
+						}
+						r.UnlockAndRequeue(
+							reconcilerTestVolatileInstance,
+							int64(30),
+							lockReleased,
+							msg,
+						)
+						continue
+					}
 					log.Error(err, "failed to delete reconciler test volatile instance")
 					r.UnlockAndRequeue(reconcilerTestVolatileInstance, requeueDelay, lockReleased, msg)
 					continue

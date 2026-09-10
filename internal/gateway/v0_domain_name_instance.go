@@ -15,8 +15,6 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
-	event "github.com/threeport/threeport/pkg/event/v0"
-	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // v0DomainNameInstanceCreated performs reconciliation when a v0 DomainNameInstance
@@ -26,18 +24,6 @@ func v0DomainNameInstanceCreated(
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record reconciliation start so a later failure still has a start event
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr("ReconciliationStarted"),
-			Note:   util.Ptr(fmt.Sprintf("starting reconciliation of domain name instance %s", *domainNameInstance.Name)),
-		},
-		*domainNameInstance.ID,
-		domainNameInstance.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for reconciliation start")
-	}
 
 	// validate threeport state
 	err := validateThreeportStateExternalDns(r, domainNameInstance, log)
@@ -55,18 +41,6 @@ func v0DomainNameInstanceUpdated(
 	domainNameInstance *v0.DomainNameInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// record reconciliation start so a later failure still has a start event
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
-			Type:   util.Ptr(event.TypeNormal),
-			Reason: util.Ptr("ReconciliationStarted"),
-			Note:   util.Ptr(fmt.Sprintf("starting reconciliation of domain name instance %s", *domainNameInstance.Name)),
-		},
-		*domainNameInstance.ID,
-		domainNameInstance.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event for reconciliation start")
-	}
 
 	// validate threeport state
 	err := validateThreeportStateExternalDns(r, domainNameInstance, log)

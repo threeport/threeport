@@ -155,6 +155,22 @@ func KubernetesWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					log.Info("kubernetes workload definition scheduled for deletion - skipping create")
 					break
 				}
+				// record in-progress before the custom handler so a later failure still has a start event
+				progressNote := "creating"
+				if owner, ok := kubernetesWorkloadDefinition.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
+					progressNote = event.CreateNote(owner)
+				}
+				if recordErr := r.EventsRecorder.RecordEvent(
+					&api_v0.Event{
+						Note:   util.Ptr(progressNote),
+						Reason: util.Ptr(event.ReasonCreateInProgress),
+						Type:   util.Ptr(event.TypeNormal),
+					},
+					kubernetesWorkloadDefinition.GetId(),
+					kubernetesWorkloadDefinition.GetFullyQualifiedType(),
+				); recordErr != nil {
+					log.Error(recordErr, "failed to record in-progress event")
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch kubernetesWorkloadDefinition.GetVersion() {
@@ -206,6 +222,19 @@ func KubernetesWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					log.Info("kubernetes workload definition scheduled for deletion - skipping update")
 					break
 				}
+				// record in-progress before the custom handler so a later failure still has a start event
+				progressNote := event.UpdateNote()
+				if recordErr := r.EventsRecorder.RecordEvent(
+					&api_v0.Event{
+						Note:   util.Ptr(progressNote),
+						Reason: util.Ptr(event.ReasonUpdateInProgress),
+						Type:   util.Ptr(event.TypeNormal),
+					},
+					kubernetesWorkloadDefinition.GetId(),
+					kubernetesWorkloadDefinition.GetFullyQualifiedType(),
+				); recordErr != nil {
+					log.Error(recordErr, "failed to record in-progress event")
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch kubernetesWorkloadDefinition.GetVersion() {
@@ -253,6 +282,22 @@ func KubernetesWorkloadDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
+				// record in-progress before the custom handler so a later failure still has a start event
+				progressNote := "deleting"
+				if owner, ok := kubernetesWorkloadDefinition.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
+					progressNote = event.DeleteNote(owner)
+				}
+				if recordErr := r.EventsRecorder.RecordEvent(
+					&api_v0.Event{
+						Note:   util.Ptr(progressNote),
+						Reason: util.Ptr(event.ReasonDeleteInProgress),
+						Type:   util.Ptr(event.TypeNormal),
+					},
+					kubernetesWorkloadDefinition.GetId(),
+					kubernetesWorkloadDefinition.GetFullyQualifiedType(),
+				); recordErr != nil {
+					log.Error(recordErr, "failed to record in-progress event")
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch kubernetesWorkloadDefinition.GetVersion() {
