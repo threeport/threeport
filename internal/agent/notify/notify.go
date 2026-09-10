@@ -221,7 +221,7 @@ func sendThreeportUpdates(
 		ReportingController: "agent",
 	}
 	for _, evt := range *pendingEvents {
-		// skip a nil subject; retrying cannot fill it. log so the drop is visible
+		// skip a nil subject; retrying cannot fill it
 		if evt.ObjectType == nil || evt.ObjectID == nil {
 			continue
 		}

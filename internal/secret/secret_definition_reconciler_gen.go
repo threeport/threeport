@@ -289,7 +289,9 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 							"conflict reconciling deleted secret definition object, requeueing",
 							"cause", operationErr.Error(),
 						)
+						// start with deleting; types without tagged foreign keys keep this note
 						deleteNote := "deleting"
+						// type-assert so types without relationship-tagged foreign keys still emit deleting
 						if owner, ok := secretDefinition.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
 							deleteNote = event.DeleteNote(owner)
 						}
@@ -373,7 +375,9 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 							"conflict deleting secret definition, requeueing",
 							"cause", err.Error(),
 						)
+						// start with deleting; types without tagged foreign keys keep this note
 						deleteNote := "deleting"
+						// type-assert so types without relationship-tagged foreign keys still emit deleting
 						if owner, ok := secretDefinition.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
 							deleteNote = event.DeleteNote(owner)
 						}

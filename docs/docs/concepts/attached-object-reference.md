@@ -57,7 +57,6 @@ The following table illustrates the relationship type for each example.
 | `HelmWorkloadDefinition`      | `HelmWorkloadInstance`              | `requires` |
 | `LoggingDefinition`           | `HelmWorkloadDefinition`            | `owns` |
 | `KubernetesRuntimeDefinition` | `AwsEksKubernetesRuntimeDefinition` | `marries` |
-| `KubernetesRuntimeInstance`   | `LoggingInstance`                   | `describes` |
 
 
 <br>![Attached Object References](../img/AttachedObjects.drawio.svg)<br>

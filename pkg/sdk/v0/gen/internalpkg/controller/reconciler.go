@@ -455,7 +455,14 @@ func emitDeleteConflictWait(k *Group, errVar, logMsg, varObjectName string) {
 			Line().Lit("cause"), Id(errVar).Dot("Error").Call(),
 			Line(),
 		),
+		// Emits:
+		//   deleteNote := "deleting"
+		//   if owner, ok := obj.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
+		//     deleteNote = event.DeleteNote(owner)
+		//   }
+		Comment("start with deleting; types without tagged foreign keys keep this note"),
 		Id("deleteNote").Op(":=").Lit("deleting"),
+		Comment("type-assert so types without relationship-tagged foreign keys still emit deleting"),
 		If(
 			List(Id("owner"), Id("ok")).Op(":=").Id(varObjectName).Assert(
 				Qual(
@@ -523,7 +530,13 @@ func emitInProgressEvent(g *Group, op, varObjectName string) {
 	if op == "update" {
 		g.Id("progressNote").Op(":=").Qual(eventPkg, "UpdateNote").Call()
 	} else {
+		// Emits:
+		//   progressNote := "<creating|deleting>"
+		//   if owner, ok := obj.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
+		//     progressNote = event.CreateNote|DeleteNote(owner)
+		//   }
 		g.Id("progressNote").Op(":=").Lit(fallback)
+		g.Comment("type-assert so types without relationship-tagged foreign keys still emit " + fallback)
 		g.If(
 			List(Id("owner"), Id("ok")).Op(":=").Id(varObjectName).Assert(
 				Qual(

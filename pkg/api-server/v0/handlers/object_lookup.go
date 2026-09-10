@@ -184,6 +184,7 @@ func getNamesFromModule(ctx context.Context, endpoint, path string, ids []uint, 
 			break
 		}
 
+		// fetch one chunk; workers share out and fallback under mu
 		g.Go(func() error {
 			// skip the request if cancelled while queued behind the cap
 			if gctx.Err() != nil {
@@ -193,7 +194,7 @@ func getNamesFromModule(ctx context.Context, endpoint, path string, ids []uint, 
 			// build the batched list URL for this chunk
 			url := buildBulkListURL(endpoint, path, chunk, includeDeleted)
 
-			// GET the chunk from the module
+			// GET the chunk from the module; a failed chunk is skipped
 			resp, err := client_lib.GetResponse(
 				moduleHTTPClient,
 				url,
@@ -221,6 +222,7 @@ func getNamesFromModule(ctx context.Context, endpoint, path string, ids []uint, 
 				if err != nil || !recognized {
 					continue
 				}
+				// an unrequested ID means the module ignored the ids filter
 				if _, ok := requested[id]; !ok {
 					mu.Lock()
 					fallback = true
@@ -309,11 +311,14 @@ func getNamesFromModulePerID(ctx context.Context, endpoint, path string, ids []u
 			break
 		}
 
+		// fetch one ID; a miss leaves that ID out of the result
 		g.Go(func() error {
+			// skip the request if cancelled while queued behind the cap
 			if gctx.Err() != nil {
 				return nil
 			}
 
+			// GET one object by ID
 			url := fmt.Sprintf("%s%s/%d%s", endpoint, path, id, suffix)
 
 			resp, err := client_lib.GetResponse(
