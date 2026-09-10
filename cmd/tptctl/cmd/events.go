@@ -82,10 +82,10 @@ var GetEventsCmd = &cobra.Command{
   tptctl get events --reason 'Create*'
 
   # filter to a subject by --for shape
-  tptctl get events --for router-fleet/veltris9-config
+  tptctl get events --for kubernetes-workload-instance/my-app
 
   # name prefix inside a --for shape
-  tptctl get events --for 'router-instance/myfleet2*'
+  tptctl get events --for 'helm-workload-instance/myfleet2*'
 
   # only events within the last 5 minutes
   tptctl get events --since=5m
@@ -273,7 +273,7 @@ func init() {
 
 	GetEventsCmd.Flags().StringVar(
 		&eventsFor,
-		"for", "", "Filter events by object, in the form [<namespace>/][<version>.]<kind>/<name>. Kind is the kebab-case form of the API type name (e.g. machine-runtime-instance, router-definition). The name accepts a trailing * for a prefix match. Mutually exclusive with --object-kind, --kind, --api-group, --name, and --id.",
+		"for", "", "Filter events by object, in the form [<namespace>/][<version>.]<kind>/<name>. Kind is the kebab-case form of the API type name (e.g. machine-runtime-instance, helm-workload-instance). The name accepts a trailing * for a prefix match. Mutually exclusive with --object-kind, --kind, --api-group, --name, and --id.",
 	)
 	GetEventsCmd.Flags().StringVar(
 		&eventsObjectKind,
