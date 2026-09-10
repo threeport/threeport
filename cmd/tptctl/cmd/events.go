@@ -76,13 +76,13 @@ var GetEventsCmd = &cobra.Command{
   tptctl get events --object-kind helm-workload-instance --name my-app
 
   # filter by Reason (case-sensitive CamelCase)
-  tptctl get events --reason SuccessfulCreate
+  tptctl get events --reason CreateSuccessful
 
   # filter by Reason prefix (trailing * wildcard)
   tptctl get events --reason 'Create*'
 
   # filter to a subject by --for shape
-  tptctl get events --for router-machine-set/demo1-router-set
+  tptctl get events --for router-fleet/veltris9-config
 
   # name prefix inside a --for shape
   tptctl get events --for 'router-instance/myfleet2*'
@@ -93,7 +93,7 @@ var GetEventsCmd = &cobra.Command{
   # only Warning-type events
   tptctl get events --type=Warning
 
-  # widen the MESSAGE column to the terminal width
+  # print the full MESSAGE with no truncation
   tptctl get events --wide
 
   # oldest events first, top-down causal read (equivalent to --sort=oldest)
@@ -102,19 +102,21 @@ var GetEventsCmd = &cobra.Command{
 
 Use --for [<namespace>/][<version>.]<kind>/<name> to filter events to a specific object. <namespace> and <version> are optional; <kind> and <name> are required. The kind is the kebab-case form of the API type name; the name is the object's Name field. The name takes the same trailing-star prefix --name does. Both core and module types are supported.
 
-Use --object-kind <kebab-kind> to filter events to a specific kind across every object of that kind. Mutually exclusive with --for; combinable with --api-group and --name.
+Use --object-kind <kebab-kind> to filter events to a specific kind across every object of that kind. --kind is an alias. Mutually exclusive with --for; combinable with --api-group, --name, and --id.
 
-Use --api-group <namespace> to filter events by API group / namespace alone (e.g. threeport.io). Mutually exclusive with --for; combinable with --object-kind and --name.
+Use --api-group <namespace> to filter events by API group / namespace alone (e.g. threeport.io). Mutually exclusive with --for; combinable with --object-kind, --name, and --id.
 
-Use --name <name> to filter events by object name alone. Supports exact match (--name=my-app) or prefix match with a trailing star (--name='myfleet2*'). A prefix matches every object whose name starts with the token, across every object kind unless --object-kind or --api-group narrows it, so a fleet and the derived children named after it answer one query. Mutually exclusive with --for; combinable with --object-kind and --api-group.
+Use --name <name> to filter events by object name alone. Supports exact match (--name=my-app) or prefix match with a trailing star (--name='myfleet2*'). A prefix matches every object whose name starts with the token, across every object kind unless --object-kind or --api-group narrows it, so a fleet and the derived children named after it answer one query. Mutually exclusive with --for and --id; combinable with --object-kind and --api-group.
 
-Use --reason <reason> to filter events by Reason. Supports exact match (--reason=SuccessfulCreate) or prefix match with a trailing star (--reason='Create*'). Case-sensitive CamelCase. Applied server-side.
+Use --id <id> to filter events by the numeric object ID the API stores. Mutually exclusive with --for and --name; combinable with --object-kind and --api-group.
+
+Use --reason <reason> to filter events by Reason. Supports exact match (--reason=CreateSuccessful) or prefix match with a trailing star (--reason='Create*'). Case-sensitive CamelCase. Applied server-side.
 
 Use --sort to control row order: newest (default) puts the most recent activity at the top matching kubectl's convention; oldest is reverse and lets a causal sequence read down. -r / --reverse is equivalent to --sort=oldest.
 
 Use --limit N to cap the number of rows shown (after sort). The default of 0 means no cap.
 
-Use --since=<duration> to filter events by recency (e.g. --since=10m). Zero disables the filter.
+Use --since=<duration> to filter events by recency (e.g. --since=10m). Uses last-observed time when present, otherwise first EventTime. Client-side after fetch. Zero disables the filter.
 
 Use --type Normal|Warning to filter events by type. Empty disables the filter.
 
@@ -271,11 +273,11 @@ func init() {
 
 	GetEventsCmd.Flags().StringVar(
 		&eventsFor,
-		"for", "", "Filter events by object, in the form [<namespace>/][<version>.]<kind>/<name>. Kind is the kebab-case form of the API type name (e.g. machine-runtime-instance, router-definition). The name accepts a trailing * for a prefix match. Mutually exclusive with --object-kind.",
+		"for", "", "Filter events by object, in the form [<namespace>/][<version>.]<kind>/<name>. Kind is the kebab-case form of the API type name (e.g. machine-runtime-instance, router-definition). The name accepts a trailing * for a prefix match. Mutually exclusive with --object-kind, --kind, --api-group, --name, and --id.",
 	)
 	GetEventsCmd.Flags().StringVar(
 		&eventsObjectKind,
-		"object-kind", "", "Filter events by object kind alone (kebab-case form of the API type name, e.g. helm-workload-instance). Mutually exclusive with --for; combinable with --api-group and --name.",
+		"object-kind", "", "Filter events by object kind alone (kebab-case form of the API type name, e.g. helm-workload-instance). Mutually exclusive with --for; combinable with --api-group, --name, and --id.",
 	)
 	GetEventsCmd.Flags().StringVar(
 		&eventsObjectKind,
@@ -283,11 +285,11 @@ func init() {
 	)
 	GetEventsCmd.Flags().StringVar(
 		&eventsApiGroup,
-		"api-group", "", "Filter events by API group / namespace (e.g. threeport.io). Mutually exclusive with --for; combinable with --object-kind and --name.",
+		"api-group", "", "Filter events by API group / namespace (e.g. threeport.io). Mutually exclusive with --for; combinable with --object-kind, --name, and --id.",
 	)
 	GetEventsCmd.Flags().StringVar(
 		&eventsName,
-		"name", "", "Filter events by object name alone. Supports exact match (--name=my-app) or prefix match with trailing * (--name='myfleet2*'). Mutually exclusive with --for; combinable with --object-kind and --api-group.",
+		"name", "", "Filter events by object name alone. Supports exact match (--name=my-app) or prefix match with trailing * (--name='myfleet2*'). Mutually exclusive with --for and --id; combinable with --object-kind and --api-group.",
 	)
 	GetEventsCmd.Flags().StringVar(
 		&eventsObjectId,
@@ -295,7 +297,7 @@ func init() {
 	)
 	GetEventsCmd.Flags().StringVar(
 		&eventsReason,
-		"reason", "", "Filter events by reason. Supports exact match (--reason=SuccessfulCreate) or prefix match with trailing * (--reason='Create*').",
+		"reason", "", "Filter events by reason. Supports exact match (--reason=CreateSuccessful) or prefix match with trailing * (--reason='Create*').",
 	)
 	GetEventsCmd.Flags().StringVarP(
 		&eventsOutput,
@@ -311,7 +313,7 @@ func init() {
 	)
 	GetEventsCmd.Flags().DurationVar(
 		&eventsSince,
-		"since", 0, "Only show events with EventTime newer than the given duration ago (e.g. --since=10m, --since=1h). Zero means no time filter.",
+		"since", 0, "Only show events whose last observation (or first EventTime if never re-observed) is newer than the given duration ago (e.g. --since=10m, --since=1h). Zero means no time filter.",
 	)
 	GetEventsCmd.Flags().StringVar(
 		&eventsType,
@@ -319,7 +321,7 @@ func init() {
 	)
 	GetEventsCmd.Flags().BoolVar(
 		&eventsWide,
-		"wide", false, "Widen MESSAGE column to the terminal width.",
+		"wide", false, "Print the full MESSAGE with no truncation, even when the terminal wraps.",
 	)
 	GetEventsCmd.Flags().BoolVarP(
 		&eventsReverse,
