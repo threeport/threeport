@@ -8,14 +8,13 @@ type MachineRuntimeDefinition struct {
 	Common     `swaggerignore:"true" mapstructure:",squash"`
 	Definition `mapstructure:",squash"`
 
-	// The infrastructure provider that provisions machines from this
-	// definition. Empty for imported machines that already exist.
+	// The infrastructure provider that provisions machines from this definition
 	InfraProvider *string `json:",omitempty" validate:"optional"`
 
-	// The provider-specific machine/instance type to provision.
+	// The provider-specific machine type to provision
 	MachineType *string `json:",omitempty" validate:"optional"`
 
-	// The provider image identifier used to boot the machine.
+	// The provider image identifier used to boot the machine
 	ImageID *string `json:",omitempty" validate:"optional"`
 
 	// The associated machine runtime instances that are deployed from this
@@ -61,19 +60,16 @@ type MachineRuntimeInstance struct {
 	// connection. If not provided, captured on first connection.
 	HostKey *string `validate:"optional"`
 
-	// The provider region in which the machine is provisioned.
+	// The provider region in which the machine is provisioned
 	Region *string `json:",omitempty" validate:"optional"`
 
-	// The provider network identifier the machine attaches to.
+	// The provider network identifier the machine attaches to
 	NetworkID *string `json:",omitempty" validate:"optional"`
 
-	// The provider-specific subnet identifier the VM should attach to.
-	// Required in custom-mode shared VPCs where multiple subnets share a
-	// region.
+	// The provider subnet identifier the machine attaches to
 	SubnetID *string `json:",omitempty" gorm:"type:text" validate:"optional"`
 
-	// An inventory of all provider resources backing this machine, used for
-	// crash recovery and deprovisioning.
+	// An inventory of all provider resources backing this machine
 	ResourceInventory *datatypes.JSON `json:",omitempty" validate:"optional"`
 
 	// The machine runtime definition for this instance.  Optional because

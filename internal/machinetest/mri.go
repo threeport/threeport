@@ -31,21 +31,17 @@ func encryptOrFail(t *testing.T, key, plaintext string) string {
 	return ct
 }
 
-// MRIInfraOpts carries the optional host key and infra provisioning fields
-// for NewMRIWithInfra. Zero-value fields are left unset on the instance.
+// MRIInfraOpts carries optional host-key and infra fields for NewMRIWithInfra.
+// Zero-value fields are left unset on the instance.
 type MRIInfraOpts struct {
-	// HostKey, when non-empty, is set on the instance so GetClient runs in
-	// verification mode instead of capture mode. It must be base64 of the
-	// SSH wire-format public key, matching how captured host keys are
-	// stored; HostKeyFromSigner produces it from a test server's signer.
+	// HostKey, when non-empty, is set so GetClient verifies instead of capturing.
+	// Use HostKeyFromSigner; the value is base64 of the SSH wire-format public key.
 	HostKey string
 
 	Region    string
 	NetworkID string
 
-	// MachineRuntimeDefinitionID, when non-zero, links the instance to a
-	// definition. A provisioned machine has one; an imported machine leaves
-	// it unset.
+	// MachineRuntimeDefinitionID, when non-zero, links the instance to a definition.
 	MachineRuntimeDefinitionID uint
 
 	// ResourceInventory is raw JSON stored on the instance.

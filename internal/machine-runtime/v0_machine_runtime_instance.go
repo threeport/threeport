@@ -19,41 +19,32 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// sshRetryDelaySeconds is the requeue delay (in seconds) returned when an
-// SSH connect or ping fails. Package-level so tests can override it.
+// sshRetryDelaySeconds is the requeue delay after an SSH connect or ping failure.
+// A bad credential or unreachable host can be fixed without changing this object.
 var sshRetryDelaySeconds int64 = 30
 
-// unpopulatedRequeueDelaySeconds is the requeue delay (in seconds) returned
-// when the instance has no hostname yet, so the reconciler checks back
-// without erroring while the machine is still being provisioned.
-// Package-level so tests can override it.
+// unpopulatedRequeueDelaySeconds is the requeue delay when Hostname is still empty.
+// Returning no error leaves Reconciled unset while provisioning fills the field.
 var unpopulatedRequeueDelaySeconds int64 = 15
 
-// sshOperationTimeout bounds the SSH operations of one reconcile pass.
-// Package-level so tests can shrink it to exercise the timeout path.
+// sshOperationTimeout bounds GetClient and Ping so a hung handshake cannot hold the reconcile.
 var sshOperationTimeout = 30 * time.Second
 
-// newReconcileContext returns the context that bounds one reconcile pass's
-// SSH operations. Package-level so tests can swap in a context that is
-// already canceled or cancels mid-flight.
+// newReconcileContext builds the per-pass timeout. Tests replace it to inject cancellation.
 var newReconcileContext = func() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), sshOperationTimeout)
 }
 
-// getClientResult carries an SSH connect outcome across a goroutine
-// boundary.
+// getClientResult is the outcome of a GetClient call run in a goroutine.
+// It carries the client, any captured host key, and the connect error.
 type getClientResult struct {
 	client          *ssh.Client
 	capturedHostKey string
 	err             error
 }
 
-// getClientWithContext establishes the SSH connection in its own goroutine
-// so the caller returns promptly when ctx is canceled or times out, even
-// though the underlying connect cannot be interrupted. When the caller
-// abandons the attempt, a reaper goroutine waits for the connect to finish
-// and closes any connection it produced; the buffered channel lets the
-// connect goroutine exit without blocking either way.
+// getClientWithContext runs machine.GetClient until it returns or ctx ends.
+// ssh.Dial cannot be interrupted, so on abort a reaper closes a client that arrives later.
 func getClientWithContext(
 	ctx context.Context,
 	machineRuntimeInstance *v0.MachineRuntimeInstance,
@@ -77,10 +68,8 @@ func getClientWithContext(
 	}
 }
 
-// pingWithContext verifies the connection is usable, returning early with
-// ctx's error when the context is canceled or times out before the ping
-// completes. The underlying call cannot be interrupted; an abandoned ping
-// unblocks and exits when the caller closes the SSH client.
+// pingWithContext runs machine.Ping until it returns or ctx ends.
+// An abandoned ping unblocks when the caller closes the SSH client.
 func pingWithContext(ctx context.Context, sshClient *ssh.Client) error {
 	done := make(chan error, 1)
 	go func() {
@@ -102,16 +91,12 @@ func v0MachineRuntimeInstanceCreated(
 	machineRuntimeInstance *v0.MachineRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// defer the ssh dial until the machine has a hostname. the abstract
-	// instance can be created before the machine is provisioned, so requeue
-	// without erroring and leave Reconciled unset until the hostname is
-	// populated and the machine is confirmed reachable
+	// requeue without error until hostname is populated
 	if machineRuntimeInstance.Hostname == nil || *machineRuntimeInstance.Hostname == "" {
 		return unpopulatedRequeueDelaySeconds, nil
 	}
 
-	// bound all ssh operations in this reconcile pass so a partitioned or
-	// hanging host cannot stall the reconciler indefinitely
+	// bound ssh connect and ping for this pass
 	ctx, cancel := newReconcileContext()
 	defer cancel()
 
@@ -131,9 +116,7 @@ func v0MachineRuntimeInstanceCreated(
 	}
 	defer sshClient.Close()
 
-	// save captured host key if this is the first connection; set
-	// Reconciled=true on the update so the resulting update
-	// notification does not trigger another reconciliation pass
+	// persist captured host key and mark reconciled to skip the update notification
 	if capturedHostKey != "" {
 		if _, err := client.UpdateMachineRuntimeInstance(r.APIClient, r.APIServer, &v0.MachineRuntimeInstance{
 			Common:         v0.Common{ID: machineRuntimeInstance.ID},
@@ -183,33 +166,23 @@ func v0MachineRuntimeInstanceUpdated(
 	return 0, nil
 }
 
-// v0MachineRuntimeInstanceDeleted performs reconciliation when a v0
-// MachineRuntimeInstance has been deleted.  Imported machines (no associated
-// definition) have no provisioned infrastructure, so deletion is a clean
-// no-op for them.  A provider-provisioned machine that still carries a
-// resource inventory has live provider resources that this control plane
-// cannot tear down on its own, so deletion records a warning instructing the
-// operator to reclaim them, then completes; the inventory is the record of
-// what to reclaim.
+// v0MachineRuntimeInstanceDeleted warns when a provisioned instance still holds inventory. This pass does not reclaim provider resources.
 func v0MachineRuntimeInstanceDeleted(
 	r *controller.Reconciler,
 	machineRuntimeInstance *v0.MachineRuntimeInstance,
 	log *logr.Logger,
 ) (int64, error) {
-	// imported machines have no definition, so nothing to deprovision
+	// skip imported machines with no definition
 	if machineRuntimeInstance.MachineRuntimeDefinitionID == nil {
 		return 0, nil
 	}
 
-	// a provisioned machine with no recorded resources never had any backing
-	// infrastructure to reclaim, so deletion is clean
+	// skip when no inventory was recorded
 	if machineRuntimeInstance.ResourceInventory == nil {
 		return 0, nil
 	}
 
-	// the provider resources recorded in the inventory remain live; warn the
-	// operator to reclaim them so they are not silently abandoned, then let
-	// deletion proceed
+	// warn to reclaim live provider resources, then complete delete
 	if eventErr := r.EventsRecorder.RecordEvent(
 		&v0.Event{
 			Type:   util.Ptr(event.TypeWarning),

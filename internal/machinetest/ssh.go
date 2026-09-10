@@ -40,24 +40,14 @@ type SSHOpts struct {
 	HoldSession time.Duration
 
 	// HoldHandshake, when non-zero, holds each accepted connection open
-	// for this duration before any SSH protocol bytes are exchanged, so a
-	// client's dial blocks as if the host were not responding. The hold
-	// ends early when the server stops. Used to drive connect timeout
-	// tests.
+	// before sending SSH protocol bytes.
 	HoldHandshake time.Duration
 
-	// OpenConns, when non-nil, counts connections currently open on the
-	// server: incremented when a connection is accepted, decremented after
-	// it closes. Leak tests close their clients, wait for the count to
-	// drain to zero, and fail if it never does.
+	// OpenConns, when non-nil, counts accepted connections still being served.
 	OpenConns *atomic.Int64
 }
 
-// HostKeyFromSigner returns the signer's public key encoded the same way
-// captured host keys are stored on a machine runtime instance: base64 of
-// the SSH wire-format public key bytes. Set the result as the instance's
-// known host key to make the client verify the server instead of capturing
-// its key.
+// HostKeyFromSigner returns the signer's public key as base64 of the SSH wire-format blob.
 func HostKeyFromSigner(signer ssh.Signer) string {
 	return base64.StdEncoding.EncodeToString(signer.PublicKey().Marshal())
 }
@@ -123,8 +113,7 @@ func StartSSHServer(
 // and process session channels per opts.
 func serveSSHConn(nConn net.Conn, config *ssh.ServerConfig, opts SSHOpts, stopped <-chan struct{}) {
 	defer nConn.Close()
-	// hold before sending any protocol bytes so the client's dial blocks
-	// until its own timeout fires; end the hold early on server stop
+	// hold before sending protocol bytes
 	if opts.HoldHandshake > 0 {
 		select {
 		case <-time.After(opts.HoldHandshake):

@@ -60,15 +60,11 @@ func TestMachineRuntimeInstanceCreated_HappyPath(t *testing.T) {
 }
 
 // TestMachineRuntimeInstanceCreated_NoHostname_RequeuesWithoutDialing covers
-// the deferred-dial path: an instance whose hostname is not yet populated
-// requeues with the unpopulated delay, returns no error, dials no SSH server,
-// records no event, and persists no update, so Reconciled stays unset until
-// the machine is reachable. Both a nil and an empty-string hostname take this
-// path.
+// a Created reconcile whose hostname is nil or empty.
 func TestMachineRuntimeInstanceCreated_NoHostname_RequeuesWithoutDialing(t *testing.T) {
+	// shrink the unpopulated requeue delay
 	overrideUnpopulatedRequeueDelay(t, 3)
-	// fail loudly if the deferred-dial guard ever lets a reconcile reach the
-	// SSH dial: the connect would build a reconcile context from this factory
+	// fail if the reconcile builds an ssh context
 	overrideReconcileContext(t, func() (context.Context, context.CancelFunc) {
 		t.Fatal("reconcile must not dial ssh when the hostname is unpopulated")
 		return context.WithCancel(context.Background())
@@ -85,8 +81,7 @@ func TestMachineRuntimeInstanceCreated_NoHostname_RequeuesWithoutDialing(t *test
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			// arrange an instance whose hostname is unpopulated so the
-			// reconcile must take the deferred-dial path
+			// build an mri with an unpopulated hostname
 			mri := &v0.MachineRuntimeInstance{
 				Common:      v0.Common{ID: util.Ptr(uint(101))},
 				Instance:    v0.Instance{Name: util.Ptr("mri-unpopulated")},
@@ -94,7 +89,7 @@ func TestMachineRuntimeInstanceCreated_NoHostname_RequeuesWithoutDialing(t *test
 				Hostname:    tc.hostname,
 			}
 
-			// count PATCHes so a persisted update would register as nonzero
+			// count persisted updates
 			api := machinetest.NewAPIStub(t)
 			patchCount := registerPatchCounter(t, api, 101)
 			recorder := machinetest.NewFakeRecorder()
@@ -106,15 +101,12 @@ func TestMachineRuntimeInstanceCreated_NoHostname_RequeuesWithoutDialing(t *test
 				EventsRecorder: recorder,
 			}
 
-			// run the Created hook against the unpopulated instance
+			// run created
 			delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
-			// verify the deferred-dial path returns cleanly rather than failing
+			// assert requeue without error, event, or patch
 			require.NoError(t, err, "an unpopulated instance must requeue without erroring")
-			// verify it requeues on the unpopulated delay, not the ssh-retry delay
 			assert.Equal(t, int64(3), delay, "an unpopulated instance requeues with the unpopulated delay")
-			// verify no event fires before the machine is reachable
 			assert.Empty(t, recorder.GetReasons(), "no event may be recorded before the machine is reachable")
-			// verify nothing is persisted so Reconciled stays unset until reachable
 			assert.Equal(t, int64(0), atomic.LoadInt64(patchCount), "no update may be persisted, so Reconciled stays unset")
 		})
 	}
@@ -253,9 +245,7 @@ func TestMachineRuntimeInstanceCreated_HostKeyMismatch(t *testing.T) {
 	assert.Empty(t, recorder.GetReasons(), "failure path should not call RecordEvent directly; the wrapper substitutes the event")
 }
 
-// overrideRetryDelay shrinks the package retry delay for one test and
-// restores it on cleanup. Tests in this package run sequentially, so
-// mutating the package var is safe.
+// overrideRetryDelay sets sshRetryDelaySeconds for one test.
 func overrideRetryDelay(t *testing.T, seconds int64) {
 	t.Helper()
 	prev := sshRetryDelaySeconds
@@ -263,8 +253,7 @@ func overrideRetryDelay(t *testing.T, seconds int64) {
 	t.Cleanup(func() { sshRetryDelaySeconds = prev })
 }
 
-// overrideUnpopulatedRequeueDelay sets the unpopulated-instance requeue
-// delay for one test and restores it on cleanup.
+// overrideUnpopulatedRequeueDelay sets unpopulatedRequeueDelaySeconds for one test.
 func overrideUnpopulatedRequeueDelay(t *testing.T, seconds int64) {
 	t.Helper()
 	prev := unpopulatedRequeueDelaySeconds
@@ -272,8 +261,7 @@ func overrideUnpopulatedRequeueDelay(t *testing.T, seconds int64) {
 	t.Cleanup(func() { unpopulatedRequeueDelaySeconds = prev })
 }
 
-// overrideSSHTimeout shrinks the package SSH operation timeout for one test
-// and restores it on cleanup.
+// overrideSSHTimeout sets sshOperationTimeout for one test.
 func overrideSSHTimeout(t *testing.T, d time.Duration) {
 	t.Helper()
 	prev := sshOperationTimeout
@@ -281,8 +269,7 @@ func overrideSSHTimeout(t *testing.T, d time.Duration) {
 	t.Cleanup(func() { sshOperationTimeout = prev })
 }
 
-// overrideReconcileContext swaps the package reconcile-context factory for
-// one test and restores it on cleanup.
+// overrideReconcileContext sets newReconcileContext for one test.
 func overrideReconcileContext(t *testing.T, fn func() (context.Context, context.CancelFunc)) {
 	t.Helper()
 	prev := newReconcileContext
@@ -290,9 +277,7 @@ func overrideReconcileContext(t *testing.T, fn func() (context.Context, context.
 	t.Cleanup(func() { newReconcileContext = prev })
 }
 
-// registerPatchCounter registers a PATCH handler for the MRI with the given
-// id that counts calls and replies with a valid envelope, so tests can
-// assert exactly how many updates the reconciler persisted.
+// registerPatchCounter counts PATCH calls for one machine runtime instance id.
 func registerPatchCounter(t *testing.T, api *machinetest.APIStub, id uint) *int64 {
 	t.Helper()
 	var count int64
@@ -309,12 +294,8 @@ func registerPatchCounter(t *testing.T, api *machinetest.APIStub, id uint) *int6
 	return &count
 }
 
-// TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall proves a
-// re-reconcile of an MRI whose host key is already persisted does not PATCH
-// again. Leg one runs in capture mode (HostKey nil) and persists the key
-// with exactly one PATCH; leg two carries the server's real host key, so
-// GetClient runs in verification mode, the capture branch is skipped, and
-// no second PATCH lands.
+// TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall covers a second
+// Created reconcile that already holds the captured host key.
 func TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall(t *testing.T) {
 	key := machinetest.NewEncryptionKey(t)
 	signer := machinetest.NewSigner(t)
@@ -325,6 +306,7 @@ func TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall(t *testing.T) {
 	patchCount := registerPatchCounter(t, api, 21)
 	log := logr.Discard()
 
+	// capture the host key on the first created pass
 	first := machinetest.MRIFromAddr(t, 21, "mri-idem", addr, "u", "p", key)
 	firstRecorder := machinetest.NewFakeRecorder()
 	r := &controller.Reconciler{
@@ -340,6 +322,7 @@ func TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall(t *testing.T) {
 	assert.Equal(t, []string{"HostKeyCaptured", "SSHReachable"}, firstRecorder.GetReasons())
 	require.Equal(t, int64(1), atomic.LoadInt64(patchCount), "first reconcile persists the captured host key with one PATCH")
 
+	// run created again with the persisted host key
 	second := machinetest.NewMRIWithInfra(t, 21, "mri-idem", addr, "u", "p", key, machinetest.MRIInfraOpts{
 		HostKey: machinetest.HostKeyFromSigner(signer),
 	})
@@ -347,16 +330,15 @@ func TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall(t *testing.T) {
 	r.EventsRecorder = secondRecorder
 
 	delay, err = v0MachineRuntimeInstanceCreated(r, second, &log)
+	// assert no second host-key patch
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
 	assert.Equal(t, []string{"SSHReachable"}, secondRecorder.GetReasons())
 	assert.Equal(t, int64(1), atomic.LoadInt64(patchCount), "second reconcile must not re-PATCH the host key")
 }
 
-// TestMachineRuntimeInstanceCreated_SSHPingFails_Retries drives a connect
-// that succeeds and a ping that fails (non-zero exit), asserting the
-// configurable retry delay is returned, SSHPingFailed is recorded, and no
-// update is persisted.
+// TestMachineRuntimeInstanceCreated_SSHPingFails_Retries covers a connect
+// that succeeds and a ping that exits non-zero.
 func TestMachineRuntimeInstanceCreated_SSHPingFails_Retries(t *testing.T) {
 	overrideRetryDelay(t, 7)
 	key := machinetest.NewEncryptionKey(t)
@@ -380,17 +362,14 @@ func TestMachineRuntimeInstanceCreated_SSHPingFails_Retries(t *testing.T) {
 	}
 
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
+	// assert retry delay, SSHPingFailed, and no patch
 	require.Error(t, err)
 	assert.Equal(t, int64(7), delay, "ping failures requeue with the configurable delay")
 	assert.Equal(t, []string{"SSHPingFailed"}, recorder.GetReasons())
 	assert.Equal(t, int64(0), atomic.LoadInt64(patchCount), "no update may be persisted on ping failure")
 }
 
-// TestMachineRuntimeInstanceCreated_HostKeyPatchFails_Retries closes the
-// API stub before the reconcile so the host-key PATCH hits a refused
-// connection. A transport-level failure must requeue (non-zero delay,
-// non-nil error) so the failed persist is retried rather than the object
-// being silently marked reconciled.
+// TestMachineRuntimeInstanceCreated_HostKeyPatchFails_Retries covers a host-key PATCH that RetryOnNetworkErr treats as a network error.
 func TestMachineRuntimeInstanceCreated_HostKeyPatchFails_Retries(t *testing.T) {
 	key := machinetest.NewEncryptionKey(t)
 	signer := machinetest.NewSigner(t)
@@ -400,6 +379,7 @@ func TestMachineRuntimeInstanceCreated_HostKeyPatchFails_Retries(t *testing.T) {
 	mri := machinetest.MRIFromAddr(t, 41, "mri-patchfail", addr, "u", "p", key)
 
 	api := machinetest.NewAPIStub(t)
+	// close the api stub so the host-key patch is refused
 	api.Server.Close()
 
 	recorder := machinetest.NewFakeRecorder()
@@ -412,16 +392,13 @@ func TestMachineRuntimeInstanceCreated_HostKeyPatchFails_Retries(t *testing.T) {
 	}
 
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
+	// assert requeue with no events
 	require.Error(t, err)
 	assert.Equal(t, int64(30), delay, "transport failures on the host-key PATCH requeue after 30s")
 	assert.Empty(t, recorder.GetReasons(), "no events may be recorded when the capture PATCH fails")
 }
 
-// TestMachineRuntimeInstanceCreated_HostKeyPatchHTTP500_TerminalError is
-// the sibling of the transport-failure case: an HTTP 500 on the host-key
-// PATCH is not a network error, so the delay is 0, but the error must
-// still be non-nil so the dispatch requeues instead of marking the object
-// reconciled.
+// TestMachineRuntimeInstanceCreated_HostKeyPatchHTTP500_TerminalError covers a host-key PATCH that RetryOnNetworkErr treats as terminal.
 func TestMachineRuntimeInstanceCreated_HostKeyPatchHTTP500_TerminalError(t *testing.T) {
 	key := machinetest.NewEncryptionKey(t)
 	signer := machinetest.NewSigner(t)
@@ -445,14 +422,14 @@ func TestMachineRuntimeInstanceCreated_HostKeyPatchHTTP500_TerminalError(t *test
 	}
 
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
+	// assert error with zero delay
 	require.Error(t, err)
 	assert.Equal(t, int64(0), delay, "an http 500 is not a network error, so no requeue delay")
 	assert.Empty(t, recorder.GetReasons())
 }
 
-// TestMachineRuntimeInstanceCreated_EventRecordingFailure_Continues sets
-// the recorder to fail every call and asserts a happy-path reconcile still
-// succeeds; event persistence must never block reconciliation.
+// TestMachineRuntimeInstanceCreated_EventRecordingFailure_Continues covers a
+// Created reconcile whose event recorder fails.
 func TestMachineRuntimeInstanceCreated_EventRecordingFailure_Continues(t *testing.T) {
 	key := machinetest.NewEncryptionKey(t)
 	signer := machinetest.NewSigner(t)
@@ -475,16 +452,14 @@ func TestMachineRuntimeInstanceCreated_EventRecordingFailure_Continues(t *testin
 	}
 
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
+	// assert created still succeeds
 	require.NoError(t, err, "event persistence failures must not block reconciliation")
 	assert.Equal(t, int64(0), delay)
 	assert.Equal(t, []string{"SSHReachable"}, recorder.GetReasons())
 }
 
-// TestMachineRuntimeInstanceCreated_ContextCancellation_AbortsSSH injects
-// an already-canceled reconcile context and asserts the handler returns
-// promptly with the configurable retry delay, and that the abandoned
-// connect's client is closed behind it so no connection or goroutine is
-// left hanging.
+// TestMachineRuntimeInstanceCreated_ContextCancellation_AbortsSSH covers a
+// Created reconcile whose context is already canceled.
 func TestMachineRuntimeInstanceCreated_ContextCancellation_AbortsSSH(t *testing.T) {
 	overrideRetryDelay(t, 5)
 	overrideReconcileContext(t, func() (context.Context, context.CancelFunc) {
@@ -520,24 +495,20 @@ func TestMachineRuntimeInstanceCreated_ContextCancellation_AbortsSSH(t *testing.
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
 	elapsed := time.Since(start)
 
+	// assert canceled error, retry delay, and a prompt return
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.Canceled)
 	assert.Equal(t, int64(5), delay)
 	assert.Less(t, elapsed, 5*time.Second, "an already-canceled context must abort the reconcile promptly")
 	assert.Equal(t, []string{"SSHConnectFailed"}, recorder.GetReasons())
 
-	// stopping the server waits for every accepted connection to finish
-	// serving, which only happens once the abandoned connect's client has
-	// been closed; a leaked client would hang the stop and fail the run
+	// stop waits until accepted connections finish serving
 	stop()
 	assert.Equal(t, int64(0), openConns.Load(), "abandoned ssh connection must be closed")
 }
 
 // TestMachineRuntimeInstanceCreated_SSHOperationTimeout_ReturnsErrorWithDelay
-// points the reconcile at a server that holds the ping session open far
-// past the operation timeout and asserts the handler returns within the
-// timeout window with the configurable retry delay, instead of hanging for
-// the full hold.
+// covers a ping session held past sshOperationTimeout.
 func TestMachineRuntimeInstanceCreated_SSHOperationTimeout_ReturnsErrorWithDelay(t *testing.T) {
 	overrideRetryDelay(t, 9)
 	overrideSSHTimeout(t, 100*time.Millisecond)
@@ -565,6 +536,7 @@ func TestMachineRuntimeInstanceCreated_SSHOperationTimeout_ReturnsErrorWithDelay
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
 	elapsed := time.Since(start)
 
+	// assert deadline exceeded with retry delay before the hold ends
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.Equal(t, int64(9), delay)
@@ -573,10 +545,7 @@ func TestMachineRuntimeInstanceCreated_SSHOperationTimeout_ReturnsErrorWithDelay
 }
 
 // TestMachineRuntimeInstanceCreated_SSHConnectTimeout_ReturnsErrorWithDelay
-// is the connect-phase sibling of the ping timeout test: the server holds
-// each accepted connection before any protocol bytes, so the dial blocks
-// as if the host were not responding, and the handler must return within
-// the operation timeout with the configurable retry delay.
+// covers a handshake held past sshOperationTimeout.
 func TestMachineRuntimeInstanceCreated_SSHConnectTimeout_ReturnsErrorWithDelay(t *testing.T) {
 	overrideRetryDelay(t, 11)
 	overrideSSHTimeout(t, 100*time.Millisecond)
@@ -602,6 +571,7 @@ func TestMachineRuntimeInstanceCreated_SSHConnectTimeout_ReturnsErrorWithDelay(t
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
 	elapsed := time.Since(start)
 
+	// assert deadline exceeded with retry delay before the hold ends
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.Equal(t, int64(11), delay)
@@ -609,18 +579,14 @@ func TestMachineRuntimeInstanceCreated_SSHConnectTimeout_ReturnsErrorWithDelay(t
 	assert.Equal(t, []string{"SSHConnectFailed"}, recorder.GetReasons())
 }
 
-// TestMachineRuntimeInstanceDeleted_ReclaimsProviderResources covers the
-// Deleted hook: a provider-provisioned MRI that still holds a resource
-// inventory records a warning so the operator reclaims the live provider
-// resources, a provisioned MRI with no inventory is a clean no-op, and an
-// imported machine is a clean no-op.
+// TestMachineRuntimeInstanceDeleted_ReclaimsProviderResources covers Deleted for provisioned inventory, provisioned nil inventory, and imported machines.
 func TestMachineRuntimeInstanceDeleted_ReclaimsProviderResources(t *testing.T) {
 	key := machinetest.NewEncryptionKey(t)
 	api := machinetest.NewAPIStub(t)
 	log := logr.Discard()
 
 	t.Run("provisioned with inventory warns to reclaim resources", func(t *testing.T) {
-		// arrange a provider-provisioned mri that still holds a resource inventory
+		// build a provisioned mri that still holds inventory
 		mri := machinetest.NewMRIWithInfra(t, 61, "mri-del-provisioned", "127.0.0.1:22", "u", "p", key, machinetest.MRIInfraOpts{
 			MachineRuntimeDefinitionID: 7,
 			Region:                     "us-central1",
@@ -634,17 +600,15 @@ func TestMachineRuntimeInstanceDeleted_ReclaimsProviderResources(t *testing.T) {
 			EventsRecorder: recorder,
 		}
 
-		// run the Deleted hook against the provisioned instance
 		delay, err := v0MachineRuntimeInstanceDeleted(r, mri, &log)
+		// assert delete finishes with a reclaim warning
 		require.NoError(t, err)
-		// verify delete finishes instead of blocking on the live provider resources
 		assert.Equal(t, int64(0), delay, "delete must complete rather than block on live resources")
-		// verify the operator is warned to reclaim the still-live resources
 		assert.Equal(t, []string{"ProviderResourcesNotReclaimed"}, recorder.GetReasons())
 	})
 
 	t.Run("provisioned without inventory is a no-op", func(t *testing.T) {
-		// arrange a provider-provisioned mri that holds no resource inventory
+		// build a provisioned mri with no inventory
 		mri := machinetest.NewMRIWithInfra(t, 63, "mri-del-no-inventory", "127.0.0.1:22", "u", "p", key, machinetest.MRIInfraOpts{
 			MachineRuntimeDefinitionID: 7,
 			Region:                     "us-central1",
@@ -657,11 +621,10 @@ func TestMachineRuntimeInstanceDeleted_ReclaimsProviderResources(t *testing.T) {
 			EventsRecorder: recorder,
 		}
 
-		// run the Deleted hook against the inventory-free instance
 		delay, err := v0MachineRuntimeInstanceDeleted(r, mri, &log)
+		// assert no reclaim warning
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), delay)
-		// verify no warning fires when there are no recorded resources to reclaim
 		assert.Empty(t, recorder.GetReasons(), "a provisioned machine with no recorded resources has nothing to reclaim")
 	})
 
@@ -676,17 +639,15 @@ func TestMachineRuntimeInstanceDeleted_ReclaimsProviderResources(t *testing.T) {
 		}
 
 		delay, err := v0MachineRuntimeInstanceDeleted(r, mri, &log)
+		// assert no reclaim warning
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), delay)
 		assert.Empty(t, recorder.GetReasons(), "imported machines have nothing to deprovision")
 	})
 }
 
-// TestMachineRuntimeInstanceCreated_ConcurrentReconciles_NoRace runs many
-// Created reconciles for distinct MRIs concurrently against one SSH
-// server. Every reconcile must succeed and every recorder must hold
-// exactly its own SSHReachable event, proving no shared state bleeds
-// between concurrent reconciles. Run under -race.
+// TestMachineRuntimeInstanceCreated_ConcurrentReconciles_NoRace covers concurrent
+// Created reconciles for distinct instances against one ssh server.
 func TestMachineRuntimeInstanceCreated_ConcurrentReconciles_NoRace(t *testing.T) {
 	const n = 50
 	key := machinetest.NewEncryptionKey(t)
@@ -698,8 +659,7 @@ func TestMachineRuntimeInstanceCreated_ConcurrentReconciles_NoRace(t *testing.T)
 	log := logr.Discard()
 	hostKey := machinetest.HostKeyFromSigner(signer)
 
-	// build all inputs on the test goroutine; the require-based helpers
-	// are not safe to call from spawned goroutines
+	// build inputs on the test goroutine; require helpers are not goroutine-safe
 	mris := make([]*v0.MachineRuntimeInstance, n)
 	recorders := make([]*machinetest.FakeRecorder, n)
 	for i := 0; i < n; i++ {
@@ -727,6 +687,7 @@ func TestMachineRuntimeInstanceCreated_ConcurrentReconciles_NoRace(t *testing.T)
 	}
 	wg.Wait()
 
+	// assert each reconcile succeeded with only its own SSHReachable event
 	for i := 0; i < n; i++ {
 		require.NoError(t, errs[i], "reconcile %d", i)
 		assert.Equal(t, int64(0), delays[i], "reconcile %d", i)
@@ -734,12 +695,7 @@ func TestMachineRuntimeInstanceCreated_ConcurrentReconciles_NoRace(t *testing.T)
 	}
 }
 
-// TestMachineRuntimeInstanceCreated_ManyConcurrent_NoConnLeak runs a wide
-// burst of concurrent reconciles against a connection-counting SSH server
-// and asserts every SSH connection is closed and goroutines settle back to
-// the pre-burst baseline after the burst drains. This proves the SSH path
-// closes connections and leaks no goroutines under width; it makes no
-// claim about provider-level concurrency limits. Run under -race.
+// TestMachineRuntimeInstanceCreated_ManyConcurrent_NoConnLeak covers a burst of concurrent Created reconciles and waits for OpenConns to hit 0 and goroutines to return near baseline.
 func TestMachineRuntimeInstanceCreated_ManyConcurrent_NoConnLeak(t *testing.T) {
 	const n = 200
 	key := machinetest.NewEncryptionKey(t)
@@ -787,12 +743,12 @@ func TestMachineRuntimeInstanceCreated_ManyConcurrent_NoConnLeak(t *testing.T) {
 		require.NoError(t, errs[i], "reconcile %d", i)
 	}
 
-	// every ssh client must be closed after the burst drains
+	// wait for ssh clients to close
 	require.Eventually(t, func() bool {
 		return openConns.Load() == 0
 	}, 10*time.Second, 20*time.Millisecond, "open ssh connections must drain to zero")
 
-	// goroutines must settle back near the pre-burst baseline
+	// wait for goroutines to return near the pre-burst baseline
 	require.Eventually(t, func() bool {
 		return runtime.NumGoroutine() <= baseline+10
 	}, 10*time.Second, 20*time.Millisecond, "goroutines must return to baseline after the burst")
