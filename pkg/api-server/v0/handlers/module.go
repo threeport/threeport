@@ -44,14 +44,6 @@ func (h Handler) AddModuleApiRouteWithModuleObjectReferences(c echo.Context) err
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	// the AfterCreate hook installs this path on the process-wide module
-	// router, and gorm runs it inside the transaction. If the transaction never
-	// commits, the route would stay live pointing at a row that does not exist,
-	// so capture whatever the router held for the path and restore it below on
-	// failure. Path carries no unique index, so removing the key outright could
-	// take a sibling route down with it.
-	priorRoute, hadPriorRoute := api_v0.ModRouter.Route(*moduleApiRoute.Path)
-
 	// persist to DB inside a retryable transaction: under SERIALIZABLE
 	// isolation CockroachDB answers a write conflict with SQLSTATE 40001 and
 	// expects the client to re-run it
@@ -64,13 +56,6 @@ func (h Handler) AddModuleApiRouteWithModuleObjectReferences(c echo.Context) err
 			return tx.Omit("ModuleObjects.*").Create(&moduleApiRoute).Error
 		},
 	); err != nil {
-		// put the router back the way the hook found it
-		if hadPriorRoute {
-			api_v0.ModRouter.AddRoute(*moduleApiRoute.Path, priorRoute)
-		} else {
-			api_v0.ModRouter.RemoveRoute(*moduleApiRoute.Path)
-		}
-
 		h.Logger.Error("handler error: error creating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
