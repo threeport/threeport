@@ -157,6 +157,7 @@ func ObservabilityStackInstanceReconciler(r *controller.Reconciler) {
 				}
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := "creating"
+				// type-assert so types without relationship-tagged foreign keys still emit creating
 				if owner, ok := observabilityStackInstance.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
 					progressNote = event.CreateNote(owner)
 				}
@@ -284,6 +285,7 @@ func ObservabilityStackInstanceReconciler(r *controller.Reconciler) {
 			case notifications.NotificationOperationDeleted:
 				// record in-progress before the custom handler so a later failure still has a start event
 				progressNote := "deleting"
+				// type-assert so types without relationship-tagged foreign keys still emit deleting
 				if owner, ok := observabilityStackInstance.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
 					progressNote = event.DeleteNote(owner)
 				}
