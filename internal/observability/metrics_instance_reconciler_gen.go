@@ -167,7 +167,7 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of metrics instance encountered for creation")
+					operationErr = errors.New("unrecognized version of metrics instance encountered for create operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile created metrics instance object"
@@ -202,6 +202,10 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
+				if metricsInstance.ScheduledForDeletion() != nil {
+					log.Info("metrics instance scheduled for deletion - skipping update")
+					break
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch metricsInstance.GetVersion() {
@@ -214,7 +218,7 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of metrics instance encountered for creation")
+					operationErr = errors.New("unrecognized version of metrics instance encountered for update operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile updated metrics instance object"
@@ -261,7 +265,7 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of metrics instance encountered for creation")
+					operationErr = errors.New("unrecognized version of metrics instance encountered for delete operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile deleted metrics instance object"
