@@ -19,6 +19,7 @@ import (
 	api "github.com/threeport/threeport/internal/reconcilertest/pkg/api/v0"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	tpapi "github.com/threeport/threeport/pkg/api/v0"
+	tpclient_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
 	notifications "github.com/threeport/threeport/pkg/notifications/v0"
@@ -396,4 +397,33 @@ func TestCreateInProgressRecordedWhenHandlerFails(t *testing.T) {
 	assert.Equal(t, []string{"create"}, h.spy.Calls())
 	assert.Contains(t, h.instanceRecorder.GetReasons(), event.ReasonCreateInProgress)
 	assert.NotContains(t, h.instanceRecorder.GetReasons(), event.ReasonCreateSuccessful)
+}
+
+// TestDeleteInProgressRecordedOnceWhenDeleteConflicts covers a blocked or
+// already-underway delete recording DeleteInProgress once, not twice.
+func TestDeleteInProgressRecordedOnceWhenDeleteConflicts(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{"in progress", tpclient_lib.ErrDeleteInProgress},
+		{"blocked", tpclient_lib.ErrDeleteBlocked},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.spy.SetResult("delete", Result{Err: tc.err})
+
+			h.publish(notifications.NotificationOperationDeleted)
+
+			assert.Equal(t, []string{"delete"}, h.spy.Calls())
+			count := 0
+			for _, reason := range h.instanceRecorder.GetReasons() {
+				if reason == event.ReasonDeleteInProgress {
+					count++
+				}
+			}
+			assert.Equal(t, 1, count)
+			assert.NotContains(t, h.instanceRecorder.GetReasons(), event.ReasonDeleteFailed)
+		})
+	}
 }
