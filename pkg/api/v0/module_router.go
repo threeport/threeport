@@ -152,6 +152,25 @@ func (e *ModuleRouter) RemoveRoute(path string) {
 	e.routes.Delete(path)
 }
 
+// Route returns the handler registered for path, and whether one was
+// registered at all.
+//
+// It exists so a caller that is about to run a persist hook inside a
+// transaction can capture the router's state first and put it back if the
+// transaction does not commit. Path carries no unique index, so two routes may
+// share one router key; a caller that removed the key outright on failure
+// would take a sibling's live route down with it.
+func (e *ModuleRouter) Route(path string) (echo.HandlerFunc, bool) {
+	handler, ok := e.routes.Load(path)
+	if !ok {
+		return nil, false
+	}
+
+	routeHandler, ok := handler.(echo.HandlerFunc)
+
+	return routeHandler, ok
+}
+
 // ServeModuleRoutes checks if a dynamic route exists.  If it does, it
 // returns the handler function for that route.  If not, it pases it on to the
 // next handler func to continue normal request processing.
