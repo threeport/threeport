@@ -3,7 +3,6 @@ package handlers
 import (
 	"errors"
 
-	"github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"
 	echo "github.com/labstack/echo/v4"
 	zap "go.uber.org/zap"
 	gorm "gorm.io/gorm"
@@ -25,12 +24,13 @@ import (
 // @Router /v0/kubernetes-workload-resource-definition-sets [post]
 func (h Handler) AddKubernetesWorkloadResourceDefinitions(c echo.Context) error {
 	objectType := v0.ObjectTypeKubernetesWorkloadResourceDefinition
+	fullyQualifiedType := new(v0.KubernetesWorkloadResourceDefinition).GetFullyQualifiedType()
 	var k8sWorkloadResourceDefinitions []v0.KubernetesWorkloadResourceDefinition
 
 	// check for empty payload, unsupported fields, GORM Model fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, false, objectType, v0.KubernetesWorkloadResourceDefinition{}); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
 	if err := c.Bind(&k8sWorkloadResourceDefinitions); err != nil {
@@ -41,42 +41,50 @@ func (h Handler) AddKubernetesWorkloadResourceDefinitions(c echo.Context) error 
 	// check for missing required fields
 	if id, err := apiserver_lib.ValidateBoundData(c, k8sWorkloadResourceDefinitions, objectType); err != nil {
 		h.Logger.Error("handler error: error validating bound data", zap.Error(err))
-		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
+		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), fullyQualifiedType)
 	}
 
 	// create all kubernetes workload resource definitions or none at all
 	var createdWRDs []v0.KubernetesWorkloadResourceDefinition
-	err := crdbgorm.ExecuteTx(
-		c.Request().Context(), h.DB, nil,
-		func(tx *gorm.DB) error {
-			// a retried attempt starts the batch over, or the slice returned to
-			// the caller would carry the rows a rolled-back attempt appended
-			createdWRDs = nil
+	result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// drop prior appends if Write retries
+		createdWRDs = nil
+		err := db.Transaction(func(tx *gorm.DB) error {
 			for _, wrd := range k8sWorkloadResourceDefinitions {
-				// tx, not h.DB: the writes have to be part of the transaction
-				// this function opens, or "all or none at all" does not hold
-				if result := tx.Create(&wrd); result.Error != nil {
-					return result.Error
+				// clear id so a retried create does not reuse a rolled-back key
+				wrd.ID = nil
+				if r := tx.Create(&wrd); r.Error != nil {
+					return r.Error
 				}
 				createdWRDs = append(createdWRDs, wrd)
 			}
-
 			return nil
-		},
-	)
-	if err != nil {
-		h.Logger.Error("handler error: error creating kubernetes workload resource definitions", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		})
+		if err != nil {
+			_ = db.AddError(err)
+			return db
+		}
+		return db
+	})
+	if result.Error != nil {
+		h.Logger.Error("handler error: error creating kubernetes workload resource definitions", zap.Error(result.Error))
+		return apiserver_lib.RespondWriteError(
+			c,
+			h.Logger,
+			result.Error,
+			new(v0.KubernetesWorkloadResourceDefinition),
+			fullyQualifiedType,
+		)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		createdWRDs,
-		objectType,
+		fullyQualifiedType,
 	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating response", zap.Error(err))
-		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
 	}
 
 	return apiserver_lib.ResponseStatus201(c, *response)

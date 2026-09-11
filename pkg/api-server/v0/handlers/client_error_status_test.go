@@ -4,7 +4,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -14,7 +13,6 @@ import (
 	"go.uber.org/zap"
 
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
-	api_lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
@@ -242,33 +240,6 @@ func addSecretDefinition(h Handler, c echo.Context) error {
 	return h.CustomAddSecretDefinition(func(echo.Context) error { return nil })(c)
 }
 
-// registerTaggedFields populates the tagged-field map PayloadCheck reads, for
-// one object type. The versions package does this for every object at server
-// start, and this test cannot call it: versions reaches handlers through
-// pkg/api-server/v0 and pkg/api-server/v0/routes, so importing it from an
-// in-package test is an import cycle.
-func registerTaggedFields(objectType string, obj interface{}) {
-	taggedFields := map[string]*apiserver_lib.FieldsByTag{
-		string(api_lib.ValidateTag): {
-			TagName:              string(api_lib.ValidateTag),
-			Required:             []string{},
-			Optional:             []string{},
-			OptionalAssociations: []string{},
-		},
-	}
-	apiserver_lib.ParseStruct(
-		string(api_lib.ValidateTag),
-		reflect.ValueOf(obj),
-		"",
-		apiserver_lib.Translate,
-		taggedFields,
-	)
-	apiserver_lib.ObjectTaggedFields[apiserver_lib.VersionObject{
-		Version: "v0",
-		Object:  objectType,
-	}] = taggedFields[string(api_lib.ValidateTag)]
-}
-
 // newHandlerRequest drives a handler the way the router does: the strict query
 // binder registered on the echo instance, the route pattern set so PayloadCheck
 // can read the api version, and the context wrapped so a handler's assertion to
@@ -301,9 +272,9 @@ func TestHandlersAnswerClientErrorsWithClientStatus(t *testing.T) {
 	// PayloadCheck looks an object's tagged fields up by api version and object
 	// type, and answers 500 when that lookup misses, which would mask every
 	// write case below
-	registerTaggedFields(api_v0.ObjectTypeKubernetesWorkloadDefinition, new(api_v0.KubernetesWorkloadDefinition))
-	registerTaggedFields(api_v0.ObjectTypeKubernetesWorkloadResourceDefinition, new(api_v0.KubernetesWorkloadResourceDefinition))
-	registerTaggedFields(api_v0.ObjectTypeSecretDefinition, new(api_v0.SecretDefinition))
+	registerValidateTags(api_v0.ObjectTypeKubernetesWorkloadDefinition, new(api_v0.KubernetesWorkloadDefinition))
+	registerValidateTags(api_v0.ObjectTypeKubernetesWorkloadResourceDefinition, new(api_v0.KubernetesWorkloadResourceDefinition))
+	registerValidateTags(api_v0.ObjectTypeSecretDefinition, new(api_v0.SecretDefinition))
 
 	for _, test := range clientErrorCases {
 		t.Run(test.name, func(t *testing.T) {

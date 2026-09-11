@@ -2359,7 +2359,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 	///////////////////////////////////////////////////////////////////////////////
 	// registering object AttachedObjectReference
 	object = api_v0.ModuleObject{
-		Description: util.Ptr("AttachedObjectReference is a reference to an attached object. Four DB indexes are declared in the GORM tags below: - idx_attached_object_unique: full-table unique composite across (object_type, object_id, attached_object_type, attached_object_id). Enforces that a given (base, attacher) pair appears in at most one row regardless of relationship kind. - idx_aor_marries_base: partial unique composite across (object_type, object_id) where relationship = 'marries' AND deleted_at IS NULL. Enforces that the base side of a marriage appears in at most one *live* marries row (1-to-1 cardinality for the base). The deleted_at predicate keeps soft-deleted rows out of the unique slot so a base can be re-married after teardown. - idx_aor_marries_attached: partial unique composite across (attached_object_type, attached_object_id) where relationship = 'marries' AND deleted_at IS NULL. Same constraint applied to the attacher side. - idx_aor_owns_base: partial unique composite across (object_type, object_id) where relationship = 'owns' AND deleted_at IS NULL. Enforces that an owned base appears in at most one *live* owns row. The attacher side is intentionally unconstrained for owns: an owner may own many bases. Each participating column repeats the index name in its `uniqueIndex:` tag; GORM bundles them by name. The `,where:...` suffix on the partial indexes makes them partial indexes: only rows matching the predicate are indexed. The \"AND deleted_at IS NULL\" half of each predicate matters because attached object references use gorm soft-delete (see Common) - without it, soft-deleted rows would continue to occupy the unique slot and block re-attachment until cockroach eventually hard-deletes them."),
+		Description: util.Ptr("AttachedObjectReference is a reference to an attached object. Four DB indexes are declared in the GORM tags below: - idx_attached_object_unique: partial unique composite across (object_type, object_id, attached_object_type, attached_object_id) where deleted_at IS NULL. Enforces that a given (base, attacher) pair appears in at most one *live* row regardless of relationship kind. - idx_attached_object_reference_marries_base: partial unique composite across (object_type, object_id) where relationship = 'marries' AND deleted_at IS NULL. Enforces that the base side of a marriage appears in at most one *live* marries row (1-to-1 cardinality for the base). The deleted_at predicate keeps soft-deleted rows out of the unique slot so a base can be re-married after teardown. - idx_attached_object_reference_marries_attached: partial unique composite across (attached_object_type, attached_object_id) where relationship = 'marries' AND deleted_at IS NULL. Same constraint applied to the attacher side. - idx_attached_object_reference_owns_base: partial unique composite across (object_type, object_id) where relationship = 'owns' AND deleted_at IS NULL. Enforces that an owned base appears in at most one *live* owns row. The attacher side is intentionally unconstrained for owns: an owner may own many bases. Each participating column repeats the index name in its `uniqueIndex:` tag; GORM bundles them by name. The `,where:...` suffix makes an index partial: only rows matching the predicate are indexed. Every one of these carries deleted_at IS NULL because attached object references use gorm soft-delete (see Common). Without it a soft-deleted row keeps its unique slot until cockroach hard-deletes it, so re-attaching the same pair is refused in the meantime and the caller is answered a conflict it cannot clear."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("AttachedObjectReference"),
 		Version:     util.Ptr("v0"),
@@ -2450,7 +2450,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object ModuleApiRoute
 	object = api_v0.ModuleObject{
-		Description: util.Ptr("ModuleApiRoute represents a route supported by a module API."),
+		Description: util.Ptr("ModuleApiRoute represents a route supported by a module API. Path is unique among undeleted rows, across every module API."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("ModuleApiRoute"),
 		Version:     util.Ptr("v0"),
@@ -2538,7 +2538,7 @@ func upsertModuleControllersObjectsRoutes(db *gorm.DB, moduleApi *api_v0.ModuleA
 
 	// registering object ModuleObject
 	object = api_v0.ModuleObject{
-		Description: util.Ptr("ModuleObject is an API object that is managed by a module in Threeport. This provides central registry of all API objects across all modules for each Threeport control plane."),
+		Description: util.Ptr("ModuleObject is an API object that is managed by a module in Threeport. This provides central registry of all API objects across all modules for each Threeport control plane. The (Name, Version, ModuleApiID) combination is unique."),
 		ModuleApiID: moduleApi.ID,
 		Name:        util.Ptr("ModuleObject"),
 		Version:     util.Ptr("v0"),

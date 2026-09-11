@@ -5,7 +5,7 @@ type LogBackend struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The unique name of a logging back end.
-	Name *string `validate:"required" gorm:"not null"`
+	Name *string `validate:"required" gorm:"not null;uniqueIndex:,where:deleted_at IS NULL"`
 
 	// The network address to connect to for storing log messages.
 	Destination *string `validate:"required" gorm:"not null"`

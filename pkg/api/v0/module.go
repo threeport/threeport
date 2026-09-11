@@ -1,5 +1,12 @@
 package v0
 
+// Most API types unique-index Name among undeleted rows. The types here
+// do not all follow that: ModuleApi is unique on (Name, ApiNamespace),
+// ModuleObject on (Name, Version, ModuleApiID) so two versions of the
+// same object can coexist on one module API. ModuleController
+// unique-indexes Name alone, like most types. ModuleApiRoute
+// unique-indexes Path among undeleted rows, across every module API.
+
 const (
 	PathModuleApiRouteWithModuleObjectReferences = "/v0/module-api-route-with-module-object-references"
 	PathModuleObjectsWithModuleApiRoutes         = "/v0/module-objects-with-module-api-routes"
@@ -11,13 +18,13 @@ type ModuleApi struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// An arbitrary name for the module API.
-	Name *string `validate:"required" gorm:"not null;uniqueIndex:idx_module_api_identity"`
+	Name *string `validate:"required" gorm:"not null;uniqueIndex:idx_module_api_identity,where:deleted_at IS NULL"`
 
 	// If true, represents the core Threeport API.
 	Core *bool `validate:"optional" gorm:"default:false"`
 
 	// The reverse-DNS namespace identifying this module API (e.g. "example.com").
-	ApiNamespace *string `validate:"optional" gorm:"uniqueIndex:idx_module_api_identity"`
+	ApiNamespace *string `validate:"optional" gorm:"uniqueIndex:idx_module_api_identity,where:deleted_at IS NULL"`
 
 	// The module API server's endpoint to proxy requests to for module
 	// objects.
@@ -35,12 +42,13 @@ type ModuleApi struct {
 	ModuleObjects []*ModuleObject `validate:"optional,association"`
 }
 
-// ModuleApiRoute represents a route supported by a module API.
+// ModuleApiRoute represents a route supported by a module API. Path is
+// unique among undeleted rows, across every module API.
 type ModuleApiRoute struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The URL path supported by the module API.
-	Path *string `validate:"required" gorm:"not null"`
+	Path *string `validate:"required" gorm:"not null;uniqueIndex:,where:deleted_at IS NULL"`
 
 	// The module API this route belongs to.
 	ModuleApiID *uint `validate:"required" gorm:"not null" relationship:"requires"`
@@ -54,7 +62,7 @@ type ModuleController struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The name of the controller.
-	Name *string `validate:"required" gorm:"not null"`
+	Name *string `validate:"required" gorm:"not null;uniqueIndex:,where:deleted_at IS NULL"`
 
 	// The K8s deployment name for the controller.  This allows actions to be executed against the
 	// the controller workload.  Examples:
@@ -68,20 +76,21 @@ type ModuleController struct {
 
 // ModuleObject is an API object that is managed by a module in Threeport.  This provides
 // central registry of all API objects across all modules for each Threeport control plane.
+// The (Name, Version, ModuleApiID) combination is unique.
 type ModuleObject struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// The name of the API object.
-	Name *string `validate:"required" gorm:"not null"`
+	Name *string `validate:"required" gorm:"not null;uniqueIndex:idx_module_object_identity,where:deleted_at IS NULL"`
 
 	// The version of the API object, expressed as `v0`, `v1`, `v2`, etc.
-	Version *string `validate:"required" gorm:"not null"`
+	Version *string `validate:"required" gorm:"not null;uniqueIndex:idx_module_object_identity,where:deleted_at IS NULL"`
 
 	// A description of the API object.
 	Description *string `validate:"optional"`
 
 	// The module API this controller is connected to.
-	ModuleApiID *uint `validate:"required" gorm:"not null" relationship:"requires"`
+	ModuleApiID *uint `validate:"required" gorm:"not null;uniqueIndex:idx_module_object_identity,where:deleted_at IS NULL" relationship:"requires"`
 
 	// The controller that reconciles state for this API object, if applicable.  Note: some API objects
 	// do not require reconciliation by a controller - this field will be null in those cases.

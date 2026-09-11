@@ -12,11 +12,8 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 )
 
-// eventRetention is the time-to-live for event rows and the
-// attached object reference rows that link them to their subject.
-// Enforced by CockroachDB's row-level TTL: the configured
-// ttl_job_cron runs and performs a hard DELETE on expired rows -
-// no soft-delete tombstone, no gorm DeletedAt
+// eventRetention is the CockroachDB row-level TTL for events and the
+// attached object reference rows that link them. Expired rows are hard deleted.
 const eventRetention = "7 days"
 
 // init registers the migration with goose at startup.
@@ -24,17 +21,17 @@ func init() {
 	goose.AddMigrationNoTxContext(Up000001, Down000001)
 }
 
-// Up000001 creates the initial database schema and sets row-level
-// time-to-lives for event rows and the attached object reference
-// rows that link events to their subjects.
+// Up000001 creates the initial schema and sets event row TTLs.
+// Existing tables are left alone so a partial run can finish.
 func Up000001(ctx context.Context, db *sql.DB) error {
 	gormDb, err := getGormDbFromContext(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err := gormDb.AutoMigrate(dbInterfaces000001()...); err != nil {
-		return fmt.Errorf("could not run gorm AutoMigrate: %w", err)
+	// create missing tables
+	if err := createMissingTables(gormDb, dbInterfaces000001()); err != nil {
+		return err
 	}
 
 	// uniform row-level time-to-live on events
@@ -72,11 +69,8 @@ func Down000001(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 
-	tablesToDrop := dbInterfaces000001()
-	for _, table := range tablesToDrop {
-		if err := gormDb.Migrator().DropTable(table); err != nil {
-			return fmt.Errorf("could not drop table with gorm db: %w", err)
-		}
+	if err := dropTables(gormDb, dbInterfaces000001()); err != nil {
+		return err
 	}
 
 	return nil
@@ -96,7 +90,6 @@ func dbInterfaces000001() []interface{} {
 		&v0.ControlPlaneDefinition{},
 		&v0.ControlPlaneInstance{},
 		&v0.ControlPlaneComponent{},
-		&v0.Definition{},
 		&v0.DomainNameDefinition{},
 		&v0.DomainNameInstance{},
 		&v0.Event{},
@@ -106,7 +99,6 @@ func dbInterfaces000001() []interface{} {
 		&v0.GatewayTcpPort{},
 		&v0.HelmWorkloadDefinition{},
 		&v0.HelmWorkloadInstance{},
-		&v0.Instance{},
 		&v0.LogBackend{},
 		&v0.LogStorageDefinition{},
 		&v0.LogStorageInstance{},
