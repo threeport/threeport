@@ -1644,7 +1644,10 @@ func getBuildVals() (string, string, error) {
 		return "", "", fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	arch := util.EnvOr("ARCH", runtime.GOARCH)
+	arch := os.Getenv("ARCH")
+	if arch == "" {
+		arch = runtime.GOARCH
+	}
 
 	return workingDir, arch, nil
 }

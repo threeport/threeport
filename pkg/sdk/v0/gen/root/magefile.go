@@ -660,7 +660,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		),
 		Line(),
 
-		Id("arch").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "EnvOr").Call(Lit("ARCH"), Qual("runtime", "GOARCH")),
+		Id("arch").Op(":=").Qual("os", "Getenv").Call(Lit("ARCH")),
+		If(Id("arch").Op("==").Lit("")).Block(
+			Id("arch").Op("=").Qual("runtime", "GOARCH"),
+		),
 		Line(),
 
 		Return(Id("workingDir"), Id("arch"), Nil()),
