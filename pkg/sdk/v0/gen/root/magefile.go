@@ -242,7 +242,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		})
 
 		g.Return().Qual("github.com/threeport/threeport/pkg/util/v0", "RunParallel").Call(
-			Id("parallelFromEnv").Call(),
+			Qual("github.com/threeport/threeport/pkg/util/v0", "ImageBuildParallelism").Call(),
 			Id("tasks"),
 		)
 	})

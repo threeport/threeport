@@ -1465,7 +1465,7 @@ func (Build) AllImages() error {
 		wrap(build.terraformControllerImagePackage),
 		wrap(build.kubernetesWorkloadControllerImagePackage),
 	}
-	return util.RunParallel(parallelFromEnv(), tasks)
+	return util.RunParallel(util.ImageBuildParallelism(), tasks)
 }
 
 // Manifest stitches per-arch images for one component into a multi-arch
