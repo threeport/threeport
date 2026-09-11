@@ -25,6 +25,7 @@ import (
 // TestCreateHandlersClearIDOnSerializationRetry covers a retried create that
 // does not reuse the primary key a rolled-back attempt was given.
 func TestCreateHandlersClearIDOnSerializationRetry(t *testing.T) {
+	// each case is one create path that must clear id on retry
 	cases := []uniqueViolationCase{
 		{
 			name:       "generated add handler",
@@ -76,11 +77,13 @@ func TestCreateHandlersClearIDOnSerializationRetry(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
+			// encrypt hook reads this env var on secret create
 			if test.source == "secret.go" {
 				t.Setenv(encryption.KeyEnvVar, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 			}
 			registerValidateTags(test.objectType, test.object)
 
+			// first create fails with 40001; later creates succeed
 			var creates atomic.Int32
 			var idsBefore []bool
 			h := newSerializationRetryHandler(t, test.models, &creates, &idsBefore)
@@ -89,6 +92,7 @@ func TestCreateHandlersClearIDOnSerializationRetry(t *testing.T) {
 			err := test.handler(h, c)
 			require.NoError(t, err, "handler defined in %s", test.source)
 
+			// RetryWrite must run create twice and clear id the second time
 			assert.GreaterOrEqual(t, int(creates.Load()), 2,
 				"RetryWrite re-runs create after SQLSTATE 40001")
 			require.GreaterOrEqual(t, len(idsBefore), 2,
@@ -96,6 +100,8 @@ func TestCreateHandlersClearIDOnSerializationRetry(t *testing.T) {
 			assert.False(t, idsBefore[0], "the first create starts with no id")
 			assert.False(t, idsBefore[1],
 				"the retried create clears the id a rolled-back attempt was given")
+
+			// secret and module still need nats or a parent row after persist
 			if test.source == "secret.go" || test.source == "module.go" {
 				return
 			}
@@ -114,6 +120,7 @@ func newSerializationRetryHandler(
 ) Handler {
 	t.Helper()
 
+	// sqlite cannot emit 40001; callbacks inject it
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(models...))
