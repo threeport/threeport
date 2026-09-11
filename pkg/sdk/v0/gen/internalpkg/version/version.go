@@ -30,20 +30,8 @@ func GenVersionPackage() error {
 	f.Comment(fmt.Sprintf("//go:embed %s", getVersionFilename()))
 	f.Var().Id("Version").String()
 
-	f.Comment("ReleaseVersion is set at link time with -X by a release build, which knows")
-	f.Comment("the tag it publishes under. The embedded version cannot carry that tag: the")
-	f.Comment(fmt.Sprintf("%s file names the development base a release is cut from,", getVersionFilename()))
-	f.Comment("and it is not rewritten per release. Leave it empty and the embedded")
-	f.Comment("version stands, which is what every development build gets.")
-	f.Var().Id("ReleaseVersion").String()
-
-	f.Comment("GetVersion returns the version this binary reports: the link-time release")
-	f.Comment("version when a release build set one, otherwise the embedded development")
-	f.Comment("version.")
+	f.Comment("GetVersion Returns REST API Version")
 	f.Func().Id("GetVersion").Params().String().Block(
-		If(Id("ReleaseVersion").Op("!=").Lit("")).Block(
-			Return(Id("ReleaseVersion")),
-		),
 		Return(Qual("strings", "TrimSuffix").Call(Id("Version"), Lit("\n"))),
 	)
 

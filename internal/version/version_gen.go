@@ -12,19 +12,7 @@ import (
 //go:embed version.txt
 var Version string
 
-// ReleaseVersion is set at link time with -X by a release build, which knows
-// the tag it publishes under. The embedded version cannot carry that tag: the
-// version.txt file names the development base a release is cut from,
-// and it is not rewritten per release. Leave it empty and the embedded
-// version stands, which is what every development build gets.
-var ReleaseVersion string
-
-// GetVersion returns the version this binary reports: the link-time release
-// version when a release build set one, otherwise the embedded development
-// version.
+// GetVersion Returns REST API Version
 func GetVersion() string {
-	if ReleaseVersion != "" {
-		return ReleaseVersion
-	}
 	return strings.TrimSuffix(Version, "\n")
 }

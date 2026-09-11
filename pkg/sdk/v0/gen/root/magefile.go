@@ -90,11 +90,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	emitTestUnitFunc(f)
 	emitTestIntegrationFunc(f)
 
-	// emit download targets for threeport-sdk and tptctl
 	emitInstallDirFunc(f)
-	emitDownloadHelper(f)
-	emitDownloadFunc(f, "Sdk", "threeport-sdk")
-	emitDownloadFunc(f, "Tptctl", "tptctl")
 
 	// binary build function for API
 	emitBinFunc(f, buildApiFuncName, "REST API", "rest-api", "cmd/rest-api")
@@ -819,21 +815,8 @@ func emitTestIntegrationFunc(f *File) {
 	f.Line()
 }
 
-// emitDownloadFunc writes a (Download).<funcName> method that installs
-// the named threeport binary from a github release.
-func emitDownloadFunc(f *File, funcName, binary string) {
-	f.Comment(fmt.Sprintf(
-		"%s downloads the %s binary from a threeport github release and installs", funcName, binary,
-	))
-	f.Comment("it where the install targets place locally-built binaries.")
-	f.Func().Params(Id("Download")).Id(funcName).Params().Error().Block(
-		Return(Id("downloadThreeportBinary").Call(Lit(binary))),
-	)
-	f.Line()
-}
-
-// emitInstallDirFunc writes installDir so generated install and
-// download targets have a destination function to call.
+// emitInstallDirFunc writes installDir so generated install targets
+// have a destination function to call.
 func emitInstallDirFunc(f *File) {
 	f.Comment("installDir returns the directory `go install` writes binaries to:")
 	f.Comment("$GOBIN if set, otherwise $GOPATH/bin. build.Default.GOPATH falls back")
@@ -849,203 +832,6 @@ func emitInstallDirFunc(f *File) {
 			Qual("go/build", "Default").Dot("GOPATH"),
 			Lit("bin"),
 		)),
-	)
-	f.Line()
-}
-
-// emitDownloadHelper writes downloadThreeportBinary and the helpers
-// that resolve the source release and download into the install directory.
-func emitDownloadHelper(f *File) {
-	// resolve repo, version, destDir, and token, then download
-	f.Comment("downloadThreeportBinary downloads the named binary from a threeport github")
-	f.Comment("release and installs it into the directory the install targets use. It")
-	f.Comment("resolves the source release from the threeport dependency in go.mod when one")
-	f.Comment("is declared (the consumer or module case), and otherwise from this")
-	f.Comment("repository's own highest release tag under the version file's base (the core")
-	f.Comment("threeport case). The GITHUB_TOKEN env var authenticates the download and may")
-	f.Comment("be empty for public releases.")
-	f.Func().Id("downloadThreeportBinary").Params(Id("binary").String()).Error().Block(
-		List(Id("gomod"), Err()).Op(":=").Qual("os", "ReadFile").Call(Lit("go.mod")),
-		If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to read go.mod: %w"), Err())),
-		),
-		Line(),
-
-		List(Id("repo"), Id("version"), Id("found"), Err()).Op(":=").Qual(
-			"github.com/threeport/threeport/pkg/util/v0", "ParseThreeportDependency",
-		).Call(String().Call(Id("gomod"))),
-		If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to parse threeport dependency: %w"), Err())),
-		),
-		Line(),
-
-		Comment("no threeport dependency means this is the core threeport repo; derive"),
-		Comment("the repo and release tag from the origin remote and the version file."),
-		If(Op("!").Id("found")).Block(
-			List(Id("repo"), Id("version"), Err()).Op("=").Id("coreThreeportRelease").Call(),
-			If(Err().Op("!=").Nil()).Block(
-				Return(Qual("fmt", "Errorf").Call(Lit("failed to resolve core threeport release: %w"), Err())),
-			),
-		),
-		Line(),
-
-		Id("destDir").Op(":=").Id("installDir").Call(),
-		Id("token").Op(":=").Qual("os", "Getenv").Call(Lit("GITHUB_TOKEN")),
-		If(Err().Op(":=").Qual(
-			"github.com/threeport/threeport/pkg/util/v0", "DownloadReleaseBinary",
-		).Call(
-			Line().Id("repo"),
-			Line().Id("version"),
-			Line().Id("binary"),
-			Line().Id("destDir"),
-			Line().Id("token"),
-			Line(),
-		).Op(";").Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to download %s: %w"), Id("binary"), Err())),
-		),
-		Line(),
-
-		Qual("fmt", "Printf").Call(
-			Lit("%s downloaded from %s release %s and installed at %s\n"),
-			Id("binary"),
-			Id("repo"),
-			Id("version"),
-			Qual("path/filepath", "Join").Call(Id("destDir"), Id("binary")),
-		),
-		Line(),
-
-		Return(Nil()),
-	)
-	f.Line()
-
-	// resolve version-file base, highest matching remote tag, and origin repo
-	f.Comment("coreThreeportRelease resolves the release the core threeport repository should")
-	f.Comment("download its own binaries from: the highest existing release tag matching the")
-	f.Comment("version file's base, paired with the origin repository as an owner/name path.")
-	f.Func().Id("coreThreeportRelease").Params().Params(
-		Id("repo").String(),
-		Id("version").String(),
-		Err().Error(),
-	).Block(
-		List(Id("baseBytes"), Err()).Op(":=").Qual("os", "ReadFile").Call(Lit("internal/version/version.txt")),
-		If(Err().Op("!=").Nil()).Block(
-			Return(Lit(""), Lit(""), Qual("fmt", "Errorf").Call(Lit("failed to read version file: %w"), Err())),
-		),
-		Id("base").Op(":=").Qual("strings", "TrimSpace").Call(String().Call(Id("baseBytes"))),
-		Line(),
-
-		List(Id("out"), Err()).Op(":=").Qual("os/exec", "Command").Call(
-			Lit("git"), Lit("ls-remote"), Lit("--tags"), Lit("origin"),
-		).Dot("CombinedOutput").Call(),
-		If(Err().Op("!=").Nil()).Block(
-			Return(Lit(""), Lit(""), Qual("fmt", "Errorf").Call(
-				Lit("failed to list remote tags with output '%s': %w"), Id("out"), Err(),
-			)),
-		),
-		Line(),
-
-		List(Id("tag"), Id("ok")).Op(":=").Qual(
-			"github.com/threeport/threeport/pkg/util/v0", "LatestMatchingTag",
-		).Call(Id("parseLsRemoteTags").Call(String().Call(Id("out"))), Id("base")),
-		If(Op("!").Id("ok")).Block(
-			Return(Lit(""), Lit(""), Qual("fmt", "Errorf").Call(
-				Lit("failed to find a release tag matching %s.N"), Id("base"),
-			)),
-		),
-		Line(),
-
-		List(Id("repo"), Err()).Op("=").Id("originRepo").Call(),
-		If(Err().Op("!=").Nil()).Block(
-			Return(Lit(""), Lit(""), Err()),
-		),
-		Line(),
-
-		Return(Id("repo"), Id("tag"), Nil()),
-	)
-	f.Line()
-
-	// parse git ls-remote --tags output into bare tag names
-	f.Comment("parseLsRemoteTags extracts bare tag names from `git ls-remote --tags` output,")
-	f.Comment("dropping the refs/tags/ prefix and the ^{} dereference lines so each annotated")
-	f.Comment("tag is counted once.")
-	f.Func().Id("parseLsRemoteTags").Params(Id("out").String()).Index().String().Block(
-		Id("tags").Op(":=").Index().String().Values(),
-		For(List(Id("_"), Id("line")).Op(":=").Range().Qual("strings", "Split").Call(Id("out"), Lit("\n"))).Block(
-			Id("fields").Op(":=").Qual("strings", "Fields").Call(Id("line")),
-			If(Len(Id("fields")).Op("<").Lit(2)).Block(Continue()),
-			Id("ref").Op(":=").Id("fields").Index(Lit(1)),
-			Comment("skip the dereferenced peeled-tag lines so annotated tags count once"),
-			If(Qual("strings", "HasSuffix").Call(Id("ref"), Lit("^{}"))).Block(Continue()),
-			Id("tags").Op("=").Append(Id("tags"), Qual("strings", "TrimPrefix").Call(Id("ref"), Lit("refs/tags/"))),
-		),
-		Return(Id("tags")),
-	)
-	f.Line()
-
-	// resolve origin owner/name from GITHUB_REPOSITORY or the remote url
-	f.Comment("originRepo returns the current repository as an owner/name path, preferring")
-	f.Comment("the GITHUB_REPOSITORY env var when set and otherwise parsing the origin")
-	f.Comment("remote url. Both https and ssh remote forms are accepted.")
-	f.Func().Id("originRepo").Params().Params(String(), Error()).Block(
-		If(Id("repo").Op(":=").Qual("strings", "TrimSpace").Call(
-			Qual("os", "Getenv").Call(Lit("GITHUB_REPOSITORY")),
-		).Op(";").Id("repo").Op("!=").Lit("")).Block(
-			Return(Id("repo"), Nil()),
-		),
-		Line(),
-
-		List(Id("out"), Err()).Op(":=").Qual("os/exec", "Command").Call(
-			Lit("git"), Lit("remote"), Lit("get-url"), Lit("origin"),
-		).Dot("CombinedOutput").Call(),
-		If(Err().Op("!=").Nil()).Block(
-			Return(Lit(""), Qual("fmt", "Errorf").Call(
-				Lit("failed to read origin remote url with output '%s': %w"), Id("out"), Err(),
-			)),
-		),
-		Line(),
-
-		Id("repo").Op(":=").Id("parseOriginRepo").Call(Qual("strings", "TrimSpace").Call(String().Call(Id("out")))),
-		If(Id("repo").Op("==").Lit("")).Block(
-			Return(Lit(""), Qual("fmt", "Errorf").Call(
-				Lit("failed to parse owner/name from origin remote url %q"),
-				Qual("strings", "TrimSpace").Call(String().Call(Id("out"))),
-			)),
-		),
-		Line(),
-
-		Return(Id("repo"), Nil()),
-	)
-	f.Line()
-
-	// reduce a git remote url to an owner/name path
-	f.Comment("parseOriginRepo reduces a git remote url to an owner/name path, accepting the")
-	f.Comment("https form (https://github.com/owner/name.git) and the ssh form")
-	f.Comment("(git@github.com:owner/name.git). It returns an empty string when neither")
-	f.Comment("shape yields an owner and name.")
-	f.Func().Id("parseOriginRepo").Params(Id("url").String()).String().Block(
-		Id("url").Op("=").Qual("strings", "TrimSuffix").Call(Id("url"), Lit(".git")),
-		Comment("split on / and take the trailing two segments as owner/name"),
-		Id("parts").Op(":=").Qual("strings", "Split").Call(Id("url"), Lit("/")),
-		If(Len(Id("parts")).Op("<").Lit(2)).Block(
-			Comment("an ssh url with no slash host separator: split on the colon instead"),
-			Id("colonParts").Op(":=").Qual("strings", "SplitN").Call(Id("url"), Lit(":"), Lit(2)),
-			If(Len(Id("colonParts")).Op("==").Lit(2)).Block(
-				Id("parts").Op("=").Qual("strings", "Split").Call(Id("colonParts").Index(Lit(1)), Lit("/")),
-			),
-		),
-		If(Len(Id("parts")).Op("<").Lit(2)).Block(
-			Return(Lit("")),
-		),
-		Id("owner").Op(":=").Id("parts").Index(Len(Id("parts")).Op("-").Lit(2)),
-		Id("name").Op(":=").Id("parts").Index(Len(Id("parts")).Op("-").Lit(1)),
-		Comment("an ssh owner may still carry the host:owner prefix; keep the trailing owner"),
-		If(Id("i").Op(":=").Qual("strings", "LastIndex").Call(Id("owner"), Lit(":")).Op(";").Id("i").Op(">=").Lit(0)).Block(
-			Id("owner").Op("=").Id("owner").Index(Id("i").Op("+").Lit(1), Empty()),
-		),
-		If(Id("owner").Op("==").Lit("").Op("||").Id("name").Op("==").Lit("")).Block(
-			Return(Lit("")),
-		),
-		Return(Id("owner").Op("+").Lit("/").Op("+").Id("name")),
 	)
 	f.Line()
 }
@@ -1197,21 +983,11 @@ func emitWrapHelper(g *Group, repo, tag Code) {
 // parallelism lines for a workflow to append to GITHUB_ENV.
 func emitCiEnvFunc(f *File, modulePath string) {
 	f.Comment("Env prints KEY=value lines for the workflow to append to GITHUB_ENV. It emits")
-	f.Comment("only the values that non-mage steps consume: the pinned threeport repo,")
-	f.Comment("version, and ghcr namespace the gh release download and tptctl up steps read;")
-	f.Comment("the module's own image tag the module install step reads; GOFLAGS, the")
-	f.Comment("memory-derived go-build worker count the non-mage steps inherit; and")
-	f.Comment("GORELEASER_PARALLELISM, a quarter of that worker count, the number of")
-	f.Comment("whole-tree targets goreleaser builds at once since each links the full tree.")
-	f.Comment("Values mage itself consumes (image repo, build-time image tag, image-build")
-	f.Comment("parallelism) are self-derived at use and are not emitted here.")
+	f.Comment("GOFLAGS, the memory-derived go-build worker count the non-mage steps inherit,")
+	f.Comment("and the module image tag the module install step reads. Values mage itself")
+	f.Comment("consumes (image repo, build-time image tag, image-build parallelism) are")
+	f.Comment("self-derived at use and are not emitted here.")
 	f.Func().Params(Id("Ci")).Id("Env").Params().Error().Block(
-		List(Id("repo"), Id("namespace"), Id("ver"), Err()).Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "ResolveThreeportPin").Call(),
-		If(Err().Op("!=").Nil()).Block(
-			Return(Err()),
-		),
-		Line(),
-
 		List(Id("moduleTag"), Err()).Op(":=").Qual(
 			"github.com/threeport/threeport/pkg/util/v0", "ResolveImageTag",
 		).Call(Lit("."), Qual(fmt.Sprintf("%s/internal/version", modulePath), "GetVersion").Call()),
@@ -1220,17 +996,10 @@ func emitCiEnvFunc(f *File, modulePath string) {
 		),
 		Line(),
 
-		Qual("fmt", "Printf").Call(Lit("THREEPORT_REPO=%s\n"), Id("repo")),
-		Qual("fmt", "Printf").Call(Lit("THREEPORT_IMAGE_TAG=%s\n"), Id("ver")),
-		Qual("fmt", "Printf").Call(Lit("THREEPORT_IMAGE_NAMESPACE=%s\n"), Id("namespace")),
 		Qual("fmt", "Printf").Call(Lit("MODULE_IMAGE_TAG=%s\n"), Id("moduleTag")),
 		Qual("fmt", "Printf").Call(
 			Lit("GOFLAGS=-p=%d\n"),
 			Qual("github.com/threeport/threeport/pkg/util/v0", "BuildParallelism").Call(),
-		),
-		Qual("fmt", "Printf").Call(
-			Lit("GORELEASER_PARALLELISM=%d\n"),
-			Qual("github.com/threeport/threeport/pkg/util/v0", "ReleaseParallelism").Call(),
 		),
 		Return(Nil()),
 	)

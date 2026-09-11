@@ -13,11 +13,10 @@ import (
 // Ci provides a type for methods that emit CI env and tear down leftovers.
 type Ci mg.Namespace
 
-// Env prints GOFLAGS and GORELEASER_PARALLELISM as KEY=value lines for
-// non-mage steps. Mage targets self-derive their own parallelism.
+// Env prints GOFLAGS as a KEY=value line for non-mage steps. Mage
+// targets self-derive their own parallelism.
 func (Ci) Env() error {
 	fmt.Printf("GOFLAGS=-p=%d\n", util.BuildParallelism())
-	fmt.Printf("GORELEASER_PARALLELISM=%d\n", util.ReleaseParallelism())
 	return nil
 }
 

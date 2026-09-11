@@ -1,46 +1,22 @@
-# Publishes a release of threeport when a version tag is pushed.
-# The tag's prerelease segment selects the channel: v0.7.0-dev.N is a dev
-# build, v0.7.0-rc.N a release candidate, v0.7.0 a GA release; goreleaser
-# marks prerelease tags as GitHub pre-releases. Cut a release with a mage
-# target (mage release:dev, release:rc, or release:ga); the base comes from
-# version.txt with no argument. It tags dev and pushes. Component images are
-# built separately by the images workflow on the same v* tag.
-
 name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   goreleaser:
-    runs-on: ubuntu-24.04
-    steps:
-    - name: Checkout
-      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      with:
-        # goreleaser needs full history to generate the changelog
-        fetch-depth: 0
+    uses: ./.github/workflows/_goreleaser.yml
 
-    - name: Go setup
-      uses: ./.github/actions/go-setup
-
-    # emit go-parallelism env so the goreleaser step resolves
-    # GORELEASER_PARALLELISM and GOFLAGS
-    - run: mage ci:env >> "$GITHUB_ENV"
-
-    - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7.2.2
-      with:
-        # the goreleaser binary version to install, not the Go version
-        version: v1.26.2
-        # the number of whole-tree targets built at once comes from
-        # GORELEASER_PARALLELISM (memory-derived, a quarter of the go-build
-        # worker count, since each release target links the full tree); the
-        # per-target compile workers come from GOFLAGS (-p). Both are set by ci:env.
-        args: release --clean --parallelism ${{ env.GORELEASER_PARALLELISM }} -f ./.goreleaser.yml
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  images:
+    needs: goreleaser
+    uses: ./.github/workflows/_build-images.yml
+    with:
+      tag: ${{ github.ref_name }}
+      image_repo: ghcr.io/threeport
+    secrets: inherit

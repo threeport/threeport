@@ -1,9 +1,4 @@
 ---
-# Stamp the tag being published into the version package. Without it a released
-# binary reports the embedded version.txt value, which names the development
-# base a release is cut from rather than the release itself, so every binary
-# claims the same version and tptctl resolves an image tag no workflow pushed.
-# -s -w restates goreleaser's own default, which naming ldflags here replaces.
 builds:
   - id: tptctl
     binary: tptctl
@@ -14,15 +9,11 @@ builds:
       - darwin
     env:
       - CGO_ENABLED=0
-    ldflags:
-      - -s -w -X github.com/threeport/threeport/internal/version.ReleaseVersion={{ .Tag }}
   - id: threeport-sdk
     binary: threeport-sdk
     main: cmd/sdk/main.go
     env:
       - CGO_ENABLED=0
-    ldflags:
-      - -s -w -X github.com/threeport/threeport/internal/version.ReleaseVersion={{ .Tag }}
 archives:
   - name_template: 'threeport_v{{ .Version }}_{{ title .Os }}_{{ if eq .Arch "amd64" }}x86_64{{ else if eq .Arch "386" }}i386{{ else }}{{ .Arch }}{{ end }}'
     format_overrides:
@@ -34,11 +25,6 @@ archives:
     allow_different_binary_count: true
 checksum:
   name_template: 'checksums.txt'
-# Mark dev and rc prerelease tags as GitHub pre-releases so they stay off
-# the Latest badge; a plain SemVer GA tag with no prerelease segment
-# publishes as a full release.
-release:
-  prerelease: auto
 snapshot:
   name_template: "{{ .Version }}-snapshot-{{.ShortCommit}}"
 changelog:
