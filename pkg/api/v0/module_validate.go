@@ -23,15 +23,12 @@ func (m *ModuleApi) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
-//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-//
 // Import:
-//
-//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (m *ModuleApi) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -64,15 +61,12 @@ func (m *ModuleApiRoute) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
-//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-//
 // Import:
-//
-//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (m *ModuleApiRoute) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -134,15 +128,12 @@ func (m *ModuleController) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
-//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-//
 // Import:
-//
-//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (m *ModuleController) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -164,15 +155,12 @@ func (m *ModuleObject) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
-//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
-//
 // Import:
-//
-//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (m *ModuleObject) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
