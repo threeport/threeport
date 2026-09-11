@@ -3,6 +3,7 @@ package v0
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -26,6 +27,11 @@ func TestIsSerializationFailureClassifies(t *testing.T) {
 		{
 			name:     "error text mentioning 40001 is retryable",
 			err:      errors.New("TransactionRetryWithProtoRefreshError: ... RETRY_SERIALIZABLE (SQLSTATE 40001)"),
+			expected: true,
+		},
+		{
+			name:     "wrapped pg error with 40001 code is retryable",
+			err:      fmt.Errorf("persist object: %w", &pgconn.PgError{Code: "40001"}),
 			expected: true,
 		},
 		{
@@ -115,6 +121,21 @@ func TestRetryWriteStopsOnCancelledContext(t *testing.T) {
 	result := RetryWrite(ctx, func() *gorm.DB {
 		calls++
 		cancel()
+		return &gorm.DB{Error: &pgconn.PgError{Code: "40001"}}
+	})
+
+	assert.Equal(t, 1, calls)
+	assert.True(t, isSerializationFailure(result.Error))
+}
+
+// TestRetryWriteSkipsWhenContextAlreadyCancelled covers a caller that hung up
+// before the first attempt.
+func TestRetryWriteSkipsWhenContextAlreadyCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	calls := 0
+	result := RetryWrite(ctx, func() *gorm.DB {
+		calls++
 		return &gorm.DB{Error: &pgconn.PgError{Code: "40001"}}
 	})
 

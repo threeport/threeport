@@ -24,14 +24,14 @@ const serializationTestPrefix = "serialization-retry-test"
 //
 // Under SERIALIZABLE isolation CockroachDB answers a write conflict by telling
 // the client to re-run the transaction. Before the handlers wrapped their
-// writes in crdbgorm.ExecuteTx, that came back to the caller as a 500 carrying
+// writes in RetryWrite, that came back to the caller as a 500 carrying
 // "database serialization conflict". Hammering one row from several goroutines
 // is the cheapest way to provoke the conflict; every request should still
 // succeed, because the handler retries internally.
 //
 // A unit test cannot reach this. The retry path only runs when CockroachDB
 // actually reports a conflict, which needs a real database under real
-// contention, and the savepoint the retry rides on is CockroachDB-only syntax.
+// contention.
 func TestConcurrentUpdatesAbsorbSerializationFailures(t *testing.T) {
 	cli.InitConfig(nil, "")
 
@@ -63,10 +63,10 @@ func TestConcurrentUpdatesAbsorbSerializationFailures(t *testing.T) {
 	// tuned to contend, not to exhaust. This shape drives around ninety
 	// transaction restarts through one row per run, measured on
 	// crdb_internal.node_metrics 'txn.restarts.writetooold', and the handler
-	// absorbs all of them: nothing reaches the client. Twenty writers of
-	// twenty-five rounds instead pushes past the library's fifty-attempt cap
-	// and the handler gives up, which is the pathological case #471 leaves to
-	// the reconciler's requeue backstop rather than the retry.
+	// absorbs all of them: nothing reaches the client. A burst past
+	// serializationRetryMax instead makes the handler give up, which is the
+	// pathological case #471 leaves to the reconciler's requeue backstop
+	// rather than the retry.
 	const writers = 6
 	const roundsPerWriter = 6
 
