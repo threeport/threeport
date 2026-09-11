@@ -156,3 +156,6 @@ jobs:
 
     - name: Integration tests
       run: mage test:integration
+
+    - name: Generate, build and install a module
+      run: mage test:moduleInstall
