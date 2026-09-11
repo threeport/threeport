@@ -44,7 +44,7 @@ func (Ci) Env() error {
 
 // Teardown removes leftover kind clusters, containers, networks, and volumes.
 func (Ci) Teardown() error {
-	return util.TeardownCILeftovers("./bin/tptctl", "dev-0", func() error {
+	return util.TeardownCILeftovers("./bin/tptctl", "mage-test", func() error {
 		return (Dev{}).LocalRegistryDown()
 	})
 }

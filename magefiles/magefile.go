@@ -618,7 +618,7 @@ func (Test) Commits() error {
 
 // testControlPlaneName is the control plane name tptctl up creates
 // and tptctl down removes so both sides name the same plane.
-const testControlPlaneName = "dev-0"
+const testControlPlaneName = "mage-test"
 
 // Up spins up a control plane using tptctl and a local registry for testing.
 // Repo and tag are the same ones the image build derives, so tptctl pulls those images.

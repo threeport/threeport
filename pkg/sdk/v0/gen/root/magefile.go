@@ -1008,7 +1008,7 @@ func emitCiTeardownFunc(f *File) {
 	f.Func().Params(Id("Ci")).Id("Teardown").Params().Error().Block(
 		Return(Qual("github.com/threeport/threeport/pkg/util/v0", "TeardownCILeftovers").Call(
 			Lit("./bin/tptctl"),
-			Lit("dev-0"),
+			Lit("mage-test"),
 			Func().Params().Error().Block(
 				Return(Parens(Id("Dev").Values()).Dot("LocalRegistryDown").Call()),
 			),
