@@ -66,7 +66,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	buildDbMigratorImageFuncName := "DbMigratorImage"
 	buildAgentImageFuncName := "AgentImage"
 
-	namespaces := []string{"Build", "Test", "Install", "Dev", "Package", "Download"}
+	namespaces := []string{"Build", "Test", "Install", "Dev", "Package"}
 	for _, ns := range namespaces {
 		f.Comment(fmt.Sprintf(
 			"%s provides a type for methods that implement %s targets.", ns, strcase.ToLowerCamel(ns),
