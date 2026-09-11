@@ -143,13 +143,11 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 
 	if a.ControlPlaneImageTag != "" {
 		cpi.SetAllImageTags(a.ControlPlaneImageTag)
-	} else if a.ControlPlaneImageRepo == threeport.DevImageNamespace && os.Getenv("GITHUB_ACTIONS") == "" {
-		// resolve a version.sha tag matching a local image build,
-		// not the mutable bare version. skip GitHub Actions to keep
-		// the installer default
+	} else {
+		// default the tag the way a build names it
 		devTag, err := util.ResolveImageTag(a.ThreeportPath, version.GetVersion())
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve dev image tag: %w", err)
+			return nil, fmt.Errorf("failed to resolve default image tag: %w", err)
 		}
 		cpi.SetAllImageTags(devTag)
 	}
