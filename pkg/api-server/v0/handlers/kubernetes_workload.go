@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 
+	"github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"
 	echo "github.com/labstack/echo/v4"
 	zap "go.uber.org/zap"
 	gorm "gorm.io/gorm"
@@ -45,16 +46,24 @@ func (h Handler) AddKubernetesWorkloadResourceDefinitions(c echo.Context) error 
 
 	// create all kubernetes workload resource definitions or none at all
 	var createdWRDs []v0.KubernetesWorkloadResourceDefinition
-	err := h.DB.Transaction(func(tx *gorm.DB) error {
-		for _, wrd := range k8sWorkloadResourceDefinitions {
-			if result := h.DB.Create(&wrd); result.Error != nil {
-				return result.Error
+	err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// a retried attempt starts the batch over, or the slice returned to
+			// the caller would carry the rows a rolled-back attempt appended
+			createdWRDs = nil
+			for _, wrd := range k8sWorkloadResourceDefinitions {
+				// tx, not h.DB: the writes have to be part of the transaction
+				// this function opens, or "all or none at all" does not hold
+				if result := tx.Create(&wrd); result.Error != nil {
+					return result.Error
+				}
+				createdWRDs = append(createdWRDs, wrd)
 			}
-			createdWRDs = append(createdWRDs, wrd)
-		}
 
-		return nil
-	})
+			return nil
+		},
+	)
 	if err != nil {
 		h.Logger.Error("handler error: error creating kubernetes workload resource definitions", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
@@ -72,4 +81,3 @@ func (h Handler) AddKubernetesWorkloadResourceDefinitions(c echo.Context) error 
 
 	return apiserver_lib.ResponseStatus201(c, *response)
 }
-

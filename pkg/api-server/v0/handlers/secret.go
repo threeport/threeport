@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"
 	echo "github.com/labstack/echo/v4"
 	zap "go.uber.org/zap"
 	"gorm.io/datatypes"
@@ -73,30 +74,51 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 			return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 		}
 
-		// check for duplicate names
-		var existingSecretDefinition v0.SecretDefinition
-		nameUsed := true
-		result := h.DB.Where("name = ?", secretDefinition.Name).First(&existingSecretDefinition)
-		if result.Error != nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				nameUsed = false
-			} else {
-				h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
-				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-			}
-		}
-		if nameUsed {
-			return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
-		}
-
 		// create copy of Data field in memory, as it will be
 		// set to nil in the secretDefinition.BeforeCreate() method
 		data := secretDefinition.Data
 
-		// persist to DB
-		if result := h.DB.Create(&secretDefinition); result.Error != nil {
-			h.Logger.Error("handler error: error persisting secret definition to DB", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		// the duplicate-name read and the create retry together. Under
+		// SERIALIZABLE isolation CockroachDB answers a write conflict with
+		// SQLSTATE 40001 and expects the client to re-run the transaction, and
+		// keeping the read inside also closes the window where two concurrent
+		// creates both find the name free.
+		nameUsed := false
+		if err := crdbgorm.ExecuteTx(
+			c.Request().Context(), h.DB, nil,
+			func(tx *gorm.DB) error {
+				// a retried attempt has to start from the payload again: the
+				// database assigns the key, and BeforeCreate nils Data on the
+				// way through, so an attempt that rolled back would otherwise
+				// leave the next one creating a secret with no data
+				secretDefinition.ID = nil
+				secretDefinition.Data = data
+
+				nameUsed = true
+				var existingSecretDefinition v0.SecretDefinition
+				if result := tx.Where(
+					"name = ?", secretDefinition.Name,
+				).First(&existingSecretDefinition); result.Error != nil {
+					if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+						return result.Error
+					}
+					nameUsed = false
+				}
+
+				// the name is taken; leave the transaction without writing and
+				// let the caller answer 409
+				if nameUsed {
+					return nil
+				}
+
+				return tx.Create(&secretDefinition).Error
+			},
+		); err != nil {
+			h.Logger.Error("handler error: error persisting secret definition to DB", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+		}
+		if nameUsed {
+			return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 		}
 
 		// encrypt sensitive values

@@ -12,6 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.34.14
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.10
 	github.com/aws/smithy-go v1.22.2
+	github.com/cockroachdb/cockroach-go/v2 v2.4.3
 	github.com/dave/jennifer v1.7.1
 	github.com/docker/docker v28.2.2+incompatible
 	github.com/docker/go-connections v0.5.0

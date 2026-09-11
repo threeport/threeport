@@ -70,70 +70,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				// for models that have a name field - either directly in the model or
 				// inherited from Definition or Instance - add a check for duplicate
 				// names in the handler that adds the record to the DB
-				checkDuplicateNames := &Statement{}
-				if apiObject.NameField && !apiObject.AllowDuplicateNames {
-					checkDuplicateNames.Comment("check for duplicate names")
-					checkDuplicateNames.Line()
-					checkDuplicateNames.Var().Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Qual(
-						fmt.Sprintf(
-							"%s/pkg/api/%s",
-							gen.ModulePath,
-							objCollection.Version,
-						),
-						apiObject.TypeName,
-					).Line()
-					checkDuplicateNames.Id("nameUsed").Op(":=").Lit(true).Line()
-					checkDuplicateNames.Id("result").Op(":=").Do(func(s *Statement) {
-						if gen.Module {
-							s.Id("h").Dot("Handler")
-						} else {
-							s.Id("h")
-						}
-					}).Dot("RequestDB").Call(Id("c")).Dot("Where").Call(
-						Lit("name = ?"), Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("Name"),
-					).Dot("First").Call(
-						Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-					).Line()
-					checkDuplicateNames.If(Id("result").Dot("Error").Op("!=").Nil()).Block(
-						If(Qual("errors", "Is").Call(
-							Id("result").Dot("Error"), Qual("gorm.io/gorm", "ErrRecordNotFound"),
-						)).Block(
-							Id("nameUsed").Op("=").Lit(false),
-						).Else().BlockFunc(func(h *Group) {
-							if gen.Module {
-								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error checking for duplicate names"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
-								)
-							} else {
-								h.Id("h").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error checking for duplicate names"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
-								)
-							}
-							h.Return(
-								Qual(
-									"github.com/threeport/threeport/pkg/api-server/lib/v0",
-									"ResponseStatus500",
-								).Call(
-									Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"),
-								),
-							)
-						}),
-					).Line()
-					checkDuplicateNames.If(Id("nameUsed")).Block(
-						Return(
-							Qual(
-								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatus409",
-							).Call(
-								Id("c"), Nil(), Qual("errors", "New").Call(
-									Lit("object with provided name already exists"),
-								), Id("objectType"),
-							),
-						),
-					).Line()
-				}
+				// for models that have a name field - either directly in the model or
+				// inherited from Definition or Instance - the add handler checks for a
+				// duplicate name before creating the record
+				hasDuplicateNameCheck := apiObject.NameField && !apiObject.AllowDuplicateNames
 
 				notifyControllersCreateHandler := &Statement{}
 				notifyControllersUpdateHandler := &Statement{}
@@ -275,34 +215,52 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							},
 						),
 						If(
-							Id("result").Op(":=").Do(func(s *Statement) {
-								if gen.Module {
-									s.Id("h").Dot("Handler")
-								} else {
-									s.Id("h")
-								}
-							}).Dot("RequestDB").Call(Id("c")).Dot("Model").Call(
-								Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
-							).Dot("Updates").Call(
-								Op("&").Id(fmt.Sprintf("scheduled%s", apiObject.TypeName)),
+							Id("err").Op(":=").Qual(
+								"github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm",
+								"ExecuteTx",
+							).Call(
+								Line().Id("c").Dot("Request").Call().Dot("Context").Call(),
+								Do(func(s *Statement) {
+									if gen.Module {
+										s.Id("h").Dot("Handler").Dot("DB")
+									} else {
+										s.Id("h").Dot("DB")
+									}
+								}),
+								Nil(),
+								Line().Func().Params(
+									Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
+								).Error().Block(
+									Return(Id("tx").Dot("Scopes").Call(
+										Qual(
+											"github.com/threeport/threeport/pkg/api-server/lib/v0",
+											"QueryScopes",
+										).Call(Id("c")).Op("..."),
+									).Dot("Model").Call(
+										Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
+									).Dot("Updates").Call(
+										Op("&").Id(fmt.Sprintf("scheduled%s", apiObject.TypeName)),
+									).Dot("Error")),
+								),
+								Line(),
 							),
-							Id("result").Dot("Error").Op("!=").Nil(),
+							Id("err").Op("!=").Nil(),
 						).BlockFunc(func(h *Group) {
 							if gen.Module {
 								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error creating scheduled deletion"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
 								)
 							} else {
 								h.Id("h").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error creating scheduled deletion"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
 								)
 							}
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType")))
+							).Call(Id("c"), Nil(), Id("err"), Id("objectType")))
 						}),
 						Comment("notify controller"),
 						List(Id("notifPayload"), Id("err")).Op(":=").Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("NotificationPayload").Call(
@@ -370,33 +328,51 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Comment("object scheduled for deletion and confirmed - it can be deleted"),
 							Comment("from DB"),
 							If(
-								Id("result").Op(":=").Do(func(s *Statement) {
-									if gen.Module {
-										s.Id("h").Dot("Handler")
-									} else {
-										s.Id("h")
-									}
-								}).Dot("RequestDB").Call(Id("c")).Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))),
-								Id("result").Dot("Error").Op("!=").Nil(),
+								Id("err").Op(":=").Qual(
+									"github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm",
+									"ExecuteTx",
+								).Call(
+									Line().Id("c").Dot("Request").Call().Dot("Context").Call(),
+									Do(func(s *Statement) {
+										if gen.Module {
+											s.Id("h").Dot("Handler").Dot("DB")
+										} else {
+											s.Id("h").Dot("DB")
+										}
+									}),
+									Nil(),
+									Line().Func().Params(
+										Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
+									).Error().Block(
+										Return(Id("tx").Dot("Scopes").Call(
+											Qual(
+												"github.com/threeport/threeport/pkg/api-server/lib/v0",
+												"QueryScopes",
+											).Call(Id("c")).Op("..."),
+										).Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))).Dot("Error")),
+									),
+									Line(),
+								),
+								Id("err").Op("!=").Nil(),
 							).BlockFunc(func(h *Group) {
 								if gen.Module {
 									h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 										Lit("handler error: error deleting object"),
-										Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
 									)
 								} else {
 									h.Id("h").Dot("Logger").Dot("Error").Call(
 										Lit("handler error: error deleting object"),
-										Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+										Qual("go.uber.org/zap", "Error").Call(Id("err")),
 									)
 								}
-								emitBlockedDeleteCheck(h, gen.Module, blockedDeleteCheckBackstop)
+								emitBlockedDeleteCheck(h, gen.Module, blockedDeleteCheckBackstop, func() *Statement { return Id("err") })
 								h.Comment("check if this is a custom HTTP error with specific status code")
 								h.Var().Id("httpErr").Op("*").Qual(
 									"github.com/threeport/threeport/pkg/util/v0",
 									"HttpError",
 								)
-								h.If(Qual("errors", "As").Call(Id("result").Dot("Error"), Op("&").Id("httpErr"))).Block(
+								h.If(Qual("errors", "As").Call(Id("err"), Op("&").Id("httpErr"))).Block(
 									Return(Qual(
 										"github.com/threeport/threeport/pkg/api-server/lib/v0",
 										"ResponseStatusErr",
@@ -404,14 +380,14 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										Line().Id("httpErr").Dot("GetStatusCode").Call(),
 										Id("c"),
 										Nil(),
-										Id("result").Dot("Error"),
+										Id("err"),
 										Id("objectType").Op(",").Line(),
 									)),
 								)
 								h.Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatus500",
-								).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType")))
+								).Call(Id("c"), Nil(), Id("err"), Id("objectType")))
 							}),
 						),
 					)
@@ -420,33 +396,51 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					deleteObjectExecution = Comment("delete object")
 					deleteObjectExecution.Line()
 					deleteObjectExecution.If(
-						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Module {
-								s.Id("h").Dot("Handler")
-							} else {
-								s.Id("h")
-							}
-						}).Dot("RequestDB").Call(Id("c")).Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))),
-						Id("result").Dot("Error").Op("!=").Nil(),
+						Id("err").Op(":=").Qual(
+							"github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm",
+							"ExecuteTx",
+						).Call(
+							Line().Id("c").Dot("Request").Call().Dot("Context").Call(),
+							Do(func(s *Statement) {
+								if gen.Module {
+									s.Id("h").Dot("Handler").Dot("DB")
+								} else {
+									s.Id("h").Dot("DB")
+								}
+							}),
+							Nil(),
+							Line().Func().Params(
+								Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
+							).Error().Block(
+								Return(Id("tx").Dot("Scopes").Call(
+									Qual(
+										"github.com/threeport/threeport/pkg/api-server/lib/v0",
+										"QueryScopes",
+									).Call(Id("c")).Op("..."),
+								).Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))).Dot("Error")),
+							),
+							Line(),
+						),
+						Id("err").Op("!=").Nil(),
 					).BlockFunc(func(h *Group) {
 						if gen.Module {
 							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 								Lit("handler error: error deleting object"),
-								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
 							)
 						} else {
 							h.Id("h").Dot("Logger").Dot("Error").Call(
 								Lit("handler error: error deleting object"),
-								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+								Qual("go.uber.org/zap", "Error").Call(Id("err")),
 							)
 						}
-						emitBlockedDeleteCheck(h, gen.Module, blockedDeleteCheckSole)
+						emitBlockedDeleteCheck(h, gen.Module, blockedDeleteCheckSole, func() *Statement { return Id("err") })
 						h.Comment("check if this is a custom HTTP error with specific status code")
 						h.Var().Id("httpErr").Op("*").Qual(
 							"github.com/threeport/threeport/pkg/util/v0",
 							"HttpError",
 						)
-						h.If(Qual("errors", "As").Call(Id("result").Dot("Error"), Op("&").Id("httpErr"))).Block(
+						h.If(Qual("errors", "As").Call(Id("err"), Op("&").Id("httpErr"))).Block(
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatusErr",
@@ -454,14 +448,14 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Line().Id("httpErr").Dot("GetStatusCode").Call(),
 								Id("c"),
 								Nil(),
-								Id("result").Dot("Error"),
+								Id("err"),
 								Id("objectType").Op(",").Line(),
 							)),
 						)
 						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
-						).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType")))
+						).Call(Id("c"), Nil(), Id("err"), Id("objectType")))
 					})
 				}
 
@@ -818,50 +812,123 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
 					})
 					g.Line()
-					g.Add(checkDuplicateNames)
-					g.Comment("persist to DB")
-					g.If(Id("result").Op(":=").Do(func(s *Statement) {
-						if gen.Module {
-							s.Id("h").Dot("Handler")
-						} else {
-							s.Id("h")
-						}
-					}).Dot("RequestDB").Call(Id("c")).Dot("Create").Call(
-						Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
-					).Op(";").Id("result").Dot("Error").Op("!=").Nil()).BlockFunc(func(h *Group) {
-						if gen.Module {
-							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-								Lit("handler error: error creating object"),
-								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+					g.Comment("the create runs inside a retryable transaction. Under")
+					g.Comment("SERIALIZABLE isolation CockroachDB answers a write conflict with")
+					g.Comment("SQLSTATE 40001 and expects the client to re-run the transaction.")
+					if hasDuplicateNameCheck {
+						g.Comment("the duplicate-name read joins it: a restart has to re-check the")
+						g.Comment("name, and checking outside the transaction leaves a window where")
+						g.Comment("two concurrent creates both find the name free.")
+						g.Id("nameUsed").Op(":=").Lit(false)
+					}
+					g.If(
+						Id("err").Op(":=").Qual(
+							"github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm",
+							"ExecuteTx",
+						).Call(
+							Line().Id("c").Dot("Request").Call().Dot("Context").Call(),
+							Do(func(s *Statement) {
+								if gen.Module {
+									s.Id("h").Dot("Handler").Dot("DB")
+								} else {
+									s.Id("h").Dot("DB")
+								}
+							}),
+							Nil(),
+							Line().Func().Params(
+								Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
+							).Error().BlockFunc(func(t *Group) {
+								t.Comment("the database assigns the primary key, so a retried attempt")
+								t.Comment("must not carry the one a rolled-back attempt was given")
+								t.Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("ID").Op("=").Nil()
+								if hasDuplicateNameCheck {
+									t.Id("nameUsed").Op("=").Lit(true)
+									t.Var().Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Qual(
+										fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+										apiObject.TypeName,
+									)
+									t.If(
+										Id("result").Op(":=").Id("tx").Dot("Scopes").Call(
+											Qual(
+												"github.com/threeport/threeport/pkg/api-server/lib/v0",
+												"QueryScopes",
+											).Call(Id("c")).Op("..."),
+										).Dot("Where").Call(
+											Lit("name = ?"),
+											Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("Name"),
+										).Dot("First").Call(
+											Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+										).Op(";").Id("result").Dot("Error").Op("!=").Nil(),
+									).Block(
+										If(Op("!").Qual("errors", "Is").Call(
+											Id("result").Dot("Error"),
+											Qual("gorm.io/gorm", "ErrRecordNotFound"),
+										)).Block(
+											Return(Id("result").Dot("Error")),
+										),
+										Id("nameUsed").Op("=").Lit(false),
+									)
+									t.Comment("the name is taken; leave the transaction without writing")
+									t.Comment("and let the caller answer 409")
+									t.If(Id("nameUsed")).Block(Return(Nil()))
+								}
+								t.Return(Id("tx").Dot("Scopes").Call(
+									Qual(
+										"github.com/threeport/threeport/pkg/api-server/lib/v0",
+										"QueryScopes",
+									).Call(Id("c")).Op("..."),
+								).Dot("Create").Call(
+									Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
+								).Dot("Error"))
+							}),
+							Line(),
+						).Op(";").Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+							if gen.Module {
+								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							} else {
+								h.Id("h").Dot("Logger").Dot("Error").Call(
+									Lit("handler error: error creating object"),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
+								)
+							}
+							h.Comment("check if this is a custom HTTP error with specific status code")
+							h.Var().Id("httpErr").Op("*").Qual(
+								"github.com/threeport/threeport/pkg/util/v0",
+								"HttpError",
 							)
-						} else {
-							h.Id("h").Dot("Logger").Dot("Error").Call(
-								Lit("handler error: error creating object"),
-								Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+							h.If(Qual("errors", "As").Call(Id("err"), Op("&").Id("httpErr"))).Block(
+								Return(Qual(
+									"github.com/threeport/threeport/pkg/api-server/lib/v0",
+									"ResponseStatusErr",
+								).Call(
+									Line().Id("httpErr").Dot("GetStatusCode").Call(),
+									Id("c"),
+									Nil(),
+									Id("err"),
+									Id("objectType").Op(",").Line(),
+								)),
 							)
-						}
-						h.Comment("check if this is a custom HTTP error with specific status code")
-						h.Var().Id("httpErr").Op("*").Qual(
-							"github.com/threeport/threeport/pkg/util/v0",
-							"HttpError",
-						)
-						h.If(Qual("errors", "As").Call(Id("result").Dot("Error"), Op("&").Id("httpErr"))).Block(
+							h.Return(Qual(
+								"github.com/threeport/threeport/pkg/api-server/lib/v0",
+								"ResponseStatus500",
+							).Call(Id("c"), Nil(), Id("err"), Id("objectType")))
+						}),
+					)
+					if hasDuplicateNameCheck {
+						g.If(Id("nameUsed")).Block(
 							Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatusErr",
+								"ResponseStatus409",
 							).Call(
-								Line().Id("httpErr").Dot("GetStatusCode").Call(),
-								Id("c"),
-								Nil(),
-								Id("result").Dot("Error"),
-								Id("objectType").Op(",").Line(),
+								Id("c"), Nil(), Qual("errors", "New").Call(
+									Lit("object with provided name already exists"),
+								), Id("objectType"),
 							)),
 						)
-						h.Return(Qual(
-							"github.com/threeport/threeport/pkg/api-server/lib/v0",
-							"ResponseStatus500",
-						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
-					})
+					}
 					g.Line()
 					g.Add(notifyControllersCreateHandler)
 					g.Line()
@@ -1456,47 +1523,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						),
 						apiObject.TypeName,
 					)
-					g.If(
-						// TODO: figure out preload objects
-						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Module {
-								s.Id("h").Dot("Handler")
-							} else {
-								s.Id("h")
-							}
-						}).Dot("RequestDB").Call(Id("c")).
-							Dot("First").Call(Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op(",").Id(fmt.Sprintf(
-							"%sID", strcase.ToLowerCamel(apiObject.TypeName),
-						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
-							h.If(
-								Id("errors").Dot("Is").Call(Id("result").Dot("Error").Op(",").Qual(
-									"gorm.io/gorm",
-									"ErrRecordNotFound",
-								)).Block(
-									Return(Qual(
-										"github.com/threeport/threeport/pkg/api-server/lib/v0",
-										"ResponseStatus404",
-									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
-									)),
-							)
-							if gen.Module {
-								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error finding object"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
-								)
-							} else {
-								h.Id("h").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error finding object"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
-								)
-							}
-							h.Return(Qual(
-								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
-						}),
-					)
-					g.Line()
 					g.Comment("check for empty payload, invalid or unsupported fields, optional associations, etc.")
 					if gen.Module {
 						g.If(
@@ -1595,28 +1621,80 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}),
 					)
 					g.Line()
-					g.Comment("update object in database")
+					g.Comment("the read and the write retry together. Under SERIALIZABLE")
+					g.Comment("isolation CockroachDB answers a conflict with SQLSTATE 40001 and")
+					g.Comment("expects the client to re-run the transaction; a restart that")
+					g.Comment("re-ran only the write would land it on a stale row. RequestDB is")
+					g.Comment("not used because ExecuteTx opens the transaction itself, so the")
+					g.Comment("query scopes it would have applied go on tx instead.")
 					g.If(
-						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Module {
-								s.Id("h").Dot("Handler")
-							} else {
-								s.Id("h")
-							}
-						}).Dot("RequestDB").Call(Id("c")).Dot("Model").Call(
-							Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-						).Dot("Updates").Call(
-							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
-						).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+						Id("err").Op(":=").Qual(
+							"github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm",
+							"ExecuteTx",
+						).Call(
+							Line().Id("c").Dot("Request").Call().Dot("Context").Call(),
+							Do(func(s *Statement) {
+								if gen.Module {
+									s.Id("h").Dot("Handler").Dot("DB")
+								} else {
+									s.Id("h").Dot("DB")
+								}
+							}),
+							Nil(),
+							Line().Func().Params(
+								Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
+							).Error().BlockFunc(func(t *Group) {
+								t.Comment("a retried attempt must not read into the previous one's leftovers")
+								t.Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Op("=").Qual(
+									fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+									apiObject.TypeName,
+								).Values()
+								t.If(
+									Id("result").Op(":=").Id("tx").Dot("Scopes").Call(
+										Qual(
+											"github.com/threeport/threeport/pkg/api-server/lib/v0",
+											"QueryScopes",
+										).Call(Id("c")).Op("..."),
+									).Dot("First").Call(
+										Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+										Id(fmt.Sprintf("%sID", strcase.ToLowerCamel(apiObject.TypeName))),
+									).Op(";").Id("result").Dot("Error").Op("!=").Nil(),
+								).Block(
+									Return(Id("result").Dot("Error")),
+								)
+								t.Return(Id("tx").Dot("Scopes").Call(
+									Qual(
+										"github.com/threeport/threeport/pkg/api-server/lib/v0",
+										"QueryScopes",
+									).Call(Id("c")).Op("..."),
+								).Dot("Model").Call(
+									Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
+								).Dot("Updates").Call(
+									Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
+								).Dot("Error"))
+							}),
+							Line(),
+						).Op(";").Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
+							h.If(
+								Qual("errors", "Is").Call(
+									Id("err"),
+									Qual("gorm.io/gorm", "ErrRecordNotFound"),
+								),
+							).Block(
+								Return(Qual(
+									"github.com/threeport/threeport/pkg/api-server/lib/v0",
+									"ResponseStatus404",
+								).Call(Id("c"), Nil(), Id("err"), Id("objectType"))),
+							)
 							if gen.Module {
 								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error updating object"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
 								)
 							} else {
 								h.Id("h").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error updating object"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
 								)
 							}
 							h.Comment("check if this is a custom HTTP error with specific status code")
@@ -1624,7 +1702,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								"github.com/threeport/threeport/pkg/util/v0",
 								"HttpError",
 							)
-							h.If(Qual("errors", "As").Call(Id("result").Dot("Error"), Op("&").Id("httpErr"))).Block(
+							h.If(Qual("errors", "As").Call(Id("err"), Op("&").Id("httpErr"))).Block(
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatusErr",
@@ -1632,14 +1710,14 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Line().Id("httpErr").Dot("GetStatusCode").Call(),
 									Id("c"),
 									Nil(),
-									Id("result").Dot("Error"),
+									Id("err"),
 									Id("objectType").Op(",").Line(),
 								)),
 							)
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+							).Call(Id("c"), Nil(), Id("err"), Id("objectType")))
 						}),
 					)
 					g.Line()
@@ -1928,33 +2006,57 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					g.Line()
 					g.Comment("persist provided data")
 					g.Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("ID")
+					g.Comment("the save runs inside a retryable transaction. Under SERIALIZABLE")
+					g.Comment("isolation CockroachDB answers a write conflict with SQLSTATE 40001")
+					g.Comment("and expects the client to re-run it. Only the write is retried: the")
+					g.Comment("read above contributes the primary key, which the URL fixes, so it")
+					g.Comment("cannot go stale between attempts.")
 					g.If(
-						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Module {
-								s.Id("h").Dot("Handler")
-							} else {
-								s.Id("h")
-							}
-						}).Dot("RequestDB").Call(Id("c")).Dot("Session").Call(
-							Op("&").Qual(
-								"gorm.io/gorm",
-								"Session",
-							).Values(Dict{
-								Id("FullSaveAssociations"): Lit(false),
-							})).Dot("Omit").Call(
-							Lit("CreatedAt").Op(",").Lit("DeletedAt"),
-						).Dot("Save").Call(
-							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
-						).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+						Id("err").Op(":=").Qual(
+							"github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm",
+							"ExecuteTx",
+						).Call(
+							Line().Id("c").Dot("Request").Call().Dot("Context").Call(),
+							Do(func(s *Statement) {
+								if gen.Module {
+									s.Id("h").Dot("Handler").Dot("DB")
+								} else {
+									s.Id("h").Dot("DB")
+								}
+							}),
+							Nil(),
+							Line().Func().Params(
+								Id("tx").Op("*").Qual("gorm.io/gorm", "DB"),
+							).Error().Block(
+								Return(Id("tx").Dot("Scopes").Call(
+									Qual(
+										"github.com/threeport/threeport/pkg/api-server/lib/v0",
+										"QueryScopes",
+									).Call(Id("c")).Op("..."),
+								).Dot("Session").Call(
+									Op("&").Qual(
+										"gorm.io/gorm",
+										"Session",
+									).Values(Dict{
+										Id("FullSaveAssociations"): Lit(false),
+									}),
+								).Dot("Omit").Call(
+									Lit("CreatedAt").Op(",").Lit("DeletedAt"),
+								).Dot("Save").Call(
+									Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
+								).Dot("Error")),
+							),
+							Line(),
+						).Op(";").Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
 							if gen.Module {
 								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error persisting object"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
 								)
 							} else {
 								h.Id("h").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error persisting object"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
+									Qual("go.uber.org/zap", "Error").Call(Id("err")),
 								)
 							}
 							h.Comment("check if this is a custom HTTP error with specific status code")
@@ -1962,7 +2064,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								"github.com/threeport/threeport/pkg/util/v0",
 								"HttpError",
 							)
-							h.If(Qual("errors", "As").Call(Id("result").Dot("Error"), Op("&").Id("httpErr"))).Block(
+							h.If(Qual("errors", "As").Call(Id("err"), Op("&").Id("httpErr"))).Block(
 								Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatusErr",
@@ -1970,14 +2072,14 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Line().Id("httpErr").Dot("GetStatusCode").Call(),
 									Id("c"),
 									Nil(),
-									Id("result").Dot("Error"),
+									Id("err"),
 									Id("objectType").Op(",").Line(),
 								)),
 							)
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+							).Call(Id("c"), Nil(), Id("err"), Id("objectType")))
 						}),
 					)
 					g.Line()
@@ -2243,7 +2345,7 @@ func paginationErrorResponse(gen *gen.Generator) func(*Group) {
 
 // emitBlockedDeleteCheck appends the delete-blocked branch that turns a
 // typed signal from the BeforeDelete hook into a 409 listing blockers.
-func emitBlockedDeleteCheck(h *Group, module bool, role blockedDeleteCheckRole) {
+func emitBlockedDeleteCheck(h *Group, module bool, role blockedDeleteCheckRole, errExpr func() *Statement) {
 	switch role {
 	case blockedDeleteCheckSole:
 		h.Comment("surface BlockedDeleteError from gorm hook - sole blocking check for non-reconciled types")
@@ -2254,7 +2356,7 @@ func emitBlockedDeleteCheck(h *Group, module bool, role blockedDeleteCheckRole) 
 		"github.com/threeport/threeport/pkg/api/v0",
 		"BlockedDeleteError",
 	)
-	h.If(Qual("errors", "As").Call(Id("result").Dot("Error"), Op("&").Id("blockedErr"))).Block(
+	h.If(Qual("errors", "As").Call(errExpr(), Op("&").Id("blockedErr"))).Block(
 		Return(Do(func(s *Statement) {
 			if module {
 				s.Qual(
