@@ -6,6 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -592,16 +593,11 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 				return apiObjects[i].TypeName < apiObjects[j].TypeName
 			})
 
-			// inspect source code
-			filepath := filepath.Join("pkg", "api", version, filename)
-			fset := token.NewFileSet()
-			pf, err := parser.ParseFile(fset, filepath, nil, parser.ParseComments|parser.AllErrors)
-			if err != nil {
-				return fmt.Errorf("failed to parse source code file: %w", err)
+			// index this group's object names so a type in its own file still contributes tags
+			groupObjectNames := make(map[string]bool)
+			for _, c := range apiObjects {
+				groupObjectNames[c.TypeName] = true
 			}
-
-			// create a comment map to associate comments with AST nodes
-			commentMap := ast.NewCommentMap(fset, pf, pf.Comments)
 
 			// determine which objects must be reconciled and build a map
 			// of struct tags for each object
@@ -611,97 +607,144 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 			// can flatten embedded fields into the collision check
 			structEmbeds := make(map[string][]string)
 
-			// inspect the syntax tree for the object models
-			for _, node := range pf.Decls {
-				switch node.(type) {
-				case *ast.GenDecl:
-					var objectName string
-					genDecl := node.(*ast.GenDecl)
-					for _, spec := range genDecl.Specs {
-						switch spec.(type) {
-						// in the case we're looking at a struct type definition, inspect
-						case *ast.TypeSpec:
-							// if the spec is a type spec, get the type spec and
-							// its name
-							typeSpec := spec.(*ast.TypeSpec)
-							objectName = typeSpec.Name.Name
+			// list hand-written model files in the version package
+			versionDir := filepath.Join("pkg", "api", version)
+			modelFileEntries, err := os.ReadDir(versionDir)
+			if err != nil {
+				return fmt.Errorf("failed to read model directory %s: %w", versionDir, err)
+			}
+			var modelFilenames []string
+			for _, entry := range modelFileEntries {
+				name := entry.Name()
+				if entry.IsDir() || !strings.HasSuffix(name, ".go") {
+					continue
+				}
+				// skip generated, test, and validation files; they carry no model definitions
+				if strings.HasSuffix(name, "_gen.go") ||
+					strings.HasSuffix(name, "_test.go") ||
+					strings.HasSuffix(name, "_validate.go") {
+					continue
+				}
+				modelFilenames = append(modelFilenames, name)
+			}
+			// sort so parse order is stable across runs
+			sort.Strings(modelFilenames)
 
-							// check if this is a struct type
-							if structType, ok := typeSpec.Type.(*ast.StructType); ok {
-								var mc *ApiObject
-								for _, c := range apiObjects {
-									if c.TypeName == objectName {
-										mc = c
-									}
+			// inspect each model file for object models
+			for _, modelFilename := range modelFilenames {
+				// the group file records every struct it declares, including helper types
+				isGroupFile := modelFilename == filename
+
+				modelFilepath := filepath.Join(versionDir, modelFilename)
+				fset := token.NewFileSet()
+				// parse including comments so type godoc can be copied
+				pf, err := parser.ParseFile(fset, modelFilepath, nil, parser.ParseComments|parser.AllErrors)
+				if err != nil {
+					return fmt.Errorf("failed to parse source code file: %w", err)
+				}
+
+				// map comments onto declarations for object descriptions
+				commentMap := ast.NewCommentMap(fset, pf, pf.Comments)
+
+				// walk type declarations
+				for _, node := range pf.Decls {
+					switch node.(type) {
+					case *ast.GenDecl:
+						var objectName string
+						genDecl := node.(*ast.GenDecl)
+						for _, spec := range genDecl.Specs {
+							switch spec.(type) {
+							// in the case we're looking at a struct type definition, inspect
+							case *ast.TypeSpec:
+								// if the spec is a type spec, get the type spec and
+								// its name
+								typeSpec := spec.(*ast.TypeSpec)
+								objectName = typeSpec.Name.Name
+
+								// skip types that belong to another group's file
+								if !isGroupFile && !groupObjectNames[objectName] {
+									continue
 								}
 
-								// extract comment description for the struct type
-								if mc != nil {
-									if commentGroups, exists := commentMap[genDecl]; exists && len(commentGroups) > 0 {
-										// extract the comment text from the first comment group and clean it up
-										commentText := commentGroups[0].Text()
-										commentText = strings.TrimSpace(commentText)
-										// normalize whitespace and remove unnecessary line breaks
-										commentText = strings.ReplaceAll(commentText, "\n", " ")
-										commentText = strings.ReplaceAll(commentText, "\r", " ")
-										// replace multiple consecutive spaces with single space
-										for strings.Contains(commentText, "  ") {
-											commentText = strings.ReplaceAll(commentText, "  ", " ")
-										}
-										commentText = strings.TrimSpace(commentText)
-										mc.Description = commentText
-									}
-								}
-
-								structTags[objectName] = make(map[string]map[string]string)
-								fieldTypes[objectName] = make(map[string]string)
-
-								// if so, iterate over the fields
-								for _, field := range structType.Fields.List {
-									// fields will be of type *ast.Ident
-									if identType, ok := field.Type.(*ast.Ident); ok {
-										if util.StringSliceContains(nameFields(), identType.Name, true) {
-											mc.NameField = true
-										}
-									}
-									// structs will be of type *ast.SelectorExpr
-									if identType, ok := field.Type.(*ast.SelectorExpr); ok {
-										if util.StringSliceContains(nameFields(), identType.Sel.Name, true) {
-											mc.NameField = true
-										}
-									}
-									// each field is an *ast.Field, which has a Names field that
-									// is a []*ast.Ident - iterate over those names to find the
-									// one we're looking for
-									for _, name := range field.Names {
-										if util.StringSliceContains(nameFields(), name.Name, true) {
-											mc.NameField = true
+								// check if this is a struct type
+								if structType, ok := typeSpec.Type.(*ast.StructType); ok {
+									var mc *ApiObject
+									for _, c := range apiObjects {
+										if c.TypeName == objectName {
+											mc = c
 										}
 									}
 
-									// anonymous embed: record the embed type name on
-									// this struct, then move on. The embed's own field
-									// tags live in g.EmbedTypes (parsed once up front).
-									if len(field.Names) == 0 {
-										// anon embed type is either a bare identifier
-										// (e.g. `Common`) or a selector (e.g.
-										// `pkgalias.SomeType`); only the bare-ident case
-										// applies to threeport's in-package embeds
-										if ident, ok := field.Type.(*ast.Ident); ok {
-											structEmbeds[objectName] = append(structEmbeds[objectName], ident.Name)
+									// extract comment description for the struct type
+									if mc != nil {
+										if commentGroups, exists := commentMap[genDecl]; exists && len(commentGroups) > 0 {
+											// extract the comment text from the first comment group and clean it up
+											commentText := commentGroups[0].Text()
+											commentText = strings.TrimSpace(commentText)
+											// normalize whitespace and remove unnecessary line breaks
+											commentText = strings.ReplaceAll(commentText, "\n", " ")
+											commentText = strings.ReplaceAll(commentText, "\r", " ")
+											// replace multiple consecutive spaces with single space
+											for strings.Contains(commentText, "  ") {
+												commentText = strings.ReplaceAll(commentText, "  ", " ")
+											}
+											commentText = strings.TrimSpace(commentText)
+											mc.Description = commentText
 										}
-										continue
 									}
-									fieldName := field.Names[0].Name
-									if field.Tag == nil {
-										return fmt.Errorf(
-											"field %s in object %s has no struct tags defined",
-											fieldName, objectName,
-										)
+
+									structTags[objectName] = make(map[string]map[string]string)
+									fieldTypes[objectName] = make(map[string]string)
+
+									// if so, iterate over the fields
+									for _, field := range structType.Fields.List {
+										if mc != nil {
+											// fields will be of type *ast.Ident
+											if identType, ok := field.Type.(*ast.Ident); ok {
+												if util.StringSliceContains(nameFields(), identType.Name, true) {
+													mc.NameField = true
+												}
+											}
+											// structs will be of type *ast.SelectorExpr
+											if identType, ok := field.Type.(*ast.SelectorExpr); ok {
+												if util.StringSliceContains(nameFields(), identType.Sel.Name, true) {
+													mc.NameField = true
+												}
+											}
+											// each field is an *ast.Field, which has a Names field that
+											// is a []*ast.Ident - iterate over those names to find the
+											// one we're looking for
+											for _, name := range field.Names {
+												if util.StringSliceContains(nameFields(), name.Name, true) {
+													mc.NameField = true
+												}
+											}
+										}
+
+										// anonymous embed: record the embed type name on
+										// this struct, then move on. The embed's own field
+										// tags live in g.EmbedTypes (parsed once up front).
+										if len(field.Names) == 0 {
+											// anon embed type is either a bare identifier
+											// (e.g. `Common`) or a selector (e.g.
+											// `pkgalias.SomeType`); only the bare-ident case
+											// applies to threeport's in-package embeds
+											if ident, ok := field.Type.(*ast.Ident); ok {
+												structEmbeds[objectName] = append(structEmbeds[objectName], ident.Name)
+											}
+											continue
+										}
+										fieldName := field.Names[0].Name
+										if field.Tag == nil {
+											return fmt.Errorf(
+												"field %s in object %s has no struct tags defined",
+												fieldName, objectName,
+											)
+										}
+										tagMap := util.ParseStructTag(field.Tag.Value)
+										structTags[objectName][fieldName] = tagMap
+										fieldTypes[objectName][fieldName] = types.ExprString(field.Type)
 									}
-									tagMap := util.ParseStructTag(field.Tag.Value)
-									structTags[objectName][fieldName] = tagMap
-									fieldTypes[objectName][fieldName] = types.ExprString(field.Type)
 								}
 							}
 						}
