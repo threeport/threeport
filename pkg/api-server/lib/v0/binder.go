@@ -150,6 +150,23 @@ func collectKnownFieldNames(structType reflect.Type, known map[string]bool) {
 	}
 }
 
+// queryValues returns the values for key, matching the query map
+// case-insensitively. url.Values is case-sensitive, so a client that
+// sends ThreeportControlPlaneHost would miss threeportcontrolplanehost
+// without this.
+func queryValues(qp url.Values, key string) ([]string, bool) {
+	if raw, ok := qp[key]; ok {
+		return raw, true
+	}
+	want := strings.ToLower(key)
+	for k, raw := range qp {
+		if strings.ToLower(k) == want {
+			return raw, true
+		}
+	}
+	return nil, false
+}
+
 // unknownQueryKeys returns the sorted list of query keys that neither
 // match a known struct field nor a reserved pagination param. The
 // comparison lowercases each incoming key so a client varying key case
@@ -196,8 +213,10 @@ func bindStructFields(qp url.Values, structValue reflect.Value) error {
 		paramName := strings.ToLower(field.Name)
 
 		// missing param means leave the field at its incoming value
-		// (do not zero a pre-populated default)
-		raw, ok := qp[paramName]
+		// (do not zero a pre-populated default). Match keys
+		// case-insensitively so ThreeportControlPlaneHost binds the
+		// same as threeportcontrolplanehost.
+		raw, ok := queryValues(qp, paramName)
 		if !ok || len(raw) == 0 {
 			continue
 		}

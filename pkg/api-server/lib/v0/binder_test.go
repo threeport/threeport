@@ -74,6 +74,18 @@ func TestQueryBinder_MissingParamLeavesFieldZero(t *testing.T) {
 	assert.Nil(t, filter.Count, "Count stays nil when no count param present")
 }
 
+// TestQueryBinder_MixedCaseQueryKeyBinds confirms a client that sends the
+// Go field name in mixed case still binds, matching the unknown-key
+// comparison which already lowercases incoming keys.
+func TestQueryBinder_MixedCaseQueryKeyBinds(t *testing.T) {
+	c, _ := newBindContext(http.MethodGet, "/?Active=true", nil)
+	var filter bindTestFilter
+	require.NoError(t, NewQueryBinder().Bind(&filter, c))
+
+	require.NotNil(t, filter.Active)
+	assert.True(t, *filter.Active)
+}
+
 // TestQueryBinder_UnknownParamRejected verifies a query param matching no
 // field is rejected with an error naming the offending key.
 func TestQueryBinder_UnknownParamRejected(t *testing.T) {
