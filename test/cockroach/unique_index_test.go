@@ -240,6 +240,11 @@ func newReference(
 
 // newCreateRequest returns a POST context and recorder wired like the API server.
 func newCreateRequest(route, body string) (*apiserver_lib.CustomContext, *httptest.ResponseRecorder) {
+	return newAPIRequest(http.MethodPost, route, "", body)
+}
+
+// newAPIRequest returns an echo context and recorder for method and optional id.
+func newAPIRequest(method, route, id, body string) (*apiserver_lib.CustomContext, *httptest.ResponseRecorder) {
 	e := echo.New()
 	e.Binder = apiserver_lib.NewQueryBinder()
 
@@ -250,12 +255,16 @@ func newCreateRequest(route, body string) (*apiserver_lib.CustomContext, *httpte
 	validate.RegisterValidation("ISO8601date", apiserver_lib.IsISO8601Date)
 	e.Validator = &apiserver_lib.CustomValidator{Validator: validate}
 
-	req := httptest.NewRequest(http.MethodPost, route, strings.NewReader(body))
+	req := httptest.NewRequest(method, route, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 
 	recorder := httptest.NewRecorder()
 	c := e.NewContext(req, recorder)
 	c.SetPath(route)
+	if id != "" {
+		c.SetParamNames("id")
+		c.SetParamValues(id)
+	}
 
 	return &apiserver_lib.CustomContext{Context: c}, recorder
 }

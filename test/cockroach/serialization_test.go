@@ -3,18 +3,13 @@ package cockroach
 import (
 	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"strings"
 	"sync"
 	"testing"
 
-	"github.com/go-playground/validator/v10"
-	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	handlers "github.com/threeport/threeport/pkg/api-server/v0/handlers"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -121,7 +116,8 @@ func runConcurrentDomainNameUpdates(t *testing.T, id uint) (codes [][]int, bodie
 			<-start
 			for round := 0; round < serializationRounds; round++ {
 				name := fmt.Sprintf("serial-upd-%d-%d", n, round)
-				c, rec := newUpdateRequest(
+				c, rec := newAPIRequest(
+					http.MethodPatch,
 					api_v0.PathDomainNameDefinitions+"/:id",
 					fmt.Sprint(id),
 					fmt.Sprintf(`{"Name":%q}`, name),
@@ -185,28 +181,4 @@ func assertNoSerializationConflict(t *testing.T, codes [][]int, bodies [][]strin
 				"writer %d round %d: %s", n, round, bodies[n][round])
 		}
 	}
-}
-
-// newUpdateRequest returns a PATCH context and recorder for /:id.
-func newUpdateRequest(route, id, body string) (*apiserver_lib.CustomContext, *httptest.ResponseRecorder) {
-	e := echo.New()
-	e.Binder = apiserver_lib.NewQueryBinder()
-
-	// validator panics on a tag it has no function for
-	validate := validator.New()
-	validate.RegisterValidation("optional", apiserver_lib.IsOptional)
-	validate.RegisterValidation("association", apiserver_lib.IsAssociation)
-	validate.RegisterValidation("ISO8601date", apiserver_lib.IsISO8601Date)
-	e.Validator = &apiserver_lib.CustomValidator{Validator: validate}
-
-	req := httptest.NewRequest(http.MethodPatch, route, strings.NewReader(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-
-	recorder := httptest.NewRecorder()
-	c := e.NewContext(req, recorder)
-	c.SetPath(route)
-	c.SetParamNames("id")
-	c.SetParamValues(id)
-
-	return &apiserver_lib.CustomContext{Context: c}, recorder
 }
