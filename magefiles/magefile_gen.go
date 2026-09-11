@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 )
 
@@ -1466,7 +1465,7 @@ func (Build) AllImages() error {
 		wrap(build.terraformControllerImagePackage),
 		wrap(build.kubernetesWorkloadControllerImagePackage),
 	}
-	return util.RunParallel(parallelFromEnv(), tasks)
+	return util.RunParallel(util.ImageBuildParallelism(), tasks)
 }
 
 // Manifest stitches per-arch images for one component into a multi-arch
@@ -1532,30 +1531,7 @@ func (Package) AllManifests() error {
 		})
 	}
 
-	return util.RunParallel(parallelFromEnv(), tasks)
-}
-
-// parallelFromEnv returns the PARALLEL_IMAGE_BUILD env var as an int. When
-// unset or empty it self-computes twice the memory-derived build worker count,
-// since packaging and pushing images is lighter than compiling.
-func parallelFromEnv() int {
-	v := os.Getenv("PARALLEL_IMAGE_BUILD")
-	if v == "" {
-		return util.BuildParallelism() * 2
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil || n < 1 {
-		return 1
-	}
-	return n
-}
-
-// envOr returns the trimmed value of the named env var, or def if it is unset or empty.
-func envOr(key string, def string) string {
-	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
-		return v
-	}
-	return def
+	return util.RunParallel(util.ImageBuildParallelism(), tasks)
 }
 
 // LoadImage builds and loads an image to the provided kind cluster.
@@ -1669,7 +1645,7 @@ func getBuildVals() (string, string, error) {
 		return "", "", fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	arch := envOr("ARCH", runtime.GOARCH)
+	arch := util.EnvOr("ARCH", runtime.GOARCH)
 
 	return workingDir, arch, nil
 }

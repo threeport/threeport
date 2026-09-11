@@ -58,6 +58,22 @@ func BuildParallelism() int {
 	return clampWorkers(memBytes, cpus)
 }
 
+// ImageBuildParallelism returns PARALLEL_IMAGE_BUILD when it is a
+// positive integer. When unset it returns twice BuildParallelism(),
+// since packaging and pushing is lighter than compiling. A non-positive
+// parse falls back to 1.
+func ImageBuildParallelism() int {
+	v := strings.TrimSpace(os.Getenv("PARALLEL_IMAGE_BUILD"))
+	if v == "" {
+		return BuildParallelism() * 2
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return 1
+	}
+	return n
+}
+
 // clampWorkers returns how many compile workers memBytes can hold at
 // 5 GiB each, floored at 1 and capped at cpus. Non-positive memBytes
 // falls back to cpus.
@@ -548,9 +564,9 @@ func BuildImage(
 
 // buildxBuildArgs assembles the docker buildx invocation argv, the full
 // image ref, and the short component name used for log prefixes. Reads
-// GIT_REVISION, GIT_TAG, and BUILD_CREATED for OCI image labels; an unset
-// GIT_TAG falls back to the image tag, the others to git probes and the
-// current time.
+// GIT_REVISION, GIT_TAG, and BUILD_CREATED for Open Container Initiative
+// (OCI) image labels; an unset GIT_TAG falls back to the image tag, the
+// others to git probes and the current time.
 func buildxBuildArgs(
 	threeportPath string,
 	dockerfilePath string,

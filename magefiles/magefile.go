@@ -425,16 +425,13 @@ func (Test) ModuleGen() error {
 // checkModuleInstallPrerequisites reports missing mage or a missing API
 // endpoint for the current control plane, not whether the cluster can pull images.
 func checkModuleInstallPrerequisites() error {
-	var problems []error
-
+	var mageErr error
 	// require mage on PATH for the build and install targets of the generated module
 	if _, err := exec.LookPath("mage"); err != nil {
-		problems = append(problems, errors.New("mage is not on PATH"))
+		mageErr = errors.New("mage is not on PATH")
 	}
-	// require an API endpoint for the current control plane
-	problems = append(problems, cli.ControlPlaneConfigProblems()...)
 
-	return cli.UnmetPrerequisites("module install", problems)
+	return cli.UnmetPrerequisites("module install", mageErr, cli.ControlPlaneConfigProblems())
 }
 
 // ModuleInstall generates a Threeport module, builds its images, and installs

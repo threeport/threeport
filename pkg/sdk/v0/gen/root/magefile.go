@@ -288,17 +288,14 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.Line()
 
 	// Package.AllManifests stitches multi-arch manifests for every
-	// component image in parallel, sourced from the installer's
-	// authoritative controller list so adding a new controller
-	// automatically extends coverage.
+	// component image in parallel.
 	f.Comment("AllManifests stitches multi-arch manifest lists for every component")
-	f.Comment("in parallel, sourced from the installer's authoritative controller")
-	f.Comment("list so adding a new controller automatically extends coverage. Repo")
-	f.Comment("and tag derive from the CI context when GITHUB_ACTIONS is set, otherwise")
-	f.Comment("the dev namespace and current version; IMAGE_REPO and IMAGE_TAG override")
-	f.Comment("either way. Each component's arch set is discovered from the per-arch")
-	f.Comment("tags already pushed to the registry. Set PARALLEL_IMAGE_BUILD >= 1 to")
-	f.Comment("control worker concurrency (e.g. `PARALLEL_IMAGE_BUILD=4 mage")
+	f.Comment("in parallel. Repo and tag derive from the CI context when")
+	f.Comment("GITHUB_ACTIONS is set, otherwise the dev namespace and current")
+	f.Comment("version; IMAGE_REPO and IMAGE_TAG override either way. Each")
+	f.Comment("component's arch set is discovered from the per-arch tags already")
+	f.Comment("pushed to the registry. Set PARALLEL_IMAGE_BUILD >= 1 to control")
+	f.Comment("worker concurrency (e.g. `PARALLEL_IMAGE_BUILD=4 mage")
 	f.Comment("package:allManifests`).")
 	f.Func().Params(Id("Package")).Id("AllManifests").Params().Error().BlockFunc(func(g *Group) {
 		g.Id("imageRepo").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "ResolveImageRepo").Call(
@@ -372,34 +369,8 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Return().Qual(
 			"github.com/threeport/threeport/pkg/util/v0",
 			"RunParallel",
-		).Call(Id("parallelFromEnv").Call(), Id("tasks"))
+		).Call(Qual("github.com/threeport/threeport/pkg/util/v0", "ImageBuildParallelism").Call(), Id("tasks"))
 	})
-	f.Line()
-
-	// parse PARALLEL_IMAGE_BUILD, self-compute when unset
-	f.Comment("parallelFromEnv returns the PARALLEL_IMAGE_BUILD env var as an int. When")
-	f.Comment("unset or empty it self-computes twice the memory-derived build worker count,")
-	f.Comment("since packaging and pushing images is lighter than compiling.")
-	f.Func().Id("parallelFromEnv").Params().Int().BlockFunc(func(g *Group) {
-		g.Id("v").Op(":=").Qual("os", "Getenv").Call(Lit("PARALLEL_IMAGE_BUILD"))
-		g.If(Id("v").Op("==").Lit("")).Block(
-			Return(Qual("github.com/threeport/threeport/pkg/util/v0", "BuildParallelism").Call().Op("*").Lit(2)),
-		)
-		g.List(Id("n"), Err()).Op(":=").Qual("strconv", "Atoi").Call(Id("v"))
-		g.If(Err().Op("!=").Nil().Op("||").Id("n").Op("<").Lit(1)).Block(
-			Return(Lit(1)),
-		)
-		g.Return(Id("n"))
-	})
-
-	// look up an env var with a fallback default
-	f.Comment("envOr returns the trimmed value of the named env var, or def if it is unset or empty.")
-	f.Func().Id("envOr").Params(Id("key").String(), Id("def").String()).String().Block(
-		If(Id("v").Op(":=").Qual("strings", "TrimSpace").Call(Qual("os", "Getenv").Call(Id("key"))).Op(";").Id("v").Op("!=").Lit("")).Block(
-			Return(Id("v")),
-		),
-		Return(Id("def")),
-	)
 	f.Line()
 
 	// dev image loads to kind clusters
@@ -689,7 +660,7 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		),
 		Line(),
 
-		Id("arch").Op(":=").Id("envOr").Call(Lit("ARCH"), Qual("runtime", "GOARCH")),
+		Id("arch").Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "EnvOr").Call(Lit("ARCH"), Qual("runtime", "GOARCH")),
 		Line(),
 
 		Return(Id("workingDir"), Id("arch"), Nil()),
