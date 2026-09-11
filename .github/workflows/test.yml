@@ -30,10 +30,10 @@ jobs:
       GOPATH: /home/runner/go
     steps:
     - name: Checkout
-      uses: actions/checkout@v6.0.3
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
     - name: Set up Go
-      uses: actions/setup-go@v6.4.0
+      uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
       with:
         go-version: '1.27'
         cache: false
@@ -42,7 +42,7 @@ jobs:
     # is what makes warm runs fast; the Docker layer cache further down
     # (integration-tests job) only covers the cheap COPY+alpine tail.
     - name: Cache Go build + module cache
-      uses: actions/cache@v5.0.5
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: |
           ~/.cache/go-build
@@ -76,16 +76,16 @@ jobs:
       GOPATH: /home/runner/go
     steps:
     - name: Checkout
-      uses: actions/checkout@v6.0.3
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
     - name: Set up Go
-      uses: actions/setup-go@v6.4.0
+      uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
       with:
         go-version: '1.27'
         cache: false
 
     - name: Cache Go build + module cache
-      uses: actions/cache@v5.0.5
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: |
           ~/.cache/go-build
@@ -107,10 +107,10 @@ jobs:
       GOPATH: /home/runner/go
     steps:
     - name: Checkout
-      uses: actions/checkout@v6.0.3
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
     - name: Set up Go
-      uses: actions/setup-go@v6.4.0
+      uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
       with:
         go-version: '1.27'
         cache: false
@@ -119,7 +119,7 @@ jobs:
     # is what makes warm runs fast; the Docker layer cache further down
     # (integration-tests job) only covers the cheap COPY+alpine tail.
     - name: Cache Go build + module cache
-      uses: actions/cache@v5.0.5
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: |
           ~/.cache/go-build
@@ -132,7 +132,7 @@ jobs:
       run: go install github.com/magefile/mage@v1.17.2
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v4.1.0
+      uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
       with:
         # share host network so buildx reaches the local registry in the
         # next step.
