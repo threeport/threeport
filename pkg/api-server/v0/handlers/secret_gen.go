@@ -66,6 +66,8 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		secretDefinition.ID = nil
 		return db.Create(&secretDefinition)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -644,6 +646,8 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		secretInstance.ID = nil
 		return db.Create(&secretInstance)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))

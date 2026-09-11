@@ -66,6 +66,8 @@ func (h Handler) AddOciOkeKubernetesRuntimeDefinition(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		ociOkeKubernetesRuntimeDefinition.ID = nil
 		return db.Create(&ociOkeKubernetesRuntimeDefinition)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -539,6 +541,8 @@ func (h Handler) AddOciOkeKubernetesRuntimeInstance(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		ociOkeKubernetesRuntimeInstance.ID = nil
 		return db.Create(&ociOkeKubernetesRuntimeInstance)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -1111,6 +1115,8 @@ func (h Handler) AddOciProvider(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		ociProvider.ID = nil
 		return db.Create(&ociProvider)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))

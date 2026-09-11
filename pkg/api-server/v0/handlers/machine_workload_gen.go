@@ -66,6 +66,8 @@ func (h Handler) AddMachineWorkloadDefinition(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		machineWorkloadDefinition.ID = nil
 		return db.Create(&machineWorkloadDefinition)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -539,6 +541,8 @@ func (h Handler) AddMachineWorkloadInstance(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		machineWorkloadInstance.ID = nil
 		return db.Create(&machineWorkloadInstance)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))

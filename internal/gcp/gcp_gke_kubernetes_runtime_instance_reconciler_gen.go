@@ -167,7 +167,7 @@ func GcpGkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of gcp gke kubernetes runtime instance encountered for creation")
+					operationErr = errors.New("unrecognized version of gcp gke kubernetes runtime instance encountered for create operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile created gcp gke kubernetes runtime instance object"
@@ -202,6 +202,10 @@ func GcpGkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
+				if gcpGkeKubernetesRuntimeInstance.ScheduledForDeletion() != nil {
+					log.Info("gcp gke kubernetes runtime instance scheduled for deletion - skipping update")
+					break
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch gcpGkeKubernetesRuntimeInstance.GetVersion() {
@@ -214,7 +218,7 @@ func GcpGkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of gcp gke kubernetes runtime instance encountered for creation")
+					operationErr = errors.New("unrecognized version of gcp gke kubernetes runtime instance encountered for update operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile updated gcp gke kubernetes runtime instance object"
@@ -261,7 +265,7 @@ func GcpGkeKubernetesRuntimeInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of gcp gke kubernetes runtime instance encountered for creation")
+					operationErr = errors.New("unrecognized version of gcp gke kubernetes runtime instance encountered for delete operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile deleted gcp gke kubernetes runtime instance object"

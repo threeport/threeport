@@ -62,6 +62,8 @@ func (h Handler) AddModuleApi(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		moduleApi.ID = nil
 		return db.Create(&moduleApi)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -529,6 +531,8 @@ func (h Handler) AddModuleApiRoute(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		moduleApiRoute.ID = nil
 		return db.Create(&moduleApiRoute)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -996,6 +1000,8 @@ func (h Handler) AddModuleController(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		moduleController.ID = nil
 		return db.Create(&moduleController)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -1463,6 +1469,8 @@ func (h Handler) AddModuleObject(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		moduleObject.ID = nil
 		return db.Create(&moduleObject)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))

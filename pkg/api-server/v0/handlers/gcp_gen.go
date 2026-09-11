@@ -66,6 +66,8 @@ func (h Handler) AddGcpGkeKubernetesRuntimeDefinition(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		gcpGkeKubernetesRuntimeDefinition.ID = nil
 		return db.Create(&gcpGkeKubernetesRuntimeDefinition)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -539,6 +541,8 @@ func (h Handler) AddGcpGkeKubernetesRuntimeInstance(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		gcpGkeKubernetesRuntimeInstance.ID = nil
 		return db.Create(&gcpGkeKubernetesRuntimeInstance)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -1111,6 +1115,8 @@ func (h Handler) AddGcpProvider(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		gcpProvider.ID = nil
 		return db.Create(&gcpProvider)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))

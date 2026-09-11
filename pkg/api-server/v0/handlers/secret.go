@@ -80,6 +80,10 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 
 		// persist to DB
 		if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+			// clear id so a retried create does not reuse a rolled-back key
+			secretDefinition.ID = nil
+			// restore Data; BeforeCreate nils it
+			secretDefinition.Data = data
 			return db.Create(&secretDefinition)
 		}); result.Error != nil {
 			h.Logger.Error("handler error: error persisting secret definition to DB", zap.Error(result.Error))

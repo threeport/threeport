@@ -66,6 +66,8 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		domainNameDefinition.ID = nil
 		return db.Create(&domainNameDefinition)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -539,6 +541,8 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		domainNameInstance.ID = nil
 		return db.Create(&domainNameInstance)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -1111,6 +1115,8 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		gatewayDefinition.ID = nil
 		return db.Create(&gatewayDefinition)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -1689,6 +1695,8 @@ func (h Handler) AddGatewayHttpPort(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		gatewayHttpPort.ID = nil
 		return db.Create(&gatewayHttpPort)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -2156,6 +2164,8 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		gatewayInstance.ID = nil
 		return db.Create(&gatewayInstance)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -2728,6 +2738,8 @@ func (h Handler) AddGatewayTcpPort(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		gatewayTcpPort.ID = nil
 		return db.Create(&gatewayTcpPort)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))

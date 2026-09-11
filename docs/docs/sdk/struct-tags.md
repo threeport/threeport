@@ -141,7 +141,7 @@ on every embedded composite field (`Common`, `Definition`, `Instance`,
 fields, not the framework scaffolding.
 
 ```go
-tpapi_v0.Common `mapstructure:",squash" swaggerignore:"true"`
+tpapi_v0.Common `swaggerignore:"true" mapstructure:",squash"`
 ```
 
 ### `mapstructure`
@@ -237,7 +237,7 @@ KubernetesWorkloadInstances []*KubernetesWorkloadInstance `validate:"optional,as
 ### Embedded composite fields
 
 ```go
-tpapi_v0.Common         `mapstructure:",squash" swaggerignore:"true"`
+tpapi_v0.Common         `swaggerignore:"true" mapstructure:",squash"`
 tpapi_v0.Reconciliation `mapstructure:",squash"`
 tpapi_v0.Definition     `mapstructure:",squash"`
 ```

@@ -66,6 +66,8 @@ func (h Handler) AddAwsEksKubernetesRuntimeDefinition(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		awsEksKubernetesRuntimeDefinition.ID = nil
 		return db.Create(&awsEksKubernetesRuntimeDefinition)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -539,6 +541,8 @@ func (h Handler) AddAwsEksKubernetesRuntimeInstance(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		awsEksKubernetesRuntimeInstance.ID = nil
 		return db.Create(&awsEksKubernetesRuntimeInstance)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -1111,6 +1115,8 @@ func (h Handler) AddAwsProvider(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		awsProvider.ID = nil
 		return db.Create(&awsProvider)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))

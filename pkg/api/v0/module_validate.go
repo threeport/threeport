@@ -96,15 +96,18 @@ func (m *ModuleApiRoute) afterCreate(tx *gorm.DB) error {
 		return nil
 	}
 
-	// add the route path to the module router
+	// get proxy scheme and transport recorded at startup - this hook does not receive the auth flag
+	scheme, transport := ModRouter.ProxyConfig()
+	// add reverse proxy route for this path
 	ModRouter.AddRoute(*m.Path, func(c echo.Context) error {
 		proxyUrl, err := url.Parse(
-			fmt.Sprintf("http://%s", *modApi.Endpoint),
+			fmt.Sprintf("%s://%s", scheme, *modApi.Endpoint),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to parse module's proxy target URL: %w", err)
 		}
 		proxy := httputil.NewSingleHostReverseProxy(proxyUrl)
+		proxy.Transport = transport
 		proxy.ServeHTTP(c.Response().Writer, c.Request())
 		return nil
 	})

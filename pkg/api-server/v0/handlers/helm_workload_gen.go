@@ -66,6 +66,8 @@ func (h Handler) AddHelmWorkloadDefinition(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		helmWorkloadDefinition.ID = nil
 		return db.Create(&helmWorkloadDefinition)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
@@ -644,6 +646,8 @@ func (h Handler) AddHelmWorkloadInstance(c echo.Context) error {
 
 	// persist to DB
 	if result := h.Write(c, func(db *gorm.DB) *gorm.DB {
+		// clear id so a retried create does not reuse a rolled-back key
+		helmWorkloadInstance.ID = nil
 		return db.Create(&helmWorkloadInstance)
 	}); result.Error != nil {
 		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))

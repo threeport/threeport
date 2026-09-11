@@ -51,6 +51,8 @@ func (h Handler) AddKubernetesWorkloadResourceDefinitions(c echo.Context) error 
 		createdWRDs = nil
 		err := db.Transaction(func(tx *gorm.DB) error {
 			for _, wrd := range k8sWorkloadResourceDefinitions {
+				// clear id so a retried create does not reuse a rolled-back key
+				wrd.ID = nil
 				if r := tx.Create(&wrd); r.Error != nil {
 					return r.Error
 				}

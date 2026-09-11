@@ -736,9 +736,10 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					})
 					g.Line()
 					g.Comment("persist to DB")
-					g.If(Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, Id("db").Dot("Create").Call(
-						Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
-					))).Op(";").Id("result").Dot("Error").Op("!=").Nil()).BlockFunc(func(h *Group) {
+					g.If(Id("result").Op(":=").Add(wrapCreateRetry(
+						gen.Module,
+						strcase.ToLowerCamel(apiObject.TypeName),
+					)).Op(";").Id("result").Dot("Error").Op("!=").Nil()).BlockFunc(func(h *Group) {
 						if gen.Module {
 							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 								Lit("handler error: error creating object"),
@@ -2252,6 +2253,31 @@ func wrapSerializationRetry(module bool, writeChain *Statement) *Statement {
 			Id("db").Op("*").Qual("gorm.io/gorm", "DB"),
 		).Op("*").Qual("gorm.io/gorm", "DB").Block(
 			Return(writeChain),
+		),
+	)
+}
+
+// wrapCreateRetry is wrapSerializationRetry for Create.
+// It emits:
+//
+//	obj.ID = nil
+//	return db.Create(&obj)
+//
+// so a retried attempt does not insert the key a rolled-back attempt was given.
+func wrapCreateRetry(module bool, objName string) *Statement {
+	handler := Id("h")
+	if module {
+		handler = Id("h").Dot("Handler")
+	}
+
+	return handler.Dot("Write").Call(
+		Id("c"),
+		Func().Params(
+			Id("db").Op("*").Qual("gorm.io/gorm", "DB"),
+		).Op("*").Qual("gorm.io/gorm", "DB").Block(
+			Comment("clear id so a retried create does not reuse a rolled-back key"),
+			Id(objName).Dot("ID").Op("=").Nil(),
+			Return(Id("db").Dot("Create").Call(Op("&").Id(objName))),
 		),
 	)
 }
