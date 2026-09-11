@@ -2,6 +2,7 @@ package v0
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,21 +10,18 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	api "github.com/threeport/threeport/pkg/api/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// recordedRequest captures one inbound HTTP request so tests can
-// assert on URL, query, method, and parsed body. The recorder
-// dispatches based on path so a single httptest.Server can stand in
-// for all three endpoints RecordEvent hits (GET join, POST events,
-// PATCH events/:id).
+// recordedRequest is one captured HTTP request from the mock API.
 type recordedRequest struct {
 	method string
 	path   string
@@ -31,18 +29,12 @@ type recordedRequest struct {
 	body   []byte
 }
 
-// mockEventAPI is an httptest fake that:
-//   - returns existingEvents on the GET /v0/events-join-attached-object-references query
-//   - returns 201 + the inbound body on POST /v0/events
-//   - returns 200 + the inbound body on PATCH /v0/events/<id>
-//
-// All three responses use the apiserver_lib.Response envelope so
-// client_lib.GetResponse decodes correctly.
+// mockEventAPI is an httptest handler that records inbound requests for
+// assertions.
 type mockEventAPI struct {
-	t              *testing.T
-	existingEvents []api.Event
-	requests       []recordedRequest
-	mu             sync.Mutex
+	t        *testing.T
+	requests []recordedRequest
+	mu       sync.Mutex
 }
 
 func (m *mockEventAPI) handler(w http.ResponseWriter, r *http.Request) {
@@ -57,8 +49,6 @@ func (m *mockEventAPI) handler(w http.ResponseWriter, r *http.Request) {
 	m.mu.Unlock()
 
 	switch {
-	case r.Method == http.MethodGet && r.URL.Path == "/v0/events-join-attached-object-references":
-		writeEnvelope(m.t, w, http.StatusOK, eventsToObjects(m.existingEvents))
 	case r.Method == http.MethodPost && r.URL.Path == api.PathEvents:
 		// echo the inbound payload back with an assigned ID so RecordEvent
 		// can read response.Data[0] without erroring on missing fields
@@ -66,10 +56,6 @@ func (m *mockEventAPI) handler(w http.ResponseWriter, r *http.Request) {
 		require.NoError(m.t, json.Unmarshal(body, &ev))
 		ev.ID = util.Ptr(uint(100))
 		writeEnvelope(m.t, w, http.StatusCreated, []apiserver_lib.Object{ev})
-	case r.Method == http.MethodPatch && strings.HasPrefix(r.URL.Path, api.PathEvents+"/"):
-		var ev api.Event
-		require.NoError(m.t, json.Unmarshal(body, &ev))
-		writeEnvelope(m.t, w, http.StatusOK, []apiserver_lib.Object{ev})
 	default:
 		http.Error(w, "unexpected request: "+r.Method+" "+r.URL.Path, http.StatusNotFound)
 	}
@@ -87,21 +73,11 @@ func writeEnvelope(t *testing.T, w http.ResponseWriter, status int, data []apise
 	_, _ = w.Write(body)
 }
 
-func eventsToObjects(events []api.Event) []apiserver_lib.Object {
-	out := make([]apiserver_lib.Object, len(events))
-	for i := range events {
-		out[i] = events[i]
-	}
-	return out
-}
-
-// newRecorderForTest stands up the mock API and returns a recorder
-// bound to its URL. existingEvents controls what the join query
-// returns: zero = the create path, one = the dedup-bump path, many =
-// the unexpected-state error path.
-func newRecorderForTest(t *testing.T, existingEvents []api.Event) (*EventRecorder, *mockEventAPI, func()) {
+// newRecorderForTest returns an EventRecorder pointed at an httptest server
+// that records inbound requests. The cleanup function closes the server.
+func newRecorderForTest(t *testing.T) (*EventRecorder, *mockEventAPI, func()) {
 	t.Helper()
-	mock := &mockEventAPI{t: t, existingEvents: existingEvents}
+	mock := &mockEventAPI{t: t}
 	srv := httptest.NewServer(http.HandlerFunc(mock.handler))
 	// client_lib.GetResponse prepends "http://" to the configured
 	// APIServer, so strip the scheme from the httptest URL to avoid
@@ -114,9 +90,8 @@ func newRecorderForTest(t *testing.T, existingEvents []api.Event) (*EventRecorde
 	return rec, mock, srv.Close
 }
 
-// findRequest returns the first recorded request matching method and
-// a path prefix. Fails the test if none match - the test that called
-// it expected exactly that interaction.
+// findRequest returns the first recorded request matching method and path
+// prefix, or fails the test.
 func findRequest(t *testing.T, mock *mockEventAPI, method, pathPrefix string) recordedRequest {
 	t.Helper()
 	mock.mu.Lock()
@@ -140,132 +115,119 @@ func baseEvent() *api.Event {
 	}
 }
 
-// TestRecordEvent_CreateWhenNoneExists exercises the 0-existing
-// branch: the join query returns empty, so RecordEvent must POST a
-// new Event with subject fields set and Count=1.
-func TestRecordEvent_CreateWhenNoneExists(t *testing.T) {
-	rec, mock, cleanup := newRecorderForTest(t, nil)
+// TestRecordEvent_AlwaysPostsRawRowWithCountOne covers a single POST of an
+// event row with Count 1 and stamped controller, times, and object fields.
+func TestRecordEvent_AlwaysPostsRawRowWithCountOne(t *testing.T) {
+	rec, mock, cleanup := newRecorderForTest(t)
 	defer cleanup()
 
+	// record the event
 	err := rec.RecordEvent(baseEvent(), 42, "threeport.io/v0.KubernetesWorkloadInstance")
 	require.NoError(t, err)
 
-	// POST /v0/events should have fired with the subject fields set
+	// check a single POST and no preceding GET
+	mock.mu.Lock()
+	require.Len(t, mock.requests, 1, "recorder should not issue a preceding GET; the api server upserts on insert")
+	assert.Equal(t, http.MethodPost, mock.requests[0].method)
+	assert.Equal(t, api.PathEvents, mock.requests[0].path)
+	mock.mu.Unlock()
+
+	// check Count 1, timestamps, controller, and object fields
 	post := findRequest(t, mock, http.MethodPost, api.PathEvents)
 	var posted api.Event
 	require.NoError(t, json.Unmarshal(post.body, &posted))
+	require.NotNil(t, posted.Count)
+	assert.Equal(t, uint(1), *posted.Count, "each emit posts Count=1; the api server increments the stored count on conflict")
+	require.NotNil(t, posted.EventTime)
+	require.NotNil(t, posted.LastObservedTime)
+	require.NotNil(t, posted.ReportingController)
+	assert.Equal(t, "test-controller", *posted.ReportingController)
 	require.NotNil(t, posted.ObjectType)
 	require.NotNil(t, posted.ObjectID)
-	require.NotNil(t, posted.Count)
-	require.NotNil(t, posted.ReportingController)
 	assert.Equal(t, "threeport.io/v0.KubernetesWorkloadInstance", *posted.ObjectType)
 	assert.Equal(t, uint(42), *posted.ObjectID)
-	assert.Equal(t, uint(1), *posted.Count, "Count starts at 1 on first observation")
-	assert.Equal(t, "test-controller", *posted.ReportingController)
-	assert.NotNil(t, posted.EventTime)
-	assert.NotNil(t, posted.LastObservedTime)
 }
 
-// TestRecordEvent_QueryEscaping verifies that the join-query
-// parameters are URL-escaped. A reason or note containing &, =, or
-// space must not split the query string into extra params.
-func TestRecordEvent_QueryEscaping(t *testing.T) {
-	rec, mock, cleanup := newRecorderForTest(t, nil)
+// TestHandleEventOverride_UsesErrWithEventWhenPresent covers recording the
+// event carried on the error instead of the fallback event.
+func TestHandleEventOverride_UsesErrWithEventWhenPresent(t *testing.T) {
+	rec, mock, cleanup := newRecorderForTest(t)
 	defer cleanup()
 
-	ev := baseEvent()
-	ev.Reason = util.Ptr("Has Spaces & Ampersand=Sign")
-	ev.Note = util.Ptr("Note with = and &")
-	require.NoError(t, rec.RecordEvent(ev, 7, "threeport.io/v0.Foo"))
-
-	get := findRequest(t, mock, http.MethodGet, "/v0/events-join-attached-object-references")
-	assert.Equal(t, "Has Spaces & Ampersand=Sign", get.query.Get("reason"))
-	assert.Equal(t, "Note with = and &", get.query.Get("note"))
-	assert.Equal(t, TypeWarning, get.query.Get("type"))
-	assert.Equal(t, "7", get.query.Get("objectid"),
-		"objectid is rendered as a bare integer, not escaped")
-}
-
-// TestRecordEvent_DedupQueryIncludesSubjectType pins the dedup-lookup
-// query shape against the events handler's subject filter. The handler
-// rejects requests that supply objectid without objecttypename, so
-// RecordEvent must split the fully qualified type and send all three
-// parts (typename / namespace / version) alongside objectid.
-func TestRecordEvent_DedupQueryIncludesSubjectType(t *testing.T) {
-	rec, mock, cleanup := newRecorderForTest(t, nil)
-	defer cleanup()
-
-	require.NoError(t, rec.RecordEvent(baseEvent(), 42, "threeport.io/v0.KubernetesWorkloadInstance"))
-
-	get := findRequest(t, mock, http.MethodGet, "/v0/events-join-attached-object-references")
-	assert.Equal(t, "KubernetesWorkloadInstance", get.query.Get("objecttypename"))
-	assert.Equal(t, "threeport.io", get.query.Get("objectnamespace"))
-	assert.Equal(t, "v0", get.query.Get("objectversion"))
-	assert.Equal(t, "42", get.query.Get("objectid"))
-}
-
-// TestRecordEvent_RejectsMalformedQualifiedType returns a clear error
-// when the caller hands a string that doesn't parse as a fully
-// qualified type. The dedup query would otherwise be silently broken.
-func TestRecordEvent_RejectsMalformedQualifiedType(t *testing.T) {
-	rec, _, cleanup := newRecorderForTest(t, nil)
-	defer cleanup()
-
-	err := rec.RecordEvent(baseEvent(), 42, "KubernetesWorkloadInstance")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid fully qualified object type")
-}
-
-// TestRecordEvent_BumpsCountWhenOneExists exercises the 1-existing
-// branch: an event matching (reason, note, type, objectid) already
-// exists, so RecordEvent must PATCH it with Count+1 and clear the
-// in-memory projection fields (UpdateEvent rejects them).
-func TestRecordEvent_BumpsCountWhenOneExists(t *testing.T) {
-	existing := api.Event{
-		Common:           api.Common{ID: util.Ptr(uint(99))},
-		Reason:           util.Ptr("ScriptFailed"),
-		Note:             util.Ptr("script returned exit 1"),
-		Type:             util.Ptr(TypeWarning),
-		Count:            util.Ptr(uint(3)),
-		EventTime:        util.Ptr(nowTime()),
-		LastObservedTime: util.Ptr(nowTime()),
+	// set the override event on the error
+	specific := api.Event{
+		Reason: util.Ptr("SSHConnectFailed"),
+		Note:   util.Ptr("dial tcp: refused"),
+		Type:   util.Ptr(TypeWarning),
 	}
-	rec, mock, cleanup := newRecorderForTest(t, []api.Event{existing})
-	defer cleanup()
+	errWith := &tp_errors.ErrWithEvent{Message: "ssh failed", Event: specific}
 
-	err := rec.RecordEvent(baseEvent(), 42, "threeport.io/v0.KubernetesWorkloadInstance")
-	require.NoError(t, err)
-
-	patch := findRequest(t, mock, http.MethodPatch, api.PathEvents+"/")
-	assert.Equal(t, api.PathEvents+"/99", patch.path, "PATCH targets the existing event id")
-
-	var patched api.Event
-	require.NoError(t, json.Unmarshal(patch.body, &patched))
-	require.NotNil(t, patched.Count)
-	assert.Equal(t, uint(4), *patched.Count, "Count increments by 1")
-	assert.Nil(t, patched.ObjectType, "projection fields cleared so UpdateEvent doesn't reject")
-	assert.Nil(t, patched.ObjectID)
-	assert.Nil(t, patched.ObjectName)
-}
-
-// TestRecordEvent_ErrorsWhenMultipleExist exercises the >1-existing
-// branch: the (reason, note, type, objectid) dedup tuple should
-// resolve to at most one row. More than one signals a race that
-// produced duplicates - return an error so the caller can flag it
-// rather than silently bump one and ignore the others.
-func TestRecordEvent_ErrorsWhenMultipleExist(t *testing.T) {
-	existing := []api.Event{
-		{Common: api.Common{ID: util.Ptr(uint(1))}, Count: util.Ptr(uint(1))},
-		{Common: api.Common{ID: util.Ptr(uint(2))}, Count: util.Ptr(uint(1))},
+	// run the override handler
+	logger := logr.Discard()
+	generic := &api.Event{
+		Reason: util.Ptr("FailedCreate"),
+		Note:   util.Ptr("wrapper"),
+		Type:   util.Ptr(TypeWarning),
 	}
-	rec, _, cleanup := newRecorderForTest(t, existing)
-	defer cleanup()
+	rec.HandleEventOverride(generic, 42, "threeport.io/v0.MachineRuntimeInstance", errWith, &logger)
 
-	err := rec.RecordEvent(baseEvent(), 42, "threeport.io/v0.KubernetesWorkloadInstance")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unexpected number of events")
+	// check the posted reason is the override
+	post := findRequest(t, mock, http.MethodPost, api.PathEvents)
+	var posted api.Event
+	require.NoError(t, json.Unmarshal(post.body, &posted))
+	require.NotNil(t, posted.Reason)
+	assert.Equal(t, "SSHConnectFailed", *posted.Reason, "override event carried by ErrWithEvent takes precedence")
 }
 
-// nowTime is a helper that returns a time.Time value the test
-// builder can take an address of via util.Ptr.
-func nowTime() time.Time { return time.Now() }
+// TestHandleEventOverride_UnwrapsWrappedErrWithEvent covers an override
+// event nested under errors.Join still supplying the recorded reason.
+func TestHandleEventOverride_UnwrapsWrappedErrWithEvent(t *testing.T) {
+	rec, mock, cleanup := newRecorderForTest(t)
+	defer cleanup()
+
+	// set the override event on a joined error
+	specific := api.Event{
+		Reason: util.Ptr("CreateResourceError"),
+		Note:   util.Ptr("api call rejected"),
+		Type:   util.Ptr(TypeWarning),
+	}
+	inner := &tp_errors.ErrWithEvent{Message: "boom", Event: specific}
+	wrapped := errors.Join(errors.New("outer"), inner)
+
+	// run the override handler
+	logger := logr.Discard()
+	generic := &api.Event{
+		Reason: util.Ptr("FailedCreate"),
+		Note:   util.Ptr("wrapper"),
+		Type:   util.Ptr(TypeWarning),
+	}
+	rec.HandleEventOverride(generic, 7, "threeport.io/v0.KubernetesWorkloadInstance", wrapped, &logger)
+
+	post := findRequest(t, mock, http.MethodPost, api.PathEvents)
+	var posted api.Event
+	require.NoError(t, json.Unmarshal(post.body, &posted))
+	require.NotNil(t, posted.Reason)
+	assert.Equal(t, "CreateResourceError", *posted.Reason, "errors.As unwraps ErrWithEvent through fmt.Errorf/errors.Join layers")
+}
+
+// TestHandleEventOverride_UsesFallbackWhenNoErrWithEvent covers recording
+// the fallback event when the error carries no override.
+func TestHandleEventOverride_UsesFallbackWhenNoErrWithEvent(t *testing.T) {
+	rec, mock, cleanup := newRecorderForTest(t)
+	defer cleanup()
+
+	// run the override handler with a plain error
+	logger := logr.Discard()
+	generic := &api.Event{
+		Reason: util.Ptr("FailedCreate"),
+		Note:   util.Ptr("wrapper"),
+		Type:   util.Ptr(TypeWarning),
+	}
+	rec.HandleEventOverride(generic, 42, "threeport.io/v0.KubernetesWorkloadInstance", errors.New("plain"), &logger)
+
+	post := findRequest(t, mock, http.MethodPost, api.PathEvents)
+	var posted api.Event
+	require.NoError(t, json.Unmarshal(post.body, &posted))
+	require.NotNil(t, posted.Reason)
+	assert.Equal(t, "FailedCreate", *posted.Reason, "no override sentinel; fallback event is stored as-is")
+}

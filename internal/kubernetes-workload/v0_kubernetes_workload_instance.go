@@ -17,6 +17,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -166,19 +167,15 @@ func v0KubernetesWorkloadInstanceCreated(
 		// create kube resource
 		_, err = kube.CreateResource(kubeObject, dynamicKubeClient, *mapper)
 		if err != nil {
-			// surface the create failure via an event on the kubernetes workload instance
-			if eventErr := r.EventsRecorder.RecordEvent(
-				&v0.Event{
+			// surface the kube create failure as a warning event
+			return 0, &tp_errors.ErrWithEvent{
+				Message: fmt.Sprintf("failed to create Kubernetes resource: %s", err),
+				Event: v0.Event{
 					Type:   util.Ptr(event.TypeWarning),
 					Reason: util.Ptr("CreateResourceError"),
 					Note:   util.Ptr(fmt.Sprintf("failed to create Kubernetes resource for kubernetes workload instance: %s", err)),
 				},
-				*k8sWorkloadInstance.ID,
-				k8sWorkloadInstance.GetFullyQualifiedType(),
-			); eventErr != nil {
-				log.Error(eventErr, "failed to record event for Kubernetes resource creation error")
 			}
-			return 0, fmt.Errorf("failed to create Kubernetes resource: %w", err)
 		}
 
 		// create object in threeport API

@@ -92,6 +92,11 @@ func (g *GcpGkeKubernetesRuntimeDefinition) RelationshipTaggedForeignKeys() []Re
 	}}
 }
 
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on GcpGkeKubernetesRuntimeDefinition.
+func (g *GcpGkeKubernetesRuntimeDefinition) AssociationRequiredByTypes() []string {
+	return []string{new(GcpGkeKubernetesRuntimeInstance).GetFullyQualifiedType()}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -234,6 +239,11 @@ func (gp *GcpProvider) GetVersion() string {
 // GetFullyQualifiedType returns the API-namespace-qualified type name.
 func (gp *GcpProvider) GetFullyQualifiedType() string {
 	return "threeport.io/v0.GcpProvider"
+}
+
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on GcpProvider.
+func (g *GcpProvider) AssociationRequiredByTypes() []string {
+	return []string{new(GcpGkeKubernetesRuntimeInstance).GetFullyQualifiedType()}
 }
 
 // EncryptedFields returns the encrypt-tagged fields on GcpProvider.

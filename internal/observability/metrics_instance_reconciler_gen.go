@@ -155,6 +155,23 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					log.Info("metrics instance scheduled for deletion - skipping create")
 					break
 				}
+				// record in-progress before the custom handler so a later failure still has a start event
+				progressNote := "creating"
+				// type-assert so types without relationship-tagged foreign keys still emit creating
+				if owner, ok := metricsInstance.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
+					progressNote = event.CreateNote(owner)
+				}
+				if recordErr := r.EventsRecorder.RecordEvent(
+					&api_v0.Event{
+						Note:   util.Ptr(progressNote),
+						Reason: util.Ptr(event.ReasonCreateInProgress),
+						Type:   util.Ptr(event.TypeNormal),
+					},
+					metricsInstance.GetId(),
+					metricsInstance.GetFullyQualifiedType(),
+				); recordErr != nil {
+					log.Error(recordErr, "failed to record in-progress event")
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch metricsInstance.GetVersion() {
@@ -175,8 +192,8 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
 							Note:   util.Ptr(errorMsg),
-							Reason: util.Ptr(event.ReasonFailedCreate),
-							Type:   util.Ptr(event.TypeNormal),
+							Reason: util.Ptr(event.ReasonCreateFailed),
+							Type:   util.Ptr(event.TypeWarning),
 						},
 						metricsInstance.GetId(),
 						metricsInstance.GetFullyQualifiedType(),
@@ -206,6 +223,19 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					log.Info("metrics instance scheduled for deletion - skipping update")
 					break
 				}
+				// record in-progress before the custom handler so a later failure still has a start event
+				progressNote := event.UpdateNote()
+				if recordErr := r.EventsRecorder.RecordEvent(
+					&api_v0.Event{
+						Note:   util.Ptr(progressNote),
+						Reason: util.Ptr(event.ReasonUpdateInProgress),
+						Type:   util.Ptr(event.TypeNormal),
+					},
+					metricsInstance.GetId(),
+					metricsInstance.GetFullyQualifiedType(),
+				); recordErr != nil {
+					log.Error(recordErr, "failed to record in-progress event")
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch metricsInstance.GetVersion() {
@@ -226,8 +256,8 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
 							Note:   util.Ptr(errorMsg),
-							Reason: util.Ptr(event.ReasonFailedUpdate),
-							Type:   util.Ptr(event.TypeNormal),
+							Reason: util.Ptr(event.ReasonUpdateFailed),
+							Type:   util.Ptr(event.TypeWarning),
 						},
 						metricsInstance.GetId(),
 						metricsInstance.GetFullyQualifiedType(),
@@ -253,6 +283,23 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationDeleted:
+				// record in-progress before the custom handler so a later failure still has a start event
+				progressNote := "deleting"
+				// type-assert so types without relationship-tagged foreign keys still emit deleting
+				if owner, ok := metricsInstance.(api_v0.RelationshipTaggedForeignKeyProvider); ok {
+					progressNote = event.DeleteNote(owner)
+				}
+				if recordErr := r.EventsRecorder.RecordEvent(
+					&api_v0.Event{
+						Note:   util.Ptr(progressNote),
+						Reason: util.Ptr(event.ReasonDeleteInProgress),
+						Type:   util.Ptr(event.TypeNormal),
+					},
+					metricsInstance.GetId(),
+					metricsInstance.GetFullyQualifiedType(),
+				); recordErr != nil {
+					log.Error(recordErr, "failed to record in-progress event")
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch metricsInstance.GetVersion() {
@@ -268,13 +315,27 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					operationErr = errors.New("unrecognized version of metrics instance encountered for delete operation")
 				}
 				if operationErr != nil {
+					if errors.Is(operationErr, tpclient_lib.ErrDeleteInProgress) || errors.Is(operationErr, tpclient_lib.ErrDeleteBlocked) {
+						log.Info(
+							"conflict reconciling deleted metrics instance object, requeueing",
+							"cause", operationErr.Error(),
+						)
+						// in-progress event already recorded before the handler
+						r.UnlockAndRequeue(
+							metricsInstance,
+							int64(30),
+							lockReleased,
+							msg,
+						)
+						continue
+					}
 					errorMsg := "failed to reconcile deleted metrics instance object"
 					log.Error(operationErr, errorMsg)
 					r.EventsRecorder.HandleEventOverride(
 						&api_v0.Event{
 							Note:   util.Ptr(errorMsg),
-							Reason: util.Ptr(event.ReasonFailedDelete),
-							Type:   util.Ptr(event.TypeNormal),
+							Reason: util.Ptr(event.ReasonDeleteFailed),
+							Type:   util.Ptr(event.TypeWarning),
 						},
 						metricsInstance.GetId(),
 						metricsInstance.GetFullyQualifiedType(),
@@ -324,6 +385,20 @@ func MetricsInstanceReconciler(r *controller.Reconciler) {
 					metricsInstance.GetId(),
 				)
 				if err != nil {
+					if errors.Is(err, tpclient_lib.ErrDeleteInProgress) || errors.Is(err, tpclient_lib.ErrDeleteBlocked) {
+						log.Info(
+							"conflict deleting metrics instance, requeueing",
+							"cause", err.Error(),
+						)
+						// in-progress event already recorded before the handler
+						r.UnlockAndRequeue(
+							metricsInstance,
+							int64(30),
+							lockReleased,
+							msg,
+						)
+						continue
+					}
 					log.Error(err, "failed to delete metrics instance")
 					r.UnlockAndRequeue(metricsInstance, requeueDelay, lockReleased, msg)
 					continue

@@ -84,6 +84,11 @@ func (hwd *HelmWorkloadDefinition) ScheduledForDeletion() *time.Time {
 	return hwd.DeletionScheduled
 }
 
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on HelmWorkloadDefinition.
+func (h *HelmWorkloadDefinition) AssociationRequiredByTypes() []string {
+	return []string{new(HelmWorkloadInstance).GetFullyQualifiedType()}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.

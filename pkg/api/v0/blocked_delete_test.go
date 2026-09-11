@@ -116,6 +116,7 @@ func TestFormatBlockedDelete(t *testing.T) {
 			},
 			wantHas: []string{
 				"threeport.io/kubernetes-workload-definition/5",
+				ErrMsgDeleteBlocked,
 				"cannot be deleted while 1 object(s) still reference it",
 				"threeport.io/kubernetes-workload-instance/11",
 				"Remove dependents first.",

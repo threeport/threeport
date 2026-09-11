@@ -83,6 +83,11 @@ func (ma *ModuleApi) GetFullyQualifiedType() string {
 	return "threeport.io/v0.ModuleApi"
 }
 
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on ModuleApi.
+func (m *ModuleApi) AssociationRequiredByTypes() []string {
+	return []string{new(ModuleApiRoute).GetFullyQualifiedType(), new(ModuleController).GetFullyQualifiedType(), new(ModuleObject).GetFullyQualifiedType()}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.

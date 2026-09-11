@@ -14,7 +14,7 @@ The following table provides examples of base and attached objects.
 |-------------|-----------------|
 | `HelmWorkloadDefinition` | `HelmWorkloadInstance` |
 | `HelmWorkloadDefinition` | `LoggingDefinition` |
-| `HelmWorkloadInstance`   | `Event` |
+| `KubernetesRuntimeInstance` | `LoggingInstance` |
 
 ## Incoming vs Outgoing References
 
@@ -46,7 +46,7 @@ A **marries** relationship is the strict 1-to-1 form of an owns relationship. Bo
 
 ### Describes Relationship
 
-If an object provides information about another object, it **describes** that object.  For example, an `Event` object records information that occurs at a point in time about a `HelmWorkloadInstance` object.  The `HelmWorkloadInstance` is the base object.  The `Event` object is the attached object.  If the `HelmWorkloadInstance` is updated or deleted, the `Event` object can still exist independently without negative impact.
+If an object provides information about another object, it **describes** that object.  This is the default relationship, and the weakest: it records that the two objects are related and blocks nothing.  If the base object is updated or deleted, the attached object still exists without negative impact.  No core object declares one today; a module records a **describes** reference when it wants the link visible without giving the attached object any say in the base object's lifecycle.
 
 In a **describes** relationship, the base object can be updated or deleted while the attached object exists.
 
@@ -57,7 +57,6 @@ The following table illustrates the relationship type for each example.
 | `HelmWorkloadDefinition`      | `HelmWorkloadInstance`              | `requires` |
 | `LoggingDefinition`           | `HelmWorkloadDefinition`            | `owns` |
 | `KubernetesRuntimeDefinition` | `AwsEksKubernetesRuntimeDefinition` | `marries` |
-| `HelmWorkloadInstance`        | `Event`                             | `describes` |
 
 
 <br>![Attached Object References](../img/AttachedObjects.drawio.svg)<br>

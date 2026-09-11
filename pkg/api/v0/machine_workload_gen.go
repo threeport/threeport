@@ -79,6 +79,11 @@ func (mwd *MachineWorkloadDefinition) GetFullyQualifiedType() string {
 	return "threeport.io/v0.MachineWorkloadDefinition"
 }
 
+// AssociationTypes returns the fully-qualified type names of children referenced via has-many association slices on MachineWorkloadDefinition.
+func (m *MachineWorkloadDefinition) AssociationTypes() []string {
+	return []string{new(MachineWorkloadInstance).GetFullyQualifiedType()}
+}
+
 // EncryptedFields returns the encrypt-tagged fields on MachineWorkloadDefinition.
 func (m *MachineWorkloadDefinition) EncryptedFields() []lib.EncryptedField {
 	return []lib.EncryptedField{{

@@ -624,7 +624,7 @@ definitions:
               in the request body. Event.BeforeCreate validates them;
               Event.AfterCreate inserts the matching AttachedObjectReference
               in the same transaction. ObjectName is ignored on write.
-            - On read: GetEventsJoinAttachedObjectReferenceByQueryString
+            - On read: GetEventsFilteredByQueryString
               projects the joined AOR's base object back into these
               fields, then resolves ObjectName via the type's name resolver.
 
@@ -5486,13 +5486,13 @@ paths:
           schema:
             $ref: '#/definitions/v0.Response'
       summary: adds a new event.
-  /v0/events-join-attached-object-references:
+  /v0/events-filtered:
     get:
       consumes:
       - application/json
       description: Get all events joined with attached object references from the
         Threeport database.
-      operationId: get-v0-events-join-attached-object-references
+      operationId: get-v0-events-filtered
       parameters:
       - description: filter events by object ID
         in: query

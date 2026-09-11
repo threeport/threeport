@@ -14,7 +14,7 @@ import (
 )
 
 // GenObjectLookup emits server-side helpers that resolve names to IDs and
-// back for every core API type with a Name field. Used by the events-join
+// back for every core API type with a Name field. Used by the filtered-events
 // handler to enrich responses without a per-type switch in the CLI.
 // Generated only for threeport/threeport (not for modules); module dispatch
 // is handled at runtime by GetModuleRouteForType().

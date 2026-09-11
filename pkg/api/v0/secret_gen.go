@@ -95,6 +95,11 @@ func (s *SecretDefinition) RelationshipTaggedForeignKeys() []RelationshipTaggedF
 	}}
 }
 
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on SecretDefinition.
+func (s *SecretDefinition) AssociationRequiredByTypes() []string {
+	return []string{new(SecretInstance).GetFullyQualifiedType()}
+}
+
 // PersistFalseFields returns the persist:"false"-tagged fields on SecretDefinition.
 func (s *SecretDefinition) PersistFalseFields() []lib.PersistFalseField {
 	return []lib.PersistFalseField{{Name: "Data"}}

@@ -117,6 +117,11 @@ func (l *LoggingDefinition) RelationshipTaggedForeignKeys() []RelationshipTagged
 	}}
 }
 
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on LoggingDefinition.
+func (l *LoggingDefinition) AssociationRequiredByTypes() []string {
+	return []string{new(LoggingInstance).GetFullyQualifiedType()}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -282,6 +287,11 @@ func (m *MetricsDefinition) RelationshipTaggedForeignKeys() []RelationshipTagged
 	}}
 }
 
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on MetricsDefinition.
+func (m *MetricsDefinition) AssociationRequiredByTypes() []string {
+	return []string{new(MetricsInstance).GetFullyQualifiedType()}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -440,6 +450,11 @@ func (o *ObservabilityDashboardDefinition) RelationshipTaggedForeignKeys() []Rel
 		ObjectType:   new(HelmWorkloadDefinition).GetFullyQualifiedType(),
 		Relationship: RelationshipOwns,
 	}}
+}
+
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on ObservabilityDashboardDefinition.
+func (o *ObservabilityDashboardDefinition) AssociationRequiredByTypes() []string {
+	return []string{new(ObservabilityDashboardInstance).GetFullyQualifiedType()}
 }
 
 // NotificationPayload returns the notification payload that is delivered to the
@@ -610,6 +625,11 @@ func (o *ObservabilityStackDefinition) RelationshipTaggedForeignKeys() []Relatio
 		ObjectType:   new(ObservabilityDashboardDefinition).GetFullyQualifiedType(),
 		Relationship: RelationshipOwns,
 	}}
+}
+
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on ObservabilityStackDefinition.
+func (o *ObservabilityStackDefinition) AssociationRequiredByTypes() []string {
+	return []string{new(ObservabilityStackInstance).GetFullyQualifiedType()}
 }
 
 // NotificationPayload returns the notification payload that is delivered to the

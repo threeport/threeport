@@ -68,7 +68,7 @@ func RespondBlockedDelete(c echo.Context, db *gorm.DB, blocked *api_v0.BlockedDe
 		for id := range idSet {
 			ids = append(ids, id)
 		}
-		names, err := GetObjectNames(db, objectType, ids, false)
+		names, err := GetObjectNames(c.Request().Context(), db, objectType, ids, false)
 		if err != nil {
 			names = map[uint]string{}
 		}

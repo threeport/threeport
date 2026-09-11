@@ -46,6 +46,18 @@ type RelationshipTaggedForeignKeyProvider interface {
 	RelationshipTaggedForeignKeys() []RelationshipTaggedForeignKey
 }
 
+// AssociationTypesProvider is implemented by API types that list owned
+// has-many children with no requires back-reference, as fully qualified type names.
+type AssociationTypesProvider interface {
+	AssociationTypes() []string
+}
+
+// AssociationRequiredByTypesProvider is implemented by API types that list
+// dependents which require them. Those children are not owned.
+type AssociationRequiredByTypesProvider interface {
+	AssociationRequiredByTypes() []string
+}
+
 // relationshipTaggedForeignKeysFor returns the tagged foreign keys of obj, or nil.
 func relationshipTaggedForeignKeysFor(obj interface{}) []RelationshipTaggedForeignKey {
 	p, ok := obj.(RelationshipTaggedForeignKeyProvider)

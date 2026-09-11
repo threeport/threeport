@@ -84,6 +84,11 @@ func (cpd *ControlPlaneDefinition) ScheduledForDeletion() *time.Time {
 	return cpd.DeletionScheduled
 }
 
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on ControlPlaneDefinition.
+func (c *ControlPlaneDefinition) AssociationRequiredByTypes() []string {
+	return []string{new(ControlPlaneInstance).GetFullyQualifiedType()}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
