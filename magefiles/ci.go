@@ -20,15 +20,9 @@ func (Ci) Env() error {
 	return nil
 }
 
-// Teardown removes leftover CI kind clusters, containers, networks, and
-// volumes. It is a no-op unless CI is true.
+// Teardown removes leftover kind clusters, containers, networks, and
+// volumes.
 func (Ci) Teardown() error {
-	// skip unless CI so prune and kind --all cannot hit a local environment
-	if os.Getenv("CI") != "true" {
-		fmt.Println("ci:teardown: not running in CI, skipping")
-		return nil
-	}
-
 	// take down the test control plane
 	teardownStep("./bin/tptctl", "down", "-n", testControlPlaneName)
 

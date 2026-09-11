@@ -1014,13 +1014,8 @@ func emitCiTeardownFunc(f *File) {
 	f.Comment("registry, and dangling docker data. It force-removes the cluster and config")
 	f.Comment("directly rather than trusting tptctl down, which cannot clear its")
 	f.Comment("control-plane entry once a failed test has left the cluster gone. Running")
-	f.Comment("unconditionally keeps every subsequent run starting clean. Gated on the CI")
-	f.Comment("env var so it never runs against a local environment.")
+	f.Comment("unconditionally keeps every subsequent run starting clean.")
 	f.Func().Params(Id("Ci")).Id("Teardown").Params().Error().Block(
-		If(Qual("os", "Getenv").Call(Lit("CI")).Op("!=").Lit("true")).Block(
-			Qual("fmt", "Println").Call(Lit("ci:teardown: not running in CI, skipping")),
-			Return(Nil()),
-		),
 		Comment("best-effort graceful teardown of the control plane, then force-delete the"),
 		Comment("kind cluster in case the graceful path failed"),
 		Id("teardownStep").Call(Lit("tptctl"), Lit("down"), Lit("--name"), Lit("test")),
