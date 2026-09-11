@@ -6,16 +6,17 @@ import (
 	"fmt"
 	mg "github.com/magefile/mage/mg"
 	version "github.com/threeport/threeport/internal/version"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	tptdev "github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
+	"go/build"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
-	"strconv"
+	"strings"
 )
-
-const releaseArch = "amd64"
 
 // Build provides a type for methods that implement build targets.
 type Build mg.Namespace
@@ -32,49 +33,90 @@ type Dev mg.Namespace
 // Package provides a type for methods that implement package targets.
 type Package mg.Namespace
 
-// ApiBin builds the REST API binary.
-func (Build) ApiBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+// Ci provides a type for methods that emit values for CI workflow steps.
+type Ci mg.Namespace
+
+// Env prints KEY=value lines for a workflow GITHUB_ENV file.
+func (Ci) Env() error {
+	return util.WriteCIEnv("")
+}
+
+// Teardown removes leftover kind clusters, containers, networks, and volumes.
+func (Ci) Teardown() error {
+	return util.TeardownCILeftovers("./bin/tptctl", "mage-test", func() error {
+		return (Dev{}).LocalRegistryDown()
+	})
+}
+
+// Unit runs the unit tests across the threeport packages.
+func (Test) Unit() error {
+	cmd := "go"
+	args := []string{
+		"test",
+		"-count=1",
+		"-race",
+		fmt.Sprintf("-p=%d", util.BuildParallelism()),
+		"./pkg/...",
+		"./internal/...",
+		"./cmd/...",
+		"./magefiles/...",
+	}
+	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
+		return fmt.Errorf("failed to run unit tests: %w", err)
 	}
 
+	return nil
+}
+
+// Integration runs integration tests against an existing Threeport control plane.
+func (Test) Integration() error {
+	if err := cli.UnmetPrerequisites("integration test", cli.ControlPlaneConfigProblems()); err != nil {
+		return err
+	}
+	cmd := "go"
+	args := []string{
+		"test",
+		"-v",
+		fmt.Sprintf("-p=%d", util.BuildParallelism()),
+		"./test/integration",
+		"-count=1",
+	}
+	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
+		return fmt.Errorf("failed to run integration tests: %w", err)
+	}
+
+	return nil
+}
+
+// installDir returns the directory `go install` writes binaries to:
+// $GOBIN if set, otherwise $GOPATH/bin. build.Default.GOPATH falls back
+// to ~/go when $GOPATH is unset, so the result is always non-empty.
+func installDir() string {
+	if gobin := os.Getenv("GOBIN"); gobin != "" {
+		return gobin
+	}
+	return filepath.Join(build.Default.GOPATH, "bin")
+}
+
+// ApiBin builds the REST API binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) ApiBin() error {
+	workingDir, arch, err := getBuildVals()
+	if err != nil {
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/rest-api"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build rest-api binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/rest-api\n", arch)
-
-	return nil
-}
-
-// ApiBinDev builds the REST API binary for the architcture of the machine
-// where it is built.
-func (Build) ApiBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.ApiBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev rest-api binary: %w", err)
-	}
-
-	return nil
-}
-
-// ApiBinRelease builds the REST API binary for release architecture.
-func (Build) ApiBinRelease() error {
-	build := Build{}
-	if err := build.ApiBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release rest-api binary: %w", err)
-	}
+	fmt.Printf("rest-api binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -108,14 +150,15 @@ func (Build) restApiImagePackage(
 }
 
 // ApiImage builds and pushes a REST API container image.
-func (Build) ApiImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) ApiImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -131,82 +174,25 @@ func (Build) ApiImage(
 	return Build{}.restApiImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// ApiImageDev builds and pushes a development REST API container image.
-func (Build) ApiImageDev() error {
-	_, arch, err := getBuildVals()
+// DbMigratorBin builds the database migrator binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) DbMigratorBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.ApiImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev rest-api image: %w", err)
-	}
-
-	return nil
-}
-
-// ApiImageRelease builds and pushes a release REST API container image.
-func (Build) ApiImageRelease() error {
-	build := Build{}
-	if err := build.ApiImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release rest-api image: %w", err)
-	}
-
-	return nil
-}
-
-// DbMigratorBin builds the database migrator binary.
-func (Build) DbMigratorBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/database-migrator"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build database-migrator binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/database-migrator\n", arch)
-
-	return nil
-}
-
-// DbMigratorBinDev builds the database migrator binary for the architcture of the machine
-// where it is built.
-func (Build) DbMigratorBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.DbMigratorBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev database-migrator binary: %w", err)
-	}
-
-	return nil
-}
-
-// DbMigratorBinRelease builds the database migrator binary for release architecture.
-func (Build) DbMigratorBinRelease() error {
-	build := Build{}
-	if err := build.DbMigratorBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release database-migrator binary: %w", err)
-	}
+	fmt.Printf("database-migrator binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -240,14 +226,15 @@ func (Build) dbMigratorImagePackage(
 }
 
 // DbMigratorImage builds and pushes a database migrator container image.
-func (Build) DbMigratorImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) DbMigratorImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -263,82 +250,25 @@ func (Build) DbMigratorImage(
 	return Build{}.dbMigratorImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// DbMigratorImageDev builds and pushes a development database migrator container image.
-func (Build) DbMigratorImageDev() error {
-	_, arch, err := getBuildVals()
+// AgentBin builds the agent binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) AgentBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.DbMigratorImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev database-migrator image: %w", err)
-	}
-
-	return nil
-}
-
-// DbMigratorImageRelease builds and pushes a release database migrator container image.
-func (Build) DbMigratorImageRelease() error {
-	build := Build{}
-	if err := build.DbMigratorImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release database-migrator image: %w", err)
-	}
-
-	return nil
-}
-
-// AgentBin builds the agent binary.
-func (Build) AgentBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/agent"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build agent binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/agent\n", arch)
-
-	return nil
-}
-
-// AgentBinDev builds the agent binary for the architcture of the machine
-// where it is built.
-func (Build) AgentBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.AgentBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev agent binary: %w", err)
-	}
-
-	return nil
-}
-
-// AgentBinRelease builds the agent binary for release architecture.
-func (Build) AgentBinRelease() error {
-	build := Build{}
-	if err := build.AgentBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release agent binary: %w", err)
-	}
+	fmt.Printf("agent binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -372,14 +302,15 @@ func (Build) agentImagePackage(
 }
 
 // AgentImage builds and pushes a agent container image.
-func (Build) AgentImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) AgentImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -395,82 +326,25 @@ func (Build) AgentImage(
 	return Build{}.agentImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// AgentImageDev builds and pushes a development agent container image.
-func (Build) AgentImageDev() error {
-	_, arch, err := getBuildVals()
+// SecretControllerBin builds the secret-controller binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) SecretControllerBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.AgentImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev agent image: %w", err)
-	}
-
-	return nil
-}
-
-// AgentImageRelease builds and pushes a release agent container image.
-func (Build) AgentImageRelease() error {
-	build := Build{}
-	if err := build.AgentImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release agent image: %w", err)
-	}
-
-	return nil
-}
-
-// SecretControllerBin builds the secret-controller binary.
-func (Build) SecretControllerBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/secret-controller"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build secret-controller binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/secret-controller\n", arch)
-
-	return nil
-}
-
-// SecretControllerBinDev builds the secret-controller binary for the architcture of the machine
-// where it is built.
-func (Build) SecretControllerBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.SecretControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev secret-controller binary: %w", err)
-	}
-
-	return nil
-}
-
-// SecretControllerBinRelease builds the secret-controller binary for release architecture.
-func (Build) SecretControllerBinRelease() error {
-	build := Build{}
-	if err := build.SecretControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release secret-controller binary: %w", err)
-	}
+	fmt.Printf("secret-controller binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -504,14 +378,15 @@ func (Build) secretControllerImagePackage(
 }
 
 // SecretControllerImage builds and pushes a secret-controller container image.
-func (Build) SecretControllerImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) SecretControllerImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -527,82 +402,25 @@ func (Build) SecretControllerImage(
 	return Build{}.secretControllerImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// SecretControllerImageDev builds and pushes a development secret-controller container image.
-func (Build) SecretControllerImageDev() error {
-	_, arch, err := getBuildVals()
+// AwsControllerBin builds the aws-controller binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) AwsControllerBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.SecretControllerImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev secret-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// SecretControllerImageRelease builds and pushes a release secret-controller container image.
-func (Build) SecretControllerImageRelease() error {
-	build := Build{}
-	if err := build.SecretControllerImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release secret-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// AwsControllerBin builds the aws-controller binary.
-func (Build) AwsControllerBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/aws-controller"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build aws-controller binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/aws-controller\n", arch)
-
-	return nil
-}
-
-// AwsControllerBinDev builds the aws-controller binary for the architcture of the machine
-// where it is built.
-func (Build) AwsControllerBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.AwsControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev aws-controller binary: %w", err)
-	}
-
-	return nil
-}
-
-// AwsControllerBinRelease builds the aws-controller binary for release architecture.
-func (Build) AwsControllerBinRelease() error {
-	build := Build{}
-	if err := build.AwsControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release aws-controller binary: %w", err)
-	}
+	fmt.Printf("aws-controller binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -636,14 +454,15 @@ func (Build) awsControllerImagePackage(
 }
 
 // AwsControllerImage builds and pushes a aws-controller container image.
-func (Build) AwsControllerImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) AwsControllerImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -659,82 +478,25 @@ func (Build) AwsControllerImage(
 	return Build{}.awsControllerImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// AwsControllerImageDev builds and pushes a development aws-controller container image.
-func (Build) AwsControllerImageDev() error {
-	_, arch, err := getBuildVals()
+// OciControllerBin builds the oci-controller binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) OciControllerBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.AwsControllerImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev aws-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// AwsControllerImageRelease builds and pushes a release aws-controller container image.
-func (Build) AwsControllerImageRelease() error {
-	build := Build{}
-	if err := build.AwsControllerImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release aws-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// OciControllerBin builds the oci-controller binary.
-func (Build) OciControllerBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/oci-controller"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build oci-controller binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/oci-controller\n", arch)
-
-	return nil
-}
-
-// OciControllerBinDev builds the oci-controller binary for the architcture of the machine
-// where it is built.
-func (Build) OciControllerBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.OciControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev oci-controller binary: %w", err)
-	}
-
-	return nil
-}
-
-// OciControllerBinRelease builds the oci-controller binary for release architecture.
-func (Build) OciControllerBinRelease() error {
-	build := Build{}
-	if err := build.OciControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release oci-controller binary: %w", err)
-	}
+	fmt.Printf("oci-controller binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -768,14 +530,15 @@ func (Build) ociControllerImagePackage(
 }
 
 // OciControllerImage builds and pushes a oci-controller container image.
-func (Build) OciControllerImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) OciControllerImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -791,82 +554,25 @@ func (Build) OciControllerImage(
 	return Build{}.ociControllerImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// OciControllerImageDev builds and pushes a development oci-controller container image.
-func (Build) OciControllerImageDev() error {
-	_, arch, err := getBuildVals()
+// GcpControllerBin builds the gcp-controller binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) GcpControllerBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.OciControllerImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev oci-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// OciControllerImageRelease builds and pushes a release oci-controller container image.
-func (Build) OciControllerImageRelease() error {
-	build := Build{}
-	if err := build.OciControllerImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release oci-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// GcpControllerBin builds the gcp-controller binary.
-func (Build) GcpControllerBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/gcp-controller"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build gcp-controller binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/gcp-controller\n", arch)
-
-	return nil
-}
-
-// GcpControllerBinDev builds the gcp-controller binary for the architcture of the machine
-// where it is built.
-func (Build) GcpControllerBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.GcpControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev gcp-controller binary: %w", err)
-	}
-
-	return nil
-}
-
-// GcpControllerBinRelease builds the gcp-controller binary for release architecture.
-func (Build) GcpControllerBinRelease() error {
-	build := Build{}
-	if err := build.GcpControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release gcp-controller binary: %w", err)
-	}
+	fmt.Printf("gcp-controller binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -900,14 +606,15 @@ func (Build) gcpControllerImagePackage(
 }
 
 // GcpControllerImage builds and pushes a gcp-controller container image.
-func (Build) GcpControllerImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) GcpControllerImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -923,82 +630,25 @@ func (Build) GcpControllerImage(
 	return Build{}.gcpControllerImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// GcpControllerImageDev builds and pushes a development gcp-controller container image.
-func (Build) GcpControllerImageDev() error {
-	_, arch, err := getBuildVals()
+// ControlPlaneControllerBin builds the control-plane-controller binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) ControlPlaneControllerBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.GcpControllerImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev gcp-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// GcpControllerImageRelease builds and pushes a release gcp-controller container image.
-func (Build) GcpControllerImageRelease() error {
-	build := Build{}
-	if err := build.GcpControllerImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release gcp-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// ControlPlaneControllerBin builds the control-plane-controller binary.
-func (Build) ControlPlaneControllerBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/control-plane-controller"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build control-plane-controller binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/control-plane-controller\n", arch)
-
-	return nil
-}
-
-// ControlPlaneControllerBinDev builds the control-plane-controller binary for the architcture of the machine
-// where it is built.
-func (Build) ControlPlaneControllerBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.ControlPlaneControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev control-plane-controller binary: %w", err)
-	}
-
-	return nil
-}
-
-// ControlPlaneControllerBinRelease builds the control-plane-controller binary for release architecture.
-func (Build) ControlPlaneControllerBinRelease() error {
-	build := Build{}
-	if err := build.ControlPlaneControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release control-plane-controller binary: %w", err)
-	}
+	fmt.Printf("control-plane-controller binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -1032,14 +682,15 @@ func (Build) controlPlaneControllerImagePackage(
 }
 
 // ControlPlaneControllerImage builds and pushes a control-plane-controller container image.
-func (Build) ControlPlaneControllerImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) ControlPlaneControllerImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -1055,82 +706,25 @@ func (Build) ControlPlaneControllerImage(
 	return Build{}.controlPlaneControllerImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// ControlPlaneControllerImageDev builds and pushes a development control-plane-controller container image.
-func (Build) ControlPlaneControllerImageDev() error {
-	_, arch, err := getBuildVals()
+// GatewayControllerBin builds the gateway-controller binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) GatewayControllerBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.ControlPlaneControllerImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev control-plane-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// ControlPlaneControllerImageRelease builds and pushes a release control-plane-controller container image.
-func (Build) ControlPlaneControllerImageRelease() error {
-	build := Build{}
-	if err := build.ControlPlaneControllerImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release control-plane-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// GatewayControllerBin builds the gateway-controller binary.
-func (Build) GatewayControllerBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/gateway-controller"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build gateway-controller binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/gateway-controller\n", arch)
-
-	return nil
-}
-
-// GatewayControllerBinDev builds the gateway-controller binary for the architcture of the machine
-// where it is built.
-func (Build) GatewayControllerBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.GatewayControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev gateway-controller binary: %w", err)
-	}
-
-	return nil
-}
-
-// GatewayControllerBinRelease builds the gateway-controller binary for release architecture.
-func (Build) GatewayControllerBinRelease() error {
-	build := Build{}
-	if err := build.GatewayControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release gateway-controller binary: %w", err)
-	}
+	fmt.Printf("gateway-controller binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -1164,14 +758,15 @@ func (Build) gatewayControllerImagePackage(
 }
 
 // GatewayControllerImage builds and pushes a gateway-controller container image.
-func (Build) GatewayControllerImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) GatewayControllerImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -1187,82 +782,25 @@ func (Build) GatewayControllerImage(
 	return Build{}.gatewayControllerImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// GatewayControllerImageDev builds and pushes a development gateway-controller container image.
-func (Build) GatewayControllerImageDev() error {
-	_, arch, err := getBuildVals()
+// HelmWorkloadControllerBin builds the helm-workload-controller binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) HelmWorkloadControllerBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.GatewayControllerImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev gateway-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// GatewayControllerImageRelease builds and pushes a release gateway-controller container image.
-func (Build) GatewayControllerImageRelease() error {
-	build := Build{}
-	if err := build.GatewayControllerImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release gateway-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// HelmWorkloadControllerBin builds the helm-workload-controller binary.
-func (Build) HelmWorkloadControllerBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/helm-workload-controller"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build helm-workload-controller binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/helm-workload-controller\n", arch)
-
-	return nil
-}
-
-// HelmWorkloadControllerBinDev builds the helm-workload-controller binary for the architcture of the machine
-// where it is built.
-func (Build) HelmWorkloadControllerBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.HelmWorkloadControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev helm-workload-controller binary: %w", err)
-	}
-
-	return nil
-}
-
-// HelmWorkloadControllerBinRelease builds the helm-workload-controller binary for release architecture.
-func (Build) HelmWorkloadControllerBinRelease() error {
-	build := Build{}
-	if err := build.HelmWorkloadControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release helm-workload-controller binary: %w", err)
-	}
+	fmt.Printf("helm-workload-controller binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -1296,14 +834,15 @@ func (Build) helmWorkloadControllerImagePackage(
 }
 
 // HelmWorkloadControllerImage builds and pushes a helm-workload-controller container image.
-func (Build) HelmWorkloadControllerImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) HelmWorkloadControllerImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -1319,82 +858,25 @@ func (Build) HelmWorkloadControllerImage(
 	return Build{}.helmWorkloadControllerImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// HelmWorkloadControllerImageDev builds and pushes a development helm-workload-controller container image.
-func (Build) HelmWorkloadControllerImageDev() error {
-	_, arch, err := getBuildVals()
+// MachineRuntimeControllerBin builds the machine-runtime-controller binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) MachineRuntimeControllerBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.HelmWorkloadControllerImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev helm-workload-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// HelmWorkloadControllerImageRelease builds and pushes a release helm-workload-controller container image.
-func (Build) HelmWorkloadControllerImageRelease() error {
-	build := Build{}
-	if err := build.HelmWorkloadControllerImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release helm-workload-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// MachineRuntimeControllerBin builds the machine-runtime-controller binary.
-func (Build) MachineRuntimeControllerBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/machine-runtime-controller"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build machine-runtime-controller binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/machine-runtime-controller\n", arch)
-
-	return nil
-}
-
-// MachineRuntimeControllerBinDev builds the machine-runtime-controller binary for the architcture of the machine
-// where it is built.
-func (Build) MachineRuntimeControllerBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.MachineRuntimeControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev machine-runtime-controller binary: %w", err)
-	}
-
-	return nil
-}
-
-// MachineRuntimeControllerBinRelease builds the machine-runtime-controller binary for release architecture.
-func (Build) MachineRuntimeControllerBinRelease() error {
-	build := Build{}
-	if err := build.MachineRuntimeControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release machine-runtime-controller binary: %w", err)
-	}
+	fmt.Printf("machine-runtime-controller binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -1428,14 +910,15 @@ func (Build) machineRuntimeControllerImagePackage(
 }
 
 // MachineRuntimeControllerImage builds and pushes a machine-runtime-controller container image.
-func (Build) MachineRuntimeControllerImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) MachineRuntimeControllerImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -1451,82 +934,25 @@ func (Build) MachineRuntimeControllerImage(
 	return Build{}.machineRuntimeControllerImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// MachineRuntimeControllerImageDev builds and pushes a development machine-runtime-controller container image.
-func (Build) MachineRuntimeControllerImageDev() error {
-	_, arch, err := getBuildVals()
+// MachineWorkloadControllerBin builds the machine-workload-controller binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) MachineWorkloadControllerBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.MachineRuntimeControllerImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev machine-runtime-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// MachineRuntimeControllerImageRelease builds and pushes a release machine-runtime-controller container image.
-func (Build) MachineRuntimeControllerImageRelease() error {
-	build := Build{}
-	if err := build.MachineRuntimeControllerImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release machine-runtime-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// MachineWorkloadControllerBin builds the machine-workload-controller binary.
-func (Build) MachineWorkloadControllerBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/machine-workload-controller"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build machine-workload-controller binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/machine-workload-controller\n", arch)
-
-	return nil
-}
-
-// MachineWorkloadControllerBinDev builds the machine-workload-controller binary for the architcture of the machine
-// where it is built.
-func (Build) MachineWorkloadControllerBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.MachineWorkloadControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev machine-workload-controller binary: %w", err)
-	}
-
-	return nil
-}
-
-// MachineWorkloadControllerBinRelease builds the machine-workload-controller binary for release architecture.
-func (Build) MachineWorkloadControllerBinRelease() error {
-	build := Build{}
-	if err := build.MachineWorkloadControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release machine-workload-controller binary: %w", err)
-	}
+	fmt.Printf("machine-workload-controller binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -1560,14 +986,15 @@ func (Build) machineWorkloadControllerImagePackage(
 }
 
 // MachineWorkloadControllerImage builds and pushes a machine-workload-controller container image.
-func (Build) MachineWorkloadControllerImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) MachineWorkloadControllerImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -1583,82 +1010,25 @@ func (Build) MachineWorkloadControllerImage(
 	return Build{}.machineWorkloadControllerImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// MachineWorkloadControllerImageDev builds and pushes a development machine-workload-controller container image.
-func (Build) MachineWorkloadControllerImageDev() error {
-	_, arch, err := getBuildVals()
+// KubernetesRuntimeControllerBin builds the kubernetes-runtime-controller binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) KubernetesRuntimeControllerBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.MachineWorkloadControllerImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev machine-workload-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// MachineWorkloadControllerImageRelease builds and pushes a release machine-workload-controller container image.
-func (Build) MachineWorkloadControllerImageRelease() error {
-	build := Build{}
-	if err := build.MachineWorkloadControllerImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release machine-workload-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// KubernetesRuntimeControllerBin builds the kubernetes-runtime-controller binary.
-func (Build) KubernetesRuntimeControllerBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/kubernetes-runtime-controller"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build kubernetes-runtime-controller binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/kubernetes-runtime-controller\n", arch)
-
-	return nil
-}
-
-// KubernetesRuntimeControllerBinDev builds the kubernetes-runtime-controller binary for the architcture of the machine
-// where it is built.
-func (Build) KubernetesRuntimeControllerBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.KubernetesRuntimeControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev kubernetes-runtime-controller binary: %w", err)
-	}
-
-	return nil
-}
-
-// KubernetesRuntimeControllerBinRelease builds the kubernetes-runtime-controller binary for release architecture.
-func (Build) KubernetesRuntimeControllerBinRelease() error {
-	build := Build{}
-	if err := build.KubernetesRuntimeControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release kubernetes-runtime-controller binary: %w", err)
-	}
+	fmt.Printf("kubernetes-runtime-controller binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -1692,14 +1062,15 @@ func (Build) kubernetesRuntimeControllerImagePackage(
 }
 
 // KubernetesRuntimeControllerImage builds and pushes a kubernetes-runtime-controller container image.
-func (Build) KubernetesRuntimeControllerImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) KubernetesRuntimeControllerImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -1715,82 +1086,25 @@ func (Build) KubernetesRuntimeControllerImage(
 	return Build{}.kubernetesRuntimeControllerImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// KubernetesRuntimeControllerImageDev builds and pushes a development kubernetes-runtime-controller container image.
-func (Build) KubernetesRuntimeControllerImageDev() error {
-	_, arch, err := getBuildVals()
+// ObservabilityControllerBin builds the observability-controller binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) ObservabilityControllerBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.KubernetesRuntimeControllerImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev kubernetes-runtime-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// KubernetesRuntimeControllerImageRelease builds and pushes a release kubernetes-runtime-controller container image.
-func (Build) KubernetesRuntimeControllerImageRelease() error {
-	build := Build{}
-	if err := build.KubernetesRuntimeControllerImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release kubernetes-runtime-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// ObservabilityControllerBin builds the observability-controller binary.
-func (Build) ObservabilityControllerBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/observability-controller"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build observability-controller binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/observability-controller\n", arch)
-
-	return nil
-}
-
-// ObservabilityControllerBinDev builds the observability-controller binary for the architcture of the machine
-// where it is built.
-func (Build) ObservabilityControllerBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.ObservabilityControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev observability-controller binary: %w", err)
-	}
-
-	return nil
-}
-
-// ObservabilityControllerBinRelease builds the observability-controller binary for release architecture.
-func (Build) ObservabilityControllerBinRelease() error {
-	build := Build{}
-	if err := build.ObservabilityControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release observability-controller binary: %w", err)
-	}
+	fmt.Printf("observability-controller binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -1824,14 +1138,15 @@ func (Build) observabilityControllerImagePackage(
 }
 
 // ObservabilityControllerImage builds and pushes a observability-controller container image.
-func (Build) ObservabilityControllerImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) ObservabilityControllerImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -1847,82 +1162,25 @@ func (Build) ObservabilityControllerImage(
 	return Build{}.observabilityControllerImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// ObservabilityControllerImageDev builds and pushes a development observability-controller container image.
-func (Build) ObservabilityControllerImageDev() error {
-	_, arch, err := getBuildVals()
+// TerraformControllerBin builds the terraform-controller binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) TerraformControllerBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.ObservabilityControllerImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev observability-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// ObservabilityControllerImageRelease builds and pushes a release observability-controller container image.
-func (Build) ObservabilityControllerImageRelease() error {
-	build := Build{}
-	if err := build.ObservabilityControllerImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release observability-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// TerraformControllerBin builds the terraform-controller binary.
-func (Build) TerraformControllerBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/terraform-controller"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build terraform-controller binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/terraform-controller\n", arch)
-
-	return nil
-}
-
-// TerraformControllerBinDev builds the terraform-controller binary for the architcture of the machine
-// where it is built.
-func (Build) TerraformControllerBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.TerraformControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev terraform-controller binary: %w", err)
-	}
-
-	return nil
-}
-
-// TerraformControllerBinRelease builds the terraform-controller binary for release architecture.
-func (Build) TerraformControllerBinRelease() error {
-	build := Build{}
-	if err := build.TerraformControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release terraform-controller binary: %w", err)
-	}
+	fmt.Printf("terraform-controller binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -1956,14 +1214,15 @@ func (Build) terraformControllerImagePackage(
 }
 
 // TerraformControllerImage builds and pushes a terraform-controller container image.
-func (Build) TerraformControllerImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) TerraformControllerImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -1979,82 +1238,25 @@ func (Build) TerraformControllerImage(
 	return Build{}.terraformControllerImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// TerraformControllerImageDev builds and pushes a development terraform-controller container image.
-func (Build) TerraformControllerImageDev() error {
-	_, arch, err := getBuildVals()
+// KubernetesWorkloadControllerBin builds the kubernetes-workload-controller binary for the arch(es) in the ARCH env
+// var, defaulting to the local CPU architecture.
+func (Build) KubernetesWorkloadControllerBin() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.TerraformControllerImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev terraform-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// TerraformControllerImageRelease builds and pushes a release terraform-controller container image.
-func (Build) TerraformControllerImageRelease() error {
-	build := Build{}
-	if err := build.TerraformControllerImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release terraform-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// KubernetesWorkloadControllerBin builds the kubernetes-workload-controller binary.
-func (Build) KubernetesWorkloadControllerBin(arch string) error {
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
+	arches := util.ParseArches(arch)
 	if err := util.BuildBinaries(
 		workingDir,
-		[]string{arch},
+		arches,
 		[]string{"cmd/kubernetes-workload-controller"},
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to build kubernetes-workload-controller binary: %w", err)
 	}
 
-	fmt.Printf("binary built and available at bin/%s/kubernetes-workload-controller\n", arch)
-
-	return nil
-}
-
-// KubernetesWorkloadControllerBinDev builds the kubernetes-workload-controller binary for the architcture of the machine
-// where it is built.
-func (Build) KubernetesWorkloadControllerBinDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	build := Build{}
-	if err := build.KubernetesWorkloadControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build dev kubernetes-workload-controller binary: %w", err)
-	}
-
-	return nil
-}
-
-// KubernetesWorkloadControllerBinRelease builds the kubernetes-workload-controller binary for release architecture.
-func (Build) KubernetesWorkloadControllerBinRelease() error {
-	build := Build{}
-	if err := build.KubernetesWorkloadControllerBin(releaseArch); err != nil {
-		return fmt.Errorf("failed to build release kubernetes-workload-controller binary: %w", err)
-	}
+	fmt.Printf("kubernetes-workload-controller binary built for arch(es): %s\n", strings.Join(arches, ", "))
 
 	return nil
 }
@@ -2088,14 +1290,15 @@ func (Build) kubernetesWorkloadControllerImagePackage(
 }
 
 // KubernetesWorkloadControllerImage builds and pushes a kubernetes-workload-controller container image.
-func (Build) KubernetesWorkloadControllerImage(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
-	workingDir, _, err := getBuildVals()
+func (Build) KubernetesWorkloadControllerImage() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	arches := util.ParseArches(arch)
@@ -2111,271 +1314,98 @@ func (Build) KubernetesWorkloadControllerImage(
 	return Build{}.kubernetesWorkloadControllerImagePackage(workingDir, imageRepo, imageTag, arch)
 }
 
-// KubernetesWorkloadControllerImageDev builds and pushes a development kubernetes-workload-controller container image.
-func (Build) KubernetesWorkloadControllerImageDev() error {
-	_, arch, err := getBuildVals()
+// AllBins builds the binaries for all components for the arch(es) in
+// the ARCH env var, defaulting to the local CPU architecture.
+func (Build) AllBins() error {
+	build := Build{}
+	if err := build.ApiBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.DbMigratorBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.AgentBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.SecretControllerBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.AwsControllerBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.OciControllerBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.GcpControllerBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.ControlPlaneControllerBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.GatewayControllerBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.HelmWorkloadControllerBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.MachineRuntimeControllerBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.MachineWorkloadControllerBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.KubernetesRuntimeControllerBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.ObservabilityControllerBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.TerraformControllerBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	if err := build.KubernetesWorkloadControllerBin(); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+
+	return nil
+}
+
+// AllImages builds and pushes images for all components. Repo and tag
+// derive from the CI context when GITHUB_ACTIONS is set, otherwise the dev
+// namespace and current version; the IMAGE_REPO and IMAGE_TAG env vars
+// override either way. Arch comes from the ARCH env var or
+// the local CPU architecture. Pre-compiles binaries for every requested
+// arch in parallel, then packages each component image in parallel. A
+// comma-separated ARCH value (e.g. amd64,arm64) produces a multi-arch
+// manifest in one push; a single arch pushes only that arch under the given
+// tag (use package:allManifests to stitch single-arch tags from separate
+// runs). Set PARALLEL_IMAGE_BUILD >= 1 to cap packaging concurrency (e.g.
+// `PARALLEL_IMAGE_BUILD=4 mage build:allImages`).
+func (Build) AllImages() error {
+	workingDir, arch, err := getBuildVals()
 	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
+		return fmt.Errorf("failed to get build values: %w", err)
 	}
 
-	build := Build{}
-	if err := build.KubernetesWorkloadControllerImage(
-		installer.DevImageNamespace,
-		version.GetVersion(),
-		arch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push dev kubernetes-workload-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// KubernetesWorkloadControllerImageRelease builds and pushes a release kubernetes-workload-controller container image.
-func (Build) KubernetesWorkloadControllerImageRelease() error {
-	build := Build{}
-	if err := build.KubernetesWorkloadControllerImage(
-		installer.ThreeportImageNamespace,
-		version.GetVersion(),
-		releaseArch,
-	); err != nil {
-		return fmt.Errorf("failed to build and push release kubernetes-workload-controller image: %w", err)
-	}
-
-	return nil
-}
-
-// AllBins builds the binaries for all components.
-func (Build) AllBins(arch string) error {
-	build := Build{}
-	if err := build.ApiBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.DbMigratorBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.AgentBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.SecretControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.AwsControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.OciControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.GcpControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.ControlPlaneControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.GatewayControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.HelmWorkloadControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.MachineRuntimeControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.MachineWorkloadControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.KubernetesRuntimeControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.ObservabilityControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.TerraformControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.KubernetesWorkloadControllerBin(arch); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	return nil
-}
-
-// AllBinsDev builds the development binaries for all components.
-func (Build) AllBinsDev() error {
-	build := Build{}
-	if err := build.ApiBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.DbMigratorBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.AgentBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.SecretControllerBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.AwsControllerBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.OciControllerBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.GcpControllerBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.ControlPlaneControllerBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.GatewayControllerBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.HelmWorkloadControllerBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.MachineRuntimeControllerBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.MachineWorkloadControllerBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.KubernetesRuntimeControllerBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.ObservabilityControllerBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.TerraformControllerBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.KubernetesWorkloadControllerBinDev(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	return nil
-}
-
-// AllBinsRelease builds the release binaries for all components.
-func (Build) AllBinsRelease() error {
-	build := Build{}
-	if err := build.ApiBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.DbMigratorBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.AgentBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.SecretControllerBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.AwsControllerBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.OciControllerBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.GcpControllerBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.ControlPlaneControllerBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.GatewayControllerBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.HelmWorkloadControllerBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.MachineRuntimeControllerBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.MachineWorkloadControllerBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.KubernetesRuntimeControllerBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.ObservabilityControllerBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.TerraformControllerBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	if err := build.KubernetesWorkloadControllerBinRelease(); err != nil {
-		return fmt.Errorf("failed to build binary: %w", err)
-	}
-
-	return nil
-}
-
-// AllImages builds and pushes images for all components. Pre-compiles
-// binaries for every requested arch in parallel, then packages each
-// component image in parallel. A multi-arch arch value (e.g. amd64,arm64)
-// produces a multi-arch manifest in one push. A single arch (e.g. amd64)
-// pushes only that arch under the given tag; use package:allManifests to
-// stitch single-arch tags from separate runs into a multi-arch manifest list.
-// Set PARALLEL_IMAGE_BUILD >= 1 to cap packaging concurrency (e.g.
-// `PARALLEL_IMAGE_BUILD=4 mage build:allImages ghcr.io/foo v1 amd64,arm64`).
-func (Build) AllImages(
-	imageRepo string,
-	imageTag string,
-	arch string,
-) error {
 	// pre-compile every binary for every requested arch in one go build
 	// per arch (arches run in parallel) so dependency compilation is
 	// shared across components within an arch. Each per-image task
 	// below then only packages the pre-built binary.
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
 	arches := util.ParseArches(arch)
 
 	packageDirs := []string{
@@ -2404,6 +1434,11 @@ func (Build) AllImages(
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to pre-build binaries: %w", err)
+	}
+
+	imageRepo, imageTag, err := util.ResolveImageCoordinates(workingDir, installer.DevImageNamespace, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image coordinates: %w", err)
 	}
 
 	build := Build{}
@@ -2430,107 +1465,48 @@ func (Build) AllImages(
 		wrap(build.terraformControllerImagePackage),
 		wrap(build.kubernetesWorkloadControllerImagePackage),
 	}
-	return util.RunParallel(parallelFromEnv(), tasks)
+	return util.RunParallel(util.ImageBuildParallelism(), tasks)
 }
 
-// AllImagesDev builds and pushes development images for all components.
-// Set PARALLEL_IMAGE_BUILD >= 1 to control worker concurrency (e.g. `PARALLEL_IMAGE_BUILD=4 mage build:allImagesDev`).
-func (Build) AllImagesDev() error {
-	_, arch, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get local CPU architecture: %w", err)
-	}
-
-	// pre-compile every binary for every requested arch in one go build
-	// per arch (arches run in parallel) so dependency compilation is
-	// shared across components within an arch. Each per-image task
-	// below then only packages the pre-built binary.
-	workingDir, _, err := getBuildVals()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
-	arches := util.ParseArches(arch)
-
-	packageDirs := []string{
-		"cmd/rest-api",
-		"cmd/database-migrator",
-		"cmd/agent",
-		"cmd/secret-controller",
-		"cmd/aws-controller",
-		"cmd/oci-controller",
-		"cmd/gcp-controller",
-		"cmd/control-plane-controller",
-		"cmd/gateway-controller",
-		"cmd/helm-workload-controller",
-		"cmd/machine-runtime-controller",
-		"cmd/machine-workload-controller",
-		"cmd/kubernetes-runtime-controller",
-		"cmd/observability-controller",
-		"cmd/terraform-controller",
-		"cmd/kubernetes-workload-controller",
-	}
-
-	if err := util.BuildBinaries(
-		workingDir,
-		arches,
-		packageDirs,
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to pre-build binaries: %w", err)
-	}
-
-	build := Build{}
-	wrap := func(fn func(string, string, string, string) error) func() error {
-		return func() error {
-			return fn(workingDir, installer.DevImageNamespace, version.GetVersion(), arch)
-		}
-	}
-	tasks := []func() error{
-		wrap(build.restApiImagePackage),
-		wrap(build.dbMigratorImagePackage),
-		wrap(build.agentImagePackage),
-		wrap(build.secretControllerImagePackage),
-		wrap(build.awsControllerImagePackage),
-		wrap(build.ociControllerImagePackage),
-		wrap(build.gcpControllerImagePackage),
-		wrap(build.controlPlaneControllerImagePackage),
-		wrap(build.gatewayControllerImagePackage),
-		wrap(build.helmWorkloadControllerImagePackage),
-		wrap(build.machineRuntimeControllerImagePackage),
-		wrap(build.machineWorkloadControllerImagePackage),
-		wrap(build.kubernetesRuntimeControllerImagePackage),
-		wrap(build.observabilityControllerImagePackage),
-		wrap(build.terraformControllerImagePackage),
-		wrap(build.kubernetesWorkloadControllerImagePackage),
-	}
-	return util.RunParallel(parallelFromEnv(), tasks)
-}
-
-// Manifest stitches per-arch images into a multi-arch manifest list
-// under the canonical tag. Sources are looked up at
-// <repo>/<image>:<tag>-<arch> for each arch in the comma-separated
-// arches list and combined into <repo>/<image>:<tag> via
+// Manifest stitches per-arch images for one component into a multi-arch
+// manifest list under the canonical tag. Repo and tag derive from the CI
+// context when GITHUB_ACTIONS is set, otherwise the dev namespace and
+// current version; IMAGE_REPO and IMAGE_TAG override either way. The arch
+// set is discovered from the per-arch tags already pushed to the registry,
+// so the stitch covers whatever single-arch images the build produced.
+// Sources are looked up at <repo>/<image>:<tag>-<arch> for each discovered
+// arch and combined into <repo>/<image>:<tag> via
 // `docker buildx imagetools create`.
-func (Package) Manifest(
-	imageRepo string,
-	imageName string,
-	imageTag string,
-	arches string,
-) error {
-	return util.PushMultiArchManifest(imageRepo, imageName, imageTag, arches)
+func (Package) Manifest(imageName string) error {
+	imageRepo := util.ResolveImageRepo(installer.DevImageNamespace)
+	imageTag, err := util.ResolveImageTag(".", version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image tag: %w", err)
+	}
+
+	arches, err := util.DiscoverArches(imageRepo+"/"+imageName, imageTag)
+	if err != nil {
+		return fmt.Errorf("failed to discover arches: %w", err)
+	}
+
+	return util.PushMultiArchManifest(imageRepo, imageName, imageTag, strings.Join(arches, ","))
 }
 
 // AllManifests stitches multi-arch manifest lists for every component
-// in parallel, sourced from the installer's authoritative controller
-// list so adding a new controller automatically extends coverage. Set
-// PARALLEL_IMAGE_BUILD >= 1 to control worker concurrency (e.g.
-// `PARALLEL_IMAGE_BUILD=4 mage package:allManifests ghcr.io/foo v1 amd64,arm64`).
-func (Package) AllManifests(
-	imageRepo string,
-	imageTag string,
-	arches string,
-) error {
+// in parallel. Repo and tag derive from the CI context when
+// GITHUB_ACTIONS is set, otherwise the dev namespace and current
+// version; IMAGE_REPO and IMAGE_TAG override either way. Each
+// component's arch set is discovered from the per-arch tags already
+// pushed to the registry. Set PARALLEL_IMAGE_BUILD >= 1 to control
+// worker concurrency (e.g. `PARALLEL_IMAGE_BUILD=4 mage
+// package:allManifests`).
+func (Package) AllManifests() error {
+	imageRepo := util.ResolveImageRepo(installer.DevImageNamespace)
+	imageTag, err := util.ResolveImageTag(".", version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image tag: %w", err)
+	}
+
 	// gather every component image: rest-api, db migrator, agent, and
 	// all controllers from the installer's authoritative list
 	images := []string{
@@ -2546,24 +1522,15 @@ func (Package) AllManifests(
 	for _, image := range images {
 		image := image
 		tasks = append(tasks, func() error {
-			return util.PushMultiArchManifest(imageRepo, image, imageTag, arches)
+			arches, err := util.DiscoverArches(imageRepo+"/"+image, imageTag)
+			if err != nil {
+				return fmt.Errorf("failed to discover arches: %w", err)
+			}
+			return util.PushMultiArchManifest(imageRepo, image, imageTag, strings.Join(arches, ","))
 		})
 	}
 
-	return util.RunParallel(parallelFromEnv(), tasks)
-}
-
-// parallelFromEnv returns the PARALLEL_IMAGE_BUILD env var as an int, defaulting to 1.
-func parallelFromEnv() int {
-	v := os.Getenv("PARALLEL_IMAGE_BUILD")
-	if v == "" {
-		return 1
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil || n < 1 {
-		return 1
-	}
-	return n
+	return util.RunParallel(util.ImageBuildParallelism(), tasks)
 }
 
 // LoadImage builds and loads an image to the provided kind cluster.
@@ -2596,6 +1563,14 @@ func (Dev) LoadImage(kindClusterName string, component string) error {
 		dockerfileTarget = t
 	}
 
+	// tag the loaded image the way an install resolves its tag, so a
+	// later tptctl up with no --tag references the image just loaded
+	// rather than the bare version, which names no image in the cluster.
+	imageTag, err := util.ResolveImageTag(workingDir, version.GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to resolve image tag: %w", err)
+	}
+
 	if err := util.BuildImage(
 		workingDir,
 		"Dockerfile",
@@ -2606,7 +1581,7 @@ func (Dev) LoadImage(kindClusterName string, component string) error {
 		nil,
 		installer.DevImageNamespace,
 		imageName,
-		version.GetVersion(),
+		imageTag,
 		false,
 		true,
 		kindClusterName,
@@ -2660,14 +1635,19 @@ func (Dev) LocalRegistryDown() error {
 	return nil
 }
 
-// getBuildVals returns the working directory and arch for builds.
+// getBuildVals returns the working directory and the arch(es) to build for.
+// Arch comes from the ARCH env var (comma-separated for multi-arch) or
+// defaults to the local CPU architecture.
 func getBuildVals() (string, string, error) {
 	workingDir, err := os.Getwd()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	arch := runtime.GOARCH
+	arch := os.Getenv("ARCH")
+	if arch == "" {
+		arch = runtime.GOARCH
+	}
 
 	return workingDir, arch, nil
 }

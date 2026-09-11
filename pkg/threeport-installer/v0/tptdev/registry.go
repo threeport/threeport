@@ -32,7 +32,7 @@ const (
 // it will return without error
 func CreateLocalRegistry() error {
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv)
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return fmt.Errorf("failed to create Docker client: %w", err)
 	}
@@ -98,7 +98,7 @@ func CreateLocalRegistry() error {
 // location, which may be a different cluster or none at all.
 func ConnectLocalRegistry(clusterName string, kubeconfigPath string) error {
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv)
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return fmt.Errorf("failed to create Docker client: %w", err)
 	}
@@ -143,7 +143,7 @@ func ConnectLocalRegistry(clusterName string, kubeconfigPath string) error {
 // container registry.
 func DeleteLocalRegistry() error {
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv)
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return fmt.Errorf("failed to create Docker client: %w", err)
 	}
@@ -153,7 +153,12 @@ func DeleteLocalRegistry() error {
 		return fmt.Errorf("failed to stop registry docker container: %w", err)
 	}
 
-	if err := cli.ContainerRemove(ctx, registryName, container.RemoveOptions{}); err != nil {
+	// remove the registry container and the anonymous volume docker created
+	// from the image's /var/lib/registry path. that volume outlives the
+	// container, holds every pushed image, and is not attached later
+	if err := cli.ContainerRemove(ctx, registryName, container.RemoveOptions{
+		RemoveVolumes: true,
+	}); err != nil {
 		return fmt.Errorf("failed to remove registry docker container: %w", err)
 	}
 

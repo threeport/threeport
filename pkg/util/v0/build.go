@@ -2,23 +2,205 @@ package v0
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
+
+// memBytesPerWorker is the available-memory budget per concurrent
+// compile worker, 5 GiB. Dividing available memory by this yields a
+// worker count a memory-capped runner can sustain without an
+// out-of-memory kill.
+const memBytesPerWorker = 1024 * 1024 * 1024 * 5
+
+// archToken matches a GOARCH suffix on a per-arch image tag
+// (<base>-amd64). Dots and hyphens fail, so a prerelease tag such as
+// <base>-dev.3-amd64 is not an architecture.
+var archToken = regexp.MustCompile(`^[a-z0-9]+$`)
+
+// registryListTimeout bounds a registry /tags/list call.
+const registryListTimeout = 60 * time.Second
+
+// BuildParallelism returns the number of concurrent compile workers,
+// the lesser of the CPU count and available memory divided by 5 GiB,
+// floored at 1. Callers pass it as go's -p. When neither memory
+// source is readable, as on a non-Linux runner, it falls back to the
+// CPU count.
+func BuildParallelism() int {
+	// floor cpu count at one
+	cpus := runtime.NumCPU()
+	if cpus < 1 {
+		cpus = 1
+	}
+
+	// fall back to cpus when host and cgroup memory are both unknown
+	memBytes, ok := availableMemoryBytes()
+	if !ok {
+		return cpus
+	}
+
+	return clampWorkers(memBytes, cpus)
+}
+
+// ImageBuildParallelism returns PARALLEL_IMAGE_BUILD when it is a
+// positive integer. When unset it returns twice BuildParallelism(),
+// since packaging and pushing is lighter than compiling. A non-positive
+// parse falls back to 1.
+func ImageBuildParallelism() int {
+	v := strings.TrimSpace(os.Getenv("PARALLEL_IMAGE_BUILD"))
+	if v == "" {
+		return BuildParallelism() * 2
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return 1
+	}
+	return n
+}
+
+// clampWorkers returns how many compile workers memBytes can hold at
+// 5 GiB each, floored at 1 and capped at cpus. Non-positive memBytes
+// falls back to cpus.
+func clampWorkers(memBytes int64, cpus int) int {
+	if memBytes <= 0 {
+		return cpus
+	}
+	workers := int(memBytes / memBytesPerWorker)
+	if workers < 1 {
+		return 1
+	}
+	if workers > cpus {
+		return cpus
+	}
+	return workers
+}
+
+// ReleaseParallelism returns a quarter of the compile worker count,
+// floored at 1. Goreleaser builds whole-tree targets, each of which
+// links the full tree, so it cannot share the compile worker count.
+func ReleaseParallelism() int {
+	if p := BuildParallelism() / 4; p > 1 {
+		return p
+	}
+	return 1
+}
+
+// availableMemoryBytes returns the smaller of host MemAvailable and
+// the cgroup memory limit. The /proc/meminfo file inside a container
+// reports the node's memory, not the container's. Without the cgroup
+// reading, a pod sizes parallelism to the node. ok is false when
+// neither host MemAvailable nor a finite cgroup limit is available.
+func availableMemoryBytes() (int64, bool) {
+	host, hostOK := procMemAvailable()
+	limit, limitOK := cgroupMemoryLimit()
+	switch {
+	case hostOK && limitOK:
+		if limit < host {
+			return limit, true
+		}
+		return host, true
+	case hostOK:
+		return host, true
+	case limitOK:
+		return limit, true
+	default:
+		return 0, false
+	}
+}
+
+// procMemAvailable reads MemAvailable from the /proc/meminfo file.
+// Inside a container that file reports the node's memory, not the
+// container's.
+func procMemAvailable() (int64, bool) {
+	contents, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0, false
+	}
+	return parseMemAvailable(string(contents))
+}
+
+// cgroupMemoryLimit reads the current cgroup's memory hard limit,
+// trying cgroup v2 memory.max then v1 memory.limit_in_bytes.
+func cgroupMemoryLimit() (int64, bool) {
+	// try cgroup v2 memory.max first
+	if b, err := os.ReadFile("/sys/fs/cgroup/memory.max"); err == nil {
+		return parseCgroupV2Max(string(b))
+	}
+	// fall back to cgroup v1 memory.limit_in_bytes
+	if b, err := os.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes"); err == nil {
+		return parseCgroupV1Limit(string(b))
+	}
+	return 0, false
+}
+
+// parseCgroupV2Max parses a memory.max value in bytes. The token
+// "max" is the kernel's unlimited default and means no limit.
+func parseCgroupV2Max(contents string) (int64, bool) {
+	s := strings.TrimSpace(contents)
+	if s == "max" {
+		return 0, false
+	}
+	v, err := strconv.ParseInt(s, 10, 64)
+	if err != nil || v <= 0 {
+		return 0, false
+	}
+	return v, true
+}
+
+// parseCgroupV1Limit parses a memory.limit_in_bytes value. Values at
+// or above 1<<62 are treated as unlimited. The kernel's no-limit
+// placeholder is PAGE_COUNTER_MAX, near int64 max.
+func parseCgroupV1Limit(contents string) (int64, bool) {
+	s := strings.TrimSpace(contents)
+	v, err := strconv.ParseInt(s, 10, 64)
+	if err != nil || v <= 0 || v >= (1<<62) {
+		return 0, false
+	}
+	return v, true
+}
+
+// parseMemAvailable reads the MemAvailable field from a /proc/meminfo
+// snapshot. The kernel reports kilobytes; the result is in bytes.
+func parseMemAvailable(contents string) (int64, bool) {
+	for _, line := range strings.Split(contents, "\n") {
+		if !strings.HasPrefix(line, "MemAvailable:") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			return 0, false
+		}
+		kb, err := strconv.ParseInt(fields[1], 10, 64)
+		if err != nil {
+			return 0, false
+		}
+		return kb * 1024, true
+	}
+	return 0, false
+}
 
 // BuildBinaries compiles every binary for every arch with one go build
 // invocation per arch. Arches run in parallel, and within each arch all
 // binaries are passed to a single go build call so dependency compilation
 // is shared across components. Each package dir under ./cmd/<name>
-// produces bin/<arch>/<name>. CGO is disabled for cross-compile. A
+// produces bin/<arch>/<name>. CGO is disabled and GOOS is linux so the
+// binary links statically for the distroless image. A
 // single-element packageDirs slice is also valid and produces just that
 // binary; per-image targets use this form for standalone use, and pick up
 // a Go cache hit when AllImages pre-built the same package earlier.
@@ -30,6 +212,7 @@ func BuildBinaries(
 	packageDirs []string,
 	noCache bool,
 ) error {
+	// queue one go build per architecture
 	tasks := make([]func() error, 0, len(arches))
 	for _, a := range arches {
 		arch := strings.TrimSpace(a)
@@ -48,6 +231,7 @@ func BuildBinaries(
 // within the invocation means a cold build is much faster than running
 // one go build per binary.
 func buildArchBinaries(threeportPath, arch string, packageDirs []string, noCache bool) error {
+	// create the per-arch output directory
 	outDir := filepath.Join(threeportPath, "bin", arch)
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory %s: %w", outDir, err)
@@ -61,13 +245,9 @@ func buildArchBinaries(threeportPath, arch string, packageDirs []string, noCache
 	if noCache {
 		args = append(args, "-a")
 	}
-	// PARALLEL_GO_BUILD caps concurrent compile workers per go build
-	// invocation. CI sets it (e.g. 2) to keep memory bounded on small
-	// runners; locally we leave it unset so the Go default (GOMAXPROCS)
-	// uses every available core.
-	if p := os.Getenv("PARALLEL_GO_BUILD"); p != "" {
-		args = append(args, "-p="+p)
-	}
+	// size compile workers with BuildParallelism so a small CI runner
+	// does not run out of memory
+	args = append(args, fmt.Sprintf("-p=%d", BuildParallelism()))
 	args = append(args, "-o", filepath.Join("bin", arch)+string(os.PathSeparator))
 	// prefix each package dir with ./ so go build treats them as local
 	// import paths rather than stdlib lookups.
@@ -113,6 +293,7 @@ func (p *prefixWriter) Write(data []byte) (int, error) {
 	for {
 		line, err := p.buf.ReadBytes('\n')
 		if err != nil {
+			// hold the partial line for the next write or flush
 			p.buf.Reset()
 			p.buf.Write(line)
 			return len(data), nil
@@ -155,26 +336,73 @@ const multiArchBuilderName = "threeport-multi"
 // RunParallel don't race on inspect-then-create against the docker daemon.
 var multiArchBuilderMu sync.Mutex
 
+// multiArchBuilderMaxCacheSize is the BuildKit cache ceiling for the
+// dedicated multi-arch builder, 20GB. The docker-container driver
+// runs its own buildkit, so the docker daemon's builder garbage
+// collection never reaches it, and the default cap is 60% of disk
+// or 100GB.
+const multiArchBuilderMaxCacheSize = "20GB"
+
+// multiArchBuilderConfig is the buildkitd.toml written for the
+// dedicated builder. gc = true enables collection; all = true lets
+// the policy prune any cache record once maxUsedSpace is exceeded.
+const multiArchBuilderConfig = `[worker.oci]
+  gc = true
+  maxUsedSpace = "` + multiArchBuilderMaxCacheSize + `"
+
+  [[worker.oci.gcpolicy]]
+    all = true
+    maxUsedSpace = "` + multiArchBuilderMaxCacheSize + `"
+`
+
+// writeMultiArchBuilderConfig writes the dedicated builder's
+// buildkitd config to a temp file and returns its path. buildx copies
+// the content into the builder at create time, so the caller removes
+// the file as soon as create returns.
+func writeMultiArchBuilderConfig() (string, error) {
+	file, err := os.CreateTemp("", "threeport-buildkitd-*.toml")
+	if err != nil {
+		return "", fmt.Errorf("failed to create buildkit config file: %w", err)
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(multiArchBuilderConfig); err != nil {
+		os.Remove(file.Name())
+		return "", fmt.Errorf("failed to write buildkit config file: %w", err)
+	}
+	return file.Name(), nil
+}
+
 // ensureMultiArchBuilder makes sure a docker-container builder named
-// multiArchBuilderName exists. The mutex serializes setup across
-// goroutines so concurrent parallel image builds don't all race to
-// create the builder and have all but one fail. Every call re-runs
-// `docker buildx inspect` so external deletion of the builder
-// (e.g. `docker buildx rm threeport-multi` in another terminal, or a
-// Docker Desktop reset) is recovered transparently on the next call.
+// threeport-multi exists, creating it with the docker-container
+// driver and the cache-capped buildkitd config if inspect fails.
+// Every call re-runs inspect and recreates the builder if something
+// else deleted it. An existing builder keeps the policy it was
+// created with; remove it to pick up a changed cache cap.
 func ensureMultiArchBuilder() error {
 	multiArchBuilderMu.Lock()
 	defer multiArchBuilderMu.Unlock()
 
+	// reuse the builder when inspect succeeds
 	inspect := exec.Command("docker", "buildx", "inspect", multiArchBuilderName)
 	if err := inspect.Run(); err == nil {
 		return nil
 	}
+
+	// hand the builder its cache cap at create time, the only point buildx reads it
+	configPath, err := writeMultiArchBuilderConfig()
+	if err != nil {
+		return err
+	}
+	defer os.Remove(configPath)
+
+	// create and bootstrap the docker-container builder
 	fmt.Printf("creating docker-container buildx builder %q for multi-arch builds...\n", multiArchBuilderName)
 	create := exec.Command(
 		"docker", "buildx", "create",
 		"--name", multiArchBuilderName,
 		"--driver", "docker-container",
+		"--buildkitd-config", configPath,
 		"--bootstrap",
 	)
 	create.Stdout = os.Stdout
@@ -199,8 +427,9 @@ func ensureMultiArchBuilder() error {
 // "amd64,arm64"); each entry is prefixed with "linux/" to form
 // --platform. Multi-arch builds route through a dedicated
 // docker-container builder named threeport-multi, created on first use
-// if absent. The default `docker` driver does not support multi-platform
-// output.
+// if absent. Multi-arch builds require pushImage: this builder uses
+// the docker-container driver, and --load of a multi-platform result
+// still needs the containerd image store.
 //
 // Push vs load. pushImage and loadImage are mutually exclusive.
 // Multi-arch builds require pushImage because buildx cannot --load
@@ -208,8 +437,8 @@ func ensureMultiArchBuilder() error {
 // `kind load docker-image` against loadClusterName after the build.
 //
 // Build args. BINARY is always set from the `binary` parameter.
-// GIT_REVISION, GIT_TAG, and BUILD_CREATED are filled from env vars of
-// the same name first and fall back to git probes / a current-time
+// GIT_REVISION, GIT_TAG, and BUILD_CREATED take a caller extra if
+// present, then the env var of the same name, then git probes / a current-time
 // timestamp, so locally-built images carry the same OCI labels as CI
 // builds. extraBuildArgs pass through verbatim for per-target args like
 // TERRAFORM_VERSION or PULUMI_VERSION; keys are emitted in sorted order
@@ -255,13 +484,14 @@ func BuildImage(
 	}
 
 	// prepare the multi-arch builder once before exec; the arg helper
-	// stays pure so this side effect lives here in the caller
+	// does not create it, so this side effect lives here in the caller
 	if len(platforms) > 1 {
 		if err := ensureMultiArchBuilder(); err != nil {
 			return fmt.Errorf("failed to prepare multi-arch builder: %w", err)
 		}
 	}
 
+	// assemble the buildx argv, image ref, and log prefix
 	args, image, shortName := buildxBuildArgs(
 		threeportPath, dockerfilePath, target,
 		platforms, binary, binDir,
@@ -334,9 +564,9 @@ func BuildImage(
 
 // buildxBuildArgs assembles the docker buildx invocation argv, the full
 // image ref, and the short component name used for log prefixes. Reads
-// GIT_REVISION / GIT_TAG / BUILD_CREATED for OCI image labels, falling
-// back to git probes for the unset label values. Emits no other side
-// effects.
+// GIT_REVISION, GIT_TAG, and BUILD_CREATED for Open Container Initiative
+// (OCI) image labels; an unset GIT_TAG falls back to the image tag, the
+// others to git probes and the current time.
 func buildxBuildArgs(
 	threeportPath string,
 	dockerfilePath string,
@@ -378,25 +608,33 @@ func buildxBuildArgs(
 	// caller extras emitted in sorted order so command output stays
 	// stable across runs
 	args = append(args, "--build-arg", fmt.Sprintf("BINARY=%s", binary))
-	if extraBuildArgs == nil {
-		extraBuildArgs = map[string]string{}
+	// copy the caller's extras before filling in the label defaults, so the
+	// resolved labels do not land in a map the caller still holds
+	buildArgs := make(map[string]string, len(extraBuildArgs)+3)
+	for k, v := range extraBuildArgs {
+		buildArgs[k] = v
 	}
-	resolveLabelArg(extraBuildArgs, "GIT_REVISION", func() string {
+	resolveLabelArg(buildArgs, "GIT_REVISION", func() string {
 		return gitOutput(threeportPath, "rev-parse", "HEAD")
 	})
-	resolveLabelArg(extraBuildArgs, "GIT_TAG", func() string {
+	resolveLabelArg(buildArgs, "GIT_TAG", func() string {
+		// fall back to the image tag, then git describe; an empty
+		// result is omitted so the Dockerfile ARG default applies
+		if imageTag != "" {
+			return imageTag
+		}
 		return gitOutput(threeportPath, "describe", "--tags", "--always", "--dirty")
 	})
-	resolveLabelArg(extraBuildArgs, "BUILD_CREATED", func() string {
+	resolveLabelArg(buildArgs, "BUILD_CREATED", func() string {
 		return time.Now().UTC().Format(time.RFC3339)
 	})
-	keys := make([]string, 0, len(extraBuildArgs))
-	for k := range extraBuildArgs {
+	keys := make([]string, 0, len(buildArgs))
+	for k := range buildArgs {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		args = append(args, "--build-arg", fmt.Sprintf("%s=%s", k, extraBuildArgs[k]))
+		args = append(args, "--build-arg", fmt.Sprintf("%s=%s", k, buildArgs[k]))
 	}
 
 	// plain progress keeps lines independent so concurrent builds
@@ -432,12 +670,70 @@ func resolveLabelArg(args map[string]string, key string, fallback func() string)
 // trimmed stdout, or "" if git fails. Used to derive label values for
 // local builds where the caller hasn't set GIT_REVISION/GIT_TAG.
 func gitOutput(workingDir string, args ...string) string {
-	cmd := exec.Command("git", append([]string{"-C", workingDir}, args...)...)
-	out, err := cmd.Output()
+	out, err := gitCommand(workingDir, args...).Output()
 	if err != nil {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
+}
+
+// DiscoverArches lists tags at imageRef and returns the architecture
+// suffixes of tags matching <baseTag>-<arch>, sorted. imageRef is a
+// repository with no tag. The result covers whichever per-arch images
+// the registry already holds.
+func DiscoverArches(imageRef, baseTag string) ([]string, error) {
+	// allow HTTP for a loopback registry that has no TLS
+	opts := []name.Option{}
+	if registryAllowsHTTP(imageRef) {
+		opts = append(opts, name.Insecure)
+	}
+	repo, err := name.NewRepository(imageRef, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse image repository %q: %w", imageRef, err)
+	}
+	// a hung list holds up every other component's manifest stitch
+	ctx, cancel := context.WithTimeout(context.Background(), registryListTimeout)
+	defer cancel()
+	// list tags via the registry's /v2/<name>/tags/list
+	tags, err := remote.List(repo, remote.WithAuthFromKeychain(authn.DefaultKeychain), remote.WithContext(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tags for %q: %w", imageRef, err)
+	}
+	return archSuffixes(tags, baseTag), nil
+}
+
+// registryAllowsHTTP reports whether imageRef names a loopback host
+// so the caller can pass name.Insecure. HTTP is already used for
+// localhost with a port, 127.0.0.1, and ::1; Insecure covers bare
+// localhost.
+func registryAllowsHTTP(imageRef string) bool {
+	// take the host[:port] before the first slash
+	host := imageRef
+	if i := strings.Index(imageRef, "/"); i >= 0 {
+		host = imageRef[:i]
+	}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
+}
+
+// archSuffixes returns the sorted GOARCH suffixes of tags of the form
+// <baseTag>-<arch>. A suffix that is not a lowercase alphanumeric
+// token is dropped, so a prerelease tag does not stitch into a
+// release manifest and publish under a release tag.
+func archSuffixes(tags []string, baseTag string) []string {
+	prefix := baseTag + "-"
+	arches := []string{}
+	for _, tag := range tags {
+		suffix := strings.TrimPrefix(tag, prefix)
+		if suffix == tag || !archToken.MatchString(suffix) {
+			continue
+		}
+		arches = append(arches, suffix)
+	}
+	sort.Strings(arches)
+	return arches
 }
 
 // ParseArches splits a comma-separated arch string into a clean slice,
@@ -453,6 +749,28 @@ func ParseArches(arch string) []string {
 	return out
 }
 
+// imagetoolsArgs builds the docker buildx imagetools create argv that
+// tags <repo>/<image>:<tag> as a manifest list of the per-arch sources
+// <repo>/<image>:<tag>-<arch>. An empty arches slice is an error,
+// since a manifest needs at least one source.
+func imagetoolsArgs(repo, image, tag string, arches []string) (args []string, target string, err error) {
+	if len(arches) == 0 {
+		return nil, "", fmt.Errorf("failed to find per-arch tags for %s/%s:%s", repo, image, tag)
+	}
+
+	// build the canonical target tag and the per-arch source tags
+	target = fmt.Sprintf("%s/%s:%s", repo, image, tag)
+	sources := make([]string, 0, len(arches))
+	for _, a := range arches {
+		sources = append(sources, fmt.Sprintf("%s/%s:%s-%s", repo, image, tag, a))
+	}
+
+	// assemble the buildx imagetools create invocation with --append
+	args = []string{"buildx", "imagetools", "create", "--tag", target}
+	args = append(args, sources...)
+	return args, target, nil
+}
+
 // PushMultiArchManifest stitches per-arch image tags into a multi-arch
 // manifest list and pushes the result under the canonical tag. Sources
 // are assumed to already exist at <repo>/<image>:<tag>-<arch> for each
@@ -461,21 +779,10 @@ func ParseArches(arch string) []string {
 // create`, which reads the source manifests from the registry and
 // writes a fan-in manifest list back without re-uploading any blobs.
 func PushMultiArchManifest(imageRepo, imageName, imageTag, arches string) error {
-	archList := ParseArches(arches)
-	if len(archList) == 0 {
-		return errors.New("--arches is required")
+	args, target, err := imagetoolsArgs(imageRepo, imageName, imageTag, ParseArches(arches))
+	if err != nil {
+		return err
 	}
-
-	// build the canonical target tag and the per-arch source tags
-	target := fmt.Sprintf("%s/%s:%s", imageRepo, imageName, imageTag)
-	sources := make([]string, 0, len(archList))
-	for _, a := range archList {
-		sources = append(sources, fmt.Sprintf("%s/%s:%s-%s", imageRepo, imageName, imageTag, a))
-	}
-
-	// assemble the buildx imagetools create invocation
-	args := []string{"buildx", "imagetools", "create", "--tag", target}
-	args = append(args, sources...)
 
 	// run with prefixed stdout/stderr so concurrent component runs
 	// stay disambiguated in interleaved CI output

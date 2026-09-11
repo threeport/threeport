@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/threeport/threeport/internal/provider"
+	"github.com/threeport/threeport/internal/version"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	auth "github.com/threeport/threeport/pkg/auth/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
@@ -142,6 +143,13 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 
 	if a.ControlPlaneImageTag != "" {
 		cpi.SetAllImageTags(a.ControlPlaneImageTag)
+	} else {
+		// default the tag the way a build names it
+		devTag, err := util.ResolveImageTag(a.ThreeportPath, version.GetVersion())
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve default image tag: %w", err)
+		}
+		cpi.SetAllImageTags(devTag)
 	}
 
 	cpi.Opts.AuthEnabled = a.AuthEnabled

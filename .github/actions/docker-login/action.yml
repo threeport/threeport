@@ -1,0 +1,22 @@
+# Shared buildx + ghcr login preamble for CI jobs that push images.
+
+name: Docker login
+description: Set up Buildx and log in to ghcr.io.
+
+inputs:
+  token:
+    description: GITHUB_TOKEN used to authenticate the ghcr.io login.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Docker setup
+      uses: ./.github/actions/docker-setup
+
+    - name: Log in to ghcr.io
+      uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.token }}

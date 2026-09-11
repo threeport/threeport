@@ -754,22 +754,24 @@ available for installation.
     ```
 
     Now we can build and push the container images to the local registry.
+    With no overrides, `build:allImages` pushes to the local registry
+    (`localhost:5001`) at the current version for your machine's architecture.
 
     ```bash
-    mage build:allImagesDev
+    mage build:allImages
     ```
 
 === "Remote Environment"
 
-    If using a remote AWS environment, build for the release architecture (amd64).
-    This step will build the binaries and container images, then push them to your
-    registry (as defined in the `sdk-config.yaml` file).  This may take a few
-    minutes as three container images will be pushed to your remote container
-    registry.  You will need to be logged in to your container registry from your
-    command line.
+    If using a remote environment, push the images to your own registry by
+    overriding the repo with the `IMAGE_REPO` env var and the architecture(s)
+    with `ARCH`.  This builds the binaries and multi-arch container images, then
+    pushes them to the given registry.  This may take a few minutes as the
+    container images are pushed to your remote container registry.  You will need
+    to be logged in to your container registry from your command line.
 
     ```bash
-    mage build:allImagesRelease
+    IMAGE_REPO=<your-registry> ARCH=amd64,arm64 mage build:allImages
     ```
 
 ## Threeport Control Plane
