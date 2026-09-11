@@ -167,7 +167,7 @@ func HelmWorkloadInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of helm workload instance encountered for creation")
+					operationErr = errors.New("unrecognized version of helm workload instance encountered for create operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile created helm workload instance object"
@@ -202,6 +202,10 @@ func HelmWorkloadInstanceReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
+				if helmWorkloadInstance.ScheduledForDeletion() != nil {
+					log.Info("helm workload instance scheduled for deletion - skipping update")
+					break
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch helmWorkloadInstance.GetVersion() {
@@ -214,7 +218,7 @@ func HelmWorkloadInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of helm workload instance encountered for creation")
+					operationErr = errors.New("unrecognized version of helm workload instance encountered for update operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile updated helm workload instance object"
@@ -261,7 +265,7 @@ func HelmWorkloadInstanceReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of helm workload instance encountered for creation")
+					operationErr = errors.New("unrecognized version of helm workload instance encountered for delete operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile deleted helm workload instance object"

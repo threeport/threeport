@@ -17,10 +17,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/kind/pkg/cluster"
+
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 const (
-	registryImage = "registry:2"
+	registryImage = "docker.io/library/registry:2"
 	registryName  = "local-registry"
 	registryPort  = "5001"
 )
@@ -88,7 +90,13 @@ func CreateLocalRegistry() error {
 }
 
 // ConnectLocalRegistry connects a local Docker container registry to a kind cluster.
-func ConnectLocalRegistry(clusterName string) error {
+//
+// kubeconfigPath is the kubeconfig the rest of the command resolved, from
+// --kind-kubeconfig or client-go's default precedence. It has to be threaded in
+// rather than resolved here: with --kind-kubeconfig pointing at a pre-existing
+// kind cluster, re-resolving would target whatever is active in the default
+// location, which may be a different cluster or none at all.
+func ConnectLocalRegistry(clusterName string, kubeconfigPath string) error {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
@@ -128,19 +136,7 @@ func ConnectLocalRegistry(clusterName string) error {
 	}
 
 	// https://github.com/kubernetes/enhancements/tree/master/keps/sig-cluster-lifecycle/generic/1755-communicating-a-local-registry
-	config := `apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: local-registry-hosting
-  namespace: kube-public
-data:
-  localRegistryHosting.v1: |
-    host: "localhost:%s"
-    help: "https://kind.sigs.k8s.io/docs/user/local-registry/"`
-
-	config = fmt.Sprintf(config, registryPort)
-
-	return applyK8sConfig(config)
+	return applyK8sConfig(kubeconfigPath)
 }
 
 // DeleteLocalRegistry stops and removes the Docker container running the local
@@ -164,12 +160,26 @@ func DeleteLocalRegistry() error {
 	return nil
 }
 
-// applyK8sConfig creates a configmap to in the Kubernetes cluster.
-func applyK8sConfig(config string) error {
-	// resolve kubeconfig via client-go's standard precedence
-	// ($KUBECONFIG, then ~/.kube/config)
-	kubeconfig := clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename()
-	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+// resolveKubeconfigPath returns the kubeconfig to use, falling back to
+// client-go's standard precedence ($KUBECONFIG, then ~/.kube/config) only when
+// the caller supplied nothing. A supplied path must win: resolving afresh is
+// what made --kind-kubeconfig silently ignored on the local registry step.
+func resolveKubeconfigPath(kubeconfigPath string) string {
+	if kubeconfigPath != "" {
+		return kubeconfigPath
+	}
+
+	return clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename()
+}
+
+// applyK8sConfig creates the local registry configmap in the Kubernetes
+// cluster the supplied kubeconfig points at.
+func applyK8sConfig(kubeconfigPath string) error {
+	kubeconfigPath = resolveKubeconfigPath(kubeconfigPath)
+
+	util.CliOutputInfo(fmt.Sprintf("applying local registry configmap using kubeconfig %s", kubeconfigPath))
+
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 	if err != nil {
 		return fmt.Errorf("failed to generate Kubernetes REST config from kubeconfig: %w", err)
 	}

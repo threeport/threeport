@@ -137,7 +137,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of secret definition encountered for creation")
+					operationErr = errors.New("unrecognized version of secret definition encountered for create operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile created secret definition object"
@@ -172,6 +172,10 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					continue
 				}
 			case notifications.NotificationOperationUpdated:
+				if secretDefinition.ScheduledForDeletion() != nil {
+					log.Info("secret definition scheduled for deletion - skipping update")
+					break
+				}
 				var operationErr error
 				var customRequeueDelay int64
 				switch secretDefinition.GetVersion() {
@@ -184,7 +188,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of secret definition encountered for creation")
+					operationErr = errors.New("unrecognized version of secret definition encountered for update operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile updated secret definition object"
@@ -231,7 +235,7 @@ func SecretDefinitionReconciler(r *controller.Reconciler) {
 					customRequeueDelay = requeueDelay
 					operationErr = err
 				default:
-					operationErr = errors.New("unrecognized version of secret definition encountered for creation")
+					operationErr = errors.New("unrecognized version of secret definition encountered for delete operation")
 				}
 				if operationErr != nil {
 					errorMsg := "failed to reconcile deleted secret definition object"

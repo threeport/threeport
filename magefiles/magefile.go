@@ -1,13 +1,23 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"go/build"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
+
+	"gopkg.in/yaml.v3"
 
 	version "github.com/threeport/threeport/internal/version"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
+	sdk "github.com/threeport/threeport/pkg/sdk/v0"
+	sdkgen "github.com/threeport/threeport/pkg/sdk/v0/gen"
+	gencontroller "github.com/threeport/threeport/pkg/sdk/v0/gen/internalpkg/controller"
+	genapi "github.com/threeport/threeport/pkg/sdk/v0/gen/pkg/api"
+	genclient "github.com/threeport/threeport/pkg/sdk/v0/gen/pkg/client"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -126,6 +136,10 @@ func (Install) Sdk() error {
 // Integration runs integration tests against an existing Threeport control
 // plane.
 func (Test) Integration() error {
+	if err := unmetPrerequisites("integration test", controlPlaneConfigProblems()); err != nil {
+		return err
+	}
+
 	cmd := "go"
 	args := []string{
 		"test",
@@ -258,7 +272,117 @@ func (Dev) GenerateCode() error {
 		return fmt.Errorf("code generation failed with output: '%s': %w", output, err)
 	}
 
+	if err := (Dev{}).GenerateFixture(); err != nil {
+		return fmt.Errorf("failed to generate the reconciler test fixture: %w", err)
+	}
+
 	fmt.Println("code generated successfully")
+
+	return nil
+}
+
+// The fixture is a miniature module. The same generators that emit API methods,
+// client code, and reconcilers run over it.
+
+const (
+	// fixtureRoot is the directory generated fixture source is written into.
+	fixtureRoot = "internal/reconcilertest"
+	// fixtureModulePath is the import path generated files use.
+	fixtureModulePath = "github.com/threeport/threeport/internal/reconcilertest"
+	// fixtureObjectName is the fixture instance type that is persisted.
+	fixtureObjectName = "ReconcilerTestInstance"
+	// fixtureVolatile is the fixture instance type tagged persist false.
+	fixtureVolatile = "ReconcilerTestVolatileInstance"
+	// fixtureGroupName is the name of the object group passed to the generator.
+	fixtureGroupName = "reconciler-test-fixture"
+)
+
+// GenerateFixture generates API methods, client library, and reconcilers for
+// the reconciler fixture in this tree. Input is built here because the fixture
+// has no SDK config or go.mod; a nested go.mod would drop it from go test ./internal/....
+func (Dev) GenerateFixture() error {
+	// describe the persisted and persist-false fixture objects
+	apiObject := &sdkgen.ApiObject{
+		PackageName: "v0",
+		Version:     "v0",
+		TypeName:    fixtureObjectName,
+		Reconciler:  true,
+	}
+	volatileObject := &sdkgen.ApiObject{
+		PackageName: "v0",
+		Version:     "v0",
+		TypeName:    fixtureVolatile,
+		Reconciler:  true,
+	}
+	apiObjects := []*sdkgen.ApiObject{apiObject, volatileObject}
+
+	// configure the generator for the fixture import path
+	generator := &sdkgen.Generator{
+		Module:     true,
+		ModulePath: fixtureModulePath,
+		ApiObjectGroups: []sdkgen.ApiObjectGroup{{
+			ModelFilename:         "reconciler_test_fixture.go",
+			ControllerDomain:      "ReconcilerTest",
+			ControllerName:        "reconciler-test-controller",
+			ControllerShortName:   "fixture",
+			ControllerPackageName: "fixture",
+			ApiObjects:            apiObjects,
+			ReconciledObjects: []sdkgen.ReconciledObject{
+				{Name: fixtureObjectName, Versions: []string{"v0"}},
+				{Name: fixtureVolatile, Versions: []string{"v0"}},
+			},
+			StructTags: map[string]map[string]map[string]string{
+				fixtureObjectName: {"Status": {"validate": "optional"}},
+				fixtureVolatile:   {"Data": {"validate": "optional", "persist": "false"}},
+			},
+			FieldTypes: map[string]map[string]string{
+				fixtureObjectName: {"Status": "*string"},
+				fixtureVolatile:   {"Data": "*string"},
+			},
+			StructEmbeds: map[string][]string{
+				fixtureObjectName: {"Common", "Instance", "Reconciliation"},
+				fixtureVolatile:   {"Common", "Instance", "Reconciliation"},
+			},
+		}},
+		VersionedApiObjectCollections: []sdkgen.VersionedApiObjectCollection{{
+			Version: "v0",
+			VersionedApiObjectGroups: []sdkgen.VersionedApiObjectGroup{{
+				Name:       fixtureGroupName,
+				ApiObjects: apiObjects,
+			}},
+		}},
+	}
+
+	// set the fixture module name and API namespace
+	sdkConfig := &sdk.SdkConfig{
+		ModuleName:   "ReconcilerTest",
+		ApiNamespace: "reconcilertest.threeport.io",
+	}
+
+	// change to the fixture directory so generated files land under it
+	projectRoot, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to read working directory: %w", err)
+	}
+	if err := os.Chdir(fixtureRoot); err != nil {
+		return fmt.Errorf("failed to change to fixture directory %s: %w", fixtureRoot, err)
+	}
+	defer os.Chdir(projectRoot)
+
+	// generate API methods, client library, and reconcilers
+	for _, generate := range []struct {
+		name string
+		run  func(*sdkgen.Generator, *sdk.SdkConfig) error
+	}{
+		{"api object methods", genapi.GenApiObjectMethods},
+		{"client library", genclient.GenClientLib},
+		{"reconciler operations", gencontroller.GenReconcilerOperations},
+		{"reconcilers", gencontroller.GenReconcilers},
+	} {
+		if err := generate.run(generator, sdkConfig); err != nil {
+			return fmt.Errorf("failed to generate fixture %s: %w", generate.name, err)
+		}
+	}
 
 	return nil
 }
@@ -286,6 +410,267 @@ func (Dev) GenerateDocs() error {
 	}
 
 	fmt.Printf("API swagger docs generated successfully in %s\n", docsDestination)
+
+	return nil
+}
+
+// moduleTestPath is the directory a test module is generated into. It is two
+// directories deep so a replace of ../.. reaches the repository root.
+const moduleTestPath = "test/module"
+
+// moduleTestGoPath is the Go module path of the generated test module. Any
+// path other than this project's own path selects the module code path in the SDK.
+const moduleTestGoPath = "github.com/threeport/threeport-module-test"
+
+// moduleTestBinary is the generated module's tptctl plugin name, taken from
+// ModuleName in the SDK config.
+const moduleTestBinary = "test"
+
+// moduleTestInputs are the tracked files left in place when generated output
+// is removed, so the SDK re-emits scaffolding it otherwise writes only once.
+var moduleTestInputs = []string{"sdk-config.yaml", "README.md"}
+
+// ModuleGen generates a Threeport module and type-checks it. Generated module
+// code calls this repository's exported API, so a changed signature fails here.
+func (Test) ModuleGen() error {
+	// generate the module test
+	if err := generateModuleTest(); err != nil {
+		return err
+	}
+
+	// type-check the generated module, including magefiles that have no main
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		"go", "vet", "./...",
+	); err != nil {
+		return fmt.Errorf("failed to type-check the generated module: %w", err)
+	}
+
+	// remove generated files after a successful type-check
+	if err := resetModuleTestDir(); err != nil {
+		return err
+	}
+
+	fmt.Println("module generated and type-checked successfully")
+
+	return nil
+}
+
+// controlPlaneConfigProblems returns errors when the Threeport config is
+// missing or has no API endpoint for the current control plane.
+func controlPlaneConfigProblems() []error {
+	// read the Threeport config tptctl wrote to disk
+	cfgFile := cli.DetermineThreeportConfigPath("")
+	data, err := os.ReadFile(cfgFile)
+	if err != nil {
+		return []error{fmt.Errorf("failed to read the Threeport config: %w", err)}
+	}
+	// parse the Threeport config
+	var threeportConfig cli.ThreeportConfig
+	if err := yaml.Unmarshal(data, &threeportConfig); err != nil {
+		return []error{fmt.Errorf("failed to parse the Threeport config: %w", err)}
+	}
+
+	// require a current control plane
+	controlPlaneName := threeportConfig.CurrentControlPlane
+	if controlPlaneName == "" {
+		return []error{errors.New("current control plane must be set in the Threeport config")}
+	}
+
+	// require an API endpoint for the current control plane
+	if _, err := threeportConfig.GetThreeportAPIEndpoint(controlPlaneName); err != nil {
+		return []error{fmt.Errorf(
+			"failed to get the API endpoint for control plane %s: %w",
+			controlPlaneName, err,
+		)}
+	}
+
+	return nil
+}
+
+// unmetPrerequisites joins prerequisite errors into one error named for the
+// target. It returns nil when there are none.
+func unmetPrerequisites(target string, problems []error) error {
+	if len(problems) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("%s prerequisites are not met:\n%w", target, errors.Join(problems...))
+}
+
+// checkModuleInstallPrerequisites reports missing mage or a missing API
+// endpoint for the current control plane, not whether the cluster can pull images.
+func checkModuleInstallPrerequisites() error {
+	var problems []error
+
+	// require mage on PATH for the build and install targets of the generated module
+	if _, err := exec.LookPath("mage"); err != nil {
+		problems = append(problems, errors.New("mage is not on PATH"))
+	}
+	// require an API endpoint for the current control plane
+	problems = append(problems, controlPlaneConfigProblems()...)
+
+	return unmetPrerequisites("module install", problems)
+}
+
+// ModuleInstall generates a Threeport module, builds its images, and installs
+// it into the current control plane. It covers registration and routes that
+// compiling cannot.
+func (Test) ModuleInstall() error {
+	// check module install prerequisites
+	if err := checkModuleInstallPrerequisites(); err != nil {
+		return err
+	}
+
+	// generate the module test
+	if err := generateModuleTest(); err != nil {
+		return err
+	}
+
+	// build and push module images to the development registry
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		"mage", "build:allImagesDev",
+	); err != nil {
+		return fmt.Errorf("failed to build the module images: %w", err)
+	}
+
+	// install the module plugin where tptctl looks for it
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		"mage", "install:plugin",
+	); err != nil {
+		return fmt.Errorf("failed to install the module plugin: %w", err)
+	}
+	// remove the installed plugin when the target returns
+	defer removeModuleTestPlugin()
+
+	// install tptctl from this checkout
+	install := Install{}
+	if err := install.Tptctl(); err != nil {
+		return fmt.Errorf("failed to install tptctl: %w", err)
+	}
+
+	// install the module with the same registry and imagePullPolicy Always
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		filepath.Join(installDir(), "tptctl"),
+		moduleTestBinary, "install", "--debug",
+		"-r", installer.DevImageNamespace,
+	); err != nil {
+		return fmt.Errorf("failed to install the module: %w", err)
+	}
+	// remove generated files after a successful install
+	if err := resetModuleTestDir(); err != nil {
+		return err
+	}
+
+	fmt.Println("module generated, installed and registered successfully")
+
+	return nil
+}
+
+// removeModuleTestPlugin deletes the generated module's plugin from the tptctl
+// plugin directory so later tptctl runs do not load it.
+func removeModuleTestPlugin() error {
+	// use THREEPORT_PLUGIN_DIR when set, otherwise the default plugin directory
+	pluginDir := os.Getenv("THREEPORT_PLUGIN_DIR")
+	if pluginDir == "" {
+		dir, err := cli.DefaultPluginDir()
+		if err != nil {
+			return fmt.Errorf("failed to determine tptctl plugin directory: %w", err)
+		}
+		pluginDir = dir
+	}
+
+	// remove the plugin binary if present
+	pluginPath := filepath.Join(pluginDir, moduleTestBinary)
+	if err := os.Remove(pluginPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove the module test plugin %s: %w", pluginPath, err)
+	}
+
+	return nil
+}
+
+// generateModuleTest generates a module under the module test directory from
+// the tracked SDK config. It does not compile the result.
+func generateModuleTest() error {
+	// build threeport-sdk from this checkout rather than using an installed binary
+	build := Build{}
+	if err := build.Sdk(); err != nil {
+		return fmt.Errorf("failed to build threeport-sdk: %w", err)
+	}
+
+	// resolve the built binary for commands run in the module directory
+	sdkBinary, err := filepath.Abs(filepath.Join("bin", "threeport-sdk"))
+	if err != nil {
+		return fmt.Errorf("failed to resolve the threeport-sdk binary path: %w", err)
+	}
+
+	// remove generated files so scaffolding is re-emitted
+	if err := resetModuleTestDir(); err != nil {
+		return err
+	}
+
+	// initialize a Go module whose path selects the module code path in the SDK
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		"go", "mod", "init", moduleTestGoPath,
+	); err != nil {
+		return fmt.Errorf("failed to initialize the module test go.mod: %w", err)
+	}
+	// point the generated module at this checkout
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		"go", "mod", "edit",
+		"-require=github.com/threeport/threeport@v0.0.0",
+		"-replace=github.com/threeport/threeport=../..",
+	); err != nil {
+		return fmt.Errorf("failed to point the module test at this checkout: %w", err)
+	}
+
+	// scaffold the API objects, then generate the boilerplate
+	for _, subcommand := range []string{"create", "gen"} {
+		if err := util.RunCommandStreamOutputInDir(
+			moduleTestPath,
+			sdkBinary,
+			subcommand,
+			"-c",
+			"sdk-config.yaml",
+		); err != nil {
+			return fmt.Errorf("failed to run threeport-sdk %s for the module test: %w", subcommand, err)
+		}
+	}
+
+	// resolve generated module dependencies
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		"go", "mod", "tidy",
+	); err != nil {
+		return fmt.Errorf("failed to resolve the module test dependencies: %w", err)
+	}
+
+	return nil
+}
+
+// resetModuleTestDir removes generated files from the module test directory,
+// leaving the tracked inputs in place.
+func resetModuleTestDir() error {
+	// list entries in the module test directory
+	entries, err := os.ReadDir(moduleTestPath)
+	if err != nil {
+		return fmt.Errorf("failed to read module test directory %s: %w", moduleTestPath, err)
+	}
+
+	// skip tracked inputs and remove generated paths
+	for _, entry := range entries {
+		if slices.Contains(moduleTestInputs, entry.Name()) {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(moduleTestPath, entry.Name())); err != nil {
+			return fmt.Errorf("failed to remove generated path %s: %w", entry.Name(), err)
+		}
+	}
 
 	return nil
 }
