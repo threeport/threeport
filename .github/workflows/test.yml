@@ -15,10 +15,9 @@ on:
   pull_request:
     types:
       - opened
+      - edited
       - synchronize
       - reopened
-  push:
-    branches: [dev]
 
 permissions:
   contents: read
