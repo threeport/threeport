@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"slices"
 
-	"gopkg.in/yaml.v3"
-
 	version "github.com/threeport/threeport/internal/version"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
 	sdk "github.com/threeport/threeport/pkg/sdk/v0"
@@ -424,48 +422,6 @@ func (Test) ModuleGen() error {
 	return nil
 }
 
-// controlPlaneConfigProblems returns errors when the Threeport config is
-// missing or has no API endpoint for the current control plane.
-func controlPlaneConfigProblems() []error {
-	// read the Threeport config tptctl wrote to disk
-	cfgFile := cli.DetermineThreeportConfigPath("")
-	data, err := os.ReadFile(cfgFile)
-	if err != nil {
-		return []error{fmt.Errorf("failed to read the Threeport config: %w", err)}
-	}
-	// parse the Threeport config
-	var threeportConfig cli.ThreeportConfig
-	if err := yaml.Unmarshal(data, &threeportConfig); err != nil {
-		return []error{fmt.Errorf("failed to parse the Threeport config: %w", err)}
-	}
-
-	// require a current control plane
-	controlPlaneName := threeportConfig.CurrentControlPlane
-	if controlPlaneName == "" {
-		return []error{errors.New("current control plane must be set in the Threeport config")}
-	}
-
-	// require an API endpoint for the current control plane
-	if _, err := threeportConfig.GetThreeportAPIEndpoint(controlPlaneName); err != nil {
-		return []error{fmt.Errorf(
-			"failed to get the API endpoint for control plane %s: %w",
-			controlPlaneName, err,
-		)}
-	}
-
-	return nil
-}
-
-// unmetPrerequisites joins prerequisite errors into one error named for the
-// target. It returns nil when there are none.
-func unmetPrerequisites(target string, problems []error) error {
-	if len(problems) == 0 {
-		return nil
-	}
-
-	return fmt.Errorf("%s prerequisites are not met:\n%w", target, errors.Join(problems...))
-}
-
 // checkModuleInstallPrerequisites reports missing mage or a missing API
 // endpoint for the current control plane, not whether the cluster can pull images.
 func checkModuleInstallPrerequisites() error {
@@ -476,9 +432,9 @@ func checkModuleInstallPrerequisites() error {
 		problems = append(problems, errors.New("mage is not on PATH"))
 	}
 	// require an API endpoint for the current control plane
-	problems = append(problems, controlPlaneConfigProblems()...)
+	problems = append(problems, cli.ControlPlaneConfigProblems()...)
 
-	return unmetPrerequisites("module install", problems)
+	return cli.UnmetPrerequisites("module install", problems)
 }
 
 // ModuleInstall generates a Threeport module, builds its images, and installs

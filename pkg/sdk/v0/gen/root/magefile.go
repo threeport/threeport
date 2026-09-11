@@ -75,16 +75,15 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		f.Line()
 	}
 
-	// emit the module-only Ci namespace for env export and teardown
+	f.Comment("Ci provides a type for methods that emit values for CI workflow steps.")
+	f.Type().Id("Ci").Qual("github.com/magefile/mage/mg", "Namespace")
+	f.Line()
+	moduleVersion := ""
 	if gen.Module {
-		f.Comment("Ci provides a type for methods that emit values for CI workflow steps.")
-		f.Type().Id("Ci").Qual("github.com/magefile/mage/mg", "Namespace")
-		f.Line()
-
-		emitCiEnvFunc(f, gen.ModulePath)
-		emitCiTeardownFunc(f)
-		emitTeardownStepFunc(f)
+		moduleVersion = fmt.Sprintf("%s/internal/version", gen.ModulePath)
 	}
+	emitCiEnvFunc(f, moduleVersion)
+	emitCiTeardownFunc(f)
 
 	// emit test targets
 	emitTestUnitFunc(f)
@@ -790,6 +789,14 @@ func emitTestUnitFunc(f *File) {
 func emitTestIntegrationFunc(f *File) {
 	f.Comment("Integration runs integration tests against an existing Threeport control plane.")
 	f.Func().Params(Id("Test")).Id("Integration").Params().Error().Block(
+		If(Err().Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/cli/v0", "UnmetPrerequisites",
+		).Call(
+			Lit("integration test"),
+			Qual("github.com/threeport/threeport/pkg/cli/v0", "ControlPlaneConfigProblems").Call(),
+		).Op(";").Err().Op("!=").Nil()).Block(
+			Return(Err()),
+		),
 		Id("cmd").Op(":=").Lit("go"),
 		Id("args").Op(":=").Index().String().Values(
 			Line().Lit("test"),
@@ -979,91 +986,33 @@ func emitWrapHelper(g *Group, repo, tag Code) {
 	)
 }
 
-// emitCiEnvFunc writes Ci.Env, which prints KEY=value pin and
-// parallelism lines for a workflow to append to GITHUB_ENV.
-func emitCiEnvFunc(f *File, modulePath string) {
-	f.Comment("Env prints KEY=value lines for the workflow to append to GITHUB_ENV. It emits")
-	f.Comment("GOFLAGS, the memory-derived go-build worker count the non-mage steps inherit,")
-	f.Comment("and the module image tag the module install step reads. Values mage itself")
-	f.Comment("consumes (image repo, build-time image tag, image-build parallelism) are")
-	f.Comment("self-derived at use and are not emitted here.")
+// emitCiEnvFunc writes Ci.Env as a call to util.WriteCIEnv.
+func emitCiEnvFunc(f *File, versionPkg string) {
+	f.Comment("Env prints KEY=value lines for a workflow GITHUB_ENV file.")
 	f.Func().Params(Id("Ci")).Id("Env").Params().Error().Block(
-		List(Id("moduleTag"), Err()).Op(":=").Qual(
-			"github.com/threeport/threeport/pkg/util/v0", "ResolveImageTag",
-		).Call(Lit("."), Qual(fmt.Sprintf("%s/internal/version", modulePath), "GetVersion").Call()),
-		If(Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("failed to resolve module image tag: %w"), Err())),
-		),
-		Line(),
-
-		Qual("fmt", "Printf").Call(Lit("MODULE_IMAGE_TAG=%s\n"), Id("moduleTag")),
-		Qual("fmt", "Printf").Call(
-			Lit("GOFLAGS=-p=%d\n"),
-			Qual("github.com/threeport/threeport/pkg/util/v0", "BuildParallelism").Call(),
-		),
-		Return(Nil()),
+		func() Code {
+			if versionPkg == "" {
+				return Return(Qual("github.com/threeport/threeport/pkg/util/v0", "WriteCIEnv").Call(Lit("")))
+			}
+			return Return(Qual("github.com/threeport/threeport/pkg/util/v0", "WriteCIEnv").Call(
+				Qual(versionPkg, "GetVersion").Call(),
+			))
+		}(),
 	)
 	f.Line()
 }
 
-// emitCiTeardownFunc writes Ci.Teardown, which removes what an
-// integration job leaves behind, gated on the CI env var.
+// emitCiTeardownFunc writes Ci.Teardown as a call to util.TeardownCILeftovers.
 func emitCiTeardownFunc(f *File) {
-	f.Comment("Teardown removes what an integration job leaves behind: the test control")
-	f.Comment("plane and its kind cluster, the threeport client config, the local image")
-	f.Comment("registry, and dangling docker data. It force-removes the cluster and config")
-	f.Comment("directly rather than trusting tptctl down, which cannot clear its")
-	f.Comment("control-plane entry once a failed test has left the cluster gone. Running")
-	f.Comment("unconditionally keeps every subsequent run starting clean.")
+	f.Comment("Teardown removes leftover kind clusters, containers, networks, and volumes.")
 	f.Func().Params(Id("Ci")).Id("Teardown").Params().Error().Block(
-		Comment("best-effort graceful teardown of the control plane, then force-delete the"),
-		Comment("kind cluster in case the graceful path failed"),
-		Id("teardownStep").Call(Lit("tptctl"), Lit("down"), Lit("--name"), Lit("test")),
-		Id("teardownStep").Call(Lit("kind"), Lit("delete"), Lit("cluster"), Lit("--name"), Lit("threeport-test")),
-		Comment("force-remove the threeport client config; a failed run leaves tptctl down"),
-		Comment("unable to clear its control-plane entry, which would block the next"),
-		Comment("bring-up"),
-		If(List(Id("home"), Err()).Op(":=").Qual("os", "UserHomeDir").Call().Op(";").Err().Op("==").Nil()).Block(
-			Id("teardownStep").Call(
-				Lit("rm"),
-				Lit("-f"),
-				Qual("path/filepath", "Join").Call(Id("home"), Lit(".threeport"), Lit("config.yaml")),
+		Return(Qual("github.com/threeport/threeport/pkg/util/v0", "TeardownCILeftovers").Call(
+			Lit("./bin/tptctl"),
+			Lit("dev-0"),
+			Func().Params().Error().Block(
+				Return(Parens(Id("Dev").Values()).Dot("LocalRegistryDown").Call()),
 			),
-		),
-		Comment("remove the local image registry"),
-		If(Err().Op(":=").Parens(Id("Dev").Values()).Dot("LocalRegistryDown").Call().Op(";").Err().Op("!=").Nil()).Block(
-			Qual("fmt", "Fprintf").Call(Qual("os", "Stderr"), Lit("ci:teardown: remove local registry: %v\n"), Err()),
-		),
-		Comment("reclaim dangling images, stopped containers, and build cache"),
-		Id("teardownStep").Call(Lit("docker"), Lit("system"), Lit("prune"), Lit("-f")),
-		Return(Nil()),
-	)
-	f.Line()
-}
-
-// emitTeardownStepFunc writes teardownStep, which runs a cleanup
-// command best-effort and logs on failure so teardown continues.
-func emitTeardownStepFunc(f *File) {
-	f.Comment("teardownStep runs a cleanup command best-effort, logging on failure so one")
-	f.Comment("failed command does not abort the rest of teardown.")
-	f.Func().Id("teardownStep").Params(
-		Id("name").String(),
-		Id("args").Op("...").String(),
-	).Block(
-		If(
-			List(Id("out"), Err()).Op(":=").Qual("os/exec", "Command").Call(
-				Id("name"), Id("args").Op("..."),
-			).Dot("CombinedOutput").Call().Op(";").Err().Op("!=").Nil(),
-		).Block(
-			Qual("fmt", "Fprintf").Call(
-				Qual("os", "Stderr"),
-				Lit("ci:teardown: %s %v failed: %v (%s)\n"),
-				Id("name"),
-				Id("args"),
-				Err(),
-				Id("out"),
-			),
-		),
+		)),
 	)
 	f.Line()
 }

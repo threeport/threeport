@@ -6,6 +6,7 @@ import (
 	"fmt"
 	mg "github.com/magefile/mage/mg"
 	version "github.com/threeport/threeport/internal/version"
+	cli "github.com/threeport/threeport/pkg/cli/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	tptdev "github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -33,6 +34,21 @@ type Dev mg.Namespace
 // Package provides a type for methods that implement package targets.
 type Package mg.Namespace
 
+// Ci provides a type for methods that emit values for CI workflow steps.
+type Ci mg.Namespace
+
+// Env prints KEY=value lines for a workflow GITHUB_ENV file.
+func (Ci) Env() error {
+	return util.WriteCIEnv("")
+}
+
+// Teardown removes leftover kind clusters, containers, networks, and volumes.
+func (Ci) Teardown() error {
+	return util.TeardownCILeftovers("./bin/tptctl", "dev-0", func() error {
+		return (Dev{}).LocalRegistryDown()
+	})
+}
+
 // Unit runs the unit tests across the threeport packages.
 func (Test) Unit() error {
 	cmd := "go"
@@ -55,6 +71,9 @@ func (Test) Unit() error {
 
 // Integration runs integration tests against an existing Threeport control plane.
 func (Test) Integration() error {
+	if err := cli.UnmetPrerequisites("integration test", cli.ControlPlaneConfigProblems()); err != nil {
+		return err
+	}
 	cmd := "go"
 	args := []string{
 		"test",
