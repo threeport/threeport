@@ -1465,7 +1465,7 @@ func (Build) AllImages() error {
 		wrap(build.terraformControllerImagePackage),
 		wrap(build.kubernetesWorkloadControllerImagePackage),
 	}
-	return util.RunParallel(util.ImageBuildParallelism(), tasks)
+	return util.RunParallel(parallelFromEnv(), tasks)
 }
 
 // Manifest stitches per-arch images for one component into a multi-arch
@@ -1493,13 +1493,12 @@ func (Package) Manifest(imageName string) error {
 }
 
 // AllManifests stitches multi-arch manifest lists for every component
-// in parallel, sourced from the installer's authoritative controller
-// list so adding a new controller automatically extends coverage. Repo
-// and tag derive from the CI context when GITHUB_ACTIONS is set, otherwise
-// the dev namespace and current version; IMAGE_REPO and IMAGE_TAG override
-// either way. Each component's arch set is discovered from the per-arch
-// tags already pushed to the registry. Set PARALLEL_IMAGE_BUILD >= 1 to
-// control worker concurrency (e.g. `PARALLEL_IMAGE_BUILD=4 mage
+// in parallel. Repo and tag derive from the CI context when
+// GITHUB_ACTIONS is set, otherwise the dev namespace and current
+// version; IMAGE_REPO and IMAGE_TAG override either way. Each
+// component's arch set is discovered from the per-arch tags already
+// pushed to the registry. Set PARALLEL_IMAGE_BUILD >= 1 to control
+// worker concurrency (e.g. `PARALLEL_IMAGE_BUILD=4 mage
 // package:allManifests`).
 func (Package) AllManifests() error {
 	imageRepo := util.ResolveImageRepo(installer.DevImageNamespace)
