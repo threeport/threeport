@@ -498,7 +498,7 @@ func (Test) ModuleInstall() error {
 	// build and push module images to the development registry
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
-		"mage", "build:allImagesDev",
+		"mage", "build:allImages",
 	); err != nil {
 		return fmt.Errorf("failed to build the module images: %w", err)
 	}
