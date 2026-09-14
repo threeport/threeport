@@ -12,7 +12,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// eventDedupColumns is the ON CONFLICT arbiter, matching the unique index on Event.
+// eventDedupColumns is the column list ON CONFLICT uses to find an existing Event.
 var eventDedupColumns = []clause.Column{
 	{Name: "reason"},
 	{Name: "note"},
@@ -42,8 +42,9 @@ func (e *Event) beforeCreate(tx *gorm.DB) error {
 		e.Note = util.Ptr("")
 	}
 
-	// upsert: increment count and last observed time, leave event time as first observed
-	// CockroachDB will not use a partial unique index as an ON CONSTRAINT arbiter
+	// on a repeat, increment count and last_observed_time; leave event_time as first seen
+	// the unique index only covers rows with deleted_at IS NULL; CockroachDB will not
+	// take that index by name in ON CONFLICT, so list its columns and repeat the WHERE
 	tx.Statement.AddClause(clause.OnConflict{
 		Columns:     eventDedupColumns,
 		TargetWhere: clause.Where{Exprs: []clause.Expression{gorm.Expr("deleted_at IS NULL")}},

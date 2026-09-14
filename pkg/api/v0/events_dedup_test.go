@@ -59,7 +59,7 @@ func TestEventCreateUpsertsOnDedupKey(t *testing.T) {
 		"the conflict target must list the index columns:\n%s", sql)
 	// conflict target repeats the deleted_at predicate
 	assert.Contains(t, sql, "WHERE deleted_at IS NULL DO UPDATE",
-		"the conflict target must repeat the index predicate; CockroachDB refuses a partial unique index as an arbiter through ON CONSTRAINT:\n%s", sql)
+		"ON CONFLICT must repeat deleted_at IS NULL; CockroachDB will not take the unique index by name:\n%s", sql)
 	// a repeat increments count
 	assert.Contains(t, strings.ToLower(sql), "count\"=v0_events.count + 1",
 		"a repeat must increment the running count:\n%s", sql)
