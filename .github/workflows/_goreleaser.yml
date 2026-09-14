@@ -46,6 +46,13 @@ jobs:
     - name: Run GoReleaser (with hang diagnostics)
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Force any module/checksum lookup to fail fast instead of hanging,
+        # to test whether the ~9-10 min silent hang is a stalled network
+        # call (proxy.golang.org/sum.golang.org) - deps should already be
+        # fully in the restored module/build cache, so this should be a
+        # no-op if that's not the cause.
+        GOPROXY: 'off'
+        GOSUMDB: 'off'
       run: |
         set -uo pipefail
 
