@@ -33,14 +33,53 @@ jobs:
       with:
         go-version: '1.27'
 
-    - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v5.0.0
-      with:
-        version: v1.26.2
-        # --debug plus GOFLAGS=-x surface per-step build/network activity
-        # so a hung build (e.g. stalled module fetch) shows where it stopped
-        # instead of just going silent until the runner is reaped.
-        args: release --clean --debug -f ./.goreleaser.yml
+    # Previous runs hang silently for ~9-10 minutes at "building binaries"
+    # before the runner is killed with "shutdown signal" - even with
+    # goreleaser --debug and GOFLAGS=-x, because goreleaser buffers each
+    # build command's output and only flushes it on completion/error, which
+    # never happens while it's hung. This step runs goreleaser directly
+    # (not via the action) so we can watch it from outside: if it's still
+    # running after 4 minutes, dump the process tree and open sockets, then
+    # SIGQUIT goreleaser and any go build/compile/link children so the Go
+    # runtime prints their goroutine stacks - that will show what they're
+    # actually blocked on (network dial, file lock, etc).
+    - name: Run GoReleaser (with hang diagnostics)
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GOFLAGS: -x
+      run: |
+        set -uo pipefail
+
+        curl -sSL -o /tmp/goreleaser.tar.gz \
+          https://github.com/goreleaser/goreleaser/releases/download/v1.26.2/goreleaser_Linux_x86_64.tar.gz
+        mkdir -p /tmp/goreleaser
+        tar -xzf /tmp/goreleaser.tar.gz -C /tmp/goreleaser
+
+        /tmp/goreleaser/goreleaser release --clean --debug -f ./.goreleaser.yml &
+        pid=$!
+
+        (
+          sleep 240
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "::group::Hang diagnostics at $(date -u +%T)"
+            echo "--- process tree ---"
+            ps -ef --forest
+            echo "--- open network connections ---"
+            ss -tnp || true
+            echo "--- sending SIGQUIT to goreleaser (pid $pid) ---"
+            kill -QUIT "$pid" 2>/dev/null || true
+            for cpid in $(pgrep -f 'go (build|tool compile|tool link)' 2>/dev/null); do
+              echo "--- sending SIGQUIT to child pid $cpid ---"
+              kill -QUIT "$cpid" 2>/dev/null || true
+            done
+            sleep 5
+            echo "--- process tree after SIGQUIT ---"
+            ps -ef --forest
+            echo "::endgroup::"
+          fi
+        ) &
+        watchdog_pid=$!
+
+        wait "$pid"
+        status=$?
+        kill "$watchdog_pid" 2>/dev/null || true
+        exit "$status"
