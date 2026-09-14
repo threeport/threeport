@@ -37,6 +37,10 @@ jobs:
       uses: goreleaser/goreleaser-action@v5.0.0
       with:
         version: v1.26.2
-        args: release --clean -f ./.goreleaser.yml
+        # --debug plus GOFLAGS=-x surface per-step build/network activity
+        # so a hung build (e.g. stalled module fetch) shows where it stopped
+        # instead of just going silent until the runner is reaped.
+        args: release --clean --debug -f ./.goreleaser.yml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GOFLAGS: -x
