@@ -42,7 +42,9 @@ func (e *Event) beforeCreate(tx *gorm.DB) error {
 		e.Note = util.Ptr("")
 	}
 
-	// on a repeat increment count and last_observed_time and leave event_time as first seen, listing the unique-index columns and repeating deleted_at IS NULL because CockroachDB will not take that index by name in ON CONFLICT
+	// on a repeat increment count and last_observed_time and leave event_time as
+	// first seen, listing the unique-index columns and repeating deleted_at IS NULL
+	// because CockroachDB will not take that index by name in ON CONFLICT
 	tx.Statement.AddClause(clause.OnConflict{
 		Columns:     eventDedupColumns,
 		TargetWhere: clause.Where{Exprs: []clause.Expression{gorm.Expr("deleted_at IS NULL")}},
