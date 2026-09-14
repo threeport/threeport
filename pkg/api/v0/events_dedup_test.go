@@ -10,6 +10,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // dryRunDB returns a GORM handle that renders SQL without sending it.
@@ -122,4 +123,42 @@ func TestEventCreateReloadsCountOnConflict(t *testing.T) {
 	require.NotNil(t, repeat.EventTime)
 	assert.True(t, repeat.EventTime.Equal(firstObserved),
 		"event_time must stay the first observation")
+}
+
+// TestEventCreateColumnListsMatchSchema covers the ON CONFLICT and RETURNING
+// column strings staying aligned with Event's unique index and upsert assignments.
+func TestEventCreateColumnListsMatchSchema(t *testing.T) {
+	stmt := dryRunDB(t).Create(dedupTestEvent()).Statement
+	require.NotNil(t, stmt.Schema)
+
+	// ON CONFLICT columns must be idx_events_dedup
+	idx := stmt.Schema.LookIndex("idx_events_dedup")
+	require.NotNil(t, idx, "Event must declare uniqueIndex idx_events_dedup")
+	var indexCols []string
+	for _, f := range idx.Fields {
+		indexCols = append(indexCols, f.DBName)
+	}
+	var conflictCols []string
+	for _, c := range eventDedupColumns {
+		conflictCols = append(conflictCols, c.Name)
+	}
+	assert.Equal(t, indexCols, conflictCols,
+		"eventDedupColumns must match idx_events_dedup")
+
+	// RETURNING must include the primary key, every upserted column, and event_time
+	onConflict, ok := stmt.Clauses["ON CONFLICT"].Expression.(clause.OnConflict)
+	require.True(t, ok, "create must attach ON CONFLICT")
+	returning, ok := stmt.Clauses["RETURNING"].Expression.(clause.Returning)
+	require.True(t, ok, "create must attach RETURNING")
+	returned := map[string]bool{}
+	for _, c := range returning.Columns {
+		returned[c.Name] = true
+	}
+	require.True(t, returned["id"], "RETURNING must include id")
+	require.True(t, returned["event_time"],
+		"RETURNING must include event_time so a repeat keeps first observed")
+	for _, assignment := range onConflict.DoUpdates {
+		assert.True(t, returned[assignment.Column.Name],
+			"RETURNING must include upserted column %s", assignment.Column.Name)
+	}
 }
