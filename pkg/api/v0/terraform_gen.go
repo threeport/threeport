@@ -85,6 +85,11 @@ func (td *TerraformDefinition) ScheduledForDeletion() *time.Time {
 	return td.DeletionScheduled
 }
 
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on TerraformDefinition.
+func (t *TerraformDefinition) AssociationRequiredByTypes() []string {
+	return []string{new(TerraformInstance).GetFullyQualifiedType()}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.

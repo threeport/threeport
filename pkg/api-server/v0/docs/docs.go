@@ -3284,7 +3284,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/v0/events-join-attached-object-references": {
+        "/v0/events-filtered": {
             "get": {
                 "description": "Get all events joined with attached object references from the Threeport database.",
                 "consumes": [
@@ -3294,7 +3294,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "gets all events joined with attached object references.",
-                "operationId": "get-v0-events-join-attached-object-references",
+                "operationId": "get-v0-events-filtered",
                 "parameters": [
                     {
                         "type": "string",
@@ -16456,7 +16456,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ObjectType": {
-                    "description": "Fields carrying the event's subject - the object the event is\nabout. They flow in both directions:\n  - On create: the caller sets ObjectType (fully qualified type form) + ObjectID\n    in the request body. Event.BeforeCreate validates them;\n    Event.AfterCreate inserts the matching AttachedObjectReference\n    in the same transaction. ObjectName is ignored on write.\n  - On read: GetEventsJoinAttachedObjectReferenceByQueryString\n    projects the joined AOR's base object back into these\n    fields, then resolves ObjectName via the type's name resolver.\n\ngorm:\"-\" keeps them off the Event row in the schema - the AOR\nis the source of truth on disk for the subject linkage.\n\nFor an event describing a script failure on a\nMachineRuntimeInstance named \"some-host\" (id 42), these hold:\n  ObjectType = \"threeport.io/v0.MachineRuntimeInstance\"\n  ObjectID   = 42\n  ObjectName = \"some-host\"   (read only - ignored on create)\nA consumer like ` + "`" + `tptctl get events` + "`" + ` uses them to render\n\"threeport.io/machine-runtime-instance/some-host\" in the OBJECT\ncolumn.",
+                    "description": "Fields carrying the event's subject - the object the event is\nabout. They flow in both directions:\n  - On create: the caller sets ObjectType (fully qualified type form) + ObjectID\n    in the request body. Event.BeforeCreate validates them;\n    Event.AfterCreate inserts the matching AttachedObjectReference\n    in the same transaction. ObjectName is ignored on write.\n  - On read: GetEventsFilteredByQueryString\n    projects the joined AOR's base object back into these\n    fields, then resolves ObjectName via the type's name resolver.\n\ngorm:\"-\" keeps them off the Event row in the schema - the AOR\nis the source of truth on disk for the subject linkage.\n\nFor an event describing a script failure on a\nMachineRuntimeInstance named \"some-host\" (id 42), these hold:\n  ObjectType = \"threeport.io/v0.MachineRuntimeInstance\"\n  ObjectID   = 42\n  ObjectName = \"some-host\"   (read only - ignored on create)\nA consumer like ` + "`" + `tptctl get events` + "`" + ` uses them to render\n\"threeport.io/machine-runtime-instance/some-host\" in the OBJECT\ncolumn.",
                     "type": "string"
                 },
                 "Reason": {
