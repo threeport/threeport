@@ -645,28 +645,10 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Return().Nil(),
 	)
 
-	// build vals utility function
-	f.Comment("getBuildVals returns the working directory and the arch(es) to build for.")
-	f.Comment("Arch comes from the ARCH env var (comma-separated for multi-arch) or")
-	f.Comment("defaults to the local CPU architecture.")
-	f.Func().Id("getBuildVals").Params().Params(
-		String(),
-		String(),
-		Error(),
-	).Block(
-		List(Id("workingDir"), Err()).Op(":=").Qual("os", "Getwd").Call(),
-		If(Err().Op("!=").Nil()).Block(
-			Return(Lit(""), Lit(""), Qual("fmt", "Errorf").Call(Lit("failed to get working directory: %w"), Err())),
-		),
-		Line(),
-
-		Id("arch").Op(":=").Qual("os", "Getenv").Call(Lit("ARCH")),
-		If(Id("arch").Op("==").Lit("")).Block(
-			Id("arch").Op("=").Qual("runtime", "GOARCH"),
-		),
-		Line(),
-
-		Return(Id("workingDir"), Id("arch"), Nil()),
+	// emit `func getBuildVals() (string, string, error) { return util.GetBuildVals() }`
+	f.Comment("getBuildVals returns the working directory and the arch list to build for.")
+	f.Func().Id("getBuildVals").Params().Params(String(), String(), Error()).Block(
+		Return(Qual("github.com/threeport/threeport/pkg/util/v0", "GetBuildVals").Call()),
 	)
 
 	// write code to file if not excluded by SDK config

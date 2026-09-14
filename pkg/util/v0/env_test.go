@@ -3,6 +3,7 @@ package v0
 import (
 	"go/build"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -31,6 +32,41 @@ func TestInstallDirFallsBackToGopathBin(t *testing.T) {
 	// assert GOPATH/bin is non-empty via go/build's home go default
 	if got == "" {
 		t.Errorf("InstallDir() returned empty, want a non-empty GOPATH/bin")
+	}
+}
+
+// TestGetBuildValsUsesArchEnv covers ARCH winning over GOARCH.
+func TestGetBuildValsUsesArchEnv(t *testing.T) {
+	// set a comma-separated ARCH override
+	t.Setenv("ARCH", "amd64,arm64")
+	// resolve cwd and arch
+	_, arch, err := GetBuildVals()
+	if err != nil {
+		t.Fatalf("GetBuildVals() error = %v", err)
+	}
+	// assert ARCH is returned unchanged
+	if arch != "amd64,arm64" {
+		t.Errorf("GetBuildVals() arch = %q, want amd64,arm64", arch)
+	}
+}
+
+// TestGetBuildValsDefaultsArchToGOARCH covers an empty ARCH falling
+// back to runtime.GOARCH.
+func TestGetBuildValsDefaultsArchToGOARCH(t *testing.T) {
+	// clear ARCH so the GOARCH fallback applies
+	t.Setenv("ARCH", "")
+	// resolve cwd and arch
+	dir, arch, err := GetBuildVals()
+	if err != nil {
+		t.Fatalf("GetBuildVals() error = %v", err)
+	}
+	// assert cwd is non-empty
+	if dir == "" {
+		t.Errorf("GetBuildVals() dir empty, want cwd")
+	}
+	// assert arch is the local CPU architecture
+	if arch != runtime.GOARCH {
+		t.Errorf("GetBuildVals() arch = %q, want %q", arch, runtime.GOARCH)
 	}
 }
 
