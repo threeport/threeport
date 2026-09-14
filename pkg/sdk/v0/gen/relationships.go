@@ -180,6 +180,14 @@ func parseRelationshipDependencies(dir string) (map[string][]string, error) {
 			}
 		}
 
+		// bare TypeNameID with no reciprocal field still holds a foreign key
+		for keyField := range keyFields {
+			referenced := strings.TrimSuffix(keyField, "ID")
+			if referenced != "" && referenced != typeName && modelNames[referenced] {
+				appendUniqueDependency(dependencies, typeName, referenced)
+			}
+		}
+
 		for _, field := range structType.Fields.List {
 			if len(field.Names) == 0 {
 				continue
@@ -191,20 +199,30 @@ func parseRelationshipDependencies(dir string) (map[string][]string, error) {
 
 			// has-many: the child's table holds the key
 			if child, ok := sliceElementModel(field.Type, modelNames); ok {
-				dependencies[child] = append(dependencies[child], typeName)
+				appendUniqueDependency(dependencies, child, typeName)
 				continue
 			}
 
 			// belongs-to: this table holds TypeNameID
 			if referenced, ok := singularModel(field.Type, modelNames); ok {
 				if keyFields[referenced+"ID"] {
-					dependencies[typeName] = append(dependencies[typeName], referenced)
+					appendUniqueDependency(dependencies, typeName, referenced)
 				}
 			}
 		}
 	}
 
 	return dependencies, nil
+}
+
+// appendUniqueDependency records from -> to once.
+func appendUniqueDependency(dependencies map[string][]string, from, to string) {
+	for _, existing := range dependencies[from] {
+		if existing == to {
+			return
+		}
+	}
+	dependencies[from] = append(dependencies[from], to)
 }
 
 // parseModelStructs returns every package-level struct in dir, keyed by name.

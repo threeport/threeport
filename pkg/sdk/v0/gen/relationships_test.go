@@ -55,6 +55,26 @@ func TestParseRelationshipDependencies_SkipsManyToMany(t *testing.T) {
 	assert.Equal(t, []string{"Parent"}, dependencies["Child"])
 }
 
+// TestParseRelationshipDependencies_BareIDField covers a foreign key
+// with no reciprocal struct field on either side.
+func TestParseRelationshipDependencies_BareIDField(t *testing.T) {
+	source := "package v0\n\n" +
+		"type ModuleController struct {\n" +
+		"\tName *string\n" +
+		"}\n\n" +
+		"type ModuleObject struct {\n" +
+		"\tModuleControllerID *uint\n" +
+		"}\n"
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "model.go"), []byte(source), 0o600))
+
+	dependencies, err := parseRelationshipDependencies(dir)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"ModuleController"}, dependencies["ModuleObject"])
+}
+
 // TestSortDatabaseInitNamesByDependency_ReferencedBeforeReferencing covers referenced-first order.
 func TestSortDatabaseInitNamesByDependency_ReferencedBeforeReferencing(t *testing.T) {
 	g := sortFixture(map[string][]string{
