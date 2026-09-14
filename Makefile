@@ -109,10 +109,10 @@ dev-sub-nats:
 dev-debug-api:
 	dlv debug cmd/rest-api/main_gen.go -- -env-file hack/env -auto-migrate -verbose
 
-#dev-debug-wrk: @ Start debugging session for workload-controller (must first run `make dev-forward-nats` in another terminal)
+#dev-debug-wrk: @ Start debugging session for kubernetes-workload-controller (must first run `make dev-forward-nats` in another terminal)
 dev-debug-wrk:
-	dlv debug cmd/workload-controller/main_gen.go -- -auth-enabled=false -api-server=localhost:1323 -msg-broker-host=localhost -msg-broker-port=4222
+	dlv debug cmd/kubernetes-workload-controller/main_gen.go -- -auth-enabled=false -api-server=localhost:1323 -msg-broker-host=localhost -msg-broker-port=4222
 
-#dev-debug-gateway: @ Start debugging session for workload-controller (must first run `make dev-forward-nats` in another terminal)
+#dev-debug-gateway: @ Start debugging session for gateway-controller (must first run `make dev-forward-nats` in another terminal)
 dev-debug-gateway:
-	dlv debug --build-flags cmd/gateway-controller/main_gen.go -- -auth-enabled=false -api-server=localhost:1323 -msg-broker-host=localhost -msg-broker-port=4222
+	dlv debug cmd/gateway-controller/main_gen.go -- -auth-enabled=false -api-server=localhost:1323 -msg-broker-host=localhost -msg-broker-port=4222
