@@ -65,13 +65,25 @@ jobs:
             ps -ef --forest
             echo "--- open network connections ---"
             ss -tnp || true
-            echo "--- sending SIGQUIT to goreleaser (pid $pid) ---"
-            kill -QUIT "$pid" 2>/dev/null || true
+
+            # SIGQUIT the go build/compile/link children FIRST so their own
+            # goroutine dumps land in goreleaser's captured output buffer,
+            # then give goreleaser a moment to observe those exits and print
+            # what it captured before we (if needed) SIGQUIT goreleaser
+            # itself - killing the parent first would drop that buffer
+            # unread, which is what happened last run.
             for cpid in $(pgrep -f 'go (build|tool compile|tool link)' 2>/dev/null); do
               echo "--- sending SIGQUIT to child pid $cpid ---"
               kill -QUIT "$cpid" 2>/dev/null || true
             done
-            sleep 5
+            sleep 10
+
+            if kill -0 "$pid" 2>/dev/null; then
+              echo "--- goreleaser still running, sending SIGQUIT to pid $pid ---"
+              kill -QUIT "$pid" 2>/dev/null || true
+              sleep 5
+            fi
+
             echo "--- process tree after SIGQUIT ---"
             ps -ef --forest
             echo "::endgroup::"
