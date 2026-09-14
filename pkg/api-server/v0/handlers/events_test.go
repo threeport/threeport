@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	echo "github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -380,4 +382,110 @@ func TestGetEvents_ObjectTypeNameAloneUnregisteredReturns404(t *testing.T) {
 	code, _ := getEvents(t, h, "?objecttypename=NoSuchKind")
 
 	assert.Equal(t, http.StatusNotFound, code)
+}
+
+// eventCreatePayload marshals an Event for POST /v0/events without GORM model
+// keys, which PayloadCheck rejects on create.
+func eventCreatePayload(t *testing.T, ev api.Event) []byte {
+	t.Helper()
+
+	raw, err := json.Marshal(ev)
+	require.NoError(t, err)
+	var m map[string]interface{}
+	require.NoError(t, json.Unmarshal(raw, &m))
+	for _, k := range []string{"ID", "CreatedAt", "UpdatedAt", "DeletedAt"} {
+		delete(m, k)
+	}
+	out, err := json.Marshal(m)
+	require.NoError(t, err)
+
+	return out
+}
+
+// addEvent POSTs one Event through AddEvent and returns the status and the
+// Event in the 201 body.
+func addEvent(t *testing.T, h Handler, ev api.Event) (int, api.Event) {
+	t.Helper()
+
+	e := echo.New()
+	// register the validator AddEvent calls through ValidateBoundData
+	validate := validator.New()
+	require.NoError(t, validate.RegisterValidation("optional", apiserver_lib.IsOptional))
+	require.NoError(t, validate.RegisterValidation("association", apiserver_lib.IsAssociation))
+	e.Validator = &apiserver_lib.CustomValidator{Validator: validate}
+
+	// post through AddEvent
+	req := httptest.NewRequest(http.MethodPost, api.PathEvents, bytes.NewReader(eventCreatePayload(t, ev)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath(api.PathEvents)
+
+	require.NoError(t, h.AddEvent(&apiserver_lib.CustomContext{Context: c}))
+
+	if rec.Code != http.StatusCreated {
+		return rec.Code, api.Event{}
+	}
+
+	// decode the 201 envelope
+	var envelope struct {
+		Data []api.Event
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &envelope))
+	require.Len(t, envelope.Data, 1)
+
+	return rec.Code, envelope.Data[0]
+}
+
+// TestAddEvent_ConflictResponseMatchesStoredRow covers a second POST of the
+// same event returning the upserted row in the 201 body, not the Count=1 payload.
+func TestAddEvent_ConflictResponseMatchesStoredRow(t *testing.T) {
+	h := newEventsHandler(t)
+	registerTaggedFields(api.ObjectTypeEvent, new(api.Event))
+
+	firstSeen := time.Now().UTC().Truncate(time.Millisecond)
+	payload := api.Event{
+		Reason:              util.Ptr("ScriptFailed"),
+		Note:                util.Ptr("n"),
+		Type:                util.Ptr("Warning"),
+		Count:               util.Ptr(uint(1)),
+		EventTime:           &firstSeen,
+		LastObservedTime:    &firstSeen,
+		ReportingController: util.Ptr("test"),
+		ObjectType:          util.Ptr("example.com/v0.Widget"),
+		ObjectID:            util.Ptr(uint(7)),
+	}
+
+	// insert the first occurrence
+	code, created := addEvent(t, h, payload)
+	require.Equal(t, http.StatusCreated, code)
+	require.NotNil(t, created.ID)
+	require.NotNil(t, created.Count)
+	assert.Equal(t, uint(1), *created.Count)
+
+	time.Sleep(time.Millisecond)
+	later := time.Now().UTC().Truncate(time.Millisecond)
+	payload.LastObservedTime = &later
+	payload.EventTime = &later
+
+	// post a repeat and compare the 201 body to the stored row
+	code, repeated := addEvent(t, h, payload)
+	require.Equal(t, http.StatusCreated, code)
+
+	var stored api.Event
+	require.NoError(t, h.DB.First(&stored, *created.ID).Error)
+	require.NotNil(t, repeated.ID)
+	assert.Equal(t, *stored.ID, *repeated.ID)
+	require.NotNil(t, repeated.Count)
+	require.NotNil(t, stored.Count)
+	assert.Equal(t, *stored.Count, *repeated.Count)
+	assert.Equal(t, uint(2), *repeated.Count)
+	require.NotNil(t, repeated.LastObservedTime)
+	require.NotNil(t, stored.LastObservedTime)
+	assert.True(t, repeated.LastObservedTime.Equal(*stored.LastObservedTime))
+	require.NotNil(t, repeated.EventTime)
+	require.NotNil(t, stored.EventTime)
+	assert.True(t, repeated.EventTime.Equal(*stored.EventTime))
+	assert.True(t, stored.EventTime.Equal(firstSeen),
+		"event_time must stay the first observation")
 }
