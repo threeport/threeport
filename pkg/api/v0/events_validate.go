@@ -53,6 +53,16 @@ func (e *Event) beforeCreate(tx *gorm.DB) error {
 			"updated_at":         gorm.Expr("excluded.updated_at"),
 		}),
 	})
+	// gorm's create returning list is only columns with database defaults, so
+	// count and last_observed_time stay at the insert values unless named here
+	tx.Statement.AddClause(clause.Returning{Columns: []clause.Column{
+		{Name: "id"},
+		{Name: "count"},
+		{Name: "last_observed_time"},
+		{Name: "event_time"},
+		{Name: "created_at"},
+		{Name: "updated_at"},
+	}})
 
 	return nil
 }

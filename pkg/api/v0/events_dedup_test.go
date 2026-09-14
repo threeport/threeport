@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -67,6 +68,10 @@ func TestEventCreateUpsertsOnDedupKey(t *testing.T) {
 	// a repeat leaves event_time as first observed
 	assert.NotContains(t, sql, "excluded.event_time",
 		"event_time must keep meaning first observed, so a repeat leaves it alone:\n%s", sql)
+	// returning includes the columns an upsert mutates so the in-memory struct
+	// matches the persisted row
+	assert.Contains(t, sql, `RETURNING "id","count","last_observed_time","event_time","created_at","updated_at"`,
+		"create must return the upserted count and last_observed_time:\n%s", sql)
 }
 
 // TestEventCreateWritesSubjectColumns covers the subject columns written on create.
@@ -84,4 +89,37 @@ func TestEventCreateWritesSubjectColumns(t *testing.T) {
 	// object_name is not stored
 	assert.NotContains(t, sql, "object_name",
 		"object_name resolves at read time from object_id and must not be stored:\n%s", sql)
+}
+
+// TestEventCreateReloadsCountOnConflict covers a second create of the same
+// event refreshing Count and LastObservedTime on the in-memory struct.
+func TestEventCreateReloadsCountOnConflict(t *testing.T) {
+	// open an in-memory event table
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	require.NoError(t, err, "opening sqlite")
+	require.NoError(t, db.AutoMigrate(&Event{}), "migrating events")
+
+	// insert the first occurrence
+	first := dedupTestEvent()
+	require.NoError(t, db.Create(first).Error, "inserting the first occurrence")
+	require.NotNil(t, first.Count)
+	assert.Equal(t, uint(1), *first.Count)
+
+	firstObserved := *first.EventTime
+	time.Sleep(time.Millisecond)
+
+	// upsert a repeat and check the dest struct
+	repeat := dedupTestEvent()
+	require.NoError(t, db.Create(repeat).Error, "upserting a repeat")
+
+	require.NotNil(t, repeat.ID)
+	assert.Equal(t, *first.ID, *repeat.ID, "a repeat must keep the original row")
+	require.NotNil(t, repeat.Count)
+	assert.Equal(t, uint(2), *repeat.Count, "the create dest must carry the incremented count")
+	require.NotNil(t, repeat.LastObservedTime)
+	assert.True(t, repeat.LastObservedTime.After(firstObserved),
+		"the create dest must carry the newest sighting")
+	require.NotNil(t, repeat.EventTime)
+	assert.True(t, repeat.EventTime.Equal(firstObserved),
+		"event_time must stay the first observation")
 }
