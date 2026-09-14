@@ -66,7 +66,7 @@ func (Test) Unit() error {
 
 // Integration runs integration tests against an existing Threeport control plane.
 func (Test) Integration() error {
-	if err := util.UnmetPrerequisites("integration test prerequisites are not met:", cli.ControlPlaneConfigProblems()); err != nil {
+	if err := cli.ControlPlaneConfigProblems(); err != nil {
 		return err
 	}
 	cmd := "go"
