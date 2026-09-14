@@ -55,7 +55,7 @@ func (h Handler) AddMachineWorkloadDefinition(c echo.Context) error {
 
 	if err := c.Bind(&machineWorkloadDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -295,7 +295,7 @@ func (h Handler) UpdateMachineWorkloadDefinition(c echo.Context) error {
 	var updatedMachineWorkloadDefinition api_v0.MachineWorkloadDefinition
 	if err := c.Bind(&updatedMachineWorkloadDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// update object in database
@@ -373,7 +373,7 @@ func (h Handler) ReplaceMachineWorkloadDefinition(c echo.Context) error {
 	var updatedMachineWorkloadDefinition api_v0.MachineWorkloadDefinition
 	if err := c.Bind(&updatedMachineWorkloadDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -530,7 +530,7 @@ func (h Handler) AddMachineWorkloadInstance(c echo.Context) error {
 
 	if err := c.Bind(&machineWorkloadInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -784,7 +784,7 @@ func (h Handler) UpdateMachineWorkloadInstance(c echo.Context) error {
 	var updatedMachineWorkloadInstance api_v0.MachineWorkloadInstance
 	if err := c.Bind(&updatedMachineWorkloadInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -881,7 +881,7 @@ func (h Handler) ReplaceMachineWorkloadInstance(c echo.Context) error {
 	var updatedMachineWorkloadInstance api_v0.MachineWorkloadInstance
 	if err := c.Bind(&updatedMachineWorkloadInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields

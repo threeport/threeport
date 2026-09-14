@@ -55,7 +55,7 @@ func (h Handler) AddSecretDefinition(c echo.Context) error {
 
 	if err := c.Bind(&secretDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -309,7 +309,7 @@ func (h Handler) UpdateSecretDefinition(c echo.Context) error {
 	var updatedSecretDefinition api_v0.SecretDefinition
 	if err := c.Bind(&updatedSecretDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -406,7 +406,7 @@ func (h Handler) ReplaceSecretDefinition(c echo.Context) error {
 	var updatedSecretDefinition api_v0.SecretDefinition
 	if err := c.Bind(&updatedSecretDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -635,7 +635,7 @@ func (h Handler) AddSecretInstance(c echo.Context) error {
 
 	if err := c.Bind(&secretInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -889,7 +889,7 @@ func (h Handler) UpdateSecretInstance(c echo.Context) error {
 	var updatedSecretInstance api_v0.SecretInstance
 	if err := c.Bind(&updatedSecretInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -986,7 +986,7 @@ func (h Handler) ReplaceSecretInstance(c echo.Context) error {
 	var updatedSecretInstance api_v0.SecretInstance
 	if err := c.Bind(&updatedSecretInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields

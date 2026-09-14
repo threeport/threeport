@@ -55,7 +55,7 @@ func (h Handler) AddLoggingDefinition(c echo.Context) error {
 
 	if err := c.Bind(&loggingDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -309,7 +309,7 @@ func (h Handler) UpdateLoggingDefinition(c echo.Context) error {
 	var updatedLoggingDefinition api_v0.LoggingDefinition
 	if err := c.Bind(&updatedLoggingDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -406,7 +406,7 @@ func (h Handler) ReplaceLoggingDefinition(c echo.Context) error {
 	var updatedLoggingDefinition api_v0.LoggingDefinition
 	if err := c.Bind(&updatedLoggingDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -635,7 +635,7 @@ func (h Handler) AddLoggingInstance(c echo.Context) error {
 
 	if err := c.Bind(&loggingInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -889,7 +889,7 @@ func (h Handler) UpdateLoggingInstance(c echo.Context) error {
 	var updatedLoggingInstance api_v0.LoggingInstance
 	if err := c.Bind(&updatedLoggingInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -986,7 +986,7 @@ func (h Handler) ReplaceLoggingInstance(c echo.Context) error {
 	var updatedLoggingInstance api_v0.LoggingInstance
 	if err := c.Bind(&updatedLoggingInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -1209,7 +1209,7 @@ func (h Handler) AddMetricsDefinition(c echo.Context) error {
 
 	if err := c.Bind(&metricsDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -1463,7 +1463,7 @@ func (h Handler) UpdateMetricsDefinition(c echo.Context) error {
 	var updatedMetricsDefinition api_v0.MetricsDefinition
 	if err := c.Bind(&updatedMetricsDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -1560,7 +1560,7 @@ func (h Handler) ReplaceMetricsDefinition(c echo.Context) error {
 	var updatedMetricsDefinition api_v0.MetricsDefinition
 	if err := c.Bind(&updatedMetricsDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -1789,7 +1789,7 @@ func (h Handler) AddMetricsInstance(c echo.Context) error {
 
 	if err := c.Bind(&metricsInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -2043,7 +2043,7 @@ func (h Handler) UpdateMetricsInstance(c echo.Context) error {
 	var updatedMetricsInstance api_v0.MetricsInstance
 	if err := c.Bind(&updatedMetricsInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -2140,7 +2140,7 @@ func (h Handler) ReplaceMetricsInstance(c echo.Context) error {
 	var updatedMetricsInstance api_v0.MetricsInstance
 	if err := c.Bind(&updatedMetricsInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -2363,7 +2363,7 @@ func (h Handler) AddObservabilityDashboardDefinition(c echo.Context) error {
 
 	if err := c.Bind(&observabilityDashboardDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -2617,7 +2617,7 @@ func (h Handler) UpdateObservabilityDashboardDefinition(c echo.Context) error {
 	var updatedObservabilityDashboardDefinition api_v0.ObservabilityDashboardDefinition
 	if err := c.Bind(&updatedObservabilityDashboardDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -2714,7 +2714,7 @@ func (h Handler) ReplaceObservabilityDashboardDefinition(c echo.Context) error {
 	var updatedObservabilityDashboardDefinition api_v0.ObservabilityDashboardDefinition
 	if err := c.Bind(&updatedObservabilityDashboardDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -2943,7 +2943,7 @@ func (h Handler) AddObservabilityDashboardInstance(c echo.Context) error {
 
 	if err := c.Bind(&observabilityDashboardInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -3197,7 +3197,7 @@ func (h Handler) UpdateObservabilityDashboardInstance(c echo.Context) error {
 	var updatedObservabilityDashboardInstance api_v0.ObservabilityDashboardInstance
 	if err := c.Bind(&updatedObservabilityDashboardInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -3294,7 +3294,7 @@ func (h Handler) ReplaceObservabilityDashboardInstance(c echo.Context) error {
 	var updatedObservabilityDashboardInstance api_v0.ObservabilityDashboardInstance
 	if err := c.Bind(&updatedObservabilityDashboardInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -3517,7 +3517,7 @@ func (h Handler) AddObservabilityStackDefinition(c echo.Context) error {
 
 	if err := c.Bind(&observabilityStackDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -3771,7 +3771,7 @@ func (h Handler) UpdateObservabilityStackDefinition(c echo.Context) error {
 	var updatedObservabilityStackDefinition api_v0.ObservabilityStackDefinition
 	if err := c.Bind(&updatedObservabilityStackDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -3868,7 +3868,7 @@ func (h Handler) ReplaceObservabilityStackDefinition(c echo.Context) error {
 	var updatedObservabilityStackDefinition api_v0.ObservabilityStackDefinition
 	if err := c.Bind(&updatedObservabilityStackDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -4097,7 +4097,7 @@ func (h Handler) AddObservabilityStackInstance(c echo.Context) error {
 
 	if err := c.Bind(&observabilityStackInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -4351,7 +4351,7 @@ func (h Handler) UpdateObservabilityStackInstance(c echo.Context) error {
 	var updatedObservabilityStackInstance api_v0.ObservabilityStackInstance
 	if err := c.Bind(&updatedObservabilityStackInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -4448,7 +4448,7 @@ func (h Handler) ReplaceObservabilityStackInstance(c echo.Context) error {
 	var updatedObservabilityStackInstance api_v0.ObservabilityStackInstance
 	if err := c.Bind(&updatedObservabilityStackInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields

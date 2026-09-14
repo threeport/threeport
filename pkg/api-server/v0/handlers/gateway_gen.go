@@ -55,7 +55,7 @@ func (h Handler) AddDomainNameDefinition(c echo.Context) error {
 
 	if err := c.Bind(&domainNameDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -295,7 +295,7 @@ func (h Handler) UpdateDomainNameDefinition(c echo.Context) error {
 	var updatedDomainNameDefinition api_v0.DomainNameDefinition
 	if err := c.Bind(&updatedDomainNameDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// update object in database
@@ -373,7 +373,7 @@ func (h Handler) ReplaceDomainNameDefinition(c echo.Context) error {
 	var updatedDomainNameDefinition api_v0.DomainNameDefinition
 	if err := c.Bind(&updatedDomainNameDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -530,7 +530,7 @@ func (h Handler) AddDomainNameInstance(c echo.Context) error {
 
 	if err := c.Bind(&domainNameInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -784,7 +784,7 @@ func (h Handler) UpdateDomainNameInstance(c echo.Context) error {
 	var updatedDomainNameInstance api_v0.DomainNameInstance
 	if err := c.Bind(&updatedDomainNameInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -881,7 +881,7 @@ func (h Handler) ReplaceDomainNameInstance(c echo.Context) error {
 	var updatedDomainNameInstance api_v0.DomainNameInstance
 	if err := c.Bind(&updatedDomainNameInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -1104,7 +1104,7 @@ func (h Handler) AddGatewayDefinition(c echo.Context) error {
 
 	if err := c.Bind(&gatewayDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -1358,7 +1358,7 @@ func (h Handler) UpdateGatewayDefinition(c echo.Context) error {
 	var updatedGatewayDefinition api_v0.GatewayDefinition
 	if err := c.Bind(&updatedGatewayDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -1455,7 +1455,7 @@ func (h Handler) ReplaceGatewayDefinition(c echo.Context) error {
 	var updatedGatewayDefinition api_v0.GatewayDefinition
 	if err := c.Bind(&updatedGatewayDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -1684,7 +1684,7 @@ func (h Handler) AddGatewayHttpPort(c echo.Context) error {
 
 	if err := c.Bind(&gatewayHttpPort); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -1924,7 +1924,7 @@ func (h Handler) UpdateGatewayHttpPort(c echo.Context) error {
 	var updatedGatewayHttpPort api_v0.GatewayHttpPort
 	if err := c.Bind(&updatedGatewayHttpPort); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// update object in database
@@ -2002,7 +2002,7 @@ func (h Handler) ReplaceGatewayHttpPort(c echo.Context) error {
 	var updatedGatewayHttpPort api_v0.GatewayHttpPort
 	if err := c.Bind(&updatedGatewayHttpPort); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -2153,7 +2153,7 @@ func (h Handler) AddGatewayInstance(c echo.Context) error {
 
 	if err := c.Bind(&gatewayInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -2407,7 +2407,7 @@ func (h Handler) UpdateGatewayInstance(c echo.Context) error {
 	var updatedGatewayInstance api_v0.GatewayInstance
 	if err := c.Bind(&updatedGatewayInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -2504,7 +2504,7 @@ func (h Handler) ReplaceGatewayInstance(c echo.Context) error {
 	var updatedGatewayInstance api_v0.GatewayInstance
 	if err := c.Bind(&updatedGatewayInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -2727,7 +2727,7 @@ func (h Handler) AddGatewayTcpPort(c echo.Context) error {
 
 	if err := c.Bind(&gatewayTcpPort); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -2967,7 +2967,7 @@ func (h Handler) UpdateGatewayTcpPort(c echo.Context) error {
 	var updatedGatewayTcpPort api_v0.GatewayTcpPort
 	if err := c.Bind(&updatedGatewayTcpPort); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// update object in database
@@ -3045,7 +3045,7 @@ func (h Handler) ReplaceGatewayTcpPort(c echo.Context) error {
 	var updatedGatewayTcpPort api_v0.GatewayTcpPort
 	if err := c.Bind(&updatedGatewayTcpPort); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields

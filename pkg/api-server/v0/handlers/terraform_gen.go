@@ -55,7 +55,7 @@ func (h Handler) AddTerraformDefinition(c echo.Context) error {
 
 	if err := c.Bind(&terraformDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -309,7 +309,7 @@ func (h Handler) UpdateTerraformDefinition(c echo.Context) error {
 	var updatedTerraformDefinition api_v0.TerraformDefinition
 	if err := c.Bind(&updatedTerraformDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -406,7 +406,7 @@ func (h Handler) ReplaceTerraformDefinition(c echo.Context) error {
 	var updatedTerraformDefinition api_v0.TerraformDefinition
 	if err := c.Bind(&updatedTerraformDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -635,7 +635,7 @@ func (h Handler) AddTerraformInstance(c echo.Context) error {
 
 	if err := c.Bind(&terraformInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -889,7 +889,7 @@ func (h Handler) UpdateTerraformInstance(c echo.Context) error {
 	var updatedTerraformInstance api_v0.TerraformInstance
 	if err := c.Bind(&updatedTerraformInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -986,7 +986,7 @@ func (h Handler) ReplaceTerraformInstance(c echo.Context) error {
 	var updatedTerraformInstance api_v0.TerraformInstance
 	if err := c.Bind(&updatedTerraformInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields

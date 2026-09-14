@@ -65,7 +65,7 @@ func (h Handler) CustomAddSecretDefinition(next echo.HandlerFunc) echo.HandlerFu
 
 		if err := c.Bind(&secretDefinition); err != nil {
 			h.Logger.Error("handler error: error binding object", zap.Error(err))
-			return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+			return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 		}
 
 		// check for missing required fields

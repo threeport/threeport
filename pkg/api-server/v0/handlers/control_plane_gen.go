@@ -56,7 +56,7 @@ func (h Handler) AddControlPlaneDefinition(c echo.Context) error {
 
 	if err := c.Bind(&controlPlaneDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -310,7 +310,7 @@ func (h Handler) UpdateControlPlaneDefinition(c echo.Context) error {
 	var updatedControlPlaneDefinition api_v0.ControlPlaneDefinition
 	if err := c.Bind(&updatedControlPlaneDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -407,7 +407,7 @@ func (h Handler) ReplaceControlPlaneDefinition(c echo.Context) error {
 	var updatedControlPlaneDefinition api_v0.ControlPlaneDefinition
 	if err := c.Bind(&updatedControlPlaneDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -636,7 +636,7 @@ func (h Handler) AddControlPlaneInstance(c echo.Context) error {
 
 	if err := c.Bind(&controlPlaneInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -890,7 +890,7 @@ func (h Handler) UpdateControlPlaneInstance(c echo.Context) error {
 	var updatedControlPlaneInstance api_v0.ControlPlaneInstance
 	if err := c.Bind(&updatedControlPlaneInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -987,7 +987,7 @@ func (h Handler) ReplaceControlPlaneInstance(c echo.Context) error {
 	var updatedControlPlaneInstance api_v0.ControlPlaneInstance
 	if err := c.Bind(&updatedControlPlaneInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields

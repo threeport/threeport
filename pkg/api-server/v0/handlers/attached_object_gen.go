@@ -51,7 +51,7 @@ func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 
 	if err := c.Bind(&attachedObjectReference); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -291,7 +291,7 @@ func (h Handler) UpdateAttachedObjectReference(c echo.Context) error {
 	var updatedAttachedObjectReference api_v0.AttachedObjectReference
 	if err := c.Bind(&updatedAttachedObjectReference); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// update object in database
@@ -369,7 +369,7 @@ func (h Handler) ReplaceAttachedObjectReference(c echo.Context) error {
 	var updatedAttachedObjectReference api_v0.AttachedObjectReference
 	if err := c.Bind(&updatedAttachedObjectReference); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields

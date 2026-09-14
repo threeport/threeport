@@ -51,7 +51,7 @@ func (h Handler) AddProfile(c echo.Context) error {
 
 	if err := c.Bind(&profile); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -291,7 +291,7 @@ func (h Handler) UpdateProfile(c echo.Context) error {
 	var updatedProfile api_v0.Profile
 	if err := c.Bind(&updatedProfile); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// update object in database
@@ -369,7 +369,7 @@ func (h Handler) ReplaceProfile(c echo.Context) error {
 	var updatedProfile api_v0.Profile
 	if err := c.Bind(&updatedProfile); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -520,7 +520,7 @@ func (h Handler) AddTier(c echo.Context) error {
 
 	if err := c.Bind(&tier); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -760,7 +760,7 @@ func (h Handler) UpdateTier(c echo.Context) error {
 	var updatedTier api_v0.Tier
 	if err := c.Bind(&updatedTier); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// update object in database
@@ -838,7 +838,7 @@ func (h Handler) ReplaceTier(c echo.Context) error {
 	var updatedTier api_v0.Tier
 	if err := c.Bind(&updatedTier); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields

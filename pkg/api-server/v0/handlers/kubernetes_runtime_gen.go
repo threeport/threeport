@@ -55,7 +55,7 @@ func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 
 	if err := c.Bind(&kubernetesRuntimeDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -309,7 +309,7 @@ func (h Handler) UpdateKubernetesRuntimeDefinition(c echo.Context) error {
 	var updatedKubernetesRuntimeDefinition api_v0.KubernetesRuntimeDefinition
 	if err := c.Bind(&updatedKubernetesRuntimeDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -406,7 +406,7 @@ func (h Handler) ReplaceKubernetesRuntimeDefinition(c echo.Context) error {
 	var updatedKubernetesRuntimeDefinition api_v0.KubernetesRuntimeDefinition
 	if err := c.Bind(&updatedKubernetesRuntimeDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -635,7 +635,7 @@ func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 
 	if err := c.Bind(&kubernetesRuntimeInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -889,7 +889,7 @@ func (h Handler) UpdateKubernetesRuntimeInstance(c echo.Context) error {
 	var updatedKubernetesRuntimeInstance api_v0.KubernetesRuntimeInstance
 	if err := c.Bind(&updatedKubernetesRuntimeInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -986,7 +986,7 @@ func (h Handler) ReplaceKubernetesRuntimeInstance(c echo.Context) error {
 	var updatedKubernetesRuntimeInstance api_v0.KubernetesRuntimeInstance
 	if err := c.Bind(&updatedKubernetesRuntimeInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields

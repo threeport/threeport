@@ -55,7 +55,7 @@ func (h Handler) AddKubernetesWorkloadDefinition(c echo.Context) error {
 
 	if err := c.Bind(&kubernetesWorkloadDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -309,7 +309,7 @@ func (h Handler) UpdateKubernetesWorkloadDefinition(c echo.Context) error {
 	var updatedKubernetesWorkloadDefinition api_v0.KubernetesWorkloadDefinition
 	if err := c.Bind(&updatedKubernetesWorkloadDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -406,7 +406,7 @@ func (h Handler) ReplaceKubernetesWorkloadDefinition(c echo.Context) error {
 	var updatedKubernetesWorkloadDefinition api_v0.KubernetesWorkloadDefinition
 	if err := c.Bind(&updatedKubernetesWorkloadDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -635,7 +635,7 @@ func (h Handler) AddKubernetesWorkloadInstance(c echo.Context) error {
 
 	if err := c.Bind(&kubernetesWorkloadInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -889,7 +889,7 @@ func (h Handler) UpdateKubernetesWorkloadInstance(c echo.Context) error {
 	var updatedKubernetesWorkloadInstance api_v0.KubernetesWorkloadInstance
 	if err := c.Bind(&updatedKubernetesWorkloadInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// snapshot reconciliation state before update so the notify block
@@ -986,7 +986,7 @@ func (h Handler) ReplaceKubernetesWorkloadInstance(c echo.Context) error {
 	var updatedKubernetesWorkloadInstance api_v0.KubernetesWorkloadInstance
 	if err := c.Bind(&updatedKubernetesWorkloadInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -1209,7 +1209,7 @@ func (h Handler) AddKubernetesWorkloadResourceDefinition(c echo.Context) error {
 
 	if err := c.Bind(&kubernetesWorkloadResourceDefinition); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -1449,7 +1449,7 @@ func (h Handler) UpdateKubernetesWorkloadResourceDefinition(c echo.Context) erro
 	var updatedKubernetesWorkloadResourceDefinition api_v0.KubernetesWorkloadResourceDefinition
 	if err := c.Bind(&updatedKubernetesWorkloadResourceDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// update object in database
@@ -1527,7 +1527,7 @@ func (h Handler) ReplaceKubernetesWorkloadResourceDefinition(c echo.Context) err
 	var updatedKubernetesWorkloadResourceDefinition api_v0.KubernetesWorkloadResourceDefinition
 	if err := c.Bind(&updatedKubernetesWorkloadResourceDefinition); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -1678,7 +1678,7 @@ func (h Handler) AddKubernetesWorkloadResourceInstance(c echo.Context) error {
 
 	if err := c.Bind(&kubernetesWorkloadResourceInstance); err != nil {
 		h.Logger.Error("handler error: error binding object", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
@@ -1918,7 +1918,7 @@ func (h Handler) UpdateKubernetesWorkloadResourceInstance(c echo.Context) error 
 	var updatedKubernetesWorkloadResourceInstance api_v0.KubernetesWorkloadResourceInstance
 	if err := c.Bind(&updatedKubernetesWorkloadResourceInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// update object in database
@@ -1996,7 +1996,7 @@ func (h Handler) ReplaceKubernetesWorkloadResourceInstance(c echo.Context) error
 	var updatedKubernetesWorkloadResourceInstance api_v0.KubernetesWorkloadResourceInstance
 	if err := c.Bind(&updatedKubernetesWorkloadResourceInstance); err != nil {
 		h.Logger.Error("handler error: error binding payload", zap.Error(err))
-		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
+		return apiserver_lib.ResponseStatusBindErr(c, nil, err, fullyQualifiedType)
 	}
 
 	// check for missing required fields
