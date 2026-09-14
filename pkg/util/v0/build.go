@@ -341,9 +341,8 @@ var multiArchBuilderMu sync.Mutex
 // runs its own buildkit, so the docker daemon's builder garbage
 // collection never reaches it, and the default cap is 60% of disk
 // or 100GB. ensureMultiArchBuilder creates this builder only when
-// a build lists more than one platform. GitHub-hosted ubuntu-24.04
-// image jobs are one arch per matrix cell, so they never create it
-// and never spend this 20GB against the runner's 14GB SSD.
+// a build lists more than one platform. GitHub-hosted image jobs
+// are one arch per matrix cell, so they never create it.
 const multiArchBuilderMaxCacheSize = "20GB"
 
 // multiArchBuilderConfig is the buildkitd.toml written for the
