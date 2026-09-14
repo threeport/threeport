@@ -340,7 +340,10 @@ var multiArchBuilderMu sync.Mutex
 // dedicated multi-arch builder, 20GB. The docker-container driver
 // runs its own buildkit, so the docker daemon's builder garbage
 // collection never reaches it, and the default cap is 60% of disk
-// or 100GB.
+// or 100GB. ensureMultiArchBuilder creates this builder only when
+// a build lists more than one platform. GitHub-hosted ubuntu-24.04
+// image jobs are one arch per matrix cell, so they never create it
+// and never spend this 20GB against the runner's 14GB SSD.
 const multiArchBuilderMaxCacheSize = "20GB"
 
 // multiArchBuilderConfig is the buildkitd.toml written for the
@@ -483,8 +486,7 @@ func BuildImage(
 		return errors.New("--push and --load are mutually exclusive")
 	}
 
-	// prepare the multi-arch builder once before exec; the arg helper
-	// does not create it, so this side effect lives here in the caller
+	// create the docker-container builder before a multi-platform run
 	if len(platforms) > 1 {
 		if err := ensureMultiArchBuilder(); err != nil {
 			return fmt.Errorf("failed to prepare multi-arch builder: %w", err)
