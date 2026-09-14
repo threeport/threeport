@@ -33,15 +33,14 @@ jobs:
       with:
         go-version: '1.27'
 
-    # Previous runs appeared to hang for ~9-10 minutes at "building binaries"
-    # before the runner was killed. Process-tree diagnostics showed it's not
-    # actually stuck: goreleaser builds tptctl for 8 GOOS/GOARCH combos with
-    # 4 running in parallel by default, and every parallel `go build`
-    # independently re-verifies/re-parses this repo's large dependency graph
-    # (AWS/GCP/Oracle SDKs, k8s client-go, gorm, pgx, etc.) before compiling
-    # anything - on a 4 vCPU runner that's real CPU contention, not a
-    # deadlock. --parallelism limits how many builds run at once so they
-    # stop fighting over the same CPUs.
+    # Previous runs on the standard 4-core/16GB runner appeared to hang for
+    # ~9-10 minutes at "building binaries" before the runner was silently
+    # killed. goreleaser builds tptctl for 8 GOOS/GOARCH combos, and every
+    # parallel `go build` independently re-verifies/re-parses this repo's
+    # large dependency graph (AWS/GCP/Oracle SDKs, k8s client-go, gorm, pgx,
+    # etc.) before compiling anything - on the 8-core/32GB runner (see
+    # runs-on above) it completes normally. --parallelism keeps concurrent
+    # builds from still fighting over CPU/memory.
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@v5.0.0
       with:
@@ -49,5 +48,3 @@ jobs:
         args: release --clean --parallelism 2 -f ./.goreleaser.yml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GOPROXY: 'off'
-        GOSUMDB: 'off'
