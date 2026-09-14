@@ -129,6 +129,10 @@ func (b *QueryBinder) bindQueryParams(qp url.Values, i interface{}) error {
 	if unknown := unknownQueryKeys(qp, known); len(unknown) > 0 {
 		return fmt.Errorf("unknown query parameter(s): %s", strings.Join(unknown, ", "))
 	}
+	// reject two spellings of the same key so bind is not map-iteration order
+	if dups := duplicateCaseQueryKeys(qp); len(dups) > 0 {
+		return fmt.Errorf("duplicate query parameter(s) differing only by case: %s", strings.Join(dups, ", "))
+	}
 	return bindStructFields(qp, v)
 }
 
@@ -182,6 +186,30 @@ func unknownQueryKeys(qp url.Values, known map[string]bool) []string {
 	}
 	sort.Strings(unknown)
 	return unknown
+}
+
+// duplicateCaseQueryKeys returns the lowercased keys that appear more
+// than once in qp under different spellings, such as Active and ACTIVE.
+func duplicateCaseQueryKeys(qp url.Values) []string {
+	seen := make(map[string]string, len(qp))
+	var dups []string
+	reported := map[string]bool{}
+	// record each lowercased key's first spelling; a second spelling is a dup
+	for k := range qp {
+		lower := strings.ToLower(k)
+		prev, ok := seen[lower]
+		if !ok {
+			seen[lower] = k
+			continue
+		}
+		if prev == k || reported[lower] {
+			continue
+		}
+		dups = append(dups, lower)
+		reported[lower] = true
+	}
+	sort.Strings(dups)
+	return dups
 }
 
 // bindStructFields assigns each settable field of structValue from the
