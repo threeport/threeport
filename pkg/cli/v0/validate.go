@@ -78,14 +78,3 @@ func ControlPlaneConfigProblems() error {
 
 	return nil
 }
-
-// UnmetPrerequisites joins independent prerequisite errors with errors.Join
-// and names the target. It returns nil when every argument is nil.
-func UnmetPrerequisites(target string, errs ...error) error {
-	joined := errors.Join(errs...)
-	if joined == nil {
-		return nil
-	}
-
-	return fmt.Errorf("%s prerequisites are not met:\n%w", target, joined)
-}

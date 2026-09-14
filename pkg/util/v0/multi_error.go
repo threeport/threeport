@@ -2,6 +2,7 @@ package v0
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -25,4 +26,15 @@ func (me MultiError) Error() error {
 		errorMessages[i] = err.Error()
 	}
 	return errors.New(strings.Join(errorMessages, "\n"))
+}
+
+// UnmetPrerequisites joins independent errors and prefixes the result.
+// It returns nil when every argument is nil.
+func UnmetPrerequisites(prefix string, errs ...error) error {
+	joined := errors.Join(errs...)
+	if joined == nil {
+		return nil
+	}
+
+	return fmt.Errorf("%s\n%w", prefix, joined)
 }

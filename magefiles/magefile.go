@@ -431,7 +431,11 @@ func checkModuleInstallPrerequisites() error {
 		mageErr = errors.New("mage is not on PATH")
 	}
 
-	return cli.UnmetPrerequisites("module install", mageErr, cli.ControlPlaneConfigProblems())
+	return util.UnmetPrerequisites(
+		"module install prerequisites are not met:",
+		mageErr,
+		cli.ControlPlaneConfigProblems(),
+	)
 }
 
 // ModuleInstall generates a Threeport module, builds its images, and installs

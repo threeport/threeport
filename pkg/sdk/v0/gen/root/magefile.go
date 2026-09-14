@@ -746,9 +746,9 @@ func emitTestIntegrationFunc(f *File) {
 	f.Comment("Integration runs integration tests against an existing Threeport control plane.")
 	f.Func().Params(Id("Test")).Id("Integration").Params().Error().Block(
 		If(Err().Op(":=").Qual(
-			"github.com/threeport/threeport/pkg/cli/v0", "UnmetPrerequisites",
+			"github.com/threeport/threeport/pkg/util/v0", "UnmetPrerequisites",
 		).Call(
-			Lit("integration test"),
+			Lit("integration test prerequisites are not met:"),
 			Qual("github.com/threeport/threeport/pkg/cli/v0", "ControlPlaneConfigProblems").Call(),
 		).Op(";").Err().Op("!=").Nil()).Block(
 			Return(Err()),

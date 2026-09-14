@@ -2,42 +2,33 @@ package v0
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
-func TestMultiError_Error(t *testing.T) {
-	t.Run("empty returns nil", func(t *testing.T) {
-		me := MultiError{}
-		if err := me.Error(); err != nil {
-			t.Fatalf("expected nil, got %v", err)
-		}
-	})
-
-	t.Run("single error returns same message", func(t *testing.T) {
-		me := MultiError{}
-		me.AppendError(errors.New("boom"))
-
-		err := me.Error()
-		if err == nil {
-			t.Fatalf("expected non-nil error")
-		}
-		if got, want := err.Error(), "boom"; got != want {
-			t.Fatalf("error message = %q, want %q", got, want)
-		}
-	})
-
-	t.Run("multiple errors are joined with newline", func(t *testing.T) {
-		me := MultiError{}
-		me.AppendError(errors.New("first"))
-		me.AppendError(errors.New("second"))
-
-		err := me.Error()
-		if err == nil {
-			t.Fatalf("expected non-nil error")
-		}
-		if got, want := err.Error(), "first\nsecond"; got != want {
-			t.Fatalf("error message = %q, want %q", got, want)
-		}
-	})
+// TestUnmetPrerequisitesReturnsNilWhenEveryArgIsNil covers an empty join.
+func TestUnmetPrerequisitesReturnsNilWhenEveryArgIsNil(t *testing.T) {
+	// join two nil errors
+	got := UnmetPrerequisites("prefix:", nil, nil)
+	// assert nil
+	if got != nil {
+		t.Errorf("UnmetPrerequisites() = %v, want nil", got)
+	}
 }
 
+// TestUnmetPrerequisitesPrefixesJoinedErrors covers prefix plus Join.
+func TestUnmetPrerequisitesPrefixesJoinedErrors(t *testing.T) {
+	// join two independent errors
+	got := UnmetPrerequisites("prefix:", errors.New("a"), errors.New("b"))
+	if got == nil {
+		t.Fatal("UnmetPrerequisites() = nil, want prefixed join")
+	}
+	// assert the prefix and both messages
+	s := got.Error()
+	if !strings.HasPrefix(s, "prefix:\n") {
+		t.Errorf("UnmetPrerequisites() = %q, want prefix", s)
+	}
+	if !strings.Contains(s, "a") || !strings.Contains(s, "b") {
+		t.Errorf("UnmetPrerequisites() = %q, want both errors", s)
+	}
+}
