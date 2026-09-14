@@ -796,23 +796,11 @@ func emitTestIntegrationFunc(f *File) {
 	f.Line()
 }
 
-// emitInstallDirFunc writes installDir so generated install targets
-// have a destination function to call.
+// emitInstallDirFunc writes `func installDir() string { return util.InstallDir() }`.
 func emitInstallDirFunc(f *File) {
-	f.Comment("installDir returns the directory `go install` writes binaries to:")
-	f.Comment("$GOBIN if set, otherwise $GOPATH/bin. build.Default.GOPATH falls back")
-	f.Comment("to ~/go when $GOPATH is unset, so the result is always non-empty.")
+	f.Comment("installDir returns the directory `go install` writes binaries to.")
 	f.Func().Id("installDir").Params().String().Block(
-		If(
-			Id("gobin").Op(":=").Qual("os", "Getenv").Call(Lit("GOBIN")),
-			Id("gobin").Op("!=").Lit(""),
-		).Block(
-			Return(Id("gobin")),
-		),
-		Return(Qual("path/filepath", "Join").Call(
-			Qual("go/build", "Default").Dot("GOPATH"),
-			Lit("bin"),
-		)),
+		Return(Qual("github.com/threeport/threeport/pkg/util/v0", "InstallDir").Call()),
 	)
 	f.Line()
 }

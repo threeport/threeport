@@ -10,10 +10,8 @@ import (
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	tptdev "github.com/threeport/threeport/pkg/threeport-installer/v0/tptdev"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	"go/build"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -88,14 +86,9 @@ func (Test) Integration() error {
 	return nil
 }
 
-// installDir returns the directory `go install` writes binaries to:
-// $GOBIN if set, otherwise $GOPATH/bin. build.Default.GOPATH falls back
-// to ~/go when $GOPATH is unset, so the result is always non-empty.
+// installDir returns the directory `go install` writes binaries to.
 func installDir() string {
-	if gobin := os.Getenv("GOBIN"); gobin != "" {
-		return gobin
-	}
-	return filepath.Join(build.Default.GOPATH, "bin")
+	return util.InstallDir()
 }
 
 // ApiBin builds the REST API binary for the arch(es) in the ARCH env
