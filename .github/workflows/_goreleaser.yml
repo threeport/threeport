@@ -19,7 +19,7 @@ permissions:
 jobs:
   goreleaser:
     timeout-minutes: 30
-    runs-on: ubuntu-latest-m
+    runs-on: ubuntu-linux-l
     steps:
     - name: Checkout
       uses: actions/checkout@v4
