@@ -33,72 +33,21 @@ jobs:
       with:
         go-version: '1.27'
 
-    # Previous runs hang silently for ~9-10 minutes at "building binaries"
-    # before the runner is killed with "shutdown signal" - even with
-    # goreleaser --debug and GOFLAGS=-x, because goreleaser buffers each
-    # build command's output and only flushes it on completion/error, which
-    # never happens while it's hung. This step runs goreleaser directly
-    # (not via the action) so we can watch it from outside: if it's still
-    # running after 4 minutes, dump the process tree and open sockets, then
-    # SIGQUIT goreleaser and any go build/compile/link children so the Go
-    # runtime prints their goroutine stacks - that will show what they're
-    # actually blocked on (network dial, file lock, etc).
-    - name: Run GoReleaser (with hang diagnostics)
+    # Previous runs appeared to hang for ~9-10 minutes at "building binaries"
+    # before the runner was killed. Process-tree diagnostics showed it's not
+    # actually stuck: goreleaser builds tptctl for 8 GOOS/GOARCH combos with
+    # 4 running in parallel by default, and every parallel `go build`
+    # independently re-verifies/re-parses this repo's large dependency graph
+    # (AWS/GCP/Oracle SDKs, k8s client-go, gorm, pgx, etc.) before compiling
+    # anything - on a 4 vCPU runner that's real CPU contention, not a
+    # deadlock. --parallelism limits how many builds run at once so they
+    # stop fighting over the same CPUs.
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v5.0.0
+      with:
+        version: v1.26.2
+        args: release --clean --parallelism 2 -f ./.goreleaser.yml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # Force any module/checksum lookup to fail fast instead of hanging,
-        # to test whether the ~9-10 min silent hang is a stalled network
-        # call (proxy.golang.org/sum.golang.org) - deps should already be
-        # fully in the restored module/build cache, so this should be a
-        # no-op if that's not the cause.
         GOPROXY: 'off'
         GOSUMDB: 'off'
-      run: |
-        set -uo pipefail
-
-        curl -sSL -o /tmp/goreleaser.tar.gz \
-          https://github.com/goreleaser/goreleaser/releases/download/v1.26.2/goreleaser_Linux_x86_64.tar.gz
-        mkdir -p /tmp/goreleaser
-        tar -xzf /tmp/goreleaser.tar.gz -C /tmp/goreleaser
-
-        /tmp/goreleaser/goreleaser release --clean --debug -f ./.goreleaser.yml &
-        pid=$!
-
-        (
-          sleep 240
-          if kill -0 "$pid" 2>/dev/null; then
-            echo "::group::Hang diagnostics at $(date -u +%T)"
-            echo "--- process tree ---"
-            ps -ef --forest
-            echo "--- open network connections ---"
-            ss -tnp || true
-
-            # SIGQUIT the go build/compile/link children FIRST so their own
-            # goroutine dumps land in goreleaser's captured output buffer,
-            # then give goreleaser a moment to observe those exits and print
-            # what it captured before we (if needed) SIGQUIT goreleaser
-            # itself - killing the parent first would drop that buffer
-            # unread, which is what happened last run.
-            for cpid in $(pgrep -f 'go (build|tool compile|tool link)' 2>/dev/null); do
-              echo "--- sending SIGQUIT to child pid $cpid ---"
-              kill -QUIT "$cpid" 2>/dev/null || true
-            done
-            sleep 10
-
-            if kill -0 "$pid" 2>/dev/null; then
-              echo "--- goreleaser still running, sending SIGQUIT to pid $pid ---"
-              kill -QUIT "$pid" 2>/dev/null || true
-              sleep 5
-            fi
-
-            echo "--- process tree after SIGQUIT ---"
-            ps -ef --forest
-            echo "::endgroup::"
-          fi
-        ) &
-        watchdog_pid=$!
-
-        wait "$pid"
-        status=$?
-        kill "$watchdog_pid" 2>/dev/null || true
-        exit "$status"
