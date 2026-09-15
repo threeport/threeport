@@ -52,6 +52,21 @@ func RaceTestPackages(root string) ([]string, error) {
 	return pkgs, nil
 }
 
+// RunUnitTests runs go test -count=1 across pkg, internal, and cmd.
+func RunUnitTests() error {
+	if err := RunCommandStreamOutput(
+		"go",
+		"test",
+		"-count=1",
+		"./pkg/...",
+		"./internal/...",
+		"./cmd/...",
+	); err != nil {
+		return fmt.Errorf("failed to run unit tests: %w", err)
+	}
+	return nil
+}
+
 // RunRaceTests runs go test -race on packages that contain *_race_test.go files.
 func RunRaceTests() error {
 	// no-op when the tree has no race tests

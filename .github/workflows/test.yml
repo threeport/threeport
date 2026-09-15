@@ -64,7 +64,7 @@ jobs:
       run: git diff --exit-code
 
     - name: Unit tests
-      run: go test -count=1 ./pkg/... ./internal/... ./cmd/...
+      run: mage test:unit
 
     - name: Race tests
       run: mage test:race
