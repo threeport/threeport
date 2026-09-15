@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -474,10 +473,7 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 	}
 
 	if existed {
-		// drop leftover user-managed keys so this account holds one key
-		if err := pruneUserManagedServiceAccountKeys(iamService, projectID, account.Email); err != nil {
-			return nil, fmt.Errorf("failed to prune leftover service account keys: %w", err)
-		}
+		return nil, fmt.Errorf("GCP service account %s already exists; pick a different provider name", account.Email)
 	}
 
 	// create JSON key for controllers running outside GCP
@@ -563,10 +559,9 @@ func createServiceAccountForProject(
 	serviceAccountEmail := fmt.Sprintf("%s@%s.iam.gserviceaccount.com", serviceAccountID, projectID)
 	serviceAccountResource := fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, serviceAccountEmail)
 
-	// reuse the account when it already exists
+	// report an existing account; CreateGCPServiceAccountWithKey errors on that
 	existingAccount, err := iamService.Projects.ServiceAccounts.Get(serviceAccountResource).Do()
 	if err == nil {
-		fmt.Printf("Using existing GCP service account: %s\n", existingAccount.Email)
 		return existingAccount, true, nil
 	}
 
@@ -595,74 +590,6 @@ func createServiceAccountForProject(
 	fmt.Printf("Created GCP service account: %s\n", account.Email)
 
 	return account, false, nil
-}
-
-// pruneUserManagedServiceAccountKeys deletes every USER_MANAGED key on the
-// account so the next create leaves exactly one. SYSTEM_MANAGED keys stay.
-func pruneUserManagedServiceAccountKeys(iamService *iam.Service, projectID, serviceAccountEmail string) error {
-	serviceAccountResource := fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, serviceAccountEmail)
-
-	// list user-managed keys
-	keys, err := iamService.Projects.ServiceAccounts.Keys.List(serviceAccountResource).
-		KeyTypes("USER_MANAGED").
-		Do()
-	if err != nil {
-		return fmt.Errorf("failed to list service account keys: %w", err)
-	}
-
-	if keys == nil {
-		return nil
-	}
-
-	toDelete := oldestUserManagedKeys(keys.Keys, 0)
-	prunedIDs := make([]string, 0, len(toDelete))
-	for _, key := range toDelete {
-		// delete the oldest user-managed key
-		if _, err := iamService.Projects.ServiceAccounts.Keys.Delete(key.Name).Do(); err != nil {
-			return fmt.Errorf("failed to delete service account key %s: %w", key.Name, err)
-		}
-
-		keyID := key.Name
-		if idx := strings.LastIndex(keyID, "/"); idx != -1 {
-			keyID = keyID[idx+1:]
-		}
-		prunedIDs = append(prunedIDs, keyID)
-	}
-
-	if len(prunedIDs) > 0 {
-		util.CliOutputInfo(fmt.Sprintf(
-			"Pruned %d user-managed key(s) from existing GCP service account %s: %s",
-			len(prunedIDs),
-			serviceAccountEmail,
-			strings.Join(prunedIDs, ", "),
-		))
-	}
-
-	return nil
-}
-
-// oldestUserManagedKeys returns the oldest keys that must go to leave keep slots.
-func oldestUserManagedKeys(keys []*iam.ServiceAccountKey, keep int) []*iam.ServiceAccountKey {
-	// keep USER_MANAGED keys, skip system-managed
-	user := make([]*iam.ServiceAccountKey, 0, len(keys))
-	for _, key := range keys {
-		if key == nil || key.KeyType == "SYSTEM_MANAGED" {
-			continue
-		}
-		user = append(user, key)
-	}
-	if keep < 0 {
-		keep = 0
-	}
-	if len(user) <= keep {
-		return nil
-	}
-
-	// oldest ValidAfterTime first
-	sort.Slice(user, func(i, j int) bool {
-		return user[i].ValidAfterTime < user[j].ValidAfterTime
-	})
-	return user[:len(user)-keep]
 }
 
 // removeServiceAccountRolesForProject removes all IAM roles granted to a service account.
