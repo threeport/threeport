@@ -306,6 +306,44 @@ func TestGetClient_VerifiesHostKeyMismatch(t *testing.T) {
 	assert.Contains(t, err.Error(), "host key mismatch")
 }
 
+// TestGetClient_NilConnectionFields returns before any dereference when the
+// runtime instance or its ssh user or hostname is missing.
+func TestGetClient_NilConnectionFields(t *testing.T) {
+	key := mustEncryptionKey(t)
+	tests := []struct {
+		name string
+		mri  *v0.MachineRuntimeInstance
+		want string
+	}{
+		{
+			name: "nil instance",
+			mri:  nil,
+			want: "machine runtime instance is nil",
+		},
+		{
+			name: "nil ssh user",
+			mri: &v0.MachineRuntimeInstance{
+				Hostname: util.Ptr("127.0.0.1"),
+			},
+			want: "has no ssh user",
+		},
+		{
+			name: "nil hostname",
+			mri: &v0.MachineRuntimeInstance{
+				SSHUser: util.Ptr("testuser"),
+			},
+			want: "has no hostname",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := GetClient(tt.mri, key)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.want)
+		})
+	}
+}
+
 // TestGetClient_DecryptError verifies a bad encryption key surfaces as a
 // decrypt error before any dial is attempted.
 func TestGetClient_DecryptError(t *testing.T) {
