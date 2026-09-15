@@ -55,15 +55,15 @@ func TestParseRelationshipDependencies_SkipsManyToMany(t *testing.T) {
 	assert.Equal(t, []string{"Parent"}, dependencies["Child"])
 }
 
-// TestParseRelationshipDependencies_BareIDField covers a foreign key
-// with no reciprocal struct field on either side.
-func TestParseRelationshipDependencies_BareIDField(t *testing.T) {
+// TestParseRelationshipDependencies_ScalarIDIsNotAForeignKey covers a ModelID
+// column with no GORM association. GORM does not emit a foreign key for that.
+func TestParseRelationshipDependencies_ScalarIDIsNotAForeignKey(t *testing.T) {
 	source := "package v0\n\n" +
-		"type ModuleController struct {\n" +
-		"\tName *string\n" +
+		"type Alpha struct {\n" +
+		"\tBravoID *uint\n" +
 		"}\n\n" +
-		"type ModuleObject struct {\n" +
-		"\tModuleControllerID *uint\n" +
+		"type Bravo struct {\n" +
+		"\tAlphaID *uint\n" +
 		"}\n"
 
 	dir := t.TempDir()
@@ -72,7 +72,29 @@ func TestParseRelationshipDependencies_BareIDField(t *testing.T) {
 	dependencies, err := parseRelationshipDependencies(dir)
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"ModuleController"}, dependencies["ModuleObject"])
+	assert.NotContains(t, dependencies, "Alpha")
+	assert.NotContains(t, dependencies, "Bravo")
+}
+
+// TestParseRelationshipDependencies_BelongsToUsesAssociation covers a
+// belongs-to that names both the struct field and the ID column.
+func TestParseRelationshipDependencies_BelongsToUsesAssociation(t *testing.T) {
+	source := "package v0\n\n" +
+		"type Parent struct {\n" +
+		"\tName *string\n" +
+		"}\n\n" +
+		"type Child struct {\n" +
+		"\tParentID *uint\n" +
+		"\tParent   *Parent\n" +
+		"}\n"
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "model.go"), []byte(source), 0o600))
+
+	dependencies, err := parseRelationshipDependencies(dir)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"Parent"}, dependencies["Child"])
 }
 
 // TestSortDatabaseInitNamesByDependency_ReferencedBeforeReferencing covers referenced-first order.

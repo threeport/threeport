@@ -180,14 +180,6 @@ func parseRelationshipDependencies(dir string) (map[string][]string, error) {
 			}
 		}
 
-		// bare TypeNameID with no reciprocal field still holds a foreign key
-		for keyField := range keyFields {
-			referenced := strings.TrimSuffix(keyField, "ID")
-			if referenced != "" && referenced != typeName && modelNames[referenced] {
-				appendUniqueDependency(dependencies, typeName, referenced)
-			}
-		}
-
 		for _, field := range structType.Fields.List {
 			if len(field.Names) == 0 {
 				continue
