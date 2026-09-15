@@ -23,14 +23,6 @@ type Build mg.Namespace
 // Test provides a type for methods that implement test targets.
 type Test mg.Namespace
 
-// Race runs go test -race on packages that contain *_race_test.go files.
-func (Test) Race() error {
-	if err := util.RunRaceTests(); err != nil {
-		return fmt.Errorf("failed to run race tests: %w", err)
-	}
-	return nil
-}
-
 // Install provides a type for methods that implement install targets.
 type Install mg.Namespace
 
@@ -39,6 +31,14 @@ type Dev mg.Namespace
 
 // Package provides a type for methods that implement package targets.
 type Package mg.Namespace
+
+// Race runs go test -race on packages that contain *_race_test.go files.
+func (Test) Race() error {
+	if err := util.RunRaceTests(); err != nil {
+		return fmt.Errorf("failed to run race tests: %w", err)
+	}
+	return nil
+}
 
 // ApiBin builds the REST API binary.
 func (Build) ApiBin(arch string) error {
