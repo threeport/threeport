@@ -255,8 +255,9 @@ func (i *GceMachineInfra) pulumiProgram() pulumi.RunFunc {
 		sshTag := i.RuntimeInstanceName
 		sourceRanges := pulumi.ToStringArray(i.sshSourceRanges())
 		_, err = compute.NewFirewall(pctx, fmt.Sprintf("%s-ssh", i.RuntimeInstanceName), &compute.FirewallArgs{
-			Name:    pulumi.String(fmt.Sprintf("%s-ssh", i.RuntimeInstanceName)),
-			Network: pulumi.String(i.NetworkID),
+			Name:        pulumi.String(fmt.Sprintf("%s-ssh", i.RuntimeInstanceName)),
+			Network:     pulumi.String(i.NetworkID),
+			Description: pulumi.String(provider.GcpOwnershipDescription(i.RuntimeInstanceName)),
 			Allows: compute.FirewallAllowArray{
 				&compute.FirewallAllowArgs{
 					Protocol: pulumi.String("tcp"),
@@ -296,7 +297,8 @@ func (i *GceMachineInfra) pulumiProgram() pulumi.RunFunc {
 					strings.TrimSpace(i.sshPublicKeyAuthorized),
 				)),
 			},
-			Tags: pulumi.StringArray{pulumi.String(sshTag)},
+			Tags:   pulumi.StringArray{pulumi.String(sshTag)},
+			Labels: gcpLabelsInput(i.RuntimeInstanceName),
 		}, pulumi.Provider(gcpProvider))
 		if err != nil {
 			return fmt.Errorf("failed to create GCE instance: %w", err)
@@ -415,4 +417,14 @@ func (i *GceMachineInfra) SetCreateOutputs(hostname, externalIP, sshPrivateKey s
 	i.hostname = hostname
 	i.externalIP = externalIP
 	i.sshPrivateKeyPEM = sshPrivateKey
+}
+
+// gcpLabelsInput maps GcpResourceLabels onto a Pulumi string map.
+func gcpLabelsInput(ownerName string) pulumi.StringMap {
+	labels := provider.GcpResourceLabels(ownerName)
+	out := make(pulumi.StringMap, len(labels))
+	for k, v := range labels {
+		out[k] = pulumi.String(v)
+	}
+	return out
 }

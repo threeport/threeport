@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/api/iam/v1"
 )
 
 // TestThreeportServiceAccountRoles_AssertsInstanceAdminRole asserts
@@ -28,4 +29,26 @@ func TestWrapCreatedServiceAccountError_PreservesOpErr(t *testing.T) {
 	require.ErrorIs(t, got, opErr)
 	assert.Contains(t, got.Error(), "failed to delete newly created service account sa@example.iam.gserviceaccount.com")
 	assert.Contains(t, got.Error(), "delete denied")
+}
+
+// TestGcpResourceLabels_SanitizesOwnerName covers lowercase, dashes, and the 63-char cap.
+func TestGcpResourceLabels_SanitizesOwnerName(t *testing.T) {
+	got := GcpResourceLabels("My_Provider.Name")
+	assert.Equal(t, GcpLabelProvisionedByValue, got[GcpLabelProvisionedBy])
+	assert.Equal(t, "my_provider-name", got[GcpLabelThreeportName])
+
+	got = GcpResourceLabels("!!!")
+	assert.Equal(t, "unnamed", got[GcpLabelThreeportName])
+}
+
+// TestServiceAccountOwnedBy_RequiresOwnershipDescription covers reuse vs refuse.
+func TestServiceAccountOwnedBy_RequiresOwnershipDescription(t *testing.T) {
+	name := "my-provider"
+	owned := &iam.ServiceAccount{
+		Description: "Service account for Threeport GcpProvider my-provider to manage GCP resources; " + GcpOwnershipDescription(name),
+	}
+	require.True(t, serviceAccountOwnedBy(owned, name))
+	require.False(t, serviceAccountOwnedBy(owned, "other-provider"))
+	require.False(t, serviceAccountOwnedBy(&iam.ServiceAccount{Description: "someone else"}, name))
+	require.False(t, serviceAccountOwnedBy(nil, name))
 }

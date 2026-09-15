@@ -146,19 +146,6 @@ func (g *GcpProviderConfig) Create(
 		&gcpProvider,
 	)
 	if err != nil {
-		if syncServiceAccount {
-			// delete the GCP service account created above
-			if delErr := provider.DeleteGCPServiceAccountWithKey(
-				*gcpProviderValues.ProjectID,
-				*gcpProviderValues.Name,
-			); delErr != nil {
-				return nil, fmt.Errorf(
-					"failed to create gcp provider in threeport API: %w; failed to delete newly created service account: %v",
-					err,
-					delErr,
-				)
-			}
-		}
 		return nil, fmt.Errorf("failed to create gcp provider in threeport API: %w", err)
 	}
 

@@ -215,6 +215,13 @@ func TestPulumiProgram_CreatesInstanceAndFirewall(t *testing.T) {
 	if got := stringSliceInput(t, inst.inputs["tags"]); !equalStringSlices(got, []string{i.RuntimeInstanceName}) {
 		t.Errorf("instance tags = %v, want [%s]", got, i.RuntimeInstanceName)
 	}
+	wantLabels := provider.GcpResourceLabels(i.RuntimeInstanceName)
+	if got := stringMapInput(t, inst.inputs["labels"]); !equalStringMaps(got, wantLabels) {
+		t.Errorf("instance labels = %v, want %v", got, wantLabels)
+	}
+	if got, ok := firewalls[0].inputs["description"].(string); !ok || got != provider.GcpOwnershipDescription(i.RuntimeInstanceName) {
+		t.Errorf("firewall description = %v, want ownership pair", firewalls[0].inputs["description"])
+	}
 }
 
 // TestPulumiProgram_InjectsSSHKeyMetadata asserts ssh-keys metadata is user:pubkey and holds no private key.
@@ -540,6 +547,35 @@ func firewallSourceRanges(t *testing.T, r recordedResource) []string {
 }
 
 // stringSliceInput converts a Pulumi string-array input to []string.
+func stringMapInput(t *testing.T, raw any) map[string]string {
+	t.Helper()
+	items, ok := raw.(map[string]any)
+	if !ok {
+		t.Fatalf("input is not a map: %T", raw)
+	}
+	out := make(map[string]string, len(items))
+	for k, v := range items {
+		s, ok := v.(string)
+		if !ok {
+			t.Fatalf("map value is not a string: %T", v)
+		}
+		out[k] = s
+	}
+	return out
+}
+
+func equalStringMaps(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if b[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
 func stringSliceInput(t *testing.T, raw any) []string {
 	t.Helper()
 	items, ok := raw.([]any)

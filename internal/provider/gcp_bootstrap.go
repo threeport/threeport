@@ -460,19 +460,25 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 	// Generate service account ID and create the service account
 	serviceAccountID := generateServiceAccountID(accountName)
 	displayName := fmt.Sprintf(serviceAccountDisplayFormat, accountName)
-	description := fmt.Sprintf("Service account for Threeport GcpProvider %s to manage GCP resources", accountName)
+	description := fmt.Sprintf(
+		"Service account for Threeport GcpProvider %s to manage GCP resources; %s",
+		accountName,
+		GcpOwnershipDescription(accountName),
+	)
 
 	account, existed, err := createServiceAccountForProject(iamService, projectID, serviceAccountID, displayName, description)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create service account: %w", err)
 	}
 
-	// reject an existing account before granting roles
-	if existed {
+	if existed && !serviceAccountOwnedBy(account, accountName) {
 		return nil, fmt.Errorf("GCP service account %s already exists; pick a different provider name", account.Email)
 	}
 
 	rollbackCreated := func(opErr error) error {
+		if existed {
+			return opErr
+		}
 		rbErr := rollbackCreatedGCPServiceAccount(iamService, crmService, projectID, account.Email)
 		return wrapCreatedServiceAccountError(opErr, rbErr, account.Email)
 	}
@@ -618,6 +624,15 @@ func createServiceAccountForProject(
 	fmt.Printf("Created GCP service account: %s\n", account.Email)
 
 	return account, false, nil
+}
+
+// serviceAccountOwnedBy reports whether the account description records the
+// same ownership pair GcpResourceLabels would put on a Compute resource.
+func serviceAccountOwnedBy(account *iam.ServiceAccount, ownerName string) bool {
+	if account == nil {
+		return false
+	}
+	return strings.Contains(account.Description, GcpOwnershipDescription(ownerName))
 }
 
 // removeServiceAccountRolesForProject removes all IAM roles granted to a service account.
