@@ -474,9 +474,9 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 	}
 
 	if existed {
-		// prune user-managed keys so a new key stays under the 10-key limit
+		// drop leftover user-managed keys so this account holds one key
 		if err := pruneUserManagedServiceAccountKeys(iamService, projectID, account.Email); err != nil {
-			return nil, fmt.Errorf("failed to prune stale service account keys: %w", err)
+			return nil, fmt.Errorf("failed to prune leftover service account keys: %w", err)
 		}
 	}
 
@@ -597,11 +597,8 @@ func createServiceAccountForProject(
 	return account, false, nil
 }
 
-// userManagedKeyQuota is GCP's cap on USER_MANAGED keys per service account.
-const userManagedKeyQuota = 10
-
-// pruneUserManagedServiceAccountKeys deletes the oldest USER_MANAGED keys until
-// one slot is free for a new key. Live keys under the quota stay.
+// pruneUserManagedServiceAccountKeys deletes every USER_MANAGED key on the
+// account so the next create leaves exactly one. SYSTEM_MANAGED keys stay.
 func pruneUserManagedServiceAccountKeys(iamService *iam.Service, projectID, serviceAccountEmail string) error {
 	serviceAccountResource := fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, serviceAccountEmail)
 
@@ -617,7 +614,7 @@ func pruneUserManagedServiceAccountKeys(iamService *iam.Service, projectID, serv
 		return nil
 	}
 
-	toDelete := oldestUserManagedKeys(keys.Keys, userManagedKeyQuota-1)
+	toDelete := oldestUserManagedKeys(keys.Keys, 0)
 	prunedIDs := make([]string, 0, len(toDelete))
 	for _, key := range toDelete {
 		// delete the oldest user-managed key
