@@ -10,8 +10,18 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// beforeCreate validates the GcpProvider before create.
+// beforeCreate rejects a duplicate GcpProvider name before persist.
 func (g *GcpProvider) beforeCreate(tx *gorm.DB) error {
+	if g.Name == nil {
+		return nil
+	}
+	var n int64
+	if err := tx.Model(&GcpProvider{}).Where("name = ?", *g.Name).Count(&n).Error; err != nil {
+		return fmt.Errorf("failed to query gcp providers for name %s: %w", *g.Name, err)
+	}
+	if n > 0 {
+		return fmt.Errorf("gcp provider name %s already exists", *g.Name)
+	}
 	return nil
 }
 
@@ -22,12 +32,15 @@ func (g *GcpProvider) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GcpProvider) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -70,12 +83,15 @@ func (g *GcpGkeKubernetesRuntimeDefinition) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GcpGkeKubernetesRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -97,12 +113,15 @@ func (g *GcpGkeKubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GcpGkeKubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
