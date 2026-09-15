@@ -20,6 +20,7 @@ import (
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -360,18 +361,51 @@ func (f *fixture) patchedStatuses() []string {
 	return out
 }
 
+// patchedReconciled returns the Reconciled pointer sent in every PATCH body
+// received, in order. Tests use it to assert the honesty invariant: a failed
+// script must not flip Reconciled to true.
+func (f *fixture) patchedReconciled() []*bool {
+	f.patchesMu.Lock()
+	defer f.patchesMu.Unlock()
+	out := make([]*bool, 0, len(f.patches))
+	for _, body := range f.patches {
+		var mwi v0.MachineWorkloadInstance
+		require.NoError(f.t, json.Unmarshal(body, &mwi))
+		out = append(out, mwi.Reconciled)
+	}
+	return out
+}
+
 // TestMachineWorkloadInstanceCreated_HappyPath confirms the Created
 // reconciler runs the create script, persists Reconciled=true with a
-// Healthy status, and records a ScriptSucceeded event.
+// Healthy status, and logs the successful completion. The wrapper's
+// SuccessfulCreate event carries the outcome, so the reconciler emits
+// no Normal event of its own.
 func TestMachineWorkloadInstanceCreated_HappyPath(t *testing.T) {
 	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
 	log := logr.Discard()
 
+	// drive the Created reconciler with a script that exits zero
 	delay, err := v0MachineWorkloadInstanceCreated(f.r, f.mwi, &log)
+
+	// success path returns (0, nil): no requeue and no error
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
+
+	// status persists as Healthy so consumers see the current state
 	assert.Equal(t, []string{string(wlstatus.WorkloadInstanceStatusHealthy)}, f.patchedStatuses())
-	assert.Equal(t, []string{"ScriptSucceeded"}, f.recorder.GetReasons())
+
+	// Reconciled flips to true only on the success path, keeping the
+	// owner-wait chain honest
+	reconciled := f.patchedReconciled()
+	require.Len(t, reconciled, 1)
+	require.NotNil(t, reconciled[0])
+	assert.True(t, *reconciled[0], "successful create should mark Reconciled=true")
+
+	// successful script emits no event; the wrapper's SuccessfulCreate
+	// event carries the outcome and the log line covers the diagnostic
+	// detail
+	assert.Empty(t, f.recorder.GetReasons(), "successful script emits no event; the wrapper's SuccessfulCreate event carries the outcome and the log line covers the diagnostic detail")
 }
 
 // TestMachineWorkloadInstanceCreated_RuntimeNotReconciled covers the early
@@ -390,17 +424,39 @@ func TestMachineWorkloadInstanceCreated_RuntimeNotReconciled(t *testing.T) {
 }
 
 // TestMachineWorkloadInstanceCreated_ScriptFails covers the non-zero exit
-// path: status persisted as Unhealthy, ScriptFailed event recorded, and
-// the reconciler returns a non-nil error so the controller requeues.
+// path: status persisted as Unhealthy, the reconciler returns an
+// ErrWithEvent whose Reason is ScriptFailed so the wrapper substitutes it
+// for the generic FailedCreate row, and the delay pins a 30s requeue.
 func TestMachineWorkloadInstanceCreated_ScriptFails(t *testing.T) {
 	f := newFixture(t, machinetest.SSHOpts{ExitCode: 1})
 	log := logr.Discard()
 
+	// drive the Created reconciler with a script that exits non-zero
 	delay, err := v0MachineWorkloadInstanceCreated(f.r, f.mwi, &log)
+
+	// reconciler surfaces the failure with a 30s requeue for retry
 	require.Error(t, err)
 	assert.Equal(t, int64(30), delay)
+
+	// status persists as Unhealthy so consumers see the last-known state
 	assert.Equal(t, []string{string(wlstatus.WorkloadInstanceStatusUnhealthy)}, f.patchedStatuses())
-	assert.Equal(t, []string{"ScriptFailed"}, f.recorder.GetReasons())
+
+	// Reconciled stays unset so upstream owner-wait chains do not treat a
+	// failed create as complete
+	reconciled := f.patchedReconciled()
+	require.Len(t, reconciled, 1)
+	assert.Nil(t, reconciled[0], "failed create must leave Reconciled unset in the patch")
+
+	// error carries the specific-reason event the wrapper will substitute
+	// for the generic FailedCreate row
+	var errWithEvent *tp_errors.ErrWithEvent
+	require.ErrorAs(t, err, &errWithEvent, "reconciler should return *tp_errors.ErrWithEvent so the wrapper can substitute the specific reason")
+	require.NotNil(t, errWithEvent.Event.Reason)
+	assert.Equal(t, "ScriptFailed", *errWithEvent.Event.Reason)
+
+	// failure path defers emission to the wrapper, so the reconciler itself
+	// records no events
+	assert.Empty(t, f.recorder.GetReasons(), "failure path should not call RecordEvent directly; the wrapper substitutes the event")
 }
 
 // TestMachineWorkloadInstanceCreated_GetDefinitionFails covers the
@@ -428,16 +484,72 @@ func TestMachineWorkloadInstanceCreated_GetDefinitionFails(t *testing.T) {
 }
 
 // TestMachineWorkloadInstanceUpdated_HappyPath confirms Updated runs the
-// update script with healthy result, mirroring Created.
+// update script with healthy result, persists Reconciled=true with a
+// Healthy status, and logs the successful completion. The wrapper's
+// SuccessfulUpdate event carries the outcome, so the reconciler emits
+// no Normal event of its own.
 func TestMachineWorkloadInstanceUpdated_HappyPath(t *testing.T) {
 	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
 	log := logr.Discard()
 
+	// drive the Updated reconciler with a script that exits zero
 	delay, err := v0MachineWorkloadInstanceUpdated(f.r, f.mwi, &log)
+
+	// success path returns (0, nil): no requeue and no error
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
+
+	// status persists as Healthy so consumers see the current state
 	assert.Equal(t, []string{string(wlstatus.WorkloadInstanceStatusHealthy)}, f.patchedStatuses())
-	assert.Equal(t, []string{"ScriptSucceeded"}, f.recorder.GetReasons())
+
+	// Reconciled flips to true only on the success path, keeping the
+	// owner-wait chain honest
+	reconciled := f.patchedReconciled()
+	require.Len(t, reconciled, 1)
+	require.NotNil(t, reconciled[0])
+	assert.True(t, *reconciled[0], "successful update should mark Reconciled=true")
+
+	// successful script emits no event; the wrapper's SuccessfulUpdate
+	// event carries the outcome and the log line covers the diagnostic
+	// detail
+	assert.Empty(t, f.recorder.GetReasons(), "successful script emits no event; the wrapper's SuccessfulUpdate event carries the outcome and the log line covers the diagnostic detail")
+}
+
+// TestMachineWorkloadInstanceUpdated_ScriptFails covers the non-zero exit
+// path for update: status persisted as Unhealthy, Reconciled left unset so
+// the owner-wait chain holds Provisioning, the reconciler returns an
+// ErrWithEvent whose Reason is ScriptFailed so the wrapper substitutes it
+// for the generic FailedUpdate row, and the delay pins a 30s requeue.
+func TestMachineWorkloadInstanceUpdated_ScriptFails(t *testing.T) {
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 1})
+	log := logr.Discard()
+
+	// drive the Updated reconciler with a script that exits non-zero
+	delay, err := v0MachineWorkloadInstanceUpdated(f.r, f.mwi, &log)
+
+	// reconciler surfaces the failure with a 30s requeue for retry
+	require.Error(t, err)
+	assert.Equal(t, int64(30), delay)
+
+	// status persists as Unhealthy so consumers see the last-known state
+	assert.Equal(t, []string{string(wlstatus.WorkloadInstanceStatusUnhealthy)}, f.patchedStatuses())
+
+	// Reconciled stays unset so upstream owner-wait chains do not treat a
+	// failed update as complete
+	reconciled := f.patchedReconciled()
+	require.Len(t, reconciled, 1)
+	assert.Nil(t, reconciled[0], "failed update must leave Reconciled unset in the patch")
+
+	// error carries the specific-reason event the wrapper will substitute
+	// for the generic FailedUpdate row
+	var errWithEvent *tp_errors.ErrWithEvent
+	require.ErrorAs(t, err, &errWithEvent, "reconciler should return *tp_errors.ErrWithEvent so the wrapper can substitute the specific reason")
+	require.NotNil(t, errWithEvent.Event.Reason)
+	assert.Equal(t, "ScriptFailed", *errWithEvent.Event.Reason)
+
+	// failure path defers emission to the wrapper, so the reconciler itself
+	// records no events
+	assert.Empty(t, f.recorder.GetReasons(), "failure path should not call RecordEvent directly; the wrapper substitutes the event")
 }
 
 // TestMachineWorkloadInstanceUpdated_NoUpdateScript covers the early-return
@@ -456,27 +568,75 @@ func TestMachineWorkloadInstanceUpdated_NoUpdateScript(t *testing.T) {
 }
 
 // TestMachineWorkloadInstanceDeleted_HappyPath confirms Deleted runs the
-// delete script and returns (0, nil). Deleted does not PATCH the MWI - the
-// generated reconciler removes the row.
+// delete script and returns (0, nil), logging the successful completion.
+// Deleted does not PATCH the MWI (the generated reconciler removes the
+// row); the wrapper's SuccessfulDelete event carries the outcome, so the
+// reconciler emits no Normal event of its own.
 func TestMachineWorkloadInstanceDeleted_HappyPath(t *testing.T) {
 	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
 	log := logr.Discard()
 
+	// drive the Deleted reconciler with a script that exits zero
 	delay, err := v0MachineWorkloadInstanceDeleted(f.r, f.mwi, &log)
+
+	// success path returns (0, nil): no requeue and no error
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
+
+	// Deleted does not PATCH the MWI; the generated reconciler removes
+	// the row
 	assert.Empty(t, f.patchedStatuses(), "Deleted should not PATCH the MWI; the generated reconciler handles removal")
-	assert.Equal(t, []string{"ScriptSucceeded"}, f.recorder.GetReasons())
+
+	// successful script emits no event; the wrapper's SuccessfulDelete
+	// event carries the outcome and the log line covers the diagnostic
+	// detail
+	assert.Empty(t, f.recorder.GetReasons(), "successful script emits no event; the wrapper's SuccessfulDelete event carries the outcome and the log line covers the diagnostic detail")
 }
 
 // TestMachineWorkloadInstanceDeleted_ScriptFails covers the non-zero exit
-// path for delete: returns (30, err) so the reconciler retries.
+// path for delete: the reconciler returns an ErrWithEvent whose Reason is
+// ScriptFailed so the wrapper substitutes it for the generic FailedDelete
+// row, with a 30s requeue for retry.
 func TestMachineWorkloadInstanceDeleted_ScriptFails(t *testing.T) {
 	f := newFixture(t, machinetest.SSHOpts{ExitCode: 1})
 	log := logr.Discard()
 
+	// drive the Deleted reconciler with a script that exits non-zero
 	delay, err := v0MachineWorkloadInstanceDeleted(f.r, f.mwi, &log)
+
+	// reconciler surfaces the failure with a 30s requeue for retry
 	require.Error(t, err)
 	assert.Equal(t, int64(30), delay)
-	assert.Equal(t, []string{"ScriptFailed"}, f.recorder.GetReasons())
+
+	// error carries the specific-reason event the wrapper will substitute
+	// for the generic FailedDelete row
+	var errWithEvent *tp_errors.ErrWithEvent
+	require.ErrorAs(t, err, &errWithEvent, "reconciler should return *tp_errors.ErrWithEvent so the wrapper can substitute the specific reason")
+	require.NotNil(t, errWithEvent.Event.Reason)
+	assert.Equal(t, "ScriptFailed", *errWithEvent.Event.Reason)
+
+	// failure path defers emission to the wrapper, so the reconciler itself
+	// records no events
+	assert.Empty(t, f.recorder.GetReasons(), "failure path should not call RecordEvent directly; the wrapper substitutes the event")
+}
+
+// TestMachineWorkloadInstanceDeleted_ScriptFailsPastGracePeriod covers the
+// reachable-but-failing grace cap: the host is reachable, the delete script
+// keeps failing, and deletion was scheduled longer ago than the grace period.
+// The handler confirms the deletion anyway - returns (0, nil) so a delete
+// script that can never succeed does not strand the upstream machine - and
+// records a DeleteScriptFailedGraceExceeded warning.
+func TestMachineWorkloadInstanceDeleted_ScriptFailsPastGracePeriod(t *testing.T) {
+	// reachable host whose delete script exits non-zero
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 1})
+	// schedule deletion far enough in the past to exceed the grace period
+	f.mwi.DeletionScheduled = util.Ptr(time.Now().Add(-2 * unreachableDeleteGracePeriod))
+	log := logr.Discard()
+
+	delay, err := v0MachineWorkloadInstanceDeleted(f.r, f.mwi, &log)
+	// past the grace period the failing delete confirms rather than requeues
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), delay)
+	// the script ran and failed before the grace cap fired, so both reasons land
+	assert.Equal(t, []string{"ScriptFailed", "DeleteScriptFailedGraceExceeded"}, f.recorder.GetReasons())
 }
