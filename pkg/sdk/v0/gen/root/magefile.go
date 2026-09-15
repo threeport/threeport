@@ -99,6 +99,18 @@ func GenMagefile(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		f.Line()
 	}
 
+	f.Comment("Race runs go test -race on packages that contain *_race_test.go files.")
+	f.Func().Params(Id("Test")).Id("Race").Params().Error().Block(
+		If(
+			Err().Op(":=").Qual("github.com/threeport/threeport/pkg/util/v0", "RunRaceTests").Call(),
+			Err().Op("!=").Nil(),
+		).Block(
+			Return(Qual("fmt", "Errorf").Call(Lit("failed to run race tests: %w"), Err())),
+		),
+		Return(Nil()),
+	)
+	f.Line()
+
 	// binary build function for API
 	emitBinFunc(f, buildApiFuncName, "REST API", "rest-api", "cmd/rest-api")
 	emitBinDevFunc(f, buildApiDevFuncName, buildApiFuncName, "REST API", "rest-api")

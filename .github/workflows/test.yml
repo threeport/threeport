@@ -67,14 +67,7 @@ jobs:
       run: go test -count=1 ./pkg/... ./internal/... ./cmd/...
 
     - name: Race tests
-      run: |
-        files=$(git ls-files '*_race_test.go')
-        if [ -z "$files" ]; then
-          echo "no *_race_test.go"
-          exit 0
-        fi
-        pkgs=$(echo "$files" | xargs -n1 dirname | sort -u | sed 's|^|./|')
-        go test -race -count=1 $pkgs
+      run: mage test:race
 
     - name: Generate and type-check a module
       run: mage test:moduleGen
