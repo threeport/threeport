@@ -52,3 +52,11 @@ func TestServiceAccountOwnedBy_RequiresOwnershipDescription(t *testing.T) {
 	require.False(t, serviceAccountOwnedBy(&iam.ServiceAccount{Description: "someone else"}, name))
 	require.False(t, serviceAccountOwnedBy(nil, name))
 }
+
+// TestCanonicalGCPAccountName_RejectsCaseFolding covers names that would
+// share a service-account ID with a lowercase sibling.
+func TestCanonicalGCPAccountName_RejectsCaseFolding(t *testing.T) {
+	require.True(t, canonicalGCPAccountName("my-provider"))
+	require.False(t, canonicalGCPAccountName("My-Provider"))
+	require.False(t, canonicalGCPAccountName("my_provider"))
+}

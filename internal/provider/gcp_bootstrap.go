@@ -457,6 +457,10 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		return nil, fmt.Errorf("failed to create Cloud Resource Manager service client: %w", err)
 	}
 
+	if !canonicalGCPAccountName(accountName) {
+		return nil, fmt.Errorf("GCP provider name %q is not a unique service-account identity; use lowercase letters, digits, and hyphens", accountName)
+	}
+
 	// Generate service account ID and create the service account
 	serviceAccountID := generateServiceAccountID(accountName)
 	displayName := fmt.Sprintf(serviceAccountDisplayFormat, accountName)
@@ -778,6 +782,20 @@ func isNotFoundError(err error) bool {
 // This is used when creating service accounts via tptctl create gcp-provider.
 func generateServiceAccountID(name string) string {
 	return formatServiceAccountID(serviceAccountNameFormat, name)
+}
+
+// canonicalGCPAccountName reports whether name is already the unique
+// lowercase [a-z0-9-] form formatServiceAccountID would produce from it.
+func canonicalGCPAccountName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, r := range name {
+		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' {
+			return false
+		}
+	}
+	return generateServiceAccountID(name) == generateServiceAccountID(strings.ToLower(name))
 }
 
 // grantServiceAccountRolesForProject grants the necessary IAM roles to a service account.
