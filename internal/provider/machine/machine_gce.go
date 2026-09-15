@@ -298,7 +298,7 @@ func (i *GceMachineInfra) pulumiProgram() pulumi.RunFunc {
 				)),
 			},
 			Tags:   pulumi.StringArray{pulumi.String(sshTag)},
-			Labels: gcpLabelsInput(i.RuntimeInstanceName),
+			Labels: provider.GcpLabelsInput(i.RuntimeInstanceName),
 		}, pulumi.Provider(gcpProvider))
 		if err != nil {
 			return fmt.Errorf("failed to create GCE instance: %w", err)
@@ -417,14 +417,4 @@ func (i *GceMachineInfra) SetCreateOutputs(hostname, externalIP, sshPrivateKey s
 	i.hostname = hostname
 	i.externalIP = externalIP
 	i.sshPrivateKeyPEM = sshPrivateKey
-}
-
-// gcpLabelsInput maps GcpResourceLabels onto a Pulumi string map.
-func gcpLabelsInput(ownerName string) pulumi.StringMap {
-	labels := provider.GcpResourceLabels(ownerName)
-	out := make(pulumi.StringMap, len(labels))
-	for k, v := range labels {
-		out[k] = pulumi.String(v)
-	}
-	return out
 }

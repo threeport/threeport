@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
@@ -91,4 +92,14 @@ func GcpOwnershipDescription(ownerName string) string {
 		GcpLabelProvisionedBy, labels[GcpLabelProvisionedBy],
 		GcpLabelThreeportName, labels[GcpLabelThreeportName],
 	)
+}
+
+// GcpLabelsInput maps GcpResourceLabels onto a Pulumi string map.
+func GcpLabelsInput(ownerName string) pulumi.StringMap {
+	labels := GcpResourceLabels(ownerName)
+	out := make(pulumi.StringMap, len(labels))
+	for k, v := range labels {
+		out[k] = pulumi.String(v)
+	}
+	return out
 }
