@@ -13,6 +13,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/pulumi/pulumi-gcp/sdk/v8/go/gcp"
@@ -34,11 +35,11 @@ var (
 	_ provider.RefreshableProvider = (*GceMachineInfra)(nil)
 )
 
-// defaultSSHSourceRange is the firewall source CIDR when SSHSourceRanges is empty.
-const defaultSSHSourceRange = "0.0.0.0/0"
+// gceNameRe is GCE's RFC1035 instance-name pattern, 1 to 63 characters.
+var gceNameRe = regexp.MustCompile(`^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$`)
 
 // GceMachineInfra is the Google Compute Engine backend for a machine runtime.
-// It embeds PulumiWorkspace for stack, state, and automation API helpers.
+// Machine-runtime constructs this with NewGceMachineInfra() and calls DeployInfra().
 type GceMachineInfra struct {
 	provider.PulumiWorkspace
 
@@ -66,7 +67,7 @@ type GceMachineInfra struct {
 	// The Linux user that receives the generated SSH public key
 	SSHUser string
 
-	// The CIDR ranges allowed to reach TCP 22; empty uses 0.0.0.0/0
+	// The CIDR ranges allowed to reach TCP 22; required, no open default
 	SSHSourceRanges []string
 
 	// The generated RSA private key in PEM form
@@ -115,11 +116,8 @@ func (i *GceMachineInfra) syncStackConfigs() {
 	}
 }
 
-// sshSourceRanges returns SSHSourceRanges, or the open CIDR when that slice is empty.
+// sshSourceRanges returns the configured SSH CIDRs.
 func (i *GceMachineInfra) sshSourceRanges() []string {
-	if len(i.SSHSourceRanges) == 0 {
-		return []string{defaultSSHSourceRange}
-	}
 	return i.SSHSourceRanges
 }
 
@@ -129,6 +127,8 @@ func (i *GceMachineInfra) validateRequiredFields() error {
 	var missing []string
 	if i.RuntimeInstanceName == "" {
 		missing = append(missing, "RuntimeInstanceName")
+	} else if !gceNameRe.MatchString(i.RuntimeInstanceName) {
+		return fmt.Errorf("RuntimeInstanceName %q is not a valid GCE instance name", i.RuntimeInstanceName)
 	}
 	if i.ProjectID == "" {
 		missing = append(missing, "ProjectID")
@@ -147,6 +147,9 @@ func (i *GceMachineInfra) validateRequiredFields() error {
 	}
 	if i.NetworkID == "" {
 		missing = append(missing, "NetworkID")
+	}
+	if len(i.SSHSourceRanges) == 0 {
+		missing = append(missing, "SSHSourceRanges")
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required fields: %s", strings.Join(missing, ", "))

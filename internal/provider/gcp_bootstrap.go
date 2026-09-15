@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -596,8 +597,11 @@ func createServiceAccountForProject(
 	return account, false, nil
 }
 
-// pruneUserManagedServiceAccountKeys deletes USER_MANAGED keys on the account.
-// SYSTEM_MANAGED keys stay; Google rotates them and Delete rejects those names.
+// userManagedKeyQuota is GCP's cap on USER_MANAGED keys per service account.
+const userManagedKeyQuota = 10
+
+// pruneUserManagedServiceAccountKeys deletes the oldest USER_MANAGED keys until
+// one slot is free for a new key. Live keys under the quota stay.
 func pruneUserManagedServiceAccountKeys(iamService *iam.Service, projectID, serviceAccountEmail string) error {
 	serviceAccountResource := fmt.Sprintf("projects/%s/serviceAccounts/%s", projectID, serviceAccountEmail)
 
@@ -613,14 +617,10 @@ func pruneUserManagedServiceAccountKeys(iamService *iam.Service, projectID, serv
 		return nil
 	}
 
-	// delete user-managed keys, skip system-managed
-	prunedIDs := make([]string, 0, len(keys.Keys))
-	for _, key := range keys.Keys {
-		if key.KeyType == "SYSTEM_MANAGED" {
-			continue
-		}
-
-		// delete the user-managed key
+	toDelete := oldestUserManagedKeys(keys.Keys, userManagedKeyQuota-1)
+	prunedIDs := make([]string, 0, len(toDelete))
+	for _, key := range toDelete {
+		// delete the oldest user-managed key
 		if _, err := iamService.Projects.ServiceAccounts.Keys.Delete(key.Name).Do(); err != nil {
 			return fmt.Errorf("failed to delete service account key %s: %w", key.Name, err)
 		}
@@ -642,6 +642,30 @@ func pruneUserManagedServiceAccountKeys(iamService *iam.Service, projectID, serv
 	}
 
 	return nil
+}
+
+// oldestUserManagedKeys returns the oldest keys that must go to leave keep slots.
+func oldestUserManagedKeys(keys []*iam.ServiceAccountKey, keep int) []*iam.ServiceAccountKey {
+	// keep USER_MANAGED keys, skip system-managed
+	user := make([]*iam.ServiceAccountKey, 0, len(keys))
+	for _, key := range keys {
+		if key == nil || key.KeyType == "SYSTEM_MANAGED" {
+			continue
+		}
+		user = append(user, key)
+	}
+	if keep < 0 {
+		keep = 0
+	}
+	if len(user) <= keep {
+		return nil
+	}
+
+	// oldest ValidAfterTime first
+	sort.Slice(user, func(i, j int) bool {
+		return user[i].ValidAfterTime < user[j].ValidAfterTime
+	})
+	return user[:len(user)-keep]
 }
 
 // removeServiceAccountRolesForProject removes all IAM roles granted to a service account.

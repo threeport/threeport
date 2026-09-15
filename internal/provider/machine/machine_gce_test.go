@@ -82,13 +82,14 @@ func newTestInfra(name string) *GceMachineInfra {
 			RuntimeInstanceName: name,
 			ProjectName:         "gce",
 		},
-		ProjectID:   "test-project",
-		Region:      "us-central1",
-		Zone:        "us-central1-a",
-		MachineType: "e2-medium",
-		ImageID:     "debian-cloud/debian-12",
-		NetworkID:   "default",
-		SSHUser:     "threeport",
+		ProjectID:       "test-project",
+		Region:          "us-central1",
+		Zone:            "us-central1-a",
+		MachineType:     "e2-medium",
+		ImageID:         "debian-cloud/debian-12",
+		NetworkID:       "default",
+		SSHUser:         "threeport",
+		SSHSourceRanges: []string{"10.0.0.0/8"},
 	}
 }
 
@@ -415,28 +416,22 @@ func TestStackStateRoundTrip_CheckpointFormat(t *testing.T) {
 	}
 }
 
-// TestSSHSourceRanges_DefaultAndOverride covers the 0.0.0.0/0 default and a firewall that uses an override.
-func TestSSHSourceRanges_DefaultAndOverride(t *testing.T) {
-	def := newTestInfra("default-ranges")
-	if got := def.sshSourceRanges(); !equalStringSlices(got, []string{"0.0.0.0/0"}) {
-		t.Errorf("default sshSourceRanges = %v, want [0.0.0.0/0]", got)
+// TestSSHSourceRanges_Required covers empty SSHSourceRanges failing validation.
+func TestSSHSourceRanges_Required(t *testing.T) {
+	i := newTestInfra("no-ranges")
+	i.SSHSourceRanges = nil
+	err := i.validateRequiredFields()
+	if err == nil || !strings.Contains(err.Error(), "SSHSourceRanges") {
+		t.Errorf("validateRequiredFields = %v, want SSHSourceRanges missing", err)
 	}
+}
 
-	override := newTestInfra("override-ranges")
-	override.SSHSourceRanges = []string{"10.0.0.0/8"}
-	if err := override.ensureSSHKeyPair(); err != nil {
-		t.Fatalf("ensureSSHKeyPair: %v", err)
-	}
-	mocks := &recordingMocks{}
-	if err := pulumi.RunErr(override.pulumiProgram(), pulumi.WithMocks("gce", "test-stack", mocks)); err != nil {
-		t.Fatalf("RunErr: %v", err)
-	}
-	firewalls := mocks.byType(firewallTypeToken)
-	if len(firewalls) != 1 {
-		t.Fatalf("expected exactly 1 firewall, got %d", len(firewalls))
-	}
-	if got := firewallSourceRanges(t, firewalls[0]); !equalStringSlices(got, []string{"10.0.0.0/8"}) {
-		t.Errorf("firewall sourceRanges = %v, want [10.0.0.0/8]", got)
+// TestValidateRequiredFields_InvalidName covers a GCE name that GCP would reject.
+func TestValidateRequiredFields_InvalidName(t *testing.T) {
+	i := newTestInfra("Bad_Name")
+	err := i.validateRequiredFields()
+	if err == nil || !strings.Contains(err.Error(), "not a valid GCE instance name") {
+		t.Errorf("validateRequiredFields = %v, want invalid GCE instance name", err)
 	}
 }
 
@@ -451,6 +446,7 @@ func TestDeployInfra_MissingRequiredFields(t *testing.T) {
 			ImageID:         "img",
 			SSHUser:         "u",
 			NetworkID:       "default",
+			SSHSourceRanges: []string{"10.0.0.0/8"},
 		}
 	}
 	cases := []struct {
@@ -465,6 +461,7 @@ func TestDeployInfra_MissingRequiredFields(t *testing.T) {
 		{"missing image id", func(i *GceMachineInfra) { i.ImageID = "" }, "ImageID"},
 		{"missing ssh user", func(i *GceMachineInfra) { i.SSHUser = "" }, "SSHUser"},
 		{"missing network id", func(i *GceMachineInfra) { i.NetworkID = "" }, "NetworkID"},
+		{"missing ssh source ranges", func(i *GceMachineInfra) { i.SSHSourceRanges = nil }, "SSHSourceRanges"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -492,7 +489,7 @@ func TestDeployInfra_ReportsAllMissingFields(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for multiple missing fields, got nil")
 	}
-	for _, field := range []string{"Zone", "MachineType", "SSHUser", "NetworkID"} {
+	for _, field := range []string{"Zone", "MachineType", "SSHUser", "NetworkID", "SSHSourceRanges"} {
 		if !strings.Contains(err.Error(), field) {
 			t.Errorf("error %q does not name missing field %q", err.Error(), field)
 		}
