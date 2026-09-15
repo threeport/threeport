@@ -301,9 +301,9 @@ func TestHandlersAnswerClientErrorsWithClientStatus(t *testing.T) {
 	// PayloadCheck looks an object's tagged fields up by api version and object
 	// type, and answers 500 when that lookup misses, which would mask every
 	// write case below
-	registerTaggedFields(api_v0.ObjectTypeKubernetesWorkloadDefinition, new(api_v0.KubernetesWorkloadDefinition))
-	registerTaggedFields(api_v0.ObjectTypeKubernetesWorkloadResourceDefinition, new(api_v0.KubernetesWorkloadResourceDefinition))
-	registerTaggedFields(api_v0.ObjectTypeSecretDefinition, new(api_v0.SecretDefinition))
+	registerValidateTags(api_v0.ObjectTypeKubernetesWorkloadDefinition, new(api_v0.KubernetesWorkloadDefinition))
+	registerValidateTags(api_v0.ObjectTypeKubernetesWorkloadResourceDefinition, new(api_v0.KubernetesWorkloadResourceDefinition))
+	registerValidateTags(api_v0.ObjectTypeSecretDefinition, new(api_v0.SecretDefinition))
 
 	for _, test := range clientErrorCases {
 		t.Run(test.name, func(t *testing.T) {

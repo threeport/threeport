@@ -22,6 +22,22 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// Cockroach runs test/cockroach against a docker CockroachDB.
+func (Test) Cockroach() error {
+	cmd := "go"
+	args := []string{
+		"test",
+		"-v",
+		"-count=1",
+		"./test/cockroach",
+	}
+	if err := util.RunCommandStreamOutput(cmd, args...); err != nil {
+		return fmt.Errorf("failed to run cockroach tests: %w", err)
+	}
+
+	return nil
+}
+
 // E2e calls ginkgo to run the e2e tests suite.  Takes 2 args: 1. imageRepo -
 // either 'local' or the URL for an external image repo.  2. clean - if true
 // will remove the control plane and infra after completion.
