@@ -5,6 +5,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	crdbgorm "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/machine-runtime/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -62,33 +63,47 @@ func (h Handler) AddMachineRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	// check for duplicate names
-	var existingMachineRuntimeDefinition api_v0.MachineRuntimeDefinition
-	nameUsed := true
-	result := h.RequestDB(c).Where("name = ?", machineRuntimeDefinition.Name).First(&existingMachineRuntimeDefinition)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			nameUsed = false
-		} else {
-			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	// the create runs inside a retryable transaction. Under
+	// SERIALIZABLE isolation CockroachDB answers a write conflict with
+	// SQLSTATE 40001 and expects the client to re-run the transaction.
+	// the duplicate-name read joins it: a restart has to re-check the
+	// name, and checking outside the transaction leaves a window where
+	// two concurrent creates both find the name free.
+	nameUsed := false
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// the database assigns the primary key, so a retried attempt
+			// must not carry the one a rolled-back attempt was given
+			machineRuntimeDefinition.ID = nil
+			nameUsed = true
+			var existingMachineRuntimeDefinition api_v0.MachineRuntimeDefinition
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", machineRuntimeDefinition.Name).First(&existingMachineRuntimeDefinition); result.Error != nil {
+				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+					return result.Error
+				}
+				nameUsed = false
+			}
+			// the name is taken; leave the transaction without writing
+			// and let the caller answer 409
+			if nameUsed {
+				return nil
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&machineRuntimeDefinition).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(err))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(err, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, err, objectType,
+			)
 		}
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 	if nameUsed {
 		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
-	}
-
-	// persist to DB
-	if result := h.RequestDB(c).Create(&machineRuntimeDefinition); result.Error != nil {
-		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
-		// check if this is a custom HTTP error with specific status code
-		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
-			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
-			)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -279,14 +294,6 @@ func (h Handler) UpdateMachineRuntimeDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMachineRuntimeDefinition
 	machineRuntimeDefinitionID := c.Param("id")
 	var existingMachineRuntimeDefinition api_v0.MachineRuntimeDefinition
-	if result := h.RequestDB(c).First(&existingMachineRuntimeDefinition, machineRuntimeDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingMachineRuntimeDefinition); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
@@ -300,17 +307,35 @@ func (h Handler) UpdateMachineRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
-	// update object in database
-	if result := h.RequestDB(c).Model(&existingMachineRuntimeDefinition).Updates(&updatedMachineRuntimeDefinition); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+	// the read and the write retry together. Under SERIALIZABLE
+	// isolation CockroachDB answers a conflict with SQLSTATE 40001 and
+	// expects the client to re-run the transaction; a restart that
+	// re-ran only the write would land it on a stale row. RequestDB is
+	// not used because ExecuteTx opens the transaction itself, so the
+	// query scopes it would have applied go on tx instead.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// a retried attempt must not read into the previous one's leftovers
+			existingMachineRuntimeDefinition = api_v0.MachineRuntimeDefinition{}
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingMachineRuntimeDefinition, machineRuntimeDefinitionID); result.Error != nil {
+				return result.Error
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingMachineRuntimeDefinition).Updates(&updatedMachineRuntimeDefinition).Error
+		},
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, err, objectType)
+		}
+		h.Logger.Error("handler error: error updating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -376,16 +401,26 @@ func (h Handler) ReplaceMachineRuntimeDefinition(c echo.Context) error {
 
 	// persist provided data
 	updatedMachineRuntimeDefinition.ID = existingMachineRuntimeDefinition.ID
-	if result := h.RequestDB(c).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedMachineRuntimeDefinition); result.Error != nil {
-		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+	// the save runs inside a retryable transaction. Under SERIALIZABLE
+	// isolation CockroachDB answers a write conflict with SQLSTATE 40001
+	// and expects the client to re-run it. Only the write is retried: the
+	// read above contributes the primary key, which the URL fixes, so it
+	// cannot go stale between attempts.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedMachineRuntimeDefinition).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// reload updated data from DB
@@ -440,11 +475,16 @@ func (h Handler) DeleteMachineRuntimeDefinition(c echo.Context) error {
 	}
 
 	// delete object
-	if result := h.RequestDB(c).Delete(&machineRuntimeDefinition); result.Error != nil {
-		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Delete(&machineRuntimeDefinition).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error deleting object", zap.Error(err))
 		// surface BlockedDeleteError from gorm hook - sole blocking check for non-reconciled types
 		var blockedErr *api_v0.BlockedDeleteError
-		if errors.As(result.Error, &blockedErr) {
+		if errors.As(err, &blockedErr) {
 			return RespondBlockedDelete(
 				c,
 				h.RequestDB(c),
@@ -453,12 +493,12 @@ func (h Handler) DeleteMachineRuntimeDefinition(c echo.Context) error {
 		}
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -519,33 +559,47 @@ func (h Handler) AddMachineRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	// check for duplicate names
-	var existingMachineRuntimeInstance api_v0.MachineRuntimeInstance
-	nameUsed := true
-	result := h.RequestDB(c).Where("name = ?", machineRuntimeInstance.Name).First(&existingMachineRuntimeInstance)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			nameUsed = false
-		} else {
-			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	// the create runs inside a retryable transaction. Under
+	// SERIALIZABLE isolation CockroachDB answers a write conflict with
+	// SQLSTATE 40001 and expects the client to re-run the transaction.
+	// the duplicate-name read joins it: a restart has to re-check the
+	// name, and checking outside the transaction leaves a window where
+	// two concurrent creates both find the name free.
+	nameUsed := false
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// the database assigns the primary key, so a retried attempt
+			// must not carry the one a rolled-back attempt was given
+			machineRuntimeInstance.ID = nil
+			nameUsed = true
+			var existingMachineRuntimeInstance api_v0.MachineRuntimeInstance
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", machineRuntimeInstance.Name).First(&existingMachineRuntimeInstance); result.Error != nil {
+				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+					return result.Error
+				}
+				nameUsed = false
+			}
+			// the name is taken; leave the transaction without writing
+			// and let the caller answer 409
+			if nameUsed {
+				return nil
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&machineRuntimeInstance).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(err))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(err, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, err, objectType,
+			)
 		}
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 	if nameUsed {
 		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
-	}
-
-	// persist to DB
-	if result := h.RequestDB(c).Create(&machineRuntimeInstance); result.Error != nil {
-		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
-		// check if this is a custom HTTP error with specific status code
-		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
-			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
-			)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// notify controller if reconciliation is required
@@ -750,14 +804,6 @@ func (h Handler) UpdateMachineRuntimeInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeMachineRuntimeInstance
 	machineRuntimeInstanceID := c.Param("id")
 	var existingMachineRuntimeInstance api_v0.MachineRuntimeInstance
-	if result := h.RequestDB(c).First(&existingMachineRuntimeInstance, machineRuntimeInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingMachineRuntimeInstance); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
@@ -771,17 +817,35 @@ func (h Handler) UpdateMachineRuntimeInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
-	// update object in database
-	if result := h.RequestDB(c).Model(&existingMachineRuntimeInstance).Updates(&updatedMachineRuntimeInstance); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+	// the read and the write retry together. Under SERIALIZABLE
+	// isolation CockroachDB answers a conflict with SQLSTATE 40001 and
+	// expects the client to re-run the transaction; a restart that
+	// re-ran only the write would land it on a stale row. RequestDB is
+	// not used because ExecuteTx opens the transaction itself, so the
+	// query scopes it would have applied go on tx instead.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// a retried attempt must not read into the previous one's leftovers
+			existingMachineRuntimeInstance = api_v0.MachineRuntimeInstance{}
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingMachineRuntimeInstance, machineRuntimeInstanceID); result.Error != nil {
+				return result.Error
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingMachineRuntimeInstance).Updates(&updatedMachineRuntimeInstance).Error
+		},
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, err, objectType)
+		}
+		h.Logger.Error("handler error: error updating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// notify controller if reconciliation is required
@@ -861,16 +925,26 @@ func (h Handler) ReplaceMachineRuntimeInstance(c echo.Context) error {
 
 	// persist provided data
 	updatedMachineRuntimeInstance.ID = existingMachineRuntimeInstance.ID
-	if result := h.RequestDB(c).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedMachineRuntimeInstance); result.Error != nil {
-		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+	// the save runs inside a retryable transaction. Under SERIALIZABLE
+	// isolation CockroachDB answers a write conflict with SQLSTATE 40001
+	// and expects the client to re-run it. Only the write is retried: the
+	// read above contributes the primary key, which the URL fixes, so it
+	// cannot go stale between attempts.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedMachineRuntimeInstance).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// reload updated data from DB
@@ -942,9 +1016,14 @@ func (h Handler) DeleteMachineRuntimeInstance(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.RequestDB(c).Model(&machineRuntimeInstance).Updates(&scheduledMachineRuntimeInstance); result.Error != nil {
-			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		if err := crdbgorm.ExecuteTx(
+			c.Request().Context(), h.DB, nil,
+			func(tx *gorm.DB) error {
+				return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&machineRuntimeInstance).Updates(&scheduledMachineRuntimeInstance).Error
+			},
+		); err != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		// notify controller
 		notifPayload, err := machineRuntimeInstance.NotificationPayload(
@@ -968,11 +1047,16 @@ func (h Handler) DeleteMachineRuntimeInstance(c echo.Context) error {
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
-			if result := h.RequestDB(c).Delete(&machineRuntimeInstance); result.Error != nil {
-				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+			if err := crdbgorm.ExecuteTx(
+				c.Request().Context(), h.DB, nil,
+				func(tx *gorm.DB) error {
+					return tx.Scopes(apiserver_lib.QueryScopes(c)...).Delete(&machineRuntimeInstance).Error
+				},
+			); err != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(err))
 				// surface BlockedDeleteError from gorm hook - backstop in case an attached object reference was created after the pre-check
 				var blockedErr *api_v0.BlockedDeleteError
-				if errors.As(result.Error, &blockedErr) {
+				if errors.As(err, &blockedErr) {
 					return RespondBlockedDelete(
 						c,
 						h.RequestDB(c),
@@ -981,12 +1065,12 @@ func (h Handler) DeleteMachineRuntimeInstance(c echo.Context) error {
 				}
 				// check if this is a custom HTTP error with specific status code
 				var httpErr *util_v0.HttpError
-				if errors.As(result.Error, &httpErr) {
+				if errors.As(err, &httpErr) {
 					return apiserver_lib.ResponseStatusErr(
-						httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+						httpErr.GetStatusCode(), c, nil, err, objectType,
 					)
 				}
-				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+				return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 			}
 		}
 	}

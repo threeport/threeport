@@ -5,6 +5,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	crdbgorm "github.com/cockroachdb/cockroach-go/v2/crdb/crdbgorm"
 	echo "github.com/labstack/echo/v4"
 	notif "github.com/threeport/threeport/internal/kubernetes-workload/notif"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
@@ -62,33 +63,47 @@ func (h Handler) AddKubernetesWorkloadDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	// check for duplicate names
-	var existingKubernetesWorkloadDefinition api_v0.KubernetesWorkloadDefinition
-	nameUsed := true
-	result := h.RequestDB(c).Where("name = ?", kubernetesWorkloadDefinition.Name).First(&existingKubernetesWorkloadDefinition)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			nameUsed = false
-		} else {
-			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	// the create runs inside a retryable transaction. Under
+	// SERIALIZABLE isolation CockroachDB answers a write conflict with
+	// SQLSTATE 40001 and expects the client to re-run the transaction.
+	// the duplicate-name read joins it: a restart has to re-check the
+	// name, and checking outside the transaction leaves a window where
+	// two concurrent creates both find the name free.
+	nameUsed := false
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// the database assigns the primary key, so a retried attempt
+			// must not carry the one a rolled-back attempt was given
+			kubernetesWorkloadDefinition.ID = nil
+			nameUsed = true
+			var existingKubernetesWorkloadDefinition api_v0.KubernetesWorkloadDefinition
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", kubernetesWorkloadDefinition.Name).First(&existingKubernetesWorkloadDefinition); result.Error != nil {
+				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+					return result.Error
+				}
+				nameUsed = false
+			}
+			// the name is taken; leave the transaction without writing
+			// and let the caller answer 409
+			if nameUsed {
+				return nil
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&kubernetesWorkloadDefinition).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(err))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(err, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, err, objectType,
+			)
 		}
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 	if nameUsed {
 		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
-	}
-
-	// persist to DB
-	if result := h.RequestDB(c).Create(&kubernetesWorkloadDefinition); result.Error != nil {
-		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
-		// check if this is a custom HTTP error with specific status code
-		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
-			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
-			)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// notify controller if reconciliation is required
@@ -293,14 +308,6 @@ func (h Handler) UpdateKubernetesWorkloadDefinition(c echo.Context) error {
 	objectType := api_v0.ObjectTypeKubernetesWorkloadDefinition
 	kubernetesWorkloadDefinitionID := c.Param("id")
 	var existingKubernetesWorkloadDefinition api_v0.KubernetesWorkloadDefinition
-	if result := h.RequestDB(c).First(&existingKubernetesWorkloadDefinition, kubernetesWorkloadDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingKubernetesWorkloadDefinition); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
@@ -314,17 +321,35 @@ func (h Handler) UpdateKubernetesWorkloadDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
-	// update object in database
-	if result := h.RequestDB(c).Model(&existingKubernetesWorkloadDefinition).Updates(&updatedKubernetesWorkloadDefinition); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+	// the read and the write retry together. Under SERIALIZABLE
+	// isolation CockroachDB answers a conflict with SQLSTATE 40001 and
+	// expects the client to re-run the transaction; a restart that
+	// re-ran only the write would land it on a stale row. RequestDB is
+	// not used because ExecuteTx opens the transaction itself, so the
+	// query scopes it would have applied go on tx instead.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// a retried attempt must not read into the previous one's leftovers
+			existingKubernetesWorkloadDefinition = api_v0.KubernetesWorkloadDefinition{}
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingKubernetesWorkloadDefinition, kubernetesWorkloadDefinitionID); result.Error != nil {
+				return result.Error
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingKubernetesWorkloadDefinition).Updates(&updatedKubernetesWorkloadDefinition).Error
+		},
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, err, objectType)
+		}
+		h.Logger.Error("handler error: error updating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// notify controller if reconciliation is required
@@ -404,16 +429,26 @@ func (h Handler) ReplaceKubernetesWorkloadDefinition(c echo.Context) error {
 
 	// persist provided data
 	updatedKubernetesWorkloadDefinition.ID = existingKubernetesWorkloadDefinition.ID
-	if result := h.RequestDB(c).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedKubernetesWorkloadDefinition); result.Error != nil {
-		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+	// the save runs inside a retryable transaction. Under SERIALIZABLE
+	// isolation CockroachDB answers a write conflict with SQLSTATE 40001
+	// and expects the client to re-run it. Only the write is retried: the
+	// read above contributes the primary key, which the URL fixes, so it
+	// cannot go stale between attempts.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedKubernetesWorkloadDefinition).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// reload updated data from DB
@@ -491,9 +526,14 @@ func (h Handler) DeleteKubernetesWorkloadDefinition(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.RequestDB(c).Model(&kubernetesWorkloadDefinition).Updates(&scheduledKubernetesWorkloadDefinition); result.Error != nil {
-			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		if err := crdbgorm.ExecuteTx(
+			c.Request().Context(), h.DB, nil,
+			func(tx *gorm.DB) error {
+				return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&kubernetesWorkloadDefinition).Updates(&scheduledKubernetesWorkloadDefinition).Error
+			},
+		); err != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		// notify controller
 		notifPayload, err := kubernetesWorkloadDefinition.NotificationPayload(
@@ -517,11 +557,16 @@ func (h Handler) DeleteKubernetesWorkloadDefinition(c echo.Context) error {
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
-			if result := h.RequestDB(c).Delete(&kubernetesWorkloadDefinition); result.Error != nil {
-				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+			if err := crdbgorm.ExecuteTx(
+				c.Request().Context(), h.DB, nil,
+				func(tx *gorm.DB) error {
+					return tx.Scopes(apiserver_lib.QueryScopes(c)...).Delete(&kubernetesWorkloadDefinition).Error
+				},
+			); err != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(err))
 				// surface BlockedDeleteError from gorm hook - backstop in case an attached object reference was created after the pre-check
 				var blockedErr *api_v0.BlockedDeleteError
-				if errors.As(result.Error, &blockedErr) {
+				if errors.As(err, &blockedErr) {
 					return RespondBlockedDelete(
 						c,
 						h.RequestDB(c),
@@ -530,12 +575,12 @@ func (h Handler) DeleteKubernetesWorkloadDefinition(c echo.Context) error {
 				}
 				// check if this is a custom HTTP error with specific status code
 				var httpErr *util_v0.HttpError
-				if errors.As(result.Error, &httpErr) {
+				if errors.As(err, &httpErr) {
 					return apiserver_lib.ResponseStatusErr(
-						httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+						httpErr.GetStatusCode(), c, nil, err, objectType,
 					)
 				}
-				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+				return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 			}
 		}
 	}
@@ -598,33 +643,47 @@ func (h Handler) AddKubernetesWorkloadInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	// check for duplicate names
-	var existingKubernetesWorkloadInstance api_v0.KubernetesWorkloadInstance
-	nameUsed := true
-	result := h.RequestDB(c).Where("name = ?", kubernetesWorkloadInstance.Name).First(&existingKubernetesWorkloadInstance)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			nameUsed = false
-		} else {
-			h.Logger.Error("handler error: error checking for duplicate names", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+	// the create runs inside a retryable transaction. Under
+	// SERIALIZABLE isolation CockroachDB answers a write conflict with
+	// SQLSTATE 40001 and expects the client to re-run the transaction.
+	// the duplicate-name read joins it: a restart has to re-check the
+	// name, and checking outside the transaction leaves a window where
+	// two concurrent creates both find the name free.
+	nameUsed := false
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// the database assigns the primary key, so a retried attempt
+			// must not carry the one a rolled-back attempt was given
+			kubernetesWorkloadInstance.ID = nil
+			nameUsed = true
+			var existingKubernetesWorkloadInstance api_v0.KubernetesWorkloadInstance
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).Where("name = ?", kubernetesWorkloadInstance.Name).First(&existingKubernetesWorkloadInstance); result.Error != nil {
+				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+					return result.Error
+				}
+				nameUsed = false
+			}
+			// the name is taken; leave the transaction without writing
+			// and let the caller answer 409
+			if nameUsed {
+				return nil
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&kubernetesWorkloadInstance).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(err))
+		// check if this is a custom HTTP error with specific status code
+		var httpErr *util_v0.HttpError
+		if errors.As(err, &httpErr) {
+			return apiserver_lib.ResponseStatusErr(
+				httpErr.GetStatusCode(), c, nil, err, objectType,
+			)
 		}
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 	if nameUsed {
 		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
-	}
-
-	// persist to DB
-	if result := h.RequestDB(c).Create(&kubernetesWorkloadInstance); result.Error != nil {
-		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
-		// check if this is a custom HTTP error with specific status code
-		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
-			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
-			)
-		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
 	}
 
 	// notify controller if reconciliation is required
@@ -829,14 +888,6 @@ func (h Handler) UpdateKubernetesWorkloadInstance(c echo.Context) error {
 	objectType := api_v0.ObjectTypeKubernetesWorkloadInstance
 	kubernetesWorkloadInstanceID := c.Param("id")
 	var existingKubernetesWorkloadInstance api_v0.KubernetesWorkloadInstance
-	if result := h.RequestDB(c).First(&existingKubernetesWorkloadInstance, kubernetesWorkloadInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingKubernetesWorkloadInstance); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
@@ -850,17 +901,35 @@ func (h Handler) UpdateKubernetesWorkloadInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
-	// update object in database
-	if result := h.RequestDB(c).Model(&existingKubernetesWorkloadInstance).Updates(&updatedKubernetesWorkloadInstance); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+	// the read and the write retry together. Under SERIALIZABLE
+	// isolation CockroachDB answers a conflict with SQLSTATE 40001 and
+	// expects the client to re-run the transaction; a restart that
+	// re-ran only the write would land it on a stale row. RequestDB is
+	// not used because ExecuteTx opens the transaction itself, so the
+	// query scopes it would have applied go on tx instead.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// a retried attempt must not read into the previous one's leftovers
+			existingKubernetesWorkloadInstance = api_v0.KubernetesWorkloadInstance{}
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingKubernetesWorkloadInstance, kubernetesWorkloadInstanceID); result.Error != nil {
+				return result.Error
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingKubernetesWorkloadInstance).Updates(&updatedKubernetesWorkloadInstance).Error
+		},
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, err, objectType)
+		}
+		h.Logger.Error("handler error: error updating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// notify controller if reconciliation is required
@@ -940,16 +1009,26 @@ func (h Handler) ReplaceKubernetesWorkloadInstance(c echo.Context) error {
 
 	// persist provided data
 	updatedKubernetesWorkloadInstance.ID = existingKubernetesWorkloadInstance.ID
-	if result := h.RequestDB(c).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedKubernetesWorkloadInstance); result.Error != nil {
-		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+	// the save runs inside a retryable transaction. Under SERIALIZABLE
+	// isolation CockroachDB answers a write conflict with SQLSTATE 40001
+	// and expects the client to re-run it. Only the write is retried: the
+	// read above contributes the primary key, which the URL fixes, so it
+	// cannot go stale between attempts.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedKubernetesWorkloadInstance).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// reload updated data from DB
@@ -1021,9 +1100,14 @@ func (h Handler) DeleteKubernetesWorkloadInstance(c echo.Context) error {
 				DeletionScheduled: &timestamp,
 				Reconciled:        &reconciled,
 			}}
-		if result := h.RequestDB(c).Model(&kubernetesWorkloadInstance).Updates(&scheduledKubernetesWorkloadInstance); result.Error != nil {
-			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(result.Error))
-			return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		if err := crdbgorm.ExecuteTx(
+			c.Request().Context(), h.DB, nil,
+			func(tx *gorm.DB) error {
+				return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&kubernetesWorkloadInstance).Updates(&scheduledKubernetesWorkloadInstance).Error
+			},
+		); err != nil {
+			h.Logger.Error("handler error: error creating scheduled deletion", zap.Error(err))
+			return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 		}
 		// notify controller
 		notifPayload, err := kubernetesWorkloadInstance.NotificationPayload(
@@ -1047,11 +1131,16 @@ func (h Handler) DeleteKubernetesWorkloadInstance(c echo.Context) error {
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
 			// from DB
-			if result := h.RequestDB(c).Delete(&kubernetesWorkloadInstance); result.Error != nil {
-				h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+			if err := crdbgorm.ExecuteTx(
+				c.Request().Context(), h.DB, nil,
+				func(tx *gorm.DB) error {
+					return tx.Scopes(apiserver_lib.QueryScopes(c)...).Delete(&kubernetesWorkloadInstance).Error
+				},
+			); err != nil {
+				h.Logger.Error("handler error: error deleting object", zap.Error(err))
 				// surface BlockedDeleteError from gorm hook - backstop in case an attached object reference was created after the pre-check
 				var blockedErr *api_v0.BlockedDeleteError
-				if errors.As(result.Error, &blockedErr) {
+				if errors.As(err, &blockedErr) {
 					return RespondBlockedDelete(
 						c,
 						h.RequestDB(c),
@@ -1060,12 +1149,12 @@ func (h Handler) DeleteKubernetesWorkloadInstance(c echo.Context) error {
 				}
 				// check if this is a custom HTTP error with specific status code
 				var httpErr *util_v0.HttpError
-				if errors.As(result.Error, &httpErr) {
+				if errors.As(err, &httpErr) {
 					return apiserver_lib.ResponseStatusErr(
-						httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+						httpErr.GetStatusCode(), c, nil, err, objectType,
 					)
 				}
-				return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+				return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 			}
 		}
 	}
@@ -1128,17 +1217,27 @@ func (h Handler) AddKubernetesWorkloadResourceDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	// persist to DB
-	if result := h.RequestDB(c).Create(&kubernetesWorkloadResourceDefinition); result.Error != nil {
-		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+	// the create runs inside a retryable transaction. Under
+	// SERIALIZABLE isolation CockroachDB answers a write conflict with
+	// SQLSTATE 40001 and expects the client to re-run the transaction.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// the database assigns the primary key, so a retried attempt
+			// must not carry the one a rolled-back attempt was given
+			kubernetesWorkloadResourceDefinition.ID = nil
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&kubernetesWorkloadResourceDefinition).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1329,14 +1428,6 @@ func (h Handler) UpdateKubernetesWorkloadResourceDefinition(c echo.Context) erro
 	objectType := api_v0.ObjectTypeKubernetesWorkloadResourceDefinition
 	kubernetesWorkloadResourceDefinitionID := c.Param("id")
 	var existingKubernetesWorkloadResourceDefinition api_v0.KubernetesWorkloadResourceDefinition
-	if result := h.RequestDB(c).First(&existingKubernetesWorkloadResourceDefinition, kubernetesWorkloadResourceDefinitionID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingKubernetesWorkloadResourceDefinition); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
@@ -1350,17 +1441,35 @@ func (h Handler) UpdateKubernetesWorkloadResourceDefinition(c echo.Context) erro
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
-	// update object in database
-	if result := h.RequestDB(c).Model(&existingKubernetesWorkloadResourceDefinition).Updates(&updatedKubernetesWorkloadResourceDefinition); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+	// the read and the write retry together. Under SERIALIZABLE
+	// isolation CockroachDB answers a conflict with SQLSTATE 40001 and
+	// expects the client to re-run the transaction; a restart that
+	// re-ran only the write would land it on a stale row. RequestDB is
+	// not used because ExecuteTx opens the transaction itself, so the
+	// query scopes it would have applied go on tx instead.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// a retried attempt must not read into the previous one's leftovers
+			existingKubernetesWorkloadResourceDefinition = api_v0.KubernetesWorkloadResourceDefinition{}
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingKubernetesWorkloadResourceDefinition, kubernetesWorkloadResourceDefinitionID); result.Error != nil {
+				return result.Error
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingKubernetesWorkloadResourceDefinition).Updates(&updatedKubernetesWorkloadResourceDefinition).Error
+		},
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, err, objectType)
+		}
+		h.Logger.Error("handler error: error updating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1426,16 +1535,26 @@ func (h Handler) ReplaceKubernetesWorkloadResourceDefinition(c echo.Context) err
 
 	// persist provided data
 	updatedKubernetesWorkloadResourceDefinition.ID = existingKubernetesWorkloadResourceDefinition.ID
-	if result := h.RequestDB(c).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedKubernetesWorkloadResourceDefinition); result.Error != nil {
-		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+	// the save runs inside a retryable transaction. Under SERIALIZABLE
+	// isolation CockroachDB answers a write conflict with SQLSTATE 40001
+	// and expects the client to re-run it. Only the write is retried: the
+	// read above contributes the primary key, which the URL fixes, so it
+	// cannot go stale between attempts.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedKubernetesWorkloadResourceDefinition).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// reload updated data from DB
@@ -1484,11 +1603,16 @@ func (h Handler) DeleteKubernetesWorkloadResourceDefinition(c echo.Context) erro
 	}
 
 	// delete object
-	if result := h.RequestDB(c).Delete(&kubernetesWorkloadResourceDefinition); result.Error != nil {
-		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Delete(&kubernetesWorkloadResourceDefinition).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error deleting object", zap.Error(err))
 		// surface BlockedDeleteError from gorm hook - sole blocking check for non-reconciled types
 		var blockedErr *api_v0.BlockedDeleteError
-		if errors.As(result.Error, &blockedErr) {
+		if errors.As(err, &blockedErr) {
 			return RespondBlockedDelete(
 				c,
 				h.RequestDB(c),
@@ -1497,12 +1621,12 @@ func (h Handler) DeleteKubernetesWorkloadResourceDefinition(c echo.Context) erro
 		}
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1563,17 +1687,27 @@ func (h Handler) AddKubernetesWorkloadResourceInstance(c echo.Context) error {
 		return apiserver_lib.ResponseStatusErr(id, c, nil, errors.New(err.Error()), objectType)
 	}
 
-	// persist to DB
-	if result := h.RequestDB(c).Create(&kubernetesWorkloadResourceInstance); result.Error != nil {
-		h.Logger.Error("handler error: error creating object", zap.Error(result.Error))
+	// the create runs inside a retryable transaction. Under
+	// SERIALIZABLE isolation CockroachDB answers a write conflict with
+	// SQLSTATE 40001 and expects the client to re-run the transaction.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// the database assigns the primary key, so a retried attempt
+			// must not carry the one a rolled-back attempt was given
+			kubernetesWorkloadResourceInstance.ID = nil
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Create(&kubernetesWorkloadResourceInstance).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error creating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1764,14 +1898,6 @@ func (h Handler) UpdateKubernetesWorkloadResourceInstance(c echo.Context) error 
 	objectType := api_v0.ObjectTypeKubernetesWorkloadResourceInstance
 	kubernetesWorkloadResourceInstanceID := c.Param("id")
 	var existingKubernetesWorkloadResourceInstance api_v0.KubernetesWorkloadResourceInstance
-	if result := h.RequestDB(c).First(&existingKubernetesWorkloadResourceInstance, kubernetesWorkloadResourceInstanceID); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return apiserver_lib.ResponseStatus404(c, nil, result.Error, objectType)
-		}
-		h.Logger.Error("handler error: error finding object", zap.Error(result.Error))
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
-	}
-
 	// check for empty payload, invalid or unsupported fields, optional associations, etc.
 	if id, err := apiserver_lib.PayloadCheck(c, false, true, objectType, existingKubernetesWorkloadResourceInstance); err != nil {
 		h.Logger.Error("handler error: error performing payload check", zap.Error(err))
@@ -1785,17 +1911,35 @@ func (h Handler) UpdateKubernetesWorkloadResourceInstance(c echo.Context) error 
 		return apiserver_lib.ResponseStatusBindErr(c, nil, err, objectType)
 	}
 
-	// update object in database
-	if result := h.RequestDB(c).Model(&existingKubernetesWorkloadResourceInstance).Updates(&updatedKubernetesWorkloadResourceInstance); result.Error != nil {
-		h.Logger.Error("handler error: error updating object", zap.Error(result.Error))
+	// the read and the write retry together. Under SERIALIZABLE
+	// isolation CockroachDB answers a conflict with SQLSTATE 40001 and
+	// expects the client to re-run the transaction; a restart that
+	// re-ran only the write would land it on a stale row. RequestDB is
+	// not used because ExecuteTx opens the transaction itself, so the
+	// query scopes it would have applied go on tx instead.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			// a retried attempt must not read into the previous one's leftovers
+			existingKubernetesWorkloadResourceInstance = api_v0.KubernetesWorkloadResourceInstance{}
+			if result := tx.Scopes(apiserver_lib.QueryScopes(c)...).First(&existingKubernetesWorkloadResourceInstance, kubernetesWorkloadResourceInstanceID); result.Error != nil {
+				return result.Error
+			}
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Model(&existingKubernetesWorkloadResourceInstance).Updates(&updatedKubernetesWorkloadResourceInstance).Error
+		},
+	); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apiserver_lib.ResponseStatus404(c, nil, err, objectType)
+		}
+		h.Logger.Error("handler error: error updating object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1861,16 +2005,26 @@ func (h Handler) ReplaceKubernetesWorkloadResourceInstance(c echo.Context) error
 
 	// persist provided data
 	updatedKubernetesWorkloadResourceInstance.ID = existingKubernetesWorkloadResourceInstance.ID
-	if result := h.RequestDB(c).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedKubernetesWorkloadResourceInstance); result.Error != nil {
-		h.Logger.Error("handler error: error persisting object", zap.Error(result.Error))
+	// the save runs inside a retryable transaction. Under SERIALIZABLE
+	// isolation CockroachDB answers a write conflict with SQLSTATE 40001
+	// and expects the client to re-run it. Only the write is retried: the
+	// read above contributes the primary key, which the URL fixes, so it
+	// cannot go stale between attempts.
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Session(&gorm.Session{FullSaveAssociations: false}).Omit("CreatedAt", "DeletedAt").Save(&updatedKubernetesWorkloadResourceInstance).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error persisting object", zap.Error(err))
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// reload updated data from DB
@@ -1919,11 +2073,16 @@ func (h Handler) DeleteKubernetesWorkloadResourceInstance(c echo.Context) error 
 	}
 
 	// delete object
-	if result := h.RequestDB(c).Delete(&kubernetesWorkloadResourceInstance); result.Error != nil {
-		h.Logger.Error("handler error: error deleting object", zap.Error(result.Error))
+	if err := crdbgorm.ExecuteTx(
+		c.Request().Context(), h.DB, nil,
+		func(tx *gorm.DB) error {
+			return tx.Scopes(apiserver_lib.QueryScopes(c)...).Delete(&kubernetesWorkloadResourceInstance).Error
+		},
+	); err != nil {
+		h.Logger.Error("handler error: error deleting object", zap.Error(err))
 		// surface BlockedDeleteError from gorm hook - sole blocking check for non-reconciled types
 		var blockedErr *api_v0.BlockedDeleteError
-		if errors.As(result.Error, &blockedErr) {
+		if errors.As(err, &blockedErr) {
 			return RespondBlockedDelete(
 				c,
 				h.RequestDB(c),
@@ -1932,12 +2091,12 @@ func (h Handler) DeleteKubernetesWorkloadResourceInstance(c echo.Context) error 
 		}
 		// check if this is a custom HTTP error with specific status code
 		var httpErr *util_v0.HttpError
-		if errors.As(result.Error, &httpErr) {
+		if errors.As(err, &httpErr) {
 			return apiserver_lib.ResponseStatusErr(
-				httpErr.GetStatusCode(), c, nil, result.Error, objectType,
+				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
-		return apiserver_lib.ResponseStatus500(c, nil, result.Error, objectType)
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(

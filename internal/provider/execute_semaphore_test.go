@@ -12,15 +12,14 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// compile-time interface satisfaction check for the order recorder.
+// orderRecordingInfra implements RefreshableProvider.
 var _ RefreshableProvider = (*orderRecordingInfra)(nil)
 
-// configureSemaphoreTest installs a lifecycle config with the given
-// semaphore capacity and fast persist retries, registers config
-// restoration, and registers a drain that runs before restoration so no
-// launch goroutine outlives the test's semaphore channel.
+// configureSemaphoreTest sets semaphore capacity for the test and
+// drains in-flight operations before restoring the previous config.
 func configureSemaphoreTest(t *testing.T, capacity int) {
 	t.Helper()
+	// set lifecycle config with hour refresh and millisecond persist delay
 	restore := setLifecycleConfig(LifecycleConfig{
 		StaleAckThreshold: 240 * time.Second,
 		RefreshInterval:   time.Hour,
@@ -28,16 +27,17 @@ func configureSemaphoreTest(t *testing.T, capacity int) {
 		PersistRetries:    3,
 		PersistRetryDelay: time.Millisecond,
 	})
+	// restore the previous lifecycle config on cleanup
 	t.Cleanup(restore)
+	// drain in-flight operations first (Cleanup is last-in first-out)
 	t.Cleanup(func() { waitForSemaphoreDrain(t) })
 }
 
-// waitForSemaphoreDrain polls until no infra operations are in flight and
-// every semaphore slot has been released. The slot release is the last
-// action of a launch goroutine, so an empty semaphore plus a zero
-// in-flight count guarantees all launched goroutines have fully exited.
+// waitForSemaphoreDrain waits until no operation is in flight and no
+// semaphore slot is held.
 func waitForSemaphoreDrain(t *testing.T) {
 	t.Helper()
+	// poll until no in-flight operations and no held slots
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		if inFlightCount() == 0 && len(currentSemaphore()) == 0 {
@@ -45,15 +45,15 @@ func waitForSemaphoreDrain(t *testing.T) {
 		}
 		time.Sleep(2 * time.Millisecond)
 	}
+	// fail if operations have not drained within 10 seconds
 	t.Errorf(
 		"lifecycle goroutines did not drain: inFlight=%d, heldSlots=%d",
 		inFlightCount(), len(currentSemaphore()),
 	)
 }
 
-// orderRecordingInfra wraps fakeRefreshableInfra and records the global
-// order of restore, refresh, and deploy calls so tests can assert the
-// sequencing inside executeInfraCreate.
+// orderRecordingInfra is a refreshable fake that records the order of
+// restore, refresh, and deploy calls.
 type orderRecordingInfra struct {
 	*fakeRefreshableInfra
 
@@ -61,56 +61,61 @@ type orderRecordingInfra struct {
 	order []string
 }
 
-// newOrderRecordingInfra returns an order recorder over a fresh
-// refreshable infra fake.
+// newOrderRecordingInfra returns an order-recording fake with a fresh
+// refreshable infra.
 func newOrderRecordingInfra() *orderRecordingInfra {
 	return &orderRecordingInfra{fakeRefreshableInfra: newFakeRefreshableInfra()}
 }
 
-// record appends a call name to the recorded order.
+// record appends a method name to the recorded call order.
 func (o *orderRecordingInfra) record(name string) {
 	o.omu.Lock()
 	defer o.omu.Unlock()
 	o.order = append(o.order, name)
 }
 
-// callOrder returns a copy of the recorded call order.
+// callOrder returns a copy of the recorded method names.
 func (o *orderRecordingInfra) callOrder() []string {
 	o.omu.Lock()
 	defer o.omu.Unlock()
+	// copy the recorded names so the caller does not share the slice
 	out := make([]string, len(o.order))
 	copy(out, o.order)
 	return out
 }
 
-// SetStackState records its position in the call order, then delegates.
+// SetStackState records the call and delegates to the embedded fake.
 func (o *orderRecordingInfra) SetStackState(state *datatypes.JSON) error {
+	// record SetStackState
 	o.record("SetStackState")
+	// restore stack state
 	return o.fakeRefreshableInfra.SetStackState(state)
 }
 
-// RefreshStack records its position in the call order, then delegates.
+// RefreshStack records the call and delegates to the embedded fake.
 func (o *orderRecordingInfra) RefreshStack() error {
+	// record RefreshStack
 	o.record("RefreshStack")
+	// refresh stack state
 	return o.fakeRefreshableInfra.RefreshStack()
 }
 
-// DeployInfra records its position in the call order, then delegates.
+// DeployInfra records the call and deploys on the embedded fake.
 func (o *orderRecordingInfra) DeployInfra() error {
+	// record DeployInfra
 	o.record("DeployInfra")
+	// deploy infrastructure
 	return o.fakeRefreshableInfra.DeployInfra()
 }
 
-// TestSemaphoreBackpressure_Requeue30 asserts the non-blocking semaphore
-// acquire: with capacity 2 and blocking deploys, the first two creates
-// get slots and requeue at 120, the next three get (30, nil) without
-// launching a goroutine, and slots freed by completed deploys can be
-// acquired by a subsequent call.
+// TestSemaphoreBackpressure_Requeue30 covers a full worker pool
+// returning 30 instead of launching.
 func TestSemaphoreBackpressure_Requeue30(t *testing.T) {
+	// set semaphore capacity to 2
 	configureSemaphoreTest(t, 2)
 	log := newTestLogger()
 
-	// drive 5 independent instances with blocking deploys
+	// block five deploys so acquired slots stay held
 	var fis [5]*fakeInfra
 	var fls [5]*fakeLifecycle
 	for i := range fis {
@@ -119,12 +124,14 @@ func TestSemaphoreBackpressure_Requeue30(t *testing.T) {
 		fls[i] = newFakeLifecycle()
 		fls[i].setInfra(fis[i])
 	}
+	// release blocked deploys after the test
 	t.Cleanup(func() {
 		for _, fi := range fis {
 			fi.releaseDeploy()
 		}
 	})
 
+	// launch five creates against the capacity-2 pool
 	var requeues [5]int64
 	for i := range fls {
 		requeue, err := HandleInfraCreate(fls[i], log)
@@ -132,10 +139,10 @@ func TestSemaphoreBackpressure_Requeue30(t *testing.T) {
 		requeues[i] = requeue
 	}
 
-	// the slot acquire is synchronous, so exactly the first two launch
+	// first two acquire a slot and requeue 120, the rest requeue 30
 	require.Equal(t, [5]int64{120, 120, 30, 30, 30}, requeues)
 
-	// the two slot holders reach their deploys
+	// wait until the two launched creates have entered deploy
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		if fis[0].deployCallCount() == 1 && fis[1].deployCallCount() == 1 {
@@ -146,62 +153,63 @@ func TestSemaphoreBackpressure_Requeue30(t *testing.T) {
 	require.Equal(t, 1, fis[0].deployCallCount())
 	require.Equal(t, 1, fis[1].deployCallCount())
 
-	// the three rejected instances launched nothing
+	// check the three back-pressured creates did not deploy
 	for i := 2; i < 5; i++ {
 		require.Equal(t, 0, fis[i].deployCallCount())
 	}
 
-	// release the blocked deploys and wait for the slots to free
+	// release the held slots and wait for drain
 	fis[0].releaseDeploy()
 	fis[1].releaseDeploy()
 	waitForSemaphoreDrain(t)
 
-	// a subsequent call acquires a freed slot
+	// a later create acquires a slot and requeues 120
 	fl := newFakeLifecycle()
 	requeue, err := HandleInfraCreate(fl, log)
 	require.NoError(t, err)
 	require.Equal(t, int64(120), requeue)
 }
 
-// TestSemaphoreReleaseOnPanic asserts the create launch goroutine's recover
-// path: a panicking deploy is recovered, the failure is persisted via
-// SetCreationFailed, and the semaphore slot is released so a subsequent
-// create can acquire it.
+// TestSemaphoreReleaseOnPanic covers a create panic releasing its semaphore
+// slot.
 func TestSemaphoreReleaseOnPanic(t *testing.T) {
+	// set semaphore capacity to 1
 	configureSemaphoreTest(t, 1)
 	log := newTestLogger()
 
+	// panic on deploy
 	fi := newFakeInfra()
 	fi.setDeploy(infraPanic, nil)
 	fl := newFakeLifecycle()
 	fl.setInfra(fi)
 
+	// launch create
 	requeue, err := HandleInfraCreate(fl, log)
 	require.NoError(t, err)
 	require.Equal(t, int64(120), requeue)
 
-	// the slot release is the goroutine's last action, so after the drain
-	// the recover path has already persisted the failure
+	// wait for the panicked create to drain
 	waitForSemaphoreDrain(t)
+
+	// check deploy ran and creation was marked failed
 	require.Equal(t, 1, fi.deployCallCount())
 	require.Equal(t, 1, fl.callCount("SetCreationFailed"))
 
-	// with capacity 1, a successful follow-up launch proves the panicking
-	// goroutine released its slot
+	// a later create on the one-slot pool acquires the released slot
 	fl2 := newFakeLifecycle()
 	requeue, err = HandleInfraCreate(fl2, log)
 	require.NoError(t, err)
 	require.Equal(t, int64(120), requeue)
 }
 
-// TestSemaphoreReleaseOnPanic_Delete asserts the delete launch goroutine's
-// recover path: a panicking destroy is recovered without persisting any
-// failure (the delete path has no PersistFailure callback, it only logs),
-// and the semaphore slot is released for a subsequent delete.
+// TestSemaphoreReleaseOnPanic_Delete covers a delete panic releasing its
+// semaphore slot without marking creation failed.
 func TestSemaphoreReleaseOnPanic_Delete(t *testing.T) {
+	// set semaphore capacity to 1
 	configureSemaphoreTest(t, 1)
 	log := newTestLogger()
 
+	// panic on destroy
 	fi := newFakeInfra()
 	fi.setDestroy(infraPanic, nil)
 	fl := newFakeLifecycle(&ReconciliationSnapshot{
@@ -209,19 +217,20 @@ func TestSemaphoreReleaseOnPanic_Delete(t *testing.T) {
 	})
 	fl.setInfra(fi)
 
+	// launch delete
 	requeue, err := HandleInfraDelete(fl, log)
 	require.NoError(t, err)
 	require.Equal(t, int64(300), requeue)
 
-	// the test process surviving the panic plus a clean drain confirms the
-	// recover; the delete path persists nothing on panic
+	// wait for the panicked delete to drain
 	waitForSemaphoreDrain(t)
+
+	// check destroy ran and no failure or state was persisted
 	require.Equal(t, 1, fi.destroyCallCount())
 	require.Equal(t, 0, fl.callCount("SetCreationFailed"))
 	require.Equal(t, 0, fl.callCount("SaveState"))
 
-	// with capacity 1, a successful follow-up launch proves the panicking
-	// goroutine released its slot
+	// a later delete on the one-slot pool acquires the released slot
 	fl2 := newFakeLifecycle(&ReconciliationSnapshot{
 		DeletionScheduled: util.Ptr(time.Now().UTC()),
 	})
@@ -230,14 +239,14 @@ func TestSemaphoreReleaseOnPanic_Delete(t *testing.T) {
 	require.Equal(t, int64(300), requeue)
 }
 
-// TestExecuteInfraCreate_RestoreThenRefreshThenDeploy asserts the create
-// goroutine's sequencing when existing state is present on a refreshable
-// provider: state is restored first, then refreshed against cloud
-// reality, then deployed.
+// TestExecuteInfraCreate_RestoreThenRefreshThenDeploy covers create restoring
+// inventory, refreshing, then deploying in that order.
 func TestExecuteInfraCreate_RestoreThenRefreshThenDeploy(t *testing.T) {
+	// set semaphore capacity to 1
 	configureSemaphoreTest(t, 1)
 	log := newTestLogger()
 
+	// give the create existing inventory on a refreshable fake
 	inventory := validStackState()
 	oi := newOrderRecordingInfra()
 	fl := newFakeLifecycle(&ReconciliationSnapshot{
@@ -245,12 +254,15 @@ func TestExecuteInfraCreate_RestoreThenRefreshThenDeploy(t *testing.T) {
 	})
 	fl.setInfra(oi)
 
+	// launch create
 	requeue, err := HandleInfraCreate(fl, log)
 	require.NoError(t, err)
 	require.Equal(t, int64(120), requeue)
 
+	// wait for create to finish
 	waitForSemaphoreDrain(t)
 
+	// check restore, refresh, then deploy ran in that order
 	require.Equal(
 		t,
 		[]string{"SetStackState", "RefreshStack", "DeployInfra"},
@@ -260,110 +272,116 @@ func TestExecuteInfraCreate_RestoreThenRefreshThenDeploy(t *testing.T) {
 	require.NotNil(t, oi.lastRestoredState())
 	require.JSONEq(t, string(*inventory), string(*oi.lastRestoredState()))
 
-	// the success path completed after the ordered sequence
+	// check create outputs were saved and the create notification published
 	require.Equal(t, 1, fl.callCount("SaveCreateOutputs"))
 	require.Equal(t, 1, fl.callCount("PublishCreateNotification"))
 }
 
-// TestExecuteInfraCreate_NonStreamable_NoWatcher asserts that a provider
-// without streaming support runs the create to success with no state
-// watcher: SaveState is the watcher's only writer on the success path,
-// so its count staying at zero proves no watcher streamed state.
+// TestExecuteInfraCreate_NonStreamable_NoWatcher covers a non-streamable
+// create saving outputs without streaming state.
 func TestExecuteInfraCreate_NonStreamable_NoWatcher(t *testing.T) {
+	// set semaphore capacity to 1
 	configureSemaphoreTest(t, 1)
 	log := newTestLogger()
 
+	// use a non-streamable fake with no existing inventory
 	fi := newFakeInfra()
 	fl := newFakeLifecycle()
 	fl.setInfra(fi)
 
+	// launch create
 	requeue, err := HandleInfraCreate(fl, log)
 	require.NoError(t, err)
 	require.Equal(t, int64(120), requeue)
 
+	// wait for create to finish
 	waitForSemaphoreDrain(t)
 
-	// success path completed end to end
+	// check deploy ran and outputs were saved and published
 	require.Equal(t, 1, fi.deployCallCount())
 	require.Equal(t, 1, fl.callCount("SaveCreateOutputs"))
 	require.NotNil(t, fl.createOutputs())
 	require.JSONEq(t, string(*validStackState()), string(*fl.createOutputs()))
 	require.Equal(t, 1, fl.callCount("PublishCreateNotification"))
 
-	// no existing state, so no restore; no watcher, so no streamed saves
+	// check stack state was not restored and state was not streamed
 	require.Equal(t, 0, fi.setStackStateCallCount())
 	require.Equal(t, 0, fl.callCount("SaveState"))
 }
 
-// TestExecuteInfraCreate_DeployError_CapturesStateAndPersistsFailure asserts
-// the deploy failure branch: partial state is captured via GetStackState
-// and saved for retry restoration, then the failure is persisted via
-// SetCreationFailed, and the success callbacks never run.
+// TestExecuteInfraCreate_DeployError_CapturesStateAndPersistsFailure covers a
+// failed deploy saving stack state and marking creation failed.
 func TestExecuteInfraCreate_DeployError_CapturesStateAndPersistsFailure(t *testing.T) {
+	// set semaphore capacity to 1
 	configureSemaphoreTest(t, 1)
 	log := newTestLogger()
 
+	// fail deploy with a given error
 	errDeploy := errors.New("deploy exploded")
 	fi := newFakeInfra()
 	fi.setDeploy(infraError, errDeploy)
 	fl := newFakeLifecycle()
 	fl.setInfra(fi)
 
+	// launch create
 	requeue, err := HandleInfraCreate(fl, log)
 	require.NoError(t, err)
 	require.Equal(t, int64(120), requeue)
 
+	// wait for create to finish
 	waitForSemaphoreDrain(t)
 
-	// partial state captured and saved for the retry
+	// check stack state was captured once
 	require.Equal(t, 1, fi.getStackStateCallCount())
 	saved := fl.savedStateHistory()
 	require.Len(t, saved, 1)
 	require.JSONEq(t, string(*validStackState()), string(*saved[0]))
 
-	// failure persisted, success callbacks skipped
+	// check creation was marked failed and outputs were not saved
 	require.Equal(t, 1, fl.callCount("SetCreationFailed"))
 	require.Equal(t, 0, fl.callCount("SaveCreateOutputs"))
 	require.Equal(t, 0, fl.callCount("PublishCreateNotification"))
 }
 
-// TestExecuteInfraCreate_VerifyStateFails_PersistsFailure asserts the state
-// verification gate: a successful deploy whose captured state contains no
-// resources fails verification, persists the failure, and never invokes
-// the success callback.
+// TestExecuteInfraCreate_VerifyStateFails_PersistsFailure covers a post-deploy
+// empty resource list marking creation failed.
 func TestExecuteInfraCreate_VerifyStateFails_PersistsFailure(t *testing.T) {
+	// set semaphore capacity to 1
 	configureSemaphoreTest(t, 1)
 	log := newTestLogger()
 
+	// return stack state with an empty resource list
 	fi := newFakeInfra()
 	fi.setGetStackState(jsonPtr(`{"deployment":{"resources":[]}}`), nil)
 	fl := newFakeLifecycle()
 	fl.setInfra(fi)
 
+	// launch create
 	requeue, err := HandleInfraCreate(fl, log)
 	require.NoError(t, err)
 	require.Equal(t, int64(120), requeue)
 
+	// wait for create to finish
 	waitForSemaphoreDrain(t)
 
-	// deploy succeeded but the resource-less state failed verification
+	// check deploy ran and creation was marked failed
 	require.Equal(t, 1, fi.deployCallCount())
 	require.Equal(t, 1, fi.getStackStateCallCount())
 	require.Equal(t, 1, fl.callCount("SetCreationFailed"))
 
-	// the success callback never ran
+	// check outputs were not saved and no create notification was published
 	require.Equal(t, 0, fl.callCount("SaveCreateOutputs"))
 	require.Equal(t, 0, fl.callCount("PublishCreateNotification"))
 }
 
-// TestExecuteInfraDelete_InvalidExistingStateJSON_SkipsRestore asserts the
-// delete goroutine's corrupt-state guard: invalid existing state JSON
-// skips the restore entirely but the destroy still proceeds and the
-// success callbacks run.
+// TestExecuteInfraDelete_InvalidExistingStateJSON_SkipsRestore covers a
+// truncated inventory skipping restore and still destroying.
 func TestExecuteInfraDelete_InvalidExistingStateJSON_SkipsRestore(t *testing.T) {
+	// set semaphore capacity to 1
 	configureSemaphoreTest(t, 1)
 	log := newTestLogger()
 
+	// schedule deletion with truncated inventory JSON
 	fi := newFakeInfra()
 	fl := newFakeLifecycle(&ReconciliationSnapshot{
 		DeletionScheduled: util.Ptr(time.Now().UTC()),
@@ -371,29 +389,31 @@ func TestExecuteInfraDelete_InvalidExistingStateJSON_SkipsRestore(t *testing.T) 
 	})
 	fl.setInfra(fi)
 
+	// launch delete
 	requeue, err := HandleInfraDelete(fl, log)
 	require.NoError(t, err)
 	require.Equal(t, int64(300), requeue)
 
+	// wait for delete to finish
 	waitForSemaphoreDrain(t)
 
-	// restore skipped, destroy still ran
+	// check restore was skipped and destroy still ran
 	require.Equal(t, 0, fi.setStackStateCallCount())
 	require.Equal(t, 1, fi.destroyCallCount())
 
-	// success callbacks ran
+	// check inventory was cleared and the delete notification published
 	require.Equal(t, 1, fl.callCount("ClearInventory"))
 	require.Equal(t, 1, fl.callCount("PublishDeleteNotification"))
 }
 
-// TestExecuteInfraDelete_DestroyError_CapturesRemainingState asserts the
-// destroy failure branch: remaining state is captured via GetStackState
-// and saved so retries know which resources remain, and the success
-// callbacks never run.
+// TestExecuteInfraDelete_DestroyError_CapturesRemainingState covers a failed
+// destroy saving remaining stack state without clearing inventory.
 func TestExecuteInfraDelete_DestroyError_CapturesRemainingState(t *testing.T) {
+	// set semaphore capacity to 1
 	configureSemaphoreTest(t, 1)
 	log := newTestLogger()
 
+	// fail destroy with a given error
 	errDestroy := errors.New("destroy exploded")
 	fi := newFakeInfra()
 	fi.setDestroy(infraError, errDestroy)
@@ -402,33 +422,34 @@ func TestExecuteInfraDelete_DestroyError_CapturesRemainingState(t *testing.T) {
 	})
 	fl.setInfra(fi)
 
+	// launch delete
 	requeue, err := HandleInfraDelete(fl, log)
 	require.NoError(t, err)
 	require.Equal(t, int64(300), requeue)
 
+	// wait for delete to finish
 	waitForSemaphoreDrain(t)
 
-	// remaining state captured and saved for the retry
+	// check remaining stack state was captured once
 	require.Equal(t, 1, fi.destroyCallCount())
 	require.Equal(t, 1, fi.getStackStateCallCount())
 	saved := fl.savedStateHistory()
 	require.Len(t, saved, 1)
 	require.JSONEq(t, string(*validStackState()), string(*saved[0]))
 
-	// success callbacks skipped
+	// check inventory was not cleared and no delete notification was published
 	require.Equal(t, 0, fl.callCount("ClearInventory"))
 	require.Equal(t, 0, fl.callCount("PublishDeleteNotification"))
 }
 
 // TestExecuteInfraCreate_RestoreError_PersistsFailureWithoutDeploying
-// covers the restore failure branch of the create goroutine. A retry whose
-// stored inventory cannot be loaded back into the provider must not deploy,
-// because deploying without the previous state would build a second copy of
-// resources the first attempt already created.
+// covers a failed restore marking creation failed without deploying.
 func TestExecuteInfraCreate_RestoreError_PersistsFailureWithoutDeploying(t *testing.T) {
+	// set semaphore capacity to 1
 	configureSemaphoreTest(t, 1)
 	log := newTestLogger()
 
+	// fail restore of existing inventory
 	fi := newFakeInfra()
 	fi.setSetStackStateErr(errors.New("state blob is corrupt"))
 	fl := newFakeLifecycle(&ReconciliationSnapshot{
@@ -436,12 +457,15 @@ func TestExecuteInfraCreate_RestoreError_PersistsFailureWithoutDeploying(t *test
 	})
 	fl.setInfra(fi)
 
+	// launch create
 	requeue, err := HandleInfraCreate(fl, log)
 	require.NoError(t, err)
 	require.Equal(t, int64(120), requeue)
 
+	// wait for create to finish
 	waitForSemaphoreDrain(t)
 
+	// check restore ran once and deploy did not
 	require.Equal(t, 1, fi.setStackStateCallCount(), "the restore is attempted once")
 	require.Equal(t, 0, fi.deployCallCount(), "a failed restore must not deploy")
 	require.Equal(t, 1, fl.callCount("SetCreationFailed"))
@@ -450,13 +474,13 @@ func TestExecuteInfraCreate_RestoreError_PersistsFailureWithoutDeploying(t *test
 }
 
 // TestExecuteInfraCreate_RefreshError_PersistsFailureWithoutDeploying
-// covers the create side of the refresh policy. Create treats a failed
-// refresh as fatal, because deploying against state that does not match
-// cloud reality can duplicate or orphan resources.
+// covers a failed refresh marking creation failed without deploying.
 func TestExecuteInfraCreate_RefreshError_PersistsFailureWithoutDeploying(t *testing.T) {
+	// set semaphore capacity to 1
 	configureSemaphoreTest(t, 1)
 	log := newTestLogger()
 
+	// fail refresh after restoring existing inventory
 	ri := newFakeRefreshableInfra()
 	ri.setRefreshErr(errors.New("refresh could not reach the cloud provider"))
 	fl := newFakeLifecycle(&ReconciliationSnapshot{
@@ -464,26 +488,29 @@ func TestExecuteInfraCreate_RefreshError_PersistsFailureWithoutDeploying(t *test
 	})
 	fl.setInfra(ri)
 
+	// launch create
 	requeue, err := HandleInfraCreate(fl, log)
 	require.NoError(t, err)
 	require.Equal(t, int64(120), requeue)
 
+	// wait for create to finish
 	waitForSemaphoreDrain(t)
 
+	// check refresh ran once and deploy did not
 	require.Equal(t, 1, ri.refreshCallCount())
 	require.Equal(t, 0, ri.deployCallCount(), "a failed refresh must not deploy on create")
 	require.Equal(t, 1, fl.callCount("SetCreationFailed"))
 	require.Equal(t, 0, fl.callCount("SaveCreateOutputs"))
 }
 
-// TestExecuteInfraDelete_RefreshError_StillDestroys covers the delete side
-// of the same refresh policy, which is the opposite of create. Delete logs
-// a failed refresh and destroys anyway, because refusing to destroy would
-// strand the cloud resources the caller asked to remove.
+// TestExecuteInfraDelete_RefreshError_StillDestroys covers a failed refresh
+// still destroying.
 func TestExecuteInfraDelete_RefreshError_StillDestroys(t *testing.T) {
+	// set semaphore capacity to 1
 	configureSemaphoreTest(t, 1)
 	log := newTestLogger()
 
+	// fail refresh after restoring existing inventory
 	ri := newFakeRefreshableInfra()
 	ri.setRefreshErr(errors.New("refresh could not reach the cloud provider"))
 	fl := newFakeLifecycle(&ReconciliationSnapshot{
@@ -492,11 +519,14 @@ func TestExecuteInfraDelete_RefreshError_StillDestroys(t *testing.T) {
 	})
 	fl.setInfra(ri)
 
+	// launch delete
 	_, err := HandleInfraDelete(fl, log)
 	require.NoError(t, err)
 
+	// wait for delete to finish
 	waitForSemaphoreDrain(t)
 
+	// check refresh ran once and destroy still ran
 	require.Equal(t, 1, ri.refreshCallCount())
 	require.Equal(t, 1, ri.destroyCallCount(), "a failed refresh must not block the destroy")
 }

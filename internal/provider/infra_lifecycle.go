@@ -15,34 +15,26 @@ import (
 	"gorm.io/datatypes"
 )
 
-// LifecycleConfig holds the tunable parameters of the infra
-// lifecycle state machine. Production uses the defaults; tests
-// override via setLifecycleConfig.
+// LifecycleConfig is the timing and capacity for infrastructure create
+// and delete.
 type LifecycleConfig struct {
-	// StaleAckThreshold is how long an acknowledgement may go unrefreshed
-	// before another control plane replica may take the operation over.
+	// The unrefreshed age after which the operation may be re-launched
 	StaleAckThreshold time.Duration
 
-	// RefreshInterval is how often a running operation refreshes its
-	// acknowledgement so other replicas can see it is still alive.
+	// The interval a running operation refreshes its acknowledgement
 	RefreshInterval time.Duration
 
-	// SemaphoreCapacity is how many infrastructure operations this process
-	// runs at once. Requests past the cap are requeued rather than held in
-	// memory.
+	// The maximum concurrent operations in this process; extras are requeued, not held
 	SemaphoreCapacity int
 
-	// PersistRetries is how many times a failure is written back to the API
-	// before the operation gives up and leaves recovery to stale ack
-	// detection.
+	// The attempts to persist a creation failure
 	PersistRetries int
 
-	// PersistRetryDelay is how long to wait between attempts to write a
-	// failure back to the API.
+	// The wait between creation-failure persist attempts
 	PersistRetryDelay time.Duration
 }
 
-// defaultLifecycleConfig is the production configuration.
+// defaultLifecycleConfig is the production timing and capacity.
 var defaultLifecycleConfig = LifecycleConfig{
 	StaleAckThreshold: 240 * time.Second,
 	RefreshInterval:   60 * time.Second,
@@ -52,42 +44,35 @@ var defaultLifecycleConfig = LifecycleConfig{
 }
 
 // lifecycleMu guards lifecycleConfig, infraSemaphore, and lifecycleClock.
-// Production sets them once at init and only reads, so the read lock is
-// uncontended; tests swap them via setLifecycleConfig and setLifecycleClock,
-// and the lock keeps that swap from racing the background goroutines that
-// read the values.
+// A write-lock swap cannot race readers in running goroutines.
 var lifecycleMu sync.RWMutex
 
-// lifecycleConfig is the active configuration read by the lifecycle
-// state machine.
+// lifecycleConfig is the live timing and capacity.
 var lifecycleConfig = defaultLifecycleConfig
 
-// infraSemaphore limits concurrent infrastructure operations to prevent OOM
-// from too many simultaneous deployments. Its capacity comes from the
-// default config so the tunable and the running pool cannot drift apart.
+// infraSemaphore limits concurrent infrastructure create and delete goroutines.
+// Capacity matches defaultLifecycleConfig.SemaphoreCapacity.
 var infraSemaphore = make(chan struct{}, defaultLifecycleConfig.SemaphoreCapacity)
 
-// currentConfig returns the active lifecycle configuration.
+// currentConfig returns the live lifecycle config.
 func currentConfig() LifecycleConfig {
 	lifecycleMu.RLock()
 	defer lifecycleMu.RUnlock()
 	return lifecycleConfig
 }
 
-// currentSemaphore returns the active semaphore channel. Callers that acquire
-// and release a slot must capture this once so a config swap cannot move the release.
+// currentSemaphore returns the live infrastructure operation semaphore.
+// Capture the channel once so a swap cannot move the release.
 func currentSemaphore() chan struct{} {
 	lifecycleMu.RLock()
 	defer lifecycleMu.RUnlock()
 	return infraSemaphore
 }
 
-// withDefaults returns the config with any unset field filled from the
-// production defaults. A zero value is never a usable setting: a zero
-// refresh interval spins the ack-refresh loop against the API as fast as
-// the CPU allows, a zero capacity builds an unbuffered channel that
-// requeues every instance forever, and a zero retry count skips the
-// persist call the caller asked for.
+// withDefaults returns a copy with each zero or negative field replaced
+// by the production default. A zero refresh interval would spin the
+// ack-refresh loop, a zero capacity would requeue every instance, and
+// a zero retry count would skip persisting a failure.
 func (c LifecycleConfig) withDefaults() LifecycleConfig {
 	if c.StaleAckThreshold <= 0 {
 		c.StaleAckThreshold = defaultLifecycleConfig.StaleAckThreshold
@@ -107,17 +92,21 @@ func (c LifecycleConfig) withDefaults() LifecycleConfig {
 	return c
 }
 
-// setLifecycleConfig swaps the lifecycle tunables and rebuilds the semaphore
-// at the new capacity. Tests call it and restore through t.Cleanup.
+// setLifecycleConfig applies defaults to c, installs it as the live config,
+// rebuilds the semaphore at that capacity, and returns a restore function.
 func setLifecycleConfig(c LifecycleConfig) (restore func()) {
+	// ensure every field is set before installing
 	c = c.withDefaults()
 
+	// replace the live config and semaphore
 	lifecycleMu.Lock()
 	oldConfig := lifecycleConfig
 	oldSemaphore := infraSemaphore
 	lifecycleConfig = c
 	infraSemaphore = make(chan struct{}, c.SemaphoreCapacity)
 	lifecycleMu.Unlock()
+
+	// put the previous config and semaphore back
 	return func() {
 		lifecycleMu.Lock()
 		lifecycleConfig = oldConfig
@@ -126,33 +115,35 @@ func setLifecycleConfig(c LifecycleConfig) (restore func()) {
 	}
 }
 
-// Clock abstracts wall-clock reads for stale-ack logic so tests can
-// inject a fixed or advanceable time.
+// Clock is a source of the current time for stale-ack checks.
 type Clock interface{ Now() time.Time }
 
-// realClock implements Clock using the system wall clock.
+// realClock is a Clock that reads the wall clock.
 type realClock struct{}
 
-// Now returns the current system wall-clock time.
+// Now returns the current wall-clock time.
 func (realClock) Now() time.Time { return time.Now() }
 
-// lifecycleClock is the clock used for stale-ack checks.
+// lifecycleClock is the live clock used for stale-ack checks.
 var lifecycleClock Clock = realClock{}
 
-// currentClock returns the active lifecycle clock.
+// currentClock returns the live clock.
 func currentClock() Clock {
 	lifecycleMu.RLock()
 	defer lifecycleMu.RUnlock()
 	return lifecycleClock
 }
 
-// setLifecycleClock swaps the lifecycle clock and returns a restore func
-// for t.Cleanup. Only for tests.
+// setLifecycleClock installs c as the live clock and returns a restore
+// function that puts the previous clock back.
 func setLifecycleClock(c Clock) (restore func()) {
+	// replace the live clock
 	lifecycleMu.Lock()
 	oldClock := lifecycleClock
 	lifecycleClock = c
 	lifecycleMu.Unlock()
+
+	// put the previous clock back
 	return func() {
 		lifecycleMu.Lock()
 		lifecycleClock = oldClock
@@ -160,12 +151,10 @@ func setLifecycleClock(c Clock) (restore func()) {
 	}
 }
 
-// inFlightOps counts infrastructure create and delete operations
-// currently executing in background goroutines.
+// inFlightOps counts create and delete operations running in goroutines.
 var inFlightOps int64
 
-// inFlightCount returns the number of in-flight infrastructure
-// operations. Only for tests.
+// inFlightCount returns the running create and delete operation count.
 func inFlightCount() int64 { return atomic.LoadInt64(&inFlightOps) }
 
 // ReconciliationSnapshot captures the reconciliation timestamps and resource
@@ -514,8 +503,7 @@ func checkStaleAck(ackTimestamp time.Time) bool {
 // executeInfraCreate in a background goroutine. Returns a requeue delay
 // for the reconciler.
 func launchInfraCreate(config infraConfig) (int64, error) {
-	// acquire infrastructure concurrency semaphore; capture the channel
-	// once so the release lands on the same channel
+	// capture the semaphore channel
 	sem := currentSemaphore()
 	select {
 	case sem <- struct{}{}:
@@ -544,8 +532,7 @@ func launchInfraCreate(config infraConfig) (int64, error) {
 // executeInfraDelete in a background goroutine. Returns a requeue delay
 // for the reconciler.
 func launchInfraDelete(config infraConfig) (int64, error) {
-	// acquire infrastructure concurrency semaphore; capture the channel
-	// once so the release lands on the same channel
+	// capture the semaphore channel
 	sem := currentSemaphore()
 	select {
 	case sem <- struct{}{}:
@@ -558,6 +545,7 @@ func launchInfraDelete(config infraConfig) (int64, error) {
 	// launch deletion in background goroutine
 	go func() {
 		defer func() { <-sem }()
+		// recover a panic without marking the operation failed
 		defer func() {
 			if r := recover(); r != nil {
 				config.Log.Error(fmt.Errorf("panic: %v", r), "recovered panic in infrastructure delete goroutine")
@@ -566,6 +554,7 @@ func launchInfraDelete(config infraConfig) (int64, error) {
 		executeInfraDelete(config)
 	}()
 
+	// requeue after 300 seconds while the delete runs
 	return 300, nil
 }
 
@@ -573,7 +562,7 @@ func launchInfraDelete(config infraConfig) (int64, error) {
 // goroutine. It handles state restoration, optional streaming for providers
 // that support it, and captures final state on success or failure.
 func executeInfraCreate(config infraConfig) {
-	// track in-flight operations for observability in tests
+	// count this operation as in flight
 	atomic.AddInt64(&inFlightOps, 1)
 	defer atomic.AddInt64(&inFlightOps, -1)
 
@@ -596,6 +585,7 @@ func executeInfraCreate(config infraConfig) {
 		if refreshable, ok := config.Infra.(RefreshableProvider); ok {
 			if err := refreshable.RefreshStack(); err != nil {
 				config.Log.Error(err, "failed to refresh stack state")
+				// mark creation failed and do not deploy
 				persistFailure(config.Callbacks.PersistFailure, config.Log)
 				return
 			}
@@ -610,6 +600,7 @@ func executeInfraCreate(config infraConfig) {
 		quitStream = make(chan bool, 1)
 		go streamState(streamable, config.Callbacks.SaveState, quitStream, config.Log)
 		defer func() {
+			// skip quit when the stream was already stopped
 			if !streamStopped {
 				quitStream <- true
 			}
@@ -669,7 +660,7 @@ func executeInfraCreate(config infraConfig) {
 // goroutine. It handles state restoration, optional refresh for providers
 // that support it, and captures updated state on failure.
 func executeInfraDelete(config infraConfig) {
-	// track in-flight operations for observability in tests
+	// count this operation as in flight
 	atomic.AddInt64(&inFlightOps, 1)
 	defer atomic.AddInt64(&inFlightOps, -1)
 
@@ -813,9 +804,7 @@ func streamState(
 	}
 }
 
-// refreshAck calls the provided refresh function on the configured refresh
-// interval until told to quit, preventing stale acknowledgement detection
-// from re-launching the operation while it is still running.
+// refreshAck calls refresh every RefreshInterval until quitChan is signaled.
 func refreshAck(
 	refresh func() error,
 	quitChan chan bool,
@@ -833,14 +822,9 @@ func refreshAck(
 	}
 }
 
-// persistFailure calls the provided persist function to mark the operation as
-// failed. If the call fails, it is retried on the configured delay up to the
-// configured retry count. After exhausting retries, the goroutine returns and
-// stale ack detection will recover the operation.
-//
-// The caller runs inside a launch goroutine that holds a semaphore slot for
-// this whole window, so every sleep here is capacity the pool cannot hand to
-// another instance.
+// persistFailure calls persist to mark the operation failed, retrying on
+// PersistRetryDelay up to PersistRetries times. Exhausted retries leave
+// recovery to stale-ack detection.
 func persistFailure(
 	persist func() error,
 	log *logr.Logger,
@@ -855,9 +839,8 @@ func persistFailure(
 			return
 		}
 
-		// sleeping after the final attempt buys nothing and holds the slot
-		// for one more delay
 		if attempt == maxRetries-1 {
+			// skip sleep after the last attempt
 			break
 		}
 
@@ -880,6 +863,7 @@ func persistFailure(
 // verifyState checks the integrity of a state JSON object to ensure it
 // represents a valid deployment with resources.
 func verifyState(state *datatypes.JSON, log *logr.Logger) error {
+	// reject a missing state
 	if state == nil {
 		return fmt.Errorf("state is nil")
 	}
@@ -912,10 +896,12 @@ func verifyState(state *datatypes.JSON, log *logr.Logger) error {
 		}
 	}
 
+	// reject state with no resources
 	if resourceCount == 0 {
 		return fmt.Errorf("state contains no resources")
 	}
 
+	// log the verified resource count
 	log.Info("state verification passed", "resourceCount", resourceCount)
 	return nil
 }

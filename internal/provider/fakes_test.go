@@ -14,7 +14,7 @@ import (
 	"gorm.io/datatypes"
 )
 
-// compile-time interface satisfaction checks for all fakes.
+// compile-time interface checks for the test fakes
 var (
 	_ InfraLifecycleProvider = (*fakeLifecycle)(nil)
 	_ InfraProvider          = (*fakeInfra)(nil)
@@ -23,32 +23,31 @@ var (
 	_ Clock                  = (*fakeClock)(nil)
 )
 
-// errFakeInfra is the fallback error returned by infra fakes when a method
-// is set to fail but no specific error was injected.
+// errFakeInfra is the error returned in infraError mode when no
+// error was injected.
 var errFakeInfra = errors.New("fakeInfra: injected failure")
 
-// baselineGoroutines holds the goroutine count captured before any test
-// runs, printed with a leak so the process-wide delta is in the output.
+// baselineGoroutines is the process goroutine count captured before tests.
+// It is printed in a leak report and is not the leak signal.
 var baselineGoroutines int
 
-// goroutineDrainTimeout bounds the post-suite wait for background
-// goroutines to exit. The lifecycle spawns refresh-ack and state-stream
-// goroutines that stop on a channel close, so they exit promptly; the
-// window only covers scheduling.
+// goroutineDrainTimeout is how long to wait for leftover lifecycle
+// goroutines after the suite.
 const goroutineDrainTimeout = 10 * time.Second
 
-// TestMain runs the suite, then fails when a lifecycle goroutine is still
-// running. Runtime and testing leftovers are ignored.
+// TestMain runs the package tests and fails the suite if a lifecycle
+// goroutine is still running afterward. Runtime leftovers are ignored.
 func TestMain(m *testing.M) {
+	// capture the process goroutine count before tests
 	baselineGoroutines = runtime.NumGoroutine()
 
+	// run the package tests
 	code := m.Run()
 
-	// only report leaks on an otherwise green run: a failed test may have
-	// returned early and left its own goroutines behind, and that error is
-	// the one worth reading
+	// check for leftover lifecycle goroutines only when tests passed
 	if code == 0 {
 		if leaked := lifecycleGoroutinesRemaining(goroutineDrainTimeout); leaked > 0 {
+			// report the leak and fail the suite
 			fmt.Fprintf(
 				os.Stderr,
 				"goroutine leak: %d lifecycle goroutines still running (process count %d above baseline %d)\n%s\n",
@@ -61,11 +60,12 @@ func TestMain(m *testing.M) {
 		}
 	}
 
+	// exit with the suite status
 	os.Exit(code)
 }
 
-// lifecycleGoroutineNames are the functions this package starts in the
-// background. The post-suite check matches these in stacks, not the process count.
+// lifecycleGoroutineNames are the package.function strings matched in
+// a runtime.Stack dump to count leftover lifecycle goroutines.
 var lifecycleGoroutineNames = []string{
 	"provider.refreshAck",
 	"provider.streamState",
@@ -75,19 +75,20 @@ var lifecycleGoroutineNames = []string{
 	"provider.launchInfraDelete",
 }
 
-// lifecycleGoroutineStacks returns the current goroutine dump, used when
-// the leak check fails so the leftover function names are in the output.
+// lifecycleGoroutineStacks returns a runtime.Stack dump of every goroutine.
 func lifecycleGoroutineStacks() string {
 	buf := make([]byte, 1<<20)
 	n := runtime.Stack(buf, true)
 	return string(buf[:n])
 }
 
-// countLifecycleGoroutines returns how many running goroutines are in a
-// lifecycle function this package started.
+// countLifecycleGoroutines counts goroutines whose stacks name a lifecycle
+// function. Each stack is counted at most once.
 func countLifecycleGoroutines() int {
 	count := 0
+	// split the dump into one stack per goroutine
 	for _, g := range strings.Split(lifecycleGoroutineStacks(), "\n\n") {
+		// count a stack that names a lifecycle function once
 		for _, name := range lifecycleGoroutineNames {
 			if strings.Contains(g, name) {
 				count++
@@ -98,101 +99,109 @@ func countLifecycleGoroutines() int {
 	return count
 }
 
-// lifecycleGoroutinesRemaining polls until no lifecycle goroutine remains
-// and returns 0, or returns how many remain once the timeout expires.
+// lifecycleGoroutinesRemaining waits up to timeout for lifecycle goroutines
+// to exit and returns how many are still running.
 func lifecycleGoroutinesRemaining(timeout time.Duration) int {
+	// set the drain deadline
 	deadline := time.Now().Add(timeout)
 	for {
+		// count remaining lifecycle goroutines
 		left := countLifecycleGoroutines()
+		// return when none remain
 		if left == 0 {
 			return 0
 		}
+		// return leftovers after the deadline
 		if time.Now().After(deadline) {
 			return left
 		}
+		// wait before counting again
 		time.Sleep(10 * time.Millisecond)
 	}
 }
 
-// newTestLogger returns a pointer to a discard logger matching the
-// *logr.Logger parameter shape the lifecycle handlers take.
+// newTestLogger returns a pointer to a discarding logger.
 func newTestLogger() *logr.Logger {
 	l := logr.Discard()
 	return &l
 }
 
-// jsonPtr returns a pointer to the given string as a JSON value, for
-// building resource inventories inline.
+// jsonPtr returns a pointer to s as JSON bytes.
 func jsonPtr(s string) *datatypes.JSON {
 	j := datatypes.JSON(s)
 	return &j
 }
 
-// validStackState returns a state JSON in deployment format with one
-// resource, sufficient to pass post-create state verification.
+// validStackState returns populated deployment-format stack JSON that
+// passes state verification.
 func validStackState() *datatypes.JSON {
 	return jsonPtr(`{"deployment":{"resources":[{"urn":"urn:fake:resource"}]}}`)
 }
 
-// fakeClock implements Clock with a fixed, advanceable time.
+// fakeClock is a Clock whose current time is set by the test.
 type fakeClock struct {
 	mu  sync.Mutex
 	now time.Time
 }
 
-// newFakeClock returns a clock frozen at the given time.
+// newFakeClock returns a Clock frozen at t.
 func newFakeClock(t time.Time) *fakeClock {
 	return &fakeClock{now: t}
 }
 
-// Now returns the clock's current frozen time.
+// Now returns the fake clock's current time.
 func (c *fakeClock) Now() time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.now
 }
 
-// Advance moves the clock forward by the given duration.
+// Advance moves the fake clock forward by d.
 func (c *fakeClock) Advance(d time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.now = c.now.Add(d)
 }
 
-// infraMode selects the behavior of a fakeInfra deploy or destroy call.
+// infraMode is how a fake DeployInfra or DestroyInfra call completes.
 type infraMode int
 
 const (
-	// infraSucceed makes the call return nil immediately.
+	// infraSucceed returns nil from deploy and destroy.
 	infraSucceed infraMode = iota
 
-	// infraError makes the call return the injected error, or
-	// errFakeInfra when none was injected.
+	// infraError returns deployErr, destroyErr, or errFakeInfra.
 	infraError
 
-	// infraPanic makes the call panic, exercising the recover path in
-	// the launch goroutines.
+	// infraPanic panics from deploy and destroy.
 	infraPanic
 
-	// infraBlock makes the call block until released, so a test can hold
-	// a semaphore slot open and observe backpressure.
+	// infraBlock waits until the matching release channel is closed.
 	infraBlock
 )
 
-// fakeInfra implements InfraProvider with per-method programmable
-// behavior and call counters. Safe for concurrent use.
+// fakeInfra is an in-memory InfraProvider with programmable deploy and
+// destroy behavior, safe for concurrent use.
 type fakeInfra struct {
 	mu sync.Mutex
 
+	// The completion mode for DeployInfra
 	deployMode infraMode
-	deployErr  error
+	// The error DeployInfra returns in infraError mode
+	deployErr error
 
+	// The completion mode for DestroyInfra
 	destroyMode infraMode
-	destroyErr  error
+	// The error DestroyInfra returns in infraError mode
+	destroyErr error
 
-	deployRelease   chan struct{}
-	deployReleased  bool
-	destroyRelease  chan struct{}
+	// The channel DeployInfra waits on in infraBlock mode
+	deployRelease chan struct{}
+	// Whether deployRelease has already been closed
+	deployReleased bool
+	// The channel DestroyInfra waits on in infraBlock mode
+	destroyRelease chan struct{}
+	// Whether destroyRelease has already been closed
 	destroyReleased bool
 
 	deployCalls   int
@@ -200,16 +209,19 @@ type fakeInfra struct {
 	setStateCalls int
 	getStateCalls int
 
+	// The arguments passed to SetStackState, in call order
 	restoredStates []*datatypes.JSON
-	setStateErr    error
+	// The error SetStackState returns
+	setStateErr error
 
-	stackState  *datatypes.JSON
+	// The value GetStackState returns
+	stackState *datatypes.JSON
+	// The error GetStackState returns
 	getStateErr error
 }
 
-// newFakeInfra returns an infra fake whose deploy and destroy succeed
-// immediately and whose stack state defaults to a valid one-resource
-// deployment so the create success path completes.
+// newFakeInfra returns a fake that succeeds deploy and destroy and holds
+// a populated stack state.
 func newFakeInfra() *fakeInfra {
 	return &fakeInfra{
 		deployRelease:  make(chan struct{}),
@@ -218,8 +230,9 @@ func newFakeInfra() *fakeInfra {
 	}
 }
 
-// DeployInfra runs the programmed deploy behavior.
+// DeployInfra records the call and completes according to deployMode.
 func (f *fakeInfra) DeployInfra() error {
+	// record the call and copy mode under the lock
 	f.mu.Lock()
 	f.deployCalls++
 	mode := f.deployMode
@@ -227,11 +240,13 @@ func (f *fakeInfra) DeployInfra() error {
 	release := f.deployRelease
 	f.mu.Unlock()
 
+	// run the copied mode after unlocking so a block does not hold mu
 	return runInfraMode(mode, err, release, "fakeInfra: deploy panic")
 }
 
-// DestroyInfra runs the programmed destroy behavior.
+// DestroyInfra records the call and completes according to destroyMode.
 func (f *fakeInfra) DestroyInfra() error {
+	// record the call and copy mode under the lock
 	f.mu.Lock()
 	f.destroyCalls++
 	mode := f.destroyMode
@@ -239,10 +254,11 @@ func (f *fakeInfra) DestroyInfra() error {
 	release := f.destroyRelease
 	f.mu.Unlock()
 
+	// run the copied mode after unlocking so a block does not hold mu
 	return runInfraMode(mode, err, release, "fakeInfra: destroy panic")
 }
 
-// runInfraMode executes the shared mode dispatch for deploy and destroy.
+// runInfraMode completes a deploy or destroy call according to mode.
 func runInfraMode(
 	mode infraMode,
 	err error,
@@ -251,20 +267,24 @@ func runInfraMode(
 ) error {
 	switch mode {
 	case infraError:
+		// return the injected error, or the shared fake failure
 		if err != nil {
 			return err
 		}
 		return errFakeInfra
 	case infraPanic:
+		// panic with the caller-supplied message
 		panic(panicMsg)
 	case infraBlock:
+		// block until the release channel is closed
 		<-release
 		return nil
 	}
+	// succeed
 	return nil
 }
 
-// SetStackState records the restored state and returns the injected error.
+// SetStackState records state and returns setStateErr.
 func (f *fakeInfra) SetStackState(state *datatypes.JSON) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -273,7 +293,7 @@ func (f *fakeInfra) SetStackState(state *datatypes.JSON) error {
 	return f.setStateErr
 }
 
-// GetStackState returns the programmed stack state and error.
+// GetStackState returns stackState and getStateErr.
 func (f *fakeInfra) GetStackState() (*datatypes.JSON, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -281,8 +301,7 @@ func (f *fakeInfra) GetStackState() (*datatypes.JSON, error) {
 	return f.stackState, f.getStateErr
 }
 
-// setDeploy programs the deploy mode and, for infraError, the error
-// returned.
+// setDeploy sets how DeployInfra completes.
 func (f *fakeInfra) setDeploy(mode infraMode, err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -290,8 +309,7 @@ func (f *fakeInfra) setDeploy(mode infraMode, err error) {
 	f.deployErr = err
 }
 
-// setDestroy programs the destroy mode and, for infraError, the error
-// returned.
+// setDestroy sets how DestroyInfra completes.
 func (f *fakeInfra) setDestroy(mode infraMode, err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -299,8 +317,7 @@ func (f *fakeInfra) setDestroy(mode infraMode, err error) {
 	f.destroyErr = err
 }
 
-// setGetStackState programs the state and error returned when the
-// lifecycle captures stack state.
+// setGetStackState sets the value and error GetStackState returns.
 func (f *fakeInfra) setGetStackState(state *datatypes.JSON, err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -308,89 +325,93 @@ func (f *fakeInfra) setGetStackState(state *datatypes.JSON, err error) {
 	f.getStateErr = err
 }
 
-// setSetStackStateErr programs the error returned when the lifecycle
-// restores stack state.
+// setSetStackStateErr sets the error SetStackState returns.
 func (f *fakeInfra) setSetStackStateErr(err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.setStateErr = err
 }
 
-// releaseDeploy unblocks a deploy call in infraBlock mode. Idempotent.
+// releaseDeploy unblocks a blocked DeployInfra. A second call is a no-op.
 func (f *fakeInfra) releaseDeploy() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	// close the deploy release channel once
 	if !f.deployReleased {
 		close(f.deployRelease)
 		f.deployReleased = true
 	}
 }
 
-// releaseDestroy unblocks a destroy call in infraBlock mode. Idempotent.
+// releaseDestroy unblocks a blocked DestroyInfra. A second call is a no-op.
 func (f *fakeInfra) releaseDestroy() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	// close the destroy release channel once
 	if !f.destroyReleased {
 		close(f.destroyRelease)
 		f.destroyReleased = true
 	}
 }
 
-// deployCallCount returns the number of deploy invocations.
+// deployCallCount returns how many times DeployInfra has been called.
 func (f *fakeInfra) deployCallCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.deployCalls
 }
 
-// destroyCallCount returns the number of destroy invocations.
+// destroyCallCount returns how many times DestroyInfra has been called.
 func (f *fakeInfra) destroyCallCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.destroyCalls
 }
 
-// setStackStateCallCount returns the number of state-restore invocations.
+// setStackStateCallCount returns how many times SetStackState has been called.
 func (f *fakeInfra) setStackStateCallCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.setStateCalls
 }
 
-// getStackStateCallCount returns the number of state-capture invocations.
+// getStackStateCallCount returns how many times GetStackState has been called.
 func (f *fakeInfra) getStackStateCallCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.getStateCalls
 }
 
-// lastRestoredState returns the state passed to the most recent
-// state-restore call, or nil if none occurred.
+// lastRestoredState returns the most recent argument to SetStackState.
 func (f *fakeInfra) lastRestoredState() *datatypes.JSON {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	// return nil when nothing has been restored
 	if len(f.restoredStates) == 0 {
 		return nil
 	}
 	return f.restoredStates[len(f.restoredStates)-1]
 }
 
-// fakeStreamableInfra implements StreamableProvider by embedding
-// fakeInfra and adding programmable state file path and read behavior.
+// fakeStreamableInfra is an in-memory provider with a configurable state
+// file path and in-memory state-file reads.
 type fakeStreamableInfra struct {
 	*fakeInfra
 
-	smu              sync.Mutex
-	stateFilePath    string
+	smu sync.Mutex
+	// The path GetStateFilePath returns
+	stateFilePath string
+	// The error GetStateFilePath returns
 	stateFilePathErr error
-	readState        *datatypes.JSON
-	readStateErr     error
-	readCalls        int
+	// The value ReadStateFile returns
+	readState *datatypes.JSON
+	// The error ReadStateFile returns
+	readStateErr error
+	readCalls    int
 }
 
-// newFakeStreamableInfra returns a streamable infra fake reporting the
-// given state file path. Pass a path under t.TempDir() so the stream
-// watcher has a real directory to watch.
+// newFakeStreamableInfra returns a streamable fake that reports
+// stateFilePath.
 func newFakeStreamableInfra(stateFilePath string) *fakeStreamableInfra {
 	return &fakeStreamableInfra{
 		fakeInfra:     newFakeInfra(),
@@ -398,17 +419,19 @@ func newFakeStreamableInfra(stateFilePath string) *fakeStreamableInfra {
 	}
 }
 
-// GetStateFilePath returns the programmed path and error.
+// GetStateFilePath returns the configured path or a configured error.
 func (f *fakeStreamableInfra) GetStateFilePath() (string, error) {
 	f.smu.Lock()
 	defer f.smu.Unlock()
+	// return a configured error
 	if f.stateFilePathErr != nil {
 		return "", f.stateFilePathErr
 	}
+	// return the configured path
 	return f.stateFilePath, nil
 }
 
-// ReadStateFile returns the programmed state and error.
+// ReadStateFile records the call and returns readState and readStateErr.
 func (f *fakeStreamableInfra) ReadStateFile() (*datatypes.JSON, error) {
 	f.smu.Lock()
 	defer f.smu.Unlock()
@@ -416,14 +439,14 @@ func (f *fakeStreamableInfra) ReadStateFile() (*datatypes.JSON, error) {
 	return f.readState, f.readStateErr
 }
 
-// setStateFilePathErr programs an error for state file path lookups.
+// setStateFilePathErr sets the error GetStateFilePath returns.
 func (f *fakeStreamableInfra) setStateFilePathErr(err error) {
 	f.smu.Lock()
 	defer f.smu.Unlock()
 	f.stateFilePathErr = err
 }
 
-// setReadState programs the state and error returned by state file reads.
+// setReadState sets the value and error ReadStateFile returns.
 func (f *fakeStreamableInfra) setReadState(state *datatypes.JSON, err error) {
 	f.smu.Lock()
 	defer f.smu.Unlock()
@@ -431,15 +454,15 @@ func (f *fakeStreamableInfra) setReadState(state *datatypes.JSON, err error) {
 	f.readStateErr = err
 }
 
-// readStateCallCount returns the number of state file read invocations.
+// readStateCallCount returns how many times ReadStateFile has been called.
 func (f *fakeStreamableInfra) readStateCallCount() int {
 	f.smu.Lock()
 	defer f.smu.Unlock()
 	return f.readCalls
 }
 
-// fakeRefreshableInfra implements RefreshableProvider by embedding
-// fakeInfra and adding programmable refresh behavior.
+// fakeRefreshableInfra is an in-memory provider with a configurable
+// RefreshStack result.
 type fakeRefreshableInfra struct {
 	*fakeInfra
 
@@ -448,15 +471,15 @@ type fakeRefreshableInfra struct {
 	refreshCalls int
 }
 
-// newFakeRefreshableInfra returns a refreshable infra fake whose refresh
-// succeeds by default.
+// newFakeRefreshableInfra returns a refreshable fake that succeeds
+// RefreshStack.
 func newFakeRefreshableInfra() *fakeRefreshableInfra {
 	return &fakeRefreshableInfra{
 		fakeInfra: newFakeInfra(),
 	}
 }
 
-// RefreshStack returns the programmed refresh error.
+// RefreshStack records the call and returns refreshErr.
 func (f *fakeRefreshableInfra) RefreshStack() error {
 	f.rmu.Lock()
 	defer f.rmu.Unlock()
@@ -464,44 +487,45 @@ func (f *fakeRefreshableInfra) RefreshStack() error {
 	return f.refreshErr
 }
 
-// setRefreshErr programs the error returned by stack refreshes.
+// setRefreshErr sets the error RefreshStack returns.
 func (f *fakeRefreshableInfra) setRefreshErr(err error) {
 	f.rmu.Lock()
 	defer f.rmu.Unlock()
 	f.refreshErr = err
 }
 
-// refreshCallCount returns the number of refresh invocations.
+// refreshCallCount returns how many times RefreshStack has been called.
 func (f *fakeRefreshableInfra) refreshCallCount() int {
 	f.rmu.Lock()
 	defer f.rmu.Unlock()
 	return f.refreshCalls
 }
 
-// fakeLifecycle implements InfraLifecycleProvider with per-method call
-// counters, per-method error injection, and a programmable sequence of
-// reconciliation snapshots. Safe for concurrent use.
+// fakeLifecycle is an in-memory InfraLifecycleProvider that records calls
+// and serves queued reconciliation snapshots, safe for concurrent use.
 type fakeLifecycle struct {
 	mu sync.Mutex
 
 	calls map[string]int
 	errs  map[string]error
 
-	snaps     []*ReconciliationSnapshot
+	// The GetReconciliation results, served in order
+	snaps []*ReconciliationSnapshot
+	// The index of the next snapshot, held on the last
 	snapIndex int
 
-	infra          InfraProvider
+	// The InfraProvider BuildInfra returns
+	infra InfraProvider
+	// The value IsCreateComplete returns
 	createComplete bool
 
-	savedStates       []*datatypes.JSON
+	// The arguments passed to SaveState, in call order
+	savedStates []*datatypes.JSON
+	// The last state passed to SaveCreateOutputs
 	createOutputState *datatypes.JSON
 }
 
-// newFakeLifecycle returns a lifecycle fake that walks the given
-// reconciliation snapshots in order: each call consumes the next
-// snapshot, and once exhausted the last snapshot repeats. With no
-// snapshots, an empty snapshot (a brand new create request) repeats.
-// The built infra defaults to a fresh fakeInfra.
+// newFakeLifecycle returns a fake that serves snaps in order.
 func newFakeLifecycle(snaps ...*ReconciliationSnapshot) *fakeLifecycle {
 	return &fakeLifecycle{
 		calls: make(map[string]int),
@@ -511,7 +535,8 @@ func newFakeLifecycle(snaps ...*ReconciliationSnapshot) *fakeLifecycle {
 	}
 }
 
-// recordSimple counts a call and returns its injected error, if any.
+// recordSimple increments the call count for method and returns any
+// configured error.
 func (f *fakeLifecycle) recordSimple(method string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -519,19 +544,23 @@ func (f *fakeLifecycle) recordSimple(method string) error {
 	return f.errs[method]
 }
 
-// GetReconciliation counts the call and returns the next snapshot in the
-// programmed sequence. An injected error is returned without advancing
-// the sequence. Callers must not mutate returned snapshots.
+// GetReconciliation returns queued snapshots in order and holds on
+// the last. An empty queue yields an empty snapshot. An error does
+// not advance, and the snapshot is not copied.
 func (f *fakeLifecycle) GetReconciliation() (*ReconciliationSnapshot, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	// record the call
 	f.calls["GetReconciliation"]++
+	// return a configured error
 	if err := f.errs["GetReconciliation"]; err != nil {
 		return nil, err
 	}
+	// return an empty snapshot when none were queued
 	if len(f.snaps) == 0 {
 		return &ReconciliationSnapshot{}, nil
 	}
+	// return the current snapshot and advance until the last, which then repeats
 	snap := f.snaps[f.snapIndex]
 	if f.snapIndex < len(f.snaps)-1 {
 		f.snapIndex++
@@ -539,163 +568,166 @@ func (f *fakeLifecycle) GetReconciliation() (*ReconciliationSnapshot, error) {
 	return snap, nil
 }
 
-// BuildInfra counts the call and returns the configured infra, or the
-// injected error.
+// BuildInfra returns the configured provider or a configured error.
 func (f *fakeLifecycle) BuildInfra() (InfraProvider, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	// record the call
 	f.calls["BuildInfra"]++
+	// return a configured error
 	if err := f.errs["BuildInfra"]; err != nil {
 		return nil, err
 	}
+	// return the configured provider
 	return f.infra, nil
 }
 
-// IsCreateComplete counts the call and returns the programmed completion
-// flag, or the injected error.
+// IsCreateComplete returns createComplete or a configured error.
 func (f *fakeLifecycle) IsCreateComplete() (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	// record the call
 	f.calls["IsCreateComplete"]++
+	// return a configured error
 	if err := f.errs["IsCreateComplete"]; err != nil {
 		return false, err
 	}
+	// return the configured completion flag
 	return f.createComplete, nil
 }
 
-// OnCreateConfirmed counts the call and returns its injected error.
+// OnCreateConfirmed records the call and returns any configured error.
 func (f *fakeLifecycle) OnCreateConfirmed(infra InfraProvider) error {
 	return f.recordSimple("OnCreateConfirmed")
 }
 
-// SaveCreateOutputs counts the call, records the final state, and
-// returns its injected error.
+// SaveCreateOutputs records the call and stores state as the create output.
 func (f *fakeLifecycle) SaveCreateOutputs(infra InfraProvider, state *datatypes.JSON) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	// record the call and store the output state
 	f.calls["SaveCreateOutputs"]++
 	f.createOutputState = state
 	return f.errs["SaveCreateOutputs"]
 }
 
-// OnDeleteConfirmed counts the call and returns its injected error.
+// OnDeleteConfirmed records the call and returns any configured error.
 func (f *fakeLifecycle) OnDeleteConfirmed(infra InfraProvider) error {
 	return f.recordSimple("OnDeleteConfirmed")
 }
 
-// AckCreation counts the call and returns its injected error.
+// AckCreation records the call and returns any configured error.
 func (f *fakeLifecycle) AckCreation() error {
 	return f.recordSimple("AckCreation")
 }
 
-// RefreshCreationAck counts the call and returns its injected error.
+// RefreshCreationAck records the call and returns any configured error.
 func (f *fakeLifecycle) RefreshCreationAck() error {
 	return f.recordSimple("RefreshCreationAck")
 }
 
-// SetCreationFailed counts the call and returns its injected error.
+// SetCreationFailed records the call and returns any configured error.
 func (f *fakeLifecycle) SetCreationFailed() error {
 	return f.recordSimple("SetCreationFailed")
 }
 
-// ConfirmCreation counts the call and returns its injected error.
+// ConfirmCreation records the call and returns any configured error.
 func (f *fakeLifecycle) ConfirmCreation() error {
 	return f.recordSimple("ConfirmCreation")
 }
 
-// AckDeletion counts the call and returns its injected error.
+// AckDeletion records the call and returns any configured error.
 func (f *fakeLifecycle) AckDeletion() error {
 	return f.recordSimple("AckDeletion")
 }
 
-// RefreshDeletionAck counts the call and returns its injected error.
+// RefreshDeletionAck records the call and returns any configured error.
 func (f *fakeLifecycle) RefreshDeletionAck() error {
 	return f.recordSimple("RefreshDeletionAck")
 }
 
-// ConfirmDeletion counts the call and returns its injected error.
+// ConfirmDeletion records the call and returns any configured error.
 func (f *fakeLifecycle) ConfirmDeletion() error {
 	return f.recordSimple("ConfirmDeletion")
 }
 
-// SaveState counts the call, appends the state to the saved history, and
-// returns its injected error.
+// SaveState appends state to the saved-state history.
 func (f *fakeLifecycle) SaveState(state *datatypes.JSON) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	// record the call and append the state
 	f.calls["SaveState"]++
 	f.savedStates = append(f.savedStates, state)
 	return f.errs["SaveState"]
 }
 
-// ClearInventory counts the call and returns its injected error.
+// ClearInventory records the call and returns any configured error.
 func (f *fakeLifecycle) ClearInventory() error {
 	return f.recordSimple("ClearInventory")
 }
 
-// PublishCreateNotification counts the call and returns its injected error.
+// PublishCreateNotification records the call and returns any configured error.
 func (f *fakeLifecycle) PublishCreateNotification() error {
 	return f.recordSimple("PublishCreateNotification")
 }
 
-// PublishDeleteNotification counts the call and returns its injected error.
+// PublishDeleteNotification records the call and returns any configured error.
 func (f *fakeLifecycle) PublishDeleteNotification() error {
 	return f.recordSimple("PublishDeleteNotification")
 }
 
-// setErr injects an error for the named interface method; passing nil
-// clears the injection.
+// setErr sets the error returned by method. A nil err clears it.
 func (f *fakeLifecycle) setErr(method string, err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	// clear the method's error
 	if err == nil {
 		delete(f.errs, method)
 		return
 	}
+	// store the method's error
 	f.errs[method] = err
 }
 
-// setInfra replaces the infra returned when the lifecycle builds one.
+// setInfra sets the provider BuildInfra returns.
 func (f *fakeLifecycle) setInfra(infra InfraProvider) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.infra = infra
 }
 
-// setCreateComplete programs the completion flag for create checks.
+// setCreateComplete sets the value IsCreateComplete returns.
 func (f *fakeLifecycle) setCreateComplete(complete bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.createComplete = complete
 }
 
-// pushSnapshot appends a snapshot to the programmed sequence so tests
-// can extend the walk mid-flight.
+// pushSnapshot appends snap to the reconciliation queue.
 func (f *fakeLifecycle) pushSnapshot(snap *ReconciliationSnapshot) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.snaps = append(f.snaps, snap)
 }
 
-// callCount returns how many times the named interface method was called.
+// callCount returns how many times method has been called.
 func (f *fakeLifecycle) callCount(method string) int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.calls[method]
 }
 
-// savedStateHistory returns a copy of all states passed to SaveState in
-// call order.
+// savedStateHistory returns a new slice of the states passed to SaveState.
 func (f *fakeLifecycle) savedStateHistory() []*datatypes.JSON {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	// copy saved states
 	out := make([]*datatypes.JSON, len(f.savedStates))
 	copy(out, f.savedStates)
 	return out
 }
 
-// createOutputs returns the state passed to the most recent
-// SaveCreateOutputs call, or nil if none occurred.
+// createOutputs returns the last state passed to SaveCreateOutputs.
 func (f *fakeLifecycle) createOutputs() *datatypes.JSON {
 	f.mu.Lock()
 	defer f.mu.Unlock()
