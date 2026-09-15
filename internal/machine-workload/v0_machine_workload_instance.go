@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"regexp"
 	"strings"
 	"time"
@@ -77,13 +78,11 @@ func v0MachineWorkloadInstanceCreated(
 	// run the create script and record results
 	wlStatus, scriptErr := runScript(r, machineWorkloadInstance, mri, mwd, *mwd.CreateScript, "create", log)
 
-	// patch Status; set Reconciled only when the script succeeded
+	// patch Status; always send Reconciled so PATCH cannot keep a prior true
 	patch := v0.MachineWorkloadInstance{
-		Common: v0.Common{ID: machineWorkloadInstance.ID},
-		Status: util.Ptr(string(wlStatus)),
-	}
-	if scriptErr == nil {
-		patch.Reconciliation = v0.Reconciliation{Reconciled: util.Ptr(true)}
+		Common:         v0.Common{ID: machineWorkloadInstance.ID},
+		Status:         util.Ptr(string(wlStatus)),
+		Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(scriptErr == nil)},
 	}
 	if _, err := client.UpdateMachineWorkloadInstance(r.APIClient, r.APIServer, &patch); err != nil {
 		return controller.Done, fmt.Errorf("failed to update machine workload instance with run result: %w", err)
@@ -139,13 +138,11 @@ func v0MachineWorkloadInstanceUpdated(
 	// run the update script and record results
 	wlStatus, scriptErr := runScript(r, machineWorkloadInstance, mri, mwd, *mwd.UpdateScript, "update", log)
 
-	// patch Status; set Reconciled only when the script succeeded
+	// patch Status; always send Reconciled so PATCH cannot keep a prior true
 	patch := v0.MachineWorkloadInstance{
-		Common: v0.Common{ID: machineWorkloadInstance.ID},
-		Status: util.Ptr(string(wlStatus)),
-	}
-	if scriptErr == nil {
-		patch.Reconciliation = v0.Reconciliation{Reconciled: util.Ptr(true)}
+		Common:         v0.Common{ID: machineWorkloadInstance.ID},
+		Status:         util.Ptr(string(wlStatus)),
+		Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(scriptErr == nil)},
 	}
 	if _, err := client.UpdateMachineWorkloadInstance(r.APIClient, r.APIServer, &patch); err != nil {
 		return controller.Done, fmt.Errorf("failed to update machine workload instance with run result: %w", err)
@@ -307,10 +304,26 @@ func deletionScheduledExceeds(deletionScheduled *time.Time, grace time.Duration)
 	return time.Since(*deletionScheduled) > grace
 }
 
-// sshDialFailed reports whether err is a failed SSH dial, not a missing
-// credential or decrypt error.
+// sshDialFailed reports a TCP-level SSH connect failure, not auth, host-key,
+// decrypt, or missing-credential errors.
 func sshDialFailed(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "failed to dial ssh")
+	if err == nil {
+		return false
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "no route to host") ||
+		strings.Contains(msg, "network is unreachable") ||
+		strings.Contains(msg, "i/o timeout") ||
+		strings.Contains(msg, "connection timed out")
 }
 
 // runScript opens SSH to the machine runtime, runs the create, update, or

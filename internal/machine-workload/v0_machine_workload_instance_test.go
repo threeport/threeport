@@ -445,7 +445,7 @@ func TestMachineWorkloadInstanceCreated_ScriptFails(t *testing.T) {
 	// failed create as complete
 	reconciled := f.patchedReconciled()
 	require.Len(t, reconciled, 1)
-	assert.Nil(t, reconciled[0], "failed create must leave Reconciled unset in the patch")
+	assert.False(t, *reconciled[0], "failed create must patch Reconciled=false")
 
 	// error carries the specific-reason event the wrapper will substitute
 	// for the generic FailedCreate row
@@ -538,7 +538,7 @@ func TestMachineWorkloadInstanceUpdated_ScriptFails(t *testing.T) {
 	// failed update as complete
 	reconciled := f.patchedReconciled()
 	require.Len(t, reconciled, 1)
-	assert.Nil(t, reconciled[0], "failed update must leave Reconciled unset in the patch")
+	assert.False(t, *reconciled[0], "failed update must patch Reconciled=false")
 
 	// error carries the specific-reason event the wrapper will substitute
 	// for the generic FailedUpdate row
