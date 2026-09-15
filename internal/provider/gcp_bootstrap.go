@@ -609,6 +609,11 @@ func pruneUserManagedServiceAccountKeys(iamService *iam.Service, projectID, serv
 		return fmt.Errorf("failed to list service account keys: %w", err)
 	}
 
+	if keys == nil {
+		return nil
+	}
+
+	// delete user-managed keys, skip system-managed
 	prunedIDs := make([]string, 0, len(keys.Keys))
 	for _, key := range keys.Keys {
 		if key.KeyType == "SYSTEM_MANAGED" {

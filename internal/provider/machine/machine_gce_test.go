@@ -208,6 +208,12 @@ func TestPulumiProgram_CreatesInstanceAndFirewall(t *testing.T) {
 	if !firewallAllowsTCP22(t, firewalls[0]) {
 		t.Errorf("firewall does not allow tcp/22: %v", firewalls[0].inputs["allows"])
 	}
+	if got := stringSliceInput(t, firewalls[0].inputs["targetTags"]); !equalStringSlices(got, []string{i.RuntimeInstanceName}) {
+		t.Errorf("firewall targetTags = %v, want [%s]", got, i.RuntimeInstanceName)
+	}
+	if got := stringSliceInput(t, inst.inputs["tags"]); !equalStringSlices(got, []string{i.RuntimeInstanceName}) {
+		t.Errorf("instance tags = %v, want [%s]", got, i.RuntimeInstanceName)
+	}
 }
 
 // TestPulumiProgram_InjectsSSHKeyMetadata asserts ssh-keys metadata is user:pubkey and holds no private key.
@@ -493,6 +499,33 @@ func TestDeployInfra_ReportsAllMissingFields(t *testing.T) {
 	}
 }
 
+// TestEnsureSSHKeyPair_RestoredPrivateKey covers deriving the public key from a stored PEM.
+func TestEnsureSSHKeyPair_RestoredPrivateKey(t *testing.T) {
+	priv, pub, err := generateSSHKeyPair()
+	if err != nil {
+		t.Fatalf("generateSSHKeyPair: %v", err)
+	}
+	i := &GceMachineInfra{sshPrivateKeyPEM: priv}
+	if err := i.ensureSSHKeyPair(); err != nil {
+		t.Fatalf("ensureSSHKeyPair: %v", err)
+	}
+	if i.sshPrivateKeyPEM != priv {
+		t.Error("ensureSSHKeyPair replaced the restored private key")
+	}
+	if i.sshPublicKeyAuthorized != pub {
+		t.Errorf("derived public key = %q, want %q", i.sshPublicKeyAuthorized, pub)
+	}
+}
+
+// TestSyncStackConfigs_RegionFromZone covers filling gcp:region from Zone.
+func TestSyncStackConfigs_RegionFromZone(t *testing.T) {
+	i := &GceMachineInfra{ProjectID: "p", Zone: "us-central1-a"}
+	i.syncStackConfigs()
+	if got := i.StackConfigs["gcp:region"]; got != "us-central1" {
+		t.Errorf("gcp:region = %q, want us-central1", got)
+	}
+}
+
 // exists reports whether path is present on disk.
 func exists(path string) bool {
 	_, err := os.Stat(path)
@@ -506,15 +539,21 @@ func firewallSourceRanges(t *testing.T, r recordedResource) []string {
 	if !ok {
 		t.Fatal("firewall has no sourceRanges input")
 	}
+	return stringSliceInput(t, raw)
+}
+
+// stringSliceInput converts a Pulumi string-array input to []string.
+func stringSliceInput(t *testing.T, raw any) []string {
+	t.Helper()
 	items, ok := raw.([]any)
 	if !ok {
-		t.Fatalf("sourceRanges is not a slice: %T", raw)
+		t.Fatalf("input is not a slice: %T", raw)
 	}
 	out := make([]string, 0, len(items))
 	for _, it := range items {
 		s, ok := it.(string)
 		if !ok {
-			t.Fatalf("sourceRanges entry is not a string: %T", it)
+			t.Fatalf("slice entry is not a string: %T", it)
 		}
 		out = append(out, s)
 	}
