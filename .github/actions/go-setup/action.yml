@@ -1,0 +1,68 @@
+# Shared Go preamble for CI jobs that compile threeport or its modules.
+#
+# Bundles the steps every Go-building job repeats: free runner disk so a
+# full build does not run out of space, install Go, restore and save the Go
+# build + module cache, and install mage. Build parallelism is sized in mage:
+# the ci:env target emits go-parallelism env for non-mage steps, and
+# build:allImages self-computes its image-packaging concurrency.
+
+name: Go setup
+description: Free disk, install Go, cache the Go dirs, install mage.
+
+inputs:
+  cache-arch:
+    description: GOARCH the Go cache covers, so per-arch matrix builds cache separately instead of sharing one entry. Defaults to the runner's native amd64; a matrix passes its own arch.
+    required: false
+    default: amd64
+
+runs:
+  using: composite
+  steps:
+    # Free runner disk so a full Go build does not run out of space. The fast
+    # removals (tool cache, Android, .NET, Haskell, Docker images) clear
+    # tens of GB in seconds; large-packages is disabled because purging apt
+    # packages adds minutes for little extra room a Go build needs.
+    - name: Free disk space
+      uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+      with:
+        tool-cache: true
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: false   # apt purge would add minutes for little extra room
+        docker-images: true
+        swap-storage: false   # keep swap so a tight runner has an oom cushion
+
+    # go-version-file reads the version from the caller repo's go.mod (resolved
+    # against the workspace root after checkout)
+    - name: Set up Go
+      uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      with:
+        go-version-file: go.mod
+        cache: false
+
+    # Restore the Go build and module cache here; the cache action's post step
+    # saves it again at job end. The key carries neither go.sum nor the Go
+    # version on purpose: Go's build cache already keys every compiled action on
+    # the compiler version and its inputs, so it reuses what is still valid and
+    # recompiles the rest. Letting Go own invalidation avoids a stale token
+    # someone must bump.
+    - name: Cache Go build + module dirs
+      uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        # unique per run, so the post-step save always writes a fresh entry
+        # (Actions caches are immutable; a fixed key could never be updated).
+        key: go-${{ runner.os }}-${{ inputs.cache-arch }}-${{ github.run_id }}
+        # the run-id key never matches a prior run, so restore falls through to
+        # this prefix and pulls the newest existing cache for this runner OS + arch.
+        restore-keys: |
+          go-${{ runner.os }}-${{ inputs.cache-arch }}-
+
+    - name: Install mage
+      shell: bash
+      # no version pin: run inside the module so go install builds mage at the
+      # version go.mod requires, keeping the CLI matched to the magefiles' dep
+      run: go install github.com/magefile/mage

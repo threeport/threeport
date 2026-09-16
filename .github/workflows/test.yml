@@ -1,6 +1,6 @@
 # Native go build + thin Docker layer.
 #
-# Compilation happens via `mage build:allImagesDev` on the runner, NOT
+# Compilation happens via `mage build:allImages` on the runner, NOT
 # inside a Dockerfile RUN. Go's content-addressed build cache
 # (~/.cache/go-build, restored by actions/cache below) invalidates per
 # package, so a single-file edit only recompiles that package. Inside a
@@ -26,45 +26,24 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-24.04
-    env:
-      GOPATH: /home/runner/go
     steps:
     - name: Checkout
-      uses: actions/checkout@v6.0.3
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-    - name: Set up Go
-      uses: actions/setup-go@v6.4.0
-      with:
-        go-version: '1.27'
-        cache: false
-
-    # Primary cache for the workflow. Restoring Go's build + module cache
-    # is what makes warm runs fast; the Docker layer cache further down
-    # (integration-tests job) only covers the cheap COPY+alpine tail.
-    - name: Cache Go build + module cache
-      uses: actions/cache@v5.0.5
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          go-${{ runner.os }}-
-
-    - name: Install mage
-      run: go install github.com/magefile/mage@v1.17.2
+    - name: Go setup
+      uses: ./.github/actions/go-setup
 
     - name: Install threeport-sdk
       run: mage install:sdk
 
     - name: Run threeport-sdk
-      run: ${{ env.GOPATH }}/bin/threeport-sdk gen --config sdk-config.yaml
+      run: threeport-sdk gen --config sdk-config.yaml
 
     - name: Verify codegen is idempotent
       run: git diff --exit-code
 
     - name: Unit tests
-      run: go test -count=1 ./pkg/... ./internal/... ./cmd/...
+      run: mage test:unit
 
     - name: Generate and type-check a module
       run: mage test:moduleGen
@@ -73,49 +52,31 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-24.04
     env:
-      GOPATH: /home/runner/go
+      # target the local registry for both the image build and the install
+      # step; mage self-derives the base tag (no per-arch suffix), so build and
+      # install resolve the same localhost:5001/<image>:<tag>.
+      IMAGE_REPO: localhost:5001
     steps:
     - name: Checkout
-      uses: actions/checkout@v6.0.3
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-    - name: Set up Go
-      uses: actions/setup-go@v6.4.0
+    - name: Go setup
+      uses: ./.github/actions/go-setup
+
+    - name: Docker setup
+      uses: ./.github/actions/docker-setup
       with:
-        go-version: '1.27'
-        cache: false
-
-    # Primary cache for the workflow. Restoring Go's build + module cache
-    # is what makes warm runs fast; the Docker layer cache further down
-    # (integration-tests job) only covers the cheap COPY+alpine tail.
-    - name: Cache Go build + module cache
-      uses: actions/cache@v5.0.5
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          go-${{ runner.os }}-
-
-    - name: Install mage
-      run: go install github.com/magefile/mage@v1.17.2
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v4.1.0
-      with:
-        # share host network so buildx reaches the local registry in the
-        # next step.
+        # share host network so buildx reaches the local registry started in
+        # the next step.
         driver-opts: network=host
 
     - name: Create local container registry
       run: mage dev:localRegistryUp
 
-    # Native compile via mage (uses the warm Go cache restored above),
-    # then PARALLEL_IMAGE_BUILD workers package images.
+    # Native compile via mage (uses the warm Go cache restored by the composite),
+    # then package the images.
     - name: Build and push control plane component images
-      env:
-        PARALLEL_IMAGE_BUILD: "4"
-      run: mage build:allImagesDev
+      run: mage build:allImages
 
     - name: Build tptctl
       run: mage build:tptctl

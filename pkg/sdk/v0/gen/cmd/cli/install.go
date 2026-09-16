@@ -26,6 +26,7 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f.ImportAlias("github.com/threeport/threeport/pkg/cli/v0", "cli")
 	f.ImportAlias("github.com/threeport/threeport/pkg/client/v0", "client")
 	f.ImportAlias("github.com/threeport/threeport/pkg/kube/v0", "kube")
+	f.ImportAlias("github.com/threeport/threeport/pkg/util/v0", "util")
 	f.ImportAlias(installerPkg, "installer")
 
 	f.Var().Defs(
@@ -155,6 +156,24 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			),
 			Line(),
 
+			Comment("default the tag the way a build names it when the CLI did not"),
+			Comment("supply one."),
+			If(Id("controlPlaneImageTag").Op("==").Lit("")).Block(
+				List(Id("tag"), Err()).Op(":=").Qual(
+					"github.com/threeport/threeport/pkg/util/v0", "ResolveImageTag",
+				).Call(Lit("."), Qual(
+					fmt.Sprintf("%s/internal/version", gen.ModulePath), "GetVersion",
+				).Call()),
+				If(Err().Op("!=").Nil()).Block(
+					Qual("github.com/threeport/threeport/pkg/cli/v0", "Error").Call(
+						Lit("failed to resolve default image tag; specify one with --tag/-t"), Id("err"),
+					),
+					Qual("os", "Exit").Call(Lit(1)),
+				),
+				Id("controlPlaneImageTag").Op("=").Id("tag"),
+			),
+			Line(),
+
 			Comment("create installer"),
 			Id("inst").Op(":=").Qual(installerPkg, "NewInstaller").Call(
 				Id("dynamicInterface"), Id("restMapper"),
@@ -226,11 +245,8 @@ func GenPluginInstallCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Line().List(
 				Lit("control-plane-image-tag"),
 				Lit("t"),
-				Qual(
-					fmt.Sprintf("%s/internal/version", gen.ModulePath),
-					"GetVersion",
-				).Call(),
-				Lit("Image tag for threeport control plane images."),
+				Lit(""),
+				Lit("Image tag for threeport control plane images. Defaults to this binary's version, or to the sha-suffixed dev tag of the current commit when pulling from the local registry."),
 			),
 			Line(),
 		),
