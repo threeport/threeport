@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -166,6 +167,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 			},
 		}
 
+		setPersistent(dbRootCertsSecret)
 		if err := cpi.CreateOrUpdateKubeResource(dbRootCertsSecret, kubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to create DB root user certs secret: %w", err)
 		}
@@ -188,6 +190,7 @@ func (cpi *ControlPlaneInstaller) UpdateThreeportAPIDeployment(
 			},
 		}
 
+		setPersistent(dbThreeportCertsSecret)
 		if err := cpi.CreateOrUpdateKubeResource(dbThreeportCertsSecret, kubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to create DB threeport user certs secret: %w", err)
 		}
@@ -385,6 +388,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAPITLS(
 			return fmt.Errorf("failed to generate server certificate and private key: %w", err)
 		}
 
+		// keep the API CA fingerprint and server identity across reinstall
 		var apiCa = cpi.getTLSSecret(ThreeportApiCaSecret, authConfig.CAPemEncoded, authConfig.CAPrivateKeyPemEncoded)
 		if err := cpi.CreateOrUpdateKubeResource(apiCa, kubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to create API server ca secret: %w", err)
@@ -450,8 +454,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 			continue
 		}
 
-		// if auth is enabled on API, generate client cert and key and store in
-		// secrets
+		// generate controller client certs and keep existing ones across reinstall
 		if authConfig != nil {
 			certificate, privateKey, err := auth.GenerateCertificate(
 				authConfig.CAConfig,
@@ -478,6 +481,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 					},
 				},
 			}
+			setPersistent(ca)
 			if err := cpi.CreateOrUpdateKubeResource(ca, kubeClient, mapper); err != nil {
 				return fmt.Errorf("failed to create API server ca secret for kubernetes workload controller: %w", err)
 			}
@@ -528,9 +532,9 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 		// WI principal to ensure RBAC applies to the actual pod identity.
 		if cpi.Opts.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE && cpi.Opts.GcpProjectId != "" {
 			threeportWorkloadSubjects = append(threeportWorkloadSubjects, map[string]interface{}{
-				"kind":      "User",
-				"name":      fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", cpi.Opts.GcpProjectId, cpi.Opts.Namespace, controller.ServiceAccountName),
-				"apiGroup":  "rbac.authorization.k8s.io",
+				"kind":     "User",
+				"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", cpi.Opts.GcpProjectId, cpi.Opts.Namespace, controller.ServiceAccountName),
+				"apiGroup": "rbac.authorization.k8s.io",
 			})
 		}
 		threeportWorkloadClusterRoleBinding := &unstructured.Unstructured{
@@ -612,11 +616,34 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 }
 
 // CreateOrUpdateKubeResource creates or updates a Kubernetes resource.
+// It does not update an existing persistent resource.
 func (cpi *ControlPlaneInstaller) CreateOrUpdateKubeResource(
 	resource *unstructured.Unstructured,
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
 ) error {
+	// stamp the installer-managed label so reinstall can find it
+	setManagedByLabel(resource)
+
+	// skip update of an existing persistent resource
+	if isPersistent(resource) {
+		group, version := splitAPIVersion(resource.GetAPIVersion())
+		existing, err := kube.GetResource(
+			group, version, resource.GetKind(),
+			resource.GetNamespace(), resource.GetName(),
+			kubeClient, *mapper,
+		)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf(
+				"failed to check existence of persistent resource %s/%s: %w",
+				resource.GetKind(), resource.GetName(), err,
+			)
+		}
+		if existing != nil {
+			return nil
+		}
+	}
+
 	if cpi.Opts.CreateOrUpdateKubeResources {
 		if _, err := kube.CreateOrUpdateResource(resource, kubeClient, *mapper); err != nil {
 			return fmt.Errorf("failed to create/update resource: %w", err)
@@ -627,6 +654,43 @@ func (cpi *ControlPlaneInstaller) CreateOrUpdateKubeResource(
 		}
 	}
 	return nil
+}
+
+// isPersistent reports whether the resource carries the persistent label.
+func isPersistent(resource *unstructured.Unstructured) bool {
+	return resource.GetLabels()[LabelPersistent] == LabelPersistentValue
+}
+
+// splitAPIVersion splits a Kubernetes apiVersion into group and version.
+// A core type such as v1 has no slash; it returns an empty group.
+func splitAPIVersion(apiVersion string) (group, version string) {
+	if idx := strings.IndexByte(apiVersion, '/'); idx >= 0 {
+		return apiVersion[:idx], apiVersion[idx+1:]
+	}
+	return "", apiVersion
+}
+
+// setManagedByLabel adds the installer managed-by label to the resource.
+func setManagedByLabel(resource *unstructured.Unstructured) {
+	labels := resource.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	if labels[LabelManagedBy] == LabelManagedByValue {
+		return
+	}
+	labels[LabelManagedBy] = LabelManagedByValue
+	resource.SetLabels(labels)
+}
+
+// setPersistent labels the resource so reinstall leaves it in place.
+func setPersistent(resource *unstructured.Unstructured) {
+	labels := resource.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[LabelPersistent] = LabelPersistentValue
+	resource.SetLabels(labels)
 }
 
 // UpdateControllerDeployment installs a threeport controller by name.
@@ -665,8 +729,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 	authConfig *auth.AuthConfig,
 ) error {
 
-	// if auth is enabled on API, generate client cert and key and store in
-	// secrets
+	// generate the agent's client cert and keep it across reinstall
 	if authConfig != nil {
 		agentCertificate, agentPrivateKey, err := auth.GenerateCertificate(
 			authConfig.CAConfig,
@@ -693,6 +756,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportAgent(
 				},
 			},
 		}
+		setPersistent(agentCa)
 		if err := cpi.CreateOrUpdateKubeResource(agentCa, kubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to create/update API server ca secret for threeport agent: %w", err)
 		}
@@ -1769,7 +1833,7 @@ func (cpi *ControlPlaneInstaller) getSecretVols(name string, mountPath string) (
 
 }
 
-// getTLSSecret returns a Kubernetes secret for the given certificate and private key.
+// getTLSSecret returns a TLS secret labeled persistent so identities stay across reinstall.
 func (cpi *ControlPlaneInstaller) getTLSSecret(name string, certificate string, privateKey string) *unstructured.Unstructured {
 
 	secret := &unstructured.Unstructured{
@@ -1787,7 +1851,7 @@ func (cpi *ControlPlaneInstaller) getTLSSecret(name string, certificate string, 
 			},
 		},
 	}
-
+	setPersistent(secret)
 	return secret
 }
 

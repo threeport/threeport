@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_config "github.com/aws/aws-sdk-go-v2/config"
@@ -127,6 +128,27 @@ func (cfg *ThreeportConfig) CheckThreeportConfigEmpty() bool {
 func (cfg *ThreeportConfig) CheckThreeportControlPlaneExists(createThreeportControlPlaneName string) bool {
 	_, err := cfg.GetControlPlaneConfig(createThreeportControlPlaneName)
 	return err == nil
+}
+
+// ValidateControlPlaneName returns nil when name is a ControlPlanes entry.
+// A cluster name is refused so a caller cannot pass a kube context as a control plane.
+func (cfg *ThreeportConfig) ValidateControlPlaneName(name string) error {
+	if cfg.CheckThreeportControlPlaneExists(name) {
+		return nil
+	}
+
+	if cfg.CheckThreeportConfigEmpty() {
+		return fmt.Errorf(
+			"control plane %q not found: the threeport config holds no control planes at all",
+			name,
+		)
+	}
+
+	return fmt.Errorf(
+		"control plane %q not found in the threeport config, which names the control plane rather than the cluster hosting it; available control planes: %s",
+		name,
+		strings.Join(cfg.GetAllControlPlaneNames(), ", "),
+	)
 }
 
 // GetThreeportAPIEndpoint returns the threeport API endpoint from threeport

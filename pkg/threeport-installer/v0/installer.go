@@ -145,6 +145,9 @@ type Options struct {
 	// clusters.
 	LocalRegistry bool
 
+	// The availability and data retention level stamped on the control plane namespace
+	Tier ControlPlaneTier
+
 	// PaginationMode sets the REST API server's pagination strategy through
 	// the `-pagination-mode` flag. Accepted values are `as-of-system-time`
 	// and `materialized-view`. A nil or empty value omits the flag, so the

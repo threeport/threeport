@@ -18,10 +18,6 @@ import (
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
 )
 
-// TODO: will become a variable once production-ready control plane instances are
-// available.
-const tier = threeport.ControlPlaneTierDev
-
 // UpCmd represents the create threeport command
 var UpCmd = &cobra.Command{
 	Use:     "up",
@@ -84,10 +80,16 @@ control planes if they are used to create or are created by another control plan
 			cliArgs.ClusterName = provider.ThreeportRuntimeName(cliArgs.ControlPlaneName)
 		}
 
+		// default the tier from the provider when the flag is empty
+		if cliArgs.Tier == "" {
+			cliArgs.Tier = threeport.DefaultControlPlaneTierForProvider(cliArgs.InfraProvider)
+		}
+
 		// flag validation
 		if err := cli.ValidateCreateGenesisControlPlaneFlags(
 			cliArgs.ControlPlaneName,
 			cliArgs.InfraProvider,
+			cliArgs.Tier,
 			cliArgs.CreateRootDomain,
 			cliArgs.AuthEnabled,
 			cliArgs.KindPortMappings,
@@ -128,12 +130,15 @@ func init() {
 		&cliArgs.InfraProvider,
 		"provider", "p", "kind", fmt.Sprintf("The infrasture provider to install upon. Supported infra providers: %s", v0.SupportedInfraProviders()),
 	)
-	// this flag will be enabled once production-ready control plane instances
-	// are available.
-	//UpCmd.Flags().StringVarP(
-	//	&tier,
-	//	"tier", "t", threeport.ControlPlaneTierDev, "Determines the level of availability and data retention for the control plane.",
-	//)
+	UpCmd.Flags().StringVar(
+		&cliArgs.Tier,
+		"tier", "", fmt.Sprintf(
+			"Determines the level of availability and data retention for the control plane. One of: [%s, %s]. Defaults to %s on the kind provider and %s on every cloud provider. Pass %s explicitly for a cloud-backed dev or test control plane whose database may be dropped.",
+			threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd,
+			threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd,
+			threeport.ControlPlaneTierDev,
+		),
+	)
 	UpCmd.Flags().StringVar(
 		&cliArgs.KubeconfigPath,
 		"kind-kubeconfig", "", "Path to kubeconfig used for kind provider installs (default is $KUBECONFIG, then ~/.kube/config).",

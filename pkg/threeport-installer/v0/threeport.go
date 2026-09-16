@@ -241,6 +241,16 @@ type ControlPlane struct {
 	Tier          ControlPlaneTier
 }
 
+// DefaultControlPlaneTierForProvider returns development for kind and production otherwise.
+// Kind clusters are disposable; cloud clusters are not.
+func DefaultControlPlaneTierForProvider(infraProvider string) string {
+	if infraProvider == v0.KubernetesRuntimeInfraProviderKind {
+		return ControlPlaneTierDev
+	}
+
+	return ControlPlaneTierProd
+}
+
 // AllControlPlaneComponents returns a list of all control plane components.
 func AllControlPlaneComponents() []*v0.ControlPlaneComponent {
 	allControlPlaneComponents := ThreeportControllerList

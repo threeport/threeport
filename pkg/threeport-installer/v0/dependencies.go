@@ -15,6 +15,11 @@ import (
 const (
 	dbCredsSecretName = "db-certs"
 	natsServiceName   = "nats-js"
+
+	// natsBoxImage is the nats CLI image the nats-box pod and the message
+	// broker drop job run, so both use the same client version. The registry host
+	// is required: a runtime with no default registry cannot pull a bare name.
+	natsBoxImage = "docker.io/natsio/nats-box:0.16.0-nonroot"
 )
 
 // CreateThreeportControlPlaneNamespace creates the threeport control plane
@@ -29,11 +34,16 @@ func (cpi *ControlPlaneInstaller) CreateThreeportControlPlaneNamespace(
 			"kind":       "Namespace",
 			"metadata": map[string]interface{}{
 				"name": cpi.Opts.Namespace,
+				"labels": map[string]interface{}{
+					LabelTier: string(cpi.Opts.Tier),
+				},
 			},
 		},
 	}
+	// keep the installed tier from being overwritten on a later reapply
+	setPersistent(namespace)
 	if err := cpi.CreateOrUpdateKubeResource(namespace, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
+		return fmt.Errorf("failed to create/update control plane namespace: %w", err)
 	}
 
 	return nil
@@ -65,7 +75,7 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControlPlaneDependencies(
 			},
 		},
 	}
-
+	setPersistent(encryptionSecret)
 	if err := cpi.CreateOrUpdateKubeResource(encryptionSecret, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create API server secret: %w", err)
 	}
@@ -255,7 +265,7 @@ store_dir: /data
 						"containers": []interface{}{
 							map[string]interface{}{
 								"name":            "nats-box",
-								"image":           "docker.io/natsio/nats-box:0.16.0-nonroot",
+								"image":           natsBoxImage,
 								"imagePullPolicy": "IfNotPresent",
 								"resources":       nil,
 								"env": []interface{}{
@@ -546,33 +556,36 @@ store_dir: /data
 		},
 	}
 
+	setPersistent(natsStatefulSet)
 	if err := cpi.CreateOrUpdateKubeResource(natsStatefulSet, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
 	}
 
-	// asdf
-	var dbCertsSecret = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"metadata": map[string]interface{}{
-				"name":      dbCredsSecretName,
-				"namespace": cpi.Opts.Namespace,
+	// leave the existing db certs secret when credentials are absent
+	if dbCreds != nil {
+		var dbCertsSecret = &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Secret",
+				"metadata": map[string]interface{}{
+					"name":      dbCredsSecretName,
+					"namespace": cpi.Opts.Namespace,
+				},
+				"stringData": map[string]interface{}{
+					"ca.crt":               dbCreds.AuthConfig.CAPemEncoded,
+					"node.crt":             dbCreds.NodeCert,
+					"node.key":             dbCreds.NodeKey,
+					"client.root.crt":      dbCreds.RootCert,
+					"client.root.key":      dbCreds.RootKey,
+					"client.threeport.crt": dbCreds.ThreeportCert,
+					"client.threeport.key": dbCreds.ThreeportKey,
+				},
 			},
-			"stringData": map[string]interface{}{
-				"ca.crt":               dbCreds.AuthConfig.CAPemEncoded,
-				"node.crt":             dbCreds.NodeCert,
-				"node.key":             dbCreds.NodeKey,
-				"client.root.crt":      dbCreds.RootCert,
-				"client.root.key":      dbCreds.RootKey,
-				"client.threeport.crt": dbCreds.ThreeportCert,
-				"client.threeport.key": dbCreds.ThreeportKey,
-			},
-		},
-	}
-
-	if err := cpi.CreateOrUpdateKubeResource(dbCertsSecret, kubeClient, mapper); err != nil {
-		return fmt.Errorf("failed to create DB certs secret: %w", err)
+		}
+		setPersistent(dbCertsSecret)
+		if err := cpi.CreateOrUpdateKubeResource(dbCertsSecret, kubeClient, mapper); err != nil {
+			return fmt.Errorf("failed to create DB certs secret: %w", err)
+		}
 	}
 
 	var crdbPDB = &unstructured.Unstructured{
@@ -843,6 +856,7 @@ store_dir: /data
 		},
 	}
 
+	setPersistent(crdbStatefulSet)
 	if err := cpi.CreateOrUpdateKubeResource(crdbStatefulSet, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update API server secret for kubernetes workload controller: %w", err)
 	}
@@ -880,6 +894,7 @@ store_dir: /data
 			},
 		},
 	}
+	setPersistent(apiService)
 	if err := cpi.CreateOrUpdateKubeResource(apiService, kubeClient, mapper); err != nil {
 		return fmt.Errorf("failed to create/update API server service: %w", err)
 	}

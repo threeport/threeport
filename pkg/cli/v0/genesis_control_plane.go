@@ -31,6 +31,10 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// localRuntimeLocation is the location recorded for a kubernetes runtime that
+// has no region to derive one from. Rebuilds use it too: the config never stores location.
+const localRuntimeLocation = "Local"
+
 var ErrThreeportConfigAlreadyExists = errors.New("threeport config already contains deployed control planes")
 
 // GenesisControlPlaneCLIArgs is the set of control plane arguments passed to one of
@@ -53,6 +57,7 @@ type GenesisControlPlaneCLIArgs struct {
 	ForceOverwriteConfig  bool
 	ControlPlaneName      string
 	InfraProvider         string
+	Tier                  string
 	KubeconfigPath        string
 	NumWorkerNodes        int
 	ProviderConfigDir     string
@@ -81,8 +86,6 @@ type Uninstaller struct {
 	awsConfig              *aws.Config
 	teardownOnFailure      *bool
 }
-
-const tier = threeport.ControlPlaneTierDev
 
 // InitArgs sets the default provider config directory, kubeconfig path and path
 // to threeport repo as needed in the CLI arguments.
@@ -159,6 +162,7 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.ForceOverwriteConfig = a.ForceOverwriteConfig
 	cpi.Opts.ControlPlaneName = a.ControlPlaneName
 	cpi.Opts.InfraProvider = a.InfraProvider
+	cpi.Opts.Tier = threeport.ControlPlaneTier(a.Tier)
 	cpi.Opts.KubeconfigPath = a.KubeconfigPath
 	cpi.Opts.NumWorkerNodes = a.NumWorkerNodes
 	cpi.Opts.ProviderConfigDir = a.ProviderConfigDir
@@ -249,7 +253,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// configure the control plane
 	controlPlane := threeport.ControlPlane{
 		InfraProvider: v0.KubernetesRuntimeInfraProvider(cpi.Opts.InfraProvider),
-		Tier:          tier,
+		Tier:          cpi.Opts.Tier,
 	}
 	uninstaller.controlPlane = &controlPlane
 
@@ -1213,12 +1217,21 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 func ValidateCreateGenesisControlPlaneFlags(
 	instanceName string,
 	infraProvider string,
+	tier string,
 	createRootDomain string,
 	authEnabled bool,
 	kindPortMappings []string,
 	controlPlaneOnly bool,
 	clusterName string,
 ) error {
+	// validate control plane tier
+	if tier != threeport.ControlPlaneTierDev && tier != threeport.ControlPlaneTierProd {
+		return fmt.Errorf(
+			"invalid tier value '%s' - must be one of [%s, %s]",
+			tier, threeport.ControlPlaneTierDev, threeport.ControlPlaneTierProd,
+		)
+	}
+
 	// ensure name length doesn't exceed maximum
 	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
 		return fmt.Errorf(
@@ -1356,4 +1369,309 @@ func runtimeInstanceName(opts threeport.Options) string {
 	}
 	// new cluster, named with the threeport- prefix
 	return provider.ThreeportRuntimeName(opts.ControlPlaneName)
+}
+
+// ensureBootstrapKubernetesRuntime looks up the kubernetes runtime definition
+// and instance by name and creates whichever is missing.
+func ensureBootstrapKubernetesRuntime(
+	apiClient *http.Client,
+	apiEndpoint string,
+	defName string,
+	instName string,
+	defReconciled bool,
+	infraProvider string,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+) (*v0.KubernetesRuntimeDefinition, *v0.KubernetesRuntimeInstance, error) {
+	// look up the definition; create it when the API reports it missing
+	def, err := client.GetKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, defName)
+	if err != nil {
+		if !errors.Is(err, client_lib.ErrObjectNotFound) {
+			return nil, nil, fmt.Errorf("failed to look up kubernetes runtime definition by name: %w", err)
+		}
+		newDef := v0.KubernetesRuntimeDefinition{
+			Definition: v0.Definition{
+				Name: &defName,
+			},
+			Reconciliation: v0.Reconciliation{
+				Reconciled: &defReconciled,
+			},
+			InfraProvider: &infraProvider,
+		}
+		def, err = client.CreateKubernetesRuntimeDefinition(apiClient, apiEndpoint, &newDef)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create kubernetes runtime definition: %w", err)
+		}
+	}
+
+	// look up the instance; create it when the API reports it missing
+	inst, err := client.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, instName)
+	if err != nil {
+		if !errors.Is(err, client_lib.ErrObjectNotFound) {
+			return nil, nil, fmt.Errorf("failed to look up kubernetes runtime instance by name: %w", err)
+		}
+		kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = def.ID
+		inst, err = client.CreateKubernetesRuntimeInstance(apiClient, apiEndpoint, kubernetesRuntimeInstance)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create kubernetes runtime instance: %w", err)
+		}
+	}
+
+	return def, inst, nil
+}
+
+// WaitForThreeportAPI polls the version endpoint until the threeport API
+// answers. A ready rest-api deployment does not prove the endpoint is reachable.
+func WaitForThreeportAPI(apiClient *http.Client, apiEndpoint string) error {
+	attemptsMax := 60
+	waitDurationSeconds := 5
+	if err := util.Retry(attemptsMax, waitDurationSeconds, func() error {
+		_, err := client_lib.GetResponse(
+			apiClient,
+			fmt.Sprintf("%s/version", apiEndpoint),
+			http.MethodGet,
+			new(bytes.Buffer),
+			map[string]string{},
+			http.StatusOK,
+		)
+		if err != nil {
+			Info(fmt.Sprintf("Connection attempt result: %s", err))
+			return fmt.Errorf("failed to get threeport API version: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf(
+			"timed out after %d seconds waiting for 200 response from threeport API: %w",
+			attemptsMax*waitDurationSeconds,
+			err,
+		)
+	}
+
+	return nil
+}
+
+// EnsureBootstrapObjects restores the kubernetes runtime and control plane
+// records the API needs in order to accept work, creating only those missing.
+func EnsureBootstrapObjects(cpi *threeport.ControlPlaneInstaller) error {
+	threeportConfig, requestedControlPlane, err := GetThreeportConfig(cpi.Opts.ControlPlaneName)
+	if err != nil {
+		return fmt.Errorf("failed to get threeport config: %w", err)
+	}
+
+	controlPlaneConfig, err := threeportConfig.GetControlPlaneConfig(requestedControlPlane)
+	if err != nil {
+		return fmt.Errorf("failed to get threeport control plane config: %w", err)
+	}
+
+	apiClient, err := threeportConfig.GetHTTPClient(requestedControlPlane)
+	if err != nil {
+		return fmt.Errorf("failed to get threeport API client: %w", err)
+	}
+
+	Info(fmt.Sprintf("Waiting for threeport API to start running at %s", controlPlaneConfig.APIServer))
+	if err := WaitForThreeportAPI(apiClient, controlPlaneConfig.APIServer); err != nil {
+		return fmt.Errorf("threeport API did not become reachable: %w", err)
+	}
+
+	kubernetesRuntimeInstance, err := bootstrapKubernetesRuntimeInstance(controlPlaneConfig)
+	if err != nil {
+		return fmt.Errorf("failed to build kubernetes runtime instance from threeport config: %w", err)
+	}
+
+	runtimeName := provider.ThreeportRuntimeName(controlPlaneConfig.Name)
+	defReconciled := true // the cluster already exists - nothing to reconcile
+	_, kubernetesRuntimeInstResult, err := ensureBootstrapKubernetesRuntime(
+		apiClient,
+		controlPlaneConfig.APIServer,
+		runtimeName,
+		runtimeName,
+		defReconciled,
+		controlPlaneConfig.Provider,
+		kubernetesRuntimeInstance,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to register kubernetes runtime for default compute space: %w", err)
+	}
+
+	if err := ensureBootstrapControlPlane(
+		apiClient,
+		cpi,
+		controlPlaneConfig,
+		kubernetesRuntimeInstResult.ID,
+	); err != nil {
+		return fmt.Errorf("failed to register control plane in threeport API: %w", err)
+	}
+
+	Info("Threeport control plane bootstrap objects restored")
+
+	return nil
+}
+
+// bootstrapKubernetesRuntimeInstance rebuilds the kubernetes runtime instance
+// from a control plane config. It refuses EKS and OKE, and uses a complete
+// certificate pair or else the stored token with no expiration.
+func bootstrapKubernetesRuntimeInstance(controlPlaneConfig *ControlPlane) (*v0.KubernetesRuntimeInstance, error) {
+	if controlPlaneConfig.Provider == v0.KubernetesRuntimeInfraProviderEKS {
+		return nil, fmt.Errorf(
+			"cannot rebuild kubernetes runtime instance for control plane on provider %s: it authenticates to the kube API with a stored token that the threeport config cannot supply",
+			controlPlaneConfig.Provider,
+		)
+	}
+	if controlPlaneConfig.Provider == v0.KubernetesRuntimeInfraProviderOKE {
+		return nil, fmt.Errorf(
+			"cannot rebuild kubernetes runtime instance for control plane on provider %s: it mints kube API tokens from oci provider rows a database drop removes, and the threeport config cannot rebuild those rows",
+			controlPlaneConfig.Provider,
+		)
+	}
+
+	// decode kube API credentials; the config stores them base64 encoded
+	caCertificate, err := util.Base64Decode(controlPlaneConfig.KubeAPI.CACertificate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode kubernetes API CA certificate: %w", err)
+	}
+	certificate, err := util.Base64Decode(controlPlaneConfig.KubeAPI.Certificate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode kubernetes API client certificate: %w", err)
+	}
+	key, err := util.Base64Decode(controlPlaneConfig.KubeAPI.Key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode kubernetes API client key: %w", err)
+	}
+	token, err := util.Base64Decode(controlPlaneConfig.KubeAPI.Token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode kubernetes API connection token: %w", err)
+	}
+
+	name := provider.ThreeportRuntimeName(controlPlaneConfig.Name)
+	location := localRuntimeLocation
+	instReconciled := true // the cluster already exists - nothing to reconcile
+	controlPlaneHost := true
+	defaultRuntime := true
+
+	kubernetesRuntimeInstance := &v0.KubernetesRuntimeInstance{
+		Instance: v0.Instance{
+			Name: &name,
+		},
+		Reconciliation: v0.Reconciliation{
+			Reconciled: &instReconciled,
+		},
+		ThreeportControlPlaneHost: &controlPlaneHost,
+		APIEndpoint:               &controlPlaneConfig.KubeAPI.APIEndpoint,
+		CACertificate:             &caCertificate,
+		DefaultRuntime:            &defaultRuntime,
+		Location:                  &location,
+	}
+
+	// use the certificate pair when both are present, otherwise the connection token
+	switch {
+	case certificate != "" && key != "":
+		kubernetesRuntimeInstance.Certificate = &certificate
+		kubernetesRuntimeInstance.CertificateKey = &key
+	case token != "":
+		kubernetesRuntimeInstance.ConnectionToken = &token
+	}
+
+	return kubernetesRuntimeInstance, nil
+}
+
+// ensureBootstrapControlPlane looks up the control plane definition and
+// instance and creates whichever is missing.
+func ensureBootstrapControlPlane(
+	apiClient *http.Client,
+	cpi *threeport.ControlPlaneInstaller,
+	controlPlaneConfig *ControlPlane,
+	kubernetesRuntimeInstanceId *uint,
+) error {
+	reconciled := true // the control plane is already installed
+
+	// look up the definition; create it when the API reports it missing
+	definition, err := client.GetControlPlaneDefinitionByName(
+		apiClient,
+		controlPlaneConfig.APIServer,
+		controlPlaneConfig.Name,
+	)
+	if err != nil {
+		if !errors.Is(err, client_lib.ErrObjectNotFound) {
+			return fmt.Errorf("failed to look up control plane definition by name: %w", err)
+		}
+		newDefinition := v0.ControlPlaneDefinition{
+			Definition: v0.Definition{
+				Name: &controlPlaneConfig.Name,
+			},
+			Reconciliation: v0.Reconciliation{
+				Reconciled: &reconciled,
+			},
+			AuthEnabled: &cpi.Opts.AuthEnabled,
+		}
+		definition, err = client.CreateControlPlaneDefinition(
+			apiClient,
+			controlPlaneConfig.APIServer,
+			&newDefinition,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create control plane definition: %w", err)
+		}
+	}
+
+	// look up the instance; create it when the API reports it missing
+	_, err = client.GetControlPlaneInstanceByName(
+		apiClient,
+		controlPlaneConfig.APIServer,
+		controlPlaneConfig.Name,
+	)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, client_lib.ErrObjectNotFound) {
+		return fmt.Errorf("failed to look up control plane instance by name: %w", err)
+	}
+
+	// copy certs as they are; both the config and the API store them base64 encoded
+	var caCert *string
+	var clientCert *string
+	var clientKey *string
+	if cpi.Opts.AuthEnabled {
+		caCert = &controlPlaneConfig.CACert
+		for i, credential := range controlPlaneConfig.Credentials {
+			if credential.Name == controlPlaneConfig.Name {
+				clientCert = &controlPlaneConfig.Credentials[i].ClientCert
+				clientKey = &controlPlaneConfig.Credentials[i].ClientKey
+				break
+			}
+		}
+	}
+
+	// record the installed controllers plus the rest api and agent
+	componentList := make([]*v0.ControlPlaneComponent, 0, len(cpi.Opts.ControllerList)+2)
+	componentList = append(componentList, cpi.Opts.ControllerList...)
+	componentList = append(componentList, cpi.Opts.RestApiInfo)
+	componentList = append(componentList, cpi.Opts.AgentInfo)
+
+	selfInstance := true
+	newInstance := v0.ControlPlaneInstance{
+		Instance: v0.Instance{
+			Name: &controlPlaneConfig.Name,
+		},
+		Reconciliation: v0.Reconciliation{
+			Reconciled: &reconciled,
+		},
+		Namespace:                   &cpi.Opts.Namespace,
+		KubernetesRuntimeInstanceID: kubernetesRuntimeInstanceId,
+		Genesis:                     &controlPlaneConfig.Genesis,
+		IsSelf:                      &selfInstance,
+		ApiServerEndpoint:           &controlPlaneConfig.APIServer,
+		CACert:                      caCert,
+		ClientCert:                  clientCert,
+		ClientKey:                   clientKey,
+		CustomComponentInfo:         componentList,
+		ControlPlaneDefinitionID:    definition.ID,
+	}
+	if _, err := client.CreateControlPlaneInstance(
+		apiClient,
+		controlPlaneConfig.APIServer,
+		&newInstance,
+	); err != nil {
+		return fmt.Errorf("failed to create control plane instance: %w", err)
+	}
+
+	return nil
 }
