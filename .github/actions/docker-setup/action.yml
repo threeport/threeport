@@ -13,7 +13,19 @@ inputs:
 runs:
   using: composite
   steps:
+    # drop leftover named volumes from a previous job on this node; eviction
+    # skips teardown, and prune without --all leaves buildx state volumes
+    - name: Reap leftover dind volumes
+      shell: bash
+      run: |
+        docker ps -aq --filter "name=buildx_buildkit_" | xargs -r docker rm -f
+        docker ps -aq --filter "label=io.x-k8s.kind.cluster" | xargs -r docker rm -f
+        docker ps -aq --filter "name=threeport-" | xargs -r docker rm -f
+        docker ps -aq --filter "name=local-registry" | xargs -r docker rm -f
+        docker volume prune -af
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
       with:
         driver-opts: ${{ inputs.driver-opts }}
+        # reuse one builder so runs do not accumulate uuid-named state volumes
+        name: threeport

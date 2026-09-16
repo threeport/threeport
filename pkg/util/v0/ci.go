@@ -38,8 +38,10 @@ func TeardownCILeftovers(tptctlBin, planeName string, registryDown func() error)
 		}
 	}
 	teardownStep("docker", "container", "prune", "-f", "--filter", "label=io.x-k8s.kind.cluster")
+	teardownStep("sh", "-c", `docker ps -aq --filter "name=buildx_buildkit_" | xargs -r docker rm -f`)
 	teardownStep("docker", "network", "prune", "-f")
-	teardownStep("docker", "volume", "prune", "-f")
+	// prune volumes last, including the named volumes buildx leaves
+	teardownStep("docker", "volume", "prune", "-af")
 	return nil
 }
 
