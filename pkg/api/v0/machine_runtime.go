@@ -69,7 +69,7 @@ type MachineRuntimeInstance struct {
 	NetworkID *string `validate:"optional"`
 
 	// The provider subnet identifier the machine attaches to
-	SubnetID *string `validate:"optional" gorm:"type:text"`
+	SubnetID *string `validate:"optional"`
 
 	// An inventory of all provider resources backing this machine
 	ResourceInventory *datatypes.JSON `validate:"optional"`
