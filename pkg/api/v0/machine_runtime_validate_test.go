@@ -82,6 +82,30 @@ func TestMachineRuntimeInstance_BeforeUpdate_LocationFieldsImmutable(t *testing.
 	}
 }
 
+// TestMachineRuntimeInstance_BeforeUpdate_LocationFieldsImmutableOnSave
+// rejects a PUT-shaped Save that changes region, network id, or subnet id.
+func TestMachineRuntimeInstance_BeforeUpdate_LocationFieldsImmutableOnSave(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*MachineRuntimeInstance)
+	}{
+		{"region", func(m *MachineRuntimeInstance) { m.Region = util.Ptr("other-region") }},
+		{"network id", func(m *MachineRuntimeInstance) { m.NetworkID = util.Ptr("other-network") }},
+		{"subnet id", func(m *MachineRuntimeInstance) { m.SubnetID = util.Ptr("other-subnet") }},
+	}
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := setupMachineWorkloadValidateDB(t)
+			loaded := createProvisionedMRI(t, db, fmt.Sprintf("mri-save-immutable-%d", i))
+			tt.mutate(&loaded)
+
+			err := db.Save(&loaded).Error
+			require.Error(t, err, "saving a changed %s must be rejected", tt.name)
+			assert.Contains(t, err.Error(), tt.name+" cannot be changed after creation")
+		})
+	}
+}
+
 // TestMachineRuntimeDefinition_BeforeUpdate_TemplateFieldsImmutable rejects
 // an update that changes infra provider, machine type, or image id.
 func TestMachineRuntimeDefinition_BeforeUpdate_TemplateFieldsImmutable(t *testing.T) {
@@ -109,6 +133,40 @@ func TestMachineRuntimeDefinition_BeforeUpdate_TemplateFieldsImmutable(t *testin
 
 			err := db.Model(&loaded).Updates(tt.payload).Error
 			require.Error(t, err, "changing %s must be rejected", tt.name)
+			assert.Contains(t, err.Error(), tt.name+" cannot be changed after creation")
+		})
+	}
+}
+
+// TestMachineRuntimeDefinition_BeforeUpdate_TemplateFieldsImmutableOnSave
+// rejects a PUT-shaped Save that changes infra provider, machine type, or
+// image id.
+func TestMachineRuntimeDefinition_BeforeUpdate_TemplateFieldsImmutableOnSave(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*MachineRuntimeDefinition)
+	}{
+		{"infra provider", func(m *MachineRuntimeDefinition) { m.InfraProvider = util.Ptr("other") }},
+		{"machine type", func(m *MachineRuntimeDefinition) { m.MachineType = util.Ptr("other-type") }},
+		{"image id", func(m *MachineRuntimeDefinition) { m.ImageID = util.Ptr("other-image") }},
+	}
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := setupMachineWorkloadValidateDB(t)
+			mrd := &MachineRuntimeDefinition{
+				Definition:    Definition{Name: util.Ptr(fmt.Sprintf("mrd-save-immutable-%d", i))},
+				InfraProvider: util.Ptr("gce"),
+				MachineType:   util.Ptr("e2-medium"),
+				ImageID:       util.Ptr("image-1"),
+			}
+			require.NoError(t, db.Create(mrd).Error)
+
+			var loaded MachineRuntimeDefinition
+			require.NoError(t, db.First(&loaded, *mrd.ID).Error)
+			tt.mutate(&loaded)
+
+			err := db.Save(&loaded).Error
+			require.Error(t, err, "saving a changed %s must be rejected", tt.name)
 			assert.Contains(t, err.Error(), tt.name+" cannot be changed after creation")
 		})
 	}
@@ -151,12 +209,12 @@ func TestMachineRuntimeInstance_BeforeCreate_AcceptsProviderWithRegion(t *testin
 	require.NoError(t, db.Create(mri).Error)
 }
 
-// TestMachineRuntimeInstance_BeforeCreate_AcceptsNilDefinitionFK accepts an
+// TestMachineRuntimeInstance_BeforeCreate_AcceptsNilDefinitionID accepts an
 // MRI with MachineRuntimeDefinitionID unset.
-func TestMachineRuntimeInstance_BeforeCreate_AcceptsNilDefinitionFK(t *testing.T) {
+func TestMachineRuntimeInstance_BeforeCreate_AcceptsNilDefinitionID(t *testing.T) {
 	db := setupMachineWorkloadValidateDB(t)
 
-	mri := newValidMRI("mri-no-def-fk")
+	mri := newValidMRI("mri-no-def-id")
 
 	require.NoError(t, db.Create(mri).Error)
 }

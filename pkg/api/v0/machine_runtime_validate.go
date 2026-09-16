@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -45,7 +46,11 @@ func (m *MachineRuntimeDefinition) beforeUpdate(tx *gorm.DB) error {
 		{"ImageID", "image id"},
 	}
 	for _, field := range immutableFields {
-		if tx.Statement.Changed(field.column) {
+		changed, err := lib.IsFieldChanged(tx, field.column)
+		if err != nil {
+			return err
+		}
+		if changed {
 			return util.NewBadRequestError(
 				fmt.Sprintf(
 					"machine runtime definition %s cannot be changed after creation",
@@ -134,7 +139,11 @@ func (m *MachineRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 		{"SubnetID", "subnet id"},
 	}
 	for _, field := range immutableFields {
-		if tx.Statement.Changed(field.column) {
+		changed, err := lib.IsFieldChanged(tx, field.column)
+		if err != nil {
+			return err
+		}
+		if changed {
 			return util.NewBadRequestError(
 				fmt.Sprintf(
 					"machine runtime instance %s cannot be changed after creation",

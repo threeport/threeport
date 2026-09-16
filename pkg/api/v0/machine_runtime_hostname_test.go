@@ -70,3 +70,15 @@ func TestMachineRuntimeInstanceHostnameIndexSkipsDeleted(t *testing.T) {
 	assert.Contains(t, upper, "DELETED_AT IS NULL",
 		"soft-deleted rows must fall outside the unique slot:\n%s", sql)
 }
+
+// TestMachineRuntimeInstanceHostnameIndexSkipsUnset covers unset and empty hostnames.
+func TestMachineRuntimeInstanceHostnameIndexSkipsUnset(t *testing.T) {
+	// build the index SQL
+	sql := hostnameIndexSQL(t, hostnameDryRunDB(t), hostnameIndexName)
+
+	upper := strings.ToUpper(sql)
+	assert.Contains(t, upper, "HOSTNAME IS NOT NULL",
+		"null hostnames must fall outside the unique slot:\n%s", sql)
+	assert.Contains(t, sql, "hostname <> ''",
+		"empty hostnames must fall outside the unique slot:\n%s", sql)
+}

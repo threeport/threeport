@@ -9,13 +9,13 @@ type MachineRuntimeDefinition struct {
 	Definition `mapstructure:",squash"`
 
 	// The infrastructure provider that provisions machines from this definition
-	InfraProvider *string `json:",omitempty" validate:"optional"`
+	InfraProvider *string `validate:"optional"`
 
 	// The provider-specific machine type to provision
-	MachineType *string `json:",omitempty" validate:"optional"`
+	MachineType *string `validate:"optional"`
 
 	// The provider image identifier used to boot the machine
-	ImageID *string `json:",omitempty" validate:"optional"`
+	ImageID *string `validate:"optional"`
 
 	// The associated machine runtime instances that are deployed from this
 	// definition.
@@ -40,7 +40,9 @@ type MachineRuntimeInstance struct {
 	// deleted instance is available to a new one right away. CockroachDB
 	// treats every NULL as distinct in a unique index, so any number of
 	// instances may hold no hostname while they wait on provisioning.
-	Hostname *string `json:",omitempty" validate:"optional" gorm:"uniqueIndex:idx_machine_runtime_instance_hostname,where:deleted_at IS NULL"`
+	// An empty string is excluded the same way, because it is not a
+	// hostname either.
+	Hostname *string `json:",omitempty" validate:"optional" gorm:"uniqueIndex:idx_machine_runtime_instance_hostname,where:deleted_at IS NULL AND hostname IS NOT NULL AND hostname <> ''"`
 
 	// The SSH username for authenticating to the machine. Optional at create
 	// for the same reason as the hostname; populated once the machine is
@@ -61,16 +63,16 @@ type MachineRuntimeInstance struct {
 	HostKey *string `validate:"optional"`
 
 	// The provider region in which the machine is provisioned
-	Region *string `json:",omitempty" validate:"optional"`
+	Region *string `validate:"optional"`
 
 	// The provider network identifier the machine attaches to
-	NetworkID *string `json:",omitempty" validate:"optional"`
+	NetworkID *string `validate:"optional"`
 
 	// The provider subnet identifier the machine attaches to
-	SubnetID *string `json:",omitempty" gorm:"type:text" validate:"optional"`
+	SubnetID *string `validate:"optional" gorm:"type:text"`
 
 	// An inventory of all provider resources backing this machine
-	ResourceInventory *datatypes.JSON `json:",omitempty" validate:"optional"`
+	ResourceInventory *datatypes.JSON `validate:"optional"`
 
 	// The machine runtime definition for this instance.  Optional because
 	// imported machines may not have an associated definition.
