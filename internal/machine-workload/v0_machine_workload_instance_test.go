@@ -2,8 +2,10 @@ package machineworkload
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -20,6 +22,7 @@ import (
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	"github.com/threeport/threeport/pkg/encryption/v0"
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -639,4 +642,66 @@ func TestMachineWorkloadInstanceDeleted_ScriptFailsPastGracePeriod(t *testing.T)
 	assert.Equal(t, int64(0), delay)
 	// the script ran and failed before the grace cap fired, so both reasons land
 	assert.Equal(t, []string{"ScriptFailed", "DeleteScriptFailedGraceExceeded"}, f.recorder.GetReasons())
+}
+
+// TestSshDialFailed covers TCP-level connect failures versus auth and
+// decrypt errors that must not trip the unreachable grace path.
+func TestSshDialFailed(t *testing.T) {
+	refused := &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connection refused")}
+	timeout := &net.OpError{Op: "dial", Net: "tcp", Err: timeoutErr{}}
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil", err: nil, want: false},
+		{name: "decrypt", err: errors.New("failed to decrypt ssh password"), want: false},
+		{name: "auth", err: fmt.Errorf("failed to dial ssh 127.0.0.1:22: %w", errors.New("unable to authenticate")), want: false},
+		{name: "host key", err: fmt.Errorf("failed to dial ssh 127.0.0.1:22: %w", errors.New("host key mismatch")), want: false},
+		{name: "refused", err: fmt.Errorf("failed to dial ssh 127.0.0.1:22: %w", refused), want: true},
+		{name: "timeout", err: fmt.Errorf("failed to dial ssh 192.0.2.1:22: %w", timeout), want: true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, sshDialFailed(c.err))
+		})
+	}
+}
+
+// timeoutErr is a net.Error that reports Timeout.
+type timeoutErr struct{}
+
+func (timeoutErr) Error() string   { return "i/o timeout" }
+func (timeoutErr) Timeout() bool   { return true }
+func (timeoutErr) Temporary() bool { return true }
+
+// TestMachineWorkloadInstanceDeleted_AuthFailPastGracePeriod covers a
+// reachable host with a wrong password after the grace period: sshDialFailed
+// is false, so delete does not confirm.
+func TestMachineWorkloadInstanceDeleted_AuthFailPastGracePeriod(t *testing.T) {
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
+	wrong, err := encryption.Encrypt(f.r.EncryptionKey, "wrong")
+	require.NoError(t, err)
+	f.mri.SSHPassword = util.Ptr(wrong)
+	f.mwi.DeletionScheduled = util.Ptr(time.Now().Add(-2 * unreachableDeleteGracePeriod))
+	log := logr.Discard()
+
+	delay, err := v0MachineWorkloadInstanceDeleted(f.r, f.mwi, &log)
+	require.Error(t, err)
+	assert.Equal(t, int64(30), delay)
+	assert.NotContains(t, f.recorder.GetReasons(), "DeleteScriptSkipped")
+}
+
+// TestMachineWorkloadInstanceDeleted_EventRecordFailsPastGrace covers a
+// RecordEvent failure after grace: the handler still returns (0, nil) so
+// a failed event write cannot pin the delete.
+func TestMachineWorkloadInstanceDeleted_EventRecordFailsPastGrace(t *testing.T) {
+	f := newFixture(t, machinetest.SSHOpts{ExitCode: 1})
+	f.recorder.RecordErr = errors.New("nats down")
+	f.mwi.DeletionScheduled = util.Ptr(time.Now().Add(-2 * unreachableDeleteGracePeriod))
+	log := logr.Discard()
+
+	delay, err := v0MachineWorkloadInstanceDeleted(f.r, f.mwi, &log)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), delay)
 }
