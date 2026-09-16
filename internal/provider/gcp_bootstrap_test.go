@@ -59,4 +59,5 @@ func TestCanonicalGCPAccountName_RejectsCaseFolding(t *testing.T) {
 	require.True(t, canonicalGCPAccountName("my-provider"))
 	require.False(t, canonicalGCPAccountName("My-Provider"))
 	require.False(t, canonicalGCPAccountName("my_provider"))
+	require.False(t, canonicalGCPAccountName("aaaaaaaaaaaaaaaaa"))
 }

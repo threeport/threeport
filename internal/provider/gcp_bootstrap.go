@@ -785,7 +785,8 @@ func generateServiceAccountID(name string) string {
 }
 
 // canonicalGCPAccountName reports whether name is already the unique
-// lowercase [a-z0-9-] form formatServiceAccountID would produce from it.
+// lowercase [a-z0-9-] form, and whether generateServiceAccountID keeps it
+// without truncating to 30 characters.
 func canonicalGCPAccountName(name string) bool {
 	if name == "" {
 		return false
@@ -795,7 +796,9 @@ func canonicalGCPAccountName(name string) bool {
 			return false
 		}
 	}
-	return generateServiceAccountID(name) == generateServiceAccountID(strings.ToLower(name))
+	id := generateServiceAccountID(name)
+	full := strings.ToLower(fmt.Sprintf(serviceAccountNameFormat, name))
+	return id == full
 }
 
 // grantServiceAccountRolesForProject grants the necessary IAM roles to a service account.
