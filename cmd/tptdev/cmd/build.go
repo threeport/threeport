@@ -4,7 +4,6 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -20,9 +19,6 @@ import (
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	installer "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 )
 
@@ -308,37 +304,7 @@ func init() {
 	)
 }
 
-// detectAuthEnabled checks the running API server deployment to determine if
-// auth is enabled. Returns true (auth enabled) if the deployment doesn't have
-// -auth-enabled=false in its args, or if the deployment can't be read.
+// detectAuthEnabled reports whether the running API server enables auth.
 func detectAuthEnabled(kubeClient *dynamic.DynamicClient) bool {
-	deployRes := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
-	deploy, err := kubeClient.Resource(deployRes).Namespace(installer.ControlPlaneNamespace).Get(
-		context.Background(),
-		"threeport-api-server",
-		metav1.GetOptions{},
-	)
-	if err != nil {
-		// if we can't read the deployment, default to auth enabled (safe default)
-		return true
-	}
-
-	containers, found, err := unstructured.NestedSlice(deploy.Object, "spec", "template", "spec", "containers")
-	if err != nil || !found || len(containers) == 0 {
-		return true
-	}
-
-	container := containers[0].(map[string]interface{})
-	args, found, err := unstructured.NestedStringSlice(container, "args")
-	if err != nil || !found {
-		return true
-	}
-
-	for _, arg := range args {
-		if arg == "-auth-enabled=false" {
-			return false
-		}
-	}
-
-	return true
+	return installer.DetectAuthEnabled(kubeClient, installer.ControlPlaneNamespace)
 }

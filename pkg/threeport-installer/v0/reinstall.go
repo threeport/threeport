@@ -704,3 +704,39 @@ func (cpi *ControlPlaneInstaller) LoadAuthConfigFromCluster(
 		CAPrivateKeyBase64Encoded: util.Base64Encode(string(keyPem)),
 	}, nil
 }
+
+// DetectAuthEnabled reports whether the running API server enables auth.
+// A missing deployment or unreadable args returns true.
+func DetectAuthEnabled(kubeClient dynamic.Interface, namespace string) bool {
+	// read the api server args for an explicit disable
+	deploy, err := kubeClient.Resource(deploymentGVR).Namespace(namespace).Get(
+		context.Background(),
+		ThreeportAPIServiceResourceName,
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		return true
+	}
+
+	containers, found, err := unstructured.NestedSlice(deploy.Object, "spec", "template", "spec", "containers")
+	if err != nil || !found || len(containers) == 0 {
+		return true
+	}
+
+	container, ok := containers[0].(map[string]interface{})
+	if !ok {
+		return true
+	}
+	args, found, err := unstructured.NestedStringSlice(container, "args")
+	if err != nil || !found {
+		return true
+	}
+
+	for _, arg := range args {
+		if arg == "-auth-enabled=false" {
+			return false
+		}
+	}
+
+	return true
+}

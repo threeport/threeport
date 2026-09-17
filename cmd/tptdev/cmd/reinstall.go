@@ -160,7 +160,7 @@ change.`,
 		cpi.Opts.ControllerList = selected
 
 		// detect auth state from the running API server deployment
-		cpi.Opts.AuthEnabled = detectAuthEnabled(kubeClient)
+		cpi.Opts.AuthEnabled = installer.DetectAuthEnabled(kubeClient, cpi.Opts.Namespace)
 
 		// load existing CA so newly added controllers get certs signed by it
 		var authConfig *auth.AuthConfig
