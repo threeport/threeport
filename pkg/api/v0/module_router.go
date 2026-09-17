@@ -14,6 +14,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
+
+	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
 // The core API is the only address clients call. Module APIs register
@@ -43,12 +45,6 @@ func InitModuleRouter(
 	e *echo.Echo,
 	authEnabled bool,
 ) error {
-	// query non-core module APIs; core routes are served by this process
-	var moduleApis []ModuleApi
-	if result := db.Preload("ModuleApiRoutes").Where("core = ?", false).Find(&moduleApis); result.Error != nil {
-		return fmt.Errorf("failed to query module APIs from database: %w", result.Error)
-	}
-
 	// build the module proxy transport
 	transport, err := moduleProxyTransport(authEnabled)
 	if err != nil {
@@ -61,13 +57,25 @@ func InitModuleRouter(
 		scheme = "https"
 	}
 
-	// store scheme and transport for later route registration
+	// store scheme and transport for route registration, which reads them
 	ModRouter.SetProxyConfig(scheme, transport)
 
-	// add a reverse proxy handler for each module route
-	for _, modApi := range moduleApis {
-		for _, apiRoute := range modApi.ModuleApiRoutes {
-			ModRouter.AddRoute(*apiRoute.Path, moduleProxyHandler(scheme, transport, *modApi.Endpoint))
+	// every distinct path, core rows included. Reconciliation is what decides
+	// whether a path is proxied, and it has to see a core row to reject a path
+	// a duplicate would otherwise make ambiguous.
+	var paths []string
+	if result := db.Model(&ModuleApiRoute{}).Distinct().Pluck("path", &paths); result.Error != nil {
+		return fmt.Errorf("failed to query module API route paths from database: %w", result.Error)
+	}
+
+	// startup goes through the same reconciliation as a create or a delete.
+	// Registering routes directly here would be a second rule for what the
+	// router should hold, and the two would disagree the moment a path is named
+	// by more than one row - a restart serving a path that reconciliation had
+	// removed, or the reverse.
+	for _, path := range paths {
+		if err := ReconcileModuleRoute(db, path); err != nil {
+			return fmt.Errorf("failed to reconcile module route for path %s: %w", path, err)
 		}
 	}
 
@@ -109,6 +117,24 @@ func moduleProxyHandler(
 // on one path cannot leave the router holding what the database does not.
 var moduleRouteReconcile sync.Mutex
 
+// moduleRouteReconcileAttempts and moduleRouteReconcileWaitSeconds bound the
+// retry of the reads reconciliation makes. They are variables rather than
+// constants so a test does not have to wait through the delay.
+var (
+	moduleRouteReconcileAttempts    = 5
+	moduleRouteReconcileWaitSeconds = 1
+)
+
+// pendingModuleRoutes holds paths whose reconciliation could not read the
+// database, so a later reconciliation can repair them.
+//
+// The write these paths describe has already committed by the time
+// reconciliation runs, and the request that carried it cannot be replayed to
+// try again: repeating a create answers 409 and repeating a delete answers 404,
+// and neither reaches reconciliation. Without this the router would hold the
+// wrong thing for that path until the process restarted.
+var pendingModuleRoutes sync.Map
+
 // ReconcileModuleRoute brings the router's entry for one path in line with what
 // the database holds, and is the only thing that writes to the router after
 // startup.
@@ -133,9 +159,58 @@ func ReconcileModuleRoute(db *gorm.DB, path string) error {
 	moduleRouteReconcile.Lock()
 	defer moduleRouteReconcile.Unlock()
 
+	// repair any path a previous reconciliation could not read before doing
+	// this one, since a reachable database is what they were waiting for
+	drainPendingModuleRoutes(db, path)
+
+	if err := reconcileModuleRouteLocked(db, path); err != nil {
+		pendingModuleRoutes.Store(path, struct{}{})
+
+		return err
+	}
+	pendingModuleRoutes.Delete(path)
+
+	return nil
+}
+
+// drainPendingModuleRoutes retries the paths an earlier reconciliation could
+// not read. The caller holds the reconciliation lock.
+//
+// A path that fails again is left pending, and a failure is not reported: the
+// caller is reconciling a different path and its own result is what the
+// request turns on.
+func drainPendingModuleRoutes(db *gorm.DB, except string) {
+	pendingModuleRoutes.Range(func(key, _ any) bool {
+		pending, ok := key.(string)
+		if !ok || pending == except {
+			return true
+		}
+		if err := reconcileModuleRouteLocked(db, pending); err == nil {
+			pendingModuleRoutes.Delete(pending)
+		}
+
+		return true
+	})
+}
+
+// reconcileModuleRouteLocked is the body of ReconcileModuleRoute. The caller
+// holds the reconciliation lock.
+//
+// The reads are retried: they run after the write committed, so giving up on a
+// database that is briefly unreachable would leave the router disagreeing with
+// a change the client was told nothing more about.
+func reconcileModuleRouteLocked(db *gorm.DB, path string) error {
 	var routes []ModuleApiRoute
-	if result := db.Where("path = ?", path).Find(&routes); result.Error != nil {
-		return fmt.Errorf("failed to query module API routes for path %s: %w", path, result.Error)
+	if err := util.Retry(
+		moduleRouteReconcileAttempts,
+		moduleRouteReconcileWaitSeconds,
+		func() error {
+			routes = nil
+
+			return db.Where("path = ?", path).Find(&routes).Error
+		},
+	); err != nil {
+		return fmt.Errorf("failed to query module API routes for path %s: %w", path, err)
 	}
 
 	// no committed row for this path: the router must not serve it. This covers
@@ -158,11 +233,16 @@ func ReconcileModuleRoute(db *gorm.DB, path string) error {
 	}
 
 	var modApi ModuleApi
-	if result := db.Where("id = ?", *winner.ModuleApiID).First(&modApi); result.Error != nil {
-		return fmt.Errorf(
-			"failed to retrieve module API for route %s: %w",
-			path, result.Error,
-		)
+	if err := util.Retry(
+		moduleRouteReconcileAttempts,
+		moduleRouteReconcileWaitSeconds,
+		func() error {
+			modApi = ModuleApi{}
+
+			return db.Where("id = ?", *winner.ModuleApiID).First(&modApi).Error
+		},
+	); err != nil {
+		return fmt.Errorf("failed to retrieve module API for route %s: %w", path, err)
 	}
 
 	// core routes are served by this process, not proxied

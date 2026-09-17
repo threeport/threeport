@@ -3,6 +3,7 @@ package v0
 import (
 	"testing"
 
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -156,4 +157,81 @@ func TestReconcileModuleRoute_PicksTheLowestIdForADuplicatePath(t *testing.T) {
 	// the other row would have skipped it as core
 	require.NoError(t, ReconcileModuleRoute(db, path))
 	assert.True(t, routeServed(path), "the lowest ID wins, and that row's API is not core")
+}
+
+// TestInitModuleRouter_AgreesWithReconciliation covers the two rules problem.
+// Startup used to register every route belonging to a non-core API, which meant
+// a duplicated path where the lowest ID is core was served after a restart and
+// removed by reconciliation - the router's contents depending on which of the
+// two last ran.
+func TestInitModuleRouter_AgreesWithReconciliation(t *testing.T) {
+	db := setupModuleRouterTestDB(t)
+	coreApiId := seedModuleApi(t, db, "core", true)
+	moduleApiId := seedModuleApi(t, db, "example", false)
+
+	unhooked := db.Session(&gorm.Session{SkipHooks: true})
+
+	// the core row takes the lower ID, so reconciliation rejects the path
+	path := "/example.com/v0/widgets"
+	core := ModuleApiRoute{Path: util.Ptr(path), ModuleApiID: &coreApiId}
+	require.NoError(t, unhooked.Create(&core).Error)
+	proxied := ModuleApiRoute{Path: util.Ptr(path), ModuleApiID: &moduleApiId}
+	require.NoError(t, unhooked.Create(&proxied).Error)
+	require.Less(t, *core.ID, *proxied.ID)
+
+	// a path only the non-core API names, to show startup still registers
+	plainPath := "/example.com/v0/gadgets"
+	plain := ModuleApiRoute{Path: util.Ptr(plainPath), ModuleApiID: &moduleApiId}
+	require.NoError(t, unhooked.Create(&plain).Error)
+
+	require.NoError(t, InitModuleRouter(db, echo.New(), false))
+
+	assert.False(
+		t, routeServed(path),
+		"startup has to reach the same answer reconciliation does for a duplicated path",
+	)
+	assert.True(t, routeServed(plainPath), "an unambiguous path is still served")
+
+	// and reconciliation run afterwards must not change what startup produced
+	require.NoError(t, ReconcileModuleRoute(db, path))
+	require.NoError(t, ReconcileModuleRoute(db, plainPath))
+	assert.False(t, routeServed(path))
+	assert.True(t, routeServed(plainPath))
+}
+
+// TestReconcileModuleRoute_RepairsAPathAFailedReadLeftBehind covers the window
+// the retry does not close. The write has already committed when reconciliation
+// runs, and the request cannot be replayed to try again - a repeated create
+// answers 409 and a repeated delete answers 404 - so a path whose read failed
+// has to be picked up by a later reconciliation rather than wait for a restart.
+func TestReconcileModuleRoute_RepairsAPathAFailedReadLeftBehind(t *testing.T) {
+	db := setupModuleRouterTestDB(t)
+	moduleApiId := seedModuleApi(t, db, "example", false)
+
+	attempts, seconds := moduleRouteReconcileAttempts, moduleRouteReconcileWaitSeconds
+	moduleRouteReconcileAttempts, moduleRouteReconcileWaitSeconds = 1, 0
+	t.Cleanup(func() {
+		moduleRouteReconcileAttempts, moduleRouteReconcileWaitSeconds = attempts, seconds
+	})
+
+	failed := "/example.com/v0/widgets"
+	route := ModuleApiRoute{Path: util.Ptr(failed), ModuleApiID: &moduleApiId}
+	require.NoError(t, db.Create(&route).Error)
+
+	// a database that cannot answer: the route is committed but the router is
+	// not told, and the handler has already returned 500 to the caller
+	broken, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.Error(t, ReconcileModuleRoute(broken, failed))
+	require.False(t, routeServed(failed))
+
+	// the next reconciliation of any path repairs it
+	other := "/example.com/v0/gadgets"
+	require.NoError(t, db.Create(&ModuleApiRoute{
+		Path: util.Ptr(other), ModuleApiID: &moduleApiId,
+	}).Error)
+	require.NoError(t, ReconcileModuleRoute(db, other))
+
+	assert.True(t, routeServed(failed), "the path a failed read left behind has to be repaired")
+	assert.True(t, routeServed(other))
 }
