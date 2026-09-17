@@ -42,8 +42,7 @@ type KubernetesRuntimeInfraKind struct {
 	// The protocol is assumed TCP
 	PortMappings map[int32]int32
 
-	// Host port to bind the threeport API to. Overrides the default 443
-	// host-side mapping to containerPort 30000.
+	// The host port bound to container port 30000, 0 for the auth-based default
 	ApiServerHostPort int
 }
 
@@ -233,14 +232,15 @@ func kindWorkers(numWorkerNodes int, threeportPath, goPath, goCache string) *[]v
 	return &nodes
 }
 
-// getPortMapping returns port mappings for the kind cluster. When
-// apiServerHostPort is non-zero, it overrides the default auth-based host port
-// bound to containerPort 30000.
+// getPortMapping returns extra port mappings for the kind control plane node.
 func getPortMapping(authEnabled bool, portMappings map[int32]int32, apiServerHostPort int) []v1alpha4.PortMapping {
+	// set host port from auth, override when apiServerHostPort is set
 	hostPort := threeport.GetThreeportAPIPort(authEnabled)
 	if apiServerHostPort != 0 {
 		hostPort = apiServerHostPort
 	}
+
+	// map container port 30000 to that host port
 	extraPortMappings := make([]v1alpha4.PortMapping, 0)
 	extraPortMappings = append(
 		extraPortMappings,
@@ -250,6 +250,7 @@ func getPortMapping(authEnabled bool, portMappings map[int32]int32, apiServerHos
 			Protocol:      v1alpha4.PortMappingProtocolTCP,
 		})
 
+	// append caller-supplied mappings
 	for cPort, hPort := range portMappings {
 		extraPortMappings = append(
 			extraPortMappings,

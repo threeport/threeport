@@ -220,9 +220,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			threeportControlPlaneConfig = &ControlPlane{}
 		}
 	} else {
-		// fresh install: only block or overwrite an existing entry that
-		// matches the requested control plane name, leaving other entries
-		// untouched so multiple named instances can coexist.
+		// overwrite or reject a same-name config entry, leaving other entries in place
 		if _, err := threeportConfig.GetControlPlaneConfig(cpi.Opts.ControlPlaneName); err == nil {
 			if !cpi.Opts.ForceOverwriteConfig {
 				return fmt.Errorf(
@@ -230,7 +228,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 					cpi.Opts.ControlPlaneName, ErrThreeportConfigAlreadyExists,
 				)
 			}
-			// drop the existing entry with the same name; other entries stay in place
+			// drop the existing entry with the same name
 			threeportConfig.ControlPlanes = slices.DeleteFunc(
 				threeportConfig.ControlPlanes,
 				func(c ControlPlane) bool { return c.Name == cpi.Opts.ControlPlaneName },
@@ -587,10 +585,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// for kind, the API endpoint is known upfront so we can install TLS
 	// secrets before deploying the API server to avoid mount failures
 	if controlPlane.InfraProvider == v0.KubernetesRuntimeInfraProviderKind {
-		// update threeport config with api endpoint. --control-plane-only
-		// installs onto a kind node whose host port for the API's NodePort
-		// was fixed when the cluster was originally created, so an explicit
-		// override takes precedence over the auth-derived default.
+		// set the kind API endpoint, honoring an explicit host-port override
 		var err error
 		apiPort := threeport.ResolveKindAPIHostPort(cpi.Opts.AuthEnabled, cpi.Opts.ApiServerHostPort)
 		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(apiPort)
@@ -722,15 +717,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return uninstaller.cleanOnCreateError("failed to install threeport support services CRDs", err)
 	}
 
-	// register the default compute space kubernetes runtime definition and
-	// instance in the threeport API. On a fresh install this is always a
-	// create. Under --control-plane-only, tptctl installs onto a cluster
-	// that already exists (either provisioned by tptctl on a prior run or
-	// registered externally), so re-running the create would collide with
-	// the prior registration. Look up by name first: reuse the existing
-	// records when found, create when not. Keeps the operation idempotent
-	// across repeat --control-plane-only invocations while preserving the
-	// original create-only path for fresh installs on every provider.
+	// register the default compute space runtime, looking up first under --control-plane-only
 	kubernetesRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	defReconciled := true // this definition for the bootstrap cluster does not require reconcilation
 	var kubernetesRuntimeDefResult *v0.KubernetesRuntimeDefinition
@@ -1391,21 +1378,12 @@ func runtimeInstanceName(opts threeport.Options) string {
 		//     name, matching clusters tptctl provisions itself
 		return opts.ClusterName
 	}
-	// new cluster: callers pass just the identifier (--name 1) and
-	// ThreeportRuntimeName enforces the "threeport-" prefix so every
-	// tptctl-provisioned cluster is discoverable by that convention.
+	// prefix a tptctl-provisioned cluster name with threeport-
 	return provider.ThreeportRuntimeName(opts.ControlPlaneName)
 }
 
-// ensureBootstrapKubernetesRuntime looks up the bootstrap kubernetes
-// runtime definition and instance by name and creates whichever is
-// missing. Under --control-plane-only, tptctl installs onto a cluster
-// that already exists, so on a repeat run the definition and instance
-// records may already be present from a prior invocation; a plain
-// create would collide on the unique name. Returning the existing
-// records when found lets the caller proceed without failing on the
-// duplicate, and falling through to create when not found covers the
-// first-run case where nothing has been registered yet.
+// ensureBootstrapKubernetesRuntime looks up the bootstrap kubernetes runtime
+// definition and instance by name and creates whichever is missing.
 func ensureBootstrapKubernetesRuntime(
 	apiClient *http.Client,
 	apiEndpoint string,
@@ -1415,7 +1393,7 @@ func ensureBootstrapKubernetesRuntime(
 	infraProvider string,
 	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
 ) (*v0.KubernetesRuntimeDefinition, *v0.KubernetesRuntimeInstance, error) {
-	// look up the definition; create it when the API reports it missing
+	// look up the definition and create it if missing
 	def, err := client.GetKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, defName)
 	if err != nil {
 		if !errors.Is(err, client_lib.ErrObjectNotFound) {
@@ -1436,7 +1414,7 @@ func ensureBootstrapKubernetesRuntime(
 		}
 	}
 
-	// look up the instance; create it when the API reports it missing
+	// look up the instance and create it if missing
 	inst, err := client.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, instName)
 	if err != nil {
 		if !errors.Is(err, client_lib.ErrObjectNotFound) {

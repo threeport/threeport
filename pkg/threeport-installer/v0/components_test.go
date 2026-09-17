@@ -2,11 +2,10 @@ package v0
 
 import "testing"
 
-// TestResolveKindAPIHostPort exercises the kind host port resolution helper
-// across the cases callers depend on: an explicit override taking
-// precedence regardless of auth, and no override falling back to the
-// auth-derived default for both auth states.
+// TestResolveKindAPIHostPort covers kind API host-port resolution for an
+// explicit override and for the auth-derived default in both auth states.
 func TestResolveKindAPIHostPort(t *testing.T) {
+	// set cases for override and auth-derived default
 	tests := []struct {
 		name              string
 		authEnabled       bool
@@ -39,12 +38,13 @@ func TestResolveKindAPIHostPort(t *testing.T) {
 		},
 	}
 
+	// run each case
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// action: resolve the host port for the given auth state and override
+			// resolve the host port
 			gotPort := ResolveKindAPIHostPort(tt.authEnabled, tt.apiServerHostPort)
 
-			// assertion: resolved port matches expectation
+			// expect the wanted port
 			if gotPort != tt.wantPort {
 				t.Errorf("expected port %d, got %d", tt.wantPort, gotPort)
 			}

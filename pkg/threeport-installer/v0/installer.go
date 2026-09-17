@@ -126,8 +126,7 @@ type Options struct {
 	// Port mappings for kind infra provider
 	KindPortMappings []string
 
-	// Host port to bind the threeport API to when using the kind provider.
-	// Overrides the default 443 host-side mapping to containerPort 30000.
+	// Host port to bind the threeport API for the kind provider
 	ApiServerHostPort int
 
 	// If true, a cloud load balancer is provisioned for the threeport API.

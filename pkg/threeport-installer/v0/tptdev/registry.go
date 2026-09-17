@@ -190,9 +190,7 @@ func applyK8sConfig(config string) error {
 		},
 	}
 
-	// an existing configmap from a previous partial install carries the same
-	// static content, so treat AlreadyExists as success rather than aborting
-	// the whole up path on a retry
+	// ignore already exists; the configmap body is static
 	if _, err = clientset.CoreV1().ConfigMaps("kube-public").Create(context.TODO(), configMap, metav1.CreateOptions{}); err != nil {
 		if !kubeerr.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create configmap for local registry: %w", err)
