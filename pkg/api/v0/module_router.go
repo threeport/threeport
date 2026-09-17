@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -126,14 +128,67 @@ var (
 )
 
 // pendingModuleRoutes holds paths whose reconciliation could not read the
-// database, so a later reconciliation can repair them.
+// database, so they can be repaired.
 //
 // The write these paths describe has already committed by the time
 // reconciliation runs, and the request that carried it cannot be replayed to
 // try again: repeating a create answers 409 and repeating a delete answers 404,
-// and neither reaches reconciliation. Without this the router would hold the
+// and neither reaches reconciliation. Without repair the router would hold the
 // wrong thing for that path until the process restarted.
 var pendingModuleRoutes sync.Map
+
+// moduleRouteRepairRunning says whether a goroutine is draining the pending
+// paths, and moduleRouteRepairWait is how long it leaves between attempts. The
+// wait is a variable so a test does not have to sit through it.
+var (
+	moduleRouteRepairRunning atomic.Bool
+	moduleRouteRepairWait    = 10 * time.Second
+)
+
+// hasPendingModuleRoutes reports whether any path is waiting to be repaired.
+func hasPendingModuleRoutes() bool {
+	pending := false
+	pendingModuleRoutes.Range(func(any, any) bool {
+		pending = true
+
+		return false
+	})
+
+	return pending
+}
+
+// startModuleRouteRepair makes sure a goroutine is retrying the paths
+// reconciliation could not read, and returns without starting a second one.
+//
+// Retrying on the next reconciliation is not enough on its own: nothing
+// guarantees another module route is ever created or deleted, and until one is,
+// the router goes on serving a path the database no longer has, or not serving
+// one it does. The goroutine exits once nothing is pending, so a control plane
+// that never fails a read never runs it.
+func startModuleRouteRepair(db *gorm.DB) {
+	if !moduleRouteRepairRunning.CompareAndSwap(false, true) {
+		return
+	}
+
+	go func() {
+		defer func() {
+			moduleRouteRepairRunning.Store(false)
+			// a path that became pending as this was exiting would otherwise
+			// be left with nothing retrying it
+			if hasPendingModuleRoutes() {
+				startModuleRouteRepair(db)
+			}
+		}()
+
+		for hasPendingModuleRoutes() {
+			time.Sleep(moduleRouteRepairWait)
+
+			moduleRouteReconcile.Lock()
+			drainPendingModuleRoutes(db, "")
+			moduleRouteReconcile.Unlock()
+		}
+	}()
+}
 
 // ReconcileModuleRoute brings the router's entry for one path in line with what
 // the database holds, and is the only thing that writes to the router after
@@ -165,6 +220,7 @@ func ReconcileModuleRoute(db *gorm.DB, path string) error {
 
 	if err := reconcileModuleRouteLocked(db, path); err != nil {
 		pendingModuleRoutes.Store(path, struct{}{})
+		startModuleRouteRepair(db)
 
 		return err
 	}

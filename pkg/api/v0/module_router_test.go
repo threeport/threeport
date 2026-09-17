@@ -1,7 +1,10 @@
 package v0
 
 import (
+	"errors"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
@@ -29,6 +32,16 @@ func setupModuleRouterTestDB(t *testing.T) *gorm.DB {
 
 			return true
 		})
+		pendingModuleRoutes.Range(func(key, _ any) bool {
+			pendingModuleRoutes.Delete(key)
+
+			return true
+		})
+		// the repair goroutine exits once nothing is pending; wait so it does
+		// not outlive the test and touch the next one's router
+		for moduleRouteRepairRunning.Load() {
+			time.Sleep(time.Millisecond)
+		}
 	})
 
 	return db
@@ -199,39 +212,103 @@ func TestInitModuleRouter_AgreesWithReconciliation(t *testing.T) {
 	assert.True(t, routeServed(plainPath))
 }
 
+// failingModuleRouterDB returns a database and a switch that makes its reads
+// fail, which is what a briefly unreachable control plane database looks like
+// to reconciliation: one handle, not a different one.
+func failingModuleRouterDB(t *testing.T) (*gorm.DB, *atomic.Bool) {
+	t.Helper()
+
+	db := setupModuleRouterTestDB(t)
+
+	var failing atomic.Bool
+	require.NoError(t, db.Callback().Query().Before("gorm:query").Register(
+		"test:fail_reads",
+		func(tx *gorm.DB) {
+			if failing.Load() {
+				tx.AddError(errors.New("database unavailable"))
+			}
+		},
+	))
+
+	return db, &failing
+}
+
+// withFastModuleRouteRepair shrinks the retry waits so a test does not sit
+// through them.
+func withFastModuleRouteRepair(t *testing.T) {
+	t.Helper()
+
+	attempts, seconds, wait := moduleRouteReconcileAttempts,
+		moduleRouteReconcileWaitSeconds, moduleRouteRepairWait
+	moduleRouteReconcileAttempts, moduleRouteReconcileWaitSeconds = 1, 0
+	moduleRouteRepairWait = time.Millisecond
+
+	t.Cleanup(func() {
+		moduleRouteReconcileAttempts, moduleRouteReconcileWaitSeconds = attempts, seconds
+		moduleRouteRepairWait = wait
+	})
+}
+
 // TestReconcileModuleRoute_RepairsAPathAFailedReadLeftBehind covers the window
 // the retry does not close. The write has already committed when reconciliation
 // runs, and the request cannot be replayed to try again - a repeated create
 // answers 409 and a repeated delete answers 404 - so a path whose read failed
-// has to be picked up by a later reconciliation rather than wait for a restart.
+// has to be picked up rather than wait for a restart.
 func TestReconcileModuleRoute_RepairsAPathAFailedReadLeftBehind(t *testing.T) {
-	db := setupModuleRouterTestDB(t)
+	withFastModuleRouteRepair(t)
+	db, failing := failingModuleRouterDB(t)
 	moduleApiId := seedModuleApi(t, db, "example", false)
 
-	attempts, seconds := moduleRouteReconcileAttempts, moduleRouteReconcileWaitSeconds
-	moduleRouteReconcileAttempts, moduleRouteReconcileWaitSeconds = 1, 0
-	t.Cleanup(func() {
-		moduleRouteReconcileAttempts, moduleRouteReconcileWaitSeconds = attempts, seconds
-	})
+	failedPath := "/example.com/v0/widgets"
+	require.NoError(t, db.Create(&ModuleApiRoute{
+		Path: util.Ptr(failedPath), ModuleApiID: &moduleApiId,
+	}).Error)
+	otherPath := "/example.com/v0/gadgets"
+	require.NoError(t, db.Create(&ModuleApiRoute{
+		Path: util.Ptr(otherPath), ModuleApiID: &moduleApiId,
+	}).Error)
 
-	failed := "/example.com/v0/widgets"
-	route := ModuleApiRoute{Path: util.Ptr(failed), ModuleApiID: &moduleApiId}
-	require.NoError(t, db.Create(&route).Error)
-
-	// a database that cannot answer: the route is committed but the router is
-	// not told, and the handler has already returned 500 to the caller
-	broken, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	require.Error(t, ReconcileModuleRoute(broken, failed))
-	require.False(t, routeServed(failed))
+	// the route is committed but the database cannot be read, so the router is
+	// not told and the handler has already answered 500
+	failing.Store(true)
+	require.Error(t, ReconcileModuleRoute(db, failedPath))
+	require.False(t, routeServed(failedPath))
 
 	// the next reconciliation of any path repairs it
-	other := "/example.com/v0/gadgets"
-	require.NoError(t, db.Create(&ModuleApiRoute{
-		Path: util.Ptr(other), ModuleApiID: &moduleApiId,
-	}).Error)
-	require.NoError(t, ReconcileModuleRoute(db, other))
+	failing.Store(false)
+	require.NoError(t, ReconcileModuleRoute(db, otherPath))
 
-	assert.True(t, routeServed(failed), "the path a failed read left behind has to be repaired")
-	assert.True(t, routeServed(other))
+	assert.True(t, routeServed(failedPath), "the path a failed read left behind has to be repaired")
+	assert.True(t, routeServed(otherPath))
+}
+
+// TestReconcileModuleRoute_RepairsWithoutAnotherRouteChange is the case waiting
+// on the next reconciliation does not cover. Nothing guarantees another module
+// route is ever created or deleted, so a path left behind by a failed read has
+// to be retried on its own rather than stay wrong until the process restarts.
+func TestReconcileModuleRoute_RepairsWithoutAnotherRouteChange(t *testing.T) {
+	withFastModuleRouteRepair(t)
+	db, failing := failingModuleRouterDB(t)
+	moduleApiId := seedModuleApi(t, db, "example", false)
+
+	path := "/example.com/v0/widgets"
+	require.NoError(t, db.Create(&ModuleApiRoute{
+		Path: util.Ptr(path), ModuleApiID: &moduleApiId,
+	}).Error)
+
+	failing.Store(true)
+	require.Error(t, ReconcileModuleRoute(db, path))
+	require.False(t, routeServed(path))
+
+	// the database comes back and nothing else touches a module route
+	failing.Store(false)
+
+	assert.Eventually(
+		t, func() bool { return routeServed(path) }, 5*time.Second, 5*time.Millisecond,
+		"the route has to be repaired without waiting for another route change",
+	)
+	assert.Eventually(
+		t, func() bool { return !moduleRouteRepairRunning.Load() }, time.Second, 5*time.Millisecond,
+		"the repair goroutine has to stop once nothing is pending",
+	)
 }
