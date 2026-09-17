@@ -67,27 +67,113 @@ func InitModuleRouter(
 	// add a reverse proxy handler for each module route
 	for _, modApi := range moduleApis {
 		for _, apiRoute := range modApi.ModuleApiRoutes {
-			ModRouter.AddRoute(*apiRoute.Path, func(c echo.Context) error {
-				// parse the module proxy target URL
-				proxyUrl, err := url.Parse(
-					fmt.Sprintf("%s://%s", scheme, *modApi.Endpoint),
-				)
-				if err != nil {
-					return fmt.Errorf("failed to parse module's proxy target URL: %w", err)
-				}
-				// create a reverse proxy for the module API
-				proxy := httputil.NewSingleHostReverseProxy(proxyUrl)
-				// use the shared module proxy transport
-				proxy.Transport = transport
-				// serve the proxied request
-				proxy.ServeHTTP(c.Response().Writer, c.Request())
-				return nil
-			})
+			ModRouter.AddRoute(*apiRoute.Path, moduleProxyHandler(scheme, transport, *modApi.Endpoint))
 		}
 	}
 
 	// register as middleware wrapping the matched or not-found handler
 	e.Use(ModRouter.ServeModuleRoutes)
+
+	return nil
+}
+
+// moduleProxyHandler returns the handler that proxies a core API path to a
+// module API endpoint.
+//
+// Startup and post-commit reconciliation both register routes, and a handler
+// built differently in either place would mean the route a restart produces
+// differs from the one a create produces.
+func moduleProxyHandler(
+	scheme string,
+	transport http.RoundTripper,
+	endpoint string,
+) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		// parse the module proxy target URL
+		proxyUrl, err := url.Parse(fmt.Sprintf("%s://%s", scheme, endpoint))
+		if err != nil {
+			return fmt.Errorf("failed to parse module's proxy target URL: %w", err)
+		}
+		// create a reverse proxy for the module API
+		proxy := httputil.NewSingleHostReverseProxy(proxyUrl)
+		// use the shared module proxy transport
+		proxy.Transport = transport
+		// serve the proxied request
+		proxy.ServeHTTP(c.Response().Writer, c.Request())
+
+		return nil
+	}
+}
+
+// moduleRouteReconcile serialises reconciliation so that concurrent operations
+// on one path cannot leave the router holding what the database does not.
+var moduleRouteReconcile sync.Mutex
+
+// ReconcileModuleRoute brings the router's entry for one path in line with what
+// the database holds, and is the only thing that writes to the router after
+// startup.
+//
+// It is called after a transaction commits rather than from a persist hook. A
+// hook runs inside the transaction, so a create that never commits would leave
+// a live route proxying to a row that does not exist, and a delete that rolls
+// back would stop serving a route whose row survives until the next restart
+// rebuilds the map. Reading committed state here means the router can only ever
+// hold what the database agreed to.
+//
+// The path is looked up rather than passed as an object because that is what
+// makes this idempotent: whatever the caller did, the router ends up with the
+// entry the database justifies, or with none.
+func ReconcileModuleRoute(db *gorm.DB, path string) error {
+	// the read and the write are held together. Two reconciliations for the
+	// same path can otherwise interleave so that the one which read the older
+	// state writes last - a delete removing a route a later create had already
+	// committed, for instance. Serialising them means whoever writes last is
+	// whoever read last. This lock is taken after the transaction has
+	// committed, never across it, so a retried transaction does not hold it.
+	moduleRouteReconcile.Lock()
+	defer moduleRouteReconcile.Unlock()
+
+	var routes []ModuleApiRoute
+	if result := db.Where("path = ?", path).Find(&routes); result.Error != nil {
+		return fmt.Errorf("failed to query module API routes for path %s: %w", path, result.Error)
+	}
+
+	// no committed row for this path: the router must not serve it. This covers
+	// a delete that committed, and a create that did not.
+	if len(routes) == 0 {
+		ModRouter.RemoveRoute(path)
+
+		return nil
+	}
+
+	// Path carries no unique index, so more than one row can name a path even
+	// though beforeCreate rejects a duplicate. The lowest ID wins: it is the
+	// row that would have been found first, and it is stable across restarts,
+	// which a map iteration order is not.
+	winner := routes[0]
+	for _, route := range routes[1:] {
+		if route.ID != nil && winner.ID != nil && *route.ID < *winner.ID {
+			winner = route
+		}
+	}
+
+	var modApi ModuleApi
+	if result := db.Where("id = ?", *winner.ModuleApiID).First(&modApi); result.Error != nil {
+		return fmt.Errorf(
+			"failed to retrieve module API for route %s: %w",
+			path, result.Error,
+		)
+	}
+
+	// core routes are served by this process, not proxied
+	if modApi.Core != nil && *modApi.Core {
+		ModRouter.RemoveRoute(path)
+
+		return nil
+	}
+
+	scheme, transport := ModRouter.ProxyConfig()
+	ModRouter.AddRoute(path, moduleProxyHandler(scheme, transport, *modApi.Endpoint))
 
 	return nil
 }

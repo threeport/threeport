@@ -82,6 +82,15 @@ func (h Handler) AddAttachedObjectReference(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// the write has committed; bring any process state that mirrors the
+	// database in line before answering, so a caller that gets a 200 can
+	// rely on it. A persist hook cannot do this: it runs inside the
+	// transaction, so it would act on a write that may never commit.
+	if err := apiserver_lib.AfterCommitCreate(h.DB, &attachedObjectReference); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		attachedObjectReference,
@@ -468,6 +477,14 @@ func (h Handler) DeleteAttachedObjectReference(c echo.Context) error {
 				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// the delete has committed; drop any process state that mirrored the
+	// row before answering. A persist hook cannot do this: a rollback
+	// would have dropped state for a row that survived.
+	if err := apiserver_lib.AfterCommitDelete(h.DB, &attachedObjectReference); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 

@@ -102,6 +102,15 @@ func (h Handler) AddLogBackend(c echo.Context) error {
 		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
+	// the write has committed; bring any process state that mirrors the
+	// database in line before answering, so a caller that gets a 200 can
+	// rely on it. A persist hook cannot do this: it runs inside the
+	// transaction, so it would act on a write that may never commit.
+	if err := apiserver_lib.AfterCommitCreate(h.DB, &logBackend); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		logBackend,
@@ -491,6 +500,14 @@ func (h Handler) DeleteLogBackend(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// the delete has committed; drop any process state that mirrored the
+	// row before answering. A persist hook cannot do this: a rollback
+	// would have dropped state for a row that survived.
+	if err := apiserver_lib.AfterCommitDelete(h.DB, &logBackend); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		logBackend,
@@ -590,6 +607,15 @@ func (h Handler) AddLogStorageDefinition(c echo.Context) error {
 	}
 	if nameUsed {
 		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// the write has committed; bring any process state that mirrors the
+	// database in line before answering, so a caller that gets a 200 can
+	// rely on it. A persist hook cannot do this: it runs inside the
+	// transaction, so it would act on a write that may never commit.
+	if err := apiserver_lib.AfterCommitCreate(h.DB, &logStorageDefinition); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -987,6 +1013,14 @@ func (h Handler) DeleteLogStorageDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
+	// the delete has committed; drop any process state that mirrored the
+	// row before answering. A persist hook cannot do this: a rollback
+	// would have dropped state for a row that survived.
+	if err := apiserver_lib.AfterCommitDelete(h.DB, &logStorageDefinition); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		logStorageDefinition,
@@ -1086,6 +1120,15 @@ func (h Handler) AddLogStorageInstance(c echo.Context) error {
 	}
 	if nameUsed {
 		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// the write has committed; bring any process state that mirrors the
+	// database in line before answering, so a caller that gets a 200 can
+	// rely on it. A persist hook cannot do this: it runs inside the
+	// transaction, so it would act on a write that may never commit.
+	if err := apiserver_lib.AfterCommitCreate(h.DB, &logStorageInstance); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -1474,6 +1517,14 @@ func (h Handler) DeleteLogStorageInstance(c echo.Context) error {
 				httpErr.GetStatusCode(), c, nil, err, objectType,
 			)
 		}
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
+	// the delete has committed; drop any process state that mirrored the
+	// row before answering. A persist hook cannot do this: a rollback
+	// would have dropped state for a row that survived.
+	if err := apiserver_lib.AfterCommitDelete(h.DB, &logStorageInstance); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
 		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 

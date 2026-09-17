@@ -106,6 +106,15 @@ func (h Handler) AddKubernetesRuntimeDefinition(c echo.Context) error {
 		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
 	}
 
+	// the write has committed; bring any process state that mirrors the
+	// database in line before answering, so a caller that gets a 200 can
+	// rely on it. A persist hook cannot do this: it runs inside the
+	// transaction, so it would act on a write that may never commit.
+	if err := apiserver_lib.AfterCommitCreate(h.DB, &kubernetesRuntimeDefinition); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
 	// notify controller if reconciliation is required
 	if !*kubernetesRuntimeDefinition.Reconciled {
 		notifPayload, err := kubernetesRuntimeDefinition.NotificationPayload(
@@ -585,6 +594,14 @@ func (h Handler) DeleteKubernetesRuntimeDefinition(c echo.Context) error {
 		}
 	}
 
+	// the delete has committed; drop any process state that mirrored the
+	// row before answering. A persist hook cannot do this: a rollback
+	// would have dropped state for a row that survived.
+	if err := apiserver_lib.AfterCommitDelete(h.DB, &kubernetesRuntimeDefinition); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		kubernetesRuntimeDefinition,
@@ -684,6 +701,15 @@ func (h Handler) AddKubernetesRuntimeInstance(c echo.Context) error {
 	}
 	if nameUsed {
 		return apiserver_lib.ResponseStatus409(c, nil, errors.New("object with provided name already exists"), objectType)
+	}
+
+	// the write has committed; bring any process state that mirrors the
+	// database in line before answering, so a caller that gets a 200 can
+	// rely on it. A persist hook cannot do this: it runs inside the
+	// transaction, so it would act on a write that may never commit.
+	if err := apiserver_lib.AfterCommitCreate(h.DB, &kubernetesRuntimeInstance); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	// notify controller if reconciliation is required
@@ -1157,6 +1183,14 @@ func (h Handler) DeleteKubernetesRuntimeInstance(c echo.Context) error {
 				return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 			}
 		}
+	}
+
+	// the delete has committed; drop any process state that mirrored the
+	// row before answering. A persist hook cannot do this: a rollback
+	// would have dropped state for a row that survived.
+	if err := apiserver_lib.AfterCommitDelete(h.DB, &kubernetesRuntimeInstance); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
