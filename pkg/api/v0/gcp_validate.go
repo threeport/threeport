@@ -10,18 +10,8 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// beforeCreate rejects a duplicate GcpProvider name before persist.
+// beforeCreate validates the GcpProvider before create.
 func (g *GcpProvider) beforeCreate(tx *gorm.DB) error {
-	if g.Name == nil {
-		return nil
-	}
-	var n int64
-	if err := tx.Model(&GcpProvider{}).Where("name = ?", *g.Name).Count(&n).Error; err != nil {
-		return fmt.Errorf("failed to query gcp providers for name %s: %w", *g.Name, err)
-	}
-	if n > 0 {
-		return fmt.Errorf("gcp provider name %s already exists", *g.Name)
-	}
 	return nil
 }
 
