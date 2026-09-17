@@ -10,6 +10,7 @@ const (
 	ValidateTag     TagKey = "validate"
 	QueryTag        TagKey = "query"
 	JsonTag         TagKey = "json"
+	GormTag         TagKey = "gorm"
 )
 
 // RelationshipTypeKey is the modifier name in a relationship tag value

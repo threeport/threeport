@@ -47,6 +47,16 @@ func setupModuleRouterTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
+// dropPathUniqueIndex models a control plane upgraded into the current model
+// rather than created from it. The migration leaves an existing table alone, so
+// the unique index the model declares on Path is not necessarily there, and
+// duplicate rows for one path remain possible.
+func dropPathUniqueIndex(t *testing.T, db *gorm.DB) {
+	t.Helper()
+
+	require.NoError(t, db.Migrator().DropIndex(&ModuleApiRoute{}, "Path"))
+}
+
 // routeServed reports whether the router currently holds an entry for a path.
 func routeServed(path string) bool {
 	_, ok := ModRouter.routes.Load(path)
@@ -146,30 +156,41 @@ func TestReconcileModuleRoute_IsIdempotent(t *testing.T) {
 }
 
 // TestReconcileModuleRoute_PicksTheLowestIdForADuplicatePath covers a path named
-// by more than one row. beforeCreate rejects a duplicate, but Path carries no
-// unique index, so the choice has to be defined rather than left to whichever
-// row the database happens to return first.
+// by more than one row, which the unique index on Path rules out for a schema
+// created from the current model but not for one upgraded into it.
+//
+// The rows are written in the opposite order to their IDs to state the intent,
+// but this cannot fail against an unordered query: sqlite returns rows by
+// rowid, which is the ID. CockroachDB does not promise an order without ORDER
+// BY, which is why the query has one - that part is argued, not covered here.
 func TestReconcileModuleRoute_PicksTheLowestIdForADuplicatePath(t *testing.T) {
 	db := setupModuleRouterTestDB(t)
-	firstApiId := seedModuleApi(t, db, "first", false)
-	secondApiId := seedModuleApi(t, db, "second", true)
+	dropPathUniqueIndex(t, db)
+	coreApiId := seedModuleApi(t, db, "core", true)
+	moduleApiId := seedModuleApi(t, db, "example", false)
 
-	// beforeCreate rejects a duplicate path, so the hooks are skipped to write
-	// the state this is about: a row that got past the check-then-insert race,
-	// or predates the check. Reconciliation has to be defined for it either way.
 	unhooked := db.Session(&gorm.Session{SkipHooks: true})
-
 	path := "/example.com/v0/widgets"
-	first := ModuleApiRoute{Path: util.Ptr(path), ModuleApiID: &firstApiId}
-	require.NoError(t, unhooked.Create(&first).Error)
-	second := ModuleApiRoute{Path: util.Ptr(path), ModuleApiID: &secondApiId}
-	require.NoError(t, unhooked.Create(&second).Error)
-	require.Less(t, *first.ID, *second.ID)
 
-	// the lower ID belongs to the non-core API, so the path is served; picking
-	// the other row would have skipped it as core
+	// written first, higher ID: the row an unordered query returns first
+	proxied := ModuleApiRoute{
+		Common:      Common{ID: util.Ptr(uint(2))},
+		Path:        util.Ptr(path),
+		ModuleApiID: &moduleApiId,
+	}
+	require.NoError(t, unhooked.Create(&proxied).Error)
+	core := ModuleApiRoute{
+		Common:      Common{ID: util.Ptr(uint(1))},
+		Path:        util.Ptr(path),
+		ModuleApiID: &coreApiId,
+	}
+	require.NoError(t, unhooked.Create(&core).Error)
+
 	require.NoError(t, ReconcileModuleRoute(db, path))
-	assert.True(t, routeServed(path), "the lowest ID wins, and that row's API is not core")
+	assert.False(
+		t, routeServed(path),
+		"the lowest ID wins, and that row's API is core, so the path is not proxied",
+	)
 }
 
 // TestInitModuleRouter_AgreesWithReconciliation covers the two rules problem.
@@ -179,6 +200,7 @@ func TestReconcileModuleRoute_PicksTheLowestIdForADuplicatePath(t *testing.T) {
 // two last ran.
 func TestInitModuleRouter_AgreesWithReconciliation(t *testing.T) {
 	db := setupModuleRouterTestDB(t)
+	dropPathUniqueIndex(t, db)
 	coreApiId := seedModuleApi(t, db, "core", true)
 	moduleApiId := seedModuleApi(t, db, "example", false)
 

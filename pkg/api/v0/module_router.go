@@ -256,6 +256,12 @@ func drainPendingModuleRoutes(db *gorm.DB, except string) {
 // database that is briefly unreachable would leave the router disagreeing with
 // a change the client was told nothing more about.
 func reconcileModuleRouteLocked(db *gorm.DB, path string) error {
+	// ordered by ID, and only the first row is used. Path carries a unique
+	// index among rows that are not soft deleted, so a schema created from the
+	// current model holds at most one - but the migration leaves an existing
+	// table alone, so a control plane upgraded into that model may not have the
+	// index. Ordering makes the choice the same either way, and stable across
+	// restarts, which a map iteration order is not.
 	var routes []ModuleApiRoute
 	if err := util.Retry(
 		moduleRouteReconcileAttempts,
@@ -263,7 +269,7 @@ func reconcileModuleRouteLocked(db *gorm.DB, path string) error {
 		func() error {
 			routes = nil
 
-			return db.Where("path = ?", path).Find(&routes).Error
+			return db.Where("path = ?", path).Order("id").Find(&routes).Error
 		},
 	); err != nil {
 		return fmt.Errorf("failed to query module API routes for path %s: %w", path, err)
@@ -277,16 +283,7 @@ func reconcileModuleRouteLocked(db *gorm.DB, path string) error {
 		return nil
 	}
 
-	// Path carries no unique index, so more than one row can name a path even
-	// though beforeCreate rejects a duplicate. The lowest ID wins: it is the
-	// row that would have been found first, and it is stable across restarts,
-	// which a map iteration order is not.
 	winner := routes[0]
-	for _, route := range routes[1:] {
-		if route.ID != nil && winner.ID != nil && *route.ID < *winner.ID {
-			winner = route
-		}
-	}
 
 	var modApi ModuleApi
 	if err := util.Retry(

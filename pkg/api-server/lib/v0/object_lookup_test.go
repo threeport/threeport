@@ -77,12 +77,13 @@ func registerKindVersion(t *testing.T, tx *gorm.DB, moduleApi *api.ModuleApi, na
 	require.NoError(t, tx.Create(crudRoute).Error)
 	require.NoError(t, tx.Model(crudRoute).Association("ModuleObjects").Append(moduleObject))
 
+	// versions discovery is one path per kind, shared by every version
 	versionsPath := "/" + namespace + "/" + kind + "s/versions"
 	versionsRoute := &api.ModuleApiRoute{
 		Path:        strPtr(versionsPath),
 		ModuleApiID: moduleApi.ID,
 	}
-	require.NoError(t, tx.Create(versionsRoute).Error)
+	require.NoError(t, tx.Where("path = ?", versionsPath).FirstOrCreate(versionsRoute).Error)
 	require.NoError(t, tx.Model(versionsRoute).Association("ModuleObjects").Append(moduleObject))
 }
 
@@ -140,11 +141,11 @@ func TestGetModuleRouteForType(t *testing.T) {
 // table reads as a flat list of scenarios.
 func TestGetObjectTypes(t *testing.T) {
 	cases := []struct {
-		name       string
-		kind       string
-		setup      func(t *testing.T, db *gorm.DB)
-		want       []string
-		wantEmpty  bool
+		name      string
+		kind      string
+		setup     func(t *testing.T, db *gorm.DB)
+		want      []string
+		wantEmpty bool
 	}{
 		{
 			name: "module only - no core registration",
