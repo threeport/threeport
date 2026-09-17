@@ -8,11 +8,14 @@ import (
 	"go/types"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/gertd/go-pluralize"
 	"github.com/iancoleman/strcase"
+	"gorm.io/gorm/schema"
 
 	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api "github.com/threeport/threeport/pkg/api/v0"
@@ -53,11 +56,14 @@ type Generator struct {
 	// Reconciliation). These types live in non-domain source files
 	// (common.go, class.go) so they don't appear in any ApiObjectGroup's
 	// StructTags, but their fields participate in binding via the
-	// QueryBinder's anonymous-embed recursion. The collision check in
-	// ValidateTags reads from here to flatten embedded fields into the
-	// per-struct effective-key set.
+	// QueryBinder's anonymous-embed recursion. ValidateTags reads these
+	// tags so a uniqueIndex on an inherited field is checked the same way
+	// as one on a domain type.
 	// Shape: typeName -> fieldName -> tagKey -> tagValue.
 	EmbedTypes map[string]map[string]map[string]string
+
+	// Foreign keys each type's table holds, keyed by the type holding the key.
+	RelationshipDependencies map[string][]string
 }
 
 // GlobalVersionConfig contains all API versions for which code is being
@@ -197,7 +203,6 @@ type ApiObject struct {
 	Description string
 
 	TypeName              string
-	AllowDuplicateNames   bool
 	AllowCustomMiddleware bool
 	DbLoadAssociations    bool
 	NameField             bool
@@ -445,6 +450,19 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 		}
 	}
 
+	/////////////// populate Generator.RelationshipDependencies ////////////////
+	// parse foreign keys from each API version's model source
+	g.RelationshipDependencies = map[string][]string{}
+	for version := range versionObjMap {
+		versionDeps, err := parseRelationshipDependencies(filepath.Join("pkg", "api", version))
+		if err != nil {
+			return fmt.Errorf("failed to parse relationship dependencies for version %s: %w", version, err)
+		}
+		for typeName, referenced := range versionDeps {
+			g.RelationshipDependencies[typeName] = referenced
+		}
+	}
+
 	/////////////////// populate Generator.ApiObjectGroups /////////////////////
 	for _, apiObjectGroup := range sdkConfig.ApiObjectConfig.ApiObjectGroups {
 		filename := fmt.Sprintf("%s.go", *apiObjectGroup.Name)
@@ -474,7 +492,6 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 			var reconcilerModels []string
 			var tptctlModels []string
 			var tptctlModelsConfigPath []string
-			var allowDuplicateNameModels []string
 			var allowCustomMiddleware []string
 			var dbLoadAssociations []string
 
@@ -534,10 +551,6 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 
 				if obj.AllowCustomMiddleware != nil && *obj.AllowCustomMiddleware {
 					allowCustomMiddleware = append(allowCustomMiddleware, *obj.Name)
-				}
-
-				if obj.AllowDuplicateModelNames != nil && *obj.AllowDuplicateModelNames {
-					allowDuplicateNameModels = append(allowDuplicateNameModels, *obj.Name)
 				}
 
 				if obj.LoadAssociationsFromDb != nil && *obj.LoadAssociationsFromDb {
@@ -641,15 +654,20 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 						genDecl := node.(*ast.GenDecl)
 						for _, spec := range genDecl.Specs {
 							switch spec.(type) {
+							// in the case we're looking at a struct type definition, inspect
 							case *ast.TypeSpec:
+								// if the spec is a type spec, get the type spec and
+								// its name
 								typeSpec := spec.(*ast.TypeSpec)
 								objectName = typeSpec.Name.Name
 
+								// skip types that belong to another group's file
+								if !isGroupFile && !groupObjectNames[objectName] {
+									continue
+								}
+
+								// check if this is a struct type
 								if structType, ok := typeSpec.Type.(*ast.StructType); ok {
-									// skip unrelated types in other files
-									if !isGroupFile && !groupObjectNames[objectName] {
-										continue
-									}
 									var mc *ApiObject
 									for _, c := range apiObjects {
 										if c.TypeName == objectName {
@@ -657,13 +675,16 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 										}
 									}
 
+									// extract comment description for the struct type
 									if mc != nil {
-										// copy the type's godoc into Description as a single line
 										if commentGroups, exists := commentMap[genDecl]; exists && len(commentGroups) > 0 {
+											// extract the comment text from the first comment group and clean it up
 											commentText := commentGroups[0].Text()
 											commentText = strings.TrimSpace(commentText)
+											// normalize whitespace and remove unnecessary line breaks
 											commentText = strings.ReplaceAll(commentText, "\n", " ")
 											commentText = strings.ReplaceAll(commentText, "\r", " ")
+											// replace multiple consecutive spaces with single space
 											for strings.Contains(commentText, "  ") {
 												commentText = strings.ReplaceAll(commentText, "  ", " ")
 											}
@@ -675,43 +696,51 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 									structTags[objectName] = make(map[string]map[string]string)
 									fieldTypes[objectName] = make(map[string]string)
 
-									// inspect each field
+									// if so, iterate over the fields
 									for _, field := range structType.Fields.List {
-										// mark NameField when the field type is Name, Definition, or Instance
-										if identType, ok := field.Type.(*ast.Ident); ok {
-											if util.StringSliceContains(nameFields(), identType.Name, true) {
-												mc.NameField = true
+										if mc != nil {
+											// fields will be of type *ast.Ident
+											if identType, ok := field.Type.(*ast.Ident); ok {
+												if util.StringSliceContains(nameFields(), identType.Name, true) {
+													mc.NameField = true
+												}
 											}
-										}
-										// mark NameField when a qualified type ends in those names
-										if identType, ok := field.Type.(*ast.SelectorExpr); ok {
-											if util.StringSliceContains(nameFields(), identType.Sel.Name, true) {
-												mc.NameField = true
+											// structs will be of type *ast.SelectorExpr
+											if identType, ok := field.Type.(*ast.SelectorExpr); ok {
+												if util.StringSliceContains(nameFields(), identType.Sel.Name, true) {
+													mc.NameField = true
+												}
 											}
-										}
-										// mark NameField when the field itself is named Name, Definition, or Instance
-										for _, name := range field.Names {
-											if util.StringSliceContains(nameFields(), name.Name, true) {
-												mc.NameField = true
+											// each field is an *ast.Field, which has a Names field that
+											// is a []*ast.Ident - iterate over those names to find the
+											// one we're looking for
+											for _, name := range field.Names {
+												if util.StringSliceContains(nameFields(), name.Name, true) {
+													mc.NameField = true
+												}
 											}
 										}
 
-										// record an in-package anonymous embed and skip tag parsing on it
+										// anonymous embed: record the embed type name on
+										// this struct, then move on. The embed's own field
+										// tags live in g.EmbedTypes (parsed once up front).
 										if len(field.Names) == 0 {
+											// anon embed type is either a bare identifier
+											// (e.g. `Common`) or a selector (e.g.
+											// `pkgalias.SomeType`); only the bare-ident case
+											// applies to threeport's in-package embeds
 											if ident, ok := field.Type.(*ast.Ident); ok {
 												structEmbeds[objectName] = append(structEmbeds[objectName], ident.Name)
 											}
 											continue
 										}
 										fieldName := field.Names[0].Name
-										// require a struct tag on every named field
 										if field.Tag == nil {
 											return fmt.Errorf(
 												"field %s in object %s has no struct tags defined",
 												fieldName, objectName,
 											)
 										}
-										// parse tags and record the field's Go type expression
 										tagMap := util.ParseStructTag(field.Tag.Value)
 										structTags[objectName][fieldName] = tagMap
 										fieldTypes[objectName][fieldName] = types.ExprString(field.Type)
@@ -787,16 +816,6 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 				for i, mc := range genApiObjectGroup.ApiObjects {
 					if tc == mc.TypeName {
 						genApiObjectGroup.ApiObjects[i].TptctlConfigPath = true
-					}
-				}
-			}
-
-			// for all objects with we allow duplicate names for:
-			// * set AllowDuplicateNames field in model config to true
-			for _, nm := range allowDuplicateNameModels {
-				for i, mc := range genApiObjectGroup.ApiObjects {
-					if nm == mc.TypeName {
-						genApiObjectGroup.ApiObjects[i].AllowDuplicateNames = true
 					}
 				}
 			}
@@ -978,9 +997,6 @@ func (a *ApiObjectGroup) CheckStructTagMap(
 
 // HasFieldWithTagValue reports whether any field on the named object
 // carries a struct tag with the given key set to the expected value.
-// Unlike CheckStructTagMap, which targets a single named field, this
-// search is field-agnostic — useful when codegen behavior is driven by
-// the presence of a tag anywhere on the object (e.g. persist:"false").
 func (a *ApiObjectGroup) HasFieldWithTagValue(
 	object,
 	tagKey,
@@ -1015,9 +1031,7 @@ var allowedEmbed = map[string]bool{
 // error messages. Kept in sync with allowedEmbed.
 const allowedEmbedNames = "Common, Definition, Instance, or Reconciliation"
 
-// ValidateTags reports invalid relationship, encrypt, validate, persist, and
-// query tags, and disallowed anonymous embeds, on every API object group.
-// It collects every problem, sorts them, and returns them in one error.
+// ValidateTags reports every tag value the generator will not accept.
 func (g *Generator) ValidateTags() error {
 	// build the set of registered API type names so the relationship
 	// validator can verify that any `type:<TypeName>` modifier names a
@@ -1082,6 +1096,9 @@ func (g *Generator) ValidateTags() error {
 						objectName, fieldName, lib.QueryTag,
 					))
 				}
+				problems = append(problems, validateUniqueIndex(
+					objectName, fieldName, tagMap[string(lib.GormTag)],
+				)...)
 			}
 
 			// reject api type embeds outside the allowed base-type set.
@@ -1100,6 +1117,15 @@ func (g *Generator) ValidateTags() error {
 		}
 	}
 
+	// uniqueIndex on an embed is not in any group's StructTags
+	for typeName, fieldMap := range g.EmbedTypes {
+		for fieldName, tagMap := range fieldMap {
+			problems = append(problems, validateUniqueIndex(
+				typeName, fieldName, tagMap[string(lib.GormTag)],
+			)...)
+		}
+	}
+
 	if len(problems) > 0 {
 		// sort so the error output is stable across runs — map iteration
 		// order is otherwise random and would make the message jitter
@@ -1109,7 +1135,72 @@ func (g *Generator) ValidateTags() error {
 			len(problems), strings.Join(problems, "\n  "),
 		)
 	}
-	return nil
+
+	return g.ValidateRelationshipCycles()
+}
+
+// undeletedRowPredicate is the unique-index conjunct that excludes soft-deleted rows.
+const undeletedRowPredicate = "deleted_at IS NULL"
+
+// nameIndexTag is a unique index among undeleted rows.
+const nameIndexTag = "not null;uniqueIndex:,where:" + undeletedRowPredicate
+
+const uniqueIndexToken = "uniqueIndex"
+
+const indexClassUnique = "UNIQUE"
+
+// validateUniqueIndex reports a uniqueIndex tag that does not unique-index undeleted rows.
+func validateUniqueIndex(objectName, fieldName, gormTag string) []string {
+	if !strings.Contains(gormTag, uniqueIndexToken) {
+		return nil
+	}
+
+	// ask gorm what the tag builds; a string match would accept tags gorm ignores
+	fieldOnly := reflect.StructOf([]reflect.StructField{{
+		Name: fieldName,
+		Type: reflect.TypeOf((*string)(nil)),
+		Tag:  reflect.StructTag(fmt.Sprintf("%s:%q", lib.GormTag, gormTag)),
+	}})
+
+	fieldSchema, err := schema.Parse(reflect.New(fieldOnly).Interface(), &sync.Map{}, schema.NamingStrategy{})
+	if err != nil {
+		return []string{fmt.Sprintf(
+			"%s.%s: gorm rejected %s:%q: %v",
+			objectName, fieldName, lib.GormTag, gormTag, err,
+		)}
+	}
+
+	unscoped := []string{fmt.Sprintf(
+		"%s.%s: %s:%q builds no unique index scoped to undeleted rows",
+		objectName, fieldName, lib.GormTag, gormTag,
+	)}
+
+	foundUnique := false
+	for _, index := range fieldSchema.ParseIndexes() {
+		if index.Class != indexClassUnique {
+			continue
+		}
+		foundUnique = true
+		if !uniqueIndexScopesUndeleted(index.Where) {
+			return unscoped
+		}
+	}
+	if foundUnique {
+		return nil
+	}
+
+	// unique among undeleted rows; anything else lets a soft-deleted value block reuse
+	return unscoped
+}
+
+// uniqueIndexScopesUndeleted reports whether a unique-index where clause includes undeleted rows.
+func uniqueIndexScopesUndeleted(where string) bool {
+	for _, part := range strings.Split(where, " AND ") {
+		if strings.TrimSpace(part) == undeletedRowPredicate {
+			return true
+		}
+	}
+	return false
 }
 
 // ParseRelationshipTagValue splits a relationship tag value of the form
