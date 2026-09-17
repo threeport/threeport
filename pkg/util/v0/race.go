@@ -1,3 +1,5 @@
+// Race tests live in *_race_test.go files tagged //go:build race so mage test:unit skips them.
+// mage test:race runs go test -race only on those packages instead of instrumenting the tree.
 package v0
 
 import (
@@ -12,6 +14,7 @@ import (
 const raceTestSuffix = "_race_test.go"
 
 // RaceTestPackages returns module-relative packages that contain a *_race_test.go file.
+// The filename is the finder; Go does not treat it as special, so the build tag still applies.
 func RaceTestPackages(root string) ([]string, error) {
 	// collect unique package dirs that hold a *_race_test.go file
 	seen := map[string]struct{}{}
