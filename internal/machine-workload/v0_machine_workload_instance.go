@@ -43,7 +43,7 @@ var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;?]*[a-zA-Z]|\x1b\][^\x07]*\x07`)
 
 // v0MachineWorkloadInstanceCreated performs reconciliation when a v0
 // MachineWorkloadInstance has been created.  It resolves the related machine
-// runtime and kubernetes workload definition, opens an SSH connection, executes the
+// runtime and machine workload definition, opens an SSH connection, executes the
 // create script, and records events for the output.
 func v0MachineWorkloadInstanceCreated(
 	r *controller.Reconciler,
@@ -98,7 +98,7 @@ func v0MachineWorkloadInstanceCreated(
 
 // v0MachineWorkloadInstanceUpdated performs reconciliation when a v0
 // MachineWorkloadInstance has been updated.  It resolves the related machine
-// runtime and kubernetes workload definition, opens an SSH connection, executes
+// runtime and machine workload definition, opens an SSH connection, executes
 // the update script, and records events for the output.
 func v0MachineWorkloadInstanceUpdated(
 	r *controller.Reconciler,
