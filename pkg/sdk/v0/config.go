@@ -157,10 +157,6 @@ type ApiObject struct {
 	// needs custom middleware enabled.
 	AllowCustomMiddleware *bool
 
-	// AllowDuplicateModelNames indicates whether the api handler for this
-	// object accepts duplicate names objects.
-	AllowDuplicateModelNames *bool
-
 	// LoadAssociationsFromDb indicates whether the response returned for an
 	// object contains associated object data.
 	LoadAssociationsFromDb *bool

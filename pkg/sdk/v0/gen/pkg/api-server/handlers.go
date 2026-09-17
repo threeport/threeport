@@ -67,74 +67,6 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			))
 
 			for _, apiObject := range objGroup.ApiObjects {
-				// for models that have a name field - either directly in the model or
-				// inherited from Definition or Instance - add a check for duplicate
-				// names in the handler that adds the record to the DB
-				checkDuplicateNames := &Statement{}
-				if apiObject.NameField && !apiObject.AllowDuplicateNames {
-					checkDuplicateNames.Comment("check for duplicate names")
-					checkDuplicateNames.Line()
-					checkDuplicateNames.Var().Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Qual(
-						fmt.Sprintf(
-							"%s/pkg/api/%s",
-							gen.ModulePath,
-							objCollection.Version,
-						),
-						apiObject.TypeName,
-					).Line()
-					checkDuplicateNames.Id("nameUsed").Op(":=").Lit(true).Line()
-					checkDuplicateNames.Id("result").Op(":=").Do(func(s *Statement) {
-						if gen.Module {
-							s.Id("h").Dot("Handler")
-						} else {
-							s.Id("h")
-						}
-					}).Dot("RequestDB").Call(Id("c")).Dot("Where").Call(
-						Lit("name = ?"), Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("Name"),
-					).Dot("First").Call(
-						Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-					).Line()
-					checkDuplicateNames.If(Id("result").Dot("Error").Op("!=").Nil()).Block(
-						If(Qual("errors", "Is").Call(
-							Id("result").Dot("Error"), Qual("gorm.io/gorm", "ErrRecordNotFound"),
-						)).Block(
-							Id("nameUsed").Op("=").Lit(false),
-						).Else().BlockFunc(func(h *Group) {
-							if gen.Module {
-								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error checking for duplicate names"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
-								)
-							} else {
-								h.Id("h").Dot("Logger").Dot("Error").Call(
-									Lit("handler error: error checking for duplicate names"),
-									Qual("go.uber.org/zap", "Error").Call(Id("result").Dot("Error")),
-								)
-							}
-							h.Return(
-								Qual(
-									"github.com/threeport/threeport/pkg/api-server/lib/v0",
-									"ResponseStatus500",
-								).Call(
-									Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType"),
-								),
-							)
-						}),
-					).Line()
-					checkDuplicateNames.If(Id("nameUsed")).Block(
-						Return(
-							Qual(
-								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatus409",
-							).Call(
-								Id("c"), Nil(), Qual("errors", "New").Call(
-									Lit("object with provided name already exists"),
-								), Id("objectType"),
-							),
-						),
-					).Line()
-				}
-
 				notifyControllersCreateHandler := &Statement{}
 				notifyControllersUpdateHandler := &Statement{}
 				deleteObjectExecution := &Statement{}
@@ -179,7 +111,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 						})),
 						Do(func(s *Statement) {
 							if gen.Module {
@@ -197,10 +129,15 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Op(",").Op("*").Id("notifPayload")),
 					))
 
-					// update notifications
-					notifyControllersUpdateHandler = Comment("notify controller if reconciliation is required")
+					notifyControllersUpdateHandler = Comment("notify controller if reconciliation is required and the update is notifiable")
 					notifyControllersUpdateHandler.Line()
-					notifyControllersUpdateHandler.If(Op("!*").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Block(
+					notifyControllersUpdateHandler.If(Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("!=").Nil().Op("&&").Op("!*").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("&&").Line().Qual(
+						"github.com/threeport/threeport/pkg/api/v0",
+						"ReconciliationUpdateNotifiable",
+					).Call(
+						Id("prevReconciliation"),
+						Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciliation"),
+					).Block(
 						Id("notifPayload").Op(",").Id("err").Op(":=").Id(
 							fmt.Sprintf("existing%s", apiObject.TypeName),
 						).Dot("NotificationPayload").Call(
@@ -227,7 +164,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 						})),
 						Do(func(s *Statement) {
 							if gen.Module {
@@ -275,17 +212,11 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							},
 						),
 						If(
-							Id("result").Op(":=").Do(func(s *Statement) {
-								if gen.Module {
-									s.Id("h").Dot("Handler")
-								} else {
-									s.Id("h")
-								}
-							}).Dot("RequestDB").Call(Id("c")).Dot("Model").Call(
+							Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, Id("db").Dot("Model").Call(
 								Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
 							).Dot("Updates").Call(
 								Op("&").Id(fmt.Sprintf("scheduled%s", apiObject.TypeName)),
-							),
+							))),
 							Id("result").Dot("Error").Op("!=").Nil(),
 						).BlockFunc(func(h *Group) {
 							if gen.Module {
@@ -302,7 +233,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType")))
+							).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("fullyQualifiedType")))
 						}),
 						Comment("notify controller"),
 						List(Id("notifPayload"), Id("err")).Op(":=").Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("NotificationPayload").Call(
@@ -329,7 +260,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c"), Nil(), Id("err"), Id("objectType")))
+							).Call(Id("c"), Nil(), Id("err"), Id("fullyQualifiedType")))
 						}),
 						Do(func(s *Statement) {
 							if gen.Module {
@@ -367,20 +298,14 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										),
 										Line(),
 									)),
-									Id("objectType"),
+									Id("fullyQualifiedType"),
 								),
 							),
 						).Else().Block(
 							Comment("object scheduled for deletion and confirmed - it can be deleted"),
 							Comment("from DB"),
 							If(
-								Id("result").Op(":=").Do(func(s *Statement) {
-									if gen.Module {
-										s.Id("h").Dot("Handler")
-									} else {
-										s.Id("h")
-									}
-								}).Dot("RequestDB").Call(Id("c")).Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))),
+								Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, Id("db").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))))),
 								Id("result").Dot("Error").Op("!=").Nil(),
 							).BlockFunc(func(h *Group) {
 								if gen.Module {
@@ -409,13 +334,13 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										Id("c"),
 										Nil(),
 										Id("result").Dot("Error"),
-										Id("objectType").Op(",").Line(),
+										Id("fullyQualifiedType").Op(",").Line(),
 									)),
 								)
 								h.Return(Qual(
 									"github.com/threeport/threeport/pkg/api-server/lib/v0",
 									"ResponseStatus500",
-								).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType")))
+								).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("fullyQualifiedType")))
 							}),
 						),
 					)
@@ -424,13 +349,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					deleteObjectExecution = Comment("delete object")
 					deleteObjectExecution.Line()
 					deleteObjectExecution.If(
-						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Module {
-								s.Id("h").Dot("Handler")
-							} else {
-								s.Id("h")
-							}
-						}).Dot("RequestDB").Call(Id("c")).Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))),
+						Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, Id("db").Dot("Delete").Call(Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName))))),
 						Id("result").Dot("Error").Op("!=").Nil(),
 					).BlockFunc(func(h *Group) {
 						if gen.Module {
@@ -459,13 +378,13 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Id("c"),
 								Nil(),
 								Id("result").Dot("Error"),
-								Id("objectType").Op(",").Line(),
+								Id("fullyQualifiedType").Op(",").Line(),
 							)),
 						)
 						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
-						).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("objectType")))
+						).Call(Id("c"), Nil(), Id("result").Dot("Error"), Id("fullyQualifiedType")))
 					})
 				}
 
@@ -498,7 +417,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Return(Qual(
 										"github.com/threeport/threeport/pkg/api-server/lib/v0",
 										"ResponseStatus404",
-									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
+									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")),
 									),
 								),
 							)
@@ -516,7 +435,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")))
 						}),
 					).Line()
 					deleteObjectChecks.Line()
@@ -537,7 +456,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Return().Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus409",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")),
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")),
 						),
 					)
 					deleteObjectChecks.Line()
@@ -563,7 +482,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Return(Qual(
 										"github.com/threeport/threeport/pkg/api-server/lib/v0",
 										"ResponseStatus404",
-									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
+									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")),
 									),
 								),
 							)
@@ -581,7 +500,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")))
 						}),
 					).Line()
 				}
@@ -670,6 +589,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				))
 				f.Comment("@Success 201 {object} v0.Response \"Created\"")
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
+				f.Comment("@Failure 409 {object} v0.Response \"Conflict\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
 				if gen.Module {
 					f.Comment(fmt.Sprintf(
@@ -701,11 +621,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							gen.ModulePath,
 							objCollection.Version,
 						),
-						fmt.Sprintf(
-							"ObjectType%s",
-							apiObject.TypeName,
-						),
-					)
+						fmt.Sprintf("ObjectType%s", apiObject.TypeName))
+					g.Id("fullyQualifiedType").Op(":=").Id("new").Call(Qual(fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version), apiObject.TypeName)).Dot("GetFullyQualifiedType").Call()
 					g.Var().Id(strcase.ToLowerCamel(apiObject.TypeName)).Qual(
 						fmt.Sprintf(
 							"%s/pkg/api/%s",
@@ -744,7 +661,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							).Call(Id("id").Op(",").Id("c").Op(",").Nil(), Qual(
 								"errors",
 								"New",
-							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+							).Call(Id("err").Dot("Error").Call()).Op(",").Id("fullyQualifiedType")))
 						})
 					} else {
 						g.If(Id("id").Op(",").Id("err").Op(":=").Qual(
@@ -774,7 +691,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							).Call(Id("id").Op(",").Id("c").Op(",").Nil(), Qual(
 								"errors",
 								"New",
-							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+							).Call(Id("err").Dot("Error").Call()).Op(",").Id("fullyQualifiedType")))
 						})
 					}
 					g.Line()
@@ -795,7 +712,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatusBindErr",
-						).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+						).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 					}))
 					g.Line()
 					g.Comment("check for missing required fields")
@@ -822,20 +739,14 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 							"errors",
 							"New",
-						).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+						).Call(Id("err").Dot("Error").Call()).Op(",").Id("fullyQualifiedType")))
 					})
 					g.Line()
-					g.Add(checkDuplicateNames)
 					g.Comment("persist to DB")
-					g.If(Id("result").Op(":=").Do(func(s *Statement) {
-						if gen.Module {
-							s.Id("h").Dot("Handler")
-						} else {
-							s.Id("h")
-						}
-					}).Dot("RequestDB").Call(Id("c")).Dot("Create").Call(
-						Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
-					).Op(";").Id("result").Dot("Error").Op("!=").Nil()).BlockFunc(func(h *Group) {
+					g.If(Id("result").Op(":=").Add(wrapCreateRetry(
+						gen.Module,
+						strcase.ToLowerCamel(apiObject.TypeName),
+					)).Op(";").Id("result").Dot("Error").Op("!=").Nil()).BlockFunc(func(h *Group) {
 						if gen.Module {
 							h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 								Lit("handler error: error creating object"),
@@ -861,13 +772,15 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Id("c"),
 								Nil(),
 								Id("result").Dot("Error"),
-								Id("objectType").Op(",").Line(),
+								Id("fullyQualifiedType").Op(",").Line(),
 							)),
 						)
-						h.Return(Qual(
-							"github.com/threeport/threeport/pkg/api-server/lib/v0",
-							"ResponseStatus500",
-						).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+						emitWriteErrorResponse(
+							h,
+							gen.Module,
+							fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+							apiObject.TypeName,
+						)
 					})
 					g.Line()
 					g.Add(notifyControllersCreateHandler)
@@ -881,7 +794,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"SingleObjectMeta",
 						).Call(),
 						Line().Id(strcase.ToLowerCamel(apiObject.TypeName)),
-						Line().Id("objectType"),
+						Line().Id("fullyQualifiedType"),
 						Line(),
 					)
 					g.If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
@@ -899,7 +812,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
-						).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+						).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 					})
 					g.Line()
 					g.Return(Qual(
@@ -955,17 +868,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				).Parens(List(
 					Error(),
 				)).Block(
-					Id("objectType").Op(":=").Qual(
-						fmt.Sprintf(
-							"%s/pkg/api/%s",
-							gen.ModulePath,
-							objCollection.Version,
-						),
-						fmt.Sprintf(
-							"ObjectType%s",
-							apiObject.TypeName,
-						),
-					),
+					Id("fullyQualifiedType").Op(":=").Id("new").Call(Qual(fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version), apiObject.TypeName)).Dot("GetFullyQualifiedType").Call(),
 					Line(),
 					Comment("get pagination parameters"),
 					Id("pageParams").Op(",").Id("err").Op(":=").Id("c").Assert(Op("*").Qual(
@@ -976,7 +879,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus400",
-						).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType"))),
+						).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("fullyQualifiedType"))),
 					)),
 					Line(),
 					Comment("bind filter"),
@@ -1006,7 +909,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus400",
-						).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType")))
+						).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 					})),
 					Line(),
 					Id("pagination").Op(":=").New(Qual(
@@ -1061,7 +964,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									h.Return(Qual(
 										"github.com/threeport/threeport/pkg/api-server/lib/v0",
 										"ResponseStatus500",
-									).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+									).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")))
 								}),
 							),
 							Line(),
@@ -1094,7 +997,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										h.Return(Qual(
 											"github.com/threeport/threeport/pkg/api-server/lib/v0",
 											"ResponseStatus500",
-										).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+										).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")))
 									}),
 									Id("returnedCount").Op("=").Int64().Call(Len(Op("*").Id("records"))),
 								),
@@ -1152,7 +1055,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								"ResponseStatus400",
 							).Call(Id("c").Op(",").Id("pageParams").Op(",").Qual("errors", "New").Call(
 								Lit("cursor is required when query ID is provided"),
-							).Op(",").Id("objectType"))),
+							).Op(",").Id("fullyQualifiedType"))),
 						),
 						Case(Id("pageParams").Dot("QueryId").Op("!=").Lit("").Op("&&").Id("pageParams").Dot("Cursor").Op("!=").Lit(0)).Block(
 							Comment("continuation: dispatch to the configured pagination strategy to fetch the next page"),
@@ -1217,7 +1120,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Id("Pagination"):  Op("*").Id("pagination"),
 						}),
 						Line().Op("*").Id("records"),
-						Line().Id("objectType"),
+						Line().Id("fullyQualifiedType"),
 						Line(),
 					),
 					If(Id("err").Op("!=").Nil()).BlockFunc(func(h *Group) {
@@ -1235,7 +1138,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						h.Return(Qual(
 							"github.com/threeport/threeport/pkg/api-server/lib/v0",
 							"ResponseStatus500",
-						).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType")))
+						).Call(Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 					}),
 					Line(),
 					Return(Qual(
@@ -1284,16 +1187,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				).Parens(List(
 					Error(),
 				)).Block(
-					Id("objectType").Op(":=").Qual(fmt.Sprintf(
-						"%s/pkg/api/%s",
-						gen.ModulePath,
-						objCollection.Version,
-					),
-						fmt.Sprintf(
-							"ObjectType%s",
-							apiObject.TypeName,
-						),
-					),
+					Id("fullyQualifiedType").Op(":=").Id("new").Call(Qual(fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version), apiObject.TypeName)).Dot("GetFullyQualifiedType").Call(),
 					Id(fmt.Sprintf(
 						"%sID", strcase.ToLowerCamel(apiObject.TypeName),
 					)).Op(":=").Id("c").Dot("Param").Call(Lit("id")),
@@ -1328,7 +1222,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Return(Qual(
 										"github.com/threeport/threeport/pkg/api-server/lib/v0",
 										"ResponseStatus404",
-									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
+									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")),
 									)),
 							)
 							if gen.Module {
@@ -1345,7 +1239,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")))
 						}),
 						Line(),
 						Line(),
@@ -1358,7 +1252,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								"SingleObjectMeta",
 							).Call(),
 							Line().Id(strcase.ToLowerCamel(apiObject.TypeName)),
-							Line().Id("objectType"),
+							Line().Id("fullyQualifiedType"),
 							Line(),
 						),
 						If(Id("err").Op("!=").Nil().BlockFunc(func(h *Group) {
@@ -1376,7 +1270,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 						})),
 						Line(),
 						Line(),
@@ -1417,6 +1311,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				f.Comment("@Success 200 {object} v0.Response \"OK\"")
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
+				f.Comment("@Failure 409 {object} v0.Response \"Conflict\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
 				if gen.Module {
 					f.Comment(fmt.Sprintf(
@@ -1447,11 +1342,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						gen.ModulePath,
 						objCollection.Version,
 					),
-						fmt.Sprintf(
-							"ObjectType%s",
-							apiObject.TypeName,
-						),
-					)
+						fmt.Sprintf("ObjectType%s", apiObject.TypeName))
+					g.Id("fullyQualifiedType").Op(":=").Id("new").Call(Qual(fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version), apiObject.TypeName)).Dot("GetFullyQualifiedType").Call()
 					g.Id(fmt.Sprintf(
 						"%sID", strcase.ToLowerCamel(apiObject.TypeName),
 					)).Op(":=").Id("c").Dot("Param").Call(Lit("id"))
@@ -1483,7 +1375,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Return(Qual(
 										"github.com/threeport/threeport/pkg/api-server/lib/v0",
 										"ResponseStatus404",
-									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
+									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")),
 									)),
 							)
 							if gen.Module {
@@ -1500,7 +1392,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")))
 						}),
 					)
 					g.Line()
@@ -1534,7 +1426,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 									"errors",
 									"New",
-								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+								).Call(Id("err").Dot("Error").Call()).Op(",").Id("fullyQualifiedType")))
 							}),
 						)
 					} else {
@@ -1566,7 +1458,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 									"errors",
 									"New",
-								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+								).Call(Id("err").Dot("Error").Call()).Op(",").Id("fullyQualifiedType")))
 							}),
 						)
 					}
@@ -1598,23 +1490,23 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatusBindErr",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 						}),
 					)
+					if apiObject.Reconciler {
+						g.Line()
+						g.Comment("snapshot reconciliation state before update so the notify block")
+						g.Comment("can skip publishing when the update did not touch any state marker")
+						g.Id("prevReconciliation").Op(":=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciliation")
+					}
 					g.Line()
 					g.Comment("update object in database")
 					g.If(
-						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Module {
-								s.Id("h").Dot("Handler")
-							} else {
-								s.Id("h")
-							}
-						}).Dot("RequestDB").Call(Id("c")).Dot("Model").Call(
+						Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, Id("db").Dot("Model").Call(
 							Op("&").Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
 						).Dot("Updates").Call(
 							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
-						).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
 							if gen.Module {
 								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error updating object"),
@@ -1640,13 +1532,15 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Id("c"),
 									Nil(),
 									Id("result").Dot("Error"),
-									Id("objectType").Op(",").Line(),
+									Id("fullyQualifiedType").Op(",").Line(),
 								)),
 							)
-							h.Return(Qual(
-								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+							emitWriteErrorResponse(
+								h,
+								gen.Module,
+								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+								apiObject.TypeName,
+							)
 						}),
 					)
 					g.Line()
@@ -1661,7 +1555,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"SingleObjectMeta",
 						).Call(),
 						Line().Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-						Line().Id("objectType"),
+						Line().Id("fullyQualifiedType"),
 						Line(),
 					)
 					g.If(
@@ -1680,7 +1574,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 						}),
 					)
 					g.Line()
@@ -1720,6 +1614,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				f.Comment("@Success 200 {object} v0.Response \"OK\"")
 				f.Comment("@Failure 400 {object} v0.Response \"Bad Request\"")
 				f.Comment("@Failure 404 {object} v0.Response \"Not Found\"")
+				f.Comment("@Failure 409 {object} v0.Response \"Conflict\"")
 				f.Comment("@Failure 500 {object} v0.Response \"Internal Server Error\"")
 				if gen.Module {
 					f.Comment(fmt.Sprintf(
@@ -1750,11 +1645,8 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						gen.ModulePath,
 						objCollection.Version,
 					),
-						fmt.Sprintf(
-							"ObjectType%s",
-							apiObject.TypeName,
-						),
-					)
+						fmt.Sprintf("ObjectType%s", apiObject.TypeName))
+					g.Id("fullyQualifiedType").Op(":=").Id("new").Call(Qual(fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version), apiObject.TypeName)).Dot("GetFullyQualifiedType").Call()
 					g.Id(fmt.Sprintf(
 						"%sID", strcase.ToLowerCamel(apiObject.TypeName),
 					)).Op(":=").Id("c").Dot("Param").Call(Lit("id"))
@@ -1786,7 +1678,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Return(Qual(
 										"github.com/threeport/threeport/pkg/api-server/lib/v0",
 										"ResponseStatus404",
-									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
+									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")),
 									)),
 							)
 							if gen.Module {
@@ -1803,7 +1695,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")))
 						}),
 					)
 					g.Line()
@@ -1837,7 +1729,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 									"errors",
 									"New",
-								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+								).Call(Id("err").Dot("Error").Call()).Op(",").Id("fullyQualifiedType")))
 							}),
 						)
 					} else {
@@ -1869,7 +1761,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 									"errors",
 									"New",
-								).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+								).Call(Id("err").Dot("Error").Call()).Op(",").Id("fullyQualifiedType")))
 							}),
 						)
 					}
@@ -1901,7 +1793,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatusBindErr",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 						}),
 					)
 					g.Line()
@@ -1929,20 +1821,20 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							).Call(Id("id").Op(",").Id("c").Op(",").Nil().Op(",").Qual(
 								"errors",
 								"New",
-							).Call(Id("err").Dot("Error").Call()).Op(",").Id("objectType")))
+							).Call(Id("err").Dot("Error").Call()).Op(",").Id("fullyQualifiedType")))
 						}),
 					)
+					if apiObject.Reconciler {
+						g.Line()
+						g.Comment("snapshot reconciliation state before replace so the notify block")
+						g.Comment("can skip publishing when the replace did not touch any state marker")
+						g.Id("prevReconciliation").Op(":=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciliation")
+					}
 					g.Line()
 					g.Comment("persist provided data")
 					g.Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Dot("ID").Op("=").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("ID")
 					g.If(
-						Id("result").Op(":=").Do(func(s *Statement) {
-							if gen.Module {
-								s.Id("h").Dot("Handler")
-							} else {
-								s.Id("h")
-							}
-						}).Dot("RequestDB").Call(Id("c")).Dot("Session").Call(
+						Id("result").Op(":=").Add(wrapSerializationRetry(gen.Module, Id("db").Dot("Session").Call(
 							Op("&").Qual(
 								"gorm.io/gorm",
 								"Session",
@@ -1952,7 +1844,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Lit("CreatedAt").Op(",").Lit("DeletedAt"),
 						).Dot("Save").Call(
 							Op("&").Id(fmt.Sprintf("updated%s", apiObject.TypeName)),
-						).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
+						))).Op(";").Id("result").Dot("Error").Op("!=").Nil().BlockFunc(func(h *Group) {
 							if gen.Module {
 								h.Id("h").Dot("Handler").Dot("Logger").Dot("Error").Call(
 									Lit("handler error: error persisting object"),
@@ -1978,13 +1870,15 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Id("c"),
 									Nil(),
 									Id("result").Dot("Error"),
-									Id("objectType").Op(",").Line(),
+									Id("fullyQualifiedType").Op(",").Line(),
 								)),
 							)
-							h.Return(Qual(
-								"github.com/threeport/threeport/pkg/api-server/lib/v0",
-								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+							emitWriteErrorResponse(
+								h,
+								gen.Module,
+								fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version),
+								apiObject.TypeName,
+							)
 						}),
 					)
 					g.Line()
@@ -2009,7 +1903,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Return(Qual(
 										"github.com/threeport/threeport/pkg/api-server/lib/v0",
 										"ResponseStatus404",
-									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")),
+									).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")),
 									)),
 							)
 							if gen.Module {
@@ -2026,9 +1920,11 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("result").Dot("Error").Op(",").Id("fullyQualifiedType")))
 						}),
 					)
+					g.Line()
+					g.Add(notifyControllersUpdateHandler)
 					g.Line()
 					g.Id("response").Op(",").Id("err").Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
@@ -2039,7 +1935,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"SingleObjectMeta",
 						).Call(),
 						Line().Id(fmt.Sprintf("existing%s", apiObject.TypeName)),
-						Line().Id("objectType"),
+						Line().Id("fullyQualifiedType"),
 						Line(),
 					)
 					g.If(
@@ -2058,7 +1954,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 						}),
 					)
 					g.Line()
@@ -2109,16 +2005,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				).Parens(List(
 					Error(),
 				)).Block(
-					Id("objectType").Op(":=").Qual(fmt.Sprintf(
-						"%s/pkg/api/%s",
-						gen.ModulePath,
-						objCollection.Version,
-					),
-						fmt.Sprintf(
-							"ObjectType%s",
-							apiObject.TypeName,
-						),
-					),
+					Id("fullyQualifiedType").Op(":=").Id("new").Call(Qual(fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, objCollection.Version), apiObject.TypeName)).Dot("GetFullyQualifiedType").Call(),
 					Id(fmt.Sprintf(
 						"%sID", strcase.ToLowerCamel(apiObject.TypeName),
 					)).Op(":=").Id("c").Dot("Param").Call(Lit("id")),
@@ -2144,7 +2031,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"SingleObjectMeta",
 						).Call(),
 						Line().Id(strcase.ToLowerCamel(apiObject.TypeName)),
-						Line().Id("objectType"),
+						Line().Id("fullyQualifiedType"),
 						Line(),
 					),
 					If(
@@ -2163,7 +2050,7 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							h.Return(Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
 								"ResponseStatus500",
-							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("objectType")))
+							).Call(Id("c").Op(",").Nil().Op(",").Id("err").Op(",").Id("fullyQualifiedType")))
 						}),
 					),
 					Line(),
@@ -2228,7 +2115,7 @@ func paginationErrorResponse(gen *gen.Generator) func(*Group) {
 			),
 		).Block(
 			Return(Qual(apiServerLib, "ResponseStatus400").Call(
-				Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType"),
+				Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("fullyQualifiedType"),
 			)),
 		)
 		if gen.Module {
@@ -2243,7 +2130,7 @@ func paginationErrorResponse(gen *gen.Generator) func(*Group) {
 			)
 		}
 		h.Return(Qual(apiServerLib, "ResponseStatus500").Call(
-			Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("objectType"),
+			Id("c").Op(",").Id("pageParams").Op(",").Id("err").Op(",").Id("fullyQualifiedType"),
 		))
 	}
 }
@@ -2284,6 +2171,25 @@ func emitBlockedDeleteCheck(h *Group, module bool, role blockedDeleteCheckRole) 
 			Line(),
 		)),
 	)
+}
+
+// emitWriteErrorResponse emits 409 for a unique-index conflict and 500 otherwise.
+func emitWriteErrorResponse(h *Group, module bool, apiTypePath, typeName string) {
+	logger := Id("h").Dot("Logger")
+	if module {
+		logger = Id("h").Dot("Handler").Dot("Logger")
+	}
+
+	h.Return(Qual(
+		"github.com/threeport/threeport/pkg/api-server/lib/v0",
+		"RespondWriteError",
+	).Call(
+		Line().Id("c"),
+		Line().Add(logger),
+		Line().Id("result").Dot("Error"),
+		Line().Id("new").Call(Qual(apiTypePath, typeName)),
+		Line().Id("fullyQualifiedType").Op(",").Line(),
+	))
 }
 
 // emitPreCheckBlockingRefs emits a synchronous block check before
@@ -2336,7 +2242,49 @@ func emitPreCheckBlockingRefs(s *Statement, objVar string, module bool) {
 		Return(Qual(
 			"github.com/threeport/threeport/pkg/api-server/lib/v0",
 			"ResponseStatus500",
-		).Call(Id("c"), Nil(), Id("checkErr"), Id("objectType"))),
+		).Call(Id("c"), Nil(), Id("checkErr"), Id("fullyQualifiedType"))),
 	)
 	s.Line()
+}
+
+// wrapSerializationRetry wraps writeChain in Handler.Write so 40001 is retried.
+func wrapSerializationRetry(module bool, writeChain *Statement) *Statement {
+	handler := Id("h")
+	if module {
+		handler = Id("h").Dot("Handler")
+	}
+
+	return handler.Dot("Write").Call(
+		Id("c"),
+		Func().Params(
+			Id("db").Op("*").Qual("gorm.io/gorm", "DB"),
+		).Op("*").Qual("gorm.io/gorm", "DB").Block(
+			Return(writeChain),
+		),
+	)
+}
+
+// wrapCreateRetry is wrapSerializationRetry for Create.
+// It emits:
+//
+//	obj.ID = nil
+//	return db.Create(&obj)
+//
+// so a retried attempt does not insert the key a rolled-back attempt was given.
+func wrapCreateRetry(module bool, objName string) *Statement {
+	handler := Id("h")
+	if module {
+		handler = Id("h").Dot("Handler")
+	}
+
+	return handler.Dot("Write").Call(
+		Id("c"),
+		Func().Params(
+			Id("db").Op("*").Qual("gorm.io/gorm", "DB"),
+		).Op("*").Qual("gorm.io/gorm", "DB").Block(
+			Comment("clear id so a retried create does not reuse a rolled-back key"),
+			Id(objName).Dot("ID").Op("=").Nil(),
+			Return(Id("db").Dot("Create").Call(Op("&").Id(objName))),
+		),
+	)
 }

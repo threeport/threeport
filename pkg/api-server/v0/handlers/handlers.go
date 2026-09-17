@@ -45,6 +45,15 @@ func (h Handler) RequestDB(c echo.Context) *gorm.DB {
 		Scopes(apiserver_lib.QueryScopes(c)...)
 }
 
+// Write retries write with a fresh request DB handle on each attempt.
+// write must use the db handle passed in.
+func (h Handler) Write(c echo.Context, write func(db *gorm.DB) *gorm.DB) *gorm.DB {
+	return apiserver_lib.RetryWrite(
+		c.Request().Context(),
+		func() *gorm.DB { return write(h.RequestDB(c)) },
+	)
+}
+
 // RespondBlockedDelete writes a 409 with blockers rendered as
 // <api-namespace>/<kebab-kind>/<name>, falling back to id when no name resolves.
 func RespondBlockedDelete(c echo.Context, db *gorm.DB, blocked *api_v0.BlockedDeleteError) error {
