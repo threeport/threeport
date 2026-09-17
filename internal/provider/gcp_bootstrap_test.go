@@ -12,6 +12,7 @@ import (
 // threeportServiceAccountRoles includes roles/compute.instanceAdmin.v1.
 func TestThreeportServiceAccountRoles_AssertsInstanceAdminRole(t *testing.T) {
 	assert.Contains(t, threeportServiceAccountRoles, "roles/compute.instanceAdmin.v1")
+	assert.Contains(t, threeportServiceAccountRoles, "roles/compute.securityAdmin")
 }
 
 // TestGcpResourceLabels_SanitizesOwnerName covers lowercase, dashes, and the 63-char cap.

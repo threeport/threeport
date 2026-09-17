@@ -18,6 +18,9 @@ func TestRaceTestPackages_FindsRaceFiles(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(pkgDir, "other_test.go"), []byte("package provider\n"), 0o644))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, ".git"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".git", "ignored_race_test.go"), []byte("package git\n"), 0o644))
+	testdata := filepath.Join(root, "testdata")
+	require.NoError(t, os.MkdirAll(testdata, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(testdata, "fixture_race_test.go"), []byte("package testdata\n"), 0o644))
 
 	got, err := RaceTestPackages(root)
 	require.NoError(t, err)

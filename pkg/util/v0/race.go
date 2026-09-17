@@ -22,7 +22,7 @@ func RaceTestPackages(root string) ([]string, error) {
 		name := d.Name()
 		if d.IsDir() {
 			switch name {
-			case ".git", "vendor", "node_modules":
+			case ".git", "vendor", "node_modules", "testdata":
 				return fs.SkipDir
 			}
 			return nil

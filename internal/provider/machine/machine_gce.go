@@ -35,8 +35,9 @@ var (
 	_ provider.RefreshableProvider = (*GceMachineInfra)(nil)
 )
 
-// gceNameRe is GCE's RFC1035 instance-name pattern, 1 to 63 characters.
-var gceNameRe = regexp.MustCompile(`^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$`)
+// gceNameRe is GCE's RFC1035 instance-name pattern, 1 to 59 characters.
+// The SSH firewall name is {name}-ssh and is also capped at 63.
+var gceNameRe = regexp.MustCompile(`^[a-z]([-a-z0-9]{0,57}[a-z0-9])?$`)
 
 // GceMachineInfra is the Google Compute Engine backend for a machine runtime.
 // Machine-runtime constructs this with NewGceMachineInfra() and calls DeployInfra().
@@ -101,18 +102,22 @@ func (i *GceMachineInfra) ensurePulumiProjectDefaults() {
 	}
 }
 
+// gcpRegion returns Region, or the zone prefix when Region is empty.
+func (i *GceMachineInfra) gcpRegion() string {
+	if i.Region != "" {
+		return i.Region
+	}
+	if idx := strings.LastIndex(i.Zone, "-"); idx > 0 {
+		return i.Zone[:idx]
+	}
+	return ""
+}
+
 // syncStackConfigs updates stack config keys from the current ProjectID and Region.
 func (i *GceMachineInfra) syncStackConfigs() {
-	// fill gcp:region from the zone when Region is empty
-	region := i.Region
-	if region == "" {
-		if idx := strings.LastIndex(i.Zone, "-"); idx > 0 {
-			region = i.Zone[:idx]
-		}
-	}
 	i.StackConfigs = map[string]string{
 		"gcp:project": i.ProjectID,
-		"gcp:region":  region,
+		"gcp:region":  i.gcpRegion(),
 	}
 }
 
@@ -245,7 +250,7 @@ func (i *GceMachineInfra) pulumiProgram() pulumi.RunFunc {
 		// create GCP provider
 		gcpProvider, err := gcp.NewProvider(pctx, "gcp-provider", &gcp.ProviderArgs{
 			Project: pulumi.String(i.ProjectID),
-			Region:  pulumi.String(i.Region),
+			Region:  pulumi.String(i.gcpRegion()),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create GCP provider: %w", err)

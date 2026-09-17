@@ -442,6 +442,22 @@ func TestValidateRequiredFields_InvalidName(t *testing.T) {
 	}
 }
 
+// TestValidateRequiredFields_NameLeavesRoomForFirewall covers the 59-char cap
+// so {name}-ssh stays within GCE's 63-character firewall name limit.
+func TestValidateRequiredFields_NameLeavesRoomForFirewall(t *testing.T) {
+	ok := "a" + strings.Repeat("x", 57) + "z"
+	i := newTestInfra(ok)
+	if err := i.validateRequiredFields(); err != nil {
+		t.Errorf("59-char name: %v", err)
+	}
+	tooLong := "a" + strings.Repeat("x", 58) + "z"
+	i = newTestInfra(tooLong)
+	err := i.validateRequiredFields()
+	if err == nil || !strings.Contains(err.Error(), "not a valid GCE instance name") {
+		t.Errorf("60-char name = %v, want invalid GCE instance name", err)
+	}
+}
+
 // TestDeployInfra_MissingRequiredFields rejects each required field when it is empty.
 func TestDeployInfra_MissingRequiredFields(t *testing.T) {
 	base := func() *GceMachineInfra {
