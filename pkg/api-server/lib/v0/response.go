@@ -53,8 +53,8 @@ type Response struct {
 	// Meta contains PageRequestParams (current page and size of current page) and TotalCount (number of returned Object elements)
 	Meta Meta
 
-	// Type contains ObjectType of returned Data elements.
-	Type string `example:"KubernetesWorkloadInstance"`
+	// Type is <api-namespace>/<version>.<TypeName>, set even when Data is empty.
+	Type string `example:"threeport.io/v0.KubernetesWorkloadInstance"`
 
 	// Data contains array of returned Object elements.
 	Data []Object

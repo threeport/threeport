@@ -13,8 +13,8 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
-// GenDbMigratorMigration generates the migration used to set the database
-// schema before the API server starts.
+// GenDbMigratorMigration generates the scaffolding initial migration.
+// A new module emits this as 000001_init.go. An existing file is not overwritten.
 func GenDbMigratorMigration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("migrations")
 	f.HeaderComment(sdk.HeaderCommentGenMod)
@@ -44,11 +44,15 @@ func GenDbMigratorMigration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error 
 		),
 		Line(),
 
-		If(Err().Op(":=").Id("gormDb").Dot("AutoMigrate").Call(
-			Id(fmt.Sprintf("dbInterfaces%s", migrationVersion)).Call().Op("..."),
-		),
-			Err().Op("!=").Nil()).Block(
-			Return(Qual("fmt", "Errorf").Call(Lit("could not run gorm AutoMigrate: %w"), Err())),
+		Comment("create missing tables"),
+		If(
+			Err().Op(":=").Id("createMissingTables").Call(
+				Id("gormDb"),
+				Id(fmt.Sprintf("dbInterfaces%s", migrationVersion)).Call(),
+			),
+			Err().Op("!=").Nil(),
+		).Block(
+			Return(Err()),
 		),
 		Line(),
 
@@ -66,14 +70,14 @@ func GenDbMigratorMigration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error 
 		),
 		Line(),
 
-		Id("tablesToDrop").Op(":=").Id(fmt.Sprintf("dbInterfaces%s", migrationVersion)).Call(),
-		For(List(Id("_"), Id("table")).Op(":=").Range().Id("tablesToDrop")).Block(
-			If(Err().Op(":=").Id("gormDb").Dot("Migrator").Call().Dot("DropTable").Call(
-				Id("table"),
+		If(
+			Err().Op(":=").Id("dropTables").Call(
+				Id("gormDb"),
+				Id(fmt.Sprintf("dbInterfaces%s", migrationVersion)).Call(),
 			),
-				Err().Op("!=").Nil()).Block(
-				Return(Qual("fmt", "Errorf").Call(Lit("could not drop table with gorm db: %w"), Err())),
-			),
+			Err().Op("!=").Nil(),
+		).Block(
+			Return(Err()),
 		),
 		Line(),
 
@@ -86,7 +90,8 @@ func GenDbMigratorMigration(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error 
 	).Block(
 		Return().Index().Interface().BlockFunc(func(g *Group) {
 			for _, version := range gen.GlobalVersionConfig.Versions {
-				for _, name := range version.DatabaseInitNames {
+				sortedNames := gen.SortDatabaseInitNamesByDependency(version.DatabaseInitNames)
+				for _, name := range sortedNames {
 					g.List(
 						Op("&").Qual(
 							fmt.Sprintf(
