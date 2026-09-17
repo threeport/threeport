@@ -5,6 +5,7 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -77,6 +78,10 @@ func GetTerraformDefinitionByID(apiClient *http.Client, apiAddr string, id uint)
 	)
 	if err != nil {
 		return &terraformDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &terraformDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -180,6 +185,10 @@ func CreateTerraformDefinition(apiClient *http.Client, apiAddr string, terraform
 		return terraformDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return terraformDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return terraformDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -220,6 +229,10 @@ func UpdateTerraformDefinition(apiClient *http.Client, apiAddr string, terraform
 	)
 	if err != nil {
 		return terraformDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return terraformDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -265,6 +278,10 @@ func ReplaceTerraformDefinition(apiClient *http.Client, apiAddr string, terrafor
 		return terraformDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return terraformDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return terraformDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -294,6 +311,10 @@ func DeleteTerraformDefinition(apiClient *http.Client, apiAddr string, id uint) 
 	)
 	if err != nil {
 		return &terraformDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &terraformDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -374,6 +395,10 @@ func GetTerraformInstanceByID(apiClient *http.Client, apiAddr string, id uint) (
 	)
 	if err != nil {
 		return &terraformInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &terraformInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -477,6 +502,10 @@ func CreateTerraformInstance(apiClient *http.Client, apiAddr string, terraformIn
 		return terraformInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return terraformInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return terraformInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -517,6 +546,10 @@ func UpdateTerraformInstance(apiClient *http.Client, apiAddr string, terraformIn
 	)
 	if err != nil {
 		return terraformInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return terraformInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -562,6 +595,10 @@ func ReplaceTerraformInstance(apiClient *http.Client, apiAddr string, terraformI
 		return terraformInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return terraformInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return terraformInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -591,6 +628,10 @@ func DeleteTerraformInstance(apiClient *http.Client, apiAddr string, id uint) (*
 	)
 	if err != nil {
 		return &terraformInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &terraformInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
