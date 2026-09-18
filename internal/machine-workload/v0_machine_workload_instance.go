@@ -18,6 +18,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	event "github.com/threeport/threeport/pkg/event/v0"
 	machine "github.com/threeport/threeport/pkg/machine/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
@@ -73,7 +74,7 @@ func v0MachineWorkloadInstanceCreated(
 	}
 
 	// run the create script and record results
-	wlStatus := runScript(r, machineWorkloadInstance, mri, mwd, *mwd.CreateScript, "create", log)
+	wlStatus, scriptErr := runScript(r, machineWorkloadInstance, mri, mwd, *mwd.CreateScript, "create", log)
 
 	// update the instance with the final status
 	if _, err := client.UpdateMachineWorkloadInstance(r.APIClient, r.APIServer, &v0.MachineWorkloadInstance{
@@ -84,9 +85,9 @@ func v0MachineWorkloadInstanceCreated(
 		return 0, fmt.Errorf("failed to update machine workload instance with run result: %w", err)
 	}
 
-	// requeue in 30s on failure so the script is retried
-	if wlStatus != status.WorkloadInstanceStatusHealthy {
-		return 30, fmt.Errorf("create script failed with status %s", wlStatus)
+	// requeue the script failure after the status is persisted
+	if scriptErr != nil {
+		return 30, scriptErr
 	}
 
 	return 0, nil
@@ -132,7 +133,7 @@ func v0MachineWorkloadInstanceUpdated(
 	}
 
 	// run the update script and record results
-	wlStatus := runScript(r, machineWorkloadInstance, mri, mwd, *mwd.UpdateScript, "update", log)
+	wlStatus, scriptErr := runScript(r, machineWorkloadInstance, mri, mwd, *mwd.UpdateScript, "update", log)
 
 	// update the instance with the final status
 	if _, err := client.UpdateMachineWorkloadInstance(r.APIClient, r.APIServer, &v0.MachineWorkloadInstance{
@@ -143,9 +144,9 @@ func v0MachineWorkloadInstanceUpdated(
 		return 0, fmt.Errorf("failed to update machine workload instance with run result: %w", err)
 	}
 
-	// requeue in 30s on failure so the script is retried
-	if wlStatus != status.WorkloadInstanceStatusHealthy {
-		return 30, fmt.Errorf("update script failed with status %s", wlStatus)
+	// requeue the script failure after the status is persisted
+	if scriptErr != nil {
+		return 30, scriptErr
 	}
 
 	return 0, nil
@@ -180,20 +181,19 @@ func v0MachineWorkloadInstanceDeleted(
 		return 0, fmt.Errorf("failed to get machine runtime instance: %w", err)
 	}
 
-	// run the delete script and record results
-	wlStatus := runScript(r, machineWorkloadInstance, mri, mwd, *mwd.DeleteScript, "delete", log)
+	// run the delete script without persisting status; the instance is being removed
+	_, scriptErr := runScript(r, machineWorkloadInstance, mri, mwd, *mwd.DeleteScript, "delete", log)
 
-	// requeue in 30s on failure so the script is retried
-	if wlStatus != status.WorkloadInstanceStatusHealthy {
-		return 30, fmt.Errorf("delete script failed with status %s", wlStatus)
+	// requeue the script failure
+	if scriptErr != nil {
+		return 30, scriptErr
 	}
 
 	return 0, nil
 }
 
-// runScript establishes an SSH connection to the machine runtime, executes the
-// given script, and records WorkloadEvent records for the captured output and
-// exit status.  Returns the derived workload instance status.
+// runScript connects to the runtime, runs the named script, and returns
+// the resulting workload status. A non-nil error carries the failure event.
 func runScript(
 	r *controller.Reconciler,
 	mwi *v0.MachineWorkloadInstance,
@@ -202,23 +202,20 @@ func runScript(
 	script string,
 	scriptName string,
 	log *logr.Logger,
-) status.WorkloadInstanceStatus {
+) (status.WorkloadInstanceStatus, error) {
 	// establish ssh connection to the runtime
 	sshClient, _, err := machine.GetClient(mri, r.EncryptionKey)
 	if err != nil {
-		// ssh failure is user-visible — the machine isn't reachable
-		if eventErr := r.EventsRecorder.RecordEvent(
-			&v0.Event{
+		// surface the connect failure as an event
+		note := fmt.Sprintf("failed to connect to machine runtime instance: %s", err)
+		return status.WorkloadInstanceStatusError, &tp_errors.ErrWithEvent{
+			Message: note,
+			Event: v0.Event{
 				Type:   util.Ptr(event.TypeWarning),
 				Reason: util.Ptr("SSHConnectFailed"),
-				Note:   util.Ptr(fmt.Sprintf("failed to connect to machine runtime instance: %s", err)),
+				Note:   util.Ptr(note),
 			},
-			*mwi.ID,
-			mwi.GetFullyQualifiedType(),
-		); eventErr != nil {
-			log.Error(eventErr, "failed to record event for ssh connect error")
 		}
-		return status.WorkloadInstanceStatusError
 	}
 	defer sshClient.Close()
 
@@ -226,12 +223,12 @@ func runScript(
 	defEnv, err := machine.DecryptEnv(mwd.Env, r.EncryptionKey)
 	if err != nil {
 		log.Error(err, "failed to decrypt definition env")
-		return status.WorkloadInstanceStatusError
+		return status.WorkloadInstanceStatusError, fmt.Errorf("failed to decrypt definition env: %w", err)
 	}
 	instEnv, err := machine.DecryptEnv(mwi.Env, r.EncryptionKey)
 	if err != nil {
 		log.Error(err, "failed to decrypt instance env")
-		return status.WorkloadInstanceStatusError
+		return status.WorkloadInstanceStatusError, fmt.Errorf("failed to decrypt instance env: %w", err)
 	}
 
 	// merge env - instance env overrides definition env on duplicate keys
@@ -254,7 +251,7 @@ func runScript(
 		mwd.Timeout,
 	)
 
-	// derive status and record events based on execution result
+	// derive status and event content from the result
 	var wlStatus status.WorkloadInstanceStatus
 	var reason, eventType, message string
 	switch {
@@ -270,28 +267,31 @@ func runScript(
 		message = fmt.Sprintf("%s script connection error: %s", scriptName, connectionErr.Error())
 	case exitCode == 0:
 		wlStatus = status.WorkloadInstanceStatusHealthy
-		reason = "ScriptSucceeded"
-		eventType = event.TypeNormal
-		message = fmt.Sprintf("%s script completed successfully (stdout: %s)", scriptName, truncateMessage(sanitizeScriptOutput(stdout)))
 	default:
 		wlStatus = status.WorkloadInstanceStatusUnhealthy
 		reason = "ScriptFailed"
 		eventType = event.TypeWarning
 		message = fmt.Sprintf("%s script failed with exit code %d (stderr: %s)", scriptName, exitCode, truncateMessage(sanitizeScriptOutput(stderr)))
 	}
-	if eventErr := r.EventsRecorder.RecordEvent(
-		&v0.Event{
+
+	// log a successful run; stdout is diagnostic detail, not an event
+	if wlStatus == status.WorkloadInstanceStatusHealthy {
+		log.Info(
+			"machine workload script completed successfully",
+			"machineWorkloadInstance", *mwi.ID,
+			"script", scriptName,
+			"stdout", truncateMessage(sanitizeScriptOutput(stdout)),
+		)
+		return wlStatus, nil
+	}
+	return wlStatus, &tp_errors.ErrWithEvent{
+		Message: message,
+		Event: v0.Event{
 			Type:   util.Ptr(eventType),
 			Reason: util.Ptr(reason),
 			Note:   util.Ptr(truncateMessage(message)),
 		},
-		*mwi.ID,
-		mwi.GetFullyQualifiedType(),
-	); eventErr != nil {
-		log.Error(eventErr, "failed to record event")
 	}
-
-	return wlStatus
 }
 
 // runRemoteScript executes the given script on the remote over the existing

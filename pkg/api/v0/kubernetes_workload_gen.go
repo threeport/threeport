@@ -90,6 +90,16 @@ func (kwd *KubernetesWorkloadDefinition) ScheduledForDeletion() *time.Time {
 	return kwd.DeletionScheduled
 }
 
+// AssociationTypes returns the fully-qualified type names of children referenced via has-many association slices on KubernetesWorkloadDefinition.
+func (k *KubernetesWorkloadDefinition) AssociationTypes() []string {
+	return []string{new(KubernetesWorkloadResourceDefinition).GetFullyQualifiedType()}
+}
+
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on KubernetesWorkloadDefinition.
+func (k *KubernetesWorkloadDefinition) AssociationRequiredByTypes() []string {
+	return []string{new(KubernetesWorkloadInstance).GetFullyQualifiedType()}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -168,6 +178,11 @@ func (k *KubernetesWorkloadInstance) RelationshipTaggedForeignKeys() []Relations
 		ObjectType:   new(KubernetesWorkloadDefinition).GetFullyQualifiedType(),
 		Relationship: RelationshipRequires,
 	}}
+}
+
+// AssociationTypes returns the fully-qualified type names of children referenced via has-many association slices on KubernetesWorkloadInstance.
+func (k *KubernetesWorkloadInstance) AssociationTypes() []string {
+	return []string{new(KubernetesWorkloadResourceInstance).GetFullyQualifiedType()}
 }
 
 // NotificationPayload returns the notification payload that is delivered to the

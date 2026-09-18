@@ -85,6 +85,11 @@ func (krd *KubernetesRuntimeDefinition) ScheduledForDeletion() *time.Time {
 	return krd.DeletionScheduled
 }
 
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on KubernetesRuntimeDefinition.
+func (k *KubernetesRuntimeDefinition) AssociationRequiredByTypes() []string {
+	return []string{new(KubernetesRuntimeInstance).GetFullyQualifiedType()}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -158,6 +163,11 @@ func (k *KubernetesRuntimeInstance) RelationshipTaggedForeignKeys() []Relationsh
 		ObjectType:   new(KubernetesRuntimeDefinition).GetFullyQualifiedType(),
 		Relationship: RelationshipRequires,
 	}}
+}
+
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on KubernetesRuntimeInstance.
+func (k *KubernetesRuntimeInstance) AssociationRequiredByTypes() []string {
+	return []string{new(ControlPlaneInstance).GetFullyQualifiedType(), new(KubernetesWorkloadInstance).GetFullyQualifiedType()}
 }
 
 // EncryptedFields returns the encrypt-tagged fields on KubernetesRuntimeInstance.
