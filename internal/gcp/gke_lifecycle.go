@@ -389,9 +389,11 @@ func buildGkeInfra(
 
 	if gcpProvider.ServiceAccountCredentials != nil && *gcpProvider.ServiceAccountCredentials != "" {
 		infraGKE.ServiceAccountCredentials = *gcpProvider.ServiceAccountCredentials
-		if email, err := serviceAccountEmailFromCredentials(infraGKE.ServiceAccountCredentials); err == nil {
-			infraGKE.ServiceAccountEmail = email
+		email, err := serviceAccountEmailFromCredentials(infraGKE.ServiceAccountCredentials)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract service account email: %w", err)
 		}
+		infraGKE.ServiceAccountEmail = email
 	}
 
 	return infraGKE, nil
