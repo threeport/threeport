@@ -528,9 +528,9 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 		// WI principal to ensure RBAC applies to the actual pod identity.
 		if cpi.Opts.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE && cpi.Opts.GcpProjectId != "" {
 			threeportWorkloadSubjects = append(threeportWorkloadSubjects, map[string]interface{}{
-				"kind":      "User",
-				"name":      fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", cpi.Opts.GcpProjectId, cpi.Opts.Namespace, controller.ServiceAccountName),
-				"apiGroup":  "rbac.authorization.k8s.io",
+				"kind":     "User",
+				"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", cpi.Opts.GcpProjectId, cpi.Opts.Namespace, controller.ServiceAccountName),
+				"apiGroup": "rbac.authorization.k8s.io",
 			})
 		}
 		threeportWorkloadClusterRoleBinding := &unstructured.Unstructured{
@@ -2009,22 +2009,44 @@ func (cpi *ControlPlaneInstaller) getImagePullSecrets(imagePullSecretName string
 	}
 }
 
+const (
+	// DefaultLocalAPIPortAuthEnabled and DefaultLocalAPIPortAuthDisabled are the
+	// host ports a local control plane publishes its API on.
+	//
+	// They are unprivileged. Binding below 1024 works on a laptop only because
+	// dockerd runs as root and binds on the container's behalf; it is not
+	// available under rootless Docker or Podman, on hosts that raise
+	// net.ipv4.ip_unprivileged_port_start, or on runners and Codespaces that
+	// reserve those ports for their own forwarding. The port is local to the
+	// install and recorded in its config, so nothing outside depends on the
+	// number - a user who wants 443 or 80 can ask for it with --api-port.
+	DefaultLocalAPIPortAuthEnabled  = 8443
+	DefaultLocalAPIPortAuthDisabled = 8080
+)
+
 // GetThreeportAPIPort returns the port that the threeport API is running on.
-func GetThreeportAPIPort(authEnabled bool) int {
-	if authEnabled {
-		return 443
+//
+// A non-zero apiPort is the port the user asked for; zero means they did not
+// ask, and the default for the auth setting applies.
+func GetThreeportAPIPort(authEnabled bool, apiPort int) int {
+	if apiPort != 0 {
+		return apiPort
 	}
 
-	return 80
+	if authEnabled {
+		return DefaultLocalAPIPortAuthEnabled
+	}
+
+	return DefaultLocalAPIPortAuthDisabled
 }
 
 // GetLocalThreeportAPIEndpoint returns the endpoint for the threeport API
 // running locally.
-func GetLocalThreeportAPIEndpoint(authEnabled bool) string {
+func GetLocalThreeportAPIEndpoint(authEnabled bool, apiPort int) string {
 	return fmt.Sprintf(
 		"%s:%d",
 		ThreeportLocalAPIEndpoint,
-		GetThreeportAPIPort(authEnabled),
+		GetThreeportAPIPort(authEnabled, apiPort),
 	)
 }
 

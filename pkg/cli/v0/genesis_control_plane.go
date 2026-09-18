@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -64,6 +66,7 @@ type GenesisControlPlaneCLIArgs struct {
 	ClusterName           string
 	InfraOnly             bool
 	KindPortMappings      []string
+	ApiPort               int
 	LocalRegistry         bool
 }
 
@@ -173,6 +176,15 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.TeardownOnFailure = a.TeardownOnFailure
 	cpi.Opts.LocalRegistry = a.LocalRegistry
 	cpi.Opts.KindPortMappings = a.KindPortMappings
+	// a kind port mapping for the API's node port says the same thing --api-port
+	// says, so the two are folded into one value here. The kind mapping and the
+	// endpoint written to the threeport config both read that value, so they
+	// cannot disagree about which port the API is on. Validation has already
+	// rejected both flags being set at once.
+	cpi.Opts.ApiPort = a.ApiPort
+	if cpi.Opts.ApiPort == 0 {
+		cpi.Opts.ApiPort = apiPortFromKindMappings(a.KindPortMappings)
+	}
 
 	return cpi, nil
 }
@@ -580,7 +592,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	if controlPlane.InfraProvider == v0.KubernetesRuntimeInfraProviderKind {
 		// update threeport config with api endpoint
 		var err error
-		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(cpi.Opts.AuthEnabled)
+		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(cpi.Opts.AuthEnabled, cpi.Opts.ApiPort)
 		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
 			c.APIServer = threeportAPIEndpoint
 		}); err != nil {
@@ -622,7 +634,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
 		}
 		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
-			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
+			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled, cpi.Opts.ApiPort))
 		}); err != nil {
 			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
 		}
@@ -1210,6 +1222,28 @@ func DeleteGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 }
 
 // validateCreateControlPlaneFlags validates flag inputs as needed
+// apiPortFromKindMappings returns the host port a kind port mapping publishes
+// the threeport API on, or zero when none names it.
+//
+// A malformed mapping is left alone: DeployKindInfra parses the same strings
+// and reports the error, and reporting it twice differently helps nobody.
+func apiPortFromKindMappings(kindPortMappings []string) int {
+	for _, mapping := range kindPortMappings {
+		containerPort, hostPort, found := strings.Cut(mapping, ":")
+		if !found || containerPort != strconv.Itoa(int(provider.ThreeportAPINodePort)) {
+			continue
+		}
+		port, err := strconv.Atoi(hostPort)
+		if err != nil {
+			continue
+		}
+
+		return port
+	}
+
+	return 0
+}
+
 func ValidateCreateGenesisControlPlaneFlags(
 	instanceName string,
 	infraProvider string,
@@ -1218,6 +1252,7 @@ func ValidateCreateGenesisControlPlaneFlags(
 	kindPortMappings []string,
 	controlPlaneOnly bool,
 	clusterName string,
+	apiPort int,
 ) error {
 	// ensure name length doesn't exceed maximum
 	if utf8.RuneCountInString(instanceName) > threeport.InstanceNameMaxLength {
@@ -1243,6 +1278,31 @@ func ValidateCreateGenesisControlPlaneFlags(
 	// return an error if kind port mappings are provided for a non-kind provider
 	if infraProvider != v0.KubernetesRuntimeInfraProviderKind && len(kindPortMappings) > 0 {
 		return errors.New("kind port mappings are only supported for infrastructure provider 'kind'")
+	}
+
+	// return an error if an API port is provided for a non-kind provider. A
+	// cloud install terminates TLS at its own load balancer, so the port is not
+	// something this flag decides there.
+	if infraProvider != v0.KubernetesRuntimeInfraProviderKind && apiPort != 0 {
+		return errors.New("--api-port is only supported for infrastructure provider 'kind'")
+	}
+
+	if apiPort < 0 || apiPort > 65535 {
+		return fmt.Errorf("invalid --api-port value %d - must be between 1 and 65535", apiPort)
+	}
+
+	// both flags can name the host port for the API, and taking one over the
+	// other silently is the shape of bug this flag exists to remove
+	if apiPort != 0 {
+		for _, mapping := range kindPortMappings {
+			containerPort, _, found := strings.Cut(mapping, ":")
+			if found && containerPort == strconv.Itoa(int(provider.ThreeportAPINodePort)) {
+				return fmt.Errorf(
+					"--api-port and --kind-port-mappings %s both set the host port for the threeport API - use one",
+					mapping,
+				)
+			}
+		}
 	}
 
 	// --cluster-name doesn't apply outside --control-plane-only mode;
