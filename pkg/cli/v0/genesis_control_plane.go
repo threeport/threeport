@@ -634,7 +634,7 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			return uninstaller.cleanOnCreateError("failed to get threeport API's public endpoint", err)
 		}
 		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
-			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled, cpi.Opts.ApiPort))
+			c.APIServer = fmt.Sprintf("%s:%d", threeportAPIEndpoint, threeport.GetThreeportAPIPort(cpi.Opts.AuthEnabled))
 		}); err != nil {
 			return uninstaller.cleanOnCreateError("failed to update threeport config", err)
 		}
@@ -1278,6 +1278,25 @@ func ValidateCreateGenesisControlPlaneFlags(
 	// return an error if kind port mappings are provided for a non-kind provider
 	if infraProvider != v0.KubernetesRuntimeInfraProviderKind && len(kindPortMappings) > 0 {
 		return errors.New("kind port mappings are only supported for infrastructure provider 'kind'")
+	}
+
+	// a container port named twice has no single answer: the mappings are
+	// collected into a map, so the last one silently wins, and anything that
+	// reads the list in order sees the first. Rather than pick a precedence and
+	// hope every reader agrees, say the config is ambiguous.
+	seenContainerPorts := make(map[string]string)
+	for _, mapping := range kindPortMappings {
+		containerPort, hostPort, found := strings.Cut(mapping, ":")
+		if !found {
+			continue
+		}
+		if previousHostPort, seen := seenContainerPorts[containerPort]; seen {
+			return fmt.Errorf(
+				"container port %s is mapped more than once, to host ports %s and %s - use one",
+				containerPort, previousHostPort, hostPort,
+			)
+		}
+		seenContainerPorts[containerPort] = hostPort
 	}
 
 	// return an error if an API port is provided for a non-kind provider. A

@@ -2024,11 +2024,27 @@ const (
 	DefaultLocalAPIPortAuthDisabled = 8080
 )
 
-// GetThreeportAPIPort returns the port that the threeport API is running on.
+// GetThreeportAPIPort returns the port a cloud-provisioned threeport API is
+// reached on.
+//
+// This is the port of the load balancer the cloud provider put in front of the
+// API, not a host port anything binds, so it stays at the standard 443 or 80.
+// A local control plane does not go through a load balancer and uses
+// GetLocalThreeportAPIPort instead.
+func GetThreeportAPIPort(authEnabled bool) int {
+	if authEnabled {
+		return 443
+	}
+
+	return 80
+}
+
+// GetLocalThreeportAPIPort returns the host port a local threeport API is
+// published on.
 //
 // A non-zero apiPort is the port the user asked for; zero means they did not
-// ask, and the default for the auth setting applies.
-func GetThreeportAPIPort(authEnabled bool, apiPort int) int {
+// ask, and the unprivileged default for the auth setting applies.
+func GetLocalThreeportAPIPort(authEnabled bool, apiPort int) int {
 	if apiPort != 0 {
 		return apiPort
 	}
@@ -2046,7 +2062,7 @@ func GetLocalThreeportAPIEndpoint(authEnabled bool, apiPort int) string {
 	return fmt.Sprintf(
 		"%s:%d",
 		ThreeportLocalAPIEndpoint,
-		GetThreeportAPIPort(authEnabled, apiPort),
+		GetLocalThreeportAPIPort(authEnabled, apiPort),
 	)
 }
 

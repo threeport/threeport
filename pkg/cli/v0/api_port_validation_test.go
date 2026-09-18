@@ -53,6 +53,18 @@ func TestValidateCreateGenesisControlPlaneFlags_ApiPort(t *testing.T) {
 			wantErr:          "both set the host port for the threeport API",
 		},
 		{
+			name:             "a container port mapped twice",
+			infraProvider:    "kind",
+			kindPortMappings: []string{"30000:9443", "30000:9444"},
+			wantErr:          "mapped more than once",
+		},
+		{
+			name:             "a non-api container port mapped twice",
+			infraProvider:    "kind",
+			kindPortMappings: []string{"30001:4443", "30001:4444"},
+			wantErr:          "mapped more than once",
+		},
+		{
 			name:             "another mapping alongside it is fine",
 			infraProvider:    "kind",
 			apiPort:          8443,

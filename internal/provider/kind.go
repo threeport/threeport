@@ -250,7 +250,7 @@ func getPortMapping(
 	apiPort int,
 	portMappings map[int32]int32,
 ) []v1alpha4.PortMapping {
-	hostPort := int32(threeport.GetThreeportAPIPort(authEnabled, apiPort))
+	hostPort := int32(threeport.GetLocalThreeportAPIPort(authEnabled, apiPort))
 	if userHostPort, ok := portMappings[ThreeportAPINodePort]; ok {
 		hostPort = userHostPort
 	}
