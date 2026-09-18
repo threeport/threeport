@@ -460,7 +460,7 @@ func (h Handler) DeleteDomainNameDefinition(c echo.Context) error {
 
 	// check to make sure no dependent instances exist for this definition
 	if len(domainNameDefinition.DomainNameInstances) != 0 {
-		err := errors.New("domain name definition has related domain name instances - cannot be deleted")
+		err := errors.New("domain name definition has related domain name instances - " + api_v0.ErrMsgDeleteBlocked)
 		return apiserver_lib.ResponseStatus409(c, nil, err, fullyQualifiedType)
 	}
 
@@ -1048,8 +1048,9 @@ func (h Handler) DeleteDomainNameInstance(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*domainNameInstance.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), fullyQualifiedType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
@@ -1595,7 +1596,7 @@ func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
 
 	// check to make sure no dependent instances exist for this definition
 	if len(gatewayDefinition.GatewayInstances) != 0 {
-		err := errors.New("gateway definition has related gateway instances - cannot be deleted")
+		err := errors.New("gateway definition has related gateway instances - " + api_v0.ErrMsgDeleteBlocked)
 		return apiserver_lib.ResponseStatus409(c, nil, err, fullyQualifiedType)
 	}
 
@@ -1645,8 +1646,9 @@ func (h Handler) DeleteGatewayDefinition(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*gatewayDefinition.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), fullyQualifiedType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
@@ -2722,8 +2724,9 @@ func (h Handler) DeleteGatewayInstance(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*gatewayInstance.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), fullyQualifiedType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted

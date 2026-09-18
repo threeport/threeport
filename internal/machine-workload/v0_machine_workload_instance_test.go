@@ -20,6 +20,7 @@ import (
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
+	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -360,18 +361,24 @@ func (f *fixture) patchedStatuses() []string {
 	return out
 }
 
-// TestMachineWorkloadInstanceCreated_HappyPath confirms the Created
-// reconciler runs the create script, persists Reconciled=true with a
-// Healthy status, and records a ScriptSucceeded event.
+// TestMachineWorkloadInstanceCreated_HappyPath covers a create script that
+// exits 0: no error, zero delay, Healthy status, and no recorded events.
 func TestMachineWorkloadInstanceCreated_HappyPath(t *testing.T) {
 	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
 	log := logr.Discard()
 
+	// run created reconcile
 	delay, err := v0MachineWorkloadInstanceCreated(f.r, f.mwi, &log)
+
+	// check no error and zero delay
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
+
+	// check Healthy status
 	assert.Equal(t, []string{string(wlstatus.WorkloadInstanceStatusHealthy)}, f.patchedStatuses())
-	assert.Equal(t, []string{"ScriptSucceeded"}, f.recorder.GetReasons())
+
+	// check no recorded events
+	assert.Empty(t, f.recorder.GetReasons(), "successful script emits no event; the wrapper's SuccessfulCreate event carries the outcome and the log line covers the diagnostic detail")
 }
 
 // TestMachineWorkloadInstanceCreated_RuntimeNotReconciled covers the early
@@ -389,18 +396,30 @@ func TestMachineWorkloadInstanceCreated_RuntimeNotReconciled(t *testing.T) {
 	assert.Empty(t, f.recorder.GetReasons(), "should not have recorded any events")
 }
 
-// TestMachineWorkloadInstanceCreated_ScriptFails covers the non-zero exit
-// path: status persisted as Unhealthy, ScriptFailed event recorded, and
-// the reconciler returns a non-nil error so the controller requeues.
+// TestMachineWorkloadInstanceCreated_ScriptFails covers a create script that
+// exits non-zero: Unhealthy status, 30s requeue, and ScriptFailed on the error.
 func TestMachineWorkloadInstanceCreated_ScriptFails(t *testing.T) {
 	f := newFixture(t, machinetest.SSHOpts{ExitCode: 1})
 	log := logr.Discard()
 
+	// run created reconcile
 	delay, err := v0MachineWorkloadInstanceCreated(f.r, f.mwi, &log)
+
+	// check error and 30s requeue
 	require.Error(t, err)
 	assert.Equal(t, int64(30), delay)
+
+	// check Unhealthy status
 	assert.Equal(t, []string{string(wlstatus.WorkloadInstanceStatusUnhealthy)}, f.patchedStatuses())
-	assert.Equal(t, []string{"ScriptFailed"}, f.recorder.GetReasons())
+
+	// check ScriptFailed on the error
+	var errWithEvent *tp_errors.ErrWithEvent
+	require.ErrorAs(t, err, &errWithEvent, "reconciler should return *tp_errors.ErrWithEvent so the wrapper can substitute the specific reason")
+	require.NotNil(t, errWithEvent.Event.Reason)
+	assert.Equal(t, "ScriptFailed", *errWithEvent.Event.Reason)
+
+	// check no recorded events
+	assert.Empty(t, f.recorder.GetReasons(), "failure path should not call RecordEvent directly; the wrapper substitutes the event")
 }
 
 // TestMachineWorkloadInstanceCreated_GetDefinitionFails covers the
@@ -427,17 +446,24 @@ func TestMachineWorkloadInstanceCreated_GetDefinitionFails(t *testing.T) {
 	assert.Empty(t, f.recorder.GetReasons())
 }
 
-// TestMachineWorkloadInstanceUpdated_HappyPath confirms Updated runs the
-// update script with healthy result, mirroring Created.
+// TestMachineWorkloadInstanceUpdated_HappyPath covers an update script that
+// exits 0: no error, zero delay, Healthy status, and no recorded events.
 func TestMachineWorkloadInstanceUpdated_HappyPath(t *testing.T) {
 	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
 	log := logr.Discard()
 
+	// run updated reconcile
 	delay, err := v0MachineWorkloadInstanceUpdated(f.r, f.mwi, &log)
+
+	// check no error and zero delay
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
+
+	// check Healthy status
 	assert.Equal(t, []string{string(wlstatus.WorkloadInstanceStatusHealthy)}, f.patchedStatuses())
-	assert.Equal(t, []string{"ScriptSucceeded"}, f.recorder.GetReasons())
+
+	// check no recorded events
+	assert.Empty(t, f.recorder.GetReasons(), "successful script emits no event; the wrapper's SuccessfulUpdate event carries the outcome and the log line covers the diagnostic detail")
 }
 
 // TestMachineWorkloadInstanceUpdated_NoUpdateScript covers the early-return
@@ -455,28 +481,45 @@ func TestMachineWorkloadInstanceUpdated_NoUpdateScript(t *testing.T) {
 	assert.Empty(t, f.recorder.GetReasons())
 }
 
-// TestMachineWorkloadInstanceDeleted_HappyPath confirms Deleted runs the
-// delete script and returns (0, nil). Deleted does not PATCH the MWI - the
-// generated reconciler removes the row.
+// TestMachineWorkloadInstanceDeleted_HappyPath covers a delete script that
+// exits 0: no error, zero delay, no status PATCH, and no recorded events.
 func TestMachineWorkloadInstanceDeleted_HappyPath(t *testing.T) {
 	f := newFixture(t, machinetest.SSHOpts{ExitCode: 0})
 	log := logr.Discard()
 
+	// run deleted reconcile
 	delay, err := v0MachineWorkloadInstanceDeleted(f.r, f.mwi, &log)
+
+	// check no error and zero delay
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
+
+	// check no status PATCH
 	assert.Empty(t, f.patchedStatuses(), "Deleted should not PATCH the MWI; the generated reconciler handles removal")
-	assert.Equal(t, []string{"ScriptSucceeded"}, f.recorder.GetReasons())
+
+	// check no recorded events
+	assert.Empty(t, f.recorder.GetReasons(), "successful script emits no event; the wrapper's SuccessfulDelete event carries the outcome and the log line covers the diagnostic detail")
 }
 
-// TestMachineWorkloadInstanceDeleted_ScriptFails covers the non-zero exit
-// path for delete: returns (30, err) so the reconciler retries.
+// TestMachineWorkloadInstanceDeleted_ScriptFails covers a delete script that
+// exits non-zero: a 30s requeue and ScriptFailed on the error.
 func TestMachineWorkloadInstanceDeleted_ScriptFails(t *testing.T) {
 	f := newFixture(t, machinetest.SSHOpts{ExitCode: 1})
 	log := logr.Discard()
 
+	// run deleted reconcile
 	delay, err := v0MachineWorkloadInstanceDeleted(f.r, f.mwi, &log)
+
+	// check error and 30s requeue
 	require.Error(t, err)
 	assert.Equal(t, int64(30), delay)
-	assert.Equal(t, []string{"ScriptFailed"}, f.recorder.GetReasons())
+
+	// check ScriptFailed on the error
+	var errWithEvent *tp_errors.ErrWithEvent
+	require.ErrorAs(t, err, &errWithEvent, "reconciler should return *tp_errors.ErrWithEvent so the wrapper can substitute the specific reason")
+	require.NotNil(t, errWithEvent.Event.Reason)
+	assert.Equal(t, "ScriptFailed", *errWithEvent.Event.Reason)
+
+	// check no recorded events
+	assert.Empty(t, f.recorder.GetReasons(), "failure path should not call RecordEvent directly; the wrapper substitutes the event")
 }

@@ -481,13 +481,14 @@ func TestWorkloadIntegration(t *testing.T) {
 		eventAttemptsMax := 300
 		eventCheckDurationSeconds := 1
 		for eventAttempts < eventAttemptsMax {
-			events, err := client.GetEventsJoinAttachedObjectReferenceByQueryString(
+			events, err := client.GetEventsFilteredByQueryString(
 				apiClient,
 				threeportAPIEndpoint,
 				fmt.Sprintf(
 					"objectid=%d&objecttypename=KubernetesWorkloadInstance&objectnamespace=threeport.io&objectversion=v0",
 					*createdWorkloadInst.ID,
 				),
+				0,
 			)
 			assert.Nil(err, "should have no error returned when trying to retrieve events for kubernetes workload instance")
 			for _, evt := range *events {

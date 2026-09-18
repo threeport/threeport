@@ -59,10 +59,7 @@ func GetKubernetesWorkloadInstanceStatus(
 ) *WorkloadInstanceStatusDetail {
 	var workloadInstanceStatusDetail WorkloadInstanceStatusDetail
 
-	// retrieve events for the kubernetes workload instance via the AOR join,
-	// filtering on the subject (object type + id). Events are stored in
-	// the Event table; the per-instance linkage lives on the
-	// AttachedObjectReference.
+	// map the agent type token to the API type name the events listing uses
 	var subjectType string
 	switch workloadInstanceType {
 	case agent.KubernetesWorkloadInstanceType:
@@ -80,13 +77,14 @@ func GetKubernetesWorkloadInstanceStatus(
 		return &workloadInstanceStatusDetail
 	}
 
-	workloadEvents, err := client.GetEventsJoinAttachedObjectReferenceByQueryString(
+	workloadEvents, err := client.GetEventsFilteredByQueryString(
 		apiClient,
 		apiEndpoint,
 		fmt.Sprintf(
 			"objectid=%d&objecttypename=%s&objectnamespace=threeport.io&objectversion=v0",
 			workloadInstanceId, subjectType,
 		),
+		0,
 	)
 	if err != nil {
 		workloadInstanceStatusDetail.Status = WorkloadInstanceStatusError
