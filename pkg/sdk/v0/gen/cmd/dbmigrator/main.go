@@ -14,7 +14,11 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
-// GenDbMigratorMain generates source code for the DB migrator main package.
+// migrationTestPackage is imported by both generated schema-drift tests.
+const migrationTestPackage = "github.com/threeport/threeport/pkg/migrationtest/v0"
+
+// GenDbMigratorMain generates the database-migrator main package.
+// Core and modules both emit this as boilerplate.
 func GenDbMigratorMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("main")
 	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
@@ -322,6 +326,148 @@ examples:
 			return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
 		}
 		cli.Info(fmt.Sprintf("source code for DB migrator main package written to %s", genFilepath))
+	}
+
+	return nil
+}
+
+// GenDbMigratorSchemaDriftTest generates the test that migrations cover every model.
+// Modules use sqlite; the core uses a live CockroachDB because of row-level TTL.
+func GenDbMigratorSchemaDriftTest(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
+	gooseVersionTableName := "threeport_goose_db_version"
+	if gen.Module {
+		gooseVersionTableName = fmt.Sprintf(
+			"threeport_%s_goose_db_version",
+			strcase.ToSnake(sdkConfig.ModuleName),
+		)
+		return genSchemaDriftTestInMemory(gen, sdkConfig, gooseVersionTableName)
+	}
+
+	return genSchemaDriftTestOnServer(gen, sdkConfig, gooseVersionTableName)
+}
+
+// genSchemaDriftTestInMemory generates the sqlite drift test next to the migrator.
+func genSchemaDriftTestInMemory(
+	gen *gen.Generator,
+	sdkConfig *sdk.SdkConfig,
+	gooseVersionTableName string,
+) error {
+	f := NewFile("main")
+	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
+
+	f.ImportAlias(migrationTestPackage, "migrationtest")
+
+	f.Comment("This test applies the scaffolding initial migration in sqlite and")
+	f.Comment("checks every persisted model has a table and matching columns.")
+	f.Comment("It is boilerplate so the model list stays in lockstep with")
+	f.Comment("DatabaseInitNames. 000001 is scaffolding and is not regenerated.")
+	f.Line()
+
+	// emit persistedModels, then the sqlite coverage test
+	f.Comment("persistedModels returns one instance of every model the API persists.")
+	f.Func().Id("persistedModels").Params().Params(Index().Interface()).Block(
+		Return().Index().Interface().BlockFunc(func(g *Group) {
+			for _, version := range gen.GlobalVersionConfig.Versions {
+				for _, name := range version.DatabaseInitNames {
+					g.List(
+						Op("&").Qual(
+							fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, version.VersionName),
+							name,
+						).Values().Op(","),
+					)
+				}
+			}
+		}),
+	)
+	f.Line()
+
+	f.Comment("TestMigrationsCoverEveryPersistedModel asserts the schema the migration")
+	f.Comment("chain builds matches the columns every persisted model declares, reporting")
+	f.Comment("both fields left without a column and columns left without a field.")
+	f.Func().Id("TestMigrationsCoverEveryPersistedModel").Params(
+		Id("t").Op("*").Qual("testing", "T"),
+	).Block(
+		Qual(migrationTestPackage, "AssertMigrationsCoverModels").Call(
+			Id("t"), Lit(gooseVersionTableName), Id("persistedModels").Call(),
+		),
+	)
+
+	// write code to file if not excluded by SDK config
+	genFilepath := filepath.Join("cmd", "database-migrator", "schema_drift_gen_test.go")
+	if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+		cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
+	} else {
+		_, err := util.WriteCodeToFile(f, genFilepath, true)
+		if err != nil {
+			return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+		}
+		cli.Info(fmt.Sprintf("source code for DB migrator schema drift test written to %s", genFilepath))
+	}
+
+	return nil
+}
+
+// genSchemaDriftTestOnServer generates the CockroachDB drift test in test/cockroach.
+func genSchemaDriftTestOnServer(
+	gen *gen.Generator,
+	sdkConfig *sdk.SdkConfig,
+	gooseVersionTableName string,
+) error {
+	f := NewFile("cockroach")
+	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
+
+	f.ImportAlias(migrationTestPackage, "migrationtest")
+	// blank-import migrations so goose's registry is populated
+	f.Anon(fmt.Sprintf("%s/cmd/database-migrator/migrations", gen.ModulePath))
+
+	f.Comment("This test applies the scaffolding initial migration and checks")
+	f.Comment("every persisted model has a table and matching columns. It is")
+	f.Comment("boilerplate so the model list stays in lockstep with")
+	f.Comment("DatabaseInitNames. 000001 is scaffolding and is not regenerated.")
+	f.Comment("Modules emit the same test against sqlite.")
+	f.Line()
+
+	f.Comment("persistedModels returns one instance of every model the API persists.")
+	f.Func().Id("persistedModels").Params().Params(Index().Interface()).Block(
+		Return().Index().Interface().BlockFunc(func(g *Group) {
+			for _, version := range gen.GlobalVersionConfig.Versions {
+				for _, name := range version.DatabaseInitNames {
+					g.List(
+						Op("&").Qual(
+							fmt.Sprintf("%s/pkg/api/%s", gen.ModulePath, version.VersionName),
+							name,
+						).Values().Op(","),
+					)
+				}
+			}
+		}),
+	)
+	f.Line()
+
+	f.Comment("TestMigrationsCoverEveryPersistedModel asserts the schema the migration")
+	f.Comment("chain builds matches the columns every persisted model declares, reporting")
+	f.Comment("both fields left without a column and columns left without a field.")
+	f.Func().Id("TestMigrationsCoverEveryPersistedModel").Params(
+		Id("t").Op("*").Qual("testing", "T"),
+	).Block(
+		Qual(migrationTestPackage, "AssertMigrationsCoverModelsOn").Call(
+			Id("t"),
+			Id("freshDatabase").Call(Id("t"), Lit("schema_drift")),
+			Lit(gooseVersionTableName),
+			Id("persistedModels").Call(),
+		),
+	)
+
+	// write code to file if not excluded by SDK config
+	genFilepath := filepath.Join("test", "cockroach", "schema_drift_gen_test.go")
+	if slices.Contains(sdkConfig.ExcludeFiles, genFilepath) {
+		cli.Info(fmt.Sprintf("source code generation skipped for %s", genFilepath))
+	} else {
+		_, err := util.WriteCodeToFile(f, genFilepath, true)
+		if err != nil {
+			return fmt.Errorf("failed to write generated code to file %s: %w", genFilepath, err)
+		}
+		cli.Info(fmt.Sprintf("source code for DB migrator schema drift test written to %s", genFilepath))
 	}
 
 	return nil

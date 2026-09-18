@@ -139,6 +139,11 @@ func (lsd *LogStorageDefinition) GetFullyQualifiedType() string {
 	return "threeport.io/v0.LogStorageDefinition"
 }
 
+// AssociationTypes returns the fully-qualified type names of children referenced via has-many association slices on LogStorageDefinition.
+func (l *LogStorageDefinition) AssociationTypes() []string {
+	return []string{new(LogStorageInstance).GetFullyQualifiedType()}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.

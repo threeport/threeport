@@ -13,7 +13,8 @@ import (
 	"github.com/threeport/threeport/pkg/sdk/v0/util"
 )
 
-// GenDbMigratorUtils generates the migrations utils.
+// GenDbMigratorUtils generates the migrations helpers.
+// Core and modules both emit this as boilerplate.
 func GenDbMigratorUtils(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	f := NewFile("migrations")
 	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
@@ -39,6 +40,94 @@ func GenDbMigratorUtils(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		Line(),
 
 		Return(Id("gormDb"), Nil()),
+	)
+	f.Line()
+
+	f.Comment("createMissingTables creates a table for each model and many-to-many join that has none.")
+	f.Comment("GORM's CreateTable on a parent model does not add that model's join tables.")
+	f.Func().Id("createMissingTables").Params(
+		Id("gormDb").Op("*").Qual("gorm.io/gorm", "DB"),
+		Id("models").Index().Interface(),
+	).Error().Block(
+		Comment("create model tables"),
+		For(List(Id("_"), Id("model")).Op(":=").Range().Id("models")).Block(
+			If(Id("gormDb").Dot("Migrator").Call().Dot("HasTable").Call(Id("model"))).Block(
+				Continue(),
+			),
+			If(Err().Op(":=").Id("gormDb").Dot("Migrator").Call().Dot("CreateTable").Call(Id("model")), Err().Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(Lit("failed to create table for %T: %w"), Id("model"), Err())),
+			),
+		),
+		Line(),
+		Comment("create join tables after both sides exist"),
+		For(List(Id("_"), Id("model")).Op(":=").Range().Id("models")).Block(
+			Id("stmt").Op(":=").Op("&").Qual("gorm.io/gorm", "Statement").Values(Dict{
+				Id("DB"): Id("gormDb"),
+			}),
+			If(Err().Op(":=").Id("stmt").Dot("Parse").Call(Id("model")), Err().Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(Lit("failed to parse %T: %w"), Id("model"), Err())),
+			),
+			If(Id("stmt").Dot("Schema").Op("==").Nil()).Block(
+				Continue(),
+			),
+			For(List(Id("_"), Id("rel")).Op(":=").Range().Id("stmt").Dot("Schema").Dot("Relationships").Dot("Many2Many")).Block(
+				If(Id("rel").Dot("JoinTable").Op("==").Nil().Op("||").Id("rel").Dot("Field").Op("==").Nil().Op("||").Id("rel").Dot("Field").Dot("IgnoreMigration")).Block(
+					Continue(),
+				),
+				Id("join").Op(":=").Qual("reflect", "New").Call(Id("rel").Dot("JoinTable").Dot("ModelType")).Dot("Interface").Call(),
+				If(Id("gormDb").Dot("Migrator").Call().Dot("HasTable").Call(Id("join"))).Block(
+					Continue(),
+				),
+				If(Err().Op(":=").Id("gormDb").Dot("Migrator").Call().Dot("CreateTable").Call(Id("join")), Err().Op("!=").Nil()).Block(
+					Return(Qual("fmt", "Errorf").Call(
+						Lit("failed to create join table %s: %w"),
+						Id("rel").Dot("JoinTable").Dot("Table"),
+						Err(),
+					)),
+				),
+			),
+		),
+		Line(),
+		Return(Nil()),
+	)
+	f.Line()
+
+	f.Comment("dropTables drops many-to-many join tables, then each model table.")
+	f.Func().Id("dropTables").Params(
+		Id("gormDb").Op("*").Qual("gorm.io/gorm", "DB"),
+		Id("models").Index().Interface(),
+	).Error().Block(
+		For(List(Id("_"), Id("model")).Op(":=").Range().Id("models")).Block(
+			Id("stmt").Op(":=").Op("&").Qual("gorm.io/gorm", "Statement").Values(Dict{
+				Id("DB"): Id("gormDb"),
+			}),
+			If(Err().Op(":=").Id("stmt").Dot("Parse").Call(Id("model")), Err().Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(Lit("failed to parse %T: %w"), Id("model"), Err())),
+			),
+			If(Id("stmt").Dot("Schema").Op("==").Nil()).Block(
+				Continue(),
+			),
+			For(List(Id("_"), Id("rel")).Op(":=").Range().Id("stmt").Dot("Schema").Dot("Relationships").Dot("Many2Many")).Block(
+				If(Id("rel").Dot("JoinTable").Op("==").Nil()).Block(
+					Continue(),
+				),
+				If(Err().Op(":=").Id("gormDb").Dot("Migrator").Call().Dot("DropTable").Call(Id("rel").Dot("JoinTable").Dot("Table")), Err().Op("!=").Nil()).Block(
+					Return(Qual("fmt", "Errorf").Call(
+						Lit("failed to drop join table %s: %w"),
+						Id("rel").Dot("JoinTable").Dot("Table"),
+						Err(),
+					)),
+				),
+			),
+		),
+		Line(),
+		For(List(Id("_"), Id("model")).Op(":=").Range().Id("models")).Block(
+			If(Err().Op(":=").Id("gormDb").Dot("Migrator").Call().Dot("DropTable").Call(Id("model")), Err().Op("!=").Nil()).Block(
+				Return(Qual("fmt", "Errorf").Call(Lit("could not drop table with gorm db: %w"), Err())),
+			),
+		),
+		Line(),
+		Return(Nil()),
 	)
 
 	// write code to file if not excluded by SDK config
