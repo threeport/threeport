@@ -62,27 +62,139 @@ func InitModuleRouter(
 	// store scheme and transport for route registration, which reads them
 	ModRouter.SetProxyConfig(scheme, transport)
 
-	// every distinct path, core rows included. Reconciliation is what decides
-	// whether a path is proxied, and it has to see a core row to reject a path
-	// a duplicate would otherwise make ambiguous.
-	var paths []string
-	if result := db.Model(&ModuleApiRoute{}).Distinct().Pluck("path", &paths); result.Error != nil {
-		return fmt.Errorf("failed to query module API route paths from database: %w", result.Error)
-	}
-
 	// startup goes through the same reconciliation as a create or a delete.
 	// Registering routes directly here would be a second rule for what the
 	// router should hold, and the two would disagree the moment a path is named
 	// by more than one row - a restart serving a path that reconciliation had
 	// removed, or the reverse.
+	if err := ReconcileModuleRoutes(db); err != nil {
+		return fmt.Errorf("failed to reconcile module routes: %w", err)
+	}
+
+	// a route committed by one rest-api process is not visible to another: the
+	// router is process-local and post-commit reconciliation only runs in the
+	// process that handled the write. Re-reading on every proxied request would
+	// put a query on the path of every core API request, not only the module
+	// ones, so each process re-reads on its own instead and converges within
+	// the interval.
+	startModuleRouteResync(db)
+
+	// register as middleware wrapping the matched or not-found handler
+	e.Use(ModRouter.ServeModuleRoutes)
+
+	return nil
+}
+
+// moduleRouteResyncRunning says whether a goroutine is re-reading the routes,
+// and moduleRouteResyncInterval is how long it leaves between passes. The
+// interval is a variable so a test does not have to sit through it.
+var (
+	moduleRouteResync         sync.Mutex
+	moduleRouteResyncStop     chan struct{}
+	moduleRouteResyncStopped  chan struct{}
+	moduleRouteResyncInterval = 30 * time.Second
+)
+
+// startModuleRouteResync re-reads the module routes on an interval so a process
+// picks up what another one committed.
+//
+// The router is process-local and post-commit reconciliation runs only in the
+// process that handled the write, so with more than one rest-api replica a
+// route created on one is not proxied by the others, and a route deleted on one
+// goes on being proxied by them. Each process converges within the interval
+// instead. A stock install runs a single replica, where this only re-reads what
+// the process already agrees with.
+//
+// One goroutine per process: a second call replaces the first rather than
+// adding to it, so a process cannot end up with two reading the same table.
+func startModuleRouteResync(db *gorm.DB) {
+	moduleRouteResync.Lock()
+	defer moduleRouteResync.Unlock()
+
+	stopModuleRouteResyncLocked()
+
+	// read once rather than on every pass, so nothing has to synchronise with a
+	// caller that changes it
+	interval := moduleRouteResyncInterval
+	stop := make(chan struct{})
+	stopped := make(chan struct{})
+	moduleRouteResyncStop = stop
+	moduleRouteResyncStopped = stopped
+
+	go func() {
+		defer close(stopped)
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+				// a failed pass is not fatal and is not reported here: the next
+				// one runs anyway, and this package has no logger
+				_ = ReconcileModuleRoutes(db)
+			}
+		}
+	}()
+}
+
+// stopModuleRouteResync stops the resync goroutine and waits for it to finish.
+// A rest-api process resyncs for as long as it runs and never calls this; it
+// exists so a caller that starts one can also end it.
+func stopModuleRouteResync() {
+	moduleRouteResync.Lock()
+	defer moduleRouteResync.Unlock()
+
+	stopModuleRouteResyncLocked()
+}
+
+// stopModuleRouteResyncLocked is stopModuleRouteResync with the lock held.
+func stopModuleRouteResyncLocked() {
+	if moduleRouteResyncStop == nil {
+		return
+	}
+
+	close(moduleRouteResyncStop)
+	<-moduleRouteResyncStopped
+	moduleRouteResyncStop = nil
+	moduleRouteResyncStopped = nil
+}
+
+// ReconcileModuleRoutes brings every path the router or the database knows
+// about in line with what is committed.
+//
+// Both sides are walked: a path the database has and the router does not is one
+// another process committed, and a path the router has and the database does
+// not is one another process deleted. Each is reconciled on its own, reading
+// committed state as it goes, rather than from one snapshot - a snapshot would
+// remove a route that committed while it was being taken.
+func ReconcileModuleRoutes(db *gorm.DB) error {
+	var paths []string
+	if result := db.Model(&ModuleApiRoute{}).Distinct().Pluck("path", &paths); result.Error != nil {
+		return fmt.Errorf("failed to query module API route paths from database: %w", result.Error)
+	}
+
+	seen := make(map[string]struct{}, len(paths))
+	for _, path := range paths {
+		seen[path] = struct{}{}
+	}
+	ModRouter.routes.Range(func(key, _ any) bool {
+		if path, ok := key.(string); ok {
+			if _, found := seen[path]; !found {
+				paths = append(paths, path)
+			}
+		}
+
+		return true
+	})
+
 	for _, path := range paths {
 		if err := ReconcileModuleRoute(db, path); err != nil {
 			return fmt.Errorf("failed to reconcile module route for path %s: %w", path, err)
 		}
 	}
-
-	// register as middleware wrapping the matched or not-found handler
-	e.Use(ModRouter.ServeModuleRoutes)
 
 	return nil
 }
