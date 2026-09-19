@@ -5,6 +5,7 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -77,6 +78,10 @@ func GetAwsEksKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr st
 	)
 	if err != nil {
 		return &awsEksKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &awsEksKubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -180,6 +185,10 @@ func CreateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return awsEksKubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -220,6 +229,10 @@ func UpdateAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 	)
 	if err != nil {
 		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return awsEksKubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -265,6 +278,10 @@ func ReplaceAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr st
 		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return awsEksKubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return awsEksKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -294,6 +311,10 @@ func DeleteAwsEksKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 	)
 	if err != nil {
 		return &awsEksKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &awsEksKubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -374,6 +395,10 @@ func GetAwsEksKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr stri
 	)
 	if err != nil {
 		return &awsEksKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &awsEksKubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -477,6 +502,10 @@ func CreateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 		return awsEksKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return awsEksKubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -517,6 +546,10 @@ func UpdateAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 	)
 	if err != nil {
 		return awsEksKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return awsEksKubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -562,6 +595,10 @@ func ReplaceAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr stri
 		return awsEksKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return awsEksKubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return awsEksKubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -591,6 +628,10 @@ func DeleteAwsEksKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 	)
 	if err != nil {
 		return &awsEksKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &awsEksKubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -671,6 +712,10 @@ func GetAwsProviderByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Aw
 	)
 	if err != nil {
 		return &awsProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &awsProvider, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -774,6 +819,10 @@ func CreateAwsProvider(apiClient *http.Client, apiAddr string, awsProvider *v0.A
 		return awsProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return awsProvider, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return awsProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -814,6 +863,10 @@ func UpdateAwsProvider(apiClient *http.Client, apiAddr string, awsProvider *v0.A
 	)
 	if err != nil {
 		return awsProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return awsProvider, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -859,6 +912,10 @@ func ReplaceAwsProvider(apiClient *http.Client, apiAddr string, awsProvider *v0.
 		return awsProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return awsProvider, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return awsProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -888,6 +945,10 @@ func DeleteAwsProvider(apiClient *http.Client, apiAddr string, id uint) (*v0.Aws
 	)
 	if err != nil {
 		return &awsProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &awsProvider, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
