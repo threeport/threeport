@@ -6,7 +6,7 @@
         "contact": {
             "url": "https://threeport.io"
         },
-        "version": "v0.7.0-dev"
+        "version": "v0.7.0-rc.0"
     },
     "basePath": "/",
     "paths": {
