@@ -93,6 +93,7 @@ control planes if they are used to create or are created by another control plan
 			cliArgs.KindPortMappings,
 			cliArgs.ControlPlaneOnly,
 			cliArgs.ClusterName,
+			cliArgs.ApiPort,
 		); err != nil {
 			cli.Error("flag validation failed:", err)
 			os.Exit(1)
@@ -221,5 +222,13 @@ func init() {
 	UpCmd.Flags().StringSliceVar(
 		&cliArgs.KindPortMappings,
 		"kind-port-mappings", []string{}, "Port mappings for kind provider. Format: <container-port>:<host-port>,<container-port>:<host-port>,...",
+	)
+	UpCmd.Flags().IntVar(
+		&cliArgs.ApiPort,
+		"api-port", 0, fmt.Sprintf(
+			"Host port to serve the Threeport API on.  Only applicable with provider 'kind'.  Defaults to %d with auth enabled and %d without.  Ports below 1024 need a host that permits binding them.",
+			threeport.DefaultLocalAPIPortAuthEnabled,
+			threeport.DefaultLocalAPIPortAuthDisabled,
+		),
 	)
 }

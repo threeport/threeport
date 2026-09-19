@@ -52,6 +52,7 @@ func DeployKindInfra(
 		ThreeportPath:       cpi.Opts.ThreeportPath,
 		NumWorkerNodes:      cpi.Opts.NumWorkerNodes,
 		AuthEnabled:         cpi.Opts.AuthEnabled,
+		ApiPort:             cpi.Opts.ApiPort,
 		PortMappings:        portMappings,
 	}
 
