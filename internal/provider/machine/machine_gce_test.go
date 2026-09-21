@@ -537,6 +537,70 @@ func TestEnsureSSHKeyPair_RestoredPrivateKey(t *testing.T) {
 	}
 }
 
+// TestSeedSSHKeyPair_ReusesPersistedKey covers loading a PEM and keeping it
+// across ensureSSHKeyPair.
+func TestSeedSSHKeyPair_ReusesPersistedKey(t *testing.T) {
+	priv, pub, err := generateSSHKeyPair()
+	if err != nil {
+		t.Fatalf("generateSSHKeyPair: %v", err)
+	}
+	i := &GceMachineInfra{}
+
+	if err := i.SeedSSHKeyPair(priv); err != nil {
+		t.Fatalf("SeedSSHKeyPair: %v", err)
+	}
+	if i.sshPrivateKeyPEM != priv {
+		t.Error("SeedSSHKeyPair did not store the private key")
+	}
+	if i.sshPublicKeyAuthorized != pub {
+		t.Errorf("seeded public key = %q, want %q", i.sshPublicKeyAuthorized, pub)
+	}
+
+	if err := i.ensureSSHKeyPair(); err != nil {
+		t.Fatalf("ensureSSHKeyPair after seed: %v", err)
+	}
+	if i.sshPrivateKeyPEM != priv {
+		t.Error("ensureSSHKeyPair replaced a seeded private key")
+	}
+}
+
+// TestSeedSSHKeyPair_RejectsEmpty covers an empty PEM.
+func TestSeedSSHKeyPair_RejectsEmpty(t *testing.T) {
+	i := &GceMachineInfra{}
+	if err := i.SeedSSHKeyPair(""); err == nil {
+		t.Fatal("expected error for empty private key")
+	}
+}
+
+// TestPersistGeneratedSSHKey_CallsHookBeforeUp covers writing the PEM when
+// PersistSSHKey is set, and skipping when it is nil.
+func TestPersistGeneratedSSHKey_CallsHookBeforeUp(t *testing.T) {
+	priv, _, err := generateSSHKeyPair()
+	if err != nil {
+		t.Fatalf("generateSSHKeyPair: %v", err)
+	}
+
+	var got string
+	i := &GceMachineInfra{
+		sshPrivateKeyPEM: priv,
+		PersistSSHKey: func(pem string) error {
+			got = pem
+			return nil
+		},
+	}
+	if err := i.persistGeneratedSSHKey(); err != nil {
+		t.Fatalf("persistGeneratedSSHKey: %v", err)
+	}
+	if got != priv {
+		t.Error("PersistSSHKey was not called with the in-memory private key")
+	}
+
+	skipped := &GceMachineInfra{sshPrivateKeyPEM: priv}
+	if err := skipped.persistGeneratedSSHKey(); err != nil {
+		t.Fatalf("persistGeneratedSSHKey with nil hook: %v", err)
+	}
+}
+
 // TestSyncStackConfigs_RegionFromZone covers filling gcp:region from Zone.
 func TestSyncStackConfigs_RegionFromZone(t *testing.T) {
 	i := &GceMachineInfra{ProjectID: "p", Zone: "us-central1-a"}

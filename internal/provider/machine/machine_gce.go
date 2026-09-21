@@ -71,6 +71,9 @@ type GceMachineInfra struct {
 	// The CIDR ranges allowed to reach TCP 22; required, no open default
 	SSHSourceRanges []string
 
+	// The function that persists the generated SSH private key before Pulumi up
+	PersistSSHKey func(privateKeyPEM string) error
+
 	// The generated RSA private key in PEM form
 	sshPrivateKeyPEM string
 
@@ -182,6 +185,11 @@ func (i *GceMachineInfra) createInfra() error {
 	// generate SSH keys outside the Pulumi program so the program is deterministic
 	if err := i.ensureSSHKeyPair(); err != nil {
 		return fmt.Errorf("failed to ensure SSH key pair: %w", err)
+	}
+
+	// persist the private key before up so a retry can rehydrate it
+	if err := i.persistGeneratedSSHKey(); err != nil {
+		return fmt.Errorf("failed to persist ssh private key: %w", err)
 	}
 
 	// set Pulumi project defaults and stack config
@@ -422,4 +430,29 @@ func (i *GceMachineInfra) SetCreateOutputs(hostname, externalIP, sshPrivateKey s
 	i.hostname = hostname
 	i.externalIP = externalIP
 	i.sshPrivateKeyPEM = sshPrivateKey
+}
+
+// SeedSSHKeyPair loads a persisted private key onto the provider and derives
+// its authorized-keys public form so the next deploy reuses that key.
+func (i *GceMachineInfra) SeedSSHKeyPair(sshPrivateKeyPEM string) error {
+	if sshPrivateKeyPEM == "" {
+		return fmt.Errorf("failed to seed ssh key pair: private key is empty")
+	}
+
+	// parse the persisted PEM and derive the public half
+	signer, err := ssh.ParsePrivateKey([]byte(sshPrivateKeyPEM))
+	if err != nil {
+		return fmt.Errorf("failed to parse persisted SSH private key: %w", err)
+	}
+	i.sshPrivateKeyPEM = sshPrivateKeyPEM
+	i.sshPublicKeyAuthorized = string(ssh.MarshalAuthorizedKey(signer.PublicKey()))
+	return nil
+}
+
+// persistGeneratedSSHKey writes the in-memory private key when PersistSSHKey is set.
+func (i *GceMachineInfra) persistGeneratedSSHKey() error {
+	if i.PersistSSHKey == nil || i.sshPrivateKeyPEM == "" {
+		return nil
+	}
+	return i.PersistSSHKey(i.sshPrivateKeyPEM)
 }
