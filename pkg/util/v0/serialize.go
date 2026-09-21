@@ -2,6 +2,7 @@ package v0
 
 import (
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 
 	"gorm.io/datatypes"
@@ -9,8 +10,15 @@ import (
 )
 
 // MarshalObject takes an object interface and returns its json byte array.
+//
+// OmitZeroStructFields drops every zero-valued field, which for the pointer
+// fields on a Threeport API object means every nil pointer. That is what keeps
+// a partial PATCH payload from carrying a JSON null for a field the caller
+// never meant to touch, which the api server's null-on-required guard in
+// PayloadCheck() would reject. It replaces the per-field json:",omitempty"
+// struct tag that the API types used to carry.
 func MarshalObject(object interface{}) ([]byte, error) {
-	objectJSON, err := json.Marshal(object)
+	objectJSON, err := jsonv2.Marshal(object, jsonv2.OmitZeroStructFields(true))
 	if err != nil {
 		return []byte{}, fmt.Errorf("failed to marshal object to JSON: %w", err)
 	}

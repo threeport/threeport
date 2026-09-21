@@ -21,16 +21,16 @@ type AwsEksKubernetesRuntimeConfig struct {
 // AwsEksKubernetesRuntimeDefinition and AwsEksKubernetesRuntimeInstance API objects
 // together with a single operation.
 type AwsEksKubernetesRuntimeValues struct {
-	Name                         *string `json:",omitempty"`
-	AwsProviderName              *string `json:",omitempty"`
-	ZoneCount                    *int    `json:",omitempty"`
-	DefaultNodeGroupInstanceType *string `json:",omitempty"`
-	DefaultNodeGroupInitialSize  *int    `json:",omitempty"`
-	DefaultNodeGroupMinimumSize  *int    `json:",omitempty"`
-	DefaultNodeGroupMaximumSize  *int    `json:",omitempty"`
-	Region                       *string `json:",omitempty"`
-	Reconciled                   *bool   `json:",omitempty"`
-	Age                          *string `json:",omitempty"`
+	Name                         *string
+	AwsProviderName              *string
+	ZoneCount                    *int
+	DefaultNodeGroupInstanceType *string
+	DefaultNodeGroupInitialSize  *int
+	DefaultNodeGroupMinimumSize  *int
+	DefaultNodeGroupMaximumSize  *int
+	Region                       *string
+	Reconciled                   *bool
+	Age                          *string
 }
 
 // Get gets a aws eks kubernetes runtime definition and instance from the Threeport API.

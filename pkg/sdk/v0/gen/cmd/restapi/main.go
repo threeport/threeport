@@ -44,7 +44,26 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		handlerRegistration.Id(fmt.Sprintf("h_%s", versionConf.VersionName)).Op(":=").Qual(
 			fmt.Sprintf("%s/pkg/api-server/%s/handlers", gen.ModulePath, versionConf.VersionName),
 			"New",
-		).Call(List(Id("db"), Id("nc"), Op("*").Id("js"), Op("&").Id("logger")))
+		).Call(List(
+			Id("db"),
+			Id("nc"),
+			Op("*").Id("js"),
+			Op("&").Id("logger"),
+		))
+
+		// assign the pagination mode rather than passing it to the
+		// constructor, so adding or dropping the knob never changes a
+		// signature a module compiles against
+		handlerRegistration.Line()
+		if gen.Module {
+			handlerRegistration.Id(fmt.Sprintf("h_%s", versionConf.VersionName)).Dot("Handler").Dot("PaginationMode")
+		} else {
+			handlerRegistration.Id(fmt.Sprintf("h_%s", versionConf.VersionName)).Dot("PaginationMode")
+		}
+		handlerRegistration.Op("=").Qual(
+			"github.com/threeport/threeport/pkg/api-server/lib/v0",
+			"PaginationMode",
+		).Call(Id("paginationMode"))
 	}
 	handlerRegistration.Line()
 
@@ -118,6 +137,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 	f.ImportAlias("github.com/labstack/echo/v4", "echo")
 	f.ImportAlias("github.com/go-playground/validator/v10", "validator")
+	f.ImportAlias("log", "stdlog")
 	f.ImportAlias(util.SetImportAlias(
 		"github.com/threeport/threeport/pkg/log/v0",
 		"log",
@@ -188,6 +208,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Var().Id("autoMigrate").Bool()
 		g.Var().Id("verbose").Bool()
 		g.Var().Id("authEnabled").Bool()
+		g.Var().Id("paginationMode").String()
 		if gen.Module {
 			g.Qual("flag", "StringVar").Call(
 				Id("&threeportEnvFile"),
@@ -227,7 +248,25 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			True(),
 			Lit("Enable client certificate authentication"),
 		)
+		g.Qual("flag", "StringVar").Call(
+			Id("&paginationMode"),
+			Lit("pagination-mode"),
+			Id("string").Call(Qual(
+				"github.com/threeport/threeport/pkg/api-server/lib/v0",
+				"PaginationModeAsOfSystemTime",
+			)),
+			Lit("Pagination backend: as-of-system-time | materialized-view"),
+		)
 		g.Qual("flag", "Parse").Call()
+		g.If(Op("!").Qual(
+			"github.com/threeport/threeport/pkg/api-server/lib/v0",
+			"ValidPaginationMode",
+		).Call(Id("paginationMode"))).Block(
+			Qual("log", "Fatalf").Call(
+				Lit("invalid pagination-mode %q, want as-of-system-time or materialized-view"),
+				Id("paginationMode"),
+			),
+		)
 		g.Line()
 
 		g.Comment("set up echo")
@@ -240,6 +279,15 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Id("e").Dot("Binder").Op("=").Qual(
 			"github.com/threeport/threeport/pkg/api-server/lib/v0",
 			"NewQueryBinder",
+		).Call()
+		g.Line()
+
+		g.Comment("omit absent fields from responses instead of spelling them")
+		g.Comment("out as null, so api types don't need `json:\",omitempty\"`")
+		g.Comment("struct tags")
+		g.Id("e").Dot("JSONSerializer").Op("=").Qual(
+			"github.com/threeport/threeport/pkg/api-server/lib/v0",
+			"NewJSONSerializer",
 		).Call()
 		g.Line()
 
@@ -300,7 +348,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 		g.Id("e").Dot("Use").Call(Qual(
 			"github.com/threeport/threeport/pkg/api-server/lib/v0",
 			"CaptureCaller",
-		))
+		).Call(Id("authEnabled")))
 		g.Line()
 		g.Id("logger").Op(",").Id("err").Op(":=").Qual(
 			"github.com/threeport/threeport/pkg/log/v0",
@@ -465,7 +513,7 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 				Err().Op(":=").Qual(
 					"github.com/threeport/threeport/pkg/api/v0",
 					"InitModuleRouter",
-				).Call(List(Id("db"), Id("e"))),
+				).Call(List(Id("db"), Id("e"), Id("authEnabled"))),
 			).Op(";").Err().Op("!=").Nil().Block(
 				Id("e").Dot("Logger").Dot("Fatalf").Call(
 					Lit("failed to initialize module proxy router: %v"),
@@ -523,95 +571,86 @@ func GenRestApiMain(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 		g.Add(versionRegistration)
 
-		if gen.Module {
-			// TODO: implement https, authenticaion for module API server (see commented
-			// block below).
-			g.Comment("TODO: implement https, authentication for the module API server")
-			g.Comment("configure http server")
-			g.Id("server").Op(":=").Qual("net/http", "Server").Values(Dict{
+		g.If(Id("authEnabled")).Block(
+			Id("configDir").Op(":=").Lit("/etc/threeport"),
+			Line(),
+
+			Comment("load server certificate and private key"),
+			List(Id("cert"), Id("err")).Op(":=").Qual("crypto/tls", "LoadX509KeyPair").Call(
+				Qual("path/filepath", "Join").Call(Id("configDir"), Lit("cert/tls.crt")),
+				Qual("path/filepath", "Join").Call(Id("configDir"), Lit("cert/tls.key")),
+			),
+			If(Id("err").Op("!=").Nil()).Block(
+				Id("e.Logger.Fatal").Call(Id("err")),
+			),
+			Line(),
+
+			Comment("load server root certificate authority"),
+			List(Id("caCert"), Id("err")).Op(":=").Qual("os", "ReadFile").Call(
+				Qual("path/filepath", "Join").Call(Id("configDir"), Lit("ca/tls.crt")),
+			),
+			If(Id("err").Op("!=").Nil()).Block(
+				Id("e.Logger.Fatal").Call(Id("err")),
+			),
+			Line(),
+
+			Comment("create certificate pool and add server root certificate authority"),
+			Id("caCertPool").Op(":=").Qual("crypto/x509", "NewCertPool").Call(),
+			If(
+				Id("ok").Op(":=").Id("caCertPool.AppendCertsFromPEM").Call(Id("caCert")),
+				Op("!").Id("ok"),
+			).Block(
+				Id("e.Logger.Fatal").Call(Lit("failed to parse certificate authority")),
+			),
+			Line(),
+
+			Comment("configure https server"),
+			Id("server").Op(":=").Qual("net/http", "Server").Values(Dict{
 				Id("Addr"):    Lit(":1323"),
 				Id("Handler"): Id("e"),
-			})
-			g.Line()
+				Id("TLSConfig"): Op("&").Qual("crypto/tls", "Config").Values(Dict{
+					Id("Certificates"): Index().Qual("crypto/tls", "Certificate").Values(Id("cert")),
+					Id("RootCAs"):      Id("caCertPool"),
+					Id("ClientCAs"):    Id("caCertPool"),
+					Id("ClientAuth"):   Qual("crypto/tls", "RequireAndVerifyClientCert"),
+				}),
+			}),
+			Line(),
 
-			g.Id("e").Dot("Logger").Dot("Infof").Call(Lit(startupMessage), Qual(
+			Id("e").Dot("Logger").Dot("Infof").Call(Lit(startupMessage), Qual(
 				fmt.Sprintf("%s/internal/version", gen.ModulePath),
 				"GetVersion",
-			).Call())
-			g.Id("configureHealthCheckEndpoint").Call()
-			g.If(Id("server.ListenAndServe").Call().Op("!=").Qual("net/http", "ErrServerClosed")).Block(
-				Id("e.Logger.Fatal").Call(Id("err")),
-			)
-		} else {
-			g.If(Id("authEnabled")).Block(
-				Id("configDir").Op(":=").Lit("/etc/threeport"),
-				Line(),
+			).Call()),
+			Id("configureHealthCheckEndpoint").Call(),
+			// bind the listen error to serveErr; err holds the
+			// certificate authority read and is nil once that
+			// read succeeds, so logging err reports <nil>
+			If(
+				Id("serveErr").Op(":=").Id("server").Dot("ListenAndServeTLS").Call(Lit(""), Lit("")),
+				Id("serveErr").Op("!=").Qual("net/http", "ErrServerClosed"),
+			).Block(
+				Id("e.Logger.Fatal").Call(Id("serveErr")),
+			),
+		).Else().Block(
+			Comment("configure http server"),
+			Id("server").Op(":=").Qual("net/http", "Server").Values(Dict{
+				Id("Addr"):    Lit(":1323"),
+				Id("Handler"): Id("e"),
+			}),
+			Line(),
 
-				Comment("load server certificate and private key"),
-				List(Id("cert"), Id("err")).Op(":=").Qual("crypto/tls", "LoadX509KeyPair").Call(
-					Qual("path/filepath", "Join").Call(Id("configDir"), Lit("cert/tls.crt")),
-					Qual("path/filepath", "Join").Call(Id("configDir"), Lit("cert/tls.key")),
-				),
-				If(Id("err").Op("!=").Nil()).Block(
-					Id("e.Logger.Fatal").Call(Id("err")),
-				),
-				Line(),
-
-				Comment("load server root certificate authority"),
-				List(Id("caCert"), Id("err")).Op(":=").Qual("os", "ReadFile").Call(
-					Qual("path/filepath", "Join").Call(Id("configDir"), Lit("ca/tls.crt")),
-				),
-				If(Id("err").Op("!=").Nil()).Block(
-					Id("e.Logger.Fatal").Call(Id("err")),
-				),
-				Line(),
-
-				Comment("create certificate pool and add server root certificate authority"),
-				Id("caCertPool").Op(":=").Qual("crypto/x509", "NewCertPool").Call(),
-				Id("caCertPool.AppendCertsFromPEM").Call(Id("caCert")),
-				Line(),
-
-				Comment("configure https server"),
-				Id("server").Op(":=").Qual("net/http", "Server").Values(Dict{
-					Id("Addr"):    Lit(":1323"),
-					Id("Handler"): Id("e"),
-					Id("TLSConfig"): Op("&").Qual("crypto/tls", "Config").Values(Dict{
-						Id("Certificates"): Index().Qual("crypto/tls", "Certificate").Values(Id("cert")),
-						Id("RootCAs"):      Id("caCertPool"),
-						Id("ClientCAs"):    Id("caCertPool"),
-						Id("ClientAuth"):   Qual("crypto/tls", "RequireAndVerifyClientCert"),
-					}),
-				}),
-				Line(),
-
-				Id("e").Dot("Logger").Dot("Infof").Call(Lit(startupMessage), Qual(
-					fmt.Sprintf("%s/internal/version", gen.ModulePath),
-					"GetVersion",
-				).Call()),
-				Id("configureHealthCheckEndpoint").Call(),
-				If(Id("server.ListenAndServeTLS").Call(Lit(""), Lit("")).Op("!=").Qual(
-					"net/http", "ErrServerClosed",
-				)).Block(
-					Id("e.Logger.Fatal").Call(Id("err")),
-				),
-			).Else().Block(
-				Comment("configure http server"),
-				Id("server").Op(":=").Qual("net/http", "Server").Values(Dict{
-					Id("Addr"):    Lit(":1323"),
-					Id("Handler"): Id("e"),
-				}),
-				Line(),
-
-				Id("e").Dot("Logger").Dot("Infof").Call(Lit(startupMessage), Qual(
-					fmt.Sprintf("%s/internal/version", gen.ModulePath),
-					"GetVersion",
-				).Call()),
-				Id("configureHealthCheckEndpoint").Call(),
-				If(Id("server.ListenAndServe").Call().Op("!=").Qual("net/http", "ErrServerClosed")).Block(
-					Id("e.Logger.Fatal").Call(Id("err")),
-				),
-			)
-		}
+			Id("e").Dot("Logger").Dot("Infof").Call(Lit(startupMessage), Qual(
+				fmt.Sprintf("%s/internal/version", gen.ModulePath),
+				"GetVersion",
+			).Call()),
+			Id("configureHealthCheckEndpoint").Call(),
+			If(
+				Id("serveErr").Op(":=").Id("server").Dot("ListenAndServe").Call(),
+				Id("serveErr").Op("!=").Qual("net/http", "ErrServerClosed"),
+			).Block(
+				Id("e.Logger.Fatal").Call(Id("serveErr")),
+			),
+		)
 	})
 
 	f.Comment("configureHealthCheckEndpoint sets up a health check endpoint for the API server")

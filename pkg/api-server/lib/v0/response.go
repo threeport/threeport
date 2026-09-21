@@ -4,7 +4,31 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
+	"regexp"
+	"strings"
 )
+
+// sqlStateAnnotation matches the "(SQLSTATE XXXXX)" fragment that
+// cockroachdb appends to sql errors. stripping it prevents leaking
+// database-engine identifiers to api clients through 500 responses.
+var sqlStateAnnotation = regexp.MustCompile(`\s*\(SQLSTATE [0-9A-Z]+\)`)
+
+// sanitizeInternalError renders an internal error for a 500 response
+// body without leaking database-engine metadata. transaction-retry
+// errors and other crdb internals collapse to a generic message; any
+// remaining sqlstate annotation is stripped.
+func sanitizeInternalError(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "restart transaction:") ||
+		strings.Contains(msg, "TransactionRetryWithProtoRefreshError") {
+		return "database serialization conflict"
+	}
+	msg = sqlStateAnnotation.ReplaceAllString(msg, "")
+	return strings.TrimSpace(msg)
+}
 
 const (
 	ErrMsgJSONPayloadEmpty                = "JSON payload is empty"
@@ -29,8 +53,8 @@ type Response struct {
 	// Meta contains PageRequestParams (current page and size of current page) and TotalCount (number of returned Object elements)
 	Meta Meta
 
-	// Type contains ObjectType of returned Data elements.
-	Type string `example:"KubernetesWorkloadInstance"`
+	// Type is <api-namespace>/<version>.<TypeName>, set even when Data is empty.
+	Type string `example:"threeport.io/v0.KubernetesWorkloadInstance"`
 
 	// Data contains array of returned Object elements.
 	Data []Object
@@ -186,5 +210,5 @@ func CreateResponseWithError409(params *PageRequestParams, error error, objectTy
 
 // CreateResponseWithError500 creates a Response object with the a 500 status, given params, error, and object type.
 func CreateResponseWithError500(params *PageRequestParams, error error, objectType string) *Response {
-	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), error.Error()), objectType)
+	return CreateResponseErrorWithStatus(params, CreateStatus(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), sanitizeInternalError(error)), objectType)
 }

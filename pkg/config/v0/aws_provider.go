@@ -26,17 +26,17 @@ type AwsProviderConfig struct {
 // AwsProviderValues contains all the attributes needed to manage
 // the AwsProvider API object.
 type AwsProviderValues struct {
-	Name             *string `json:",omitempty"`
-	AccountID        *string `json:",omitempty"`
-	DefaultProvider  *bool   `json:",omitempty"`
-	DefaultRegion    *string `json:",omitempty"`
-	AccessKeyID      *string `json:",omitempty"`
-	SecretAccessKey  *string `json:",omitempty"`
-	RoleArn          *string `json:",omitempty"`
-	LocalConfig      *string `json:",omitempty"`
-	LocalCredentials *string `json:",omitempty"`
-	LocalProfile     *string `json:",omitempty"`
-	Age              *string `json:",omitempty"`
+	Name             *string
+	AccountID        *string
+	DefaultProvider  *bool
+	DefaultRegion    *string
+	AccessKeyID      *string
+	SecretAccessKey  *string
+	RoleArn          *string
+	LocalConfig      *string
+	LocalCredentials *string
+	LocalProfile     *string
+	Age              *string
 }
 
 // Get gets aws providers from the Threeport API.

@@ -131,7 +131,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: s3-client
-          image: cimg/aws:2023.09
+          image: docker.io/cimg/aws:2023.09
           command: ["sleep", "3600"]  # will run for 1 hour
         - name: wordpress
           image: docker.io/bitnami/wordpress:6.2.0-debian-11-r22

@@ -23,13 +23,13 @@ type SecretInstanceConfig struct {
 // SecretInstanceValues contains all the attributes needed to manage
 // the SecretInstance API object.
 type SecretInstanceValues struct {
-	Name                       *string                           `json:",omitempty"`
-	SecretDefinition           *SecretDefinitionValues           `json:",omitempty"`
-	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:",omitempty"`
-	HelmWorkloadInstance       *HelmWorkloadInstanceValues       `json:",omitempty"`
-	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:",omitempty"`
-	SecretConfigPath           *string                           `json:",omitempty"`
-	Age                        *string                           `json:",omitempty"`
+	Name                       *string
+	SecretDefinition           *SecretDefinitionValues
+	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues
+	HelmWorkloadInstance       *HelmWorkloadInstanceValues
+	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues
+	SecretConfigPath           *string
+	Age                        *string
 }
 
 // Get gets secret instances from the Threeport API.

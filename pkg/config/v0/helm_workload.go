@@ -25,21 +25,21 @@ type HelmWorkloadConfig struct {
 // HelmWorkloadDefinition and HelmWorkloadInstance API objects
 // together with a single operation.
 type HelmWorkloadValues struct {
-	Name                      *string                          `json:",omitempty"`
-	Repo                      *string                          `json:",omitempty"`
-	Chart                     *string                          `json:",omitempty"`
-	ChartVersion              *string                          `json:",omitempty"`
-	DefinitionValues          *string                          `json:",omitempty"`
-	DefinitionValuesDocument  *string                          `json:",omitempty"`
-	InstanceValues            *string                          `json:",omitempty"`
-	InstanceValuesDocument    *string                          `json:",omitempty"`
-	HelmWorkloadConfigPath    *string                          `json:",omitempty"`
-	ReleaseNamespace          *string                          `json:",omitempty"`
-	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues `json:",omitempty"`
-	// DomainName                *DomainNameDefinitionValues      `json:",omitempty"`
-	// Gateway                   *GatewayDefinitionValues         `json:",omitempty"`
-	Status *string `json:",omitempty"`
-	Age    *string `json:",omitempty"`
+	Name                      *string
+	Repo                      *string
+	Chart                     *string
+	ChartVersion              *string
+	DefinitionValues          *string
+	DefinitionValuesDocument  *string
+	InstanceValues            *string
+	InstanceValuesDocument    *string
+	HelmWorkloadConfigPath    *string
+	ReleaseNamespace          *string
+	KubernetesRuntimeInstance *KubernetesRuntimeInstanceValues
+	// DomainName                *DomainNameDefinitionValues
+	// Gateway                   *GatewayDefinitionValues
+	Status *string
+	Age    *string
 }
 
 // Get gets a helm workload definition and instance from the Threeport API.

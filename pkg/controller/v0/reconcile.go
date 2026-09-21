@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -56,6 +58,12 @@ type Reconciler struct {
 	// Sub is the NATS subscription used to get messages to reconcile.
 	Sub *nats.Subscription
 
+	// Ready reflects whether this reconciler's JetStream consumer and
+	// subscription are currently known to be alive. It is set true once
+	// startup succeeds and cleared if PullMessage detects a permanent
+	// subscription error.
+	Ready *atomic.Bool
+
 	// KeyValue is the NATS key-value store to be used for locking object
 	// reconciliation.
 	KeyValue nats.KeyValue
@@ -94,8 +102,17 @@ type Recorder interface {
 // seconds, it returns nil so the reconciler can reconnect to NATS.
 func (r *Reconciler) PullMessage() *nats.Msg {
 	messages, err := r.Sub.Fetch(1, nats.MaxWait(time.Second*20))
-	if err != nil && !errors.Is(err, nats.ErrTimeout) {
-		r.Log.Error(err, "failed to fetch message from pull subscription")
+	if err != nil {
+		if errors.Is(err, nats.ErrConsumerNotFound) ||
+			errors.Is(err, nats.ErrConsumerDeleted) ||
+			errors.Is(err, nats.ErrStreamNotFound) {
+			r.Ready.Store(false)
+			r.Log.Error(err, "permanent JetStream consumer error, restarting")
+			os.Exit(1)
+		}
+		if !errors.Is(err, nats.ErrTimeout) {
+			r.Log.Error(err, "failed to fetch message from pull subscription")
+		}
 		return nil
 	}
 	if len(messages) == 0 {

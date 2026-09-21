@@ -21,7 +21,10 @@ func ProcessCoreTaggedFieldsBeforeUpdate(tx *gorm.DB, obj interface{}) error {
 	if err := processRelationshipTaggedFieldsBeforeUpdate(tx, obj); err != nil {
 		return err
 	}
-	return lib.ProcessEncryptTaggedFields(tx, obj)
+	if err := lib.ProcessEncryptTaggedFields(tx, obj); err != nil {
+		return err
+	}
+	return lib.ProcessPersistFalseTaggedFields(tx, obj)
 }
 
 // ProcessCoreTaggedFieldsBeforeDelete runs core tag-triggered behavior on

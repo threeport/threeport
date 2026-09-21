@@ -24,11 +24,11 @@ type OciOkeKubernetesRuntimeDefinitionConfig struct {
 // OciOkeKubernetesRuntimeDefinitionValues contains all the attributes needed to manage
 // the OciOkeKubernetesRuntimeDefinition API object.
 type OciOkeKubernetesRuntimeDefinitionValues struct {
-	Name                   *string `json:",omitempty"`
-	OciProviderName        *string `json:",omitempty"`
-	WorkerNodeShape        *string `json:",omitempty"`
-	WorkerNodeInitialCount *int    `json:",omitempty"`
-	Age                    *string `json:",omitempty"`
+	Name                   *string
+	OciProviderName        *string
+	WorkerNodeShape        *string
+	WorkerNodeInitialCount *int
+	Age                    *string
 }
 
 // Get gets oci oke kubernetes runtime definitions from the Threeport API.

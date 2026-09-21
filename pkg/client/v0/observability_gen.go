@@ -5,6 +5,7 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -77,6 +78,10 @@ func GetLoggingDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (
 	)
 	if err != nil {
 		return &loggingDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &loggingDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -180,6 +185,10 @@ func CreateLoggingDefinition(apiClient *http.Client, apiAddr string, loggingDefi
 		return loggingDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return loggingDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return loggingDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -220,6 +229,10 @@ func UpdateLoggingDefinition(apiClient *http.Client, apiAddr string, loggingDefi
 	)
 	if err != nil {
 		return loggingDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return loggingDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -265,6 +278,10 @@ func ReplaceLoggingDefinition(apiClient *http.Client, apiAddr string, loggingDef
 		return loggingDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return loggingDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return loggingDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -294,6 +311,10 @@ func DeleteLoggingDefinition(apiClient *http.Client, apiAddr string, id uint) (*
 	)
 	if err != nil {
 		return &loggingDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &loggingDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -374,6 +395,10 @@ func GetLoggingInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v
 	)
 	if err != nil {
 		return &loggingInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &loggingInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -477,6 +502,10 @@ func CreateLoggingInstance(apiClient *http.Client, apiAddr string, loggingInstan
 		return loggingInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return loggingInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return loggingInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -517,6 +546,10 @@ func UpdateLoggingInstance(apiClient *http.Client, apiAddr string, loggingInstan
 	)
 	if err != nil {
 		return loggingInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return loggingInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -562,6 +595,10 @@ func ReplaceLoggingInstance(apiClient *http.Client, apiAddr string, loggingInsta
 		return loggingInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return loggingInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return loggingInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -591,6 +628,10 @@ func DeleteLoggingInstance(apiClient *http.Client, apiAddr string, id uint) (*v0
 	)
 	if err != nil {
 		return &loggingInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &loggingInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -671,6 +712,10 @@ func GetMetricsDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (
 	)
 	if err != nil {
 		return &metricsDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &metricsDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -774,6 +819,10 @@ func CreateMetricsDefinition(apiClient *http.Client, apiAddr string, metricsDefi
 		return metricsDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return metricsDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return metricsDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -814,6 +863,10 @@ func UpdateMetricsDefinition(apiClient *http.Client, apiAddr string, metricsDefi
 	)
 	if err != nil {
 		return metricsDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return metricsDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -859,6 +912,10 @@ func ReplaceMetricsDefinition(apiClient *http.Client, apiAddr string, metricsDef
 		return metricsDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return metricsDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return metricsDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -888,6 +945,10 @@ func DeleteMetricsDefinition(apiClient *http.Client, apiAddr string, id uint) (*
 	)
 	if err != nil {
 		return &metricsDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &metricsDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -968,6 +1029,10 @@ func GetMetricsInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v
 	)
 	if err != nil {
 		return &metricsInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &metricsInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1071,6 +1136,10 @@ func CreateMetricsInstance(apiClient *http.Client, apiAddr string, metricsInstan
 		return metricsInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return metricsInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return metricsInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1111,6 +1180,10 @@ func UpdateMetricsInstance(apiClient *http.Client, apiAddr string, metricsInstan
 	)
 	if err != nil {
 		return metricsInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return metricsInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1156,6 +1229,10 @@ func ReplaceMetricsInstance(apiClient *http.Client, apiAddr string, metricsInsta
 		return metricsInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return metricsInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return metricsInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1185,6 +1262,10 @@ func DeleteMetricsInstance(apiClient *http.Client, apiAddr string, id uint) (*v0
 	)
 	if err != nil {
 		return &metricsInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &metricsInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1265,6 +1346,10 @@ func GetObservabilityDashboardDefinitionByID(apiClient *http.Client, apiAddr str
 	)
 	if err != nil {
 		return &observabilityDashboardDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &observabilityDashboardDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1368,6 +1453,10 @@ func CreateObservabilityDashboardDefinition(apiClient *http.Client, apiAddr stri
 		return observabilityDashboardDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return observabilityDashboardDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return observabilityDashboardDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1408,6 +1497,10 @@ func UpdateObservabilityDashboardDefinition(apiClient *http.Client, apiAddr stri
 	)
 	if err != nil {
 		return observabilityDashboardDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return observabilityDashboardDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1453,6 +1546,10 @@ func ReplaceObservabilityDashboardDefinition(apiClient *http.Client, apiAddr str
 		return observabilityDashboardDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return observabilityDashboardDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return observabilityDashboardDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1482,6 +1579,10 @@ func DeleteObservabilityDashboardDefinition(apiClient *http.Client, apiAddr stri
 	)
 	if err != nil {
 		return &observabilityDashboardDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &observabilityDashboardDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1562,6 +1663,10 @@ func GetObservabilityDashboardInstanceByID(apiClient *http.Client, apiAddr strin
 	)
 	if err != nil {
 		return &observabilityDashboardInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &observabilityDashboardInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1665,6 +1770,10 @@ func CreateObservabilityDashboardInstance(apiClient *http.Client, apiAddr string
 		return observabilityDashboardInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return observabilityDashboardInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return observabilityDashboardInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1705,6 +1814,10 @@ func UpdateObservabilityDashboardInstance(apiClient *http.Client, apiAddr string
 	)
 	if err != nil {
 		return observabilityDashboardInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return observabilityDashboardInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1750,6 +1863,10 @@ func ReplaceObservabilityDashboardInstance(apiClient *http.Client, apiAddr strin
 		return observabilityDashboardInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return observabilityDashboardInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return observabilityDashboardInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1779,6 +1896,10 @@ func DeleteObservabilityDashboardInstance(apiClient *http.Client, apiAddr string
 	)
 	if err != nil {
 		return &observabilityDashboardInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &observabilityDashboardInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1859,6 +1980,10 @@ func GetObservabilityStackDefinitionByID(apiClient *http.Client, apiAddr string,
 	)
 	if err != nil {
 		return &observabilityStackDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &observabilityStackDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1962,6 +2087,10 @@ func CreateObservabilityStackDefinition(apiClient *http.Client, apiAddr string, 
 		return observabilityStackDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return observabilityStackDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return observabilityStackDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -2002,6 +2131,10 @@ func UpdateObservabilityStackDefinition(apiClient *http.Client, apiAddr string, 
 	)
 	if err != nil {
 		return observabilityStackDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return observabilityStackDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -2047,6 +2180,10 @@ func ReplaceObservabilityStackDefinition(apiClient *http.Client, apiAddr string,
 		return observabilityStackDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return observabilityStackDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return observabilityStackDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -2076,6 +2213,10 @@ func DeleteObservabilityStackDefinition(apiClient *http.Client, apiAddr string, 
 	)
 	if err != nil {
 		return &observabilityStackDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &observabilityStackDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -2156,6 +2297,10 @@ func GetObservabilityStackInstanceByID(apiClient *http.Client, apiAddr string, i
 	)
 	if err != nil {
 		return &observabilityStackInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &observabilityStackInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -2259,6 +2404,10 @@ func CreateObservabilityStackInstance(apiClient *http.Client, apiAddr string, ob
 		return observabilityStackInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return observabilityStackInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return observabilityStackInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -2299,6 +2448,10 @@ func UpdateObservabilityStackInstance(apiClient *http.Client, apiAddr string, ob
 	)
 	if err != nil {
 		return observabilityStackInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return observabilityStackInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -2344,6 +2497,10 @@ func ReplaceObservabilityStackInstance(apiClient *http.Client, apiAddr string, o
 		return observabilityStackInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return observabilityStackInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return observabilityStackInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -2373,6 +2530,10 @@ func DeleteObservabilityStackInstance(apiClient *http.Client, apiAddr string, id
 	)
 	if err != nil {
 		return &observabilityStackInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &observabilityStackInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

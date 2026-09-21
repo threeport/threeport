@@ -5,6 +5,7 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -77,6 +78,10 @@ func GetAttachedObjectReferenceByID(apiClient *http.Client, apiAddr string, id u
 	)
 	if err != nil {
 		return &attachedObjectReference, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &attachedObjectReference, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -180,6 +185,10 @@ func CreateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 		return attachedObjectReference, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return attachedObjectReference, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return attachedObjectReference, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -220,6 +229,10 @@ func UpdateAttachedObjectReference(apiClient *http.Client, apiAddr string, attac
 	)
 	if err != nil {
 		return attachedObjectReference, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return attachedObjectReference, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -265,6 +278,10 @@ func ReplaceAttachedObjectReference(apiClient *http.Client, apiAddr string, atta
 		return attachedObjectReference, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return attachedObjectReference, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return attachedObjectReference, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -294,6 +311,10 @@ func DeleteAttachedObjectReference(apiClient *http.Client, apiAddr string, id ui
 	)
 	if err != nil {
 		return &attachedObjectReference, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &attachedObjectReference, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

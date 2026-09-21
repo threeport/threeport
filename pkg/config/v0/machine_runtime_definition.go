@@ -22,8 +22,8 @@ type MachineRuntimeDefinitionConfig struct {
 // MachineRuntimeDefinitionValues contains all the attributes needed to manage
 // the MachineRuntimeDefinition API object.
 type MachineRuntimeDefinitionValues struct {
-	Name *string `json:",omitempty"`
-	Age  *string `json:",omitempty"`
+	Name *string
+	Age  *string
 }
 
 // Get gets machine runtime definitions from the Threeport API.

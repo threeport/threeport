@@ -26,10 +26,10 @@ type TerraformDefinitionConfig struct {
 // TerraformDefinitionValues contains all the attributes needed to manage
 // the TerraformDefinition API object.
 type TerraformDefinitionValues struct {
-	Name                *string `json:",omitempty"`
-	ConfigDir           *string `json:",omitempty"`
-	TerraformConfigPath *string `json:",omitempty"`
-	Age                 *string `json:",omitempty"`
+	Name                *string
+	ConfigDir           *string
+	TerraformConfigPath *string
+	Age                 *string
 }
 
 // Get gets terraform definitions from the Threeport API.

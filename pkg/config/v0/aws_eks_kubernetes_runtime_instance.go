@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
+	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -26,13 +26,13 @@ type AwsEksKubernetesRuntimeInstanceConfig struct {
 // AwsEksKubernetesRuntimeInstanceValues contains all the attributes needed to manage
 // the AwsEksKubernetesRuntimeInstance API object.
 type AwsEksKubernetesRuntimeInstanceValues struct {
-	Name                              *string                                  `json:",omitempty"`
-	AwsProviderName                   *string                                  `json:",omitempty"`
-	Region                            *string                                  `json:",omitempty"`
-	AwsEksKubernetesRuntimeDefinition *AwsEksKubernetesRuntimeDefinitionValues `json:",omitempty"`
-	KubernetesRuntimeInstance         *KubernetesRuntimeInstanceValues         `json:",omitempty"`
-	Reconciled                        *bool                                    `json:",omitempty"`
-	Age                               *string                                  `json:",omitempty"`
+	Name                              *string
+	AwsProviderName                   *string
+	Region                            *string
+	AwsEksKubernetesRuntimeDefinition *AwsEksKubernetesRuntimeDefinitionValues
+	KubernetesRuntimeInstance         *KubernetesRuntimeInstanceValues
+	Reconciled                        *bool
+	Age                               *string
 }
 
 // Get gets aws eks kubernetes runtime instances from the Threeport API.

@@ -71,7 +71,7 @@ func TestWorkloadIntegration(t *testing.T) {
 	for _, testWorkload := range *testWorkloads {
 		t.Logf("testing workload: %s\n", testWorkload.Name)
 
-		// create workload definition
+		// create kubernetes workload definition
 		workloadDefName := testWorkload.Name
 		var workloadDefYAML string
 		for _, r := range testWorkload.Resources {
@@ -84,7 +84,7 @@ func TestWorkloadIntegration(t *testing.T) {
 			YAMLDocument: &workloadDefYAML,
 		}
 
-		// create a duplicate workload definition
+		// create a duplicate kubernetes workload definition
 		duplicateWorkload := v0.KubernetesWorkloadDefinition{
 			Definition: v0.Definition{
 				Name: &workloadDefName,
@@ -220,7 +220,7 @@ func TestWorkloadIntegration(t *testing.T) {
 			return err
 		})
 
-		// create test workload definition
+		// create test kubernetes workload definition
 		createdWorkloadDef, err := client.CreateKubernetesWorkloadDefinition(
 			apiClient,
 			threeportAPIEndpoint,
@@ -238,18 +238,18 @@ func TestWorkloadIntegration(t *testing.T) {
 			threeportAPIEndpoint,
 			&duplicateWorkload,
 		)
-		assert.NotNil(err, "duplicate workload definition should throw error")
+		assert.NotNil(err, "duplicate kubernetes workload definition should throw error")
 
-		if assert.NotNil(createdWorkloadDef, "should have a workload definition returned") {
-			assert.NotNil(createdWorkloadDef.ID, "created workload definition should contain unique ID")
-			assert.NotNil(createdWorkloadDef.CreatedAt, "created workload definition should contain created timestamp")
-			assert.NotNil(createdWorkloadDef.UpdatedAt, "created workload definition should contain updated timestamp")
-			assert.Equal(*createdWorkloadDef.Name, workloadDefName, "created workload definition should contain the name we gave it")
-			assert.Equal(*createdWorkloadDef.YAMLDocument, workloadDefYAML, "created workload definition should contain the YAML document we provided")
-			assert.Equal(*createdWorkloadDef.Reconciled, false, "created workload definition should not be reconciled at creation time")
+		if assert.NotNil(createdWorkloadDef, "should have a kubernetes workload definition returned") {
+			assert.NotNil(createdWorkloadDef.ID, "created kubernetes workload definition should contain unique ID")
+			assert.NotNil(createdWorkloadDef.CreatedAt, "created kubernetes workload definition should contain created timestamp")
+			assert.NotNil(createdWorkloadDef.UpdatedAt, "created kubernetes workload definition should contain updated timestamp")
+			assert.Equal(*createdWorkloadDef.Name, workloadDefName, "created kubernetes workload definition should contain the name we gave it")
+			assert.Equal(*createdWorkloadDef.YAMLDocument, workloadDefYAML, "created kubernetes workload definition should contain the YAML document we provided")
+			assert.Equal(*createdWorkloadDef.Reconciled, false, "created kubernetes workload definition should not be reconciled at creation time")
 		}
 
-		// wait for the workload controller to finish reconciling the new
+		// wait for the kubernetes workload controller to finish reconciling the new
 		// definition. workload reconciliation takes longer than gateway
 		// because the controller actually deploys resources to the
 		// runtime, hence the 600s cap vs the shorter waits elsewhere.
@@ -259,11 +259,11 @@ func TestWorkloadIntegration(t *testing.T) {
 				return err
 			}
 			if def.Reconciled == nil || !*def.Reconciled {
-				return fmt.Errorf("workload definition not yet reconciled")
+				return fmt.Errorf("kubernetes workload definition not yet reconciled")
 			}
 			return nil
 		})
-		assert.Nil(err, "workload definition should be reconciled by workload controller")
+		assert.Nil(err, "kubernetes workload definition should be reconciled by kubernetes workload controller")
 
 		// check kubernetes workload resource definitions
 		workloadResourceDefs, err := client.GetKubernetesWorkloadResourceDefinitionsByID(
@@ -280,7 +280,7 @@ func TestWorkloadIntegration(t *testing.T) {
 				assert.NotNil(wrd.ID, "created workload resource definition should contain unique ID")
 				assert.NotNil(wrd.CreatedAt, "created workload resource definition should contain created timestamp")
 				assert.NotNil(wrd.UpdatedAt, "created workload resource definition should contain updated timestamp")
-				assert.Equal(wrd.KubernetesWorkloadDefinitionID, createdWorkloadDef.ID, "created workload resource definition should be associated to correct workload definition")
+				assert.Equal(wrd.KubernetesWorkloadDefinitionID, createdWorkloadDef.ID, "created workload resource definition should be associated to correct kubernetes workload definition")
 				for _, resource := range testWorkload.Resources {
 					if strings.Contains(string(*wrd.JSONDefinition), resource.Kind) {
 						resourceFound = true
@@ -304,7 +304,7 @@ func TestWorkloadIntegration(t *testing.T) {
 		}
 		assert.NotNil(testKubernetesRuntimeInst, "should have a kubernetes runtime instance being used by threeport control plane")
 
-		// create workload instance
+		// create kubernetes workload instance
 		workloadInstName := fmt.Sprintf("%s-0", testWorkload.Name)
 		workloadInst := v0.KubernetesWorkloadInstance{
 			Instance: v0.Instance{
@@ -325,7 +325,7 @@ func TestWorkloadIntegration(t *testing.T) {
 			return err
 		})
 
-		// create a duplicate workload instance
+		// create a duplicate kubernetes workload instance
 		duplicateWorkloadInst := v0.KubernetesWorkloadInstance{
 			Instance: v0.Instance{
 				Name: &workloadInstName,
@@ -339,7 +339,7 @@ func TestWorkloadIntegration(t *testing.T) {
 			threeportAPIEndpoint,
 			&duplicateWorkloadInst,
 		)
-		assert.NotNil(err, "duplicate workload instance should throw error")
+		assert.NotNil(err, "duplicate kubernetes workload instance should throw error")
 
 		// create secret instance
 		// _, err = client.CreateSecretInstance(
@@ -481,13 +481,14 @@ func TestWorkloadIntegration(t *testing.T) {
 		eventAttemptsMax := 300
 		eventCheckDurationSeconds := 1
 		for eventAttempts < eventAttemptsMax {
-			events, err := client.GetEventsJoinAttachedObjectReferenceByQueryString(
+			events, err := client.GetEventsFilteredByQueryString(
 				apiClient,
 				threeportAPIEndpoint,
 				fmt.Sprintf(
 					"objectid=%d&objecttypename=KubernetesWorkloadInstance&objectnamespace=threeport.io&objectversion=v0",
 					*createdWorkloadInst.ID,
 				),
+				0,
 			)
 			assert.Nil(err, "should have no error returned when trying to retrieve events for kubernetes workload instance")
 			for _, evt := range *events {
@@ -508,7 +509,7 @@ func TestWorkloadIntegration(t *testing.T) {
 		// KubernetesWorkloadDefinitionID is tagged `relationship:"requires"` and
 		// `validate:"required"`. once set at create, the API must reject
 		// any further state change (clear or reassign). a second
-		// workload definition is created here purely as the "other
+		// kubernetes workload definition is created here purely as the "other
 		// value" target for the change-rejection assertion.
 		secondWorkloadDefName := fmt.Sprintf("%s-relationship-target", workloadDefName)
 		secondWorkloadDef := v0.KubernetesWorkloadDefinition{
@@ -645,7 +646,7 @@ func TestWorkloadIntegration(t *testing.T) {
 			threeportAPIEndpoint,
 			*createdWorkloadDef.ID,
 		)
-		assert.NotNil(err, "should fail to delete workload definition while workload instance still references it")
+		assert.NotNil(err, "should fail to delete kubernetes workload definition while kubernetes workload instance still references it")
 
 		_, err = client.DeleteGatewayDefinition(
 			apiClient,
@@ -662,7 +663,7 @@ func TestWorkloadIntegration(t *testing.T) {
 		assert.NotNil(err, "should fail to delete domain name definition while domain name instance still references it")
 
 		// reverse-order tear-down: delete the gateway and domain name
-		// instances first so the workload instance has no incoming refs
+		// instances first so the kubernetes workload instance has no incoming refs
 		// when its hard-delete runs in the reconciler
 		_, err = client.DeleteGatewayInstance(
 			apiClient,
@@ -702,14 +703,14 @@ func TestWorkloadIntegration(t *testing.T) {
 		}
 		assert.True(domainNameInstanceDeleted, fmt.Sprintf("domain name instance should be gone within %d seconds", domainNameInstanceCheckMax))
 
-		// now delete the workload instance — its only remaining incoming
+		// now delete the kubernetes workload instance — its only remaining incoming
 		// refs are from the gateway/domain name instances we just removed
 		deletedWorkloadInst, err := client.DeleteKubernetesWorkloadInstance(
 			apiClient,
 			threeportAPIEndpoint,
 			*createdWorkloadInst.ID,
 		)
-		assert.Nil(err, "should have no error deleting workload instance")
+		assert.Nil(err, "should have no error deleting kubernetes workload instance")
 
 		// wait for workload deletion to be reconciled
 		deletedCheckAttempts := 0
@@ -724,11 +725,11 @@ func TestWorkloadIntegration(t *testing.T) {
 					break
 				}
 			}
-			// no error means workload instance was found - hasn't yet been deleted
+			// no error means kubernetes workload instance was found - hasn't yet been deleted
 			deletedCheckAttempts += 1
 			time.Sleep(time.Second * time.Duration(deletedCheckDurationSeconds))
 		}
-		assert.True(workloadInstanceDeleted, fmt.Sprintf("should have found that workload instance was deleted after %d seconds", deletedCheckAttemptsMax*deletedCheckDurationSeconds))
+		assert.True(workloadInstanceDeleted, fmt.Sprintf("should have found that kubernetes workload instance was deleted after %d seconds", deletedCheckAttemptsMax*deletedCheckDurationSeconds))
 
 		// make sure there are zero kubernetes workload instances in system
 		workloadInsts, err := client.GetKubernetesWorkloadInstances(
@@ -850,17 +851,17 @@ func TestWorkloadIntegration(t *testing.T) {
 			threeportAPIEndpoint,
 			*createdSecondWorkloadDef.ID,
 		)
-		assert.Nil(err, "should have no error deleting second workload definition")
+		assert.Nil(err, "should have no error deleting second kubernetes workload definition")
 
-		// delete workload definition
+		// delete kubernetes workload definition
 		deletedWorkloadDef, err := client.DeleteKubernetesWorkloadDefinition(
 			apiClient,
 			threeportAPIEndpoint,
 			*createdWorkloadDef.ID,
 		)
-		assert.Nil(err, "should have no error deleting workload definition")
+		assert.Nil(err, "should have no error deleting kubernetes workload definition")
 
-		// make sure the workload definition is gone
+		// make sure the kubernetes workload definition is gone
 		if err := util.Retry(10, 3, func() error {
 			workloadDefs, err := client.GetKubernetesWorkloadDefinitions(
 				apiClient,
@@ -871,13 +872,13 @@ func TestWorkloadIntegration(t *testing.T) {
 			}
 			for _, wd := range *workloadDefs {
 				if wd.ID == deletedWorkloadDef.ID {
-					return fmt.Errorf("deleted workload definition with ID %d still returned from Threeport API", wd.ID)
+					return fmt.Errorf("deleted kubernetes workload definition with ID %d still returned from Threeport API", wd.ID)
 				}
 			}
 
 			return nil
 		}); err != nil {
-			assert.Nil(err, "should not get back deleted workload definition when retrieving all workload definitions")
+			assert.Nil(err, "should not get back deleted kubernetes workload definition when retrieving all workload definitions")
 		}
 	}
 }

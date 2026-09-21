@@ -20,7 +20,7 @@ endif
 	@git add cmd/rest-api/main_gen.go
 	@git commit -s -m "release: cut version ${RELEASE_VERSION}"
 	@git tag ${RELEASE_VERSION}
-	@git push origin main --tag
+	@git push origin $$(git rev-parse --abbrev-ref HEAD) --tag
 	@echo "version ${RELEASE_VERSION} released"
 
 #dev-logs-api: @ Follow log output from the local dev API

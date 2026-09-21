@@ -5,6 +5,7 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -77,6 +78,10 @@ func GetDomainNameDefinitionByID(apiClient *http.Client, apiAddr string, id uint
 	)
 	if err != nil {
 		return &domainNameDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &domainNameDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -180,6 +185,10 @@ func CreateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 		return domainNameDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return domainNameDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return domainNameDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -220,6 +229,10 @@ func UpdateDomainNameDefinition(apiClient *http.Client, apiAddr string, domainNa
 	)
 	if err != nil {
 		return domainNameDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return domainNameDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -265,6 +278,10 @@ func ReplaceDomainNameDefinition(apiClient *http.Client, apiAddr string, domainN
 		return domainNameDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return domainNameDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return domainNameDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -294,6 +311,10 @@ func DeleteDomainNameDefinition(apiClient *http.Client, apiAddr string, id uint)
 	)
 	if err != nil {
 		return &domainNameDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &domainNameDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -374,6 +395,10 @@ func GetDomainNameInstanceByID(apiClient *http.Client, apiAddr string, id uint) 
 	)
 	if err != nil {
 		return &domainNameInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &domainNameInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -477,6 +502,10 @@ func CreateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 		return domainNameInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return domainNameInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return domainNameInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -517,6 +546,10 @@ func UpdateDomainNameInstance(apiClient *http.Client, apiAddr string, domainName
 	)
 	if err != nil {
 		return domainNameInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return domainNameInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -562,6 +595,10 @@ func ReplaceDomainNameInstance(apiClient *http.Client, apiAddr string, domainNam
 		return domainNameInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return domainNameInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return domainNameInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -591,6 +628,10 @@ func DeleteDomainNameInstance(apiClient *http.Client, apiAddr string, id uint) (
 	)
 	if err != nil {
 		return &domainNameInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &domainNameInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -671,6 +712,10 @@ func GetGatewayDefinitionByID(apiClient *http.Client, apiAddr string, id uint) (
 	)
 	if err != nil {
 		return &gatewayDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &gatewayDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -774,6 +819,10 @@ func CreateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 		return gatewayDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return gatewayDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return gatewayDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -814,6 +863,10 @@ func UpdateGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDefi
 	)
 	if err != nil {
 		return gatewayDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return gatewayDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -859,6 +912,10 @@ func ReplaceGatewayDefinition(apiClient *http.Client, apiAddr string, gatewayDef
 		return gatewayDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return gatewayDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return gatewayDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -888,6 +945,10 @@ func DeleteGatewayDefinition(apiClient *http.Client, apiAddr string, id uint) (*
 	)
 	if err != nil {
 		return &gatewayDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &gatewayDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -968,6 +1029,10 @@ func GetGatewayHttpPortByID(apiClient *http.Client, apiAddr string, id uint) (*v
 	)
 	if err != nil {
 		return &gatewayHttpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &gatewayHttpPort, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1071,6 +1136,10 @@ func CreateGatewayHttpPort(apiClient *http.Client, apiAddr string, gatewayHttpPo
 		return gatewayHttpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return gatewayHttpPort, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return gatewayHttpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1111,6 +1180,10 @@ func UpdateGatewayHttpPort(apiClient *http.Client, apiAddr string, gatewayHttpPo
 	)
 	if err != nil {
 		return gatewayHttpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return gatewayHttpPort, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1156,6 +1229,10 @@ func ReplaceGatewayHttpPort(apiClient *http.Client, apiAddr string, gatewayHttpP
 		return gatewayHttpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return gatewayHttpPort, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return gatewayHttpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1185,6 +1262,10 @@ func DeleteGatewayHttpPort(apiClient *http.Client, apiAddr string, id uint) (*v0
 	)
 	if err != nil {
 		return &gatewayHttpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &gatewayHttpPort, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1265,6 +1346,10 @@ func GetGatewayInstanceByID(apiClient *http.Client, apiAddr string, id uint) (*v
 	)
 	if err != nil {
 		return &gatewayInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &gatewayInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1368,6 +1453,10 @@ func CreateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 		return gatewayInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return gatewayInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return gatewayInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1408,6 +1497,10 @@ func UpdateGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInstan
 	)
 	if err != nil {
 		return gatewayInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return gatewayInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1453,6 +1546,10 @@ func ReplaceGatewayInstance(apiClient *http.Client, apiAddr string, gatewayInsta
 		return gatewayInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return gatewayInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return gatewayInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1482,6 +1579,10 @@ func DeleteGatewayInstance(apiClient *http.Client, apiAddr string, id uint) (*v0
 	)
 	if err != nil {
 		return &gatewayInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &gatewayInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1562,6 +1663,10 @@ func GetGatewayTcpPortByID(apiClient *http.Client, apiAddr string, id uint) (*v0
 	)
 	if err != nil {
 		return &gatewayTcpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &gatewayTcpPort, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1665,6 +1770,10 @@ func CreateGatewayTcpPort(apiClient *http.Client, apiAddr string, gatewayTcpPort
 		return gatewayTcpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return gatewayTcpPort, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return gatewayTcpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1705,6 +1814,10 @@ func UpdateGatewayTcpPort(apiClient *http.Client, apiAddr string, gatewayTcpPort
 	)
 	if err != nil {
 		return gatewayTcpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return gatewayTcpPort, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -1750,6 +1863,10 @@ func ReplaceGatewayTcpPort(apiClient *http.Client, apiAddr string, gatewayTcpPor
 		return gatewayTcpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return gatewayTcpPort, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return gatewayTcpPort, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -1779,6 +1896,10 @@ func DeleteGatewayTcpPort(apiClient *http.Client, apiAddr string, id uint) (*v0.
 	)
 	if err != nil {
 		return &gatewayTcpPort, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &gatewayTcpPort, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

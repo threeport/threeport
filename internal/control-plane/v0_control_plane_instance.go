@@ -411,7 +411,7 @@ func v0ControlPlaneInstanceCreated(
 		encryptionKey,
 		dbCreds,
 	); err != nil {
-		return 0, fmt.Errorf("failed to install threeport control plane dependencies")
+		return 0, fmt.Errorf("failed to install threeport control plane dependencies: %w", err)
 	}
 
 	// install the API
@@ -423,10 +423,12 @@ func v0ControlPlaneInstanceCreated(
 		return 0, fmt.Errorf("failed to install threeport API server: %w", err)
 	}
 
-	// for cloud providers, get the load balancer endpoint so the genesis
-	// reconciler can reach the child API across clusters
+	// for cross-cluster deployments, get the load balancer endpoint so the
+	// genesis reconciler can reach the child API across clusters. Same-cluster
+	// deployments use ClusterIP (see RestApiLoadBalancer above) and keep the
+	// in-cluster DNS endpoint already set above.
 	var lbEndpoint string
-	if *kubernetesRuntimeDefinition.InfraProvider != v0.KubernetesRuntimeInfraProviderKind {
+	if cpi.Opts.RestApiLoadBalancer {
 		lbEndpoint, err = cpi.GetThreeportAPIEndpoint(dynamicKubeClient, *mapper)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get threeport API load balancer endpoint: %w", err)

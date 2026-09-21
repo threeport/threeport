@@ -1,9 +1,11 @@
 package v0
 
 import (
-	"github.com/labstack/echo/v4"
-
+	"errors"
+	"fmt"
 	"net/http"
+
+	"github.com/labstack/echo/v4"
 )
 
 var Versions = make(map[int]string)
@@ -61,6 +63,29 @@ func ResponseStatus409(c echo.Context, params *PageRequestParams, error error, o
 
 func ResponseStatus500(c echo.Context, params *PageRequestParams, error error, objectType string) error {
 	return c.JSON(http.StatusInternalServerError, CreateResponseWithError500(params, error, objectType))
+}
+
+// ResponseStatusBindErr maps an echo request-binding error to an HTTP
+// response. An *echo.HTTPError carrying a 4xx code, typically 400 for a
+// JSON unmarshal or type mismatch, is returned to the client at that
+// code. Any other error, and any *echo.HTTPError carrying a 5xx code,
+// is returned as an internal server error.
+//
+// Only the error's Message reaches the body. Rendering the whole error
+// would repeat the code already carried in Status.Code and append the
+// wrapped cause, which names Go struct and field types. The caller logs
+// the whole error before calling this, so that detail stays available
+// on the server.
+func ResponseStatusBindErr(c echo.Context, params *PageRequestParams, err error, objectType string) error {
+	var httpErr *echo.HTTPError
+	if errors.As(err, &httpErr) && httpErr.Code >= 400 && httpErr.Code < 500 {
+		return c.JSON(httpErr.Code, CreateResponseErrorWithStatus(
+			params,
+			CreateStatus(httpErr.Code, http.StatusText(httpErr.Code), fmt.Sprintf("%v", httpErr.Message)),
+			objectType,
+		))
+	}
+	return ResponseStatus500(c, params, err, objectType)
 }
 
 func ResponseStatusErr(id int, c echo.Context, params *PageRequestParams, error error, objectType string) error {

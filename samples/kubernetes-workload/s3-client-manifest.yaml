@@ -22,6 +22,6 @@ spec:
       serviceAccountName: s3-client
       containers:
       - name: s3-client
-        image: cimg/aws:2023.09
+        image: docker.io/cimg/aws:2023.09
         command: ["sleep", "3600"]  # will run for 1 hour
 

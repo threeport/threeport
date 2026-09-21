@@ -24,15 +24,15 @@ func render(t *testing.T, c jen.Code) string {
 
 // TestTag_OrderPreserved is the core contract: keys are emitted in the
 // order the caller supplied, NOT alphabetically. jen's built-in .Tag()
-// would sort to gorm/json/validate; util.Tag must preserve the threeport
-// json/validate/gorm convention.
+// would sort to gorm/relationship/validate; util.Tag must preserve the
+// threeport validate/gorm/relationship convention.
 func TestTag_OrderPreserved(t *testing.T) {
 	got := render(t, Tag(
-		[2]string{"json", ",omitempty"},
 		[2]string{"validate", "required"},
 		[2]string{"gorm", "not null"},
+		[2]string{"relationship", "requires"},
 	))
-	want := "`json:\",omitempty\" validate:\"required\" gorm:\"not null\"`"
+	want := "`validate:\"required\" gorm:\"not null\" relationship:\"requires\"`"
 	if got != want {
 		t.Errorf("\nwant: %s\ngot:  %s", want, got)
 	}
@@ -44,9 +44,9 @@ func TestTag_OrderPreserved(t *testing.T) {
 func TestTag_NonAlphabeticalOrder(t *testing.T) {
 	got := render(t, Tag(
 		[2]string{"validate", "required"},
-		[2]string{"json", ",omitempty"},
+		[2]string{"gorm", "not null"},
 	))
-	want := "`validate:\"required\" json:\",omitempty\"`"
+	want := "`validate:\"required\" gorm:\"not null\"`"
 	if got != want {
 		t.Errorf("\nwant: %s\ngot:  %s", want, got)
 	}
@@ -54,8 +54,8 @@ func TestTag_NonAlphabeticalOrder(t *testing.T) {
 
 // TestTag_SinglePair covers the degenerate one-pair input.
 func TestTag_SinglePair(t *testing.T) {
-	got := render(t, Tag([2]string{"json", ",omitempty"}))
-	want := "`json:\",omitempty\"`"
+	got := render(t, Tag([2]string{"validate", "required"}))
+	want := "`validate:\"required\"`"
 	if got != want {
 		t.Errorf("\nwant: %s\ngot:  %s", want, got)
 	}
@@ -70,11 +70,11 @@ func TestTag_NoPairs(t *testing.T) {
 	}
 }
 
-// TestTag_EmptyValue covers a tag value of "", which is legal (e.g. the
-// json default-name form `json:",omitempty"` is itself an empty-name tag).
+// TestTag_EmptyValue covers a tag value of "", which is legal — a key may
+// carry an empty value and still render as a well-formed tag.
 func TestTag_EmptyValue(t *testing.T) {
-	got := render(t, Tag([2]string{"json", ""}))
-	want := "`json:\"\"`"
+	got := render(t, Tag([2]string{"validate", ""}))
+	want := "`validate:\"\"`"
 	if got != want {
 		t.Errorf("\nwant: %s\ngot:  %s", want, got)
 	}
@@ -100,15 +100,15 @@ func TestTag_BacktickFallback(t *testing.T) {
 func TestTag_InsideStructField(t *testing.T) {
 	decl := jen.Type().Id("Foo").Struct(
 		jen.Id("Name").Op("*").String().Add(Tag(
-			[2]string{"json", ",omitempty"},
 			[2]string{"validate", "required"},
+			[2]string{"gorm", "not null"},
 		)),
 	)
 	got := render(t, decl)
 	// jen.Empty().Add(...).Render() renders inside an outer indent context,
 	// so the struct body lands at depth 2 rather than depth 1. The content
 	// shape is what we care about; the surrounding indentation is jen's.
-	want := "type Foo struct {\n\t\tName *string `json:\",omitempty\" validate:\"required\"`\n\t}"
+	want := "type Foo struct {\n\t\tName *string `validate:\"required\" gorm:\"not null\"`\n\t}"
 	if got != want {
 		t.Errorf("\nwant: %q\ngot:  %q", want, got)
 	}

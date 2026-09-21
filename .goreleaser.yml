@@ -23,6 +23,11 @@ archives:
       - README.md
     wrap_in_directory: true
     allow_different_binary_count: true
+release:
+  # tags with a prerelease segment (e.g. v0.7.0-rc.0) are marked as a GitHub
+  # prerelease and won't be flagged as the "latest" release; final tags
+  # (e.g. v0.7.0) are unaffected.
+  prerelease: auto
 checksum:
   name_template: 'checksums.txt'
 snapshot:

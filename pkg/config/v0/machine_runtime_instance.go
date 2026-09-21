@@ -9,9 +9,9 @@ import (
 	"os"
 	"strings"
 
+	apilib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	apilib "github.com/threeport/threeport/pkg/api/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
@@ -28,18 +28,18 @@ type MachineRuntimeInstanceConfig struct {
 // variants take a path to a file whose contents are loaded into the
 // corresponding inline field at Create time.
 type MachineRuntimeInstanceValues struct {
-	Name                     *string                         `json:",omitempty"`
-	Hostname                 *string                         `json:",omitempty"`
-	SSHUser                  *string                         `json:",omitempty"`
-	SSHKey                   *string                         `json:",omitempty"`
-	SSHKeyFile               *string                         `json:",omitempty"`
-	SSHPassword              *string                         `json:",omitempty"`
-	SSHPasswordFile          *string                         `json:",omitempty"`
-	Port                     *int                            `json:",omitempty"`
-	HostKey                  *string                         `json:",omitempty"`
-	MachineRuntimeDefinition *MachineRuntimeDefinitionValues `json:",omitempty"`
-	Status                   *string                         `json:",omitempty"`
-	Age                      *string                         `json:",omitempty"`
+	Name                     *string
+	Hostname                 *string
+	SSHUser                  *string
+	SSHKey                   *string
+	SSHKeyFile               *string
+	SSHPassword              *string
+	SSHPasswordFile          *string
+	Port                     *int
+	HostKey                  *string
+	MachineRuntimeDefinition *MachineRuntimeDefinitionValues
+	Status                   *string
+	Age                      *string
 }
 
 // Get gets machine runtime instances from the Threeport API.

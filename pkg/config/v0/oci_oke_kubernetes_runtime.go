@@ -21,12 +21,12 @@ type OciOkeKubernetesRuntimeConfig struct {
 // OciOkeKubernetesRuntimeDefinition and OciOkeKubernetesRuntimeInstance API objects
 // together with a single operation.
 type OciOkeKubernetesRuntimeValues struct {
-	Name                   *string `json:",omitempty"`
-	OciProviderName        *string `json:",omitempty"`
-	WorkerNodeShape        *string `json:",omitempty"`
-	WorkerNodeInitialCount *int    `json:",omitempty"`
-	Region                 *string `json:",omitempty"`
-	Age                    *string `json:",omitempty"`
+	Name                   *string
+	OciProviderName        *string
+	WorkerNodeShape        *string
+	WorkerNodeInitialCount *int
+	Region                 *string
+	Age                    *string
 }
 
 // Get gets a oci oke kubernetes runtime definition and instance from the Threeport API.

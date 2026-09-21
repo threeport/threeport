@@ -3,7 +3,8 @@ package v0
 import "time"
 
 const (
-	PathEventsJoinAttachedObjectReferences = "/v0/events-join-attached-object-references"
+	// PathEventsFiltered is the list path for events filtered by subject.
+	PathEventsFiltered = "/v0/events-filtered"
 )
 
 // Event is a record of an event in the system.
@@ -11,48 +12,44 @@ type Event struct {
 	Common `swaggerignore:"true" mapstructure:",squash"`
 
 	// A short, machine understandable string that gives the reason for the event being generated.
-	Reason *string `json:",omitempty" validate:"required" gorm:"not null"`
+	Reason *string `validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
 
 	// A human-readable description of the status of this operation.
-	Note *string `json:",omitempty" validate:"optional"`
+	Note *string `validate:"optional" gorm:"uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
 
 	// The number of times this event has occurred.
-	Count *uint `json:",omitempty" validate:"required" gorm:"not null"`
+	Count *uint `validate:"required" gorm:"not null"`
 
 	// Time when this Event was first observed.
-	EventTime *time.Time `json:",omitempty" validate:"required" gorm:"not null"`
+	EventTime *time.Time `validate:"required" gorm:"not null"`
 
 	// The time at which the most recent occurrence of this event was recorded.
-	LastObservedTime *time.Time `json:",omitempty" validate:"required" gorm:"not null"`
+	LastObservedTime *time.Time `validate:"required" gorm:"not null"`
 
 	// Type of this event (Normal, Warning), new types could be added in the future.
-	Type *string `json:",omitempty" validate:"required" gorm:"not null"`
+	Type *string `validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
 
 	// Name of the controller that emitted this Event.
-	ReportingController *string `json:",omitempty" validate:"required" gorm:"not null"`
+	ReportingController *string `validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
 
-	// Fields carrying the event's subject - the object the event is
-	// about. They flow in both directions:
-	//   - On create: the caller sets ObjectType (fully qualified type form) + ObjectID
-	//     in the request body. Event.BeforeCreate validates them;
-	//     Event.AfterCreate inserts the matching AttachedObjectReference
-	//     in the same transaction. ObjectName is ignored on write.
-	//   - On read: GetEventsJoinAttachedObjectReferenceByQueryString
-	//     projects the joined AOR's base object back into these
-	//     fields, then resolves ObjectName via the type's name resolver.
-	//
-	// gorm:"-" keeps them off the Event row in the schema - the AOR
-	// is the source of truth on disk for the subject linkage.
-	//
-	// For an event describing a script failure on a
-	// MachineRuntimeInstance named "some-host" (id 42), these hold:
-	//   ObjectType = "threeport.io/v0.MachineRuntimeInstance"
-	//   ObjectID   = 42
-	//   ObjectName = "some-host"   (read only - ignored on create)
-	// A consumer like `tptctl get events` uses them to render
-	// "threeport.io/machine-runtime-instance/some-host" in the OBJECT
-	// column.
-	ObjectType *string `json:",omitempty" validate:"optional" gorm:"-"`
-	ObjectID   *uint   `json:",omitempty" validate:"optional" gorm:"-"`
-	ObjectName *string `json:",omitempty" validate:"optional" gorm:"-"`
+	// The fully qualified type of the object this event is about
+	ObjectType *string `validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
+	// The id of the object this event is about
+	ObjectID *uint `validate:"required" gorm:"not null;uniqueIndex:idx_events_dedup,where:deleted_at IS NULL"`
+	// The name of the object this event is about, resolved on read
+	ObjectName *string `validate:"optional" gorm:"-"`
+}
+
+// ExtraQueryKeys returns query parameter names that are not Event fields:
+// type, namespace, version, name prefix, and reason prefix. Declaring them
+// keeps the binder from rejecting a well-formed events query. They are not
+// columns and never serialize into an Event response.
+func (Event) ExtraQueryKeys() []string {
+	return []string{
+		"objecttypename",
+		"objectversion",
+		"objectnamespace",
+		"objectnameprefix",
+		"reasonprefix",
+	}
 }

@@ -5,9 +5,9 @@ package v0
 import (
 	errors "errors"
 	"fmt"
+	apilib "github.com/threeport/threeport/pkg/api/lib/v0"
 	api_v0 "github.com/threeport/threeport/pkg/api/v0"
 	client_v0 "github.com/threeport/threeport/pkg/client/v0"
-	apilib "github.com/threeport/threeport/pkg/api/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 	"net/http"
 )
@@ -23,15 +23,15 @@ type MachineWorkloadDefinitionConfig struct {
 // MachineWorkloadDefinitionValues contains all the attributes needed to manage
 // the MachineWorkloadDefinition API object.
 type MachineWorkloadDefinitionValues struct {
-	Name         *string  `json:",omitempty"`
-	CreateScript *string  `json:",omitempty"`
-	UpdateScript *string  `json:",omitempty"`
-	DeleteScript *string  `json:",omitempty"`
-	Shell        *string  `json:",omitempty"`
-	WorkingDir   *string  `json:",omitempty"`
-	Timeout      *int     `json:",omitempty"`
-	Env          []string `json:",omitempty"`
-	Age          *string  `json:",omitempty"`
+	Name         *string
+	CreateScript *string
+	UpdateScript *string
+	DeleteScript *string
+	Shell        *string
+	WorkingDir   *string
+	Timeout      *int
+	Env          []string
+	Age          *string
 }
 
 // Get gets machine workload definitions from the Threeport API.

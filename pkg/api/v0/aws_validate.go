@@ -4,70 +4,43 @@ package v0
 
 import (
 	"fmt"
-	"reflect"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 
-	"github.com/google/uuid"
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
+
+// awsAccessKeyPairingMessage is the rejection both AwsProvider hooks
+// return. Create and update enforce one rule, so they name it once.
+const awsAccessKeyPairingMessage = "both access key id and secret access key must be set if one of them is provided"
+
+// validateAwsAccessKeyPairing rejects a pair carrying exactly one of the
+// two access key values. An empty string counts as unset, so a cleared
+// field reads the same as an absent one. Create and update share this so
+// one rule has one implementation.
+func validateAwsAccessKeyPairing(accessKeyID, secretAccessKey *string) error {
+	isAccessKeyIDSet := accessKeyID != nil && *accessKeyID != ""
+	isSecretAccessKeySet := secretAccessKey != nil && *secretAccessKey != ""
+
+	if isAccessKeyIDSet != isSecretAccessKeySet {
+		return util.NewBadRequestError(awsAccessKeyPairingMessage)
+	}
+	return nil
+}
 
 // beforeCreate validates a AWS Provider before persisting to the
 // database.
 func (a *AwsProvider) beforeCreate(tx *gorm.DB) error {
-	isAccessKeyIDSet := false
-	isSecretAccessKeySet := false
-
-	createdObj := *a
-	objVal := reflect.ValueOf(&createdObj).Elem()
-	objType := objVal.Type()
-	ns := schema.NamingStrategy{}
-	for i := 0; i < objType.NumField(); i++ {
-		field := objType.Field(i)
-		fieldVal := objVal.Field(i)
-
-		// skip nil fields
-		if !util.IsNonNilPtr(fieldVal) {
-			continue
-		}
-
-		// check if AccessKeyID is set
-		if field.Name == "AccessKeyID" {
-			underlyingValue, err := util.GetPtrValue(fieldVal)
-			if err != nil {
-				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
-			}
-
-			if underlyingValue != "" {
-				isAccessKeyIDSet = true
-			}
-		}
-
-		// check if SecretAccessKey is set
-		if field.Name == "SecretAccessKey" {
-			underlyingValue, err := util.GetPtrValue(fieldVal)
-			if err != nil {
-				return fmt.Errorf("failed to get string value for %s: %w", field.Name, err)
-			}
-
-			if underlyingValue != "" {
-				isSecretAccessKeySet = true
-			}
-		}
-	}
-
-	// validate access & secret access keys
-	if isAccessKeyIDSet && !isSecretAccessKeySet ||
-		!isAccessKeyIDSet && isSecretAccessKeySet {
-		return util.NewBadRequestError(
-			"both access key id and secret access key must be set if one of them is provided",
-		)
+	if err := validateAwsAccessKeyPairing(a.AccessKeyID, a.SecretAccessKey); err != nil {
+		return err
 	}
 
 	// generate and set external ID
 	uuid := uuid.New().String()
-	columnName := ns.ColumnName("", "ExternalId")
+	columnName := schema.NamingStrategy{}.ColumnName("", "ExternalId")
 	tx.Statement.SetColumn(columnName, uuid)
 
 	return nil
@@ -87,7 +60,45 @@ func (a *AwsProvider) beforeCreate(tx *gorm.DB) error {
 // Import:
 //   lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (a *AwsProvider) beforeUpdate(tx *gorm.DB) error {
-	return nil
+	// Re-enforce the create-time rule: both keys set, or neither.
+	accessKeyIDChanged, err := lib.IsFieldChanged(tx, "AccessKeyID")
+	if err != nil {
+		return err
+	}
+	secretAccessKeyChanged, err := lib.IsFieldChanged(tx, "SecretAccessKey")
+	if err != nil {
+		return err
+	}
+
+	// Skip when neither field is part of the update so an unrelated update
+	// does not have to reason about credentials.
+	if !accessKeyIDChanged && !secretAccessKeyChanged {
+		return nil
+	}
+
+	// A map-shaped update satisfies the change check above but not this
+	// assertion, so fail rather than skip: silently dropping the rule
+	// would let a half credential reach the row.
+	incoming, ok := lib.IncomingValues(tx).(*AwsProvider)
+	if !ok {
+		return fmt.Errorf(
+			"cannot validate access key pairing: update carries %T, not *AwsProvider",
+			lib.IncomingValues(tx),
+		)
+	}
+
+	// Resolve what each field will hold once the update lands: the inbound
+	// value when it is changing, the receiver's otherwise.
+	resultingAccessKeyID := a.AccessKeyID
+	if accessKeyIDChanged {
+		resultingAccessKeyID = incoming.AccessKeyID
+	}
+	resultingSecretAccessKey := a.SecretAccessKey
+	if secretAccessKeyChanged {
+		resultingSecretAccessKey = incoming.SecretAccessKey
+	}
+
+	return validateAwsAccessKeyPairing(resultingAccessKeyID, resultingSecretAccessKey)
 }
 
 // beforeDelete validates the AwsProvider before delete.

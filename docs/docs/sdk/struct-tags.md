@@ -16,16 +16,36 @@ module-only.
 
 ### `json`
 
-Wire serialization. Canonical form is `json:",omitempty"`. The
-field-name part is dropped because `encoding/json` defaults to the Go
-field name. The `omitempty` is non-negotiable on every
-`validate:"required"` field: without it, nil-pointer required fields
-serialize as JSON `null` on partial PATCH bodies and the api server's
-`PayloadCheck()` null-on-required guard rejects the request.
+API object fields carry no `json` tag. `encoding/json` already defaults
+to the Go field name, so the field-name part was always redundant, and
+the omission of absent values is now a marshal-time policy rather than a
+per-field tag.
+
+`util.MarshalObject()` in `pkg/util/v0/serialize.go` — the single
+chokepoint every request body to the api server passes through — marshals
+with `encoding/json/v2` and the `OmitZeroStructFields` option. Every
+zero-valued field is dropped, which for the pointer fields on an API
+object means every nil pointer. That is what keeps a partial PATCH body
+from carrying a JSON `null` for a field the caller never meant to touch,
+which the api server's `PayloadCheck()` null-on-required guard would
+reject.
 
 ```go
-Name *string `json:",omitempty" validate:"required"`
+Name *string `validate:"required"`
 ```
+
+Two consequences differ from the old tag, because
+`omitzero` and `omitempty` do not omit the same set of values:
+
+- A `*string` pointing at `""` is now sent as `""`. The tag used to drop
+  it, which silently discarded a caller's attempt to clear a string
+  field.
+- An initialized-but-empty association slice is now sent as `[]`. The
+  tag used to drop it. A nil slice is still omitted.
+
+A new API object field needs no `json` tag. Adding one back is redundant
+at best, and in particular reintroduces the
+empty-string omission this policy deliberately removed.
 
 ### `validate`
 
@@ -38,8 +58,8 @@ Values:
   (a slice of pointers to a related type), optional on the wire.
 
 ```go
-Hostname *string `json:",omitempty" validate:"required" gorm:"not null"`
-SSHKey   *string `json:",omitempty" validate:"optional" encrypt:"true"`
+Hostname *string `validate:"required" gorm:"not null"`
+SSHKey   *string `validate:"optional" encrypt:"true"`
 ```
 
 ### `gorm`
@@ -51,15 +71,16 @@ values:
   `validate:"required"` for symmetric API and DB enforcement.
 - `default:<value>`: column default (e.g. `default:false`,
   `default:'describes'`).
-- `uniqueIndex:idx_<name>`: unique index. Multiple columns can share an
-  index name to form a composite unique index.
+- `uniqueIndex:idx_<name>,where:deleted_at IS NULL`: unique index among
+  undeleted rows. Multiple columns can share an index name to form a
+  composite unique index.
 - `type:jsonb;serializer:json`: store a Go slice or struct as PostgreSQL
   JSONB with JSON marshaling on read/write.
 - `primarykey`: primary key. Only used on `Common.ID`.
 
 ```go
-ID *uint `json:",omitempty" gorm:"primarykey"`
-KubernetesWorkloadDefinitionID *uint `json:",omitempty" validate:"required" gorm:"not null" relationship:"requires"`
+ID *uint `gorm:"primarykey"`
+KubernetesWorkloadDefinitionID *uint `validate:"required" gorm:"not null" relationship:"requires"`
 ```
 
 ### `encrypt`
@@ -70,7 +91,7 @@ database, and decrypt on read when an encryption key is supplied. Use on
 any field containing secrets (SSH keys, passwords, API credentials).
 
 ```go
-SSHPassword *string `json:",omitempty" validate:"optional" encrypt:"true"`
+SSHPassword *string `validate:"optional" encrypt:"true"`
 ```
 
 ### `relationship`
@@ -95,9 +116,9 @@ the target type can't be inferred from the field name (cross-type FK
 fields).
 
 ```go
-AwsProviderID *uint `json:",omitempty" validate:"required" gorm:"not null" relationship:"requires"`
-ParentControlPlaneInstanceID *uint `json:",omitempty" validate:"optional" relationship:"requires;type:ControlPlaneInstance"`
-HelmWorkloadDefinitionID *uint `json:",omitempty" validate:"optional" relationship:"owns;type:HelmWorkloadDefinition"`
+AwsProviderID *uint `validate:"required" gorm:"not null" relationship:"requires"`
+ParentControlPlaneInstanceID *uint `validate:"optional" relationship:"requires;type:ControlPlaneInstance"`
+HelmWorkloadDefinitionID *uint `validate:"optional" relationship:"owns;type:HelmWorkloadDefinition"`
 ```
 
 ### `persist`
@@ -109,7 +130,7 @@ other value. Used for fields whose value must travel through the
 notification payload only (`Secret.Data` is the current consumer).
 
 ```go
-Data *datatypes.JSON `json:",omitempty" validate:"required" persist:"false"`
+Data *datatypes.JSON `validate:"required" persist:"false"`
 ```
 
 ### `swaggerignore`
@@ -120,7 +141,7 @@ on every embedded composite field (`Common`, `Definition`, `Instance`,
 fields, not the framework scaffolding.
 
 ```go
-tpapi_v0.Common `mapstructure:",squash" swaggerignore:"true"`
+tpapi_v0.Common `swaggerignore:"true" mapstructure:",squash"`
 ```
 
 ### `mapstructure`
@@ -162,18 +183,16 @@ ignored.
 ### Tag order
 
 ```
-json -> validate -> gorm -> encrypt -> relationship -> persist
+validate -> gorm -> encrypt -> relationship -> persist
 ```
 
-Rationale: `json:",omitempty"` and `validate:"required|optional"` are
-the strongest semantic pair (they together drive the `PayloadCheck()`
-null-on-required guard), so keeping them adjacent makes the contract
-scannable at a glance.
+Rationale: `validate` states the API contract for the field, so it leads.
+`gorm` follows because the DB constraint usually mirrors that contract
+(`validate:"required"` with `gorm:"not null"`), which makes a mismatch
+between the two easy to spot at a glance.
 
 ### Pairing rules
 
-- `validate:"required"` requires `json:",omitempty"`. Enforced by
-  codegen.
 - `validate:"required"` typically pairs with `gorm:"not null"` so the
   API contract and the DB schema agree on field presence.
 - `encrypt:"true"` typically pairs with `validate:"optional"` since
@@ -185,40 +204,40 @@ scannable at a glance.
 `threeport-sdk create` emits scaffolded struct tags in convention
 order, so newly-scaffolded code lands ready to read.
 
-`threeport-sdk gen` validates tags before generating any code. A
-`validate:"required"` field missing `json:",omitempty"` fails codegen
-with a descriptive error.
+`threeport-sdk gen` validates tags before generating any code. An
+unrecognized `validate` value, a `query` tag, or a `persist` value other
+than `"false"` fails codegen with a descriptive error.
 
 ## Complete examples
 
 ### Required field with DB enforcement
 
 ```go
-Name *string `json:",omitempty" validate:"required" gorm:"not null"`
+Name *string `validate:"required" gorm:"not null"`
 ```
 
 ### Required foreign key with relationship
 
 ```go
-KubernetesWorkloadDefinitionID *uint `json:",omitempty" validate:"required" gorm:"not null" relationship:"requires"`
+KubernetesWorkloadDefinitionID *uint `validate:"required" gorm:"not null" relationship:"requires"`
 ```
 
 ### Optional encrypted secret
 
 ```go
-SSHKey *string `json:",omitempty" validate:"optional" encrypt:"true"`
+SSHKey *string `validate:"optional" encrypt:"true"`
 ```
 
 ### Association (one-to-many back reference)
 
 ```go
-KubernetesWorkloadInstances []*KubernetesWorkloadInstance `json:",omitempty" validate:"optional,association"`
+KubernetesWorkloadInstances []*KubernetesWorkloadInstance `validate:"optional,association"`
 ```
 
 ### Embedded composite fields
 
 ```go
-tpapi_v0.Common         `mapstructure:",squash" swaggerignore:"true"`
+tpapi_v0.Common         `swaggerignore:"true" mapstructure:",squash"`
 tpapi_v0.Reconciliation `mapstructure:",squash"`
 tpapi_v0.Definition     `mapstructure:",squash"`
 ```

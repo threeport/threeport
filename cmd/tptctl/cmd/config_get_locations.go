@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/threeport/threeport/internal/kubernetes-runtime/mapping"
 	cli "github.com/threeport/threeport/pkg/cli/v0"
+	mapping "github.com/threeport/threeport/pkg/mapping/v0"
 )
 
 var (
@@ -20,6 +20,7 @@ var (
 	locationContinent string
 	locationAwsRegion string
 	locationOciRegion string
+	locationGcpRegion string
 )
 
 // ConfigGetControlPlanesCmd represents the get-instances command
@@ -30,31 +31,10 @@ var ConfigGetLocationsCmd = &cobra.Command{
 	Long:         `Get a list of available Threeport locations and what cloud provider regions they map to.`,
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		// validate flags
-		providedFlags := []string{}
-		if locationName != "" {
-			providedFlags = append(providedFlags, "--location")
-		}
-		if locationContinent != "" {
-			providedFlags = append(providedFlags, "--continent")
-		}
-		if locationAwsRegion != "" {
-			providedFlags = append(providedFlags, "--aws-region")
-		}
-		if locationOciRegion != "" {
-			providedFlags = append(providedFlags, "--oci-region")
-		}
-
-		if len(providedFlags) > 1 {
-			err := fmt.Sprintf("only one filter flag can be provided at a time. Provided flags: %s\n", strings.Join(providedFlags, ", "))
-			cli.Error(err, nil)
-			os.Exit(1)
-		}
-
 		// get the region map and print to table
 		regionMap := mapping.GetRegionMap()
 		writer := tabwriter.NewWriter(os.Stdout, 4, 4, 4, ' ', 0)
-		fmt.Fprintln(writer, "LOCATION\t AWS REGION\t OCI REGION")
+		fmt.Fprintln(writer, "LOCATION\t AWS REGION\t OCI REGION\t GCP REGION")
 		filterFound := false
 		switch {
 		case locationName != "":
@@ -63,7 +43,7 @@ var ConfigGetLocationsCmd = &cobra.Command{
 					continue
 				}
 				filterFound = true
-				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion)
+				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion, "\t", region.GcpRegion)
 			}
 		case locationContinent != "":
 			for _, region := range *regionMap {
@@ -73,7 +53,7 @@ var ConfigGetLocationsCmd = &cobra.Command{
 					continue
 				}
 				filterFound = true
-				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion)
+				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion, "\t", region.GcpRegion)
 			}
 		case locationAwsRegion != "":
 			for _, region := range *regionMap {
@@ -81,7 +61,7 @@ var ConfigGetLocationsCmd = &cobra.Command{
 					continue
 				}
 				filterFound = true
-				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion)
+				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion, "\t", region.GcpRegion)
 			}
 		case locationOciRegion != "":
 			for _, region := range *regionMap {
@@ -89,12 +69,20 @@ var ConfigGetLocationsCmd = &cobra.Command{
 					continue
 				}
 				filterFound = true
-				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion)
+				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion, "\t", region.GcpRegion)
+			}
+		case locationGcpRegion != "":
+			for _, region := range *regionMap {
+				if region.GcpRegion != locationGcpRegion {
+					continue
+				}
+				filterFound = true
+				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion, "\t", region.GcpRegion)
 			}
 		default:
 			filterFound = true
 			for _, region := range *regionMap {
-				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion)
+				fmt.Fprintln(writer, region.Location, "\t", region.AwsRegion, "\t", region.OciRegion, "\t", region.GcpRegion)
 			}
 		}
 		if !filterFound {
@@ -123,5 +111,20 @@ func init() {
 	ConfigGetLocationsCmd.Flags().StringVarP(
 		&locationOciRegion,
 		"oci-region", "o", "", "OCI region to get locations for",
+	)
+	ConfigGetLocationsCmd.Flags().StringVarP(
+		&locationGcpRegion,
+		"gcp-region", "g", "", "GCP region to get locations for",
+	)
+
+	// One filter at a time. cobra enforces this before Run and panics at
+	// startup on a name no flag declares, so a name here that no longer
+	// matches a declaration above fails loudly instead of silently.
+	ConfigGetLocationsCmd.MarkFlagsMutuallyExclusive(
+		"location",
+		"continent",
+		"aws-region",
+		"oci-region",
+		"gcp-region",
 	)
 }

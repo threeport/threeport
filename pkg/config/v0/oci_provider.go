@@ -24,14 +24,14 @@ type OciProviderConfig struct {
 // OciProviderValues contains all the attributes needed to manage
 // the OciProvider API object.
 type OciProviderValues struct {
-	Name            *string `json:",omitempty"`
-	UserOCID        *string `json:",omitempty"`
-	CompartmentOCID *string `json:",omitempty"`
-	DefaultProvider *bool   `json:",omitempty"`
-	DefaultRegion   *string `json:",omitempty"`
-	KeyFingerprint  *string `json:",omitempty"`
-	PrivateKey      *string `json:",omitempty"`
-	Age             *string `json:",omitempty"`
+	Name            *string
+	UserOCID        *string
+	CompartmentOCID *string
+	DefaultProvider *bool
+	DefaultRegion   *string
+	KeyFingerprint  *string
+	PrivateKey      *string
+	Age             *string
 }
 
 // Get gets oci providers from the Threeport API.

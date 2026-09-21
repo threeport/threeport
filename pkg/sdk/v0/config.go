@@ -78,8 +78,32 @@ type ApiObjectGroup struct {
 	// group's controller image. Empty means use the default `release` target.
 	DockerfileTarget string
 
+	// ControllerStartupHook, if set, causes the generated controller's main()
+	// to call the given no-arg, error-returning function once at startup
+	// (after logging is configured, before waiting for the API server to
+	// become reachable). Lets a downstream module run custom initialization
+	// (e.g. loading module-specific config) without hand-editing generated
+	// code. A returned error is logged but does not stop the controller from
+	// starting.
+	ControllerStartupHook *ControllerStartupHook
+
 	// List of api objects under the object group.
 	Objects []*ApiObject
+}
+
+// ControllerStartupHook configures a function to call once at controller
+// startup. See ApiObjectGroup.ControllerStartupHook.
+type ControllerStartupHook struct {
+	// PackagePath is the fully-qualified Go import path of the package
+	// containing FuncName.
+	PackagePath string
+
+	// FuncName is the name of the function to call. It must have the
+	// signature `func() error`.
+	FuncName string
+
+	// ErrorMessage is logged if the function returns an error.
+	ErrorMessage string
 }
 
 // ApiObject contains the attributes needed to manage a threeport api object.
@@ -132,10 +156,6 @@ type ApiObject struct {
 	// AllowCustomMiddleware indicates whether the api model for this object
 	// needs custom middleware enabled.
 	AllowCustomMiddleware *bool
-
-	// AllowDuplicateModelNames indicates whether the api handler for this
-	// object accepts duplicate names objects.
-	AllowDuplicateModelNames *bool
 
 	// LoadAssociationsFromDb indicates whether the response returned for an
 	// object contains associated object data.

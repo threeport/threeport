@@ -22,6 +22,7 @@ func GenHandlerWrapper(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 		f.ImportAlias("github.com/nats-io/nats.go", "nats")
 		f.ImportAlias("github.com/threeport/threeport/pkg/api-server/v0/handlers", "tp_handlers")
+		f.ImportAlias("github.com/threeport/threeport/pkg/api-server/lib/v0", "apiserver_lib")
 
 		f.Comment("Handler is a wrapper for the threeport Handler object.")
 		f.Type().Id("Handler").Struct(

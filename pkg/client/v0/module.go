@@ -39,6 +39,10 @@ func CreateModuleApiRouteWithModuleObjectReferences(
 		return moduleApiRoute, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) < 1 {
+		return moduleApiRoute, fmt.Errorf("threeport API returned no object for the created module api route")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return moduleApiRoute, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -117,6 +121,10 @@ func GetModuleObjectWithModuleApiRoutesByID(apiClient *http.Client, apiAddr stri
 	)
 	if err != nil {
 		return &moduleObject, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) < 1 {
+		return &moduleObject, fmt.Errorf("no module object found with ID %d", moduleObjectID)
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

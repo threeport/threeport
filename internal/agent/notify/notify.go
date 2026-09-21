@@ -112,7 +112,7 @@ func Notify(
 			// notif received on channel
 			// add operation details received from resource watch if
 			// applicable
-			// Note: when the workload instance type is "HelmWorkloadInstance"
+			// Note: when the workload type is "HelmWorkloadInstance"
 			// we discard this operation since helm workloads have no equivalent
 			// of a KubernetesWorkloadResourceInstance in which to store this info in
 			// Threeport. If we want to capture this info, we'll need to add
@@ -221,9 +221,7 @@ func sendThreeportUpdates(
 		ReportingController: "agent",
 	}
 	for _, evt := range *pendingEvents {
-		// skip events that did not match any of the recognized subject
-		// types in the caller's switch; ObjectType/ObjectID are required
-		// to attach the AttachedObjectReference on create.
+		// skip a nil subject; retrying cannot fill it
 		if evt.ObjectType == nil || evt.ObjectID == nil {
 			continue
 		}

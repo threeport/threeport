@@ -21,15 +21,15 @@ type GatewayConfig struct {
 // GatewayDefinition and GatewayInstance API objects
 // together with a single operation.
 type GatewayValues struct {
-	Name                       *string                           `json:",omitempty"`
-	HttpPorts                  *[]GatewayHttpPortValues          `json:",omitempty"`
-	TcpPorts                   *[]GatewayTcpPortValues           `json:",omitempty"`
-	ServiceName                *string                           `json:",omitempty"`
-	SubDomain                  *string                           `json:",omitempty"`
-	DomainNameDefinition       *DomainNameDefinitionValues       `json:",omitempty"`
-	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues  `json:",omitempty"`
-	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues `json:",omitempty"`
-	Age                        *string                           `json:",omitempty"`
+	Name                       *string
+	HttpPorts                  *[]GatewayHttpPortValues
+	TcpPorts                   *[]GatewayTcpPortValues
+	ServiceName                *string
+	SubDomain                  *string
+	DomainNameDefinition       *DomainNameDefinitionValues
+	KubernetesRuntimeInstance  *KubernetesRuntimeInstanceValues
+	KubernetesWorkloadInstance *KubernetesWorkloadInstanceValues
+	Age                        *string
 }
 
 // Get gets a gateway definition and instance from the Threeport API.

@@ -16,6 +16,11 @@ import (
 
 var disable bool
 var debugComponentNames string
+
+// kubeconfigPath backs the --kubeconfig flag on both the debug and the build
+// commands. Each has to register the flag itself: cobra binds flags per
+// command, so a command that reads this without registering it always sees the
+// empty string and silently falls back to the default kubeconfig.
 var kubeconfigPath string
 var controlPlaneNamespace string
 

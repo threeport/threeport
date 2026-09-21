@@ -26,13 +26,15 @@ by defining the API types and the controller that reconciles them.
 
 ## Kubernetes Runtime Definition
 
-The definition allows you to specify which infrastructure provider to use
-(currently only EKS on AWS is supported).  You can also specify the node sizes
-and profiles.  Currently, you can reference the [source
-code](https://github.com/threeport/threeport/blob/main/internal/kubernetes-runtime/mapping/node.go)
-to see which NodeSize and NodeProfile values are available and what AWS machine
-types these translate to.  All Kubernetes Runtimes use cluster autoscaling and
-you can specify the maximum number of nodes to allow in the cluster.
+The definition allows you to specify which infrastructure provider to use.
+EKS on AWS, OKE on OCI and GKE on GCP are supported, as well as kind for
+local development.  You can also specify the node sizes and profiles.
+Currently, you can reference the [source
+code](https://github.com/threeport/threeport/blob/main/pkg/mapping/v0/node.go)
+to see which NodeSize and NodeProfile values are available and what machine
+type each one translates to on every supported cloud provider.  All Kubernetes
+Runtimes use cluster autoscaling and you can specify the maximum number of
+nodes to allow in the cluster.
 
 Reference:
 [KubernetesRuntimeDefinition](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesRuntimeDefinition)
@@ -41,9 +43,9 @@ Reference:
 
 This represents a deployed instance of a Kubernetes cluster.  You can specify
 which location you would like to use.  Currently, you can reference the [source
-code](https://github.com/threeport/threeport/blob/main/internal/kubernetes-runtime/mapping/location.go)
-for the available Location values and which AWS regions they correspond
-to.
+code](https://github.com/threeport/threeport/blob/main/pkg/mapping/v0/location.go)
+for the available Location values and which cloud provider regions they
+correspond to.
 
 Reference:
 [KubernetesRuntimeInstance](https://pkg.go.dev/github.com/threeport/threeport/pkg/api/v0#KubernetesRuntimeInstance)

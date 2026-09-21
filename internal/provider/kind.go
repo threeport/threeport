@@ -13,7 +13,7 @@ import (
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 )
 
-const kindImage = "kindest/node:v1.32.1"
+const kindImage = "docker.io/kindest/node:v1.32.1"
 
 // KubernetesRuntimeInfraKind represents a kind cluster for local a threeport instance.
 type KubernetesRuntimeInfraKind struct {

@@ -23,29 +23,29 @@ type GatewayDefinitionConfig struct {
 // GatewayDefinitionValues contains all the attributes needed to manage
 // the GatewayDefinition API object.
 type GatewayDefinitionValues struct {
-	Name                 *string                     `json:",omitempty"`
-	HttpPorts            *[]GatewayHttpPortValues    `json:",omitempty"`
-	TcpPorts             *[]GatewayTcpPortValues     `json:",omitempty"`
-	ServiceName          *string                     `json:",omitempty"`
-	SubDomain            *string                     `json:",omitempty"`
-	DomainNameDefinition *DomainNameDefinitionValues `json:",omitempty"`
-	Age                  *string                     `json:",omitempty"`
+	Name                 *string
+	HttpPorts            *[]GatewayHttpPortValues
+	TcpPorts             *[]GatewayTcpPortValues
+	ServiceName          *string
+	SubDomain            *string
+	DomainNameDefinition *DomainNameDefinitionValues
+	Age                  *string
 }
 
 // GatewayHttpPortValues contains the attributes needed to manage a gateway
 // http port.
 type GatewayHttpPortValues struct {
-	Port          *int    `json:",omitempty"`
-	Path          *string `json:",omitempty"`
-	TLSEnabled    *bool   `json:",omitempty"`
-	HTTPSRedirect *bool   `json:",omitempty"`
+	Port          *int
+	Path          *string
+	TLSEnabled    *bool
+	HTTPSRedirect *bool
 }
 
 // GatewayTcpPortValues contains the attributes needed to manage a gateway
 // tcp port.
 type GatewayTcpPortValues struct {
-	Port       *int  `json:",omitempty"`
-	TLSEnabled *bool `json:",omitempty"`
+	Port       *int
+	TLSEnabled *bool
 }
 
 // Get gets gateway definitions from the Threeport API.

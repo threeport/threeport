@@ -92,6 +92,11 @@ func (a *AwsEksKubernetesRuntimeDefinition) RelationshipTaggedForeignKeys() []Re
 	}}
 }
 
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on AwsEksKubernetesRuntimeDefinition.
+func (a *AwsEksKubernetesRuntimeDefinition) AssociationRequiredByTypes() []string {
+	return []string{new(AwsEksKubernetesRuntimeInstance).GetFullyQualifiedType()}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -234,6 +239,11 @@ func (ap *AwsProvider) GetVersion() string {
 // GetFullyQualifiedType returns the API-namespace-qualified type name.
 func (ap *AwsProvider) GetFullyQualifiedType() string {
 	return "threeport.io/v0.AwsProvider"
+}
+
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on AwsProvider.
+func (a *AwsProvider) AssociationRequiredByTypes() []string {
+	return []string{new(AwsEksKubernetesRuntimeInstance).GetFullyQualifiedType()}
 }
 
 // EncryptedFields returns the encrypt-tagged fields on AwsProvider.

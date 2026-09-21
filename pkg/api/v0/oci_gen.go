@@ -92,6 +92,11 @@ func (o *OciOkeKubernetesRuntimeDefinition) RelationshipTaggedForeignKeys() []Re
 	}}
 }
 
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on OciOkeKubernetesRuntimeDefinition.
+func (o *OciOkeKubernetesRuntimeDefinition) AssociationRequiredByTypes() []string {
+	return []string{new(OciOkeKubernetesRuntimeInstance).GetFullyQualifiedType()}
+}
+
 // NotificationPayload returns the notification payload that is delivered to the
 // controller when a change is made.  It includes the object as presented by the
 // client when the change was made.
@@ -234,6 +239,11 @@ func (op *OciProvider) GetVersion() string {
 // GetFullyQualifiedType returns the API-namespace-qualified type name.
 func (op *OciProvider) GetFullyQualifiedType() string {
 	return "threeport.io/v0.OciProvider"
+}
+
+// AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on OciProvider.
+func (o *OciProvider) AssociationRequiredByTypes() []string {
+	return []string{new(OciOkeKubernetesRuntimeInstance).GetFullyQualifiedType()}
 }
 
 // EncryptedFields returns the encrypt-tagged fields on OciProvider.

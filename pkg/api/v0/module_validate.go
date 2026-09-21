@@ -3,13 +3,11 @@
 package v0
 
 import (
-	"errors"
 	"fmt"
-	"net/http/httputil"
-	"net/url"
 
-	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
+
+	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 
 	util_v0 "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -26,12 +24,15 @@ func (m *ModuleApi) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (m *ModuleApi) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -52,28 +53,9 @@ func (m *ModuleApi) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// beforeCreate ensures no API route with the route path already exists
-// before persisting an API route.
+// beforeCreate validates the ModuleApiRoute before create.
 func (m *ModuleApiRoute) beforeCreate(tx *gorm.DB) error {
-	var existingRoute ModuleApiRoute
-	if result := tx.Where("path = ?", *m.Path).First(&existingRoute); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			// no existing API module route with this path - return without
-			// error
-			return nil
-		}
-		// return any error that is NotFound
-		return fmt.Errorf("failed to look up API routes for matching paths: %w", result.Error)
-	}
-
-	// no error returned from API route lookup - return conflict error
-	return util_v0.NewConflictError(
-		fmt.Sprintf(
-			"module API route already exists with path %s for module API with D %d",
-			*m.Path,
-			*m.ModuleApiID,
-		),
-	)
+	return nil
 }
 
 // beforeUpdate validates the ModuleApiRoute before update.
@@ -83,13 +65,32 @@ func (m *ModuleApiRoute) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (m *ModuleApiRoute) beforeUpdate(tx *gorm.DB) error {
+	// the path is the module router's key. Changing it would leave the router
+	// serving the old path and never told about the new one, because the
+	// reconciliation that runs after the transaction is given the path the
+	// object now carries and has no way to learn the one it replaced. Modules
+	// register their routes at install and remove them at uninstall, so there
+	// is no workflow this forecloses.
+	changed, err := lib.IsFieldChanged(tx, "Path")
+	if err != nil {
+		return fmt.Errorf("failed to determine whether the module API route path changed: %w", err)
+	}
+	if changed {
+		return util_v0.NewBadRequestError(
+			"Path is immutable; delete the module API route and create one with the new path",
+		)
+	}
+
 	return nil
 }
 
@@ -98,41 +99,37 @@ func (m *ModuleApiRoute) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// afterCreate updates the module router after new non-coremodule API routes are
-// created.
+// afterCreate runs after a ModuleApiRoute is created.
+//
+// The module router is deliberately not touched here. This hook runs inside the
+// transaction, so a create that never commits would leave a live route proxying
+// to a row that does not exist. The route is registered by
+// ReconcileModuleRoute once the transaction has committed - see
+// AfterCommitCreate below.
 func (m *ModuleApiRoute) afterCreate(tx *gorm.DB) error {
-	// retrieve the API module
-	var modApi ModuleApi
-	if result := tx.Where("id = ?", *m.ModuleApiID).First(&modApi); result.Error != nil {
-		return fmt.Errorf("failed to retrieve module API for route %s: %w", *m.Path, result.Error)
-	}
-
-	// if the module API is core, do not add the route to the module router
-	if *modApi.Core {
-		return nil
-	}
-
-	// add the route path to the module router
-	ModRouter.AddRoute(*m.Path, func(c echo.Context) error {
-		proxyUrl, err := url.Parse(
-			fmt.Sprintf("http://%s", *modApi.Endpoint),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to parse module's proxy target URL: %w", err)
-		}
-		proxy := httputil.NewSingleHostReverseProxy(proxyUrl)
-		proxy.ServeHTTP(c.Response().Writer, c.Request())
-		return nil
-	})
-
 	return nil
 }
 
-// afterDelete updates the module router after a module API route has
-// been removed.
+// afterDelete runs after a ModuleApiRoute is deleted.
+//
+// The module router is deliberately not touched here, for the mirror of the
+// reason given on afterCreate: a delete that rolls back would stop a valid
+// module endpoint being served until the next restart rebuilt the map from the
+// database.
 func (m *ModuleApiRoute) afterDelete(tx *gorm.DB) error {
-	ModRouter.RemoveRoute(*m.Path)
 	return nil
+}
+
+// AfterCommitCreate brings the module router in line with the database once a
+// created route has committed.
+func (m *ModuleApiRoute) AfterCommitCreate(db *gorm.DB) error {
+	return ReconcileModuleRoute(db, *m.Path)
+}
+
+// AfterCommitDelete brings the module router in line with the database once a
+// deleted route has committed.
+func (m *ModuleApiRoute) AfterCommitDelete(db *gorm.DB) error {
+	return ReconcileModuleRoute(db, *m.Path)
 }
 
 // beforeCreate validates the ModuleController before create.
@@ -147,12 +144,15 @@ func (m *ModuleController) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (m *ModuleController) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -162,28 +162,9 @@ func (m *ModuleController) beforeDelete(tx *gorm.DB) error {
 	return nil
 }
 
-// beforeCreate ensures no API object with the object name for a given
-// module API already exists before persisting an API object.
+// beforeCreate validates the ModuleObject before create.
 func (m *ModuleObject) beforeCreate(tx *gorm.DB) error {
-	var existingObject ModuleObject
-	if result := tx.Where("name = ? AND module_api_id = ?", *m.Name, *m.ModuleApiID).First(&existingObject); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			// no existing API object with this name - return without
-			// error
-			return nil
-		}
-		// return any error that is NotFound
-		return fmt.Errorf("failed to look up API objects for matching names: %w", result.Error)
-	}
-
-	// no error returned from API object lookup - return conflict error
-	return util_v0.NewConflictError(
-		fmt.Sprintf(
-			"module API object already exists with name %s for module API with ID %d",
-			*m.Name,
-			*m.ModuleApiID,
-		),
-	)
+	return nil
 }
 
 // beforeUpdate validates the ModuleObject before update.
@@ -193,12 +174,15 @@ func (m *ModuleObject) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (m *ModuleObject) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }

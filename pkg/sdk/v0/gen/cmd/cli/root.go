@@ -80,12 +80,6 @@ func GenPluginRootCmd(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 			Lit("Path to infra provider config directory (default is $HOME/.threeport/)."),
 			Line(),
 		),
-		Id("rootCmd").Dot("Flags").Call().Dot("BoolP").Call(
-			Lit("toggle"),
-			Lit("t"),
-			False(),
-			Lit("Help message for toggle"),
-		),
 		Qual("github.com/spf13/cobra", "OnInitialize").Call(
 			Func().Params().Block(
 				Id("cli").Dot("InitArgs").Call(Id("cliArgs")),
