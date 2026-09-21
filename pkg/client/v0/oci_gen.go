@@ -5,6 +5,7 @@ package v0
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	apiserver_lib "github.com/threeport/threeport/pkg/api-server/lib/v0"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
@@ -77,6 +78,10 @@ func GetOciOkeKubernetesRuntimeDefinitionByID(apiClient *http.Client, apiAddr st
 	)
 	if err != nil {
 		return &ociOkeKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &ociOkeKubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -180,6 +185,10 @@ func CreateOciOkeKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 		return ociOkeKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return ociOkeKubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return ociOkeKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -220,6 +229,10 @@ func UpdateOciOkeKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 	)
 	if err != nil {
 		return ociOkeKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return ociOkeKubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -265,6 +278,10 @@ func ReplaceOciOkeKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr st
 		return ociOkeKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return ociOkeKubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return ociOkeKubernetesRuntimeDefinition, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -294,6 +311,10 @@ func DeleteOciOkeKubernetesRuntimeDefinition(apiClient *http.Client, apiAddr str
 	)
 	if err != nil {
 		return &ociOkeKubernetesRuntimeDefinition, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &ociOkeKubernetesRuntimeDefinition, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -374,6 +395,10 @@ func GetOciOkeKubernetesRuntimeInstanceByID(apiClient *http.Client, apiAddr stri
 	)
 	if err != nil {
 		return &ociOkeKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &ociOkeKubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -477,6 +502,10 @@ func CreateOciOkeKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 		return ociOkeKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return ociOkeKubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return ociOkeKubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -517,6 +546,10 @@ func UpdateOciOkeKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 	)
 	if err != nil {
 		return ociOkeKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return ociOkeKubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -562,6 +595,10 @@ func ReplaceOciOkeKubernetesRuntimeInstance(apiClient *http.Client, apiAddr stri
 		return ociOkeKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return ociOkeKubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return ociOkeKubernetesRuntimeInstance, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -591,6 +628,10 @@ func DeleteOciOkeKubernetesRuntimeInstance(apiClient *http.Client, apiAddr strin
 	)
 	if err != nil {
 		return &ociOkeKubernetesRuntimeInstance, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &ociOkeKubernetesRuntimeInstance, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -671,6 +712,10 @@ func GetOciProviderByID(apiClient *http.Client, apiAddr string, id uint) (*v0.Oc
 	)
 	if err != nil {
 		return &ociProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &ociProvider, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -774,6 +819,10 @@ func CreateOciProvider(apiClient *http.Client, apiAddr string, ociProvider *v0.O
 		return ociProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return ociProvider, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return ociProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -814,6 +863,10 @@ func UpdateOciProvider(apiClient *http.Client, apiAddr string, ociProvider *v0.O
 	)
 	if err != nil {
 		return ociProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return ociProvider, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])
@@ -859,6 +912,10 @@ func ReplaceOciProvider(apiClient *http.Client, apiAddr string, ociProvider *v0.
 		return ociProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
 	}
 
+	if len(response.Data) == 0 {
+		return ociProvider, errors.New("threeport API returned no object in response data")
+	}
+
 	jsonData, err := json.Marshal(response.Data[0])
 	if err != nil {
 		return ociProvider, fmt.Errorf("failed to marshal response data from threeport API: %w", err)
@@ -888,6 +945,10 @@ func DeleteOciProvider(apiClient *http.Client, apiAddr string, id uint) (*v0.Oci
 	)
 	if err != nil {
 		return &ociProvider, fmt.Errorf("call to threeport API returned unexpected response: %w", err)
+	}
+
+	if len(response.Data) == 0 {
+		return &ociProvider, errors.New("threeport API returned no object in response data")
 	}
 
 	jsonData, err := json.Marshal(response.Data[0])

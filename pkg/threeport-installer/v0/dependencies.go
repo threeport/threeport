@@ -414,6 +414,10 @@ store_dir: /data
 										"name":      "pid",
 										"mountPath": "/var/run/nats",
 									},
+									map[string]interface{}{
+										"name":      "datadir",
+										"mountPath": "/data",
+									},
 								},
 								//######################
 								//                     #
