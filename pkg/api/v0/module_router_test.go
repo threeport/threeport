@@ -23,6 +23,14 @@ func setupModuleRouterTestDB(t *testing.T) *gorm.DB {
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+
+	// an in-memory sqlite database belongs to its connection, so a second one
+	// from the pool would be empty. The resync worker queries while the test
+	// holds the first connection, which is exactly when the pool would open
+	// one, and the tables would be missing on it.
+	sqlDb, err := db.DB()
+	require.NoError(t, err)
+	sqlDb.SetMaxOpenConns(1)
 	// ModuleApiRoute.ModuleApiID carries a relationship tag, so creating one
 	// writes an attached object reference in the same transaction
 	require.NoError(t, db.AutoMigrate(&ModuleApi{}, &ModuleApiRoute{}, &AttachedObjectReference{}))
@@ -411,7 +419,7 @@ func TestStartModuleRouteResync_ConvergesWithoutAnyLocalWrite(t *testing.T) {
 	db := setupModuleRouterTestDB(t)
 	moduleApiId := seedModuleApi(t, db, "example", false)
 
-	startModuleRouteResync(db)
+	startModuleRouteResync(db, nil)
 
 	path := "/example.com/v0/widgets"
 	require.NoError(t, db.Create(&ModuleApiRoute{
@@ -429,11 +437,45 @@ func TestStartModuleRouteResync_ConvergesWithoutAnyLocalWrite(t *testing.T) {
 func TestStartModuleRouteResync_StartsOneGoroutine(t *testing.T) {
 	db := setupModuleRouterTestDB(t)
 
-	startModuleRouteResync(db)
+	startModuleRouteResync(db, nil)
 	before := runtime.NumGoroutine()
 	for range 5 {
-		startModuleRouteResync(db)
+		startModuleRouteResync(db, nil)
 	}
 
 	assert.LessOrEqual(t, runtime.NumGoroutine(), before, "a second call must not start another")
+}
+
+// TestReconcileModuleRoutes_OneBadPathDoesNotBlockTheRest covers the sweep
+// giving up at the first failure. The router-only paths are walked last, so a
+// row that fails on every pass would have kept every route another process
+// deleted alive for as long as that row existed - and the pass that repairs it
+// is the only one that would have removed them.
+func TestReconcileModuleRoutes_OneBadPathDoesNotBlockTheRest(t *testing.T) {
+	withFastModuleRouteRepair(t)
+	db := setupModuleRouterTestDB(t)
+	moduleApiId := seedModuleApi(t, db, "example", false)
+
+	// a route whose module API cannot be loaded, which fails every pass
+	unhooked := db.Session(&gorm.Session{SkipHooks: true})
+	missingApiId := moduleApiId + 999
+	require.NoError(t, unhooked.Create(&ModuleApiRoute{
+		Path: util.Ptr("/example.com/v0/broken"), ModuleApiID: &missingApiId,
+	}).Error)
+
+	// a route this process serves that no longer has a row, standing in for one
+	// another process deleted. Router-only paths are reconciled after the
+	// database ones, so the broken row above is reached first.
+	stale := "/example.com/v0/stale"
+	ModRouter.AddRoute(stale, nil)
+	require.True(t, routeServed(stale))
+
+	err := ReconcileModuleRoutes(db)
+
+	require.Error(t, err, "the broken row still has to be reported")
+	assert.Contains(t, err.Error(), "/example.com/v0/broken")
+	assert.False(
+		t, routeServed(stale),
+		"a path another process deleted has to be dropped even when an earlier path fails",
+	)
 }

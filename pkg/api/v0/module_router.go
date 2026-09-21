@@ -3,6 +3,7 @@ package v0
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -77,7 +78,7 @@ func InitModuleRouter(
 	// put a query on the path of every core API request, not only the module
 	// ones, so each process re-reads on its own instead and converges within
 	// the interval.
-	startModuleRouteResync(db)
+	startModuleRouteResync(db, e.Logger)
 
 	// register as middleware wrapping the matched or not-found handler
 	e.Use(ModRouter.ServeModuleRoutes)
@@ -107,7 +108,7 @@ var (
 //
 // One goroutine per process: a second call replaces the first rather than
 // adding to it, so a process cannot end up with two reading the same table.
-func startModuleRouteResync(db *gorm.DB) {
+func startModuleRouteResync(db *gorm.DB, logger echo.Logger) {
 	moduleRouteResync.Lock()
 	defer moduleRouteResync.Unlock()
 
@@ -124,6 +125,10 @@ func startModuleRouteResync(db *gorm.DB) {
 	go func() {
 		defer close(stopped)
 
+		// whether the previous pass failed, so a change of state is reported
+		// once rather than on every interval
+		failing := false
+
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
@@ -132,9 +137,25 @@ func startModuleRouteResync(db *gorm.DB) {
 			case <-stop:
 				return
 			case <-ticker.C:
-				// a failed pass is not fatal and is not reported here: the next
-				// one runs anyway, and this package has no logger
-				_ = ReconcileModuleRoutes(db)
+				err := ReconcileModuleRoutes(db)
+
+				// a failed pass is not fatal, the next one runs anyway - but
+				// this is the only thing keeping a replica in step with the
+				// others, so a run of failures means routing is quietly going
+				// stale and has to be visible. Only the change of state is
+				// reported: saying the same thing every interval would bury it.
+				switch {
+				case err != nil && !failing:
+					failing = true
+					if logger != nil {
+						logger.Warnf("module route resync failing, routing may be stale: %v", err)
+					}
+				case err == nil && failing:
+					failing = false
+					if logger != nil {
+						logger.Info("module route resync recovered")
+					}
+				}
 			}
 		}
 	}()
@@ -190,10 +211,19 @@ func ReconcileModuleRoutes(db *gorm.DB) error {
 		return true
 	})
 
+	// every path is attempted even after one fails. A path whose module API
+	// cannot be loaded fails the same way on every pass, and stopping there
+	// would mean the rest are never reconciled - the router-only paths are
+	// walked last, so one bad row would keep every route another process
+	// deleted alive for as long as that row exists.
+	var errs []error
 	for _, path := range paths {
 		if err := ReconcileModuleRoute(db, path); err != nil {
-			return fmt.Errorf("failed to reconcile module route for path %s: %w", path, err)
+			errs = append(errs, fmt.Errorf("path %s: %w", path, err))
 		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to reconcile module routes: %w", errors.Join(errs...))
 	}
 
 	return nil
