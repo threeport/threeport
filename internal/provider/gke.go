@@ -159,10 +159,22 @@ func (i *KubernetesRuntimeInfraGKE) DestroyInfra() error {
 // pulumiProgram defines the Pulumi resources for the GKE stack.
 func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
-		gcpProvider, err := gcp.NewProvider(ctx, "gcp-provider", &gcp.ProviderArgs{
+		// Pass ServiceAccountCredentials directly to the GCP provider when
+		// available so this provider's calls always use the credentials tied
+		// to this specific GcpProvider object, rather than falling back to
+		// whatever ambient credentials the process happens to have valid
+		// (e.g. a genesis control plane's own Workload Identity, which is
+		// scoped to a different GCP project). When no explicit credentials
+		// are supplied, Pulumi falls back to its own default ADC resolution,
+		// matching prior behavior for that case.
+		providerArgs := &gcp.ProviderArgs{
 			Project: pulumi.String(i.ProjectID),
 			Region:  pulumi.String(i.Region),
-		})
+		}
+		if i.ServiceAccountCredentials != "" {
+			providerArgs.Credentials = pulumi.String(i.ServiceAccountCredentials)
+		}
+		gcpProvider, err := gcp.NewProvider(ctx, "gcp-provider", providerArgs)
 		if err != nil {
 			return fmt.Errorf("failed to create GCP provider: %w", err)
 		}
@@ -488,8 +500,17 @@ func (i *KubernetesRuntimeInfraGKE) SetStackState(state *datatypes.JSON) error {
 func (i *KubernetesRuntimeInfraGKE) configureWorkloadIdentityBindingPostCreate() error {
 	ctx := context.Background()
 
+	// Use ServiceAccountCredentials directly when available, for the same
+	// reason as the Pulumi GCP provider above: this call must act as the
+	// service account tied to this GcpProvider, not whatever ambient
+	// credentials the process happens to have.
+	clientOpts := []gcpoption.ClientOption{gcpoption.WithScopes(gcpiam.CloudPlatformScope)}
+	if i.ServiceAccountCredentials != "" {
+		clientOpts = append(clientOpts, gcpoption.WithCredentialsJSON([]byte(i.ServiceAccountCredentials)))
+	}
+
 	// Create IAM service client
-	iamService, err := gcpiam.NewService(ctx, gcpoption.WithScopes(gcpiam.CloudPlatformScope))
+	iamService, err := gcpiam.NewService(ctx, clientOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to create IAM service client: %w", err)
 	}
