@@ -385,6 +385,9 @@ func buildGkeInfra(
 		ProjectID:              *gcpProvider.ProjectID,
 		Region:                 *instance.Region,
 		WorkerNodeInitialCount: int32(*definition.DefaultNodeGroupInitialSize),
+		MachineType:            *definition.DefaultNodeGroupInstanceType,
+		MinNodeCount:           int32(*definition.DefaultNodeGroupMinimumSize),
+		MaxNodeCount:           int32(*definition.DefaultNodeGroupMaximumSize),
 	}
 
 	if gcpProvider.ServiceAccountCredentials != nil && *gcpProvider.ServiceAccountCredentials != "" {
