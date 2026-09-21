@@ -53,7 +53,6 @@ func DeployKindInfra(
 		NumWorkerNodes:      cpi.Opts.NumWorkerNodes,
 		AuthEnabled:         cpi.Opts.AuthEnabled,
 		PortMappings:        portMappings,
-		ApiServerHostPort:   cpi.Opts.ApiServerHostPort,
 	}
 
 	// delete kind kubernetes runtime if interrupted

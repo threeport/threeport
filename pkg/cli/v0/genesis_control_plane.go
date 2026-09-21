@@ -64,7 +64,6 @@ type GenesisControlPlaneCLIArgs struct {
 	ClusterName           string
 	InfraOnly             bool
 	KindPortMappings      []string
-	ApiServerHostPort     int
 	LocalRegistry         bool
 }
 
@@ -174,7 +173,6 @@ func (a *GenesisControlPlaneCLIArgs) CreateInstaller() (*threeport.ControlPlaneI
 	cpi.Opts.TeardownOnFailure = a.TeardownOnFailure
 	cpi.Opts.LocalRegistry = a.LocalRegistry
 	cpi.Opts.KindPortMappings = a.KindPortMappings
-	cpi.Opts.ApiServerHostPort = a.ApiServerHostPort
 
 	return cpi, nil
 }
@@ -585,10 +583,9 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 	// for kind, the API endpoint is known upfront so we can install TLS
 	// secrets before deploying the API server to avoid mount failures
 	if controlPlane.InfraProvider == v0.KubernetesRuntimeInfraProviderKind {
-		// set the kind API endpoint, honoring an explicit host-port override
+		// update threeport config with api endpoint
 		var err error
-		apiPort := threeport.ResolveKindAPIHostPort(cpi.Opts.AuthEnabled, cpi.Opts.ApiServerHostPort)
-		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(apiPort)
+		threeportAPIEndpoint = threeport.GetLocalThreeportAPIEndpoint(cpi.Opts.AuthEnabled)
 		if threeportConfig, err = threeportControlPlaneConfig.UpdateThreeportConfigInstance(func(c *ControlPlane) {
 			c.APIServer = threeportAPIEndpoint
 		}); err != nil {

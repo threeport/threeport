@@ -41,9 +41,6 @@ type KubernetesRuntimeInfraKind struct {
 	// The key is the container port and value is the Host Port.
 	// The protocol is assumed TCP
 	PortMappings map[int32]int32
-
-	// The host port bound to container port 30000, 0 for the auth-based default
-	ApiServerHostPort int
 }
 
 // Create installs a Kubernetes cluster using kind for the threeport control
@@ -66,7 +63,6 @@ func (i *KubernetesRuntimeInfraKind) Create() (*kube.KubeConnectionInfo, error) 
 				i.ThreeportPath,
 				i.NumWorkerNodes,
 				i.PortMappings,
-				i.ApiServerHostPort,
 			),
 		),
 	); err != nil {
@@ -103,7 +99,6 @@ func getKindConfig(
 	threeportPath string,
 	numWorkerNodes int,
 	portMappings map[int32]int32,
-	apiServerHostPort int,
 ) *v1alpha4.Cluster {
 	clusterConfig := v1alpha4.Cluster{
 		ContainerdConfigPatches: []string{
@@ -138,10 +133,10 @@ func getKindConfig(
 			goCache = homeDir + "/.cache/go-build"
 		}
 
-		controlPlaneNode = *kindControlPlaneNode(authEnabled, threeportPath, goPath, goCache, portMappings, apiServerHostPort)
+		controlPlaneNode = *kindControlPlaneNode(authEnabled, threeportPath, goPath, goCache, portMappings)
 		workerNodes = *kindWorkers(numWorkerNodes, threeportPath, goPath, goCache)
 	} else {
-		controlPlaneNode = *kindControlPlaneNode(authEnabled, "", "", "", portMappings, apiServerHostPort)
+		controlPlaneNode = *kindControlPlaneNode(authEnabled, "", "", "", portMappings)
 		workerNodes = *kindWorkers(numWorkerNodes, "", "", "")
 	}
 	clusterConfig.Nodes = []v1alpha4.Node{controlPlaneNode}
@@ -157,9 +152,8 @@ func kindControlPlaneNode(
 	goPath string,
 	goCache string,
 	portMappings map[int32]int32,
-	apiServerHostPort int,
 ) *v1alpha4.Node {
-	extraPortMappings := getPortMapping(authEnabled, portMappings, apiServerHostPort)
+	extraPortMappings := getPortMapping(authEnabled, portMappings)
 	controlPlaneNode := v1alpha4.Node{
 		Role:  v1alpha4.ControlPlaneRole,
 		Image: kindImage,
@@ -233,12 +227,8 @@ func kindWorkers(numWorkerNodes int, threeportPath, goPath, goCache string) *[]v
 }
 
 // getPortMapping returns extra port mappings for the kind control plane node.
-func getPortMapping(authEnabled bool, portMappings map[int32]int32, apiServerHostPort int) []v1alpha4.PortMapping {
-	// set host port from auth, override when apiServerHostPort is set
+func getPortMapping(authEnabled bool, portMappings map[int32]int32) []v1alpha4.PortMapping {
 	hostPort := threeport.GetThreeportAPIPort(authEnabled)
-	if apiServerHostPort != 0 {
-		hostPort = apiServerHostPort
-	}
 
 	// map container port 30000 to that host port
 	extraPortMappings := make([]v1alpha4.PortMapping, 0)

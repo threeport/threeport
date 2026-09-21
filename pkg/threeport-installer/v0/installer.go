@@ -126,9 +126,6 @@ type Options struct {
 	// Port mappings for kind infra provider
 	KindPortMappings []string
 
-	// Host port to bind the threeport API for the kind provider
-	ApiServerHostPort int
-
 	// If true, a cloud load balancer is provisioned for the threeport API.
 	RestApiLoadBalancer bool
 

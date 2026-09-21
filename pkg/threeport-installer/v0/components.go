@@ -528,9 +528,9 @@ func (cpi *ControlPlaneInstaller) InstallThreeportControllers(
 		// WI principal to ensure RBAC applies to the actual pod identity.
 		if cpi.Opts.InfraProvider == v0.KubernetesRuntimeInfraProviderGKE && cpi.Opts.GcpProjectId != "" {
 			threeportWorkloadSubjects = append(threeportWorkloadSubjects, map[string]interface{}{
-				"kind":      "User",
-				"name":      fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", cpi.Opts.GcpProjectId, cpi.Opts.Namespace, controller.ServiceAccountName),
-				"apiGroup":  "rbac.authorization.k8s.io",
+				"kind":     "User",
+				"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", cpi.Opts.GcpProjectId, cpi.Opts.Namespace, controller.ServiceAccountName),
+				"apiGroup": "rbac.authorization.k8s.io",
 			})
 		}
 		threeportWorkloadClusterRoleBinding := &unstructured.Unstructured{
@@ -2009,25 +2009,13 @@ func GetThreeportAPIPort(authEnabled bool) int {
 	return 80
 }
 
-// ResolveKindAPIHostPort returns the host port the threeport API is reachable
-// on for kind. A non-zero apiServerHostPort overrides the default from
-// GetThreeportAPIPort.
-func ResolveKindAPIHostPort(authEnabled bool, apiServerHostPort int) int {
-	// use the caller-supplied host port when set
-	if apiServerHostPort != 0 {
-		return apiServerHostPort
-	}
-
-	// fall back to GetThreeportAPIPort
-	return GetThreeportAPIPort(authEnabled)
-}
-
-// GetLocalThreeportAPIEndpoint returns localhost:<port> for a local threeport API.
-func GetLocalThreeportAPIEndpoint(port int) string {
+// GetLocalThreeportAPIEndpoint returns the endpoint for the threeport API
+// running locally.
+func GetLocalThreeportAPIEndpoint(authEnabled bool) string {
 	return fmt.Sprintf(
 		"%s:%d",
 		ThreeportLocalAPIEndpoint,
-		port,
+		GetThreeportAPIPort(authEnabled),
 	)
 }
 

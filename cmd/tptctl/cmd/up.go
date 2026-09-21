@@ -222,8 +222,4 @@ func init() {
 		&cliArgs.KindPortMappings,
 		"kind-port-mappings", []string{}, "Port mappings for kind provider. Format: <container-port>:<host-port>,<container-port>:<host-port>,...",
 	)
-	UpCmd.Flags().IntVar(
-		&cliArgs.ApiServerHostPort,
-		"api-server-host-port", 443, "Host port to bind the threeport API to when using kind provider. Overrides the default of 443. Useful when 443 is already in use on the host.",
-	)
 }
