@@ -106,7 +106,7 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceWorkloadControllerRBAC(
 				"subjects": []interface{}{
 					map[string]interface{}{
 						"kind":     "User",
-						"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", gcpProjectID, ControlPlaneNamespace, controllerName),
+						"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", gcpProjectID, cpi.Opts.Namespace, controllerName),
 						"apiGroup": "rbac.authorization.k8s.io",
 					},
 				},
