@@ -115,12 +115,23 @@ func (i *KubernetesRuntimeInfraGKE) createGCPServiceAccountAndCredentials() erro
 
 // createGCPServiceAccount creates a new GCP service account for Threeport operations.
 func (i *KubernetesRuntimeInfraGKE) createGCPServiceAccount(iamService *iam.Service) error {
+	// reject a runtime name that would collide after service-account ID truncation
+	if !canonicalGCPAccountName(i.RuntimeInstanceName) {
+		return fmt.Errorf("GCP runtime instance name %q is not a unique service-account identity; use lowercase letters, digits, and hyphens", i.RuntimeInstanceName)
+	}
+
 	serviceAccountID := i.getServiceAccountID()
 	displayName := fmt.Sprintf(serviceAccountDisplayFormat, i.RuntimeInstanceName)
-	description := fmt.Sprintf("Service account for Threeport instance %s to manage GCP resources", i.RuntimeInstanceName)
+	description := gkeServiceAccountDescription(i.RuntimeInstanceName)
 
-	account, _, err := createServiceAccountForProject(iamService, i.ProjectID, serviceAccountID, displayName, description)
+	// create or reuse the named account
+	account, existed, err := createServiceAccountForProject(iamService, i.ProjectID, serviceAccountID, displayName, description)
 	if err != nil {
+		return err
+	}
+
+	// refuse an existing account this runtime did not create
+	if err := refuseUnownedExistingGCPServiceAccount(account, existed, i.RuntimeInstanceName); err != nil {
 		return err
 	}
 
@@ -475,8 +486,8 @@ func CreateGCPServiceAccountWithKey(projectID, accountName string) (*GCPServiceA
 		return nil, fmt.Errorf("failed to create service account: %w", err)
 	}
 
-	if existed && !serviceAccountOwnedBy(account, accountName) {
-		return nil, fmt.Errorf("GCP service account %s already exists; pick a different provider name", account.Email)
+	if err := refuseUnownedExistingGCPServiceAccount(account, existed, accountName); err != nil {
+		return nil, err
 	}
 
 	// grant IAM roles to the service account
@@ -607,6 +618,31 @@ func serviceAccountOwnedBy(account *iam.ServiceAccount, ownerName string) bool {
 		return false
 	}
 	return strings.Contains(account.Description, GcpOwnershipDescription(ownerName))
+}
+
+// gkeServiceAccountDescription is the IAM description written for a GKE bootstrap account.
+func gkeServiceAccountDescription(runtimeInstanceName string) string {
+	return fmt.Sprintf(
+		"Service account for Threeport instance %s to manage GCP resources; %s",
+		runtimeInstanceName,
+		GcpOwnershipDescription(runtimeInstanceName),
+	)
+}
+
+// refuseUnownedExistingGCPServiceAccount rejects reuse of an account this owner did not create.
+func refuseUnownedExistingGCPServiceAccount(account *iam.ServiceAccount, existed bool, ownerName string) error {
+	if !existed {
+		return nil
+	}
+	if serviceAccountOwnedBy(account, ownerName) {
+		return nil
+	}
+
+	email := ""
+	if account != nil {
+		email = account.Email
+	}
+	return fmt.Errorf("GCP service account %s already exists; pick a different name", email)
 }
 
 // removeServiceAccountRolesForProject removes all IAM roles granted to a service account.
