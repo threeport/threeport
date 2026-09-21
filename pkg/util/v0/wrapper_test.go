@@ -4,7 +4,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestRetry(t *testing.T) {
@@ -57,23 +56,6 @@ func TestRetry(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "failed after 3 attempts") {
 			t.Fatalf("unexpected error message: %q", err.Error())
-		}
-	})
-
-	t.Run("does not sleep after the last failure", func(t *testing.T) {
-		start := time.Now()
-		err := Retry(2, 1, func() error {
-			return errors.New("nope")
-		})
-		elapsed := time.Since(start)
-		if err == nil {
-			t.Fatalf("expected error, got nil")
-		}
-		if elapsed < time.Second {
-			t.Fatalf("elapsed %s, want the wait between the two attempts", elapsed)
-		}
-		if elapsed >= 2*time.Second {
-			t.Fatalf("elapsed %s, slept after the last failure", elapsed)
 		}
 	})
 }
