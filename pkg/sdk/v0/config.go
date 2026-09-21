@@ -138,6 +138,19 @@ type ApiObject struct {
 	// defined instance abstractions.
 	DefinedInstance *bool
 
+	// AlwaysNotifyOnUpdate, if true, causes the generated update handler to
+	// publish a reconciliation notification on update without gating on the
+	// object's current Reconciled state. By default, an update to an object
+	// that is already marked Reconciled never notifies the controller, so
+	// there is no way to make it re-examine and repair its own state once
+	// something (e.g. an out-of-band data problem) has made that state
+	// inconsistent. Setting this allows a plain, no-op-looking update (e.g.
+	// `tptctl replace` with unchanged values) to serve as an explicit resync
+	// trigger for that object type. The pre-existing ReconciliationUpdateNotifiable
+	// check still applies, so this does not cause every trivial write to
+	// publish a redundant notification.
+	AlwaysNotifyOnUpdate *bool
+
 	// Indicates whether the object will need a controller
 	// that is registered with the rest-api for reconciliation.
 	Reconcilable *bool

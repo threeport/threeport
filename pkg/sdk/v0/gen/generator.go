@@ -208,6 +208,7 @@ type ApiObject struct {
 	NameField             bool
 	Reconciler            bool
 	ReconciledField       bool
+	AlwaysNotifyOnUpdate  bool
 
 	// If true, generate tptctl commands for the model.
 	TptctlCommands bool
@@ -555,6 +556,10 @@ func (g *Generator) New(sdkConfig *sdk.SdkConfig) error {
 
 				if obj.LoadAssociationsFromDb != nil && *obj.LoadAssociationsFromDb {
 					dbLoadAssociations = append(dbLoadAssociations, *obj.Name)
+				}
+
+				if obj.AlwaysNotifyOnUpdate != nil && *obj.AlwaysNotifyOnUpdate {
+					mc.AlwaysNotifyOnUpdate = true
 				}
 
 				if obj.Tptctl != nil {

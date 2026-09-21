@@ -87,6 +87,7 @@ ApiObjectGroups:
       Versions:
         - v0
       Reconcilable: true
+      AlwaysNotifyOnUpdate: true
       Tptctl:
         Enabled: true
 - Name: control_plane

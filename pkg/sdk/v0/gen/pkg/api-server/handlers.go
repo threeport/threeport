@@ -129,9 +129,15 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Op(",").Op("*").Id("notifPayload")),
 					))
 
-					notifyControllersUpdateHandler = Comment("notify controller if reconciliation is required and the update is notifiable")
+					notifyCondition := &Statement{}
+					if apiObject.AlwaysNotifyOnUpdate {
+						notifyControllersUpdateHandler = Comment("notify controller on every notifiable update, regardless of Reconciled state, so a plain update can serve as an explicit resync trigger for this object type")
+					} else {
+						notifyControllersUpdateHandler = Comment("notify controller if reconciliation is required and the update is notifiable")
+						notifyCondition.Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("!=").Nil().Op("&&").Op("!*").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("&&").Line()
+					}
 					notifyControllersUpdateHandler.Line()
-					notifyControllersUpdateHandler.If(Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("!=").Nil().Op("&&").Op("!*").Id(fmt.Sprintf("existing%s", apiObject.TypeName)).Dot("Reconciled").Op("&&").Line().Qual(
+					notifyControllersUpdateHandler.If(notifyCondition.Qual(
 						"github.com/threeport/threeport/pkg/api/v0",
 						"ReconciliationUpdateNotifiable",
 					).Call(
