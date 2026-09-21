@@ -617,7 +617,7 @@ func serviceAccountOwnedBy(account *iam.ServiceAccount, ownerName string) bool {
 	if account == nil {
 		return false
 	}
-	return strings.Contains(account.Description, GcpOwnershipDescription(ownerName))
+	return strings.HasSuffix(account.Description, GcpOwnershipDescription(ownerName))
 }
 
 // gkeServiceAccountDescription is the IAM description written for a GKE bootstrap account.

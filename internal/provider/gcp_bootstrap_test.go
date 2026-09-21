@@ -38,6 +38,17 @@ func TestServiceAccountOwnedBy_RequiresOwnershipDescription(t *testing.T) {
 	require.False(t, serviceAccountOwnedBy(nil, name))
 }
 
+// TestServiceAccountOwnedBy_RejectsNamePrefix covers a shorter owner name that
+// is a prefix of the stored threeport-name value.
+func TestServiceAccountOwnedBy_RejectsNamePrefix(t *testing.T) {
+	owned := &iam.ServiceAccount{
+		Description: "Service account for Threeport GcpProvider app-prod to manage GCP resources; " + GcpOwnershipDescription("app-prod"),
+	}
+
+	require.True(t, serviceAccountOwnedBy(owned, "app-prod"))
+	require.False(t, serviceAccountOwnedBy(owned, "app"))
+}
+
 // TestCanonicalGCPAccountName_RejectsCaseFolding covers names that would
 // share a service-account ID with a lowercase sibling.
 func TestCanonicalGCPAccountName_RejectsCaseFolding(t *testing.T) {
