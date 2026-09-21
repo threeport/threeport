@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -444,7 +445,11 @@ const moduleTestBinary = "test"
 
 // moduleTestInputs are the tracked files left in place when generated output
 // is removed, so the SDK re-emits scaffolding it otherwise writes only once.
-var moduleTestInputs = []string{"sdk-config.yaml", "README.md"}
+var moduleTestInputs = []string{"sdk-config.yaml", "README.md", "testdata"}
+
+// moduleTestConfigPackage is where the generated config abstractions land, and
+// so where a test of them has to sit: the functions it covers are unexported.
+const moduleTestConfigPackage = "pkg/config/v0"
 
 // ModuleGen generates a Threeport module and type-checks it. Generated module
 // code calls this repository's exported API, so a changed signature fails here.
@@ -460,6 +465,16 @@ func (Test) ModuleGen() error {
 		"go", "vet", "./...",
 	); err != nil {
 		return fmt.Errorf("failed to type-check the generated module: %w", err)
+	}
+
+	// run the tests copied into the generated module. Type-checking does not
+	// reach what they cover: the generated config abstractions have failed at
+	// run time in ways that compile perfectly well.
+	if err := util.RunCommandStreamOutputInDir(
+		moduleTestPath,
+		"go", "test", "./"+moduleTestConfigPackage+"/...",
+	); err != nil {
+		return fmt.Errorf("failed to test the generated module: %w", err)
 	}
 
 	// remove generated files after a successful type-check
@@ -658,12 +673,47 @@ func generateModuleTest() error {
 		}
 	}
 
+	// copy the tracked tests into the generated package. They have to be in it
+	// rather than beside it because what they cover is unexported, and they go
+	// in before the tidy below so their imports are resolved with the rest.
+	if err := copyModuleTestFiles(); err != nil {
+		return err
+	}
+
 	// resolve generated module dependencies
 	if err := util.RunCommandStreamOutputInDir(
 		moduleTestPath,
 		"go", "mod", "tidy",
 	); err != nil {
 		return fmt.Errorf("failed to resolve the module test dependencies: %w", err)
+	}
+
+	return nil
+}
+
+// copyModuleTestFiles copies the tests tracked under the module test's testdata
+// directory into the generated config package.
+func copyModuleTestFiles() error {
+	testdata := filepath.Join(moduleTestPath, "testdata")
+	entries, err := os.ReadDir(testdata)
+	if err != nil {
+		return fmt.Errorf("failed to read module test testdata directory: %w", err)
+	}
+
+	destination := filepath.Join(moduleTestPath, moduleTestConfigPackage)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		contents, err := os.ReadFile(filepath.Join(testdata, entry.Name()))
+		if err != nil {
+			return fmt.Errorf("failed to read module test file %s: %w", entry.Name(), err)
+		}
+		if err := os.WriteFile(
+			filepath.Join(destination, entry.Name()), contents, 0644,
+		); err != nil {
+			return fmt.Errorf("failed to copy module test file %s: %w", entry.Name(), err)
+		}
 	}
 
 	return nil
