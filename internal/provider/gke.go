@@ -224,10 +224,11 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 		}
 
 		cluster, err := gkecontainer.NewCluster(ctx, i.RuntimeInstanceName, &gkecontainer.ClusterArgs{
-			Name:       pulumi.String(i.RuntimeInstanceName),
-			Location:   pulumi.String(i.Region),
-			Network:    network.Name,
-			Subnetwork: subnet.Name,
+			Name:           pulumi.String(i.RuntimeInstanceName),
+			Location:       pulumi.String(i.Region),
+			Network:        network.Name,
+			Subnetwork:     subnet.Name,
+			ResourceLabels: GcpLabelsInput(i.RuntimeInstanceName),
 
 			IpAllocationPolicy: &gkecontainer.ClusterIpAllocationPolicyArgs{
 				ClusterSecondaryRangeName:  pulumi.String("pods"),
@@ -276,6 +277,7 @@ func (i *KubernetesRuntimeInfraGKE) pulumiProgram() pulumi.RunFunc {
 				Labels: pulumi.StringMap{
 					kube.ThreeportManagedByLabelKey: pulumi.String(kube.ThreeportManagedByLabelValue),
 				},
+				ResourceLabels: GcpLabelsInput(i.RuntimeInstanceName),
 				WorkloadMetadataConfig: &gkecontainer.NodePoolNodeConfigWorkloadMetadataConfigArgs{
 					Mode: pulumi.String("GKE_METADATA"),
 				},
@@ -573,4 +575,3 @@ func (i *KubernetesRuntimeInfraGKE) loadGCPConfigFromFile() error {
 
 	return nil
 }
-

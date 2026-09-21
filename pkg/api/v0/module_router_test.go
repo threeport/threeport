@@ -2,6 +2,7 @@ package v0
 
 import (
 	"errors"
+	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -22,11 +23,22 @@ func setupModuleRouterTestDB(t *testing.T) *gorm.DB {
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+
+	// an in-memory sqlite database belongs to its connection, so a second one
+	// from the pool would be empty. The resync worker queries while the test
+	// holds the first connection, which is exactly when the pool would open
+	// one, and the tables would be missing on it.
+	sqlDb, err := db.DB()
+	require.NoError(t, err)
+	sqlDb.SetMaxOpenConns(1)
 	// ModuleApiRoute.ModuleApiID carries a relationship tag, so creating one
 	// writes an attached object reference in the same transaction
 	require.NoError(t, db.AutoMigrate(&ModuleApi{}, &ModuleApiRoute{}, &AttachedObjectReference{}))
 
 	t.Cleanup(func() {
+		// InitModuleRouter and the resync tests leave a goroutine reading this
+		// database; it has to be gone before the next test replaces either
+		stopModuleRouteResync()
 		ModRouter.routes.Range(func(key, _ any) bool {
 			ModRouter.routes.Delete(key)
 
@@ -332,5 +344,138 @@ func TestReconcileModuleRoute_RepairsWithoutAnotherRouteChange(t *testing.T) {
 	assert.Eventually(
 		t, func() bool { return !moduleRouteRepairRunning.Load() }, time.Second, 5*time.Millisecond,
 		"the repair goroutine has to stop once nothing is pending",
+	)
+}
+
+// TestReconcileModuleRoutes_PicksUpAnotherProcessesCreate covers the half of
+// the problem post-commit reconciliation cannot reach. The router is
+// process-local and only the process that handled the write reconciles, so a
+// route committed by one rest-api replica is not proxied by its siblings. Here
+// the row is written without any reconciliation, standing in for the sibling
+// that committed it.
+func TestReconcileModuleRoutes_PicksUpAnotherProcessesCreate(t *testing.T) {
+	db := setupModuleRouterTestDB(t)
+	moduleApiId := seedModuleApi(t, db, "example", false)
+
+	path := "/example.com/v0/widgets"
+	require.NoError(t, db.Create(&ModuleApiRoute{
+		Path: util.Ptr(path), ModuleApiID: &moduleApiId,
+	}).Error)
+	require.False(t, routeServed(path), "this process has not been told about it")
+
+	require.NoError(t, ReconcileModuleRoutes(db))
+	assert.True(t, routeServed(path))
+}
+
+// TestReconcileModuleRoutes_PicksUpAnotherProcessesDelete is the mirror. A row
+// deleted elsewhere leaves this process proxying a path the table no longer
+// has, and the database alone cannot say so - the path is gone from it, so
+// walking only the committed rows would never visit it.
+func TestReconcileModuleRoutes_PicksUpAnotherProcessesDelete(t *testing.T) {
+	db := setupModuleRouterTestDB(t)
+	moduleApiId := seedModuleApi(t, db, "example", false)
+
+	path := "/example.com/v0/widgets"
+	route := ModuleApiRoute{Path: util.Ptr(path), ModuleApiID: &moduleApiId}
+	require.NoError(t, db.Create(&route).Error)
+	require.NoError(t, ReconcileModuleRoute(db, path))
+	require.True(t, routeServed(path))
+
+	// the sibling's delete, which this process is not told about
+	require.NoError(t, db.Unscoped().Delete(&route).Error)
+
+	require.NoError(t, ReconcileModuleRoutes(db))
+	assert.False(t, routeServed(path), "a path the table no longer has must stop being proxied")
+}
+
+// TestReconcileModuleRoutes_LeavesAgreeingRoutesAlone covers the ordinary pass
+// on a single-replica install, where the process already agrees with the table.
+func TestReconcileModuleRoutes_LeavesAgreeingRoutesAlone(t *testing.T) {
+	db := setupModuleRouterTestDB(t)
+	moduleApiId := seedModuleApi(t, db, "example", false)
+
+	paths := []string{"/example.com/v0/widgets", "/example.com/v0/gadgets"}
+	for _, path := range paths {
+		require.NoError(t, db.Create(&ModuleApiRoute{
+			Path: util.Ptr(path), ModuleApiID: &moduleApiId,
+		}).Error)
+		require.NoError(t, ReconcileModuleRoute(db, path))
+	}
+
+	require.NoError(t, ReconcileModuleRoutes(db))
+	for _, path := range paths {
+		assert.True(t, routeServed(path), path)
+	}
+}
+
+// TestStartModuleRouteResync_ConvergesWithoutAnyLocalWrite drives the goroutine
+// InitModuleRouter starts: nothing happens in this process, and the route a
+// sibling committed still arrives.
+func TestStartModuleRouteResync_ConvergesWithoutAnyLocalWrite(t *testing.T) {
+	interval := moduleRouteResyncInterval
+	moduleRouteResyncInterval = time.Millisecond
+	t.Cleanup(func() { moduleRouteResyncInterval = interval })
+
+	db := setupModuleRouterTestDB(t)
+	moduleApiId := seedModuleApi(t, db, "example", false)
+
+	startModuleRouteResync(db, nil)
+
+	path := "/example.com/v0/widgets"
+	require.NoError(t, db.Create(&ModuleApiRoute{
+		Path: util.Ptr(path), ModuleApiID: &moduleApiId,
+	}).Error)
+
+	assert.Eventually(
+		t, func() bool { return routeServed(path) }, 5*time.Second, 5*time.Millisecond,
+		"a route committed by another process has to arrive without one being written here",
+	)
+}
+
+// TestStartModuleRouteResync_StartsOneGoroutine covers the guard, since
+// InitModuleRouter can be called more than once in a process under test.
+func TestStartModuleRouteResync_StartsOneGoroutine(t *testing.T) {
+	db := setupModuleRouterTestDB(t)
+
+	startModuleRouteResync(db, nil)
+	before := runtime.NumGoroutine()
+	for range 5 {
+		startModuleRouteResync(db, nil)
+	}
+
+	assert.LessOrEqual(t, runtime.NumGoroutine(), before, "a second call must not start another")
+}
+
+// TestReconcileModuleRoutes_OneBadPathDoesNotBlockTheRest covers the sweep
+// giving up at the first failure. The router-only paths are walked last, so a
+// row that fails on every pass would have kept every route another process
+// deleted alive for as long as that row existed - and the pass that repairs it
+// is the only one that would have removed them.
+func TestReconcileModuleRoutes_OneBadPathDoesNotBlockTheRest(t *testing.T) {
+	withFastModuleRouteRepair(t)
+	db := setupModuleRouterTestDB(t)
+	moduleApiId := seedModuleApi(t, db, "example", false)
+
+	// a route whose module API cannot be loaded, which fails every pass
+	unhooked := db.Session(&gorm.Session{SkipHooks: true})
+	missingApiId := moduleApiId + 999
+	require.NoError(t, unhooked.Create(&ModuleApiRoute{
+		Path: util.Ptr("/example.com/v0/broken"), ModuleApiID: &missingApiId,
+	}).Error)
+
+	// a route this process serves that no longer has a row, standing in for one
+	// another process deleted. Router-only paths are reconciled after the
+	// database ones, so the broken row above is reached first.
+	stale := "/example.com/v0/stale"
+	ModRouter.AddRoute(stale, nil)
+	require.True(t, routeServed(stale))
+
+	err := ReconcileModuleRoutes(db)
+
+	require.Error(t, err, "the broken row still has to be reported")
+	assert.Contains(t, err.Error(), "/example.com/v0/broken")
+	assert.False(
+		t, routeServed(stale),
+		"a path another process deleted has to be dropped even when an earlier path fails",
 	)
 }
