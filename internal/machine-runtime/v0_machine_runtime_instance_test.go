@@ -319,7 +319,7 @@ func TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall(t *testing.T) {
 	delay, err := v0MachineRuntimeInstanceCreated(r, first, &log)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
-	assert.Equal(t, []string{"HostKeyCaptured", "SSHReachable"}, firstRecorder.GetReasons())
+	assert.Empty(t, firstRecorder.GetReasons(), "host key capture is a log line, not a recorded event")
 	require.Equal(t, int64(1), atomic.LoadInt64(patchCount), "first reconcile persists the captured host key with one PATCH")
 
 	// run created again with the persisted host key
@@ -333,7 +333,7 @@ func TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall(t *testing.T) {
 	// assert no second host-key patch
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
-	assert.Equal(t, []string{"SSHReachable"}, secondRecorder.GetReasons())
+	assert.Empty(t, secondRecorder.GetReasons(), "reachability is a log line, not a recorded event")
 	assert.Equal(t, int64(1), atomic.LoadInt64(patchCount), "second reconcile must not re-PATCH the host key")
 }
 
@@ -365,7 +365,11 @@ func TestMachineRuntimeInstanceCreated_SSHPingFails_Retries(t *testing.T) {
 	// assert retry delay, SSHPingFailed, and no patch
 	require.Error(t, err)
 	assert.Equal(t, int64(7), delay, "ping failures requeue with the configurable delay")
-	assert.Equal(t, []string{"SSHPingFailed"}, recorder.GetReasons())
+	var errWithEvent *tp_errors.ErrWithEvent
+	require.ErrorAs(t, err, &errWithEvent)
+	require.NotNil(t, errWithEvent.Event.Reason)
+	assert.Equal(t, "SSHPingFailed", *errWithEvent.Event.Reason)
+	assert.Empty(t, recorder.GetReasons(), "the wrapper records the event from the returned error")
 	assert.Equal(t, int64(0), atomic.LoadInt64(patchCount), "no update may be persisted on ping failure")
 }
 
@@ -453,9 +457,9 @@ func TestMachineRuntimeInstanceCreated_EventRecordingFailure_Continues(t *testin
 
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
 	// assert created still succeeds
-	require.NoError(t, err, "event persistence failures must not block reconciliation")
+	require.NoError(t, err, "a failing recorder must not block reconciliation")
 	assert.Equal(t, int64(0), delay)
-	assert.Equal(t, []string{"SSHReachable"}, recorder.GetReasons())
+	assert.Empty(t, recorder.GetReasons(), "the success path does not record an event")
 }
 
 // TestMachineRuntimeInstanceCreated_ContextCancellation_AbortsSSH covers a
@@ -497,10 +501,14 @@ func TestMachineRuntimeInstanceCreated_ContextCancellation_AbortsSSH(t *testing.
 
 	// assert canceled error, retry delay, and a prompt return
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.Contains(t, err.Error(), context.Canceled.Error())
+	var errWithEvent *tp_errors.ErrWithEvent
+	require.ErrorAs(t, err, &errWithEvent)
+	require.NotNil(t, errWithEvent.Event.Reason)
+	assert.Equal(t, "SSHConnectFailed", *errWithEvent.Event.Reason)
 	assert.Equal(t, int64(5), delay)
 	assert.Less(t, elapsed, 5*time.Second, "an already-canceled context must abort the reconcile promptly")
-	assert.Equal(t, []string{"SSHConnectFailed"}, recorder.GetReasons())
+	assert.Empty(t, recorder.GetReasons())
 
 	// stop waits until accepted connections finish serving
 	stop()
@@ -538,10 +546,14 @@ func TestMachineRuntimeInstanceCreated_SSHOperationTimeout_ReturnsErrorWithDelay
 
 	// assert deadline exceeded with retry delay before the hold ends
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Contains(t, err.Error(), context.DeadlineExceeded.Error())
+	var pingEvent *tp_errors.ErrWithEvent
+	require.ErrorAs(t, err, &pingEvent)
+	require.NotNil(t, pingEvent.Event.Reason)
+	assert.Equal(t, "SSHPingFailed", *pingEvent.Event.Reason)
 	assert.Equal(t, int64(9), delay)
 	assert.Less(t, elapsed, 5*time.Second, "timeout must fire well before the held session would release")
-	assert.Equal(t, []string{"SSHPingFailed"}, recorder.GetReasons())
+	assert.Empty(t, recorder.GetReasons())
 }
 
 // TestMachineRuntimeInstanceCreated_SSHConnectTimeout_ReturnsErrorWithDelay
@@ -573,10 +585,14 @@ func TestMachineRuntimeInstanceCreated_SSHConnectTimeout_ReturnsErrorWithDelay(t
 
 	// assert deadline exceeded with retry delay before the hold ends
 	require.Error(t, err)
-	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Contains(t, err.Error(), context.DeadlineExceeded.Error())
+	var connectEvent *tp_errors.ErrWithEvent
+	require.ErrorAs(t, err, &connectEvent)
+	require.NotNil(t, connectEvent.Event.Reason)
+	assert.Equal(t, "SSHConnectFailed", *connectEvent.Event.Reason)
 	assert.Equal(t, int64(11), delay)
 	assert.Less(t, elapsed, 5*time.Second, "timeout must fire well before the held handshake would release")
-	assert.Equal(t, []string{"SSHConnectFailed"}, recorder.GetReasons())
+	assert.Empty(t, recorder.GetReasons())
 }
 
 // TestMachineRuntimeInstanceDeleted_ReclaimsProviderResources covers Deleted for provisioned inventory, provisioned nil inventory, and imported machines.
@@ -687,11 +703,11 @@ func TestMachineRuntimeInstanceCreated_ConcurrentReconciles_NoRace(t *testing.T)
 	}
 	wg.Wait()
 
-	// assert each reconcile succeeded with only its own SSHReachable event
+	// assert each reconcile succeeded without recording an event
 	for i := 0; i < n; i++ {
 		require.NoError(t, errs[i], "reconcile %d", i)
 		assert.Equal(t, int64(0), delays[i], "reconcile %d", i)
-		assert.Equal(t, []string{"SSHReachable"}, recorders[i].GetReasons(), "reconcile %d", i)
+		assert.Empty(t, recorders[i].GetReasons(), "reconcile %d", i)
 	}
 }
 
