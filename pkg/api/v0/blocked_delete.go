@@ -13,6 +13,14 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
+// ErrMsgAlreadyBeingDeleted is the 409 substring the client lib matches
+// to produce ErrDeleteInProgress when deletion is already underway.
+const ErrMsgAlreadyBeingDeleted = "already being deleted"
+
+// ErrMsgDeleteBlocked is the 409 substring the client lib matches to produce
+// ErrDeleteBlocked when attached objects or related instances remain.
+const ErrMsgDeleteBlocked = "cannot be deleted"
+
 // BlockedDeleteError reports a delete rejected by one or more attached
 // object references. Error() renders the message with id-only paths; the
 // API server upgrades to name-resolved paths when it can. AttachedRefs
@@ -43,8 +51,8 @@ func FormatBlockedDelete(e *BlockedDeleteError, namesByType map[string]map[uint]
 	writer.Flush()
 
 	return fmt.Sprintf(
-		"%s cannot be deleted while %d object(s) still reference it:\n\n%sRemove dependents first.",
-		baseLabel, len(e.AttachedRefs), buf.String(),
+		"%s %s while %d object(s) still reference it:\n\n%sRemove dependents first.",
+		baseLabel, ErrMsgDeleteBlocked, len(e.AttachedRefs), buf.String(),
 	)
 }
 

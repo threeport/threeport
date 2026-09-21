@@ -67,6 +67,15 @@ func (h Handler) AddModuleApiRouteWithModuleObjectReferences(c echo.Context) err
 		)
 	}
 
+	// the write has committed; register the route on the module router before
+	// answering, so a module that gets a 201 can rely on its path being served.
+	// This is the path modules actually register through, so it needs the same
+	// post-commit reconciliation the generated handlers get.
+	if err := apiserver_lib.AfterCommitCreate(h.DB, &moduleApiRoute); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, objectType)
+	}
+
 	response, err := apiserver_lib.CreateResponse(
 		apiserver_lib.SingleObjectMeta(),
 		moduleApiRoute,

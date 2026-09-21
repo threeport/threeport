@@ -290,8 +290,12 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 									Id("c"),
 									Nil(),
 									Qual("errors", "New").Call(Qual("fmt", "Sprintf").Call(
-										Line().Lit("object with ID %d already being deleted"),
+										Line().Lit("object with ID %d %s"),
 										Line().Op("*").Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot("ID"),
+										Line().Qual(
+											"github.com/threeport/threeport/pkg/api/v0",
+											"ErrMsgAlreadyBeingDeleted",
+										),
 										Line(),
 									)),
 									Id("fullyQualifiedType"),
@@ -441,10 +445,13 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Len(Id(strcase.ToLowerCamel(apiObject.TypeName)).Dot(instancesName)).Op("!=").Lit(0).Block(
 							Id("err").Op(":=").Qual("errors", "New").Call(
 								Lit(fmt.Sprintf(
-									"%s has related %s - cannot be deleted",
+									"%s has related %s - ",
 									strcase.ToDelimited(apiObject.TypeName, ' '),
 									strcase.ToDelimited(instancesName, ' '),
-								)),
+								)).Op("+").Qual(
+									"github.com/threeport/threeport/pkg/api/v0",
+									"ErrMsgDeleteBlocked",
+								),
 							),
 							Return().Qual(
 								"github.com/threeport/threeport/pkg/api-server/lib/v0",
@@ -775,6 +782,12 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							apiObject.TypeName,
 						)
 					})
+					g.Line()
+					g.Comment("the write has committed; bring any process state that mirrors the")
+					g.Comment("database in line before answering, so a caller that gets a 200 can")
+					g.Comment("rely on it. A persist hook cannot do this: it runs inside the")
+					g.Comment("transaction, so it would act on a write that may never commit.")
+					g.Add(postCommitReconcile("Create", apiObject.TypeName, gen.Module))
 					g.Line()
 					g.Add(notifyControllersCreateHandler)
 					g.Line()
@@ -2015,6 +2028,11 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 					Line(),
 					deleteObjectExecution,
 					Line(),
+					Comment("the delete has committed; drop any process state that mirrored the"),
+					Comment("row before answering. A persist hook cannot do this: a rollback"),
+					Comment("would have dropped state for a row that survived."),
+					postCommitReconcile("Delete", apiObject.TypeName, gen.Module),
+					Line(),
 					Id("response").Op(",").Id("err").Op(":=").Qual(
 						"github.com/threeport/threeport/pkg/api-server/lib/v0",
 						"CreateResponse",
@@ -2075,6 +2093,43 @@ func GenHandlers(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	return nil
+}
+
+// postCommitReconcile emits the call that brings an object's process state in
+// line with the database once its transaction has committed.
+//
+// It is emitted for every object because the lib function is a no-op for one
+// that has nothing to reconcile: the alternative is teaching the generator
+// which types need it, which puts knowledge of a particular object into code
+// whose job is not to have any. It runs before the response is written so a
+// client that gets a 200 can rely on the state being in place.
+func postCommitReconcile(operation string, typeName string, isModule bool) *Statement {
+	db := Id("h").Dot("DB")
+	logger := Id("h").Dot("Logger")
+	if isModule {
+		db = Id("h").Dot("Handler").Dot("DB")
+		logger = Id("h").Dot("Handler").Dot("Logger")
+	}
+
+	return If(
+		Id("err").Op(":=").Qual(
+			"github.com/threeport/threeport/pkg/api-server/lib/v0",
+			fmt.Sprintf("AfterCommit%s", operation),
+		).Call(
+			db,
+			Op("&").Id(strcase.ToLowerCamel(typeName)),
+		),
+		Id("err").Op("!=").Nil(),
+	).Block(
+		logger.Clone().Dot("Error").Call(
+			Lit("handler error: error reconciling process state after commit"),
+			Qual("go.uber.org/zap", "Error").Call(Id("err")),
+		),
+		Return(Qual(
+			"github.com/threeport/threeport/pkg/api-server/lib/v0",
+			"ResponseStatus500",
+		).Call(Id("c"), Nil(), Id("err"), Id("fullyQualifiedType"))),
+	)
 }
 
 // blockedDeleteCheckRole distinguishes the two contexts in which the

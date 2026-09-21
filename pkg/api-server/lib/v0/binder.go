@@ -129,6 +129,10 @@ func (b *QueryBinder) bindQueryParams(qp url.Values, i interface{}) error {
 	if unknown := unknownQueryKeys(qp, known); len(unknown) > 0 {
 		return fmt.Errorf("unknown query parameter(s): %s", strings.Join(unknown, ", "))
 	}
+	// reject two spellings of the same key so bind is not map-iteration order
+	if dups := duplicateCaseQueryKeys(qp); len(dups) > 0 {
+		return fmt.Errorf("duplicate query parameter(s) differing only by case: %s", strings.Join(dups, ", "))
+	}
 	return bindStructFields(qp, v)
 }
 
@@ -150,6 +154,23 @@ func collectKnownFieldNames(structType reflect.Type, known map[string]bool) {
 	}
 }
 
+// queryValues returns the values for key, matching the query map
+// case-insensitively. url.Values is case-sensitive, so a client that
+// sends ThreeportControlPlaneHost would miss threeportcontrolplanehost
+// without this.
+func queryValues(qp url.Values, key string) ([]string, bool) {
+	if raw, ok := qp[key]; ok {
+		return raw, true
+	}
+	want := strings.ToLower(key)
+	for k, raw := range qp {
+		if strings.ToLower(k) == want {
+			return raw, true
+		}
+	}
+	return nil, false
+}
+
 // unknownQueryKeys returns the sorted list of query keys that neither
 // match a known struct field nor a reserved pagination param. The
 // comparison lowercases each incoming key so a client varying key case
@@ -165,6 +186,30 @@ func unknownQueryKeys(qp url.Values, known map[string]bool) []string {
 	}
 	sort.Strings(unknown)
 	return unknown
+}
+
+// duplicateCaseQueryKeys returns the lowercased keys that appear more
+// than once in qp under different spellings, such as Active and ACTIVE.
+func duplicateCaseQueryKeys(qp url.Values) []string {
+	seen := make(map[string]string, len(qp))
+	var dups []string
+	reported := map[string]bool{}
+	// record each lowercased key's first spelling; a second spelling is a dup
+	for k := range qp {
+		lower := strings.ToLower(k)
+		prev, ok := seen[lower]
+		if !ok {
+			seen[lower] = k
+			continue
+		}
+		if prev == k || reported[lower] {
+			continue
+		}
+		dups = append(dups, lower)
+		reported[lower] = true
+	}
+	sort.Strings(dups)
+	return dups
 }
 
 // bindStructFields assigns each settable field of structValue from the
@@ -196,8 +241,10 @@ func bindStructFields(qp url.Values, structValue reflect.Value) error {
 		paramName := strings.ToLower(field.Name)
 
 		// missing param means leave the field at its incoming value
-		// (do not zero a pre-populated default)
-		raw, ok := qp[paramName]
+		// (do not zero a pre-populated default). Match keys
+		// case-insensitively so ThreeportControlPlaneHost binds the
+		// same as threeportcontrolplanehost.
+		raw, ok := queryValues(qp, paramName)
 		if !ok || len(raw) == 0 {
 			continue
 		}

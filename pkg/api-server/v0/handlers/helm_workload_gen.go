@@ -87,6 +87,15 @@ func (h Handler) AddHelmWorkloadDefinition(c echo.Context) error {
 		)
 	}
 
+	// the write has committed; bring any process state that mirrors the
+	// database in line before answering, so a caller that gets a 200 can
+	// rely on it. A persist hook cannot do this: it runs inside the
+	// transaction, so it would act on a write that may never commit.
+	if err := apiserver_lib.AfterCommitCreate(h.DB, &helmWorkloadDefinition); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
+	}
+
 	// notify controller if reconciliation is required
 	if !*helmWorkloadDefinition.Reconciled {
 		notifPayload, err := helmWorkloadDefinition.NotificationPayload(
@@ -503,7 +512,7 @@ func (h Handler) DeleteHelmWorkloadDefinition(c echo.Context) error {
 
 	// check to make sure no dependent instances exist for this definition
 	if len(helmWorkloadDefinition.HelmWorkloadInstances) != 0 {
-		err := errors.New("helm workload definition has related helm workload instances - cannot be deleted")
+		err := errors.New("helm workload definition has related helm workload instances - " + api_v0.ErrMsgDeleteBlocked)
 		return apiserver_lib.ResponseStatus409(c, nil, err, fullyQualifiedType)
 	}
 
@@ -553,8 +562,9 @@ func (h Handler) DeleteHelmWorkloadDefinition(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*helmWorkloadDefinition.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), fullyQualifiedType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
@@ -582,6 +592,14 @@ func (h Handler) DeleteHelmWorkloadDefinition(c echo.Context) error {
 				return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 			}
 		}
+	}
+
+	// the delete has committed; drop any process state that mirrored the
+	// row before answering. A persist hook cannot do this: a rollback
+	// would have dropped state for a row that survived.
+	if err := apiserver_lib.AfterCommitDelete(h.DB, &helmWorkloadDefinition); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(
@@ -665,6 +683,15 @@ func (h Handler) AddHelmWorkloadInstance(c echo.Context) error {
 			new(api_v0.HelmWorkloadInstance),
 			fullyQualifiedType,
 		)
+	}
+
+	// the write has committed; bring any process state that mirrors the
+	// database in line before answering, so a caller that gets a 200 can
+	// rely on it. A persist hook cannot do this: it runs inside the
+	// transaction, so it would act on a write that may never commit.
+	if err := apiserver_lib.AfterCommitCreate(h.DB, &helmWorkloadInstance); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
 	}
 
 	// notify controller if reconciliation is required
@@ -1127,8 +1154,9 @@ func (h Handler) DeleteHelmWorkloadInstance(c echo.Context) error {
 			// if deletion scheduled but not reconciled, return 409 - deletion
 			// already underway
 			return apiserver_lib.ResponseStatus409(c, nil, errors.New(fmt.Sprintf(
-				"object with ID %d already being deleted",
+				"object with ID %d %s",
 				*helmWorkloadInstance.ID,
+				api_v0.ErrMsgAlreadyBeingDeleted,
 			)), fullyQualifiedType)
 		} else {
 			// object scheduled for deletion and confirmed - it can be deleted
@@ -1156,6 +1184,14 @@ func (h Handler) DeleteHelmWorkloadInstance(c echo.Context) error {
 				return apiserver_lib.ResponseStatus500(c, nil, result.Error, fullyQualifiedType)
 			}
 		}
+	}
+
+	// the delete has committed; drop any process state that mirrored the
+	// row before answering. A persist hook cannot do this: a rollback
+	// would have dropped state for a row that survived.
+	if err := apiserver_lib.AfterCommitDelete(h.DB, &helmWorkloadInstance); err != nil {
+		h.Logger.Error("handler error: error reconciling process state after commit", zap.Error(err))
+		return apiserver_lib.ResponseStatus500(c, nil, err, fullyQualifiedType)
 	}
 
 	response, err := apiserver_lib.CreateResponse(

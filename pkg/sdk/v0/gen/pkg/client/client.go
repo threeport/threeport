@@ -19,6 +19,7 @@ const (
 	MarshalObjectErr       = "failed to marshal provided object to JSON: %w"
 	ResponseErr            = "call to threeport API returned unexpected response: %w"
 	MarshalResponseDataErr = "failed to marshal response data from threeport API: %w"
+	EmptyResponseDataErr   = "threeport API returned no object in response data"
 )
 
 // GenClientLib generates an the API objects' client library.
@@ -202,6 +203,10 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"fmt", "Errorf",
 						).Call(Lit(ResponseErr).Op(",").Id("err")),
 					)),
+					Line(),
+					emptyResponseDataGuard(
+						Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
+					),
 					Line(),
 					Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
 						Id("response").Dot("Data").Index(Lit(0)),
@@ -476,6 +481,10 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Call(Lit(ResponseErr).Op(",").Id("err")),
 					)),
 					Line(),
+					emptyResponseDataGuard(
+						Id(strcase.ToLowerCamel(apiObject.TypeName)),
+					),
+					Line(),
 					Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
 						Id("response").Dot("Data").Index(Lit(0)),
 					),
@@ -574,6 +583,10 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							"fmt", "Errorf",
 						).Call(Lit(ResponseErr).Op(",").Id("err")),
 					)),
+					Line(),
+					emptyResponseDataGuard(
+						Id(strcase.ToLowerCamel(apiObject.TypeName)),
+					),
 					Line(),
 					Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
 						Id("response").Dot("Data").Index(Lit(0)),
@@ -675,6 +688,10 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Call(Lit(ResponseErr).Op(",").Id("err")),
 					)),
 					Line(),
+					emptyResponseDataGuard(
+						Id(strcase.ToLowerCamel(apiObject.TypeName)),
+					),
+					Line(),
 					Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
 						Id("response").Dot("Data").Index(Lit(0)),
 					),
@@ -751,6 +768,10 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Call(Lit(ResponseErr).Op(",").Id("err")),
 					)),
 					Line(),
+					emptyResponseDataGuard(
+						Op("&").Id(strcase.ToLowerCamel(apiObject.TypeName)),
+					),
+					Line(),
 					Id("jsonData").Op(",").Id("err").Op(":=").Qual("encoding/json", "Marshal").Call(
 						Id("response").Dot("Data").Index(Lit(0)),
 					),
@@ -799,4 +820,22 @@ func GenClientLib(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	return nil
+}
+
+// emptyResponseDataGuard emits the length check that precedes reading the
+// single object a response carries.
+//
+// These five operations - get by ID, create, update, replace and delete - name
+// one object, and the API answers 404 rather than 200 with nothing when it is
+// not there, so an empty Data means the server broke that contract. Indexing it
+// anyway turns a server-side fault into an index-out-of-range panic in whatever
+// process called the client, which for a controller is a crash loop. The
+// returnValue is whatever the surrounding function returns alongside an error:
+// a pointer it already holds, or the address of the zero value it declared.
+func emptyResponseDataGuard(returnValue *Statement) *Statement {
+	return If(
+		Len(Id("response").Dot("Data")).Op("==").Lit(0),
+	).Block(
+		Return(returnValue, Qual("errors", "New").Call(Lit(EmptyResponseDataErr))),
+	)
 }

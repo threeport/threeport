@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -51,64 +52,64 @@ func writeJSONResponse(t *testing.T, w http.ResponseWriter, data []apiserver_lib
 	_, _ = w.Write(body)
 }
 
-// TestGetNamesFromModule_HappyPath drives one GET per id and folds
-// each module response's Name field into the returned map.
+// TestGetNamesFromModule_HappyPath covers one batched list GET that maps
+// IDs 1 and 2 to their names.
 func TestGetNamesFromModule_HappyPath(t *testing.T) {
 	var gotURLs []string
 	endpoint, _, restore := fakeModuleServer(t, func(w http.ResponseWriter, r *http.Request) {
 		gotURLs = append(gotURLs, r.URL.String())
-		switch r.URL.Path {
-		case "/example.com/v0/widgets/1":
-			writeJSONResponse(t, w, []apiserver_lib.Object{map[string]interface{}{"Name": "widget-one"}})
-		case "/example.com/v0/widgets/2":
-			writeJSONResponse(t, w, []apiserver_lib.Object{map[string]interface{}{"Name": "widget-two"}})
-		default:
+		if r.URL.Path != "/example.com/v0/widgets" {
 			http.NotFound(w, r)
+			return
 		}
+		writeJSONResponse(t, w, []apiserver_lib.Object{
+			map[string]interface{}{"ID": float64(1), "Name": "widget-one"},
+			map[string]interface{}{"ID": float64(2), "Name": "widget-two"},
+		})
 	})
 	defer restore()
 
-	out, err := getNamesFromModule(endpoint, "/example.com/v0/widgets", []uint{1, 2}, false)
+	out, err := getNamesFromModule(context.Background(), endpoint, "/example.com/v0/widgets", []uint{1, 2}, false)
 	require.NoError(t, err)
 	assert.Equal(t, map[uint]string{1: "widget-one", 2: "widget-two"}, out)
-	assert.Len(t, gotURLs, 2, "exactly one GET per id")
+	require.Len(t, gotURLs, 1, "one batched GET for the whole id list")
+	assert.Contains(t, gotURLs[0], apiserver_lib.QueryParamIDs+"=1,2")
+	assert.Contains(t, gotURLs[0], apiserver_lib.QueryParamLimit+"=2")
 }
 
-// TestGetNamesFromModule_IncludeDeleted appends the
-// IncludeDeleted query param when the caller opts in. Soft-delete
-// gating is otherwise transparent.
+// TestGetNamesFromModule_IncludeDeleted covers forwarding includedeleted=true
+// on the list GET.
 func TestGetNamesFromModule_IncludeDeleted(t *testing.T) {
 	var gotQuery string
 	endpoint, _, restore := fakeModuleServer(t, func(w http.ResponseWriter, r *http.Request) {
 		gotQuery = r.URL.RawQuery
-		writeJSONResponse(t, w, []apiserver_lib.Object{map[string]interface{}{"Name": "widget-one"}})
+		writeJSONResponse(t, w, []apiserver_lib.Object{
+			map[string]interface{}{"ID": float64(1), "Name": "widget-one"},
+		})
 	})
 	defer restore()
 
-	_, err := getNamesFromModule(endpoint, "/example.com/v0/widgets", []uint{1}, true)
+	_, err := getNamesFromModule(context.Background(), endpoint, "/example.com/v0/widgets", []uint{1}, true)
 	require.NoError(t, err)
-	assert.Equal(t, apiserver_lib.QueryParamIncludeDeleted+"=true", gotQuery)
+	assert.Contains(t, gotQuery, apiserver_lib.QueryParamIncludeDeleted+"=true")
 }
 
-// TestGetNamesFromModule_PartialFailure skips ids whose module
-// lookups fail or return empty payloads, returning a map with just
-// the successful entries rather than failing the whole batch.
+// TestGetNamesFromModule_PartialFailure covers a list that returns ID 1
+// of 1,2,3: the map keeps 1, omits 2 and 3, and the call still succeeds.
 func TestGetNamesFromModule_PartialFailure(t *testing.T) {
 	endpoint, _, restore := fakeModuleServer(t, func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/example.com/v0/widgets/1":
-			writeJSONResponse(t, w, []apiserver_lib.Object{map[string]interface{}{"Name": "widget-one"}})
-		case "/example.com/v0/widgets/2":
-			http.Error(w, "boom", http.StatusInternalServerError)
-		case "/example.com/v0/widgets/3":
-			writeJSONResponse(t, w, []apiserver_lib.Object{})
-		default:
+		if r.URL.Path != "/example.com/v0/widgets" {
 			http.NotFound(w, r)
+			return
 		}
+		// return ID 1 only
+		writeJSONResponse(t, w, []apiserver_lib.Object{
+			map[string]interface{}{"ID": float64(1), "Name": "widget-one"},
+		})
 	})
 	defer restore()
 
-	out, err := getNamesFromModule(endpoint, "/example.com/v0/widgets", []uint{1, 2, 3}, false)
+	out, err := getNamesFromModule(context.Background(), endpoint, "/example.com/v0/widgets", []uint{1, 2, 3}, false)
 	require.NoError(t, err)
 	assert.Equal(t, map[uint]string{1: "widget-one"}, out, "only successful lookups appear")
 }
@@ -129,7 +130,7 @@ func TestGetNamesFromModule_DropsEmptyName(t *testing.T) {
 	})
 	defer restore()
 
-	out, err := getNamesFromModule(endpoint, "/example.com/v0/widgets", []uint{1, 2}, false)
+	out, err := getNamesFromModule(context.Background(), endpoint, "/example.com/v0/widgets", []uint{1, 2}, false)
 	require.NoError(t, err)
 	assert.Empty(t, out)
 }
@@ -151,7 +152,32 @@ func TestGetIDsFromModuleByName_HappyPath(t *testing.T) {
 	ids, err := getIDsFromModuleByName(endpoint, "/example.com/v0/widgets", "example.com/v0.widget", "widget-seven")
 	require.NoError(t, err)
 	assert.Equal(t, []uint{7, 9}, ids, "every matching row's id is collected")
-	assert.Equal(t, "/example.com/v0/widgets?name=widget-seven", gotURL)
+	assert.Equal(
+		t,
+		"/example.com/v0/widgets?name=widget-seven&includedeleted=true",
+		gotURL,
+		"the name lookup asks the module for soft-deleted rows too",
+	)
+}
+
+// TestGetIDsFromModuleByName_ResolvesDeletedSubject covers a name that
+// only matches when includedeleted=true.
+func TestGetIDsFromModuleByName_ResolvesDeletedSubject(t *testing.T) {
+	endpoint, _, restore := fakeModuleServer(t, func(w http.ResponseWriter, r *http.Request) {
+		// return empty unless includedeleted=true
+		if r.URL.Query().Get("includedeleted") != "true" {
+			writeJSONResponse(t, w, []apiserver_lib.Object{})
+			return
+		}
+		writeJSONResponse(t, w, []apiserver_lib.Object{
+			map[string]interface{}{"ID": float64(4), "Name": "widget-gone"},
+		})
+	})
+	defer restore()
+
+	ids, err := getIDsFromModuleByName(endpoint, "/example.com/v0/widgets", "example.com/v0.widget", "widget-gone")
+	require.NoError(t, err)
+	assert.Equal(t, []uint{4}, ids, "a deleted subject still resolves by name")
 }
 
 // TestGetIDsFromModuleByName_Empty handles the empty-result case as a
@@ -216,4 +242,21 @@ func TestParseRowID(t *testing.T) {
 			assert.Equal(t, tc.wantID, id)
 		})
 	}
+}
+
+// TestGetObjectIDsByNameIncludesDeleted covers a core name lookup that
+// omits the deleted_at filter so a deleted row still matches.
+func TestGetObjectIDsByNameIncludesDeleted(t *testing.T) {
+	h, sql := newDryRunHandler(t, apiserver_lib.PaginationModeAsOfSystemTime)
+
+	_, err := GetObjectIDsByName(
+		h.DB,
+		"threeport.io/v0.KubernetesWorkloadInstance",
+		"host-023421",
+	)
+	require.NoError(t, err)
+
+	assert.Contains(t, *sql, "v0_kubernetes_workload_instances", "the core resolver handled the type")
+	assert.Contains(t, *sql, "name = ", "the name reaches the WHERE clause")
+	assert.NotContains(t, *sql, "deleted_at", "a deleted subject still resolves by name")
 }
