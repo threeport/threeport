@@ -13,9 +13,9 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// TestExistingOrCreateGcpProviderReusesNamedRow covers a retry that would
+// TestEnsureGcpProviderReusesNamedRow covers a retry that would
 // otherwise POST a duplicate provider.
-func TestExistingOrCreateGcpProviderReusesNamedRow(t *testing.T) {
+func TestEnsureGcpProviderReusesNamedRow(t *testing.T) {
 	require := require.New(t)
 	var posts int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -28,7 +28,7 @@ func TestExistingOrCreateGcpProviderReusesNamedRow(t *testing.T) {
 	}))
 	defer server.Close()
 
-	got, err := existingOrCreateGcpProvider(
+	got, err := ensureGcpProvider(
 		server.Client(),
 		strings.TrimPrefix(server.URL, "http://"),
 		&v0.GcpProvider{Name: util.Ptr("default")},
@@ -39,9 +39,9 @@ func TestExistingOrCreateGcpProviderReusesNamedRow(t *testing.T) {
 	require.Equal(uint(4), *got.ID)
 }
 
-// TestExistingOrCreateGcpGkeKubernetesRuntimeDefinitionReusesNamedRow covers
+// TestEnsureGcpGkeKubernetesRuntimeDefinitionReusesNamedRow covers
 // a retry of the GKE definition create.
-func TestExistingOrCreateGcpGkeKubernetesRuntimeDefinitionReusesNamedRow(t *testing.T) {
+func TestEnsureGcpGkeKubernetesRuntimeDefinitionReusesNamedRow(t *testing.T) {
 	require := require.New(t)
 	var posts int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +54,7 @@ func TestExistingOrCreateGcpGkeKubernetesRuntimeDefinitionReusesNamedRow(t *test
 	}))
 	defer server.Close()
 
-	got, err := existingOrCreateGcpGkeKubernetesRuntimeDefinition(
+	got, err := ensureGcpGkeKubernetesRuntimeDefinition(
 		server.Client(),
 		strings.TrimPrefix(server.URL, "http://"),
 		&v0.GcpGkeKubernetesRuntimeDefinition{
@@ -67,9 +67,9 @@ func TestExistingOrCreateGcpGkeKubernetesRuntimeDefinitionReusesNamedRow(t *test
 	require.Equal(uint(5), *got.ID)
 }
 
-// TestExistingOrCreateGcpGkeKubernetesRuntimeInstanceReusesNamedRow covers a
+// TestEnsureGcpGkeKubernetesRuntimeInstanceReusesNamedRow covers a
 // retry of the GKE instance create.
-func TestExistingOrCreateGcpGkeKubernetesRuntimeInstanceReusesNamedRow(t *testing.T) {
+func TestEnsureGcpGkeKubernetesRuntimeInstanceReusesNamedRow(t *testing.T) {
 	require := require.New(t)
 	var posts int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +82,7 @@ func TestExistingOrCreateGcpGkeKubernetesRuntimeInstanceReusesNamedRow(t *testin
 	}))
 	defer server.Close()
 
-	got, err := existingOrCreateGcpGkeKubernetesRuntimeInstance(
+	got, err := ensureGcpGkeKubernetesRuntimeInstance(
 		server.Client(),
 		strings.TrimPrefix(server.URL, "http://"),
 		&v0.GcpGkeKubernetesRuntimeInstance{

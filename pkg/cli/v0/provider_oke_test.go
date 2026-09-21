@@ -13,9 +13,9 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-// TestExistingOrCreateOciProviderReusesNamedRow covers a retry that would
+// TestEnsureOciProviderReusesNamedRow covers a retry that would
 // otherwise POST a duplicate provider.
-func TestExistingOrCreateOciProviderReusesNamedRow(t *testing.T) {
+func TestEnsureOciProviderReusesNamedRow(t *testing.T) {
 	require := require.New(t)
 	var posts int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -28,7 +28,7 @@ func TestExistingOrCreateOciProviderReusesNamedRow(t *testing.T) {
 	}))
 	defer server.Close()
 
-	got, err := existingOrCreateOciProvider(
+	got, err := ensureOciProvider(
 		server.Client(),
 		strings.TrimPrefix(server.URL, "http://"),
 		&v0.OciProvider{Name: util.Ptr("svc")},
@@ -39,8 +39,8 @@ func TestExistingOrCreateOciProviderReusesNamedRow(t *testing.T) {
 	require.Equal(uint(4), *got.ID)
 }
 
-// TestExistingOrCreateOciProviderCreatesWhenMissing covers a first install.
-func TestExistingOrCreateOciProviderCreatesWhenMissing(t *testing.T) {
+// TestEnsureOciProviderCreatesWhenMissing covers a first install.
+func TestEnsureOciProviderCreatesWhenMissing(t *testing.T) {
 	require := require.New(t)
 	var posts int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +56,7 @@ func TestExistingOrCreateOciProviderCreatesWhenMissing(t *testing.T) {
 	}))
 	defer server.Close()
 
-	got, err := existingOrCreateOciProvider(
+	got, err := ensureOciProvider(
 		server.Client(),
 		strings.TrimPrefix(server.URL, "http://"),
 		&v0.OciProvider{Name: util.Ptr("svc")},
@@ -67,9 +67,9 @@ func TestExistingOrCreateOciProviderCreatesWhenMissing(t *testing.T) {
 	require.Equal(uint(8), *got.ID)
 }
 
-// TestExistingOrCreateOciOkeKubernetesRuntimeDefinitionReusesNamedRow covers
+// TestEnsureOciOkeKubernetesRuntimeDefinitionReusesNamedRow covers
 // a retry of the OKE definition create.
-func TestExistingOrCreateOciOkeKubernetesRuntimeDefinitionReusesNamedRow(t *testing.T) {
+func TestEnsureOciOkeKubernetesRuntimeDefinitionReusesNamedRow(t *testing.T) {
 	require := require.New(t)
 	var posts int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +82,7 @@ func TestExistingOrCreateOciOkeKubernetesRuntimeDefinitionReusesNamedRow(t *test
 	}))
 	defer server.Close()
 
-	got, err := existingOrCreateOciOkeKubernetesRuntimeDefinition(
+	got, err := ensureOciOkeKubernetesRuntimeDefinition(
 		server.Client(),
 		strings.TrimPrefix(server.URL, "http://"),
 		&v0.OciOkeKubernetesRuntimeDefinition{
@@ -95,9 +95,9 @@ func TestExistingOrCreateOciOkeKubernetesRuntimeDefinitionReusesNamedRow(t *test
 	require.Equal(uint(5), *got.ID)
 }
 
-// TestExistingOrCreateOciOkeKubernetesRuntimeInstanceReusesNamedRow covers a
+// TestEnsureOciOkeKubernetesRuntimeInstanceReusesNamedRow covers a
 // retry of the OKE instance create.
-func TestExistingOrCreateOciOkeKubernetesRuntimeInstanceReusesNamedRow(t *testing.T) {
+func TestEnsureOciOkeKubernetesRuntimeInstanceReusesNamedRow(t *testing.T) {
 	require := require.New(t)
 	var posts int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +110,7 @@ func TestExistingOrCreateOciOkeKubernetesRuntimeInstanceReusesNamedRow(t *testin
 	}))
 	defer server.Close()
 
-	got, err := existingOrCreateOciOkeKubernetesRuntimeInstance(
+	got, err := ensureOciOkeKubernetesRuntimeInstance(
 		server.Client(),
 		strings.TrimPrefix(server.URL, "http://"),
 		&v0.OciOkeKubernetesRuntimeInstance{

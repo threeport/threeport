@@ -125,7 +125,7 @@ func ConfigureControlPlaneWithOkeConfig(
 		PrivateKey:      &kubernetesRuntimeInfraOKE.PrivateKeyPEM,
 	}
 
-	createdOciProvider, err := existingOrCreateOciProvider(
+	createdOciProvider, err := ensureOciProvider(
 		apiClient,
 		threeportAPIEndpoint,
 		&ociProvider,
@@ -144,7 +144,7 @@ func ConfigureControlPlaneWithOkeConfig(
 		WorkerNodeInitialCount:        util.Ptr(kubernetesRuntimeInfraOKE.WorkerNodeInitialCount),
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
-	createdociOkeKubernetesRuntimeDef, err := existingOrCreateOciOkeKubernetesRuntimeDefinition(
+	createdociOkeKubernetesRuntimeDef, err := ensureOciOkeKubernetesRuntimeDefinition(
 		apiClient,
 		threeportAPIEndpoint,
 		&ociOkeKubernetesRuntimeDef,
@@ -182,7 +182,7 @@ func ConfigureControlPlaneWithOkeConfig(
 		ClusterOCID:                         &clusterOCID,
 		ResourceInventory:                   resourceInventory,
 	}
-	if _, err = existingOrCreateOciOkeKubernetesRuntimeInstance(
+	if _, err = ensureOciOkeKubernetesRuntimeInstance(
 		apiClient,
 		threeportAPIEndpoint,
 		&ociOkeKubernetesRuntimeInstance,
@@ -192,9 +192,9 @@ func ConfigureControlPlaneWithOkeConfig(
 	return nil
 }
 
-// existingOrCreateOciProvider returns the named OCI provider, creating it when
+// ensureOciProvider returns the named OCI provider, creating it when
 // the API has no row for that name.
-func existingOrCreateOciProvider(
+func ensureOciProvider(
 	apiClient *http.Client,
 	apiEndpoint string,
 	ociProvider *v0.OciProvider,
@@ -215,9 +215,9 @@ func existingOrCreateOciProvider(
 	return created, nil
 }
 
-// existingOrCreateOciOkeKubernetesRuntimeDefinition returns the named OKE
+// ensureOciOkeKubernetesRuntimeDefinition returns the named OKE
 // runtime definition, creating it when the API has no row for that name.
-func existingOrCreateOciOkeKubernetesRuntimeDefinition(
+func ensureOciOkeKubernetesRuntimeDefinition(
 	apiClient *http.Client,
 	apiEndpoint string,
 	definition *v0.OciOkeKubernetesRuntimeDefinition,
@@ -242,9 +242,9 @@ func existingOrCreateOciOkeKubernetesRuntimeDefinition(
 	return created, nil
 }
 
-// existingOrCreateOciOkeKubernetesRuntimeInstance returns the named OKE runtime
+// ensureOciOkeKubernetesRuntimeInstance returns the named OKE runtime
 // instance, creating it when the API has no row for that name.
-func existingOrCreateOciOkeKubernetesRuntimeInstance(
+func ensureOciOkeKubernetesRuntimeInstance(
 	apiClient *http.Client,
 	apiEndpoint string,
 	instance *v0.OciOkeKubernetesRuntimeInstance,

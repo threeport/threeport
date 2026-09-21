@@ -37,7 +37,7 @@ func ConfigureControlPlaneWithGkeConfig(
 		DefaultProvider: util.Ptr(true),
 		DefaultRegion:   &kubernetesRuntimeInfraGKE.Region,
 	}
-	createdGcpProvider, err := existingOrCreateGcpProvider(
+	createdGcpProvider, err := ensureGcpProvider(
 		apiClient,
 		threeportAPIEndpoint,
 		&gcpProvider,
@@ -61,7 +61,7 @@ func ConfigureControlPlaneWithGkeConfig(
 		DefaultNodeGroupMaximumSize:   util.Ptr(int(kubernetesRuntimeInfraGKE.WorkerNodeInitialCount)),
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
-	createdGcpGkeKubernetesRuntimeDef, err := existingOrCreateGcpGkeKubernetesRuntimeDefinition(
+	createdGcpGkeKubernetesRuntimeDef, err := ensureGcpGkeKubernetesRuntimeDefinition(
 		apiClient,
 		threeportAPIEndpoint,
 		&gcpGkeKubernetesRuntimeDef,
@@ -93,7 +93,7 @@ func ConfigureControlPlaneWithGkeConfig(
 		KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
 		ResourceInventory:                   resourceInventory,
 	}
-	if _, err = existingOrCreateGcpGkeKubernetesRuntimeInstance(
+	if _, err = ensureGcpGkeKubernetesRuntimeInstance(
 		apiClient,
 		threeportAPIEndpoint,
 		&gcpGkeKubernetesRuntimeInstance,
@@ -104,9 +104,9 @@ func ConfigureControlPlaneWithGkeConfig(
 	return nil
 }
 
-// existingOrCreateGcpProvider returns the named GCP provider, creating it when
+// ensureGcpProvider returns the named GCP provider, creating it when
 // the API has no row for that name.
-func existingOrCreateGcpProvider(
+func ensureGcpProvider(
 	apiClient *http.Client,
 	apiEndpoint string,
 	gcpProvider *v0.GcpProvider,
@@ -127,9 +127,9 @@ func existingOrCreateGcpProvider(
 	return created, nil
 }
 
-// existingOrCreateGcpGkeKubernetesRuntimeDefinition returns the named GKE
+// ensureGcpGkeKubernetesRuntimeDefinition returns the named GKE
 // runtime definition, creating it when the API has no row for that name.
-func existingOrCreateGcpGkeKubernetesRuntimeDefinition(
+func ensureGcpGkeKubernetesRuntimeDefinition(
 	apiClient *http.Client,
 	apiEndpoint string,
 	definition *v0.GcpGkeKubernetesRuntimeDefinition,
@@ -154,9 +154,9 @@ func existingOrCreateGcpGkeKubernetesRuntimeDefinition(
 	return created, nil
 }
 
-// existingOrCreateGcpGkeKubernetesRuntimeInstance returns the named GKE runtime
+// ensureGcpGkeKubernetesRuntimeInstance returns the named GKE runtime
 // instance, creating it when the API has no row for that name.
-func existingOrCreateGcpGkeKubernetesRuntimeInstance(
+func ensureGcpGkeKubernetesRuntimeInstance(
 	apiClient *http.Client,
 	apiEndpoint string,
 	instance *v0.GcpGkeKubernetesRuntimeInstance,
