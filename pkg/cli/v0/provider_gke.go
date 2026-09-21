@@ -67,10 +67,12 @@ func ConfigureControlPlaneWithGkeConfig(
 		return uninstaller.cleanOnCreateError("failed to create new GCP GKE kubernetes runtime definition for control plane cluster", err)
 	}
 
-	// get resource inventory from Pulumi state
+	// get resource inventory from pulumi state unless control-plane-only
 	var resourceInventory *datatypes.JSON
-	if resourceInventory, err = kubernetesRuntimeInfraGKE.GetStackState(); err != nil {
-		return uninstaller.cleanOnCreateError("failed to get stack state: %w", err)
+	if !cpi.Opts.ControlPlaneOnly {
+		if resourceInventory, err = kubernetesRuntimeInfraGKE.GetStackState(); err != nil {
+			return uninstaller.cleanOnCreateError("failed to get stack state: %w", err)
+		}
 	}
 
 	// create GCP GKE kubernetes runtime instance

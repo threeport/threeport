@@ -219,18 +219,12 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		}
 	} else {
 		// overwrite or reject a same-name config entry, leaving other entries in place
-		if _, err := threeportConfig.GetControlPlaneConfig(cpi.Opts.ControlPlaneName); err == nil {
-			if !cpi.Opts.ForceOverwriteConfig {
-				return fmt.Errorf(
-					"control plane named %q: %w; use --force-overwrite-config to overwrite it",
-					cpi.Opts.ControlPlaneName, ErrThreeportConfigAlreadyExists,
-				)
-			}
-			// drop the existing entry with the same name
-			threeportConfig.ControlPlanes = slices.DeleteFunc(
-				threeportConfig.ControlPlanes,
-				func(c ControlPlane) bool { return c.Name == cpi.Opts.ControlPlaneName },
-			)
+		if err := dropSameNameControlPlane(
+			threeportConfig,
+			cpi.Opts.ControlPlaneName,
+			cpi.Opts.ForceOverwriteConfig,
+		); err != nil {
+			return err
 		}
 		threeportControlPlaneConfig = &ControlPlane{}
 	}
@@ -1425,4 +1419,26 @@ func ensureBootstrapKubernetesRuntime(
 	}
 
 	return def, inst, nil
+}
+
+// dropSameNameControlPlane removes a same-name config entry when force is
+// set, and rejects the install when that entry exists and force is unset.
+func dropSameNameControlPlane(cfg *ThreeportConfig, name string, force bool) error {
+	if _, err := cfg.GetControlPlaneConfig(name); err != nil {
+		return nil
+	}
+
+	if !force {
+		return fmt.Errorf(
+			"control plane named %q: %w; use --force-overwrite-config to overwrite it",
+			name, ErrThreeportConfigAlreadyExists,
+		)
+	}
+
+	cfg.ControlPlanes = slices.DeleteFunc(
+		cfg.ControlPlanes,
+		func(c ControlPlane) bool { return c.Name == name },
+	)
+
+	return nil
 }
