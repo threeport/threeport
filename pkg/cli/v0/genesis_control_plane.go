@@ -306,8 +306,15 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			},
 			Version:                kube.KubernetesDefaultVersion,
 			WorkerNodeInitialCount: int32(2),
-			ProjectID:              cpi.Opts.GcpProjectId,
-			Region:                 cpi.Opts.GcpRegion,
+			// preserves the node pool defaults this CLI-driven bootstrap path
+			// used before MachineType/MinNodeCount/MaxNodeCount became
+			// definition-driven fields for the controller-driven path; this
+			// path has no GcpGkeKubernetesRuntimeDefinition to read them from.
+			MachineType:  "e2-medium",
+			MinNodeCount: int32(1),
+			MaxNodeCount: int32(10),
+			ProjectID:    cpi.Opts.GcpProjectId,
+			Region:       cpi.Opts.GcpRegion,
 		}
 		kubernetesRuntimeInfra = &kubernetesRuntimeInfraGKE
 		uninstaller.kubernetesRuntimeInfra = &kubernetesRuntimeInfraGKE
