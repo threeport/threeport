@@ -226,11 +226,9 @@ func kindWorkers(numWorkerNodes int, threeportPath, goPath, goCache string) *[]v
 	return &nodes
 }
 
-// getPortMapping returns extra port mappings for the kind control plane node.
+// getPortMapping returns port mappings for the kind cluster
 func getPortMapping(authEnabled bool, portMappings map[int32]int32) []v1alpha4.PortMapping {
 	hostPort := threeport.GetThreeportAPIPort(authEnabled)
-
-	// map container port 30000 to that host port
 	extraPortMappings := make([]v1alpha4.PortMapping, 0)
 	extraPortMappings = append(
 		extraPortMappings,
@@ -240,7 +238,6 @@ func getPortMapping(authEnabled bool, portMappings map[int32]int32) []v1alpha4.P
 			Protocol:      v1alpha4.PortMappingProtocolTCP,
 		})
 
-	// append caller-supplied mappings
 	for cPort, hPort := range portMappings {
 		extraPortMappings = append(
 			extraPortMappings,
