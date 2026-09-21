@@ -71,7 +71,12 @@ Threeport API endpoints are documented with [Swagger](https://swagger.io/) at
 `$THREEPORT_API_ENDPOINT/swagger/index.html`. This is most easily
 accessed by setting `--auth-enabled=false` on a Threeport control plane
 deployed to Kind and visiting
-[http://localhost/swagger/index.html](http://localhost/swagger/index.html).
+[http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html).
+
+A local control plane serves its API on an unprivileged port: `8080` without
+auth, and `8443` with it. Pass `--api-port` to `tptctl up` to choose a
+different one. Whichever is in use is recorded as `apiserver` in
+`~/.threeport/config.yaml`, so that file is the answer when in doubt.
 
 ## Next Steps
 
