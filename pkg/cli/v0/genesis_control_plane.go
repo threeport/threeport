@@ -33,7 +33,7 @@ import (
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-var ErrThreeportConfigAlreadyExists = errors.New("threeport config already contains deployed control planes")
+var ErrThreeportConfigAlreadyExists = errors.New("threeport config already contains a control plane with the requested name")
 
 // GenesisControlPlaneCLIArgs is the set of control plane arguments passed to one of
 // the CLI tools.
@@ -216,9 +216,6 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		cleanConfig:       util.Ptr(true),
 	}
 
-	// check threeport config to see if it is empty
-	threeportInstanceConfigEmpty := threeportConfig.CheckThreeportConfigEmpty()
-
 	var threeportControlPlaneConfig *ControlPlane
 	genesis := true
 
@@ -233,12 +230,14 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 			threeportControlPlaneConfig = &ControlPlane{}
 		}
 	} else {
-		// for fresh installs, check if config already exists
-		if !threeportInstanceConfigEmpty && !cpi.Opts.ForceOverwriteConfig {
-			return ErrThreeportConfigAlreadyExists
+		// overwrite or reject a same-name config entry, leaving other entries in place
+		if err := dropSameNameControlPlane(
+			threeportConfig,
+			cpi.Opts.ControlPlaneName,
+			cpi.Opts.ForceOverwriteConfig,
+		); err != nil {
+			return err
 		}
-		// reset config and create fresh control plane config
-		threeportConfig.ControlPlanes = []ControlPlane{}
 		threeportControlPlaneConfig = &ControlPlane{}
 	}
 
@@ -728,36 +727,52 @@ func CreateGenesisControlPlane(customInstaller *threeport.ControlPlaneInstaller)
 		return uninstaller.cleanOnCreateError("failed to install threeport support services CRDs", err)
 	}
 
-	// create the default compute space kubernetes runtime definition in threeport API
+	// register the default compute space runtime, looking up first under --control-plane-only
 	kubernetesRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	defReconciled := true // this definition for the bootstrap cluster does not require reconcilation
-	kubernetesRuntimeDefinition := v0.KubernetesRuntimeDefinition{
-		Definition: v0.Definition{
-			Name: &kubernetesRuntimeDefName,
-		},
-		Reconciliation: v0.Reconciliation{
-			Reconciled: &defReconciled,
-		},
-		InfraProvider: &cpi.Opts.InfraProvider,
-	}
-	kubernetesRuntimeDefResult, err := client.CreateKubernetesRuntimeDefinition(
-		apiClient,
-		threeportAPIEndpoint,
-		&kubernetesRuntimeDefinition,
-	)
-	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to create new kubernetes runtime definition for default compute space", err)
-	}
+	var kubernetesRuntimeDefResult *v0.KubernetesRuntimeDefinition
+	var kubernetesRuntimeInstResult *v0.KubernetesRuntimeInstance
+	if cpi.Opts.ControlPlaneOnly {
+		kubernetesRuntimeDefResult, kubernetesRuntimeInstResult, err = ensureBootstrapKubernetesRuntime(
+			apiClient,
+			threeportAPIEndpoint,
+			kubernetesRuntimeDefName,
+			kubernetesRuntimeInstName,
+			defReconciled,
+			cpi.Opts.InfraProvider,
+			kubernetesRuntimeInstance,
+		)
+		if err != nil {
+			return uninstaller.cleanOnCreateError("failed to register kubernetes runtime for default compute space", err)
+		}
+	} else {
+		kubernetesRuntimeDefinition := v0.KubernetesRuntimeDefinition{
+			Definition: v0.Definition{
+				Name: &kubernetesRuntimeDefName,
+			},
+			Reconciliation: v0.Reconciliation{
+				Reconciled: &defReconciled,
+			},
+			InfraProvider: &cpi.Opts.InfraProvider,
+		}
+		kubernetesRuntimeDefResult, err = client.CreateKubernetesRuntimeDefinition(
+			apiClient,
+			threeportAPIEndpoint,
+			&kubernetesRuntimeDefinition,
+		)
+		if err != nil {
+			return uninstaller.cleanOnCreateError("failed to create new kubernetes runtime definition for default compute space", err)
+		}
 
-	// create default compute space kubernetes runtime instance in threeport API
-	kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = kubernetesRuntimeDefResult.ID
-	kubernetesRuntimeInstResult, err := client.CreateKubernetesRuntimeInstance(
-		apiClient,
-		threeportAPIEndpoint,
-		kubernetesRuntimeInstance,
-	)
-	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to create new kubernetes runtime instance for default compute space", err)
+		kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = kubernetesRuntimeDefResult.ID
+		kubernetesRuntimeInstResult, err = client.CreateKubernetesRuntimeInstance(
+			apiClient,
+			threeportAPIEndpoint,
+			kubernetesRuntimeInstance,
+		)
+		if err != nil {
+			return uninstaller.cleanOnCreateError("failed to create new kubernetes runtime instance for default compute space", err)
+		}
 	}
 
 	// configure control plane with provider-specific details by adding the
@@ -1440,6 +1455,76 @@ func runtimeInstanceName(opts threeport.Options) string {
 		//     name, matching clusters tptctl provisions itself
 		return opts.ClusterName
 	}
-	// new cluster, named with the threeport- prefix
+	// prefix a tptctl-provisioned cluster name with threeport-
 	return provider.ThreeportRuntimeName(opts.ControlPlaneName)
+}
+
+// ensureBootstrapKubernetesRuntime looks up the bootstrap kubernetes runtime
+// definition and instance by name and creates whichever is missing.
+func ensureBootstrapKubernetesRuntime(
+	apiClient *http.Client,
+	apiEndpoint string,
+	defName string,
+	instName string,
+	defReconciled bool,
+	infraProvider string,
+	kubernetesRuntimeInstance *v0.KubernetesRuntimeInstance,
+) (*v0.KubernetesRuntimeDefinition, *v0.KubernetesRuntimeInstance, error) {
+	// look up the definition and create it if missing
+	def, err := client.GetKubernetesRuntimeDefinitionByName(apiClient, apiEndpoint, defName)
+	if err != nil {
+		if !errors.Is(err, client_lib.ErrObjectNotFound) {
+			return nil, nil, fmt.Errorf("failed to look up kubernetes runtime definition by name: %w", err)
+		}
+		newDef := v0.KubernetesRuntimeDefinition{
+			Definition: v0.Definition{
+				Name: &defName,
+			},
+			Reconciliation: v0.Reconciliation{
+				Reconciled: &defReconciled,
+			},
+			InfraProvider: &infraProvider,
+		}
+		def, err = client.CreateKubernetesRuntimeDefinition(apiClient, apiEndpoint, &newDef)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create kubernetes runtime definition: %w", err)
+		}
+	}
+
+	// look up the instance and create it if missing
+	inst, err := client.GetKubernetesRuntimeInstanceByName(apiClient, apiEndpoint, instName)
+	if err != nil {
+		if !errors.Is(err, client_lib.ErrObjectNotFound) {
+			return nil, nil, fmt.Errorf("failed to look up kubernetes runtime instance by name: %w", err)
+		}
+		kubernetesRuntimeInstance.KubernetesRuntimeDefinitionID = def.ID
+		inst, err = client.CreateKubernetesRuntimeInstance(apiClient, apiEndpoint, kubernetesRuntimeInstance)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create kubernetes runtime instance: %w", err)
+		}
+	}
+
+	return def, inst, nil
+}
+
+// dropSameNameControlPlane removes a same-name config entry when force is
+// set, and rejects the install when that entry exists and force is unset.
+func dropSameNameControlPlane(cfg *ThreeportConfig, name string, force bool) error {
+	if _, err := cfg.GetControlPlaneConfig(name); err != nil {
+		return nil
+	}
+
+	if !force {
+		return fmt.Errorf(
+			"control plane named %q: %w; use --force-overwrite-config to overwrite it",
+			name, ErrThreeportConfigAlreadyExists,
+		)
+	}
+
+	cfg.ControlPlanes = slices.DeleteFunc(
+		cfg.ControlPlanes,
+		func(c ControlPlane) bool { return c.Name == name },
+	)
+
+	return nil
 }

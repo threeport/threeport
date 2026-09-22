@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	v1 "k8s.io/api/core/v1"
+	kubeerr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -199,8 +200,11 @@ func applyK8sConfig(kubeconfigPath string) error {
 		},
 	}
 
+	// ignore already exists; the configmap body is static
 	if _, err = clientset.CoreV1().ConfigMaps("kube-public").Create(context.TODO(), configMap, metav1.CreateOptions{}); err != nil {
-		return fmt.Errorf("failed to create configmap for local registry: %w", err)
+		if !kubeerr.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create configmap for local registry: %w", err)
+		}
 	}
 
 	return nil
