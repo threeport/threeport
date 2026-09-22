@@ -84,13 +84,7 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceWorkloadControllerRBAC(
 	mapper *meta.RESTMapper,
 	gcpProjectID string,
 ) error {
-	workloadControllers := []string{
-		ThreeportHelmWorkloadControllerName,
-		ThreeportKubernetesWorkloadControllerName,
-		ThreeportControlPlaneControllerName,
-	}
-
-	for _, controllerName := range workloadControllers {
+	for _, controllerName := range computeSpaceWorkloadControllers() {
 		clusterAdminBinding := &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "rbac.authorization.k8s.io/v1",
@@ -2073,5 +2067,16 @@ func GetLocalThreeportAPIEndpoint(authEnabled bool, apiPort int) string {
 func (cpi *ControlPlaneInstaller) getCommand(name string) []interface{} {
 	return []interface{}{
 		fmt.Sprintf("/%s", name),
+	}
+}
+
+// computeSpaceWorkloadControllers returns the control plane controllers that
+// deploy workloads to a managed cluster and so need RBAC on it.  The install
+// and the check that guards it read the same list from here.
+func computeSpaceWorkloadControllers() []string {
+	return []string{
+		ThreeportHelmWorkloadControllerName,
+		ThreeportKubernetesWorkloadControllerName,
+		ThreeportControlPlaneControllerName,
 	}
 }
