@@ -148,7 +148,7 @@ func v0HelmWorkloadInstanceCreated(
 			Name: threeportWorkloadName,
 		},
 		Spec: agentapi.ThreeportWorkloadSpec{
-			WorkloadType:       agent.HelmWorkloadInstanceType,
+			WorkloadType:                 agent.HelmWorkloadInstanceType,
 			KubernetesWorkloadInstanceID: *helmWorkloadInstance.ID,
 		},
 	}
@@ -270,7 +270,68 @@ func v0HelmWorkloadInstanceUpdated(
 		return 0, fmt.Errorf("failed to configure chart repository: %w", err)
 	}
 
-	// upgrade the chart
+	releaseName := helmReleaseName(helmWorkloadInstance)
+
+	// Render what an upgrade would apply, without applying it. helm's upgrade
+	// does not skip an upgrade that changes nothing: it re-applies the rendered
+	// manifests and records a new revision every time it is called. Rendering
+	// first is what lets an invocation with nothing to do cost nothing.
+	preview := newHelmUpgrade(actionConf, helmWorkloadDefinition, helmWorkloadInstance)
+	preview.DryRun = true
+
+	// "server" so the render still reaches the cluster. A plain dry run does
+	// not, and a chart whose templates call lookup would then render one way
+	// here and another way in the upgrade below - leaving this comparison
+	// deciding on a manifest that is not the one that would be applied.
+	preview.DryRunOption = "server"
+
+	// configure chart
+	chart, helmValues, err := configureChart(
+		helmWorkloadDefinition,
+		helmWorkloadInstance,
+		preview,
+		settings,
+		helmRepoName,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to configure helm chart: %w", err)
+	}
+
+	previewed, err := preview.Run(releaseName, chart, helmValues)
+	if err != nil {
+		return 0, fmt.Errorf("failed to render the helm chart: %w", err)
+	}
+
+	// compare against what the release currently holds. A release that cannot
+	// be read is not a reason to stop: the upgrade below is what would fix it.
+	deployed, err := action.NewGet(actionConf).Run(releaseName)
+	if err == nil && deployed.Manifest == previewed.Manifest {
+		log.V(1).Info("helm release already matches the rendered chart, skipping upgrade")
+
+		return 0, nil
+	}
+
+	// deploy the helm workload
+	upgrade := newHelmUpgrade(actionConf, helmWorkloadDefinition, helmWorkloadInstance)
+	if _, err = upgrade.Run(
+		releaseName,
+		chart,
+		helmValues,
+	); err != nil {
+		return 0, fmt.Errorf("failed to upgrade helm chart: %w", err)
+	}
+
+	return 0, nil
+}
+
+// newHelmUpgrade returns an upgrade action configured for a helm workload
+// instance. The rendered preview and the upgrade that follows it are built the
+// same way from here, so what is compared is what gets applied.
+func newHelmUpgrade(
+	actionConf *action.Configuration,
+	helmWorkloadDefinition *v0.HelmWorkloadDefinition,
+	helmWorkloadInstance *v0.HelmWorkloadInstance,
+) *action.Upgrade {
 	upgrade := action.NewUpgrade(actionConf)
 
 	// configure version if it is supplied by the kubernetes workload definition
@@ -285,28 +346,7 @@ func v0HelmWorkloadInstanceUpdated(
 		HelmWorkloadInstance:   helmWorkloadInstance,
 	}
 
-	// configure chart
-	chart, helmValues, err := configureChart(
-		helmWorkloadDefinition,
-		helmWorkloadInstance,
-		upgrade,
-		settings,
-		helmRepoName,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("failed to configure helm chart: %w", err)
-	}
-
-	// deploy the helm workload
-	if _, err = upgrade.Run(
-		helmReleaseName(helmWorkloadInstance),
-		chart,
-		helmValues,
-	); err != nil {
-		return 0, fmt.Errorf("failed to upgrade helm chart: %w", err)
-	}
-
-	return 0, nil
+	return upgrade
 }
 
 // v0HelmWorkloadInstanceDeleted performs reconciliation when a v0 HelmWorkloadInstance
