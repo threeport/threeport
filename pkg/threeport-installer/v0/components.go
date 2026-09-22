@@ -85,27 +85,7 @@ func (cpi *ControlPlaneInstaller) InstallComputeSpaceWorkloadControllerRBAC(
 	gcpProjectID string,
 ) error {
 	for _, controllerName := range computeSpaceWorkloadControllers() {
-		clusterAdminBinding := &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "rbac.authorization.k8s.io/v1",
-				"kind":       "ClusterRoleBinding",
-				"metadata": map[string]interface{}{
-					"name": fmt.Sprintf("%s-cluster-admin", controllerName),
-				},
-				"roleRef": map[string]interface{}{
-					"apiGroup": "rbac.authorization.k8s.io",
-					"kind":     "ClusterRole",
-					"name":     "cluster-admin",
-				},
-				"subjects": []interface{}{
-					map[string]interface{}{
-						"kind":     "User",
-						"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", gcpProjectID, cpi.Opts.Namespace, controllerName),
-						"apiGroup": "rbac.authorization.k8s.io",
-					},
-				},
-			},
-		}
+		clusterAdminBinding := cpi.computeSpaceWorkloadControllerBinding(controllerName, gcpProjectID)
 		if err := cpi.CreateOrUpdateKubeResource(clusterAdminBinding, kubeClient, mapper); err != nil {
 			return fmt.Errorf("failed to create %s cluster-admin binding on managed cluster: %w", controllerName, err)
 		}
@@ -2078,5 +2058,36 @@ func computeSpaceWorkloadControllers() []string {
 		ThreeportHelmWorkloadControllerName,
 		ThreeportKubernetesWorkloadControllerName,
 		ThreeportControlPlaneControllerName,
+	}
+}
+
+// computeSpaceWorkloadControllerBinding builds the cluster-admin binding that
+// authorizes one control plane workload controller on a managed GKE cluster.
+// The install creates it and the check that guards the install compares against
+// it, so what is installed and what is checked for cannot drift apart.
+func (cpi *ControlPlaneInstaller) computeSpaceWorkloadControllerBinding(
+	controllerName string,
+	gcpProjectID string,
+) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "rbac.authorization.k8s.io/v1",
+			"kind":       "ClusterRoleBinding",
+			"metadata": map[string]interface{}{
+				"name": fmt.Sprintf("%s-cluster-admin", controllerName),
+			},
+			"roleRef": map[string]interface{}{
+				"apiGroup": "rbac.authorization.k8s.io",
+				"kind":     "ClusterRole",
+				"name":     "cluster-admin",
+			},
+			"subjects": []interface{}{
+				map[string]interface{}{
+					"kind":     "User",
+					"name":     fmt.Sprintf("serviceAccount:%s.svc.id.goog[%s/%s]", gcpProjectID, cpi.Opts.Namespace, controllerName),
+					"apiGroup": "rbac.authorization.k8s.io",
+				},
+			},
+		},
 	}
 }

@@ -3,6 +3,7 @@ package v0
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -177,11 +178,19 @@ func EksThreeportSystemServicesInstalled(
 }
 
 // ComputeSpaceWorkloadControllerRBACCurrent reports whether every binding
-// InstallComputeSpaceWorkloadControllerRBAC would create is present and names
-// the workload identity principal it would name.  A binding left from another
-// GCP project or another control plane namespace is not current: its subject no
-// longer matches, and the controllers it was meant to authorize cannot reach
-// the cluster.
+// InstallComputeSpaceWorkloadControllerRBAC would create is already in place.
+//
+// How much of a binding is compared follows what the install could do about a
+// difference.  An installer set to update can replace a binding left from
+// another GCP project or pointing at the wrong role, so those are compared.  An
+// installer that only creates cannot touch a binding that exists, so for one of
+// those the question is only whether the binding is there - calling a stale one
+// not current would ask, on every invocation, for a repair that cannot land.
+//
+// A binding that exists but grants nothing useful is therefore reported current
+// to a create-only installer.  That is not this check going quiet on a real
+// problem: nothing in this path can fix it either way, and reporting it would
+// only add back the redundant installs this check exists to remove.
 func (cpi *ControlPlaneInstaller) ComputeSpaceWorkloadControllerRBACCurrent(
 	kubeClient dynamic.Interface,
 	mapper *meta.RESTMapper,
@@ -206,17 +215,25 @@ func (cpi *ControlPlaneInstaller) ComputeSpaceWorkloadControllerRBACCurrent(
 			return false, nil
 		}
 
-		wantSubject := fmt.Sprintf(
-			"serviceAccount:%s.svc.id.goog[%s/%s]",
-			gcpProjectID, cpi.Opts.Namespace, controllerName,
+		// A binding that is present but wrong can only be put right by an
+		// install that updates. With a create-only installer, creating over an
+		// existing binding does nothing, so reporting it stale would ask for a
+		// repair on every invocation that can never land - the exact waste
+		// these checks exist to remove. Presence is the whole question there.
+		if !cpi.Opts.CreateOrUpdateKubeResources {
+			continue
+		}
+
+		matches, err := bindingGrants(
+			binding,
+			cpi.computeSpaceWorkloadControllerBinding(controllerName, gcpProjectID),
 		)
-		subjects, err := subjectNames(binding)
 		if err != nil {
 			return false, fmt.Errorf(
-				"failed to read the %s cluster-admin binding's subjects: %w", controllerName, err,
+				"failed to read the %s cluster-admin binding: %w", controllerName, err,
 			)
 		}
-		if !contains(subjects, wantSubject) {
+		if !matches {
 			return false, nil
 		}
 	}
@@ -250,28 +267,47 @@ func containerImages(deployment *unstructured.Unstructured) ([]string, error) {
 	return images, nil
 }
 
-// subjectNames returns the names of every subject in a cluster role binding.
-func subjectNames(binding *unstructured.Unstructured) ([]string, error) {
-	subjects, found, err := unstructured.NestedSlice(binding.Object, "subjects")
+// bindingGrants reports whether an existing cluster role binding grants what a
+// wanted one would. The subject's name is not enough on its own: a binding can
+// carry the right name as the wrong kind of subject, or point at a different
+// role, and in either case the controller it was meant to authorize has no
+// access. The role reference and every wanted subject are compared whole.
+func bindingGrants(existing, wanted *unstructured.Unstructured) (bool, error) {
+	existingRole, _, err := unstructured.NestedMap(existing.Object, "roleRef")
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	if !found {
-		return nil, nil
+	wantedRole, _, err := unstructured.NestedMap(wanted.Object, "roleRef")
+	if err != nil {
+		return false, err
 	}
-
-	var names []string
-	for _, subject := range subjects {
-		fields, ok := subject.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if name, ok := fields["name"].(string); ok {
-			names = append(names, name)
-		}
+	if !reflect.DeepEqual(existingRole, wantedRole) {
+		return false, nil
 	}
 
-	return names, nil
+	existingSubjects, _, err := unstructured.NestedSlice(existing.Object, "subjects")
+	if err != nil {
+		return false, err
+	}
+	wantedSubjects, _, err := unstructured.NestedSlice(wanted.Object, "subjects")
+	if err != nil {
+		return false, err
+	}
+
+	for _, wantedSubject := range wantedSubjects {
+		found := false
+		for _, existingSubject := range existingSubjects {
+			if reflect.DeepEqual(existingSubject, wantedSubject) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // contains reports whether a value is in a slice.

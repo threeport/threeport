@@ -90,15 +90,25 @@ func crd(name string) *unstructured.Unstructured {
 	}
 }
 
-// clusterRoleBinding builds a binding with the given subject name.
+// clusterRoleBinding builds a binding granting one subject the cluster-admin
+// role, as the installer would.
 func clusterRoleBinding(name, subject string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "rbac.authorization.k8s.io/v1",
 			"kind":       "ClusterRoleBinding",
 			"metadata":   map[string]interface{}{"name": name},
+			"roleRef": map[string]interface{}{
+				"apiGroup": "rbac.authorization.k8s.io",
+				"kind":     "ClusterRole",
+				"name":     "cluster-admin",
+			},
 			"subjects": []interface{}{
-				map[string]interface{}{"kind": "User", "name": subject},
+				map[string]interface{}{
+					"kind":     "User",
+					"name":     subject,
+					"apiGroup": "rbac.authorization.k8s.io",
+				},
 			},
 		},
 	}
@@ -272,12 +282,79 @@ func TestComputeSpaceWorkloadControllerRBACCurrent(t *testing.T) {
 		assert.False(t, current)
 	})
 
-	// a binding left from another project authorizes a principal that no longer
-	// exists, so the controllers it was meant to authorize cannot reach the
-	// cluster - present is not the same as current
-	t.Run("not current when a binding names another project", func(t *testing.T) {
+	// an installer that can update is able to replace a binding left from
+	// another project, so the difference is worth reporting
+	t.Run("not current when an updating install would fix another project's binding", func(t *testing.T) {
+		updating := NewInstaller()
+		updating.Opts.CreateOrUpdateKubeResources = true
+		defer func() { updating.Opts.CreateOrUpdateKubeResources = false }()
+
+		current, err := updating.ComputeSpaceWorkloadControllerRBACCurrent(
+			testClient(allBindings()...), testMapper(), "a-different-project",
+		)
+		require.NoError(t, err)
+		assert.False(t, current)
+	})
+
+	// a create-only install cannot touch a binding that exists, so calling a
+	// stale one not current would ask for a repair that can never land - on
+	// every invocation, which is the waste this check exists to remove
+	t.Run("current despite another project's binding when the install only creates", func(t *testing.T) {
+		require.False(t, cpi.Opts.CreateOrUpdateKubeResources)
+
 		current, err := cpi.ComputeSpaceWorkloadControllerRBACCurrent(
 			testClient(allBindings()...), testMapper(), "a-different-project",
+		)
+		require.NoError(t, err)
+		assert.True(t, current)
+	})
+
+	// the subject's name alone is not enough: a binding can carry the right
+	// name as the wrong kind of subject, and the controller still has no access
+	t.Run("not current when a subject has the right name but the wrong kind", func(t *testing.T) {
+		updating := NewInstaller()
+		updating.Opts.CreateOrUpdateKubeResources = true
+		defer func() { updating.Opts.CreateOrUpdateKubeResources = false }()
+
+		var objects []runtime.Object
+		for _, controllerName := range computeSpaceWorkloadControllers() {
+			binding := clusterRoleBinding(
+				fmt.Sprintf("%s-cluster-admin", controllerName), subjectFor(controllerName),
+			)
+			subjects, _, err := unstructured.NestedSlice(binding.Object, "subjects")
+			require.NoError(t, err)
+			subjects[0].(map[string]interface{})["kind"] = "ServiceAccount"
+			require.NoError(t, unstructured.SetNestedSlice(binding.Object, subjects, "subjects"))
+			objects = append(objects, binding)
+		}
+
+		current, err := updating.ComputeSpaceWorkloadControllerRBACCurrent(
+			testClient(objects...), testMapper(), project,
+		)
+		require.NoError(t, err)
+		assert.False(t, current)
+	})
+
+	// nor is the subject enough on its own: a binding pointing at a different
+	// role grants that role, not the one the controller needs
+	t.Run("not current when a binding points at another role", func(t *testing.T) {
+		updating := NewInstaller()
+		updating.Opts.CreateOrUpdateKubeResources = true
+		defer func() { updating.Opts.CreateOrUpdateKubeResources = false }()
+
+		var objects []runtime.Object
+		for _, controllerName := range computeSpaceWorkloadControllers() {
+			binding := clusterRoleBinding(
+				fmt.Sprintf("%s-cluster-admin", controllerName), subjectFor(controllerName),
+			)
+			require.NoError(t, unstructured.SetNestedField(
+				binding.Object, "view", "roleRef", "name",
+			))
+			objects = append(objects, binding)
+		}
+
+		current, err := updating.ComputeSpaceWorkloadControllerRBACCurrent(
+			testClient(objects...), testMapper(), project,
 		)
 		require.NoError(t, err)
 		assert.False(t, current)
