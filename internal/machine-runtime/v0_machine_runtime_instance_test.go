@@ -38,6 +38,7 @@ func TestMachineRuntimeInstanceCreated_HappyPath(t *testing.T) {
 	mri.HostKey = util.Ptr(machinetest.HostKeyFromSigner(signer))
 
 	api := machinetest.NewAPIStub(t)
+	patches := registerPatchCounter(t, api, 42)
 	recorder := machinetest.NewFakeRecorder()
 	log := logr.Discard()
 
@@ -51,9 +52,10 @@ func TestMachineRuntimeInstanceCreated_HappyPath(t *testing.T) {
 	// reconcile create
 	delay, err := v0MachineRuntimeInstanceCreated(r, mri, &log)
 
-	// check success with no requeue
+	// check success with no requeue, and one stamp of creation confirmed
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
+	assert.Equal(t, int64(1), atomic.LoadInt64(patches), "a reachable instance with no creation stamp is patched once")
 
 	// check the handler records no event
 	assert.Empty(t, recorder.GetReasons(), "reconciler emits no Normal event on the success path; the wrapper covers the outcome and reachability is a log line")
@@ -323,9 +325,11 @@ func TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall(t *testing.T) {
 	require.Equal(t, int64(1), atomic.LoadInt64(patchCount), "first reconcile persists the captured host key with one PATCH")
 
 	// run created again with the persisted host key
+	confirmed := time.Now().UTC()
 	second := machinetest.NewMRIWithInfra(t, 21, "mri-idem", addr, "u", "p", key, machinetest.MRIInfraOpts{
 		HostKey: machinetest.HostKeyFromSigner(signer),
 	})
+	second.CreationConfirmed = &confirmed
 	secondRecorder := machinetest.NewFakeRecorder()
 	r.EventsRecorder = secondRecorder
 
@@ -334,7 +338,7 @@ func TestMachineRuntimeInstanceCreated_IdempotentOnDoubleCall(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), delay)
 	assert.Empty(t, secondRecorder.GetReasons(), "reachability is a log line, not a recorded event")
-	assert.Equal(t, int64(1), atomic.LoadInt64(patchCount), "second reconcile must not re-PATCH the host key")
+	assert.Equal(t, int64(1), atomic.LoadInt64(patchCount), "second reconcile must not patch once the host key and creation stamp are stored")
 }
 
 // TestMachineRuntimeInstanceCreated_SSHPingFails_Retries covers a connect
@@ -445,6 +449,7 @@ func TestMachineRuntimeInstanceCreated_EventRecordingFailure_Continues(t *testin
 	})
 
 	api := machinetest.NewAPIStub(t)
+	registerPatchCounter(t, api, 71)
 	recorder := machinetest.NewFakeRecorder()
 	recorder.RecordErr = errors.New("event store down")
 	log := logr.Discard()
@@ -615,6 +620,7 @@ func TestMachineRuntimeInstanceCreated_ConcurrentReconciles_NoRace(t *testing.T)
 		mris[i] = machinetest.NewMRIWithInfra(t, uint(1000+i), fmt.Sprintf("mri-conc-%d", i), addr, "u", "p", key, machinetest.MRIInfraOpts{
 			HostKey: hostKey,
 		})
+		registerPatchCounter(t, api, uint(1000+i))
 		recorders[i] = machinetest.NewFakeRecorder()
 	}
 
@@ -666,6 +672,7 @@ func TestMachineRuntimeInstanceCreated_ManyConcurrent_NoConnLeak(t *testing.T) {
 		mris[i] = machinetest.NewMRIWithInfra(t, uint(2000+i), fmt.Sprintf("mri-leak-%d", i), addr, "u", "p", key, machinetest.MRIInfraOpts{
 			HostKey: hostKey,
 		})
+		registerPatchCounter(t, api, uint(2000+i))
 		recorders[i] = machinetest.NewFakeRecorder()
 	}
 
