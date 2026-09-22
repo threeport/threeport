@@ -447,11 +447,17 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 
 						Commentf("add %s instance operation", defInstObjectHuman),
 						Comment("TODO: add appropriate fields to instance values object"),
+						Comment("the instance names the definition the operation above creates: a"),
+						Comment("defined instance is the pair sharing one name, and the instance"),
+						Comment("needs that reference to resolve the foreign key the API requires"),
 						Id(instConfigVar).Op(":=").Id(instConfigObjectName).Values(Dict{
 							Line().Id(instObject): Id(instValuesObjectName).Values(
 								Dict{
 									Id("Name"): Id(defInstValuesVar).Dot("Name"),
-									Id("Age"):  Id(defInstValuesVar).Dot("Age"),
+									Id(defObject): Op("&").Id(defValuesObjectName).Values(Dict{
+										Id("Name"): Id(defInstValuesVar).Dot("Name"),
+									}),
+									Id("Age"): Id(defInstValuesVar).Dot("Age"),
 								},
 							).Op(",").Line(),
 						}),
@@ -726,6 +732,15 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								Id(defObject).Op("*").Id(defValuesObject),
 								Id("Age").Op("*").String(),
 							)
+						} else if apiObject.DefinedInstanceDefinition {
+							f.Type().Id(valuesObjectName).Struct(
+								Comment(configFieldTodoComment),
+								Id("Name").Op("*").String(),
+								Comment("the definition's ID, carried so an instance created alongside it"),
+								Comment("does not have to look the definition up by name again"),
+								Id("ID").Op("*").Uint(),
+								Id("Age").Op("*").String(),
+							)
 						} else {
 							f.Type().Id(valuesObjectName).Struct(
 								Comment(configFieldTodoComment),
@@ -928,6 +943,16 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}
 						g.Line()
 
+						if apiObject.DefinedInstanceInstance {
+							for _, statement := range definitionIdResolution(
+								fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName)),
+								defObject,
+								clientImportPath,
+							) {
+								g.Add(statement)
+							}
+						}
+
 						g.Comment(fmt.Sprintf("construct %s object", objectHuman))
 						g.Comment(apiObjFieldTodoComment)
 						g.Id(objectVar).Op(":=").Qual(
@@ -956,7 +981,8 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 											Dict{
 												Line().Id("Name"): Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name").Op(",").Line(),
 											},
-										).Op(",").Line(),
+										),
+										Line().Id(fmt.Sprintf("%sID", defObject)): Id("definitionId"),
 									})
 								default:
 									h.Add(Dict{
@@ -1124,6 +1150,16 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						}
 						g.Line()
 
+						if apiObject.DefinedInstanceInstance {
+							for _, statement := range definitionIdResolution(
+								fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName)),
+								defObject,
+								clientImportPath,
+							) {
+								g.Add(statement)
+							}
+						}
+
 						g.Comment(fmt.Sprintf("construct updated %s object", objectHuman))
 						g.Comment(apiObjFieldTodoComment)
 						g.Id(fmt.Sprintf("updated%s", apiObject.TypeName)).Op(":=").Op("&").Qual(
@@ -1169,6 +1205,7 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 												Line().Id("Name"): Id(fmt.Sprintf("%sValues", strcase.ToLowerCamel(apiObject.TypeName))).Dot("Name").Op(",").Line(),
 											},
 										),
+										Id(fmt.Sprintf("%sID", defObject)): Id("definitionId"),
 									})
 								default:
 									h.Add(Dict{
@@ -1429,4 +1466,63 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 	}
 
 	return nil
+}
+
+// definitionIdResolution emits the lookup that turns the definition a config
+// names into the foreign key the API object requires.
+//
+// An instance belongs to a definition, and the API rejects one without that
+// key. The config layer only carries the definition's name, so it has to be
+// resolved here - unless the caller already has the ID, which the combined
+// defined-instance flow does: it creates the definition first and passes the
+// ID straight through rather than reading back what it just wrote.
+func definitionIdResolution(
+	valuesVar string,
+	defObject string,
+	clientImportPath string,
+) []Code {
+	return []Code{
+		Comment(fmt.Sprintf(
+			"resolve the %s this instance belongs to", strcase.ToDelimited(defObject, ' '),
+		)),
+		Var().Id("definitionId").Op("*").Uint(),
+		Switch().BlockFunc(func(sw *Group) {
+			sw.Case(
+				Id(valuesVar).Dot(defObject).Op("!=").Nil().Op("&&").
+					Id(valuesVar).Dot(defObject).Dot("ID").Op("!=").Nil(),
+			).Block(
+				Id("definitionId").Op("=").Id(valuesVar).Dot(defObject).Dot("ID"),
+			)
+			sw.Case(
+				Id(valuesVar).Dot(defObject).Op("!=").Nil().Op("&&").
+					Id(valuesVar).Dot(defObject).Dot("Name").Op("!=").Nil(),
+			).BlockFunc(func(c *Group) {
+				c.List(Id("definition"), Id("err")).Op(":=").Qual(
+					clientImportPath, fmt.Sprintf("Get%sByName", defObject),
+				).Call(
+					Line().Id("apiClient"),
+					Line().Id("apiEndpoint"),
+					Line().Op("*").Id(valuesVar).Dot(defObject).Dot("Name"),
+					Line(),
+				)
+				c.If(Id("err").Op("!=").Nil()).Block(
+					Return(Nil(), Qual("fmt", "Errorf").Call(
+						Lit(fmt.Sprintf(
+							"failed to find %s with name %%s: %%w",
+							strcase.ToDelimited(defObject, ' '),
+						)),
+						Op("*").Id(valuesVar).Dot(defObject).Dot("Name"),
+						Id("err"),
+					)),
+				)
+				c.Id("definitionId").Op("=").Id("definition").Dot("ID")
+			})
+			sw.Default().Block(
+				Return(Nil(), Qual("errors", "New").Call(Lit(fmt.Sprintf(
+					"missing required field in config: %s", defObject,
+				)))),
+			)
+		}),
+		Line(),
+	}
 }
