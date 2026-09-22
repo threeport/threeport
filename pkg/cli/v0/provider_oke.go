@@ -1,11 +1,13 @@
 package v0
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/threeport/threeport/internal/provider"
 	v0 "github.com/threeport/threeport/pkg/api/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	threeport "github.com/threeport/threeport/pkg/threeport-installer/v0"
@@ -123,15 +125,16 @@ func ConfigureControlPlaneWithOkeConfig(
 		PrivateKey:      &kubernetesRuntimeInfraOKE.PrivateKeyPEM,
 	}
 
-	if _, err = client.CreateOciProvider(
+	createdOciProvider, err := ensureOciProvider(
 		apiClient,
 		threeportAPIEndpoint,
 		&ociProvider,
-	); err != nil {
-		return uninstaller.cleanOnCreateError("failed to create new default OCI provider", err)
+	)
+	if err != nil {
+		return uninstaller.cleanOnCreateError("failed to register default OCI provider", err)
 	}
 
-	// create oci oke k8s runtime definition
+	// register oci oke k8s runtime definition, looking up first on retry
 	okeRuntimeDefName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
 	ociOkeKubernetesRuntimeDef := v0.OciOkeKubernetesRuntimeDefinition{
 		Definition: v0.Definition{
@@ -141,13 +144,13 @@ func ConfigureControlPlaneWithOkeConfig(
 		WorkerNodeInitialCount:        util.Ptr(kubernetesRuntimeInfraOKE.WorkerNodeInitialCount),
 		KubernetesRuntimeDefinitionID: kubernetesRuntimeDefResult.ID,
 	}
-	createdociOkeKubernetesRuntimeDef, err := client.CreateOciOkeKubernetesRuntimeDefinition(
+	createdociOkeKubernetesRuntimeDef, err := ensureOciOkeKubernetesRuntimeDefinition(
 		apiClient,
 		threeportAPIEndpoint,
 		&ociOkeKubernetesRuntimeDef,
 	)
 	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to create new OCI OKE kubernetes runtime definition for control plane cluster", err)
+		return uninstaller.cleanOnCreateError("failed to register OCI OKE kubernetes runtime definition for control plane cluster", err)
 	}
 
 	okeRuntimeInstName := provider.ThreeportRuntimeName(cpi.Opts.ControlPlaneName)
@@ -157,10 +160,12 @@ func ConfigureControlPlaneWithOkeConfig(
 		return fmt.Errorf("failed to get cluster OCID: %w", err)
 	}
 
-	// get resource inventory from Pulumi state
+	// get resource inventory from pulumi state unless control-plane-only
 	var resourceInventory *datatypes.JSON
-	if resourceInventory, err = kubernetesRuntimeInfraOKE.GetStackState(); err != nil {
-		return uninstaller.cleanOnCreateError("failed to get stack state: %w", err)
+	if !cpi.Opts.ControlPlaneOnly {
+		if resourceInventory, err = kubernetesRuntimeInfraOKE.GetStackState(); err != nil {
+			return uninstaller.cleanOnCreateError("failed to get stack state: %w", err)
+		}
 	}
 
 	// create oci oke k8s runtime instance
@@ -171,19 +176,95 @@ func ConfigureControlPlaneWithOkeConfig(
 		Reconciliation: v0.Reconciliation{
 			Reconciled: util.Ptr(true),
 		},
-		OciProviderID:                       ociProvider.ID,
+		OciProviderID:                       createdOciProvider.ID,
 		OciOkeKubernetesRuntimeDefinitionID: createdociOkeKubernetesRuntimeDef.ID,
 		KubernetesRuntimeInstanceID:         kubernetesRuntimeInstResult.ID,
 		ClusterOCID:                         &clusterOCID,
 		ResourceInventory:                   resourceInventory,
 	}
-	_, err = client.CreateOciOkeKubernetesRuntimeInstance(
+	if _, err = ensureOciOkeKubernetesRuntimeInstance(
 		apiClient,
 		threeportAPIEndpoint,
 		&ociOkeKubernetesRuntimeInstance,
-	)
-	if err != nil {
-		return uninstaller.cleanOnCreateError("failed to create new OCI OKE kubernetes runtime instance for control plane cluster", err)
+	); err != nil {
+		return uninstaller.cleanOnCreateError("failed to register OCI OKE kubernetes runtime instance for control plane cluster", err)
 	}
 	return nil
+}
+
+// ensureOciProvider returns the named OCI provider, creating it when
+// the API has no row for that name.
+func ensureOciProvider(
+	apiClient *http.Client,
+	apiEndpoint string,
+	ociProvider *v0.OciProvider,
+) (*v0.OciProvider, error) {
+	existing, err := client.GetOciProviderByName(apiClient, apiEndpoint, *ociProvider.Name)
+	if err == nil {
+		return existing, nil
+	}
+	if !errors.Is(err, client_lib.ErrObjectNotFound) {
+		return nil, fmt.Errorf("failed to look up oci provider by name: %w", err)
+	}
+
+	created, err := client.CreateOciProvider(apiClient, apiEndpoint, ociProvider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create oci provider: %w", err)
+	}
+
+	return created, nil
+}
+
+// ensureOciOkeKubernetesRuntimeDefinition returns the named OKE
+// runtime definition, creating it when the API has no row for that name.
+func ensureOciOkeKubernetesRuntimeDefinition(
+	apiClient *http.Client,
+	apiEndpoint string,
+	definition *v0.OciOkeKubernetesRuntimeDefinition,
+) (*v0.OciOkeKubernetesRuntimeDefinition, error) {
+	existing, err := client.GetOciOkeKubernetesRuntimeDefinitionByName(
+		apiClient,
+		apiEndpoint,
+		*definition.Name,
+	)
+	if err == nil {
+		return existing, nil
+	}
+	if !errors.Is(err, client_lib.ErrObjectNotFound) {
+		return nil, fmt.Errorf("failed to look up oci oke kubernetes runtime definition by name: %w", err)
+	}
+
+	created, err := client.CreateOciOkeKubernetesRuntimeDefinition(apiClient, apiEndpoint, definition)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create oci oke kubernetes runtime definition: %w", err)
+	}
+
+	return created, nil
+}
+
+// ensureOciOkeKubernetesRuntimeInstance returns the named OKE runtime
+// instance, creating it when the API has no row for that name.
+func ensureOciOkeKubernetesRuntimeInstance(
+	apiClient *http.Client,
+	apiEndpoint string,
+	instance *v0.OciOkeKubernetesRuntimeInstance,
+) (*v0.OciOkeKubernetesRuntimeInstance, error) {
+	existing, err := client.GetOciOkeKubernetesRuntimeInstanceByName(
+		apiClient,
+		apiEndpoint,
+		*instance.Name,
+	)
+	if err == nil {
+		return existing, nil
+	}
+	if !errors.Is(err, client_lib.ErrObjectNotFound) {
+		return nil, fmt.Errorf("failed to look up oci oke kubernetes runtime instance by name: %w", err)
+	}
+
+	created, err := client.CreateOciOkeKubernetesRuntimeInstance(apiClient, apiEndpoint, instance)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create oci oke kubernetes runtime instance: %w", err)
+	}
+
+	return created, nil
 }
