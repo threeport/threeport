@@ -51,6 +51,20 @@ func UpdateNamespace(jsonDef datatypes.JSON, namespace string) ([]byte, error) {
 //
 // Two absent definitions are equal; one absent and one present are not.
 func JSONDefinitionsEqual(a, b *datatypes.JSON) (bool, error) {
+	return JSONDefinitionsEqualIgnoring(a, b)
+}
+
+// JSONDefinitionsEqualIgnoring reports whether two JSON definitions describe the
+// same thing once the given fields are set aside.
+//
+// A caller comparing what it configures against what is stored often does not
+// own every field of the stored copy - another reconciler may have filled some
+// in and persisted them. Those fields differ on every comparison and say nothing
+// about whether the caller's own configuration changed, so it names them here
+// rather than seeing a difference forever.
+//
+// Each ignored field is a path of object keys, e.g. {"metadata", "namespace"}.
+func JSONDefinitionsEqualIgnoring(a, b *datatypes.JSON, ignore ...[]string) (bool, error) {
 	if a == nil || b == nil {
 		return a == nil && b == nil, nil
 	}
@@ -63,5 +77,29 @@ func JSONDefinitionsEqual(a, b *datatypes.JSON) (bool, error) {
 		return false, fmt.Errorf("failed to unmarshal the second JSON definition: %w", err)
 	}
 
+	for _, path := range ignore {
+		deleteJSONPath(decodedA, path)
+		deleteJSONPath(decodedB, path)
+	}
+
 	return reflect.DeepEqual(decodedA, decodedB), nil
+}
+
+// deleteJSONPath removes a field from a decoded JSON value. A path that is not
+// there is not an error: absence is the state being asked for.
+func deleteJSONPath(value interface{}, path []string) {
+	if len(path) == 0 {
+		return
+	}
+
+	object, ok := value.(map[string]interface{})
+	if !ok {
+		return
+	}
+	if len(path) == 1 {
+		delete(object, path[0])
+		return
+	}
+
+	deleteJSONPath(object[path[0]], path[1:])
 }

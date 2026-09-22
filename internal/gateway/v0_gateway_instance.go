@@ -179,6 +179,13 @@ func v0GatewayInstanceUpdated(
 // Resources whose definition already matches are left out. Writing one of those
 // back would mark it unreconciled and re-apply an identical manifest to the
 // cluster for nothing.
+//
+// metadata.namespace is set aside when comparing. Nothing configured here sets
+// it: the kubernetes workload reconciler writes a namespace into every
+// namespaced resource and persists that, so the stored copy always carries one
+// and the configured copy never does. Comparing it would find a difference on
+// every invocation and leave this function doing exactly what it did before.
+// The namespace is that reconciler's to decide, not this one's.
 func changedGatewayResourceInstances(
 	gatewayInstanceObjects []string,
 	existingWorkloadResourceInstances *[]v0.KubernetesWorkloadResourceInstance,
@@ -197,9 +204,10 @@ func changedGatewayResourceInstances(
 			return nil, fmt.Errorf("failed to get kubernetes workload resource instance: %w", err)
 		}
 
-		unchanged, err := util.JSONDefinitionsEqual(
+		unchanged, err := util.JSONDefinitionsEqualIgnoring(
 			existingWorkloadResourceInstance.JSONDefinition,
 			updatedWorkloadResourceInstance.JSONDefinition,
+			[]string{"metadata", "namespace"},
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compare kubernetes workload resource instance definitions: %w", err)

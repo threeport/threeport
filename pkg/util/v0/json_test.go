@@ -142,3 +142,65 @@ func TestJSONDefinitionsEqual(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+// TestJSONDefinitionsEqualIgnoring covers setting aside fields a caller does not
+// own, which is what lets it compare its own configuration against a stored copy
+// another reconciler has written to.
+func TestJSONDefinitionsEqualIgnoring(t *testing.T) {
+	definition := func(raw string) *datatypes.JSON {
+		value := datatypes.JSON(raw)
+		return &value
+	}
+	namespace := []string{"metadata", "namespace"}
+
+	t.Run("an ignored field present on one side only is not a difference", func(t *testing.T) {
+		equal, err := JSONDefinitionsEqualIgnoring(
+			definition(`{"kind":"Issuer","metadata":{"name":"a","namespace":"ns-1"}}`),
+			definition(`{"kind":"Issuer","metadata":{"name":"a"}}`),
+			namespace,
+		)
+		require.NoError(t, err)
+		assert.True(t, equal)
+	})
+
+	t.Run("an ignored field differing on both sides is not a difference", func(t *testing.T) {
+		equal, err := JSONDefinitionsEqualIgnoring(
+			definition(`{"metadata":{"name":"a","namespace":"ns-1"}}`),
+			definition(`{"metadata":{"name":"a","namespace":"ns-2"}}`),
+			namespace,
+		)
+		require.NoError(t, err)
+		assert.True(t, equal)
+	})
+
+	// setting a field aside must not hide anything else
+	t.Run("a difference elsewhere still shows", func(t *testing.T) {
+		equal, err := JSONDefinitionsEqualIgnoring(
+			definition(`{"metadata":{"name":"a","namespace":"ns-1"}}`),
+			definition(`{"metadata":{"name":"b"}}`),
+			namespace,
+		)
+		require.NoError(t, err)
+		assert.False(t, equal)
+	})
+
+	t.Run("an ignored path that is not there is not an error", func(t *testing.T) {
+		equal, err := JSONDefinitionsEqualIgnoring(
+			definition(`{"kind":"Issuer"}`),
+			definition(`{"kind":"Issuer"}`),
+			namespace,
+			[]string{"status", "conditions"},
+		)
+		require.NoError(t, err)
+		assert.True(t, equal)
+	})
+
+	t.Run("with nothing ignored it is a plain comparison", func(t *testing.T) {
+		equal, err := JSONDefinitionsEqualIgnoring(
+			definition(`{"metadata":{"namespace":"ns-1"}}`),
+			definition(`{"metadata":{}}`),
+		)
+		require.NoError(t, err)
+		assert.False(t, equal)
+	})
+}
