@@ -583,12 +583,24 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(defInstObject)),
 						).Index().Id(defInstConfigObjectName),
 						For(List(Op("_"), Id("inst")).Op(":=").Range().Op("*").Id(instsVar)).Block(
+							Comment("an instance with no name is not half of a defined instance, and"),
+							Comment("reading the name below would panic on it"),
+							If(Id("inst").Dot(instObject).Dot("Name").Op("==").Nil()).Block(
+								Continue(),
+							),
 							For(List(Op("_"), Id("def")).Op(":=").Range().Op("*").Id(defsVar)).Block(
+								If(Id("def").Dot(defObject).Dot("Name").Op("==").Nil()).Block(
+									Continue(),
+								),
 								Id("instName").Op(":=").Op("*").Id("inst").Dot(instObject).Dot("Name"),
 								Id("defName").Op(":=").Op("*").Id("def").Dot(defObject).Dot("Name"),
-								Comment("a defined instance must have matching names for definition and instance"),
-								Comment("and the definition must be associated with the instance"),
-								If(Id("instName").Op("==").Id("defName").Op("&&").Op("*").Id("inst").Dot(instObject).Dot(defObject).Dot("Name").Op("==").Op("*").Id("def").Dot(defObject).Dot("Name")).Block(
+								Comment("a defined instance is a definition and an instance sharing a name."),
+								Comment("The instance's own reference to its definition is deliberately not"),
+								Comment("compared: the generated instance Get never populates it, so reading"),
+								Comment("it panicked on every call that returned an instance. Once the"),
+								Comment("generated Create sets the definition foreign key it is worth"),
+								Comment("checking here too."),
+								If(Id("instName").Op("==").Id("defName")).Block(
 									Commentf(
 										"TODO: add fields needed for user to manage a %s and %s together",
 										defObject,
