@@ -128,3 +128,44 @@ func TestInstanceReplace_SetsTheDefinitionForeignKey(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint(7), sent)
 }
+
+// TestInstanceGet_PopulatesTheDefinitionReference closes the loop the other
+// two halves open: Create writes the key and Get reads it back as the name the
+// config abstraction speaks in. Without it the reference is always nil and the
+// pairing in mapTo...DefinedInstances has nothing to check.
+func TestInstanceGet_PopulatesTheDefinitionReference(t *testing.T) {
+	var definitionLookups int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		if strings.Contains(r.URL.Path, "widget-definitions") {
+			definitionLookups++
+			fmt.Fprint(w, `{"Data":[{"ID":7,"Name":"the-definition","CreatedAt":"2026-09-01T00:00:00Z"}]}`)
+
+			return
+		}
+		// two instances of one definition
+		fmt.Fprint(w, `{"Data":[
+			{"ID":1,"Name":"a","WidgetDefinitionID":7,"CreatedAt":"2026-09-01T00:00:00Z"},
+			{"ID":2,"Name":"b","WidgetDefinitionID":7,"CreatedAt":"2026-09-01T00:00:00Z"}
+		]}`)
+	}))
+	defer server.Close()
+
+	config := WidgetInstanceConfig{}
+	configs, err := config.Get(server.Client(), apiAddr(server))
+	require.NoError(t, err)
+	require.Len(t, *configs, 2)
+
+	for _, returned := range *configs {
+		require.NotNil(t, returned.WidgetInstance.WidgetDefinition, "the reference has to be populated")
+		assert.Equal(t, "the-definition", *returned.WidgetInstance.WidgetDefinition.Name)
+		assert.Equal(t, uint(7), *returned.WidgetInstance.WidgetDefinition.ID)
+	}
+
+	assert.Equal(
+		t, 1, definitionLookups,
+		"instances sharing a definition must cost one lookup, not one each",
+	)
+}

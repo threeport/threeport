@@ -600,13 +600,19 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 								),
 								Id("instName").Op(":=").Op("*").Id("inst").Dot(instObject).Dot("Name"),
 								Id("defName").Op(":=").Op("*").Id("def").Dot(defObject).Dot("Name"),
-								Comment("a defined instance is a definition and an instance sharing a name."),
-								Comment("The instance's own reference to its definition is deliberately not"),
-								Comment("compared: the generated instance Get never populates it, so reading"),
-								Comment("it panicked on every call that returned an instance. Once the"),
-								Comment("generated Create sets the definition foreign key it is worth"),
-								Comment("checking here too."),
-								If(Id("instName").Op("==").Id("defName")).Block(
+								Comment("a defined instance is a definition and an instance sharing a"),
+								Comment("name, and the instance agreeing about which definition that is."),
+								Comment("The reference is checked rather than trusted: two objects can"),
+								Comment("carry one name while the instance belongs to another definition,"),
+								Comment("and pairing them would report a relationship that is not there."),
+								Comment("An instance Get leaves the reference nil only when the row has no"),
+								Comment("definition, which is not a defined instance either."),
+								If(
+									Id("instName").Op("==").Id("defName").Op("&&").
+										Id("inst").Dot(instObject).Dot(defObject).Op("!=").Nil().Op("&&").
+										Id("inst").Dot(instObject).Dot(defObject).Dot("Name").Op("!=").Nil().Op("&&").
+										Op("*").Id("inst").Dot(instObject).Dot(defObject).Dot("Name").Op("==").Id("defName"),
+								).Block(
 									Commentf(
 										"TODO: add fields needed for user to manage a %s and %s together",
 										defObject,
@@ -862,43 +868,75 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						// Generate second phase: assemble config objects from API objects
 						g.Comment("assemble config objects from API objects")
 						g.Var().Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))).Index().Id(configObjectName)
+						if apiObject.DefinedInstanceInstance {
+							g.Comment("instances commonly share a definition, so a name once resolved")
+							g.Comment("is kept rather than fetched again for every row")
+							g.Id("definitionNames").Op(":=").Make(Map(Uint()).Op("*").String())
+						}
 						g.For(List(Op("_"), Id(objectVar)).Op(":=").Range().Op("*").Id(
 							fmt.Sprintf("%ss", strcase.ToLowerCamel(apiObject.TypeName)),
-						)).Block(
-							Comment(configFieldTodoComment),
-							Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))).Op(":=").Id(configObjectName).ValuesFunc(func(h *Group) {
+						)).BlockFunc(func(b *Group) {
+							if apiObject.DefinedInstanceInstance {
+								b.Comment("the config abstraction names the definition an instance")
+								b.Comment("belongs to; the API object carries only its key")
+								b.Var().Id("definitionValues").Op("*").Id(defValuesObject)
+								b.If(Id(objectVar).Dot(fmt.Sprintf("%sID", defObject)).Op("!=").Nil()).BlockFunc(func(d *Group) {
+									d.Id("definitionKey").Op(":=").Op("*").Id(objectVar).Dot(fmt.Sprintf("%sID", defObject))
+									d.List(Id("definitionName"), Id("cached")).Op(":=").Id("definitionNames").Index(Id("definitionKey"))
+									d.If(Op("!").Id("cached")).Block(
+										List(Id("definition"), Id("err")).Op(":=").Qual(
+											clientImportPath, fmt.Sprintf("Get%sByID", defObject),
+										).Call(
+											Line().Id("apiClient"),
+											Line().Id("apiEndpoint"),
+											Line().Id("definitionKey"),
+											Line(),
+										),
+										If(Id("err").Op("!=").Nil()).Block(
+											Return(Nil(), Qual("fmt", "Errorf").Call(
+												Lit(fmt.Sprintf(
+													"failed to get %s with ID %%d: %%w",
+													strcase.ToDelimited(defObject, ' '),
+												)),
+												Id("definitionKey"),
+												Id("err"),
+											)),
+										),
+										Id("definitionName").Op("=").Id("definition").Dot("Name"),
+										Id("definitionNames").Index(Id("definitionKey")).Op("=").Id("definitionName"),
+									)
+									d.Id("definitionValues").Op("=").Op("&").Id(defValuesObject).Values(Dict{
+										Id("Name"): Id("definitionName"),
+										Id("ID"):   Op("&").Id("definitionKey"),
+									})
+								})
+								b.Line()
+							}
+							b.Comment(configFieldTodoComment)
+							b.Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))).Op(":=").Id(configObjectName).ValuesFunc(func(h *Group) {
+								values := Dict{}
 								if apiObject.NameField {
-									h.Add(Dict{
-										Line().Id(apiObject.TypeName): Id(valuesObjectName).Values(
-											Dict{
-												Id("Name"): Id(objectVar).Dot("Name"),
-												Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
-													Qual("github.com/threeport/threeport/pkg/util/v0", "GetAgeFormatted").Call(
-														Id(objectVar).Dot("CreatedAt"),
-													),
-												),
-											},
-										).Op(",").Line(),
-									})
-								} else {
-									h.Add(Dict{
-										Line().Id(apiObject.TypeName): Id(valuesObjectName).Values(
-											Dict{
-												Line().Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
-													Qual("github.com/threeport/threeport/pkg/util/v0", "GetAgeFormatted").Call(
-														Id(objectVar).Dot("CreatedAt"),
-													),
-												),
-											},
-										).Op(",").Line(),
-									})
+									values[Id("Name")] = Id(objectVar).Dot("Name")
 								}
-							}),
-							Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))).Op("=").Id("append").Call(
+								if apiObject.DefinedInstanceInstance {
+									values[Id(defObject)] = Id("definitionValues")
+								}
+								values[Id("Age")] = Qual(
+									"github.com/threeport/threeport/pkg/util/v0", "Ptr",
+								).Call(
+									Qual(
+										"github.com/threeport/threeport/pkg/util/v0", "GetAgeFormatted",
+									).Call(Id(objectVar).Dot("CreatedAt")),
+								)
+								h.Add(Dict{
+									Line().Id(apiObject.TypeName): Id(valuesObjectName).Values(values).Op(",").Line(),
+								})
+							})
+							b.Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))).Op("=").Id("append").Call(
 								Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))),
 								Id(fmt.Sprintf("%sConfig", strcase.ToLowerCamel(apiObject.TypeName))),
-							),
-						)
+							)
+						})
 						g.Line()
 
 						g.Return(Op("&").Id(fmt.Sprintf("%sConfigs", strcase.ToLowerCamel(apiObject.TypeName))), Nil())
