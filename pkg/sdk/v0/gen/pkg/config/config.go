@@ -331,6 +331,24 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						).Values(),
 						Line(),
 
+						Comment("the instance and the definition are declared together because"),
+						Comment("the definition's create hands its new ID to the instance below,"),
+						Comment("which spares the instance a lookup by name - and with it a way for"),
+						Comment("a committed definition to be left without one"),
+						Comment("TODO: add appropriate fields to instance values object"),
+						Id(instConfigVar).Op(":=").Id(instConfigObjectName).Values(Dict{
+							Line().Id(instObject): Id(instValuesObjectName).Values(
+								Dict{
+									Id("Name"): Id(defInstValuesVar).Dot("Name"),
+									Id(defObject): Op("&").Id(defValuesObjectName).Values(Dict{
+										Id("Name"): Id(defInstValuesVar).Dot("Name"),
+									}),
+									Id("Age"): Id(defInstValuesVar).Dot("Age"),
+								},
+							).Op(",").Line(),
+						}),
+						Line(),
+
 						Commentf("add %s definition operation", defInstObjectHuman),
 						Comment("TODO: add appropriate fields to definition values object"),
 						Id(defConfigVar).Op(":=").Id(defConfigObjectName).Values(Dict{
@@ -391,6 +409,12 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										Id(operatedDefsVar),
 										Op("*").Id(defVar),
 									),
+									Comment("hand the new ID to the instance created next, so it does"),
+									Comment("not read back the definition that was just written - a call"),
+									Comment("that can fail on its own and leave this definition without"),
+									Comment("its instance"),
+									Id(instConfigVar).Dot(instObject).Dot(defObject).Dot("ID").Op("=").
+										Id(defVar).Dot(defObject).Dot("ID"),
 									Return(Nil()),
 								),
 								Id("Replace"): Func().Params(Id("name").String()).Error().Block(
@@ -416,6 +440,11 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 										Id(operatedDefsVar),
 										Op("*").Id(defVar),
 									),
+									Comment("as in the create above: the instance replaced next is given"),
+									Comment("the ID rather than a lookup that could fail and leave the"),
+									Comment("definition replaced and the instance not"),
+									Id(instConfigVar).Dot(instObject).Dot(defObject).Dot("ID").Op("=").
+										Id(defVar).Dot(defObject).Dot("ID"),
 									Return(Nil()),
 								),
 								Id("Delete"): Func().Params().Error().Block(
@@ -446,21 +475,6 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 						Line(),
 
 						Commentf("add %s instance operation", defInstObjectHuman),
-						Comment("TODO: add appropriate fields to instance values object"),
-						Comment("the instance names the definition the operation above creates: a"),
-						Comment("defined instance is the pair sharing one name, and the instance"),
-						Comment("needs that reference to resolve the foreign key the API requires"),
-						Id(instConfigVar).Op(":=").Id(instConfigObjectName).Values(Dict{
-							Line().Id(instObject): Id(instValuesObjectName).Values(
-								Dict{
-									Id("Name"): Id(defInstValuesVar).Dot("Name"),
-									Id(defObject): Op("&").Id(defValuesObjectName).Values(Dict{
-										Id("Name"): Id(defInstValuesVar).Dot("Name"),
-									}),
-									Id("Age"): Id(defInstValuesVar).Dot("Age"),
-								},
-							).Op(",").Line(),
-						}),
 						Id("operations").Dot("AppendOperation").Call(Qual(
 							"github.com/threeport/threeport/pkg/util/v0",
 							"Operation",
@@ -1059,14 +1073,22 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Dict{
 								Line().Id(apiObject.TypeName): Id(valuesObjectName).ValuesFunc(func(h *Group) {
 									if apiObject.NameField {
-										h.Add(Dict{
+										created := Dict{
 											Id("Name"): Id(fmt.Sprintf("created%s", apiObject.TypeName)).Dot("Name"),
 											Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
 												Qual("github.com/threeport/threeport/pkg/util/v0", "GetAgeFormatted").Call(
 													Id(fmt.Sprintf("created%s", apiObject.TypeName)).Dot("CreatedAt"),
 												),
 											),
-										})
+										}
+										if apiObject.DefinedInstanceDefinition {
+											// the caller creating an instance next needs this
+											// rather than a second lookup by name
+											created[Id("ID")] = Id(
+												fmt.Sprintf("created%s", apiObject.TypeName),
+											).Dot("ID")
+										}
+										h.Add(created)
 									} else {
 										h.Add(Dict{
 											Line().Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
@@ -1297,14 +1319,20 @@ func GenConfig(gen *gen.Generator, sdkConfig *sdk.SdkConfig) error {
 							Dict{
 								Line().Id(apiObject.TypeName): Id(valuesObjectName).ValuesFunc(func(g *Group) {
 									if apiObject.NameField {
-										g.Add(Dict{
+										replaced := Dict{
 											Id("Name"): Id(fmt.Sprintf("replaced%s", apiObject.TypeName)).Dot("Name"),
 											Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(
 												Qual("github.com/threeport/threeport/pkg/util/v0", "GetAgeFormatted").Call(
 													Id(fmt.Sprintf("replaced%s", apiObject.TypeName)).Dot("CreatedAt"),
 												),
 											),
-										})
+										}
+										if apiObject.DefinedInstanceDefinition {
+											replaced[Id("ID")] = Id(
+												fmt.Sprintf("replaced%s", apiObject.TypeName),
+											).Dot("ID")
+										}
+										g.Add(replaced)
 									} else {
 										g.Add(Dict{
 											Line().Id("Age"): Qual("github.com/threeport/threeport/pkg/util/v0", "Ptr").Call(

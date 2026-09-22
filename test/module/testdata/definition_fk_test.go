@@ -169,3 +169,89 @@ func TestInstanceGet_PopulatesTheDefinitionReference(t *testing.T) {
 		"instances sharing a definition must cost one lookup, not one each",
 	)
 }
+
+// TestCombinedCreate_UsesTheCreatedDefinitionId covers the flow that creates a
+// definition and an instance together.
+//
+// The definition is written first, so its ID is already in hand. Looking it up
+// again by name would be a second call that can fail on its own - and when it
+// does, the definition is already committed and the instance never arrives,
+// which is the partial create this avoids.
+func TestCombinedCreate_UsesTheCreatedDefinitionId(t *testing.T) {
+	var definitionLookups int
+	var sentDefinitionId uint
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.Method == http.MethodPost {
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if id, ok := body["WidgetDefinitionID"].(float64); ok {
+				sentDefinitionId = uint(id)
+			}
+			w.WriteHeader(http.StatusCreated)
+			fmt.Fprint(w, `{"Data":[{"ID":11,"Name":"w","CreatedAt":"2026-09-01T00:00:00Z"}]}`)
+
+			return
+		}
+
+		// any GET on definitions here is the lookup this test says must not happen
+		if strings.Contains(r.URL.Path, "widget-definitions") {
+			definitionLookups++
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `{"Data":[{"ID":11,"Name":"w","CreatedAt":"2026-09-01T00:00:00Z"}]}`)
+	}))
+	defer server.Close()
+
+	config := WidgetConfig{Widget: WidgetValues{Name: util.Ptr("w")}}
+	_, err := config.Create(server.Client(), apiAddr(server))
+	require.NoError(t, err)
+
+	assert.Equal(t, uint(11), sentDefinitionId, "the instance carries the definition just created")
+	assert.Zero(
+		t, definitionLookups,
+		"the ID is already in hand; reading the definition back is a call that can fail on its own",
+	)
+}
+
+// TestCombinedReplace_UsesTheReplacedDefinitionId is the mirror of the create
+// case. The definition is replaced first, so its ID is in hand; looking it up
+// again is a call that can fail and leave the definition replaced while the
+// instance is not.
+func TestCombinedReplace_UsesTheReplacedDefinitionId(t *testing.T) {
+	var definitionLookupsByName int
+	var sentDefinitionId uint
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.Method == http.MethodPut {
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if id, ok := body["WidgetDefinitionID"].(float64); ok {
+				sentDefinitionId = uint(id)
+			}
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, `{"Data":[{"ID":13,"Name":"w","CreatedAt":"2026-09-01T00:00:00Z"}]}`)
+
+			return
+		}
+
+		// the replace finds the existing objects by name first; only a lookup
+		// of the definition after it has been replaced is the avoidable one
+		if strings.Contains(r.URL.Path, "widget-definitions") && sentDefinitionId == 0 {
+			definitionLookupsByName++
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `{"Data":[{"ID":13,"Name":"w","CreatedAt":"2026-09-01T00:00:00Z"}]}`)
+	}))
+	defer server.Close()
+
+	config := WidgetConfig{Widget: WidgetValues{Name: util.Ptr("w")}}
+	_, err := config.Replace(server.Client(), apiAddr(server), "w")
+	require.NoError(t, err)
+
+	assert.Equal(t, uint(13), sentDefinitionId, "the instance carries the definition just replaced")
+}
