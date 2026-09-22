@@ -116,22 +116,6 @@ func v0MachineRuntimeInstanceCreated(
 	}
 	defer sshClient.Close()
 
-	// persist captured host key and mark reconciled to skip the update notification
-	if capturedHostKey != "" {
-		if _, err := client.UpdateMachineRuntimeInstance(r.APIClient, r.APIServer, &v0.MachineRuntimeInstance{
-			Common:         v0.Common{ID: machineRuntimeInstance.ID},
-			Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(true)},
-			HostKey:        &capturedHostKey,
-		}); err != nil {
-			return controller.RetryOnNetworkErr(err, "failed to save captured host key")
-		}
-		log.Info(
-			"captured ssh host key",
-			"machineRuntimeInstance", *machineRuntimeInstance.Name,
-			"id", *machineRuntimeInstance.ID,
-		)
-	}
-
 	// verify the connection is usable
 	if err := pingWithContext(ctx, sshClient); err != nil {
 		// retry: the host may become reachable without changing this object.
@@ -143,6 +127,31 @@ func v0MachineRuntimeInstanceCreated(
 				Reason: util.Ptr("SSHPingFailed"),
 				Note:   util.Ptr(note),
 			},
+		}
+	}
+
+	// persist a captured host key and stamp creation confirmed in one update
+	if capturedHostKey != "" || machineRuntimeInstance.CreationConfirmed == nil {
+		update := &v0.MachineRuntimeInstance{
+			Common:         v0.Common{ID: machineRuntimeInstance.ID},
+			Reconciliation: v0.Reconciliation{Reconciled: util.Ptr(true)},
+		}
+		if capturedHostKey != "" {
+			update.HostKey = &capturedHostKey
+		}
+		if machineRuntimeInstance.CreationConfirmed == nil {
+			timestamp := time.Now().UTC()
+			update.CreationConfirmed = &timestamp
+		}
+		if _, err := client.UpdateMachineRuntimeInstance(r.APIClient, r.APIServer, update); err != nil {
+			return controller.RetryOnNetworkErr(err, "failed to persist host key and creation confirmed on machine runtime instance")
+		}
+		if capturedHostKey != "" {
+			log.Info(
+				"captured ssh host key",
+				"machineRuntimeInstance", *machineRuntimeInstance.Name,
+				"id", *machineRuntimeInstance.ID,
+			)
 		}
 	}
 
